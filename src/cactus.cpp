@@ -200,6 +200,8 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
     stList_append(telomeres, edgeEnd2);
 }
 
+#define debug
+
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
@@ -308,6 +310,10 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     auto all_heads = algorithms::head_nodes(&graph);
     auto all_tails = algorithms::tail_nodes(&graph);
     
+#ifdef debug
+    cerr << "Found " << all_heads.size() << " heads and " << all_tails.size() << " tails in graph" << endl;
+#endif
+    
     // Alot them to components. We store tips in an inward-facing direction
     vector<unordered_set<handle_t>> component_tips(weak_components.size());
     for (auto& head : all_heads) {
@@ -327,8 +333,6 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     vector<vector<string>> component_paths(weak_components.size());
     // Also get the path length.
     unordered_map<string, size_t> path_length;
-    
-    
     
     graph.for_each_path_handle([&](const path_handle_t& path_handle) {
         
@@ -375,12 +379,17 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     // We'll also need the strongly connected components, in case the graph is cyclic.
     // This holds all the strongly connected components that live in each weakly connected component.
     vector<vector<unordered_set<id_t>>> component_strong_components(weak_components.size());
+    size_t strong_component_count = 0;
     for (auto& strong_component : algorithms::strongly_connected_components(&graph)) {
         // For each strongly connected component
         assert(!strong_component.empty());
         // Assign it to the weak comnponent that some node in it belongs to
         component_strong_components[node_to_component[*strong_component.begin()]].emplace_back(move(strong_component));
+        strong_component_count++;
     }
+#ifdef debug
+    cerr << "Graph contains " << strong_component_count << " strongly connected components" << endl;
+#endif
     
     // OK, now we need to fill in the telomeres list with two telomeres per
     // component.
@@ -494,6 +503,10 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         // exactly. If we have too many we will have to do a different
         // algorithm that can get stuck in local maxima but should usually
         // produce reasonable rootings quickly.
+    
+#ifdef debug
+        cerr << "This component contains " << component_tips[i].size() << " tips" << endl;
+#endif
         
         if (component_tips[i].size() <= 10) {
         
@@ -792,6 +805,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             size_t largest_component_nodes = 0;
             for (size_t j = 0; j < strong_components.size(); j++) {
                 // For each other strong component
+                
+                cerr << "Component " << j << " has size " << strong_components[j].size() << endl;
+                
                 if (strong_components[j].size() > largest_component_nodes) {
                     // If it has more nodes, take it.
                     
@@ -807,6 +823,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                         // TODO: can we poll for the edge more cheaply?
                         bool saw_self = false;
                         graph.follow_edges(member, false, [&](const handle_t& next) {
+#ifdef debug
+                            cerr << "Checked edge from " << graph.get_id(member) << " to " << graph.get_id(next) << endl;
+#endif
                             if (next == member) {
                                 saw_self = true;
                                 return false;
@@ -828,6 +847,8 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                 }
             }
             
+            cerr << "Largest actually cyclic component of " << strong_components.size() << " is " << largest_component << " with " << largest_component_nodes << " nodes" << endl;
+            
             // Pick some arbitrary node in the largest component.
             // Also, assert we found one.
             assert(largest_component_nodes != 0);
@@ -848,6 +869,8 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     
     return make_pair(cactus_graph, telomeres);
 }
+
+#undef debug
 
 VG cactus_to_vg(stCactusGraph* cactus_graph) {
     VG vg_graph;

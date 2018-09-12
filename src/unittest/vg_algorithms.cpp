@@ -22,6 +22,7 @@
 #include "algorithms/distance_to_tail.hpp"
 #include "algorithms/apply_bulk_modifications.hpp"
 #include "algorithms/count_walks.hpp"
+#include "algorithms/strongly_connected_components.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
@@ -3807,710 +3808,738 @@ namespace vg {
                 REQUIRE(!algorithms::is_directed_acyclic(&xg1));
             }
         }
-    }
-    
-    TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges", "[algorithms]") {
         
-        SECTION("is_single_stranded() works a trivial graph with no edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(algorithms::is_single_stranded(&vg));
-            REQUIRE(algorithms::is_single_stranded(&xg1));
-        }
         
-        SECTION("is_single_stranded() works a non trivial graph with no reversing edges") {
+        TEST_CASE("is_single_stranded() correctly identifies graphs with reversing edges", "[algorithms]") {
             
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n2, n0);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n2, n5);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(algorithms::is_single_stranded(&vg));
-            REQUIRE(algorithms::is_single_stranded(&xg1));
-        }
-        
-        SECTION("is_single_stranded() works a non trivial graph with a directed cycle but no reversing edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n2, n0);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n2, n5);
-            vg.create_edge(n4, n0);
-            vg.create_edge(n5, n0);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(algorithms::is_single_stranded(&vg));
-            REQUIRE(algorithms::is_single_stranded(&xg1));
-        }
-        
-        SECTION("is_single_stranded() works a non trivial graph with no reversing edges, but with doubly reversing edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n0, n2, true, true);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n5, n2, true, true);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(algorithms::is_single_stranded(&vg));
-            REQUIRE(algorithms::is_single_stranded(&xg1));
-        }
-        
-        SECTION("is_single_stranded() works a non trivial graph with reversing edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n0, n2, true, false);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n5, n2, true, true);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(!algorithms::is_single_stranded(&vg));
-            REQUIRE(!algorithms::is_single_stranded(&xg1));
-        }
-        
-        SECTION("is_single_stranded() works a non trivial graph with reversing edges in the opposite orientation") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n0, n2, false, true);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n5, n2, true, true);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(!algorithms::is_single_stranded(&vg));
-            REQUIRE(!algorithms::is_single_stranded(&xg1));
-        }
-    }
-    
-    TEST_CASE("single_stranded_orientation() can identify orientations of nodes that produce a single stranded graph", "[algorithms]") {
-        
-        auto validate_single_stranded_orientation = [](const HandleGraph* g, const vector<handle_t>& orientation) {
-            unordered_map<id_t, bool> orientation_by_id;
-            for (handle_t handle : orientation) {
-                orientation_by_id[g->get_id(handle)] = g->get_is_reverse(handle);
+            SECTION("is_single_stranded() works a trivial graph with no edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_single_stranded(&vg));
+                REQUIRE(algorithms::is_single_stranded(&xg1));
             }
             
-            bool pass = true;
-            function<bool(const handle_t&)> lam = [&](const handle_t& next) {
-                pass = pass && (g->get_is_reverse(next) == orientation_by_id[g->get_id(next)]);
+            SECTION("is_single_stranded() works a non trivial graph with no reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n0);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n2, n5);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_single_stranded(&vg));
+                REQUIRE(algorithms::is_single_stranded(&xg1));
+            }
+            
+            SECTION("is_single_stranded() works a non trivial graph with a directed cycle but no reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n0);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n2, n5);
+                vg.create_edge(n4, n0);
+                vg.create_edge(n5, n0);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_single_stranded(&vg));
+                REQUIRE(algorithms::is_single_stranded(&xg1));
+            }
+            
+            SECTION("is_single_stranded() works a non trivial graph with no reversing edges, but with doubly reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n0, n2, true, true);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n5, n2, true, true);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::is_single_stranded(&vg));
+                REQUIRE(algorithms::is_single_stranded(&xg1));
+            }
+            
+            SECTION("is_single_stranded() works a non trivial graph with reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n0, n2, true, false);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n5, n2, true, true);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(!algorithms::is_single_stranded(&vg));
+                REQUIRE(!algorithms::is_single_stranded(&xg1));
+            }
+            
+            SECTION("is_single_stranded() works a non trivial graph with reversing edges in the opposite orientation") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n0, n2, false, true);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n5, n2, true, true);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(!algorithms::is_single_stranded(&vg));
+                REQUIRE(!algorithms::is_single_stranded(&xg1));
+            }
+        }
+        
+        TEST_CASE("single_stranded_orientation() can identify orientations of nodes that produce a single stranded graph", "[algorithms]") {
+            
+            auto validate_single_stranded_orientation = [](const HandleGraph* g, const vector<handle_t>& orientation) {
+                unordered_map<id_t, bool> orientation_by_id;
+                for (handle_t handle : orientation) {
+                    orientation_by_id[g->get_id(handle)] = g->get_is_reverse(handle);
+                }
+                
+                bool pass = true;
+                function<bool(const handle_t&)> lam = [&](const handle_t& next) {
+                    pass = pass && (g->get_is_reverse(next) == orientation_by_id[g->get_id(next)]);
+                    return pass;
+                };
+                
+                for (handle_t handle : orientation) {
+                    g->follow_edges(handle, true, lam);
+                    g->follow_edges(handle, false, lam);
+                }
+                
                 return pass;
             };
             
-            for (handle_t handle : orientation) {
-                g->follow_edges(handle, true, lam);
-                g->follow_edges(handle, false, lam);
-            }
-            
-            return pass;
-        };
-        
-        SECTION("single_stranded_orientation() works a trivial graph with no edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-            REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
-        }
-        
-        SECTION("single_stranded_orientation() works a non trivial graph with no reversing edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n2, n0);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n2, n5);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-            REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
-        }
-        
-        SECTION("single_stranded_orientation() works a non trivial graph with a directed cycle but no reversing edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n2, n0);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n2, n5);
-            vg.create_edge(n4, n0);
-            vg.create_edge(n5, n0);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-            REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
-        }
-        
-        SECTION("single_stranded_orientation() works a non trivial graph with no reversing edges, but with doubly reversing edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n0, n2, true, true);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n5, n2, true, true);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-            REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
-        }
-        
-        SECTION("single_stranded_orientation() works a non trivial, single-strand-able graph with reversing edges") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2, false, true);
-            vg.create_edge(n2, n0, true, false);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n2, n5, true, false);
-            vg.create_edge(n4, n0);
-            vg.create_edge(n5, n0);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
-            REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
-        }
-        
-        SECTION("single_stranded_orientation() correctly identifies a graph with no single stranded orientation") {
-            
-            VG vg;
-            
-            Node* n0 = vg.create_node("A");
-            Node* n1 = vg.create_node("A");
-            Node* n2 = vg.create_node("A");
-            Node* n3 = vg.create_node("A");
-            Node* n4 = vg.create_node("A");
-            Node* n5 = vg.create_node("A");
-            
-            vg.create_edge(n0, n1);
-            vg.create_edge(n1, n2);
-            vg.create_edge(n0, n2, false, true);
-            vg.create_edge(n0, n3);
-            vg.create_edge(n1, n4);
-            vg.create_edge(n5, n2, true, true);
-            
-            xg::XG xg1(vg.graph);
-            
-            REQUIRE(algorithms::single_stranded_orientation(&vg).empty());
-            REQUIRE(algorithms::single_stranded_orientation(&xg1).empty());
-        }
-    }
-
-    TEST_CASE("lazy_sort() and lazier_sort() should put a DAG in topological order", "[algorithms][sort]") {
-        
-        auto is_in_topological_order = [](const Graph& graph) {
-            
-            unordered_map<id_t, bool> node_orientation;
-            
-            unordered_map<id_t, size_t> id_to_idx;
-            for (size_t i = 0; i < graph.node_size(); i++) {
-                id_to_idx[graph.node(i).id()] = i;
-            }
-            
-            bool return_val = true;
-            for (size_t i = 0; i < graph.edge_size() && return_val; i++) {
-                const Edge& e = graph.edge(i);
+            SECTION("single_stranded_orientation() works a trivial graph with no edges") {
                 
-                if (id_to_idx[e.from()] < id_to_idx[e.to()]) {
-                    if (node_orientation.count(e.from())) {
-                        return_val = return_val && (e.from_start() == node_orientation[e.from()]);
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
+                REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+            }
+            
+            SECTION("single_stranded_orientation() works a non trivial graph with no reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n0);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n2, n5);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
+                REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+            }
+            
+            SECTION("single_stranded_orientation() works a non trivial graph with a directed cycle but no reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n2, n0);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n2, n5);
+                vg.create_edge(n4, n0);
+                vg.create_edge(n5, n0);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
+                REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+            }
+            
+            SECTION("single_stranded_orientation() works a non trivial graph with no reversing edges, but with doubly reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n0, n2, true, true);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n5, n2, true, true);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
+                REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+            }
+            
+            SECTION("single_stranded_orientation() works a non trivial, single-strand-able graph with reversing edges") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2, false, true);
+                vg.create_edge(n2, n0, true, false);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n2, n5, true, false);
+                vg.create_edge(n4, n0);
+                vg.create_edge(n5, n0);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
+                REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
+            }
+            
+            SECTION("single_stranded_orientation() correctly identifies a graph with no single stranded orientation") {
+                
+                VG vg;
+                
+                Node* n0 = vg.create_node("A");
+                Node* n1 = vg.create_node("A");
+                Node* n2 = vg.create_node("A");
+                Node* n3 = vg.create_node("A");
+                Node* n4 = vg.create_node("A");
+                Node* n5 = vg.create_node("A");
+                
+                vg.create_edge(n0, n1);
+                vg.create_edge(n1, n2);
+                vg.create_edge(n0, n2, false, true);
+                vg.create_edge(n0, n3);
+                vg.create_edge(n1, n4);
+                vg.create_edge(n5, n2, true, true);
+                
+                xg::XG xg1(vg.graph);
+                
+                REQUIRE(algorithms::single_stranded_orientation(&vg).empty());
+                REQUIRE(algorithms::single_stranded_orientation(&xg1).empty());
+            }
+        }
+
+        TEST_CASE("lazy_sort() and lazier_sort() should put a DAG in topological order", "[algorithms][sort]") {
+            
+            auto is_in_topological_order = [](const Graph& graph) {
+                
+                unordered_map<id_t, bool> node_orientation;
+                
+                unordered_map<id_t, size_t> id_to_idx;
+                for (size_t i = 0; i < graph.node_size(); i++) {
+                    id_to_idx[graph.node(i).id()] = i;
+                }
+                
+                bool return_val = true;
+                for (size_t i = 0; i < graph.edge_size() && return_val; i++) {
+                    const Edge& e = graph.edge(i);
+                    
+                    if (id_to_idx[e.from()] < id_to_idx[e.to()]) {
+                        if (node_orientation.count(e.from())) {
+                            return_val = return_val && (e.from_start() == node_orientation[e.from()]);
+                        }
+                        else {
+                            node_orientation[e.from()] = e.from_start();
+                        }
+                        
+                        if (node_orientation.count(e.to())) {
+                            return_val = return_val && (e.to_end() == node_orientation[e.to()]);
+                        }
+                        else {
+                            node_orientation[e.to()] = e.to_end();
+                        }
                     }
                     else {
-                        node_orientation[e.from()] = e.from_start();
+                        if (node_orientation.count(e.from())) {
+                            return_val = return_val && (e.from_start() != node_orientation[e.from()]);
+                        }
+                        else {
+                            node_orientation[e.from()] = !e.from_start();
+                        }
+                        
+                        if (node_orientation.count(e.to())) {
+                            return_val = return_val && (e.to_end() != node_orientation[e.to()]);
+                        }
+                        else {
+                            node_orientation[e.to()] = !e.to_end();
+                        }
                     }
                     
-                    if (node_orientation.count(e.to())) {
-                        return_val = return_val && (e.to_end() == node_orientation[e.to()]);
+                    if (e.from() == e.to()) {
+                        return_val = false;
+                    }
+                    else if (id_to_idx[e.from()] < id_to_idx[e.to()]) {
+                        return_val = return_val && (e.from_start() == node_orientation[e.from()] && e.to_end() == node_orientation[e.to()]);
                     }
                     else {
-                        node_orientation[e.to()] = e.to_end();
+                        return_val = return_val && (e.from_start() != node_orientation[e.from()] && e.to_end() != node_orientation[e.to()]);
                     }
                 }
-                else {
-                    if (node_orientation.count(e.from())) {
-                        return_val = return_val && (e.from_start() != node_orientation[e.from()]);
-                    }
-                    else {
-                        node_orientation[e.from()] = !e.from_start();
-                    }
-                    
-                    if (node_orientation.count(e.to())) {
-                        return_val = return_val && (e.to_end() != node_orientation[e.to()]);
-                    }
-                    else {
-                        node_orientation[e.to()] = !e.to_end();
-                    }
-                }
+                return return_val;
+            };
+            
+            SECTION("laz[y/ier]_sort() works on a simple graph that's already in topological order") {
                 
-                if (e.from() == e.to()) {
-                    return_val = false;
-                }
-                else if (id_to_idx[e.from()] < id_to_idx[e.to()]) {
-                    return_val = return_val && (e.from_start() == node_orientation[e.from()] && e.to_end() == node_orientation[e.to()]);
-                }
-                else {
-                    return_val = return_val && (e.from_start() != node_orientation[e.from()] && e.to_end() != node_orientation[e.to()]);
-                }
+                VG vg1;
+                
+                Node* n0 = vg1.create_node("A");
+                Node* n1 = vg1.create_node("A");
+                
+                vg1.create_edge(n0, n1);
+                
+                VG vg2 = vg1;
+                // make the second graph have some locally stored nodes in the reverse orientation
+                vg2.apply_orientation(vg2.get_handle(n1->id(), true));
+                
+                algorithms::lazier_sort(&vg1);
+                algorithms::lazy_sort(&vg2);
+                
+                REQUIRE(is_in_topological_order(vg1.graph));
+                REQUIRE(is_in_topological_order(vg2.graph));
             }
-            return return_val;
-        };
-        
-        SECTION("laz[y/ier]_sort() works on a simple graph that's already in topological order") {
             
-            VG vg1;
-            
-            Node* n0 = vg1.create_node("A");
-            Node* n1 = vg1.create_node("A");
-            
-            vg1.create_edge(n0, n1);
-            
-            VG vg2 = vg1;
-            // make the second graph have some locally stored nodes in the reverse orientation
-            vg2.apply_orientation(vg2.get_handle(n1->id(), true));
-            
-            algorithms::lazier_sort(&vg1);
-            algorithms::lazy_sort(&vg2);
-            
-            REQUIRE(is_in_topological_order(vg1.graph));
-            REQUIRE(is_in_topological_order(vg2.graph));
-        }
-        
-        SECTION("laz[y/ier]_sort() works on a simple graph that's not already in topological order") {
-            
-            VG vg1;
-            
-            Node* n0 = vg1.create_node("A");
-            Node* n1 = vg1.create_node("A");
-            
-            vg1.create_edge(n1, n0);
-            
-            VG vg2 = vg1;
-            // make the second graph have some locally stored nodes in the reverse orientation
-            vg2.apply_orientation(vg2.get_handle(n1->id(), true));
-            
-            algorithms::lazier_sort(&vg1);
-            algorithms::lazy_sort(&vg2);
-            
-            REQUIRE(is_in_topological_order(vg1.graph));
-            REQUIRE(is_in_topological_order(vg2.graph));
+            SECTION("laz[y/ier]_sort() works on a simple graph that's not already in topological order") {
+                
+                VG vg1;
+                
+                Node* n0 = vg1.create_node("A");
+                Node* n1 = vg1.create_node("A");
+                
+                vg1.create_edge(n1, n0);
+                
+                VG vg2 = vg1;
+                // make the second graph have some locally stored nodes in the reverse orientation
+                vg2.apply_orientation(vg2.get_handle(n1->id(), true));
+                
+                algorithms::lazier_sort(&vg1);
+                algorithms::lazy_sort(&vg2);
+                
+                REQUIRE(is_in_topological_order(vg1.graph));
+                REQUIRE(is_in_topological_order(vg2.graph));
 
-        }
-        
-        SECTION("laz[y/ier]_sort() works on a more complex graph that's not already in topological order") {
+            }
             
-            VG vg1;
-            
-            Node* n0 = vg1.create_node("A");
-            Node* n9 = vg1.create_node("A");
-            Node* n2 = vg1.create_node("A");
-            Node* n1 = vg1.create_node("A");
-            Node* n4 = vg1.create_node("A");
-            Node* n8 = vg1.create_node("A");
-            Node* n5 = vg1.create_node("A");
-            Node* n3 = vg1.create_node("A");
-            Node* n7 = vg1.create_node("A");
-            Node* n6 = vg1.create_node("A");
-            
-            vg1.create_edge(n0, n1);
-            vg1.create_edge(n0, n3);
-            vg1.create_edge(n0, n8);
-            vg1.create_edge(n1, n2);
-            vg1.create_edge(n1, n9);
-            vg1.create_edge(n2, n5);
-            vg1.create_edge(n3, n4);
-            vg1.create_edge(n3, n7);
-            vg1.create_edge(n5, n6);
-            vg1.create_edge(n5, n8);
-            vg1.create_edge(n6, n8);
-            vg1.create_edge(n8, n9);
-            
-            VG vg2 = vg1;
-            // make the second graph have some locally stored nodes in the reverse orientation
-            vg2.apply_orientation(vg2.get_handle(n1->id(), true));
-            vg2.apply_orientation(vg2.get_handle(n3->id(), true));
-            vg2.apply_orientation(vg2.get_handle(n8->id(), true));
-            vg2.apply_orientation(vg2.get_handle(n6->id(), true));
-            
-            algorithms::lazier_sort(&vg1);
-            algorithms::lazy_sort(&vg2);
-            
-            REQUIRE(is_in_topological_order(vg1.graph));
-            REQUIRE(is_in_topological_order(vg2.graph));
-        }
-    }
-    
-    TEST_CASE("apply_ordering and apply_orientations work as expected", "[algorithms]") {
-        
-        VG vg;
-        
-        Node* n0 = vg.create_node("A");
-        Node* n1 = vg.create_node("A");
-        Node* n2 = vg.create_node("A");
-        Node* n3 = vg.create_node("A");
-        Node* n4 = vg.create_node("A");
-        Node* n5 = vg.create_node("A");
-        
-        random_device rd;
-        default_random_engine prng(rd());
-        
-        SECTION("apply_ordering works with random permutations") {
-            
-            for (int i = 0; i < 20; i++) {
+            SECTION("laz[y/ier]_sort() works on a more complex graph that's not already in topological order") {
                 
-                vector<handle_t> order;
-                vg.for_each_handle([&](const handle_t& handle) {
-                    order.push_back(handle);
-                });
-                shuffle(order.begin(), order.end(), prng);
+                VG vg1;
                 
-                vector<id_t> id_order;
-                for (handle_t handle : order){
-                    id_order.push_back(vg.get_id(handle));
-                }
+                Node* n0 = vg1.create_node("A");
+                Node* n9 = vg1.create_node("A");
+                Node* n2 = vg1.create_node("A");
+                Node* n1 = vg1.create_node("A");
+                Node* n4 = vg1.create_node("A");
+                Node* n8 = vg1.create_node("A");
+                Node* n5 = vg1.create_node("A");
+                Node* n3 = vg1.create_node("A");
+                Node* n7 = vg1.create_node("A");
+                Node* n6 = vg1.create_node("A");
                 
-                algorithms::apply_ordering(&vg, order);
+                vg1.create_edge(n0, n1);
+                vg1.create_edge(n0, n3);
+                vg1.create_edge(n0, n8);
+                vg1.create_edge(n1, n2);
+                vg1.create_edge(n1, n9);
+                vg1.create_edge(n2, n5);
+                vg1.create_edge(n3, n4);
+                vg1.create_edge(n3, n7);
+                vg1.create_edge(n5, n6);
+                vg1.create_edge(n5, n8);
+                vg1.create_edge(n6, n8);
+                vg1.create_edge(n8, n9);
                 
-                int idx = 0;
-                vg.for_each_handle([&](const handle_t& handle) {
-                    REQUIRE(vg.get_id(handle) == id_order[idx]);
-                    idx++;
-                });
+                VG vg2 = vg1;
+                // make the second graph have some locally stored nodes in the reverse orientation
+                vg2.apply_orientation(vg2.get_handle(n1->id(), true));
+                vg2.apply_orientation(vg2.get_handle(n3->id(), true));
+                vg2.apply_orientation(vg2.get_handle(n8->id(), true));
+                vg2.apply_orientation(vg2.get_handle(n6->id(), true));
+                
+                algorithms::lazier_sort(&vg1);
+                algorithms::lazy_sort(&vg2);
+                
+                REQUIRE(is_in_topological_order(vg1.graph));
+                REQUIRE(is_in_topological_order(vg2.graph));
             }
         }
         
-        SECTION("apply_orientations works with random orientations") {
-            
-            for (int i = 0; i < 20; i++) {
-                
-                vector<handle_t> orientation;
-                unordered_map<id_t, string> sequence_by_id;
-                vg.for_each_handle([&](const handle_t& handle) {
-                    orientation.push_back(bernoulli_distribution()(prng) ? handle : vg.flip(handle));
-                    sequence_by_id[vg.get_id(handle)] = vg.get_sequence(orientation.back());
-                });
-                
-                algorithms::apply_orientations(&vg, orientation);
-                
-                int idx = 0;
-                vg.for_each_handle([&](const handle_t& handle) {
-                    REQUIRE(vg.get_sequence(handle) == sequence_by_id[vg.get_id(handle)]);
-                    idx++;
-                });
-            }
-        }
-    }
-    
-    TEST_CASE("is_acyclic can detect cyclic graphs", "[algorithms][cycles]") {
-        
-        SECTION("is_acyclic works on a graph with one node") {
-            
-            VG vg1;
-            
-            // empty graph is acyclic
-            REQUIRE(algorithms::is_acyclic(&vg1));
-            
-            handle_t n1 = vg1.create_handle("GATTACA");
-            
-            // no edges, still acyclic
-            REQUIRE(algorithms::is_acyclic(&vg1));
-            
-            VG vg2 = vg1;
-            VG vg3 = vg1;
-            
-            handle_t n2 = vg2.get_handle(vg1.get_id(n1), false);
-            handle_t n3 = vg3.get_handle(vg1.get_id(n1), false);
-            
-            // add each type of self edge
-            vg1.create_edge(n1, n1);
-            vg2.create_edge(n2, vg2.flip(n2));
-            vg3.create_edge(vg3.flip(n3), n3);
-            
-            // all of these are now cyclic
-            REQUIRE(!algorithms::is_acyclic(&vg1));
-            REQUIRE(!algorithms::is_acyclic(&vg2));
-            REQUIRE(!algorithms::is_acyclic(&vg3));
-            
-        }
-        
-        SECTION("is_acyclic works on a graph with multiple nodes") {
+        TEST_CASE("apply_ordering and apply_orientations work as expected", "[algorithms]") {
             
             VG vg;
             
+            Node* n0 = vg.create_node("A");
+            Node* n1 = vg.create_node("A");
+            Node* n2 = vg.create_node("A");
+            Node* n3 = vg.create_node("A");
+            Node* n4 = vg.create_node("A");
+            Node* n5 = vg.create_node("A");
+            
+            random_device rd;
+            default_random_engine prng(rd());
+            
+            SECTION("apply_ordering works with random permutations") {
+                
+                for (int i = 0; i < 20; i++) {
+                    
+                    vector<handle_t> order;
+                    vg.for_each_handle([&](const handle_t& handle) {
+                        order.push_back(handle);
+                    });
+                    shuffle(order.begin(), order.end(), prng);
+                    
+                    vector<id_t> id_order;
+                    for (handle_t handle : order){
+                        id_order.push_back(vg.get_id(handle));
+                    }
+                    
+                    algorithms::apply_ordering(&vg, order);
+                    
+                    int idx = 0;
+                    vg.for_each_handle([&](const handle_t& handle) {
+                        REQUIRE(vg.get_id(handle) == id_order[idx]);
+                        idx++;
+                    });
+                }
+            }
+            
+            SECTION("apply_orientations works with random orientations") {
+                
+                for (int i = 0; i < 20; i++) {
+                    
+                    vector<handle_t> orientation;
+                    unordered_map<id_t, string> sequence_by_id;
+                    vg.for_each_handle([&](const handle_t& handle) {
+                        orientation.push_back(bernoulli_distribution()(prng) ? handle : vg.flip(handle));
+                        sequence_by_id[vg.get_id(handle)] = vg.get_sequence(orientation.back());
+                    });
+                    
+                    algorithms::apply_orientations(&vg, orientation);
+                    
+                    int idx = 0;
+                    vg.for_each_handle([&](const handle_t& handle) {
+                        REQUIRE(vg.get_sequence(handle) == sequence_by_id[vg.get_id(handle)]);
+                        idx++;
+                    });
+                }
+            }
+        }
+        
+        TEST_CASE("is_acyclic can detect cyclic graphs", "[algorithms][cycles]") {
+            
+            SECTION("is_acyclic works on a graph with one node") {
+                
+                VG vg1;
+                
+                // empty graph is acyclic
+                REQUIRE(algorithms::is_acyclic(&vg1));
+                
+                handle_t n1 = vg1.create_handle("GATTACA");
+                
+                // no edges, still acyclic
+                REQUIRE(algorithms::is_acyclic(&vg1));
+                
+                VG vg2 = vg1;
+                VG vg3 = vg1;
+                
+                handle_t n2 = vg2.get_handle(vg1.get_id(n1), false);
+                handle_t n3 = vg3.get_handle(vg1.get_id(n1), false);
+                
+                // add each type of self edge
+                vg1.create_edge(n1, n1);
+                vg2.create_edge(n2, vg2.flip(n2));
+                vg3.create_edge(vg3.flip(n3), n3);
+                
+                // all of these are now cyclic
+                REQUIRE(!algorithms::is_acyclic(&vg1));
+                REQUIRE(!algorithms::is_acyclic(&vg2));
+                REQUIRE(!algorithms::is_acyclic(&vg3));
+                
+            }
+            
+            SECTION("is_acyclic works on a graph with multiple nodes") {
+                
+                VG vg;
+                
+                handle_t n1 = vg.create_handle("GATTACA");
+                handle_t n2 = vg.create_handle("GATTACA");
+                handle_t n3 = vg.create_handle("GATTACA");
+                handle_t n4 = vg.create_handle("GATTACA");
+                handle_t n5 = vg.create_handle("GATTACA");
+                
+                vg.create_edge(n1, n2);
+                vg.create_edge(n1, vg.flip(n3));
+                vg.create_edge(vg.flip(n3), n4);
+                vg.create_edge(n2, n4);
+                vg.create_edge(n2, n5);
+                
+                // the base is a DAG
+                REQUIRE(algorithms::is_acyclic(&vg));
+                
+                // add a non-reversing cycle
+                {
+                    VG cyclic = vg;
+                    cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n2), false));
+                    REQUIRE(!algorithms::is_acyclic(&cyclic));
+                }
+                
+                // add a reversing cycle
+                {
+                    VG cyclic = vg;
+                    cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n3), false));
+                    REQUIRE(!algorithms::is_acyclic(&cyclic));
+                }
+            }
+        }
+        
+        TEST_CASE("split_strands() should properly split the forward and reverse strands", "[vg][split]") {
+            
+            VG graph;
+            handle_t n1 = graph.create_handle("ATA", 1);
+            handle_t n2 = graph.create_handle("CT", 2);
+            handle_t n3 = graph.create_handle("TGA", 3);
+            
+            graph.create_edge(n1, n2);
+            graph.create_edge(graph.flip(n3), graph.flip(n2));
+            graph.create_edge(n1, graph.flip(n2));
+            graph.create_edge(graph.flip(n2), n3);
+            
+            VG split;
+            unordered_map<id_t, pair<id_t, bool> > node_translation = algorithms::split_strands(&graph, &split);
+                    
+            Graph& g = split.graph;
+            
+            REQUIRE(g.node_size() == 6);
+            REQUIRE(g.edge_size() == 8);
+            
+            int64_t node_1 = 0;
+            int64_t node_2 = 0;
+            int64_t node_3 = 0;
+            int64_t node_4 = 0;
+            int64_t node_5 = 0;
+            int64_t node_6 = 0;
+            
+            for (int i = 0; i < g.node_size(); i++) {
+                const Node& n = g.node(i);
+                int64_t orig_id = node_translation[n.id()].first;
+                bool flipped =  node_translation[n.id()].second;
+                if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                    node_1 = n.id();
+                }
+                else if (orig_id == 1 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                    node_2 = n.id();
+                }
+                else if (orig_id == 2 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                    node_3 = n.id();
+                }
+                else if (orig_id == 2 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                    node_4 = n.id();
+                }
+                else if (orig_id == 3 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
+                    node_5 = n.id();
+                }
+                else if (orig_id == 3 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
+                    node_6 = n.id();
+                }
+            }
+            
+            REQUIRE(node_1 != 0);
+            REQUIRE(node_2 != 0);
+            REQUIRE(node_3 != 0);
+            REQUIRE(node_4 != 0);
+            REQUIRE(node_5 != 0);
+            REQUIRE(node_6 != 0);
+            
+            bool found_edge_1 = false;
+            bool found_edge_2 = false;
+            bool found_edge_3 = false;
+            bool found_edge_4 = false;
+            bool found_edge_5 = false;
+            bool found_edge_6 = false;
+            bool found_edge_7 = false;
+            bool found_edge_8 = false;
+            
+            for (int i = 0; i < g.edge_size(); i++) {
+                const Edge& e = g.edge(i);
+                if ((e.from() == node_1 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                    (e.from() == node_3 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                    found_edge_1 = true;
+                }
+                else if ((e.from() == node_1 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                         (e.from() == node_4 && e.to() == node_1 && e.from_start() && e.to_end())) {
+                    found_edge_2 = true;
+                }
+                else if ((e.from() == node_6 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
+                         (e.from() == node_3 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                    found_edge_3 = true;
+                }
+                else if ((e.from() == node_6 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
+                         (e.from() == node_4 && e.to() == node_6 && e.from_start() && e.to_end())) {
+                    found_edge_4 = true;
+                }
+                else if ((e.from() == node_3 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                         (e.from() == node_5 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                    found_edge_5 = true;
+                }
+                else if ((e.from() == node_3 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                         (e.from() == node_2 && e.to() == node_3 && e.from_start() && e.to_end())) {
+                    found_edge_6 = true;
+                }
+                else if ((e.from() == node_4 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
+                         (e.from() == node_5 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                    found_edge_7 = true;
+                }
+                else if ((e.from() == node_4 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
+                         (e.from() == node_2 && e.to() == node_4 && e.from_start() && e.to_end())) {
+                    found_edge_8 = true;
+                }
+            }
+            
+            REQUIRE(found_edge_1);
+            REQUIRE(found_edge_2);
+            REQUIRE(found_edge_3);
+            REQUIRE(found_edge_4);
+            REQUIRE(found_edge_5);
+            REQUIRE(found_edge_6);
+            REQUIRE(found_edge_7);
+            REQUIRE(found_edge_8);
+        }
+        
+        TEST_CASE("count_walks() can count the source-to-sink walks in a DAG", "[algorithms][walks]") {
+            
+            VG vg;
+            
+            handle_t n0 = vg.create_handle("GATTACA");
             handle_t n1 = vg.create_handle("GATTACA");
             handle_t n2 = vg.create_handle("GATTACA");
             handle_t n3 = vg.create_handle("GATTACA");
             handle_t n4 = vg.create_handle("GATTACA");
             handle_t n5 = vg.create_handle("GATTACA");
+            handle_t n6 = vg.create_handle("GATTACA");
+            handle_t n7 = vg.create_handle("GATTACA");
             
+            vg.create_edge(n0, n5);
             vg.create_edge(n1, n2);
-            vg.create_edge(n1, vg.flip(n3));
-            vg.create_edge(vg.flip(n3), n4);
+            vg.create_edge(n1, n3);
+            vg.create_edge(n3, n4);
             vg.create_edge(n2, n4);
             vg.create_edge(n2, n5);
+            vg.create_edge(n4, n6);
+            vg.create_edge(n4, n7);
             
-            // the base is a DAG
-            REQUIRE(algorithms::is_acyclic(&vg));
-            
-            // add a non-reversing cycle
-            {
-                VG cyclic = vg;
-                cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n2), false));
-                REQUIRE(!algorithms::is_acyclic(&cyclic));
-            }
-            
-            // add a reversing cycle
-            {
-                VG cyclic = vg;
-                cyclic.create_edge(cyclic.get_handle(vg.get_id(n5), false), cyclic.get_handle(vg.get_id(n3), false));
-                REQUIRE(!algorithms::is_acyclic(&cyclic));
-            }
+            REQUIRE(algorithms::count_walks(&vg) == 6);
         }
-    }
-    
-    TEST_CASE("split_strands() should properly split the forward and reverse strands", "[vg][split]") {
         
-        VG graph;
-        handle_t n1 = graph.create_handle("ATA", 1);
-        handle_t n2 = graph.create_handle("CT", 2);
-        handle_t n3 = graph.create_handle("TGA", 3);
+        TEST_CASE("strongly_connected_components() works in a connected graph with reversing edges and no tips", "[algorithms][components]") {
         
-        graph.create_edge(n1, n2);
-        graph.create_edge(graph.flip(n3), graph.flip(n2));
-        graph.create_edge(n1, graph.flip(n2));
-        graph.create_edge(graph.flip(n2), n3);
-        
-        VG split;
-        unordered_map<id_t, pair<id_t, bool> > node_translation = algorithms::split_strands(&graph, &split);
+            VG graph;
+                    
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n3, false, true);
+            
+            auto components = algorithms::strongly_connected_components(&graph);
+            
+            REQUIRE(components.size() == 1);
+            REQUIRE(components.at(0).size() == 5);
                 
-        Graph& g = split.graph;
         
-        REQUIRE(g.node_size() == 6);
-        REQUIRE(g.edge_size() == 8);
-        
-        int64_t node_1 = 0;
-        int64_t node_2 = 0;
-        int64_t node_3 = 0;
-        int64_t node_4 = 0;
-        int64_t node_5 = 0;
-        int64_t node_6 = 0;
-        
-        for (int i = 0; i < g.node_size(); i++) {
-            const Node& n = g.node(i);
-            int64_t orig_id = node_translation[n.id()].first;
-            bool flipped =  node_translation[n.id()].second;
-            if (orig_id == 1 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
-                node_1 = n.id();
-            }
-            else if (orig_id == 1 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
-                node_2 = n.id();
-            }
-            else if (orig_id == 2 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
-                node_3 = n.id();
-            }
-            else if (orig_id == 2 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
-                node_4 = n.id();
-            }
-            else if (orig_id == 3 && !flipped && n.sequence() == graph.get_node(orig_id)->sequence()) {
-                node_5 = n.id();
-            }
-            else if (orig_id == 3 && flipped && n.sequence() == reverse_complement(graph.get_node(orig_id)->sequence())) {
-                node_6 = n.id();
-            }
         }
         
-        REQUIRE(node_1 != 0);
-        REQUIRE(node_2 != 0);
-        REQUIRE(node_3 != 0);
-        REQUIRE(node_4 != 0);
-        REQUIRE(node_5 != 0);
-        REQUIRE(node_6 != 0);
-        
-        bool found_edge_1 = false;
-        bool found_edge_2 = false;
-        bool found_edge_3 = false;
-        bool found_edge_4 = false;
-        bool found_edge_5 = false;
-        bool found_edge_6 = false;
-        bool found_edge_7 = false;
-        bool found_edge_8 = false;
-        
-        for (int i = 0; i < g.edge_size(); i++) {
-            const Edge& e = g.edge(i);
-            if ((e.from() == node_1 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
-                (e.from() == node_3 && e.to() == node_1 && e.from_start() && e.to_end())) {
-                found_edge_1 = true;
-            }
-            else if ((e.from() == node_1 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
-                     (e.from() == node_4 && e.to() == node_1 && e.from_start() && e.to_end())) {
-                found_edge_2 = true;
-            }
-            else if ((e.from() == node_6 && e.to() == node_3 && !e.from_start() && !e.to_end()) ||
-                     (e.from() == node_3 && e.to() == node_6 && e.from_start() && e.to_end())) {
-                found_edge_3 = true;
-            }
-            else if ((e.from() == node_6 && e.to() == node_4 && !e.from_start() && !e.to_end()) ||
-                     (e.from() == node_4 && e.to() == node_6 && e.from_start() && e.to_end())) {
-                found_edge_4 = true;
-            }
-            else if ((e.from() == node_3 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
-                     (e.from() == node_5 && e.to() == node_3 && e.from_start() && e.to_end())) {
-                found_edge_5 = true;
-            }
-            else if ((e.from() == node_3 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
-                     (e.from() == node_2 && e.to() == node_3 && e.from_start() && e.to_end())) {
-                found_edge_6 = true;
-            }
-            else if ((e.from() == node_4 && e.to() == node_5 && !e.from_start() && !e.to_end()) ||
-                     (e.from() == node_5 && e.to() == node_4 && e.from_start() && e.to_end())) {
-                found_edge_7 = true;
-            }
-            else if ((e.from() == node_4 && e.to() == node_2 && !e.from_start() && !e.to_end()) ||
-                     (e.from() == node_2 && e.to() == node_4 && e.from_start() && e.to_end())) {
-                found_edge_8 = true;
-            }
-        }
-        
-        REQUIRE(found_edge_1);
-        REQUIRE(found_edge_2);
-        REQUIRE(found_edge_3);
-        REQUIRE(found_edge_4);
-        REQUIRE(found_edge_5);
-        REQUIRE(found_edge_6);
-        REQUIRE(found_edge_7);
-        REQUIRE(found_edge_8);
-    }
-    
-    TEST_CASE("count_walks() can count the source-to-sink walks in a DAG", "[algorithms][walks]") {
-        
-        VG vg;
-        
-        handle_t n0 = vg.create_handle("GATTACA");
-        handle_t n1 = vg.create_handle("GATTACA");
-        handle_t n2 = vg.create_handle("GATTACA");
-        handle_t n3 = vg.create_handle("GATTACA");
-        handle_t n4 = vg.create_handle("GATTACA");
-        handle_t n5 = vg.create_handle("GATTACA");
-        handle_t n6 = vg.create_handle("GATTACA");
-        handle_t n7 = vg.create_handle("GATTACA");
-        
-        vg.create_edge(n0, n5);
-        vg.create_edge(n1, n2);
-        vg.create_edge(n1, n3);
-        vg.create_edge(n3, n4);
-        vg.create_edge(n2, n4);
-        vg.create_edge(n2, n5);
-        vg.create_edge(n4, n6);
-        vg.create_edge(n4, n7);
-        
-        REQUIRE(algorithms::count_walks(&vg) == 6);
     }
 }
