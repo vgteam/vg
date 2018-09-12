@@ -3,6 +3,8 @@
 
 #include <signal.h>
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -665,7 +667,7 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
                 skip_first = false;
                 return;
             }
-            
+                        
             if (net_graph.is_child(visit)) {
                 // If the visit enters a real child chain, we have to do that
                 // child chain all the snarls in it.

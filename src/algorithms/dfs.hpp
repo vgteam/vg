@@ -1,5 +1,5 @@
-#ifndef VG_DFS_HPP_INCLUDED
-#define VG_DFS_HPP_INCLUDED
+#ifndef VG_ALGORITHMS_DFS_HPP_INCLUDED
+#define VG_ALGORITHMS_DFS_HPP_INCLUDED
 
 #include "handle.hpp"
 #include <vector>
@@ -7,10 +7,12 @@
 #include <deque>
 
 namespace vg {
-
+namespace algorithms {
+    
+    
 using namespace std;
 
-void handle_graph_dfs(
+void dfs(
     const HandleGraph& graph,
     const function<void(const handle_t&)>& handle_begin_fn,  // called when node orientation is first encountered
     const function<void(const handle_t&)>& handle_end_fn,    // called when node orientation goes out of scope
@@ -22,17 +24,18 @@ void handle_graph_dfs(
     const vector<handle_t>& sources,                         // start only at these node traversals
     const unordered_set<handle_t>& sinks);                   // when hitting a sink, don't keep walking
 
-void handle_graph_dfs(const HandleGraph& graph,
-                      const function<void(const handle_t&)>& handle_begin_fn,
-                      const function<void(const handle_t&)>& handle_end_fn,
-                      const vector<handle_t>& sources,
-                      const unordered_set<handle_t>& sinks);
+void dfs(const HandleGraph& graph,
+         const function<void(const handle_t&)>& handle_begin_fn,
+         const function<void(const handle_t&)>& handle_end_fn,
+         const vector<handle_t>& sources,
+         const unordered_set<handle_t>& sinks);
 
-void handle_graph_dfs(const HandleGraph& graph,
-                      const function<void(const handle_t&)>& handle_begin_fn,
-                      const function<void(const handle_t&)>& handle_end_fn,
-                      const function<bool(void)>& break_fn);
+void dfs(const HandleGraph& graph,
+         const function<void(const handle_t&)>& handle_begin_fn,
+         const function<void(const handle_t&)>& handle_end_fn,
+         const function<bool(void)>& break_fn);
 
+}
 }
 
 #endif
