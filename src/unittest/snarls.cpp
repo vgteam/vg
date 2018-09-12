@@ -2583,12 +2583,11 @@ namespace vg {
             graph.extend(chunk);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -2627,11 +2626,16 @@ namespace vg {
                 }
                 
                 SECTION("We can traverse the chain with iterators") {
-                    auto chains = snarl_manager.chains_of(nullptr);
+                    auto& chains = snarl_manager.chains_of(nullptr);
                     
                     REQUIRE(chains.size() == 1);
                     
                     auto& chain = chains.front();
+                    
+                    // Make sure we are talking about the same exact chain
+                    REQUIRE(&chain == snarl_manager.chain_of(child1));
+                    REQUIRE(&chain == snarl_manager.chain_of(child2));
+                    REQUIRE(&chain == snarl_manager.chain_of(child3));
                     
                     auto begin = chain_begin(chain);
                     auto rbegin = chain_rbegin(chain);
@@ -2735,18 +2739,36 @@ namespace vg {
                     }
                     
                     SECTION("We can view the chain from each end") {
+#ifdef debug
+                        for (auto& pair : chain) {
+                            cerr << "In chain " << &chain << ": " << pair.first->start().node_id() << " - " << pair.first->end().node_id()
+                                << " orientation " << pair.second << endl;
+                        }
+#endif
+                    
+                        REQUIRE(!start_backward(chain));
                         REQUIRE(chain_begin_from(chain, child1, false) == begin);
                         REQUIRE(chain_end_from(chain, child1, false) == end);
                         
+                        REQUIRE(!end_backward(chain));
                         REQUIRE(chain_begin_from(chain, child3, true) == rcbegin);
                         REQUIRE(chain_end_from(chain, child3, true) == rcend);
                         
                         snarl_manager.flip(child1);
                         snarl_manager.flip(child3);
                         
+#ifdef debug
+                        for (auto& pair : chain) {
+                            cerr << "In chain " << &chain << ": " << pair.first->start().node_id() << " - " << pair.first->end().node_id()
+                                << " orientation " << pair.second << endl;
+                        }
+#endif
+                        
+                        REQUIRE(start_backward(chain));
                         REQUIRE(chain_begin_from(chain, child1, true) == chain_begin(chain));
                         REQUIRE(chain_end_from(chain, child1, true) == chain_end(chain));
                         
+                        REQUIRE(end_backward(chain));
                         REQUIRE(chain_begin_from(chain, child3, false) == chain_rcbegin(chain));
                         REQUIRE(chain_end_from(chain, child3, false) == chain_rcend(chain));
                         
@@ -2765,7 +2787,7 @@ namespace vg {
                     snarl_manager.flip(child1);
                     snarl_manager.flip(child2);
                     
-                    auto chains = snarl_manager.chains_of(nullptr);
+                    auto& chains = snarl_manager.chains_of(nullptr);
                     
                     REQUIRE(chains.size() == 1);
                     

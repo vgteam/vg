@@ -596,7 +596,16 @@ const Snarl* SnarlManager::snarl_sharing_end(const Snarl* here) const {
 const Chain* SnarlManager::chain_of(const Snarl* snarl) const {
     return record(snarl)->parent_chain;
 }
-    
+
+bool SnarlManager::chain_orientation_of(const Snarl* snarl) const { 
+    const Chain* chain = chain_of(snarl);
+    if (chain != nullptr) {
+        // Go get the orientation flag.
+        return chain->at(record(snarl)->parent_chain_index).second;
+    }
+    return false;
+}
+
 bool SnarlManager::in_nontrivial_chain(const Snarl* here) const {
     return chain_of(here)->size() > 1;
 }
@@ -724,6 +733,13 @@ void SnarlManager::flip(const Snarl* snarl) {
         
     to_flip->mutable_end()->set_node_id(start_id);
     to_flip->mutable_end()->set_backward(!start_orientation);
+    
+    if (to_flip->parent_chain != nullptr) {
+        // Work out where we keep the orientation of this snarl in its parent chain
+        bool& to_invert = (*to_flip->parent_chain)[to_flip->parent_chain_index].second;
+        // And flip it
+        to_invert = !to_invert;
+    }
         
     // Note: snarl_into index is invariant to flipping.
     // All the other indexes live in the SnarlRecords and don't need to change.
@@ -813,6 +829,10 @@ void SnarlManager::build_indexes() {
         // Build the snarl_into index first so we can manage() to resolve populated-snarl cross-references to parents later.
         snarl_into[make_pair(snarl.start().node_id(), snarl.start().backward())] = &snarl;
         snarl_into[make_pair(snarl.end().node_id(), !snarl.end().backward())] = &snarl;
+#ifdef debug
+        cerr << snarl.start().node_id() << " " << snarl.start().backward() << " reads into " << pb2json(snarl) << endl;
+        cerr << snarl.end().node_id() << " " << !snarl.end().backward() << " reads into " << pb2json(snarl) << endl;
+#endif
     }
     
         
@@ -854,13 +874,17 @@ void SnarlManager::build_indexes() {
     root_chains = compute_chains(roots);
         
     // Build the back index from root snarl to containing chain
-    for (auto& chain : root_chains) {
-        for (auto& oriented_snarl : chain) {
+    for (Chain& chain : root_chains) {
+        for (size_t i = 0; i < chain.size(); i++) {
+            auto& oriented_snarl = chain[i];
+            
             // Get the mutable record for each child snarl in the chain
             SnarlRecord* child_record = (SnarlRecord*) record(oriented_snarl.first);
             
             // Give it a pointer to the chain.
             child_record->parent_chain = &chain;
+            // And where it is in it
+            child_record->parent_chain_index = i;
         }
     }
     
@@ -874,13 +898,17 @@ void SnarlManager::build_indexes() {
         rec.child_chains = compute_chains(rec.children);
         
         // Build the back index from child snarl to containing chain
-        for (auto& chain : rec.child_chains) {
-            for (auto& oriented_snarl : chain) {
+        for (Chain& chain : rec.child_chains) {
+            for (size_t i = 0; i < chain.size(); i++) {
+                auto& oriented_snarl = chain[i];
+                
                 // Get the mutable record for each child snarl in the chain
                 SnarlRecord* child_record = (SnarlRecord*) record(oriented_snarl.first);
                 
                 // Give it a pointer to the chain.
                 child_record->parent_chain = &chain;
+                // And where it is in it
+                child_record->parent_chain_index = i;
             }
         }
     }
@@ -2000,11 +2028,29 @@ const handle_t& NetGraph::get_end() const {
     
 bool NetGraph::is_child(const handle_t& handle) const {
     // It's a child if we're going forward or backward through a chain, or into a unary snarl.
+    
+#ifdef debug
+    cerr << "Is " << graph->get_id(handle) << " " << graph->get_is_reverse(handle) << " a child?" << endl;
+    
+    for (auto& kv : chain_ends_by_start) {
+        cerr << "\t" << graph->get_id(kv.first) << " " << graph->get_is_reverse(kv.first) << " is a child." << endl;
+    }
+    
+    for (auto& kv : chain_ends_by_start) {
+        auto flipped = graph->flip(kv.first);
+        cerr << "\t" << graph->get_id(flipped) << " " << graph->get_is_reverse(flipped) << " is a child." << endl;
+    }
+    
+    for (auto& boundary : unary_boundaries) {
+        cerr << "\t" << graph->get_id(boundary) << " " << graph->get_is_reverse(boundary) << " is a child." << endl;
+    }
+#endif
+    
     return chain_ends_by_start.count(handle) ||
         chain_ends_by_start.count(flip(handle)) ||
         unary_boundaries.count(handle);
 }
-        
+
 handle_t NetGraph::get_inward_backing_handle(const handle_t& child_handle) const {
     if (chain_ends_by_start.count(child_handle)) {
         // Reading into a chain, so just return this
@@ -2019,6 +2065,21 @@ handle_t NetGraph::get_inward_backing_handle(const handle_t& child_handle) const
         return child_handle;
     } else {
         throw runtime_error("Cannot get backing handle for a handle that is not a handle to a child's node in the net graph");
+    }
+}
+
+handle_t NetGraph::get_handle_from_inward_backing_handle(const handle_t& backing_handle) const {
+    if (chain_ends_by_start.count(backing_handle)) {
+        // If it's a recorded chain start it gets passed through
+        return backing_handle;
+    } else if (chain_end_rewrites.count(backing_handle)) {
+        // If it's a known chain end, we produce the start in reverse orientation, which we stored.
+        return chain_end_rewrites.at(backing_handle);
+    } else if (unary_boundaries.count(backing_handle)) {
+        // Unary snarl handles are passed through too.
+        return backing_handle;
+    } else {
+        throw runtime_error("Cannot assign backing handle to a child chain or unary snarl");
     }
 }
     

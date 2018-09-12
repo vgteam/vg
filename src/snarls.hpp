@@ -190,9 +190,8 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
  * within another HandleGraph. Uses its own internal child index because
  * it's used in the construction of snarls to feed to SnarlManagers.
  *
- * Assumes that the chains we get from Cactus are in a consistent order, so
- * the start of the first snarl is the very first thing in the chain, and
- * the end of the last snarl is the very last.
+ * Assumes that the snarls in the chains we get are in the order they
+ * occur in the graph.
  *
  * We adapt the handle graph abstraction as follows:
  *
@@ -326,11 +325,16 @@ public:
     /// chain or unary snarl, and false if it is a normal node actually in
     /// the net graph snarl's contents.
     bool is_child(const handle_t& handle) const;
-        
+    
     /// Get the handle in the backing graph reading into the child chain or
     /// unary snarl in the orientation represented by this handle to a node
     /// representing a child chain or unary snarl.
     handle_t get_inward_backing_handle(const handle_t& child_handle) const;
+    
+    /// Given a handle to a node in the backing graph that reads into a child
+    /// chain or snarl (in either direction), get the handle in this graph used
+    /// to represent that child chain or snarl in that orientation.
+    handle_t get_handle_from_inward_backing_handle(const handle_t& backing_handle) const;
         
 protected:
     
@@ -366,7 +370,7 @@ protected:
         
     // We keep basically the reverse map, from chain start in chain forward
     // orientation to chain end in chain forward orientation. This lets us
-    // find the edges off the far end of a chian.
+    // find the edges off the far end of a chain.
     unordered_map<handle_t, handle_t> chain_ends_by_start;
         
     // Stores whether a chain or unary snarl, identified by the ID of its
@@ -451,6 +455,10 @@ public:
     /// asking this class to walk the chain for you, use ChainIterators on
     /// this chain.
     const Chain* chain_of(const Snarl* snarl) const;
+    
+    /// If the given Snarl is backward in its chain, return true. Otherwise,
+    /// return false.
+    bool chain_orientation_of(const Snarl* snarl) const;
         
     /// Return true if a Snarl is part of a nontrivial chain of more than
     /// one snarl.
@@ -549,6 +557,8 @@ private:
         
         /// This points to the chain we are in, or null if we are not in a chain.
         Chain* parent_chain = nullptr;
+        /// And this is what index we are at in the chain;
+        size_t parent_chain_index = 0;
         
         /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
         SnarlRecord& operator=(const Snarl& other) {

@@ -512,6 +512,9 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
         snarl_manager.flip(middle_snarl);
     }
     
+    REQUIRE(middle_snarl->start().node_id() == 2);
+    REQUIRE(middle_snarl->end().node_id() == 7);
+    
     // And the bottom snarl
     const Snarl* bottom_snarl = snarl_manager.children_of(middle_snarl).at(0);
     
@@ -519,6 +522,9 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
         // Put it a consistent way around
         snarl_manager.flip(bottom_snarl);
     }
+    
+    REQUIRE(bottom_snarl->start().node_id() == 3);
+    REQUIRE(bottom_snarl->end().node_id() == 5);
     
     // Define the chromosome by telomere snarls (first and last)
     auto chromosome = make_pair(top_snarl, top_snarl);
@@ -536,6 +542,23 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
         REQUIRE(top_graph != nullptr);
         REQUIRE(middle_graph != nullptr);
         REQUIRE(bottom_graph != nullptr);
+        
+#ifdef debug
+        cerr << "Top graph " << top_snarl->start().node_id() << " - " << top_snarl->end().node_id() << " contents: " << endl;
+        top_graph->for_each_handle([&](const handle_t h) {
+            cerr << "\t" << top_graph->get_id(h) << endl;
+        });
+        
+        cerr << "Middle graph " << middle_snarl->start().node_id() << " - " << middle_snarl->end().node_id() << " contents: " << endl;
+        middle_graph->for_each_handle([&](const handle_t h) {
+            cerr << "\t" << middle_graph->get_id(h) << endl;
+        });
+        
+        cerr << "Bottom graph " << bottom_snarl->start().node_id() << " - " << bottom_snarl->end().node_id() << " contents: " << endl;
+        bottom_graph->for_each_handle([&](const handle_t h) {
+            cerr << "\t" << bottom_graph->get_id(h) << endl;
+        });
+#endif
     }
     
     SECTION("GenomeState starts empty") {
@@ -552,14 +575,14 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
         // For the top snarl we go 1, 2 (child), and 8
         insert.insertions.emplace(top_snarl, vector<vector<pair<handle_t, size_t>>>{{
             {top_graph->get_handle(1, false), 0},
-            {top_graph->get_handle(2, false), 0},
+            {top_graph->get_handle_from_inward_backing_handle(graph.get_handle(2, false)), 0},
             {top_graph->get_handle(8, false), 0}
         }});
         
         // For the middle snarl we go 2, 3 (child), 7
         insert.insertions.emplace(middle_snarl, vector<vector<pair<handle_t, size_t>>>{{
             {middle_graph->get_handle(2, false), 0},
-            {middle_graph->get_handle(3, false), 0},
+            {middle_graph->get_handle_from_inward_backing_handle(graph.get_handle(3, false)), 0},
             {middle_graph->get_handle(7, false), 0}
         }});
         
@@ -603,14 +626,14 @@ TEST_CASE("GenomeState can hold and manipulate haplotypes", "[genomestate]") {
             // For the top snarl we go 1, 2 (child), and 8
             insert2.insertions.emplace(top_snarl, vector<vector<pair<handle_t, size_t>>>{{
                 {top_graph->get_handle(1, false), 0},
-                {top_graph->get_handle(2, false), 0},
+                {top_graph->get_handle_from_inward_backing_handle(graph.get_handle(2, false)), 0},
                 {top_graph->get_handle(8, false), 0}
             }});
             
             // For the middle snarl we go 2, 3 (child), 7
             insert2.insertions.emplace(middle_snarl, vector<vector<pair<handle_t, size_t>>>{{
                 {middle_graph->get_handle(2, false), 0},
-                {middle_graph->get_handle(3, false), 0},
+                {middle_graph->get_handle_from_inward_backing_handle(graph.get_handle(3, false)), 0},
                 {middle_graph->get_handle(7, false), 0}
             }});
             
@@ -936,7 +959,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[genomesta
         // For the top snarl we go 1, 2 (child chain), and 8
         insert.insertions.emplace(top_snarl, vector<vector<pair<handle_t, size_t>>>{{
             {top_graph->get_handle(1, false), 0},
-            {top_graph->get_handle(2, false), 0},
+            {top_graph->get_handle_from_inward_backing_handle(graph.get_handle(2, false)), 0},
             {top_graph->get_handle(8, false), 0}
         }});
         
@@ -1082,7 +1105,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
         // For the top snarl we go 1, 2 (child chain), and 8
         insert.insertions.emplace(top_snarl, vector<vector<pair<handle_t, size_t>>>{{
             {top_graph->get_handle(1, false), 0},
-            {top_graph->get_handle(2, false), 0},
+            {top_graph->get_handle_from_inward_backing_handle(graph.get_handle(2, false)), 0},
             {top_graph->get_handle(8, false), 0}
         }});
         
@@ -1093,12 +1116,10 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
             {left_graph->get_handle(4, false), 0}
         }});
         
-        // For the right child snarl we go backward: 7 rev, 5 rev, 4 rev. Note
-        // that we use 5 rev (start node backward) and not 6 rev (end node
-        // backward) to identify the reverse of the child chain.
+        // For the right child snarl we go backward: 7 rev, 6 rev (child chain), 4 rev.
         insert.insertions.emplace(right_child, vector<vector<pair<handle_t, size_t>>>{{
             {right_graph->get_handle(7, true), 0},
-            {right_graph->get_handle(5, true), 0},
+            {right_graph->get_handle_from_inward_backing_handle(graph.get_handle(6, true)), 0},
             {right_graph->get_handle(4, true), 0}
         }});
         
