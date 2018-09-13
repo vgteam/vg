@@ -816,7 +816,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             for (size_t j = 0; j < strong_components.size(); j++) {
                 // For each strong component
                 
+#ifdef debug
                 cerr << "Component " << j << " has size " << strong_components[j].size() << endl;
+#endif
                 
                 if (strong_components[j].size() > largest_component_nodes) {
                     // If it has more nodes, take it.
@@ -857,8 +859,10 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                 }
             }
             
+#ifdef debug
             cerr << "Largest actually cyclic component of " << strong_components.size() << " is "
                 << largest_component << " with " << largest_component_nodes << " nodes" << endl;
+#endif
             
             // Pick the lowest-ID node in the largest component.
             // Also, assert we found one.
