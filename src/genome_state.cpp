@@ -3,8 +3,6 @@
 
 #include <signal.h>
 
-#define debug
-
 namespace vg {
 
 using namespace std;

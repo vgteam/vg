@@ -12,8 +12,6 @@
 #include "../genotypekit.hpp"
 #include "../genome_state.hpp"
 
-#define debug
-
 namespace vg {
 namespace unittest {
 
