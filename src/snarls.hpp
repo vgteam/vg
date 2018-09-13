@@ -519,37 +519,68 @@ public:
         
 private:
     
-    /// Define the key type
-    using key_t = pair<pair<int64_t, bool>, pair<int64_t, bool>>;
+    /// To support the Snarl*-driven API, we use a struct that lays out a snarl
+    /// followed by indexing metadata, one after the other in memory. We can
+    /// just cast a Snarl* to a pointer to one of these to get access to all
+    /// the metadata.
+    struct SnarlRecord : public Snarl {
+        // Instead of relying on the first member being at offset 0, we inherit
+        // from the Protobuf type.
         
+        /// This is a vector of pointers into the master snarl container at
+        /// children. We know the pointers are to valid SnarlRecords. A
+        /// SnarlRecord does not own its children.
+        vector<const Snarl*> children;
+        
+        /// This holds chains over the child snarls.
+        deque<Chain> child_chains;
+        
+        /// This points to the parent SnarlRecord (as a snarl), or null if we
+        /// are a root snarl or have not been told of our parent yet.
+        const Snarl* parent = nullptr;
+        
+        /// This points to the chain we are in, or null if we are not in a chain.
+        Chain* parent_chain = nullptr;
+        
+        /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
+        SnarlRecord& operator=(const Snarl& other) {
+            // Just call the base assignment operator
+            (*(Snarl*)this) = other;
+            return *this;
+        }
+    };
+    
+    /// Get the const SnarlRecord for a const managed snarl
+    inline const SnarlRecord* record(const Snarl* snarl) const {
+        return (const SnarlRecord*) snarl;
+    }
+    
+    /// Get the SnarlRecord for a managed snarl
+    inline SnarlRecord* record(Snarl* snarl) {
+        return (SnarlRecord*) snarl;
+    }
+    
+    /// Get the const Snarl owned by a const SnarlRecord
+    inline const Snarl* unrecord(const SnarlRecord* record) const {
+        return (const Snarl*) record;
+    }
+    
+    /// Get the Snarl owned by a SnarlRecord
+    inline Snarl* unrecord(SnarlRecord* record) {
+        return (Snarl*) record;
+    }
+    
     /// Master list of the snarls in the graph.
     /// Use a deque so pointers never get invalidated but we still have some locality.
-    deque<Snarl> snarls;
+    deque<SnarlRecord> snarls;
         
     /// Roots of snarl trees
     vector<const Snarl*> roots;
     /// Chains of root-level snarls. Uses a deque so Chain* pointers don't get invalidated.
     deque<Chain> root_chains;
         
-    /// Map of snarls to the child snarls they contain
-    unordered_map<key_t, vector<const Snarl*>> children;
-    /// Map of snarls to the child chains they contain
-    /// Uses a deque so Chain* pointers don't get invalidated.
-    unordered_map<key_t, deque<Chain>> child_chains;
-    /// Map of snarls to their parent snarls
-    unordered_map<key_t, const Snarl*> parent;
-    /// Map of snarls to the chain each appears in
-    unordered_map<key_t, const Chain*> parent_chain;
-        
-    /// Map of snarl keys to the pointer to the managed copy in the snarls vector.
-    /// Is non-const so we can do flip nicely.
-    unordered_map<key_t, Snarl*> self;
-        
     /// Map of node traversals to the snarls they point into
     unordered_map<pair<int64_t, bool>, const Snarl*> snarl_into;
-        
-    /// Converts Snarl to the form used as keys in internal data structures
-    inline key_t key_form(const Snarl* snarl) const;
         
     /// Builds tree indexes after Snarls have been added to the snarls vector
     void build_indexes();
@@ -704,7 +735,10 @@ template <typename SnarlIterator>
 SnarlManager::SnarlManager(SnarlIterator begin, SnarlIterator end) {
     // add snarls to master list
     for (auto iter = begin; iter != end; iter++) {
-        snarls.push_back(*iter);
+        // Make a SnarlRecord
+        snarls.emplace_back();
+        // Copy in the Snarl
+        snarls.back() = *iter;
     }
     // record the tree structure and build the other indexes
     build_indexes();
