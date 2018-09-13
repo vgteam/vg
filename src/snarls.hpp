@@ -423,6 +423,10 @@ public:
     
     /// Reverses the orientation of a managed snarl.
     void flip(const Snarl* snarl);
+    
+    /// Reverses the order and orientation of a managed chain, leaving all the
+    /// component snarls in their original orientations.
+    void flip(const Chain* snarl);
         
     /// Note that we have finished calling add_snarl. Compute the snarl
     /// parent/child indexes and chains.
@@ -431,8 +435,7 @@ public:
     ///////////////////////////////////////////////////////////////////////////
     // Read API
     ///////////////////////////////////////////////////////////////////////////
-    
-        
+
     /// Returns a vector of pointers to the children of a Snarl.
     /// If given null, returns the top-level root snarls.
     const vector<const Snarl*>& children_of(const Snarl* snarl) const;
@@ -450,10 +453,10 @@ public:
     /// Snarl rather than a node ID, returns a pointer the managed version
     /// of that snarl.
     const Snarl* into_which_snarl(const Visit& visit) const;
-        
-    /// Get the Chain that the given snarl participates in. Instead of
-    /// asking this class to walk the chain for you, use ChainIterators on
-    /// this chain. This is always non-null.
+    
+    /// Get the Chain that the given snarl participates in. Instead of asking
+    /// this class to walk the chain for you, use ChainIterators on this chain.
+    /// This is always non-null.
     const Chain* chain_of(const Snarl* snarl) const;
     
     /// If the given Snarl is backward in its chain, return true. Otherwise,
@@ -528,6 +531,12 @@ public:
         
     /// Execute a function on all sites in parallel
     void for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
+    
+    /// Ececute a function on all chains
+    void for_each_chain(const function<void(const Chain*)>& lambda) const;
+    
+    /// Ececute a function on all chains in parallel
+    void for_each_chain_parallel(const function<void(const Chain*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.
@@ -611,6 +620,23 @@ private:
     /// Actually compute chains for a set of already indexed snarls, which
     /// is important when chains were not provided. Returns the chains.
     deque<Chain> compute_chains(const vector<const Snarl*>& input_snarls);
+    
+    /// Modify the snarls and chains to enforce a couple of invariants:
+    ///
+    /// 1. The start node IDs of the snarls in a chain shall be unique.
+    ///
+    /// (This is needed by the distance indexing code, which identifies child
+    /// snarls by their start nodes. TODO: That distance indexing code needs to
+    /// also work out unary snarls abitting the ends of chains, which may be
+    /// allowed eventually.)
+    ///
+    /// 2. Snarls will be oriented forward in their chains.
+    ///
+    /// 3. Snarls will be oriented in a chain to maximize the number of snarls
+    /// that start with lower node IDs than they end with.
+    ///
+    /// Depends on the indexes from build_indexes() having been built.
+    void regularize();
         
     // Chain computation uses these pseudo-chain-traversal functions, which
     // walk around based on the snarl boundary index. This basically gets

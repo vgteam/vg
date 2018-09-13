@@ -718,6 +718,44 @@ void SnarlManager::for_each_snarl_parallel(const function<void(const Snarl*)>& l
         
     for_each_top_level_snarl_parallel(process);
 }
+
+void SnarlManager::for_each_chain(const function<void(const Chain*)>& lambda) const {
+
+    // We define a function to run a bunch of chains in serial
+    auto do_chain_list = [&](const deque<Chain>& chains) {
+        for (size_t i = 0; i < chains.size(); i++) {
+            lambda(&chains[i]);
+        }
+    };
+    
+    // Do our top-level chains
+    do_chain_list(root_chains);
+    
+    for_each_snarl_preorder([&](const Snarl* snarl) {
+        // Then in preorder order through all the snarls, do the child chains.
+        do_chain_list(chains_of(snarl));
+    });
+}
+
+void SnarlManager::for_each_chain_parallel(const function<void(const Chain*)>& lambda) const {
+
+    // We define a function to run a bunch of chains in parallel
+    auto do_chain_list = [&](const deque<Chain>& chains) {
+#pragma omp parallel for
+        for (size_t i = 0; i < chains.size(); i++) {
+            lambda(&chains[i]);
+        }
+    };
+    
+    // Do our top-level chains in parallel.
+    do_chain_list(root_chains);
+    
+    for_each_snarl_parallel([&](const Snarl* snarl) {
+        // Then in parallel through all the snarls, do the child chains in parallel.
+        do_chain_list(chains_of(snarl));
+    });
+}
+
     
 void SnarlManager::flip(const Snarl* snarl) {
         
@@ -743,6 +781,32 @@ void SnarlManager::flip(const Snarl* snarl) {
         
     // Note: snarl_into index is invariant to flipping.
     // All the other indexes live in the SnarlRecords and don't need to change.
+}
+
+void SnarlManager::flip(const Chain* chain) {
+
+    if (chain->empty()) {
+        // Empty chains are already flipped
+        return;
+    }
+
+    // Get ahold of a non-const version of the chain, without casting.
+    Chain* mutable_chain = record(chain_begin(*chain)->first)->parent_chain;
+
+    // Bust open the chain abstraction and flip it.
+    // First reverse the order
+    std::reverse(mutable_chain->begin(), mutable_chain->end());
+    for (auto& chain_entry : *mutable_chain) {
+        // Flip all the orientation flags so now we know the snarls are the other way relative to their chain.
+        chain_entry.second = !chain_entry.second;
+        
+        // Get a mutable snarl record
+        SnarlRecord* mutable_snarl = (SnarlRecord*) record(chain_entry.first);
+        
+        // Flip around its index in its chain so it can find its record again.
+        mutable_snarl->parent_chain_index = chain->size() - mutable_snarl->parent_chain_index - 1;
+    }
+
 }
     
 const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
@@ -779,6 +843,9 @@ void SnarlManager::finish() {
 
     // Build all the indexes from the snarls we were given
     build_indexes();
+    
+    // Clean up the snarl and chain orientations so everything is predictably and intuitively oriented
+    regularize();
 }
 
 const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
@@ -972,6 +1039,98 @@ deque<Chain> SnarlManager::compute_chains(const vector<const Snarl*>& input_snar
     }
         
     return to_return;
+}
+
+void SnarlManager::regularize() {
+    // Algorithm:
+    // For each chain
+    // Flip any snarls that are backward in the chain
+    // If now the majority of the snarls end lower than they start, flip all the snarls and invert the chain.
+    
+#ifdef debug
+    cerr << "Regularizing snarls and chains" << endl;
+#endif
+    
+    for_each_chain_parallel([&](const Chain* chain) {
+        // For every chain
+        
+        // Make a list of snarls to flip
+        vector<const Snarl*> backward;
+        // And a list of snarls to not flip
+        vector<const Snarl*> forward;
+        
+        // Count the snarls that go low to high, as they should
+        size_t correctly_oriented = 0;
+        
+        auto chain_start = chain_begin(*chain);
+        auto chain_stop = chain_end(*chain);
+        for (auto it = chain_start; it != chain_stop; ++it) {
+            // For each snarl in the chain
+            if (it->second) {
+                // If it is backward, remember to flip it
+                backward.push_back(it->first);
+                
+#ifdef debug
+                cerr << "Snarl " << it->first->start() << " -> " << it->first->end() << " is backward in chain " << chain << endl;
+#endif
+                
+                if (it->first->end().node_id() <= it->first->start().node_id()) {
+                    // Count it as correctly oriented if it will be
+#ifdef debug
+                    cerr << "\tWill be graph-ascending when brought in line with chain" << endl;
+#endif
+                    correctly_oriented++;
+                }
+            } else {
+                // If it is forward, remember that
+                forward.push_back(it->first);
+#ifdef debug
+                cerr << "Snarl " << it->first->start() << " -> " << it->first->end() << " is forward in chain " << chain << endl;
+#endif
+                
+                if (it->first->start().node_id() <= it->first->end().node_id()) {
+                    // Count it as correctly oriented if it is
+#ifdef debug
+                    cerr << "\tIs graph-ascending already" << endl;
+#endif
+                    correctly_oriented++;
+                }
+            }
+        }
+        
+#ifdef debug
+        cerr << "Found " << correctly_oriented << "/" << chain->size() << " snarls of chain in graph-ascending orientation" << endl;
+#endif
+        
+        if (correctly_oriented * 2 < chain->size()) {
+            // Fewer than half the snarls are pointed the right way when they
+            // go with the chain. (Don't divide chain size because then a chain
+            // size of 1 requires 0 correctly oriented sanrls.)
+            
+#ifdef debug
+            cerr << "Chain is in the worse orientation overall. Flipping!" << endl;
+#endif
+            
+            // Really we want to invert the entire chain around the snarls, and
+            // then only flip the formerly-chain-forward snarls.
+            flip(chain);
+            
+            // Now set up to flip the other set of snarls
+            backward.swap(forward);
+            
+        }
+        
+        for (auto& to_flip : backward) {
+            // Flip all the snarls we found to flip to agree with the chain,
+            // while not looping over the chain.
+            flip(to_flip);
+            
+#ifdef debug
+            cerr << "Flipped snarl to produce " << to_flip->start() << " " << to_flip->end() << endl;
+#endif
+        }
+    });
+    
 }
     
 pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::shallow_contents(const Snarl* snarl, VG& graph,
