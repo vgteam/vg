@@ -439,9 +439,7 @@ TEST_CASE("SnarlState works on snarls with nontrivial child chains", "[snarlstat
     
     if (left_child->start().node_id() > right_child->start().node_id()) {
         // Put them in a consistent orientation
-        auto temp = left_child;
-        left_child = right_child;
-        right_child = left_child;
+        std::swap(left_child, right_child);
     }
     
     REQUIRE(left_child->start().node_id() == 2);
@@ -961,9 +959,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains", "[genomesta
     
     if (left_child->start().node_id() > right_child->start().node_id()) {
         // Put them in a consistent orientation
-        auto temp = left_child;
-        left_child = right_child;
-        right_child = left_child;
+        std::swap(left_child, right_child);
     }
     
 #ifdef debug
@@ -1135,9 +1131,7 @@ TEST_CASE("GenomeSate works on snarls with nontrivial child chains with backward
     
     if (left_child->start().node_id() > right_child->start().node_id()) {
         // Put them in a consistent orientation
-        auto temp = left_child;
-        left_child = right_child;
-        right_child = left_child;
+        std::swap(left_child, right_child);
     }
     
     REQUIRE(left_child->start().node_id() == 2);
