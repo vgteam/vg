@@ -200,8 +200,6 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
     stList_append(telomeres, edgeEnd2);
 }
 
-#define debug
-
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
@@ -383,7 +381,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     for (auto& strong_component : algorithms::strongly_connected_components(&graph)) {
         // For each strongly connected component
         assert(!strong_component.empty());
-        // Assign it to the weak comnponent that some node in it belongs to
+        // Assign it to the weak component that some node in it belongs to
         component_strong_components[node_to_component[*strong_component.begin()]].emplace_back(move(strong_component));
         strong_component_count++;
     }
@@ -862,10 +860,13 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             cerr << "Largest actually cyclic component of " << strong_components.size() << " is "
                 << largest_component << " with " << largest_component_nodes << " nodes" << endl;
             
-            // Pick some arbitrary node in the largest component.
+            // Pick the lowest-ID node in the largest component.
             // Also, assert we found one.
             assert(largest_component_nodes != 0);
-            id_t break_node = *strong_components[largest_component].begin();
+            vector<id_t> sorted_component{strong_components[largest_component].begin(),
+                strong_components[largest_component].end()};
+            std::sort(sorted_component.begin(), sorted_component.end());
+            id_t break_node = sorted_component.front();
             
 #ifdef debug
             cerr << "Elect to break at node " << break_node
@@ -930,7 +931,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             } else {
             
 #ifdef debug
-                cerr << "Found only a both-strand cycle where we will disconnect the graph by dropping this node. Use one unary snarl." << endl;
+                cerr << "Found only a both-strand cycle where we will disconnect the graph by dropping this node. Use two unary snarls." << endl;
 #endif
             
                 // Otherwise, break with the same side of the node twice, because we went around a unary snarl.
@@ -948,8 +949,6 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     
     return make_pair(cactus_graph, telomeres);
 }
-
-#undef debug
 
 VG cactus_to_vg(stCactusGraph* cactus_graph) {
     VG vg_graph;
