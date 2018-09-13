@@ -1737,11 +1737,11 @@ void DistanceIndex::SnarlDistances::printSelf() {
      
     cerr << "Snarl Distances for snarl starting at " << snarlStart.first;
     if (snarlStart.second) {cerr << " reverse and ending at ";} 
-    else                   { cerr << " forward and ending at";}
+    else                   { cerr << " forward and ending at ";}
     cerr << snarlEnd.first;
     if (snarlEnd.second) {cerr << " reverse";} 
     else {cerr << " forward";}
-    cerr << "Indices:" << endl;
+    cerr << endl << "Indices:" << endl;
     
     for (auto n : visitToIndex) {
         cerr << n.first.first << ", " << n.first.second << ": " << n.second << endl;
