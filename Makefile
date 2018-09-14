@@ -39,7 +39,7 @@ ifeq ($(shell uname -s),Darwin)
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /opt/local/lib if present
-	    LD_LIB_FLAGS += -L/opt/local/lib
+        LD_LIB_FLAGS += -L/opt/local/lib
     endif
 
     ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
@@ -54,8 +54,20 @@ ifeq ($(shell uname -s),Darwin)
         # We need to use the hard way of getting OpenMP not bundled with the compiler.
         # The compiler only needs to do the preprocessing
         CXXFLAGS += -Xpreprocessor -fopenmp
+
+        ifeq ($(shell if [ -d /opt/local/lib/libomp ];then echo 1;else echo 0;fi), 1)
+            # Use /opt/local/lib/libomp if present, because Macports installs libomp there.
+            # Brew is supposed to put it somewhere the compiler can find it by default.
+            LD_LIB_FLAGS += -L/opt/local/lib/libomp
+            # And we need to find the includes. Homebrew puts them in the normal place
+            # but Macports hides them in "libomp"
+            CXXFLAGS += -I/opt/local/include/libomp
+        endif
+
         # We also need to link it
         LD_LIB_FLAGS += -lomp
+        # And we need to find the includes. Homebrew puts them in the normal place but macports hides them in "libomp"
+        CXXFLAGS += -I/opt/local/include/libomp
     else
         CXXFLAGS += -fopenmp
     endif
@@ -550,14 +562,26 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
 	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
+	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd fastahack && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd fsom && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd libVCFH && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd smithwaterman && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd test && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd filevercmp && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd intervaltree && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd multichoose && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd tabixpp && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
 	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
+	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE

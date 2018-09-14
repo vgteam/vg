@@ -408,7 +408,7 @@ int main_mpmap(int argc, char** argv) {
                 max_map_attempts_arg = parse<int>(optarg);
                 // let 0 be a sentinel for no limit and also a sentinel for not giving an arg
                 if (max_map_attempts_arg == 0) {
-                    max_map_attempts_arg == numeric_limits<int>::max();
+                    max_map_attempts_arg = numeric_limits<int>::max();
                 }
                 break;
                 
