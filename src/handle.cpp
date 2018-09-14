@@ -45,6 +45,22 @@ pair<handle_t, handle_t> HandleGraph::edge_handle(const handle_t& left, const ha
     }
 }
 
+handle_t HandleGraph::traverse_edge_handle(const edge_t& edge, const handle_t& left) const {
+    if (left == edge.first) {
+        // The cannonical orientation is the one we want
+        return edge.second;
+    } else if (left == this->flip(edge.second)) {
+        // We really want the other orientation
+        return this->flip(edge.first);
+    } else {
+        // This isn't either handle that the edge actually connects. Something has gone wrong.
+        throw runtime_error("Cannot view edge " +
+            to_string(this->get_id(edge.first)) + " " + to_string(this->get_is_reverse(edge.first)) + " -> " +
+            to_string(this->get_id(edge.second)) + " " + to_string(this->get_is_reverse(edge.second)) +
+            " from non-participant " + to_string(this->get_id(left)) + " " + to_string(this->get_is_reverse(left)));
+    }
+}
+
 }
 
 

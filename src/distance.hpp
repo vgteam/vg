@@ -56,10 +56,12 @@ class DistanceIndex {
             vector<int64_t>  toVector();
             
             //Distance between beginning of node start and beginning of node end
+            //Only works for nodes heading their chains (which represent the chains), or snarl boundaries.
             int64_t snarlDistance(pair<id_t, bool> start, pair<id_t, bool> end);
 
  
             //Distance between end of node start and beginning of node end
+            //Only works for nodes heading their chains (which represent the chains), or snarl boundaries.
             int64_t snarlDistanceShort(VG* graph,NetGraph* ng,
                      pair<id_t, bool> start, pair<id_t, bool> end); 
 
@@ -87,16 +89,16 @@ class DistanceIndex {
             //Maps node to index to get its distance
             hash_map< pair<id_t, bool>, size_t> visitToIndex;
  
-             //Store the distance between every pair nodes, -1 indicates no path
-             //For child snarls that are unary or only connected to one node
-             //in the snarl, distances between that node leaving the snarl
-             //and any other node is -1
+            //Store the distance between every pair nodes, -1 indicates no path
+            //For child snarls that are unary or only connected to one node
+            //in the snarl, distances between that node leaving the snarl
+            //and any other node is -1
             vector<int64_t> distances;
 
             //ID of the first node in the snarl, also key for distance index 
             pair<id_t, bool> snarlStart;
  
-           //End facing out of snarl
+            //End facing out of snarl
             pair<id_t, bool> snarlEnd;           
 
             //Total length of the snarl- start to end plus length of end
@@ -129,20 +131,31 @@ class DistanceIndex {
 
             /*Convert contents into vector of ints for serialization
                stored as [node_id1, prefixsum1 start, prefixsum1 end,
-                                            loopfd1, loopfd2, node_id2, ...]
+                          loopfd1, loopfd2, node_id2, ...]
             */
             vector<int64_t> toVector();
        
-            /*Distance between two snarls starting from the beginning of the 
-              start node to the beginning of the end node.
-              bool is true if traversing reverse relative to the start of 
-              the chain */
+            /** 
+             * Distance between two node sides in a chain. id_t values specify
+             * the nodes, and bool values specify the sides. Side orientations
+             * are relative to the node's orientation *in the chain*, so if
+             * reading through the chain in its forward orientation you
+             * encounter the node in reverse, then true is the *left* side of
+             * the node and false is the *right* side.
+             */
             int64_t chainDistance(pair<id_t, bool> start, pair<id_t, bool> end);
 
-            /*Distance between two snarls starting from the beginning of 
-              the node after start to the beginning of end */ 
+            /**
+             * Takes the graph and two node sides, with orientations specified
+             * relative to the nodes' orientation in their chain (i.e. nodes
+             * backward in the chain have false represent the *end* of the
+             * node).
+             *
+             * Returns the distance from the **opposite** side of the start
+             * node to the specified side of the end node.
+             */
             int64_t chainDistanceShort(VG* graph, pair<id_t, bool> start, 
-                                                        pair<id_t, bool> end);
+                                                  pair<id_t, bool> end);
             //Length of entire chain
             int64_t chainLength();
 
@@ -174,9 +187,6 @@ class DistanceIndex {
             /*Helper function for finding distances*/
             int64_t chainDistanceHelper(pair<size_t, bool> start, 
                                        pair<size_t, bool> end     );
-
-            /*Returns true if the snarl is reversed in the chain*/
-            bool isReverse(const Snarl* snarl, SnarlManager* sm);
 
         friend class DistanceIndex;   
         friend class TestDistanceIndex;

@@ -34,7 +34,7 @@ struct CactusSide {
 // Notes:
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
 //  - returns a Cactus graph, and a list of stCactusEdgeEnd* telomeres, in pairs of adjacent items.
-pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string>& hint_paths);
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, const unordered_set<string>& hint_paths);
 
 // Convert back from Cactus to VG
 // (to, for example, display using vg view)
