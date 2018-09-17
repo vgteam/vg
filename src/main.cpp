@@ -13,6 +13,7 @@
 #include "version.hpp"
 #include "utility.hpp"
 #include "crash.hpp"
+#include "preflight.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -46,6 +47,9 @@ int main(int argc, char *argv[])
 
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
+    
+    // Make sure the system meets system requirements (i.e. has all the instructions we need)
+    preflight_check();
 
     // set a higher value for tcmalloc warnings
     setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);

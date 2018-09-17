@@ -24,7 +24,7 @@ include $(wildcard $(ALGORITHMS_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 
-CXXFLAGS := -O3 -fopenmp -Werror=return-type -std=c++11 -ggdb -g -MMD -MP $(CXXFLAGS)
+CXXFLAGS := -O3 -fopenmp -Werror=return-type -std=c++11 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo)
 
