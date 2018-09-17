@@ -1070,7 +1070,8 @@ int main_index(int argc, char** argv) {
             SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
             snarl_stream.close();
 
-            DistanceIndex di (&vg, snarl_manager);
+            int64_t cap = 20; //TODO: Take this as an argument or something
+            DistanceIndex di (&vg, snarl_manager, cap);
             
 
  

@@ -12,7 +12,7 @@ class DistanceIndex {
 
     public: 
     //Constructor 
-    DistanceIndex (VG* vg, SnarlManager* snarlManager);
+    DistanceIndex (VG* vg, SnarlManager* snarlManager, uint64_t cap);
 
     //Constructor to load index from serialization 
     DistanceIndex (VG* vg, SnarlManager* snarlManager, istream& in);
@@ -28,10 +28,12 @@ class DistanceIndex {
       pos1 must be on a node contained in snarl1 and not on any children of
       snarl1. The same for pos2 and snarl2
     */
-    int64_t minDistance( pos_t& pos1, pos_t& pos2);
+    int64_t minDistance( pos_t pos1, pos_t pos2);
     int64_t minDistance( 
-         const Snarl* snarl1, const Snarl* snarl2, pos_t& pos1, pos_t& pos2);
+         const Snarl* snarl1, const Snarl* snarl2, pos_t pos1, pos_t pos2);
 
+    /*Get an upper bound of the distance between two positions */
+    int64_t maxDistance(pos_t pos1, pos_t pos2);
   
     //Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
@@ -42,7 +44,7 @@ class DistanceIndex {
 
     protected:
     void printSelf();
-    class SnarlDistances {
+    class SnarlIndex {
         
         /* Stores distance information for nodes in a snarl.
            visitToIndex maps each visit (node_id, negative if reverse) to an int
@@ -53,12 +55,12 @@ class DistanceIndex {
         public:
         
             //Constructor
-            SnarlDistances(DistanceIndex* di,
+            SnarlIndex(DistanceIndex* di,
                           unordered_set<pair<id_t, bool>>& allNodes, 
                           pair<id_t, bool> start, pair<id_t, bool> end);
            
             //Construct from vector - inverse of toVector
-            SnarlDistances(DistanceIndex* di, vector<int64_t> v);
+            SnarlIndex(DistanceIndex* di, vector<int64_t> v);
 
             /*Store contents of object as a vector of ints for serialization
               Stored as [# nodes, start node id, end node id, snarl length] + 
@@ -129,17 +131,17 @@ class DistanceIndex {
         friend class TestDistanceIndex;
     };
 
-    class ChainDistances {
+    class ChainIndex {
         /*Stores distances between snarls in a chain*/
 
         public:
         
             //Constructor
-            ChainDistances(hash_map<id_t, size_t> s, vector<int64_t> p,
+            ChainIndex(hash_map<id_t, size_t> s, vector<int64_t> p,
                         vector<int64_t> fd, vector<int64_t> rev );
 
             //Constructor from vector of ints after serialization
-            ChainDistances(vector<int64_t> v);
+            ChainIndex(vector<int64_t> v);
 
             /*Convert contents into vector of ints for serialization
                stored as [node_id1, prefixsum1 start, prefixsum1 end,
@@ -206,10 +208,11 @@ class DistanceIndex {
 
             //Constructor
             MaxDistanceIndex();
-            MaxDistanceIndex(DistanceIndex* di, const Chain* chain, int64_t cap); 
+            MaxDistanceIndex(DistanceIndex* di, const Chain* chain,
+                                                                uint64_t cap); 
  
             //Actual distance function for finding upper bound for distance 
-            int64_t maxDistance( pos_t& pos1, pos_t& pos2);
+            int64_t maxDistance( pos_t pos1, pos_t pos2);
 
 //TODO: Finish testing        protected:
             int_vector<> nodeToComponent;//Maps each node to its connected component
@@ -217,18 +220,22 @@ class DistanceIndex {
             int_vector<> maxDistances;   //sink nodes in topological order
             uint64_t numCycles;         //Number of cyclic connected components
             uint64_t numComponents;     //Number of connected components
+            uint64_t cap;               //Maximum distance to be considered
+          
+            void printSelf();
        
         private:
             //Helper functions for constructor
             //Assign each node to a connected component of cycles
             DistanceIndex* distIndex; 
             uint64_t findComponents( int_vector<>& nodeToComponent, 
-                             int_vector<>& maxDists, int_vector<>& minDists, 
+                             int_vector<>& maxDists, int_vector<>& minDistsFd,
+                             int_vector<>& minDistsRev, 
                              uint64_t currComponent, bool onlyCycles          );
             //Populate minDistances and maxDistances
             void calculateMaxDistances(unordered_set<pair<id_t, bool>>& sinkNodes,
                       int_vector<>& nodeToComponent,int_vector<>& maxDists, 
-                      int_vector<>& minDists);
+                      int_vector<>& minDistsFd, int_vector<>& minDistsRev);
 
         friend class DistanceIndex;
         friend class TestDistanceIndex;
@@ -241,10 +248,10 @@ class DistanceIndex {
     hash_map<id_t, size_t> nodeToCycles;
 
     //map from start node of a snarl to its index
-    unordered_map<pair<id_t, bool>, SnarlDistances> snarlIndex;
+    unordered_map<pair<id_t, bool>, SnarlIndex> snarlDistances;
 
     //map from node id of first node in snarl to that chain's index
-    hash_map<id_t, ChainDistances> chainIndex;
+    hash_map<id_t, ChainIndex> chainDistances;
 
     //Graph and snarl manager for this index
     VG* graph;
@@ -279,7 +286,7 @@ class DistanceIndex {
     //Flag each node with true if it is in a cycle that has minimum length
     //smaller than cap
     void flagCycles(const Snarl* snarl, bit_vector& inCycle,
-                    int64_t cap);
+                    uint64_t cap);
 
     //Minimum distance of a loop that involves node
     int64_t loopDistance(pair<id_t, bool> node1, pair<id_t, bool> node2); 
@@ -300,8 +307,8 @@ class DistanceIndex {
     int64_t checkChainDist(id_t snarl, size_t index);
     int64_t checkChainLoopFd(id_t snarl, size_t index);
     int64_t checkChainLoopRev(id_t snarl, size_t index);
-    friend class SnarlDistances;
-    friend class ChainDistances;
+    friend class SnarlIndex;
+    friend class ChainIndex;
     friend class TestDistanceIndex;
 
 

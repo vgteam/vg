@@ -197,13 +197,13 @@ class TestDistanceIndex : public DistanceIndex {
 
     public:
         using DistanceIndex::DistanceIndex;
-        using DistanceIndex::SnarlDistances;
+        using DistanceIndex::SnarlIndex;
         using DistanceIndex::MaxDistanceIndex;
         using DistanceIndex::maxIndex;
-        using DistanceIndex::snarlIndex;
-        using DistanceIndex::ChainDistances;
+        using DistanceIndex::snarlDistances;
+        using DistanceIndex::ChainIndex;
         using DistanceIndex::loopDistance;
-        using DistanceIndex::chainIndex;
+        using DistanceIndex::chainDistances;
         using DistanceIndex::distToCommonAncestor;
         using DistanceIndex::checkChainDist;
         using DistanceIndex::checkChainLoopFd;
@@ -269,7 +269,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr2}, ptr1);
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
 
@@ -283,7 +283,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl1->end().backward());
             pair<id_t, bool> end1r = make_pair(snarl1->end().node_id(), 
                                                     !snarl1->end().backward());
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(snarl1->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
 
             pair<id_t, bool> start2 = make_pair(snarl2->start().node_id(), 
@@ -294,7 +294,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl2->end().backward());
             pair<id_t, bool> end2r = make_pair(snarl2->end().node_id(), 
                                                    !snarl2->end().backward());
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(snarl2->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
 
             pair<id_t, bool> start3 = make_pair(snarl3->start().node_id(), 
@@ -305,7 +305,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl3->end().backward());
             pair<id_t, bool> end3r = make_pair(snarl3->end().node_id(), 
                                                     !snarl3->end().backward());
-            TestDistanceIndex::SnarlDistances& sd3 = di.snarlIndex.at(make_pair(snarl3->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd3 = di.snarlDistances.at(make_pair(snarl3->start().node_id(),
                                                  snarl3->start().backward()));
 
             NetGraph ng1 = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
@@ -344,7 +344,7 @@ class TestDistanceIndex : public DistanceIndex {
 
              REQUIRE(( sd2.snarlDistance(&graph, &ng2, end2r, start3) == 1 || 
                        sd2.snarlDistance(&graph, &ng2, end2r, start3r) == 1)   );
-            REQUIRE(di.chainIndex.size() == 0);
+            REQUIRE(di.chainDistances.size() == 0);
         }
 
 
@@ -462,10 +462,10 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
-            //REQUIRE(di.chainIndex.size() == 0);
+            //REQUIRE(di.chainDistances.size() == 0);
 #ifdef print
             di.printSelf();
 #endif
@@ -558,7 +558,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
 
 
         SECTION("Create distance index") {
@@ -572,7 +572,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl1->end().backward());
             pair<id_t, bool> end1r = make_pair(snarl1->end().node_id(), 
                                                     !snarl1->end().backward());
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(snarl1->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
  
             pair<id_t, bool> start2 = make_pair(snarl2->start().node_id(), 
@@ -583,7 +583,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl2->end().backward());
             pair<id_t, bool> end2r = make_pair(snarl2->end().node_id(), 
                                                    !snarl2->end().backward());
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(snarl2->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
  
             pair<id_t, bool> start5 = make_pair(snarl5->start().node_id(), 
@@ -594,7 +594,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl5->end().backward());
             pair<id_t, bool> end5r = make_pair(snarl5->end().node_id(), 
                                                    !snarl5->end().backward());
-            TestDistanceIndex::SnarlDistances& sd5 = di.snarlIndex.at(make_pair(snarl5->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd5 = di.snarlDistances.at(make_pair(snarl5->start().node_id(),
                                      snarl5->start().backward()));
 
             NetGraph ng = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
@@ -610,9 +610,9 @@ class TestDistanceIndex : public DistanceIndex {
                                                                          == 3);
             REQUIRE(sd1.snarlDistance(&graph, &ng, make_pair(8, true), make_pair(1, true))
                                                                           == 4);
-            REQUIRE(di.chainIndex.size() == 1);
+            REQUIRE(di.chainDistances.size() == 1);
     
-            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
+            TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
             REQUIRE(cd.chainDistance(start2, start2) == 0);
             #ifdef print
             di.printSelf();
@@ -734,7 +734,7 @@ class TestDistanceIndex : public DistanceIndex {
         snarl_manager.add_chain(Chain{ptr1}, nullptr);
 
 
-        TestDistanceIndex di(&graph, &snarl_manager);
+        TestDistanceIndex di(&graph, &snarl_manager, 20);
 
 
         SECTION("Create distance index") {
@@ -748,7 +748,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl1->end().backward());
             pair<id_t, bool> end1r = make_pair(snarl1->end().node_id(), 
                                                     !snarl1->end().backward());
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(snarl1->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
  
             pair<id_t, bool> start2 = make_pair(snarl2->start().node_id(), 
@@ -759,7 +759,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl2->end().backward());
             pair<id_t, bool> end2r = make_pair(snarl2->end().node_id(), 
                                                    !snarl2->end().backward());
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(snarl2->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
  
             pair<id_t, bool> start5 = make_pair(snarl5->start().node_id(), 
@@ -770,14 +770,14 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl5->end().backward());
             pair<id_t, bool> end5r = make_pair(snarl5->end().node_id(), 
                                                    !snarl5->end().backward());
-            TestDistanceIndex::SnarlDistances& sd5 = di.snarlIndex.at(make_pair(snarl5->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd5 = di.snarlDistances.at(make_pair(snarl5->start().node_id(),
                                      snarl5->start().backward()));
 
             NetGraph ng1 = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
             NetGraph ng2 = NetGraph(snarl2->start(), snarl2->end(), snarl_manager.chains_of(snarl2), &graph);
             NetGraph ng5 = NetGraph(snarl5->start(), snarl5->end(), snarl_manager.chains_of(snarl5), &graph);
     
-            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
+            TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
             REQUIRE(cd.chainDistance(start2, start2) == 0);
             #ifdef print
             di.printSelf();
@@ -806,7 +806,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                                         == 5);
             REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(3, false), make_pair(4, true))
                                                                          == 7);
-            REQUIRE(di.chainIndex.size() == 1);
+            REQUIRE(di.chainDistances.size() == 1);
             REQUIRE(cd.chainDistance(make_pair(2, false), make_pair(5, false)) == 2);
             REQUIRE(cd.chainDistance(make_pair(5, true), make_pair(2, true)) == 4);
 
@@ -898,7 +898,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
 
 
         SECTION("Create distance index") {
@@ -917,8 +917,8 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl1->end().backward());
             pair<id_t, bool> end1r = make_pair(snarl1->end().node_id(), 
                                                     !snarl1->end().backward());
-            TestDistanceIndex::SnarlDistances& sd1 = 
-                     di.snarlIndex.at(make_pair(snarl1->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd1 = 
+                     di.snarlDistances.at(make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
  
             pair<id_t, bool> start2 = make_pair(snarl2->start().node_id(), 
@@ -929,8 +929,8 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl2->end().backward());
             pair<id_t, bool> end2r = make_pair(snarl2->end().node_id(), 
                                                    !snarl2->end().backward());
-            TestDistanceIndex::SnarlDistances& sd2 = 
-                   di.snarlIndex.at(make_pair(snarl2->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd2 = 
+                   di.snarlDistances.at(make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
  
             pair<id_t, bool> start5 = make_pair(snarl5->start().node_id(), 
@@ -941,8 +941,8 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl5->end().backward());
             pair<id_t, bool> end5r = make_pair(snarl5->end().node_id(), 
                                                    !snarl5->end().backward());
-            TestDistanceIndex::SnarlDistances& sd5 = 
-                di.snarlIndex.at(make_pair(snarl5->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd5 = 
+                di.snarlDistances.at(make_pair(snarl5->start().node_id(),
                                      snarl5->start().backward()));
 
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 0) == 0);
@@ -964,9 +964,9 @@ class TestDistanceIndex : public DistanceIndex {
                                                                           == 4);
             REQUIRE(sd5.snarlDistance(&graph, &ng5, make_pair(6, true), make_pair(6, false))
                                                                           == 7);
-            REQUIRE(di.chainIndex.size() == 2);
+            REQUIRE(di.chainDistances.size() == 2);
     
-            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
+            TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
             REQUIRE(cd.chainDistance(start2, start2) == 0);
             #ifdef print
             di.printSelf();
@@ -1059,7 +1059,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
 
 
         SECTION("Create distance index") {
@@ -1078,8 +1078,8 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl1->end().backward());
             pair<id_t, bool> end1r = make_pair(snarl1->end().node_id(), 
                                                     !snarl1->end().backward());
-            TestDistanceIndex::SnarlDistances& sd1 = 
-                     di.snarlIndex.at(make_pair(snarl1->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd1 = 
+                     di.snarlDistances.at(make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
  
             pair<id_t, bool> start2 = make_pair(snarl2->start().node_id(), 
@@ -1090,8 +1090,8 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl2->end().backward());
             pair<id_t, bool> end2r = make_pair(snarl2->end().node_id(), 
                                                    !snarl2->end().backward());
-            TestDistanceIndex::SnarlDistances& sd2 = 
-                   di.snarlIndex.at(make_pair(snarl2->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd2 = 
+                   di.snarlDistances.at(make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
  
             pair<id_t, bool> start4 = make_pair(snarl4->start().node_id(), 
@@ -1102,15 +1102,15 @@ class TestDistanceIndex : public DistanceIndex {
                                                     snarl4->end().backward());
             pair<id_t, bool> end4r = make_pair(snarl4->end().node_id(), 
                                                    !snarl4->end().backward());
-            TestDistanceIndex::SnarlDistances& sd4 = 
-                di.snarlIndex.at(make_pair(snarl4->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd4 = 
+                di.snarlDistances.at(make_pair(snarl4->start().node_id(),
                                      snarl4->start().backward()));
-            TestDistanceIndex::SnarlDistances& sd7 = 
-                di.snarlIndex.at(make_pair(snarl7->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd7 = 
+                di.snarlDistances.at(make_pair(snarl7->start().node_id(),
                                      snarl7->start().backward()));
     
-            TestDistanceIndex::ChainDistances& cd = 
-                               di.chainIndex.at(get_start_of(*chain).node_id());
+            TestDistanceIndex::ChainIndex& cd = 
+                               di.chainDistances.at(get_start_of(*chain).node_id());
 
             NetGraph ng1 = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
             #ifdef print
@@ -1133,7 +1133,7 @@ class TestDistanceIndex : public DistanceIndex {
 
             REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, false), make_pair(10, false))
                                                                          == 3);
-            REQUIRE(di.chainIndex.size() == 1);
+            REQUIRE(di.chainDistances.size() == 1);
 
             REQUIRE(cd.chainDistance(start2, start2) == 0);
             REQUIRE(cd.chainDistance(make_pair(2, false), make_pair(7, false)) == 5);
@@ -1220,7 +1220,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
 
 
         SECTION("Create distance index") {
@@ -1233,18 +1233,18 @@ class TestDistanceIndex : public DistanceIndex {
             auto snarl7 = snarl_manager.into_which_snarl(7, true);
 
             const Chain* chain = snarl_manager.chain_of(snarl2);
-            TestDistanceIndex::SnarlDistances& sd1 = 
-                     di.snarlIndex.at(make_pair(snarl1->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd1 = 
+                     di.snarlDistances.at(make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
  
-            TestDistanceIndex::SnarlDistances& sd2 = 
-                     di.snarlIndex.at(make_pair(snarl2->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd2 = 
+                     di.snarlDistances.at(make_pair(snarl2->start().node_id(),
                                               snarl2->start().backward()));
-            TestDistanceIndex::SnarlDistances& sd6 = 
-                     di.snarlIndex.at(make_pair(snarl6->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd6 = 
+                     di.snarlDistances.at(make_pair(snarl6->start().node_id(),
                                               snarl6->start().backward()));
-            TestDistanceIndex::SnarlDistances& sd7 = 
-                     di.snarlIndex.at(make_pair(snarl7->start().node_id(),
+            TestDistanceIndex::SnarlIndex& sd7 = 
+                     di.snarlDistances.at(make_pair(snarl7->start().node_id(),
                                               snarl7->start().backward()));  
 
 
@@ -1252,7 +1252,7 @@ class TestDistanceIndex : public DistanceIndex {
             NetGraph ng2 = NetGraph(snarl2->start(), snarl2->end(), snarl_manager.chains_of(snarl2), &graph);
             NetGraph ng6 = NetGraph(snarl6->start(), snarl6->end(), snarl_manager.chains_of(snarl6), &graph);
             NetGraph ng7 = NetGraph(snarl7->start(), snarl7->end(), snarl_manager.chains_of(snarl7), &graph);
-            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
+            TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
 
             REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, true), make_pair(1, false))
                                                                          == 3);
@@ -1291,7 +1291,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                                     == 11);
             REQUIRE(cd.chainDistance(make_pair(6, false), make_pair(2, true)) 
                                                                     == -1);
-            REQUIRE(di.chainIndex.size() == 1);
+            REQUIRE(di.chainDistances.size() == 1);
 
             REQUIRE(sd7.snarlDistance(&graph, &ng7, make_pair(7, true), make_pair(6, false))
                                                                          == 1);
@@ -1379,23 +1379,23 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(make_pair(
                   snarl1->start().node_id(),snarl1->start().backward()));
 
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(make_pair(
                        snarl2->start().node_id(),snarl2->start().backward()));
 
             const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
-            TestDistanceIndex::SnarlDistances& sd3 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd3 = di.snarlDistances.at(make_pair(
                        snarl3->start().node_id(),snarl3->start().backward()));
 
             const Snarl* snarl6 = snarl_manager.into_which_snarl(6, false);
-            TestDistanceIndex::SnarlDistances& sd6 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd6 = di.snarlDistances.at(make_pair(
                        snarl6->start().node_id(),snarl6->start().backward()));
 
 #ifdef print
@@ -1473,7 +1473,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
 
@@ -1482,17 +1482,17 @@ class TestDistanceIndex : public DistanceIndex {
 #endif
             const vector<const Snarl*> topSnarls = snarl_manager.top_level_snarls();
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(
                                     make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
 
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(
                             make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
 
             const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
-            TestDistanceIndex::SnarlDistances& sd3 = di.snarlIndex.at(
+            TestDistanceIndex::SnarlIndex& sd3 = di.snarlDistances.at(
                                        make_pair(snarl3->start().node_id(),
                                                  snarl3->start().backward()));
 
@@ -1619,7 +1619,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
 #ifdef print
@@ -1687,7 +1687,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
 
@@ -1695,12 +1695,12 @@ class TestDistanceIndex : public DistanceIndex {
             di.printSelf();
 #endif
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(
                                     make_pair(snarl1->start().node_id(),
                                               snarl1->start().backward()));
 
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(
                             make_pair(snarl2->start().node_id(),
                                      snarl2->start().backward()));
             NetGraph ng1 = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
@@ -1797,23 +1797,23 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(make_pair(
                   snarl1->start().node_id(),snarl1->start().backward()));
 
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(make_pair(
                        snarl2->start().node_id(),snarl2->start().backward()));
 
             const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
-            TestDistanceIndex::SnarlDistances& sd3 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd3 = di.snarlDistances.at(make_pair(
                        snarl3->start().node_id(),snarl3->start().backward()));
 
             const Snarl* snarl6 = snarl_manager.into_which_snarl(6, false);
-            TestDistanceIndex::SnarlDistances& sd6 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd6 = di.snarlDistances.at(make_pair(
                        snarl6->start().node_id(),snarl6->start().backward()));
 
 #ifdef print
@@ -1938,23 +1938,23 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
         
         SECTION( "Create distance index" ) {
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
-            TestDistanceIndex::SnarlDistances& sd1 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd1 = di.snarlDistances.at(make_pair(
                   snarl1->start().node_id(),snarl1->start().backward()));
 
             const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
-            TestDistanceIndex::SnarlDistances& sd2 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd2 = di.snarlDistances.at(make_pair(
                        snarl2->start().node_id(),snarl2->start().backward()));
 
             const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
-            TestDistanceIndex::SnarlDistances& sd3 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd3 = di.snarlDistances.at(make_pair(
                        snarl3->start().node_id(),snarl3->start().backward()));
 
             const Snarl* snarl6 = snarl_manager.into_which_snarl(6, false);
-            TestDistanceIndex::SnarlDistances& sd6 = di.snarlIndex.at(make_pair(
+            TestDistanceIndex::SnarlIndex& sd6 = di.snarlDistances.at(make_pair(
                        snarl6->start().node_id(),snarl6->start().backward()));
 
 #ifdef print
@@ -2075,7 +2075,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-        TestDistanceIndex di (&graph, &snarl_manager);
+        TestDistanceIndex di (&graph, &snarl_manager, 20);
 
 
         SECTION("Create distance index") {
@@ -2086,7 +2086,7 @@ class TestDistanceIndex : public DistanceIndex {
  
             const Snarl* snarl1 = snarl_manager.into_which_snarl(1, false);
             const Chain* chain = snarl_manager.chain_of(snarl1);
-            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(get_start_of(*chain).node_id());
+            TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
             REQUIRE(cd.chainDistance(make_pair(1, true), make_pair(8, true)) == 3);
             REQUIRE(cd.chainDistance(make_pair(8, false), make_pair(1, false)) == 3);
             REQUIRE(cd.chainDistanceShort(&graph, make_pair(8, false), make_pair(1, false)) == 2);
@@ -2165,7 +2165,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 
        SECTION ("Distance functions") {
-            TestDistanceIndex di (&graph, &snarl_manager);
+            TestDistanceIndex di (&graph, &snarl_manager, 20);
             #ifdef print
                 di.printSelf();
             #endif
@@ -2211,19 +2211,20 @@ class TestDistanceIndex : public DistanceIndex {
     TEST_CASE("Random test", "[dist]") {
 
 
-/*
-        ifstream vg_stream1("testGraph1");
+        ifstream vg_stream1("testGraph");
         VG vg1(vg_stream1);
         vg_stream1.close();
         CactusSnarlFinder bubble_finder1(vg1);
         SnarlManager snarl_manager1 = bubble_finder1.find_snarls(); 
 
-        TestDistanceIndex di1 (&vg1, &snarl_manager1);
-        pair<id_t, bool> pos1 = make_pair(132, false );
-        pair<id_t, bool> pos2 =  make_pair(23, false );
+        TestDistanceIndex di1 (&vg1, &snarl_manager1, 50);
+di1.printSelf();
+        pos_t pos1 = make_pos_t(194, true, 0);
+        pos_t pos2 = make_pos_t(35, false, 0);
 
-        REQUIRE(di1.loopDistance(pos1, pos2 ) == 130);
+        REQUIRE(di1.maxDistance(pos1, pos2) >= 37);
 
+/*
  
         ifstream vg_stream("testGraph");
         VG vg(vg_stream);
@@ -2236,20 +2237,21 @@ di.printSelf();
         pos1 = make_pair(197, false );
         pos2 =  make_pair(176, false );
 
-            TestDistanceIndex::ChainDistances& cd = di.chainIndex.at(1);
+            TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(1);
             REQUIRE(cd.chainDistance(make_pair(177, true), make_pair(197, true)) == 171);
 
         REQUIRE(di.loopDistance(pos1, pos2 ) == 176);       
 
 */
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 100000; i++) {
             //1000 different graphs
             VG graph = randomGraph(1000, 20, 100); 
 
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
-            TestDistanceIndex di (&graph, &snarl_manager);
+            uint64_t cap = 50;
+            TestDistanceIndex di (&graph, &snarl_manager, cap);
             #ifdef print        
                 di.printSelf();
 
@@ -2262,12 +2264,14 @@ di.printSelf();
                             di.maxIndex.minDistances[i]);
                     REQUIRE(di.maxIndex.minDistances[i] >= 0);
                     REQUIRE(di.maxIndex.maxDistances[i] >= 0);
+                    if (di.maxIndex.nodeToComponent[i] > 
+                                di.maxIndex.numCycles) {
+                        REQUIRE(di.maxIndex.minDistances[i] > 0);
+                        REQUIRE(di.maxIndex.maxDistances[i] > 0);
+                    }
                 }
             }
 
-            for (int64_t x : di.maxIndex.nodeToComponent) {
-                REQUIRE(x > 0);
-            }
 
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {
@@ -2319,6 +2323,7 @@ di.printSelf();
 
                     int64_t myDist = di.minDistance(pos1, pos2);
                     int64_t actDist = distance(&graph, pos1, pos2);
+                    int64_t maxDist = di.maxDistance(pos1, pos2);
          
                     int64_t myLoop = di.loopDistance(snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
                     int64_t actLoop = loopDistance(&graph, snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
@@ -2354,6 +2359,10 @@ di.printSelf();
                     }
                     bool passed = (myDist == actDist) && (myLoop == actLoop) &&
                                    (myEdge == actEdge);
+                    if (maxDist != cap) {
+                        passed = passed && maxDist > 0;
+                        passed = passed &&  (myDist <= maxDist);
+                    }
 
                     if (!passed) { 
                         graph.serialize_to_file("testGraph");
@@ -2371,6 +2380,9 @@ di.printSelf();
 
                         cerr << "Actual distance: " << actDist << "    " <<
                                 "Guessed distance: " << myDist << endl;
+                        cerr << "Guessed max distance: " << maxDist << endl;
+                        cerr << endl;
+
                         cerr << "Actual loop distance: "  << actLoop << "    " 
                              << "Guessed loop distance: " << myLoop << endl;
                         cerr << "Actual edge loop distance: "  << actEdge
