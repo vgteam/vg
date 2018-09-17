@@ -511,6 +511,7 @@ namespace vg {
                                 }
                             }
                         }
+                    //} else if (!variant->has_sv_tags()) {
                     } else {
                         alternates = variant->parsedAlternates();
                     }
@@ -558,7 +559,7 @@ namespace vg {
                         // region
                         trim_to_variable(parsed_clump[variant]);
                     } else {
-                        //cerr << "Is symbolic: " << *variant << endl;
+                        cerr << "Is symbolic: " << *variant << endl;
                         // For now, only permit one allele for SVs
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
@@ -657,7 +658,7 @@ namespace vg {
                         }
 
                     // SV HAX
-                    if (this->do_svs && variant->is_symbolic_sv() && variant->canonical){
+                    if (this->do_svs && variant->has_sv_tags() && variant->canonical){
 
                             auto e_start = variant->zeroBasedPosition() - chunk_offset;
                             // TODO check index here, may or may not need to subtract 1
