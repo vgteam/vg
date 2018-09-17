@@ -49,7 +49,7 @@ ifeq ($(shell uname -s),Darwin)
 
     # Our compiler might be clang that lacks -fopenmp support.
     # Sniff that
-    ifeq ($(shell $(CXX) -fopenmp /dev/null -o/dev/null 2>&1 | grep fopenmp | wc -l), 1)
+    ifeq ($(strip $(shell $(CXX) -fopenmp /dev/null -o/dev/null 2>&1 | grep fopenmp | wc -l)), 1)
 		# The compiler complained about fopenmp instead of its nonsense input file.
         # We need to use the hard way of getting OpenMP not bundled with the compiler.
         # The compiler only needs to do the preprocessing
