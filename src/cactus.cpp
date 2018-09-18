@@ -3,12 +3,15 @@
 #include "vg.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/weakly_connected_components.hpp"
+#include "algorithms/strongly_connected_components.hpp"
 #include "algorithms/find_shortest_paths.hpp"
 
 extern "C" {
 #include "sonLib.h"
 #include "stCactusGraphs.h"
 }
+
+//#define debug
 
 namespace vg {
 
@@ -19,48 +22,69 @@ using namespace std;
 
 // Step 1) Get undirected adjacency connected components of VG *sides*
 // (note we can't put NodeSides in header, so leave this function static)
-typedef set<NodeSide> SideSet;
-typedef map<NodeSide, int> Side2Component;
-static void compute_side_components(VG& graph, 
-                                    vector<SideSet>& components,
-                                    Side2Component& side_to_component) {
-
-    // update components datastructures with a side.  if comp is -1
-    // create new component
-    function<void(NodeSide, int)> update_component = [&] (NodeSide side, int comp) {
-        if (comp == -1) {
-            components.push_back(SideSet());
-            comp = components.size() - 1;
-        }
-        SideSet& component = components[comp];
-        assert(side_to_component.find(side) == side_to_component.end());
-        side_to_component[side] = comp;
-        component.insert(side);
-    };
+// Here and elsewhere we adopt the convention that a forward handle indicates
+// the end of a node
+typedef unordered_set<handle_t> HandleSet;
+typedef unordered_map<handle_t, int> Handle2Component;
+static void compute_side_components(const HandleGraph& graph,
+                                    vector<HandleSet>& components,
+                                    Handle2Component& handle_to_component) {
     
-    // create a connected component of a node side and everything adjacent
-    // (if not added already)
-    function<void(NodeSide)> add_node_side = [&](NodeSide side) {
-        queue<NodeSide> q;
-        q.push(side);
-        while (!q.empty()) {
-            NodeSide cur_side = q.front();
-            q.pop();
-            if (side_to_component.find(cur_side) == side_to_component.end()) {
-                update_component(cur_side, cur_side == side ? -1 : components.size() - 1);
-                // visit all adjacent sides
-                set<NodeSide> adj_sides = graph.sides_of(cur_side);
-                for (auto adj_side : adj_sides) {
-                    q.push(adj_side);
-                }
+    // if a handle's side hasn't been added to a component yet, traverses it's component
+    // and adds it to the return structures
+    function<void(const handle_t& handle)> add_handle = [&](const handle_t& handle) {
+        // have we already visited this side?
+        if (!handle_to_component.count(handle)) {
+            // make a new component
+            int component_id = components.size();
+            components.emplace_back();
+            auto& component = components.back();
+            
+            // mark the current node as being on this component
+            handle_to_component[handle] = component_id;
+            component.insert(handle);
+            
+            // set up structures to do a BFS traversal
+            queue<handle_t> q;
+            q.push(handle);
+            
+            while (!q.empty()) {
+                handle_t next_handle = q.front();
+                q.pop();
+                
+                graph.follow_edges(next_handle, false, [&](const handle_t& traversed_handle) {
+                    // to get the handle corresponding to the side we're touching, we have to
+                    // flip the traversal around
+                    handle_t adjacent_side = graph.flip(traversed_handle);
+                    
+                    // if necessary, enqueue and assign the side to a component
+                    if (!handle_to_component.count(adjacent_side)) {
+                        handle_to_component[adjacent_side] = component_id;
+                        component.insert(adjacent_side);
+                        q.push(adjacent_side);
+                    }
+                    return true;
+                });
             }
         }
     };
 
-    graph.for_each_node([&](Node* n) {
-            add_node_side(NodeSide(n->id(), false));
-            add_node_side(NodeSide(n->id(), true));
-        });
+    graph.for_each_handle([&](const handle_t& handle) {
+        // component for end of node
+        add_handle(handle);
+        // component for start of node
+        add_handle(graph.flip(handle));
+    });
+    
+#ifdef debug
+    for (size_t i = 0; i < components.size(); i++) {
+        cerr << "Cactus component " << i << ":" << endl;
+        for (handle_t handle : components[i]) {
+            cerr << "\tNode " << graph.get_id(handle) << (graph.get_is_reverse(handle) ? " start" : " end") << endl;
+        }
+    }
+        
+#endif
 }
 
 void* mergeNodeObjects(void* a, void* b) {
@@ -179,15 +203,15 @@ void addArbitraryTelomerePair(vector<stCactusEdgeEnd*> ends, stList *telomeres) 
 // Step 2) Make a Cactus Graph. Returns the graph and a list of paired
 // cactusEdgeEnd telomeres, one after the other. Both members of the return
 // value must be destroyed.
-pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string>& hint_paths) {
+pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, const unordered_set<string>& hint_paths) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
 
     // start by identifying adjacency components
-    vector<SideSet> components;
-    Side2Component side_to_component;
-    compute_side_components(graph, components, side_to_component);
+    vector<HandleSet> components;
+    Handle2Component handle_to_component;
+    compute_side_components(graph, components, handle_to_component);
 
     // map cactus nodes back to components
     vector<stCactusNode*> cactus_nodes(components.size());
@@ -217,36 +241,41 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             // For every side in it
             
             // Work out the other side of that node
-            NodeSide other_side(side.node, !side.is_end);
+            handle_t other_side = graph.flip(side);
             // And what component it is in
-            int j = side_to_component[other_side];
+            int j = handle_to_component[other_side];
             
-            if (!edge_ends.count(side.node)) {
+            id_t node_id = graph.get_id(side);
+            id_t other_node_id = graph.get_id(other_side);
+            
+            // by our convention, the forward strand traversal is the end
+            bool is_end = !graph.get_is_reverse(side);
+            bool other_is_end = !graph.get_is_reverse(other_side);
+            
+            if (!edge_ends.count(node_id)) {
                 // If we haven't made the Cactus edge for this graph node yet
-            
+                
                 // afraid to try to get C++ NodeSide class into C, so we copy to
                 // equivalent struct
                 CactusSide* cac_side1 = (CactusSide*)malloc(sizeof(CactusSide));
                 CactusSide* cac_side2 = (CactusSide*)malloc(sizeof(CactusSide));
-                cac_side1->node = side.node;
-                cac_side1->is_end = side.is_end;
-                cac_side2->node = other_side.node;
-                cac_side2->is_end = other_side.is_end;
+                cac_side1->node = node_id;
+                cac_side1->is_end = is_end;
+                cac_side2->node = other_node_id;
+                cac_side2->is_end = other_is_end;
 #ifdef debug
-                cerr << "Creating cactus edge for sides " << side << " -- " << other_side << ": "
-                     << i << " -> " << j << endl;
+                cerr << "Creating cactus edge for sides " << pb2json(graph.to_visit(side)) << " -- " << pb2json(graph.to_visit(other_side)) << ": " << i << " -> " << j << endl;
 #endif
-
+                
                 // We get the cactusEdgeEnd corresponding to the side stored in side.
                 // This may be either the left (if that NodeSide is a start), or the right (if that NodeSide is an end).
-                stCactusEdgeEnd* cactus_edge = stCactusEdgeEnd_construct(
-                    cactus_graph,
-                    cactus_nodes[i],
-                    cactus_nodes[j],
-                    cac_side1,
-                    cac_side2);
+                stCactusEdgeEnd* cactus_edge = stCactusEdgeEnd_construct(cactus_graph,
+                                                                         cactus_nodes[i],
+                                                                         cactus_nodes[j],
+                                                                         cac_side1,
+                                                                         cac_side2);
                 // Save the cactusEdgeEnd for the left side of the node.
-                edge_ends[side.node] = side.is_end ? stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge) : cactus_edge;
+                edge_ends[node_id] = is_end ? stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge) : cactus_edge;
             }
         }
     }
@@ -279,6 +308,10 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
     auto all_heads = algorithms::head_nodes(&graph);
     auto all_tails = algorithms::tail_nodes(&graph);
     
+#ifdef debug
+    cerr << "Found " << all_heads.size() << " heads and " << all_tails.size() << " tails in graph" << endl;
+#endif
+    
     // Alot them to components. We store tips in an inward-facing direction
     vector<unordered_set<handle_t>> component_tips(weak_components.size());
     for (auto& head : all_heads) {
@@ -299,35 +332,42 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
     // Also get the path length.
     unordered_map<string, size_t> path_length;
     
-    graph.paths.for_each_name([&](const std::string& name) {
-        // For every path
-        auto& path_mappings = graph.paths.get_path(name);
+    graph.for_each_path_handle([&](const path_handle_t& path_handle) {
         
-        if (path_mappings.empty()) {
+        if (graph.get_occurrence_count(path_handle) == 0) {
             // Not a real useful path, so skip it. Some alt paths used for
             // haplotype generation are empty.
             return;
         }
         
-        // Save the path under the component
-        auto component = node_to_component[path_mappings.front().node_id()];
+        string name = graph.get_path_name(path_handle);
+        
+        occurrence_handle_t occurrence_handle = graph.get_first_occurrence(path_handle);
+        
+        auto component = node_to_component[graph.get_id(graph.get_occurrence(occurrence_handle))];
+        
         component_paths[component].push_back(name);
+        
         
 #ifdef debug
         cerr << "Path " << name << " belongs to component " << component << endl;
 #endif
         
-        for (auto& mapping : graph.paths.get_path(name)) {
-            // Total up the length. We could use from length on the mapping, but
-            // sometimes (like in the tests) the mapping edits haven't been
-            // populated.
-            path_length[name] += graph.get_length(graph.get_handle(mapping.node_id(), false));
+        auto process_occurrence = [&](const occurrence_handle_t& occurrence_handle) {
+            handle_t handle = graph.get_occurrence(occurrence_handle);
+            path_length[name] += graph.get_length(handle);
             
-            if (node_to_component[mapping.node_id()] != component) {
+            if (node_to_component[graph.get_id(handle)] != component) {
                 // If we use a path like this to pick telomeres we will segfault Cactus.
                 throw runtime_error("Path " + name + " spans multiple connected components!");
             }
+        };
+        
+        while (graph.has_next_occurrence(occurrence_handle)) {
+            process_occurrence(occurrence_handle);
+            occurrence_handle = graph.get_next_occurrence(occurrence_handle);
         }
+        process_occurrence(occurrence_handle);
         
 #ifdef debug
         cerr << "\tPath " << name << " has length " << path_length[name] << endl;
@@ -336,14 +376,18 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
     
     // We'll also need the strongly connected components, in case the graph is cyclic.
     // This holds all the strongly connected components that live in each weakly connected component.
-    vector<vector<set<id_t>>> component_strong_components(weak_components.size());
-    for (auto& strong_component : graph.strongly_connected_components()) {
+    vector<vector<unordered_set<id_t>>> component_strong_components(weak_components.size());
+    size_t strong_component_count = 0;
+    for (auto& strong_component : algorithms::strongly_connected_components(&graph)) {
         // For each strongly connected component
         assert(!strong_component.empty());
-        // Assign it to the weak comnponent that some node in it belongs to
-        component_strong_components[node_to_component[*strong_component.begin()]].push_back(strong_component);
+        // Assign it to the weak component that some node in it belongs to
+        component_strong_components[node_to_component[*strong_component.begin()]].emplace_back(move(strong_component));
+        strong_component_count++;
     }
-    
+#ifdef debug
+    cerr << "Graph contains " << strong_component_count << " strongly connected components" << endl;
+#endif
     
     // OK, now we need to fill in the telomeres list with two telomeres per
     // component.
@@ -390,18 +434,18 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                         continue;
                     }
                     
-                    auto& path_mappings = graph.paths.get_path(path_name);
+                    path_handle_t path_handle = graph.get_path_handle(path_name);
+                    
+                    //auto& path_mappings = graph.paths.get_path(path_name);
                     
 #ifdef debug
-                    cerr << "\tPath " << path_name << " has " << path_mappings.size() << " mappings" << endl;
+                    cerr << "\tPath " << path_name << " has " << graph.get_occurrence_count(path_handle) << " mappings" << endl;
 #endif
                     
                     // See if I can get two tips on its ends.
                     // Get the inward-facing start and end handles.
-                    handle_t path_start = graph.get_handle(path_mappings.front().node_id(),
-                        path_mappings.front().is_reverse());
-                    handle_t path_end = graph.get_handle(path_mappings.back().node_id(),
-                        !path_mappings.back().is_reverse());
+                    handle_t path_start = graph.get_occurrence(graph.get_first_occurrence(path_handle));
+                    handle_t path_end = graph.flip(graph.get_occurrence(graph.get_last_occurrence(path_handle)));
                     
                     if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
                         // This path ends in two tips so we can consider it
@@ -457,6 +501,10 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
         // exactly. If we have too many we will have to do a different
         // algorithm that can get stuck in local maxima but should usually
         // produce reasonable rootings quickly.
+    
+#ifdef debug
+        cerr << "This component contains " << component_tips[i].size() << " tips" << endl;
+#endif
         
         if (component_tips[i].size() <= 10) {
         
@@ -738,11 +786,23 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
         }
 
         
-        // Otherwise, we have no pair of tips. We have to
-        // be cyclic, so find the biggest cycle (strongly connected component)
-        // in the weakly connected component, pick an arbitrary node, and pick
-        // the outward-facing ends of the node.
+        // Otherwise, we have no pair of tips.
         
+        // We have to be cyclic, but we could be sort of a dumbell shape:
+        //
+        //  (>1-2<)
+        //
+       
+        // If we can find a node along a normal cycle, where one edge isn't
+        // used twice, we can use opposite ends of that node. If we can find a
+        // node that's on one of these bridges, we can use two copies of the
+        // same side to define a unary snarl. We can also use two copies of the
+        // other side to define the abutting unary snarl, and just have two
+        // top-level unary snarls.
+        
+        // We have to be cyclic, so find the biggest cycle (strongly connected
+        // component) in the weakly connected component, and pick an arbitrary
+        // node.
         {
             // What strongly connected components do we have?
             auto& strong_components = component_strong_components[i];
@@ -754,7 +814,12 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
             size_t largest_component = 0;
             size_t largest_component_nodes = 0;
             for (size_t j = 0; j < strong_components.size(); j++) {
-                // For each other strong component
+                // For each strong component
+                
+#ifdef debug
+                cerr << "Component " << j << " has size " << strong_components[j].size() << endl;
+#endif
+                
                 if (strong_components[j].size() > largest_component_nodes) {
                     // If it has more nodes, take it.
                     
@@ -770,6 +835,9 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                         // TODO: can we poll for the edge more cheaply?
                         bool saw_self = false;
                         graph.follow_edges(member, false, [&](const handle_t& next) {
+#ifdef debug
+                            cerr << "Checked edge from " << graph.get_id(member) << " to " << graph.get_id(next) << endl;
+#endif
                             if (next == member) {
                                 saw_self = true;
                                 return false;
@@ -791,19 +859,93 @@ pair<stCactusGraph*, stList*> vg_to_cactus(VG& graph, const unordered_set<string
                 }
             }
             
-            // Pick some arbitrary node in the largest component.
+#ifdef debug
+            cerr << "Largest actually cyclic component of " << strong_components.size() << " is "
+                << largest_component << " with " << largest_component_nodes << " nodes" << endl;
+#endif
+            
+            // Pick the lowest-ID node in the largest component.
             // Also, assert we found one.
             assert(largest_component_nodes != 0);
-            id_t break_node = *strong_components[largest_component].begin();
+            vector<id_t> sorted_component{strong_components[largest_component].begin(),
+                strong_components[largest_component].end()};
+            std::sort(sorted_component.begin(), sorted_component.end());
+            id_t break_node = sorted_component.front();
             
 #ifdef debug
             cerr << "Elect to break at node " << break_node
                 << " in largest strongly connected component with size " << largest_component_nodes << endl;
 #endif
+
+            // Orient the node
+            handle_t break_handle = graph.get_handle(break_node, false);
             
-            // Break on it
-            // Make sure to feed in telomeres facing out
-            add_telomeres(graph.get_handle(break_node, true), graph.get_handle(break_node, false));
+            // Determine if we can reach this node in the *same* orientation before we reach it in its reverse orientation.
+            // Start only here in this direction.
+            vector<handle_t> dfs_sources{break_handle};
+            // Don't continue backward through this node.
+            unordered_set<handle_t> dfs_sinks{graph.flip(break_handle)};
+            
+            // We set this to true if we find an edge to the forward version of break_handle.
+            bool found = false;
+            
+            function<void(const handle_t&)> handle_noop = [](const handle_t&) {
+            };
+            
+            function<void(const edge_t&)> edge_noop = [](const edge_t&) {
+            };
+            
+            function<bool(void)> dfs_break = [&]() {
+                // Stop the DFS early if we do encounter the thing we are looking for
+                return found;
+            };
+            
+            algorithms::dfs(graph,
+                handle_noop,
+                handle_noop,
+                dfs_break,
+                [&](const edge_t& edge) {
+                    // We found an edge out of an oriented node we are investigating.
+                    
+                    if (edge.second == break_handle) {
+                        // This edge is into the thing we are looking for an edge into.
+                        // It isn't out of the other side because we never explore there.
+                        found = true;
+                    } else if (edge.first == graph.flip(break_handle)) {
+                        // This edge is into the thing we are looking for, but spelled the other way.
+                        found = true;
+                    }
+                },
+                edge_noop,
+                edge_noop,
+                edge_noop,
+                dfs_sources,
+                dfs_sinks);
+                
+            if (found) {
+                // This node is on a normal, 2-edge-connected cycle
+            
+#ifdef debug
+                cerr << "Found an ordinary cycle that can be opened at this node without disconnecting the graph" << endl;
+#endif
+            
+                // If so, break the cycle at opposite ends of the node
+                // Break on it
+                add_telomeres(graph.flip(break_handle), break_handle);
+            } else {
+            
+#ifdef debug
+                cerr << "Found only a both-strand cycle where we will disconnect the graph by dropping this node. Use two unary snarls." << endl;
+#endif
+            
+                // Otherwise, break with the same side of the node twice, because we went around a unary snarl.
+                add_telomeres(break_handle, break_handle);
+                // Also do the other unary snarl.
+                // This breaks the one-telomere-pair-per-component rule, but seems to work to get coverage of the graph.
+                add_telomeres(graph.flip(break_handle), graph.flip(break_handle));
+            }
+            
+            
             continue;
         }
         
@@ -859,7 +1001,7 @@ VG cactusify(VG& graph) {
     if (graph.size() == 0) {
         return VG();
     }
-    auto parts = vg_to_cactus(graph, unordered_set<string>());
+    auto parts = handle_graph_to_cactus(graph, unordered_set<string>());
     stList_destruct(parts.second);
     stCactusGraph* cactus_graph = parts.first;
     VG out_graph = cactus_to_vg(cactus_graph);

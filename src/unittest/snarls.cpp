@@ -13,6 +13,8 @@
 #include "snarls.hpp"
 #include "genotypekit.hpp"
 
+//#define debug
+
 namespace vg {
     namespace unittest {
         TEST_CASE( "NetGraph can allow traversal of a simple net graph",
@@ -49,11 +51,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -143,11 +145,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -293,11 +295,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -442,11 +444,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -614,11 +616,11 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have a chain with a snarl in it
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             top_chains.emplace_back();
             auto& top_chain1 = top_chains.back();
             top_chain1.emplace_back();
-            auto& nested_snarl1 = top_chain1.back();
+            auto& nested_snarl1 = top_chain1.back().first;
             
             // And that snarl has these characteristics
             nested_snarl1.mutable_start()->set_node_id(n2->id());
@@ -724,7 +726,7 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have no chains
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             
             // We havetwo child unary snarls.
             vector<Snarl> top_unary_snarls;
@@ -952,7 +954,7 @@ namespace vg {
             top_snarl.mutable_end()->set_node_id(n8->id());
             
             // We have no chains
-            vector<vector<Snarl>> top_chains;
+            vector<vector<pair<Snarl, bool>>> top_chains;
             
             // We havetwo child unary snarls.
             vector<Snarl> top_unary_snarls;
@@ -1772,7 +1774,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -1795,20 +1797,37 @@ namespace vg {
                 }
                 
                 SECTION("First child is from 1 end to 6 start") {
-                    REQUIRE(child1->start().node_id() == 1);
-                    REQUIRE(!child1->start().backward() == true);
-                    REQUIRE(child1->end().node_id() == 6);
-                    REQUIRE(child1->end().backward() == false);
+                    
+                    {
+                        bool found_in_forward_orientation = (child1->start().node_id() == 1 &&
+                                                             child1->start().backward() == false &&
+                                                             child1->end().node_id() == 6 &&
+                                                             child1->end().backward() == false);
+                        bool found_in_reverse_orientation = (child1->start().node_id() == 6 &&
+                                                             child1->start().backward() == true &&
+                                                             child1->end().node_id() == 1 &&
+                                                             child1->end().backward() == true);
+                        bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                        REQUIRE(found_snarl);
+                    }
                     
                     SECTION("First child has a child from 2 end to 5 start") {
                         REQUIRE(snarl_manager.children_of(child1).size() == 1);
                         
                         const Snarl* subchild = snarl_manager.children_of(child1)[0];
                         
-                        REQUIRE(subchild->start().node_id() == 2);
-                        REQUIRE(!subchild->start().backward() == true);
-                        REQUIRE(subchild->end().node_id() == 5);
-                        REQUIRE(subchild->end().backward() == false);
+                        {
+                            bool found_in_forward_orientation = (subchild->start().node_id() == 2 &&
+                                                                 subchild->start().backward() == false &&
+                                                                 subchild->end().node_id() == 5 &&
+                                                                 subchild->end().backward() == false);
+                            bool found_in_reverse_orientation = (subchild->start().node_id() == 5 &&
+                                                                 subchild->start().backward() == true &&
+                                                                 subchild->end().node_id() == 2 &&
+                                                                 subchild->end().backward() == true);
+                            bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                            REQUIRE(found_snarl);
+                        }
                         
                         SECTION("Subchild has no children") {
                             REQUIRE(snarl_manager.children_of(subchild).size() == 0);
@@ -1819,10 +1838,18 @@ namespace vg {
                 }
                 
                 SECTION("Second child is from 6 end to 9 start") {
-                    REQUIRE(child2->start().node_id() == 6);
-                    REQUIRE(!child2->start().backward() == true);
-                    REQUIRE(child2->end().node_id() == 9);
-                    REQUIRE(child2->end().backward() == false);
+                    {
+                        bool found_in_forward_orientation = (child2->start().node_id() == 6 &&
+                                                             child2->start().backward() == false &&
+                                                             child2->end().node_id() == 9 &&
+                                                             child2->end().backward() == false);
+                        bool found_in_reverse_orientation = (child2->start().node_id() == 9 &&
+                                                             child2->start().backward() == true &&
+                                                             child2->end().node_id() == 6 &&
+                                                             child2->end().backward() == true);
+                        bool found_snarl = found_in_forward_orientation || found_in_reverse_orientation;
+                        REQUIRE(found_snarl);
+                    }
                     
                     SECTION("Second child has no children") {
                         REQUIRE(snarl_manager.children_of(child2).size() == 0);
@@ -1869,7 +1896,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -1901,7 +1928,7 @@ namespace vg {
         }
 
 
-        TEST_CASE("bubbles can be found in bigger graphs with only heads", "[bubbles]") {
+        TEST_CASE("bubbles can be found in bigger graphs with only heads", "[bubbles][broken]") {
             
             // Build a toy graph
             const string graph_json = R"(
@@ -1956,7 +1983,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -1988,8 +2015,12 @@ namespace vg {
                         
                         const Snarl* subchild = snarl_manager.children_of(child1)[0];
                         
+                        if (subchild->start().node_id() > subchild->end().node_id()) {
+                            snarl_manager.flip(subchild);
+                        }
+                        
                         REQUIRE(subchild->start().node_id() == 2);
-                        REQUIRE(!subchild->start().backward() == true);
+                        REQUIRE(subchild->start().backward() == false);
                         REQUIRE(subchild->end().node_id() == 5);
                         REQUIRE(subchild->end().backward() == false);
                         
@@ -2071,7 +2102,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -2107,6 +2138,10 @@ namespace vg {
                         REQUIRE(snarl_manager.children_of(child1).size() == 1);
                         
                         const Snarl* subchild = snarl_manager.children_of(child1)[0];
+                        
+                        if (subchild->start().node_id() > subchild->end().node_id()) {
+                            snarl_manager.flip(subchild);
+                        }
                         
                         REQUIRE(subchild->start().node_id() == 2);
                         REQUIRE(!subchild->start().backward() == true);
@@ -2178,7 +2213,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -2199,7 +2234,7 @@ namespace vg {
             
         }
 
-        TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles]") {
+        TEST_CASE("bubbles can be found in a graph with no heads or tails", "[bubbles][snarls]") {
             
             // Build a toy graph
             const string graph_json = R"(
@@ -2236,7 +2271,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -2314,7 +2349,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -2376,7 +2411,7 @@ namespace vg {
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -2465,11 +2500,10 @@ namespace vg {
             auto ptr4 = snarl_manager.add_snarl(snarl4);
             
             auto ptr1 = snarl_manager.add_snarl(snarl1);
-            snarl_manager.add_chain(Chain{ptr3}, ptr1);
-            snarl_manager.add_chain(Chain{ptr4}, ptr1);
             
             auto ptr2 = snarl_manager.add_snarl(snarl2);
-            snarl_manager.add_chain(Chain{ptr1, ptr2}, nullptr);
+            
+            snarl_manager.finish();
  
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
@@ -2584,12 +2618,11 @@ namespace vg {
             graph.extend(chunk);
             
             SnarlManager snarl_manager = CactusSnarlFinder(graph).find_snarls();
-            
 #ifdef debug
             snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
                 cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
                     << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
-                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false)) {
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
                     cerr << node->id() << " ";
                 }
                 cerr << endl;
@@ -2628,11 +2661,16 @@ namespace vg {
                 }
                 
                 SECTION("We can traverse the chain with iterators") {
-                    auto chains = snarl_manager.chains_of(nullptr);
+                    auto& chains = snarl_manager.chains_of(nullptr);
                     
                     REQUIRE(chains.size() == 1);
                     
                     auto& chain = chains.front();
+                    
+                    // Make sure we are talking about the same exact chain
+                    REQUIRE(&chain == snarl_manager.chain_of(child1));
+                    REQUIRE(&chain == snarl_manager.chain_of(child2));
+                    REQUIRE(&chain == snarl_manager.chain_of(child3));
                     
                     auto begin = chain_begin(chain);
                     auto rbegin = chain_rbegin(chain);
@@ -2736,18 +2774,36 @@ namespace vg {
                     }
                     
                     SECTION("We can view the chain from each end") {
+#ifdef debug
+                        for (auto& pair : chain) {
+                            cerr << "In chain " << &chain << ": " << pair.first->start().node_id() << " - " << pair.first->end().node_id()
+                                << " orientation " << pair.second << endl;
+                        }
+#endif
+                    
+                        REQUIRE(!start_backward(chain));
                         REQUIRE(chain_begin_from(chain, child1, false) == begin);
                         REQUIRE(chain_end_from(chain, child1, false) == end);
                         
+                        REQUIRE(!end_backward(chain));
                         REQUIRE(chain_begin_from(chain, child3, true) == rcbegin);
                         REQUIRE(chain_end_from(chain, child3, true) == rcend);
                         
                         snarl_manager.flip(child1);
                         snarl_manager.flip(child3);
                         
+#ifdef debug
+                        for (auto& pair : chain) {
+                            cerr << "In chain " << &chain << ": " << pair.first->start().node_id() << " - " << pair.first->end().node_id()
+                                << " orientation " << pair.second << endl;
+                        }
+#endif
+                        
+                        REQUIRE(start_backward(chain));
                         REQUIRE(chain_begin_from(chain, child1, true) == chain_begin(chain));
                         REQUIRE(chain_end_from(chain, child1, true) == chain_end(chain));
                         
+                        REQUIRE(end_backward(chain));
                         REQUIRE(chain_begin_from(chain, child3, false) == chain_rcbegin(chain));
                         REQUIRE(chain_end_from(chain, child3, false) == chain_rcend(chain));
                         
@@ -2766,7 +2822,7 @@ namespace vg {
                     snarl_manager.flip(child1);
                     snarl_manager.flip(child2);
                     
-                    auto chains = snarl_manager.chains_of(nullptr);
+                    auto& chains = snarl_manager.chains_of(nullptr);
                     
                     REQUIRE(chains.size() == 1);
                     
@@ -2856,6 +2912,17 @@ namespace vg {
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             
+#ifdef debug
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                cerr << "Found snarl " << snarl->start().node_id() << " " << snarl->start().backward()
+                << " to " << snarl->end().node_id() << " " << snarl->end().backward() << " containing ";
+                for (auto& node : snarl_manager.shallow_contents(snarl, graph, false).first) {
+                    cerr << node->id() << " ";
+                }
+                cerr << endl;
+            });
+#endif
+            
             // Get the top snarl
             const Snarl* top_snarl = snarl_manager.top_level_snarls().at(0);
             
@@ -2877,22 +2944,96 @@ namespace vg {
             REQUIRE(chain.size() == 2);
             
             // And the snarls in the chain
-            const Snarl* left_child = chain.at(0);
-            const Snarl* right_child = chain.at(1);
+            const Snarl* left_child = chain.at(0).first;
+            const Snarl* right_child = chain.at(1).first;
             
-            REQUIRE(left_child->start().node_id() == 2);
-            REQUIRE(left_child->end().node_id() == 4);
+            bool found_chain_orientation_1 = false, found_chain_orientation_2 = false;
             
-            // Make sure the right child is BACKWARD in the chain
+            {
+                bool found_left_snarl_orientation_1 = (left_child->start().node_id() == 2 &&
+                                                       left_child->start().backward() == false &&
+                                                       left_child->end().node_id() == 4 &&
+                                                       left_child->end().backward() == false);
+                bool found_left_snarl_orientation_2 = (left_child->start().node_id() == 4 &&
+                                                       left_child->start().backward() == true &&
+                                                       left_child->end().node_id() == 2 &&
+                                                       left_child->end().backward() == true);
+                bool found_left = found_left_snarl_orientation_1 | found_left_snarl_orientation_2;
+                
+                bool found_right_snarl_orientation_1 = (right_child->start().node_id() == 4 &&
+                                                        right_child->start().backward() == false &&
+                                                        right_child->end().node_id() == 7 &&
+                                                        right_child->end().backward() == false);
+                bool found_right_snarl_orientation_2 = (right_child->start().node_id() == 7 &&
+                                                        right_child->start().backward() == true &&
+                                                        right_child->end().node_id() == 4 &&
+                                                        right_child->end().backward() == true);
+                bool found_right = found_right_snarl_orientation_1 | found_right_snarl_orientation_2;
+                
+                bool found_sub_child = false;
+                const auto& children = snarl_manager.children_of(right_child);
+                if (children.size() == 1){
+                    const Snarl* sub_child = children[0];
+                    
+                    bool found_sub_child_orientation_1 = (sub_child->start().node_id() == 5 &&
+                                                          sub_child->start().backward() == false &&
+                                                          sub_child->end().node_id() == 6 &&
+                                                          sub_child->end().backward() == false);
+                    bool found_sub_child_orientation_2 = (sub_child->start().node_id() == 6 &&
+                                                          sub_child->start().backward() == true &&
+                                                          sub_child->end().node_id() == 5 &&
+                                                          sub_child->end().backward() == true);
+                    found_sub_child = found_sub_child_orientation_1 || found_sub_child_orientation_2;
+                }
+                
+                found_chain_orientation_1 = (found_left && found_right && found_sub_child);
+            }
+            
+            {
+                bool found_left_snarl_orientation_1 = (right_child->start().node_id() == 2 &&
+                                                       right_child->start().backward() == false &&
+                                                       right_child->end().node_id() == 4 &&
+                                                       right_child->end().backward() == false);
+                bool found_left_snarl_orientation_2 = (right_child->start().node_id() == 4 &&
+                                                       right_child->start().backward() == true &&
+                                                       right_child->end().node_id() == 2 &&
+                                                       right_child->end().backward() == true);
+                bool found_left = found_left_snarl_orientation_1 | found_left_snarl_orientation_2;
+                
+                bool found_right_snarl_orientation_1 = (left_child->start().node_id() == 4 &&
+                                                        left_child->start().backward() == false &&
+                                                        left_child->end().node_id() == 7 &&
+                                                        left_child->end().backward() == false);
+                bool found_right_snarl_orientation_2 = (left_child->start().node_id() == 7 &&
+                                                        left_child->start().backward() == true &&
+                                                        left_child->end().node_id() == 4 &&
+                                                        left_child->end().backward() == true);
+                bool found_right = found_right_snarl_orientation_1 | found_right_snarl_orientation_2;
+                
+                bool found_sub_child = false;
+                const auto& children = snarl_manager.children_of(left_child);
+                if (children.size() == 1){
+                    const Snarl* sub_child = children[0];
+                    
+                    bool found_sub_child_orientation_1 = (sub_child->start().node_id() == 5 &&
+                                                          sub_child->start().backward() == false &&
+                                                          sub_child->end().node_id() == 6 &&
+                                                          sub_child->end().backward() == false);
+                    bool found_sub_child_orientation_2 = (sub_child->start().node_id() == 6 &&
+                                                          sub_child->start().backward() == true &&
+                                                          sub_child->end().node_id() == 5 &&
+                                                          sub_child->end().backward() == true);
+                    found_sub_child = found_sub_child_orientation_1 || found_sub_child_orientation_2;
+                }
+                
+                found_chain_orientation_2 = (found_left && found_right && found_sub_child);
+            }
+            
+            bool chain_correct = found_chain_orientation_1 || found_chain_orientation_2;
+            REQUIRE(chain_correct);
+            
+            // Make sure the right child is BACKWARD
             snarl_manager.flip(right_child);
-            
-            REQUIRE(right_child->start().node_id() == 7);
-            REQUIRE(right_child->end().node_id() == 4);
-            
-            const Snarl* right_child_child = snarl_manager.children_of(right_child).at(0);
-            
-            REQUIRE(right_child_child->start().node_id() == 5);
-            REQUIRE(right_child_child->end().node_id() == 6);
             
             SECTION("A chain can be found from a backward member snarl") {
                 const Chain* chain = snarl_manager.chain_of(right_child);
@@ -2901,8 +3042,8 @@ namespace vg {
                 
                 SECTION("The chain has the two snarls in it") {
                     REQUIRE(chain->size() == 2);
-                    REQUIRE(chain->at(0) == left_child);
-                    REQUIRE(chain->at(1) == right_child);
+                    REQUIRE(chain->at(0).first == left_child);
+                    REQUIRE(chain->at(1).first == right_child);
                 }
                 
                 SECTION("The chain end orientations are correct") {
@@ -3035,6 +3176,87 @@ namespace vg {
              }
         }
 
+        TEST_CASE( "Snarls can be found for a graph with no ordinary cycles", "[snarls]" ) {
+            VG graph;
+                
+            // We have this dumbell-shaped graph, where you have to break open
+            // a cycle but just saying you go from a node to itself isn't a
+            // valid snarl.
+            
+            Node* n1 = graph.create_node("A");
+            Node* n2 = graph.create_node("G");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n1, true, false);
+            Edge* e3 = graph.create_edge(n2, n2, false, true);
+            
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            // There must be something in the top level snarls
+            REQUIRE(!snarl_manager.top_level_snarls().empty());
+            
+            // The decomposition must cover all the nodes
+            unordered_set<id_t> seen_nodes;
+            
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                // Get the contents of each snarl
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+            
+                for (auto& node_ptr : contents.first) {
+                    // And record all the nodes
+                    seen_nodes.insert(node_ptr->id());
+                }
+            });
+            
+            // Make sure both nodes appear.
+            REQUIRE(seen_nodes.size() == 2);
+            
+            
+        }
+        
+        TEST_CASE( "Snarls can be found for a bigger graph with no ordinary cycles", "[snarls]" ) {
+            VG graph;
+                
+            Node* n1 = graph.create_node("GCA");
+            Node* n2 = graph.create_node("T");
+            Node* n3 = graph.create_node("G");
+            Node* n4 = graph.create_node("CTGA");
+            Node* n5 = graph.create_node("GCA");
+            
+            Edge* e1 = graph.create_edge(n1, n2);
+            Edge* e2 = graph.create_edge(n1, n2, true, false);
+            Edge* e3 = graph.create_edge(n2, n3);
+            Edge* e4 = graph.create_edge(n3, n4);
+            Edge* e5 = graph.create_edge(n3, n5);
+            Edge* e6 = graph.create_edge(n4, n5);
+            Edge* e7 = graph.create_edge(n5, n3, false, true);
+            
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            
+            // There must be something in the top level snarls
+            REQUIRE(!snarl_manager.top_level_snarls().empty());
+            
+            // The decomposition must cover all the nodes
+            unordered_set<id_t> seen_nodes;
+            
+            snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
+                // Get the contents of each snarl
+                pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.shallow_contents(snarl, graph, true);
+            
+                for (auto& node_ptr : contents.first) {
+                    // And record all the nodes
+                    seen_nodes.insert(node_ptr->id());
+                }
+            });
+            
+            // Make sure all nodes appear.
+            REQUIRE(seen_nodes.size() == 5);
+            
+            
+        }
+
         TEST_CASE( "NetGraph can traverse looping snarls",
                   "[snarls][netgraph]" ) {
         
@@ -3055,9 +3277,41 @@ namespace vg {
             Edge* e7 = graph.create_edge(n5, n3, false, true);
             
             // Define the snarls for the top level
+            
+            // This test depends on the snarl decomposition being rooted at
+            // node 1. So we force that to happen by specifying the snarls
+            // manually.
+            
+            vector<Snarl> to_manage;
+            
+            // We only need the top snarl and its direct child for this test.
+            to_manage.emplace_back();
+            to_manage.back().mutable_start()->set_node_id(1);
+            to_manage.back().mutable_start()->set_backward(true);
+            to_manage.back().mutable_end()->set_node_id(1);
+            to_manage.back().mutable_end()->set_backward(true);
+            to_manage.back().set_type(SnarlType::UNCLASSIFIED);
+            to_manage.back().set_start_self_reachable(true);
+            to_manage.back().set_end_self_reachable(true);
+            to_manage.back().set_start_end_reachable(true);
+            
+            
+            to_manage.emplace_back();
+            to_manage.back().mutable_start()->set_node_id(2);
+            to_manage.back().mutable_start()->set_backward(false);
+            to_manage.back().mutable_end()->set_node_id(2);
+            to_manage.back().mutable_end()->set_backward(true);
+            to_manage.back().set_type(SnarlType::UNARY);
+            to_manage.back().set_start_self_reachable(true);
+            to_manage.back().set_end_self_reachable(true);
+            to_manage.back().set_start_end_reachable(true);
+            to_manage.back().mutable_parent()->mutable_start()->set_node_id(1);
+            to_manage.back().mutable_parent()->mutable_start()->set_backward(true);
+            to_manage.back().mutable_parent()->mutable_end()->set_node_id(1);
+            to_manage.back().mutable_parent()->mutable_end()->set_backward(true);
+            
            
-            CactusSnarlFinder bubble_finder(graph);
-            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            SnarlManager snarl_manager(to_manage.begin(), to_manage.end());
 
             const vector<const Snarl*>& snarls = snarl_manager.top_level_snarls();
             
@@ -3085,7 +3339,7 @@ namespace vg {
                 const vector<const Snarl*>& children= snarl_manager.children_of(
                                                                    topSnarl);
                 //One child snarl starting at node 2 forward
-                const Snarl* childSnarl = children[0];
+                const Snarl* childSnarl = children.at(0);
                 pair<id_t, bool> childNode (childSnarl->start().node_id(),
                                             childSnarl->start().backward());
 
@@ -3198,7 +3452,7 @@ namespace vg {
                 const vector<const Snarl*>& children= snarl_manager.children_of(
                                                                    topSnarl);
                 //One child snarl starting at node 2 forward
-                const Snarl* childSnarl = children[0];
+                const Snarl* childSnarl = children.at(0);
                 pair<id_t, bool> childNode (childSnarl->start().node_id(),
                                             childSnarl->start().backward());
 

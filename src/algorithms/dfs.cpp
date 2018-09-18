@@ -1,15 +1,16 @@
 #include "dfs.hpp"
 
 namespace vg {
+namespace algorithms {
 
 using namespace std;
 
 // depth first search across node traversals with interface to traversal tree via callback
-void handle_graph_dfs(
+void dfs(
     const HandleGraph& graph,
     const function<void(const handle_t&)>& handle_begin_fn,  // called when node orientation is first encountered
     const function<void(const handle_t&)>& handle_end_fn,    // called when node orientation goes out of scope
-    const function<bool(void)>& break_fn,                    // called to check if we should stop the DFS
+    const function<bool(void)>& break_fn,                    // called to check if we should stop the DFS; we stop when true is returned.
     const function<void(const edge_t&)>& edge_fn,            // called when an edge is encountered
     const function<void(const edge_t&)>& tree_fn,            // called when an edge forms part of the DFS spanning tree
     const function<void(const edge_t&)>& edge_curr_fn,       // called when we meet an edge in the current tree component
@@ -37,10 +38,18 @@ void handle_graph_dfs(
 
     // do dfs from given root.  returns true if terminated via break condition, false otherwise
     function<bool(const handle_t&)> dfs_single_source = [&](const handle_t& root) {
-                
+        
+#ifdef debug
+        cerr << "Starting a DFS from " << graph.get_id(root) << " " << graph.get_is_reverse(root) << endl;
+#endif
+        
         // to store the stack frames
         deque<Frame> todo;
         if (state[root] == SearchState::PRE) {
+#ifdef debug
+            cerr << "\tMoving from PRE to CURR" << endl;
+#endif
+        
             state[root] = SearchState::CURR;
                 
             // Collect all the edges attached to the outgoing side of the
@@ -49,6 +58,12 @@ void handle_graph_dfs(
             // follow edges?
             graph.follow_edges(root, false, [&](const handle_t& next) {
                     es.push_back(graph.edge_handle(root, next));
+                    
+#ifdef debug
+                    cerr << "\t\tWill need to investigate edge to "
+                        << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
+#endif
+                    
                 });
                 
             todo.push_back(Frame(root, es.begin(), es.end()));
@@ -63,11 +78,16 @@ void handle_graph_dfs(
         while (!todo.empty()) {
             // get the frame
             auto& frame = todo.back();
-            todo.pop_back();
             // and set up reference to it
-            auto& handle = frame.handle;
-            auto& edges_begin = frame.begin;
-            auto& edges_end = frame.end;
+            auto handle = frame.handle;
+            auto edges_begin = frame.begin;
+            auto edges_end = frame.end;
+            todo.pop_back();
+            
+#ifdef debug
+            cerr << "Continuing DFS; at " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << endl;
+#endif
+            
             // run through the edges to handle
             while (edges_begin != edges_end) {
                 auto& edge = *edges_begin;
@@ -75,16 +95,39 @@ void handle_graph_dfs(
                 edge_fn(edge);
                     
                 // what's the handle we'd get to following this edge
-                const handle_t& target = edge.second;
+                const handle_t& target = graph.traverse_edge_handle(edge, handle);
+                
+#ifdef debug
+                cerr << "\tProcessing edge " << graph.get_id(edge.first) << " " << graph.get_is_reverse(edge.first) << " to "
+                    << graph.get_id(edge.second) << " " << graph.get_is_reverse(edge.second) << endl;
+                cerr << "\tHandled as edge " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << " to "
+                    << graph.get_id(target) << " " << graph.get_is_reverse(target) << endl;
+#endif
 
                 auto search_state = state[target];
                 // if we've not seen it, follow it
                 if (search_state == SearchState::PRE) {
+
+#ifdef debug
+                    cerr << "\t\tDiscovered new destination!" << endl;
+#endif
+                
                     tree_fn(edge);
                     // save the rest of the search for this handle on the stack
                     todo.push_back(Frame(handle, ++edges_begin, edges_end));
+                    
+#ifdef debug
+                    cerr << "\t\tPausing existing stack frame (" << (edges_end - edges_begin) << " edges left)" << endl;
+#endif
+                    
                     // switch our focus to the handle at the other end of the edge
                     handle = target;
+                    
+#ifdef debug
+                    cerr << "\t\tFocusing and moving " << graph.get_id(handle) << " "
+                        << graph.get_is_reverse(handle) << " from PRE to CURR" << endl;
+#endif
+                    
                     // and store it on the stack
                     state[handle] = SearchState::CURR;
                     auto& es = edges[handle];
@@ -94,18 +137,41 @@ void handle_graph_dfs(
                         // follow edges?
                         graph.follow_edges(handle, false, [&](const handle_t& next) {
                                 es.push_back(graph.edge_handle(handle, next));
+                                
+#ifdef debug
+                                cerr << "\t\t\tWill need to investigate edge to "
+                                    << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
+#endif
+                                
                             });
                     }
                     edges_begin = es.begin();
                     edges_end = es.end();
                     // run our discovery-time callback
                     handle_begin_fn(handle);
+                    
+                    // We will continue with edges_begin and edges_end and handle adjusted to this new loaded stack frame.
+                    
+#ifdef debug
+                    cerr << "Now continuing DFS from " << graph.get_id(handle) << " " << graph.get_is_reverse(handle) << endl;
+#endif
+                    
                 } else if (search_state == SearchState::CURR) {
                     // if it's on the stack
+                    
+#ifdef debug
+                    cerr << "\tDestination already discovered" << endl;
+#endif
+                    
                     edge_curr_fn(edge);
                     ++edges_begin;
                 } else {
                     // it's already been handled, so in another part of the tree
+                    
+#ifdef debug
+                    cerr << "\tDestination already completed by a shorter path" << endl;
+#endif
+                    
                     edge_cross_fn(edge);
                     ++edges_begin;
                 }
@@ -132,41 +198,42 @@ void handle_graph_dfs(
     }
 }
 
-void handle_graph_dfs(const HandleGraph& graph,
+void dfs(const HandleGraph& graph,
                       const function<void(const handle_t&)>& handle_begin_fn,
                       const function<void(const handle_t&)>& handle_end_fn,
                       const vector<handle_t>& sources,
                       const unordered_set<handle_t>& sinks) {
     auto edge_noop = [](const edge_t& e) { };
-    handle_graph_dfs(graph,
-                     handle_begin_fn,
-                     handle_end_fn,
-                     [](void) { return false; },
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     sources,
-                     sinks);
+    dfs(graph,
+        handle_begin_fn,
+        handle_end_fn,
+        [](void) { return false; },
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        sources,
+        sinks);
 }
 
-void handle_graph_dfs(const HandleGraph& graph,
+void dfs(const HandleGraph& graph,
                       const function<void(const handle_t&)>& handle_begin_fn,
                       const function<void(const handle_t&)>& handle_end_fn,
                       const function<bool(void)>& break_fn) {
     auto edge_noop = [](const edge_t& e) { };
     vector<handle_t> empty_sources;
     unordered_set<handle_t> empty_sinks;
-    handle_graph_dfs(graph,
-                     handle_begin_fn,
-                     handle_end_fn,
-                     break_fn,
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     edge_noop,
-                     empty_sources,
-                     empty_sinks);
+    dfs(graph,
+        handle_begin_fn,
+        handle_end_fn,
+        break_fn,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        empty_sources,
+        empty_sinks);
 }
 
+}
 }
