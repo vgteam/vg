@@ -62,22 +62,8 @@ before_cache:
 
 addons:
   homebrew:
-    update: true
-    packages:
-      - jq 
-      - jansson 
-      - md5sha1sum
-      - samtools
-      - rasqal
-      - bison
-      - raptor
-      - rasqal
-      - gperftools
-      - autogen
-      - lz4
-      - xz
-      - cairo
-      - expat
+    # We should be able to list packages here, but it isn't quite working, so let's try a Brewfile
+    brewfile: true 
   apt:
     sources:
       - ubuntu-toolchain-r-test
