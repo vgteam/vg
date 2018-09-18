@@ -200,9 +200,6 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    mt19937 rng;
-    rng.seed(seed_val);
-
     xg::XG* xgidx = nullptr;
     ifstream xg_stream(xg_name);
     if(xg_stream) {

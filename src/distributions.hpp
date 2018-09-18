@@ -1,7 +1,11 @@
 #ifndef VG_DISTRIBUTIONS_HPP_INCLUDED
 #define VG_DISTRIBUTIONS_HPP_INCLUDED
 
-// distributions.hpp: contains functions for probability distributions used in genotyping.
+// distributions.hpp: contains functions for probability distributions.
+// Functions from here are used to estimate likelihoods in genotyping. We also
+// have some portable reimplementations of C++ distributions from <random>
+// because the system-provided ones differ in behavior between STL
+// implementations and compilers.
 
 
 #include <map>
@@ -465,6 +469,86 @@ real_t multinomial_censored_sampling_prob_ln(const vector<ProbIn>& probs, const 
     // Sum up all those per-case probabilities
     return logprob_sum(case_logprobs);
 }
+
+
+// These handy sampling distribution implementations (uniform_real_distribution
+// and normal_distribution) matching the C++ <random> API are copied and
+// adapted from code at https://stackoverflow.com/a/34962942
+template<typename T = double>
+class uniform_real_distribution {
+public:
+    typedef T result_type;
+
+    uniform_real_distribution(T _a = 0.0, T _b = 1.0) : m_a(_a), m_b(_b) {
+        // Nothing to do!
+    }
+
+    void reset() {
+        // Also nothing to do!
+    }
+
+    template<class Generator>
+    T operator()(Generator &_g) {
+        double dScale = (m_b - m_a) / ((T)(_g.max() - _g.min()) + (T)1); 
+        return (_g() - _g.min()) * dScale  + m_a;
+    }
+
+    T a() const {
+        return m_a;
+    }
+    
+    T b() const {
+        return m_b;
+    }
+
+protected:
+    T m_a;
+    T m_b;
+};
+
+template<typename T = double>
+class normal_distribution {
+public:
+    typedef T result_type;
+
+    normal_distribution(T _mean = 0.0, T _stddev = 1.0) : m_mean(_mean), m_stddev(_stddev) {
+        // Nothing to do!
+    }
+
+    void reset() {
+        m_distU1.reset();
+    }
+
+    template<class Generator>
+    T operator()(Generator &_g) {
+        // Use Box-Muller algorithm
+        const double pi = 3.14159265358979323846264338327950288419716939937511;
+        double u1 = m_distU1(_g);
+        double u2 = m_distU1(_g);
+        double r = sqrt(-2.0 * log(u1));
+        return m_mean + m_stddev * r * sin(2.0 * pi * u2);
+    }
+
+    T mean() const {
+        return m_mean;
+    }
+    T stddev() const {
+        return m_stddev;
+    }
+
+protected:
+    T m_mean;
+    T m_stddev;
+    vg::uniform_real_distribution<T> m_distU1;
+};
+
+// TODO: Implement uniform_int_distribution and discrete_distribution
+// For now use the STL ones.
+template<typename T = int>
+using uniform_int_distribution = std::uniform_int_distribution<T>;
+
+template<typename T = int>
+using discrete_distribution = std::discrete_distribution<T>;
 
 }
 
