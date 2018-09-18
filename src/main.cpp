@@ -13,6 +13,7 @@
 #include "version.hpp"
 #include "utility.hpp"
 #include "crash.hpp"
+#include "preflight.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -41,12 +42,18 @@ void vg_help(char** argv) {
      cerr << endl << "For more commands, type `vg help`." << endl;
  }
 
-int main(int argc, char *argv[])
-{
+// We make sure to compile main for the lowest common denominator architecture.
+// This works on GCC and Clang. But we have to decalre main and then define it.
+int main(int argc, char *argv[]) __attribute__((__target__("arch=x86-64")));
+
+int main(int argc, char *argv[]) {
+
+    // Make sure the system meets system requirements (i.e. has all the instructions we need)
+    preflight_check();
 
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
-
+    
     // set a higher value for tcmalloc warnings
     setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);
 
