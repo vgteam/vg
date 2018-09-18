@@ -19,7 +19,7 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 ## Usage
 
-### building on Linux
+### Building on Linux
 
 First, obtain the repo and its submodules:
 
@@ -45,27 +45,27 @@ Note that a 64-bit OS is required. Ubuntu 16.04 should work. You will also need 
 
 When you are ready, build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
-### building on Mac OS X
+### Building on MacOS
 
-#### clone VG
+#### Clone VG
 
 The first step is to clone the vg repository:
 
     git clone --recursive https://github.com/vgteam/vg.git
     cd vg
 
-#### install dependencies
+#### Install Dependencies
 
 VG depends on a number of packages being installed on the system where it is being built. Dependencies can be installed using either [MacPorts](https://www.macports.org/install.php) or [Homebrew](http://brew.sh/).
 
-##### using MacPorts
+##### Using MacPorts
 
 You can use MacPorts to install VG's dependencies:
 
     sudo port install libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
     
 
-##### using Homebrew
+##### Using Homebrew
 
 Homebrew provides another package management solution for OSX, and may be preferable to some users over MacPorts. VG ships a `Brewfile` describing its Homebrew dependencies, so from the root vg directory, you can install dependencies, and expose them to vg, like this:
 
@@ -86,7 +86,7 @@ Homebrew provides another package management solution for OSX, and may be prefer
     export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
     export LIBRARY_PATH=$LD_LIBRARY_PATH;
 
-#### (optional) install GNU GCC
+#### (Optional) Install GNU GCC
 
 While Apple's `clang` can build VG, the C++ standard library it uses doesn't support some parallel extensions, so a Clang-built VG will be slower. Better results can be achieved by building with GNU GCC >= 4.9 and its `libstdc++` standard library.
 
@@ -109,7 +109,7 @@ With **Homebrew**, you can install GNU GCC for VG like this:
     ln -s gcc-6 /usr/local/bin/gcc
     ln -s g++-6 /usr/local/bin/g++
     
-#### build
+#### Build
 
 With dependencies and compilers installed, VG can now be built:
 
