@@ -3174,7 +3174,6 @@ namespace vg {
             // scoring.
             auto wanted_alignments = query_population ? population_max_paths : 1;
             auto alignments = optimal_alignments(multipath_alns[i], wanted_alignments);
-            assert(!alignments.empty());
             
 #ifdef debug_multipath_mapper
             cerr << "Got " << alignments.size() << " / " << wanted_alignments << " tracebacks for multipath " << i << endl;
@@ -3182,6 +3181,16 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
             cerr << pb2json(multipath_alns[i]) << endl;
 #endif
+
+            if (alignments.empty()) {
+                // Note that the optimal alignment may be no alignment at all.
+                base_scores[i] = 0;
+                if (include_population_component) {
+                    pop_adjusted_scores[i] = 0;
+                    min_adjustment = min(min_adjustment, 0.0);
+                }
+                continue;
+            }
            
             // Collect the score of the optimal alignment, to use if population
             // scoring fails for a multipath alignment. Put it in the optimal
