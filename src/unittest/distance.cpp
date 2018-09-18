@@ -2193,6 +2193,7 @@ class TestDistanceIndex : public DistanceIndex {
     TEST_CASE("Random test", "[dist]") {
 
 
+/*	    
         ifstream vg_stream1("testGraph");
         VG vg1(vg_stream1);
         vg_stream1.close();
@@ -2203,7 +2204,8 @@ class TestDistanceIndex : public DistanceIndex {
         pos_t pos1 = make_pos_t(194, true, 0);
         pos_t pos2 = make_pos_t(35, false, 0);
 
-//        REQUIRE(di1.maxDistance(pos1, pos2) >= 37);
+        REQUIRE(di1.maxDistance(pos1, pos2) >= 37);
+*/
 
 /*
  
