@@ -550,7 +550,8 @@ public:
     typedef T result_type;
 
     uniform_int_distribution(T _a = 0, T _b = numeric_limits<T>::max()) : m_a(_a), m_b(_b) {
-        // Nothing to do!
+        // Make sure inclusive bounds are valid
+        assert(_b >= _a);
     }
 
     void reset() {
@@ -565,11 +566,12 @@ public:
         static_assert(sizeof(T) <= sizeof(typename Generator::result_type), "cannot generate wider numbers from narrower numbers");
         
         // Define an unsigned widest type to work in
-        using WorkType = typename make_unsigned<T>::type;
+        using WorkType = typename make_unsigned<typename Generator::result_type>::type;
         
         // How big are the source and destination ranges?
-        WorkType source_range_size = _g.max() - _g.min();
-        WorkType dest_range_size = m_b - m_a;
+        // Make sure to note that they are inclusive.
+        WorkType source_range_size = (WorkType) _g.max() - (WorkType) _g.min() + 1;
+        WorkType dest_range_size = m_b - m_a + 1;
         
         // Make sure we are generating a smaller range from a bugger range.
         assert(source_range_size >= dest_range_size);
@@ -602,10 +604,48 @@ protected:
     T m_b;
 };
 
-// TODO: Implement discrete_distribution
-// For now use the STL ones.
+/// We provide a partial discrete_distribution implementation that is just the parts we need
 template<typename T = int>
-using discrete_distribution = std::discrete_distribution<T>;
+class discrete_distribution {
+public:
+    typedef T result_type;
+    typedef double param_type;
+
+    template<class InputIt>
+    discrete_distribution(InputIt first, InputIt last) : m_weights{first, last} {
+        // We can't use an empty weights vector
+        assert(!m_weights.empty());
+        // Compute partial sums
+        std::partial_sum(m_weights.begin(), m_weights.end(), std::back_inserter(m_sums));
+    }
+
+    discrete_distribution(initializer_list<double> weights = {1}) : discrete_distribution(weights.begin(), weights.end()) {
+        // Nothing to do
+    }
+    
+    void reset() {
+        // Also nothing to do!
+    }
+
+    template<class Generator>
+    T operator()(Generator &_g) {
+        
+        // Set up to generate a double from 0 to max weight
+        vg::uniform_real_distribution<double> backing_dist(0, m_sums.back());
+        // Do it and find which cumumative sum is greater than it
+        auto winning_iterator = std::lower_bound(m_sums.begin(), m_sums.end(), backing_dist(_g));
+
+        // Find its category number and return that.
+        return winning_iterator - m_sums.begin();
+        
+    }
+
+protected:
+    // If we ever want to implement the params stuff we need the weights stored.
+    vector<double> m_weights;
+    vector<double> m_sums;
+
+};
 
 }
 
