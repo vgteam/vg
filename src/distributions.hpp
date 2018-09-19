@@ -542,11 +542,68 @@ protected:
     vg::uniform_real_distribution<T> m_distU1;
 };
 
-// TODO: Implement uniform_int_distribution and discrete_distribution
-// For now use the STL ones.
+// This uniform_int_distribution implementation is based on the
+// UniformRealDistribution from https://stackoverflow.com/a/34962942
 template<typename T = int>
-using uniform_int_distribution = std::uniform_int_distribution<T>;
+class uniform_int_distribution {
+public:
+    typedef T result_type;
 
+    uniform_int_distribution(T _a = 0, T _b = numeric_limits<T>::max()) : m_a(_a), m_b(_b) {
+        // Nothing to do!
+    }
+
+    void reset() {
+        // Also nothing to do!
+    }
+
+    template<class Generator>
+    T operator()(Generator &_g) {
+        // Jordan's strategy: discard anything above the highest multiple of your range, then mod down to your range.
+        
+        // First prohibit the case of trying to generate a bigger range from a smaller range.
+        static_assert(sizeof(T) <= sizeof(typename Generator::result_type), "cannot generate wider numbers from narrower numbers");
+        
+        // Define an unsigned widest type to work in
+        using WorkType = typename make_unsigned<T>::type;
+        
+        // How big are the source and destination ranges?
+        WorkType source_range_size = _g.max() - _g.min();
+        WorkType dest_range_size = m_b - m_a;
+        
+        // Make sure we are generating a smaller range from a bugger range.
+        assert(source_range_size >= dest_range_size);
+        
+        // Find the number of tiled dest range copies we can fit
+        WorkType usable_copies = source_range_size / dest_range_size;
+        
+        // Find the max acceptable value
+        WorkType max_acceptable = dest_range_size * usable_copies;
+        
+        // Sample a value in the acceptable range
+        WorkType sampled;
+        do {
+            sampled = (WorkType) _g() - (WorkType) _g.min();
+        } while (sampled > max_acceptable);
+        
+        return sampled % dest_range_size + m_a;
+    }
+
+    T a() const {
+        return m_a;
+    }
+    
+    T b() const {
+        return m_b;
+    }
+
+protected:
+    T m_a;
+    T m_b;
+};
+
+// TODO: Implement discrete_distribution
+// For now use the STL ones.
 template<typename T = int>
 using discrete_distribution = std::discrete_distribution<T>;
 
