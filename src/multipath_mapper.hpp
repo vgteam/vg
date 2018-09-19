@@ -109,6 +109,10 @@ namespace vg {
         double mapq_scaling_factor = 1.0 / 4.0;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
+        // If this is set, use_population_mapqs must be set, and we will always
+        // try to compute population scores, even if there is nothing to
+        // disambiguate. This lets us get an accurate count of scorable reads.
+        bool always_check_population = false;
         size_t population_max_paths = 10;
         // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.
         double recombination_penalty = 20.7; // 20.7 = 9 * 2.3
