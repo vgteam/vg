@@ -10,7 +10,7 @@ plan tests 3
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
-vg sim -n 1000 -l 100 -e 0.01 -i 0.005 -x x.xg -a -s 13931 >x.gam
+vg sim -n 1000 -l 100 -e 0.01 -i 0.005 -x x.xg -a >x.gam
 
 vg gamsort x.gam >x.sorted.gam
 
