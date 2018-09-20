@@ -45,8 +45,8 @@ is "${OUT_OF_RANGE}" "0" "vg filter downsamples correctly"
 
 rm -f x.gam filter_chunk*.gam chunks.bed
 
-vg sim -l 100 -n 100 -p 50 -x x.xg -s 1 -a > paired.gam
-vg sim -l 100 -n 100 -x x.xg -s 1 -a > single.gam
+cp small/x-s1-l100-n100-p50.gam paired.gam
+cp small/x-s1-l100-n100.gam single.gam
 
 # Check downsampling against samtools 1.0+
 # If the installed samtools isn't new enough, fall back on precalculated hashes
