@@ -1810,6 +1810,86 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     }
 }
 
+path_handle_t XG::get_path_handle(const string& path_name) const {
+    return as_path_handle(path_rank(path_name));
+}
+    
+string XG::get_path_name(const path_handle_t& path_handle) const {
+    return path_name(as_integer(path_handle));
+}
+    
+size_t XG::get_occurrence_count(const path_handle_t& path_handle) const {
+    return paths[as_integer(path_handle) - 1]->ids.size();
+}
+    
+size_t XG::get_path_length(const path_handle_t& path_handle) const {
+    return paths[as_integer(path_handle) - 1]->offsets.size();
+}
+    
+size_t XG::get_path_count() const {
+    return paths.size();
+}
+    
+void XG::for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const {
+    for (size_t i = 0; i < paths.size(); i++) {
+        // convert to 1-based rank
+        path_handle_t path_handle = as_path_handle(i + 1);
+        // execute function
+        iteratee(path_handle);
+    }
+}
+
+handle_t XG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    const auto& xgpath = *paths[as_integer(get_path_handle_of_occurrence(occurrence_handle)) - 1];
+    size_t idx = get_ordinal_rank_of_occurrence(occurrence_handle);
+    return get_handle(xgpath.node(idx), xgpath.is_reverse(idx));
+}
+
+occurrence_handle_t XG::get_first_occurrence(const path_handle_t& path_handle) const {
+    occurrence_handle_t occurrence_handle;
+    as_integers(occurrence_handle)[0] = as_integer(path_handle);
+    as_integers(occurrence_handle)[1] = 0;
+    return occurrence_handle;
+}
+
+occurrence_handle_t XG::get_last_occurrence(const path_handle_t& path_handle) const {
+    occurrence_handle_t occurrence_handle;
+    as_integers(occurrence_handle)[0] = as_integer(path_handle);
+    as_integers(occurrence_handle)[1] = paths[as_integer(path_handle) - 1]->ids.size() - 1;
+    return occurrence_handle;
+}
+
+bool XG::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    return as_integers(occurrence_handle)[1] + 1 < paths[as_integers(occurrence_handle)[0] - 1]->ids.size();
+}
+
+bool XG::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    return as_integers(occurrence_handle)[1] > 0;
+}
+
+occurrence_handle_t XG::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    occurrence_handle_t next_occurrence_handle;
+    as_integers(next_occurrence_handle)[0] = as_integers(occurrence_handle)[0];
+    as_integers(next_occurrence_handle)[1] = as_integers(occurrence_handle)[1] + 1;
+    return next_occurrence_handle;
+}
+
+occurrence_handle_t XG::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    occurrence_handle_t prev_occurrence_handle;
+    as_integers(prev_occurrence_handle)[0] = as_integers(occurrence_handle)[0];
+    as_integers(prev_occurrence_handle)[1] = as_integers(occurrence_handle)[1] - 1;
+    return prev_occurrence_handle;
+
+}
+
+path_handle_t XG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    return as_path_handle(as_integers(occurrence_handle)[0]);
+}
+    
+size_t XG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
+    return as_integers(occurrence_handle)[1];
+}
+
 size_t XG::node_size() const {
     return this->node_count;
 }

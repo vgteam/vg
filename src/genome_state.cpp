@@ -555,7 +555,7 @@ ReplaceLocalHaplotypeCommand GenomeState::replace_snarl_haplotype(const ReplaceS
             auto& overall_lane = *it;
             
 #ifdef debug
-            cerr << "Delete " << overall_lane << " from " << kv.first->start() << " -> " << kv.first->end() << endl;
+            cerr << "Delete " << overall_lane << " from " << snarl->start() << " -> " << snarl->end() << endl;
 #endif
             
             // Remove the haplotype and save a copy
@@ -579,9 +579,9 @@ ReplaceLocalHaplotypeCommand GenomeState::replace_snarl_haplotype(const ReplaceS
                     // Get the chain for the child
                     const Chain* child_chain = manager.chain_of(child);
                     
-                    for (const Snarl* s : *child_chain) {
+                    for (auto it = chain_begin(*child_chain); it != chain_end(*child_chain); ++it) {
                         // For each snarl in the chain, remember to delete this overall lane
-                        lanes_to_delete[s].insert(handle_and_lane.second);
+                        lanes_to_delete[it->first].insert(handle_and_lane.second);
                     }
                 }
             }
@@ -665,46 +665,66 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
                 skip_first = false;
                 return;
             }
-            
+                        
             if (net_graph.is_child(visit)) {
-                // If the visit enters a real child snarl, we have to do that
-                // child snarl and all the snarls in its chain.
+                // If the visit enters a real child chain, we have to do that
+                // child chain all the snarls in it.
                 
-                // Get the handle in the backing graph that reads into the child
+                // Get the handle in the backing graph that reads into the chain
                 // in the orientation we are visiting it
                 handle_t into = net_graph.get_inward_backing_handle(visit);
-            
-                // Get the child we are actually reading into from the SnarlManager
-                const Snarl* child = manager.into_which_snarl(backing_graph->to_visit(into));
-            
-                // Get the chain for the child
-                const Chain* child_chain = manager.chain_of(child);
-                
-                // Decide if we are entering the child snarl backward or not
-                bool child_orientation = child->start().node_id() != backing_graph->get_id(into);
                 
 #ifdef debug
-                cerr << "\tEnters into snarl " << child->start() << " -> " << child->end() << endl;
+                cerr << "\tInward backing handle is " << backing_graph->get_id(into) << " "
+                    << backing_graph->get_is_reverse(into) << endl;
+#endif
+            
+                // Get the snarl we really are entering, because get_inward_backing_handle works.
+                const Snarl* entered = manager.into_which_snarl(backing_graph->to_visit(into));
+                
+                // Decide if we are entering it through its end
+                bool entered_snarl_via_end = entered->start().node_id() != backing_graph->get_id(into);
+                
+                // Get the chain that is our child
+                const Chain* child_chain = manager.chain_of(entered);
+                
+                // Get this snarl's orientation in that chain
+                bool entered_orientation_in_chain = manager.chain_orientation_of(entered);
+                
+                // If we enter a snarl via its start, and it is forward in the chain, we do the whole chain forward.
+                // If we enter a snarl via its end, and it is forward in its chain, we do the whole chain reverse.
+                // If we enter a snarl via its start, and it is backward in its chain, we do the whole chain reverse.
+                // If we enter a snarl via its end, and it is backward in its chain, we do the whole chain forward.
+                // F F F
+                // T F T
+                // F T T
+                // T T F
+                // So we use xor here.
+                bool chain_orientation = entered_snarl_via_end != entered_orientation_in_chain;
+                
+#ifdef debug
+                cerr << "\tEnters into chain containing " << entered->start() << " -> " << entered->end()
+                    << " which we enter in orientation " << entered_snarl_via_end
+                    << " and is in orientation " << entered_orientation_in_chain << " in its chain" << endl;
+                cerr << "\tOverall, chain should be traversed in orientation " << chain_orientation << endl;
 #endif
                 
-                // Get the iterators to loop over the chain starting at the child inthis orientation
-                auto it = chain_begin_from(*child_chain, child, child_orientation);
-                auto end = chain_end_from(*child_chain, child, child_orientation);
-                
-                // TODO: We can go through a one-snarl chain either forward or
-                // backward. But the chain iterators will always start at the
-                // start and go left to right, and so see the child snarl
-                // forward. We need to account for the orientation in which we
-                // are entering this child snarl.
-                
-                // Track if we had a previous snarl that would have emitted any shaed nodes.
+                // Get the iterators to loop over the chain in the orientation we have reached it
+                auto it = chain_orientation ? chain_rcbegin(*child_chain) : chain_begin(*child_chain);
+                auto end = chain_orientation ? chain_rcend(*child_chain) : chain_end(*child_chain);
+           
+                // Track if we had a previous snarl that would have emitted any shared nodes.
                 bool had_previous = false;
+                
+                // Make sure we have the end of the chain we were expecting.
+                assert(it->first == entered);
                 
                 for (; it != end; ++it) {
                     // Until we run out of snarls in the chain
                 
 #ifdef debug
-                    cerr << "\t\tHandle " << it->first->start() << " -> " << it->first->end() << " in chain" << endl;
+                    cerr << "\t\tHandle " << it->first->start() << " -> " << it->first->end()
+                        << " orientation " << it->second << " in chain" << endl;
 #endif
                 
                     // Handle this one
@@ -765,6 +785,7 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
         next = manager.into_which_snarl(here);
     }
 }
+
 
 void GenomeState::dump() const {
     for (auto& kv : state) {
@@ -859,10 +880,19 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
                 // And its net graph
                 auto& net_graph = net_graphs.at(parent);
                 
-                // Get a handle_t representing the whole chain. It is numbered
-                // with the start of the chain and is reverse if we aren't
-                // leaving the end of the chain.
-                handle_t chain_handle = net_graph.get_handle(get_start_of(*chain).node_id(), next_visit != get_end_of(*chain));
+                // Get the backing graph handle reading out of the chain
+                handle_t backing_outward = backing_graph->get_handle(next_visit);
+                
+                // Make it inward
+                handle_t backing_inward = backing_graph->flip(backing_outward);
+                
+                // Get a handle_t representing the whole chain.
+                // We get the representative chain handle for the inward backing handle, and flip it back.
+                handle_t chain_handle = net_graph.flip(net_graph.get_handle_from_inward_backing_handle(backing_inward));
+
+#ifdef debug
+                cerr << "Represent chain traversal with " << net_graph.to_visit(chain_handle) << endl;
+#endif
 
                 // Tack it on to the parent
                 stack.front().second.push_back(chain_handle);
