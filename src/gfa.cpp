@@ -1106,7 +1106,7 @@ void graph_to_gfa(const VG* graph, ostream& out) {
             cigaro << n->sequence().size() << (m.is_reverse() ? "M" : "M");
             p_elem.overlaps.push_back( cigaro.str() );
         }
-        out << p_elem.to_string() << endl;
+        out << p_elem.to_string_1() << endl;
         //gg.add_path(p_elem.name, p_elem);
     }
 
