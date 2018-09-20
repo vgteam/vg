@@ -10,8 +10,7 @@ plan tests 17
 # Construct a graph with alt paths so we can make a gPBWT and later a GBWT
 vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz  x.vg
-vg sim -x x.xg -l 100 -n 1000 -s 10 -e 0.01 -i 0.001 -a > x.gam
-vg view -a x.gam > x.gam.json
+vg view -a small/x-l100-n1000-s10-e0.01-i0.01.gam > x.gam.json
 
 # sanity check: does passing no options preserve input
 is $(vg chunk -x x.xg -p x -c 10| vg stats - -N) 210 "vg chunk with no options preserves nodes"
@@ -28,7 +27,7 @@ is $(ls -l _chunk_test*.vg | wc -l) 6 "-s produces correct number of chunks"
 rm -f _chunk_test*
 
 #check that gam chunker runs through without crashing
-vg gamsort x.gam -i x.sorted.gam.gai > x.sorted.gam
+vg gamsort small/x-l100-n1000-s10-e0.01-i0.01.gam -i x.sorted.gam.gai > x.sorted.gam
 printf "x\t2\t200\nx\t500\t600\n" > _chunk_test_bed.bed
 vg chunk -x x.xg -a x.sorted.gam -g -b _chunk_test -e _chunk_test_bed.bed -E _chunk_test_out.bed -c 0
 is $(ls -l _chunk_test*.vg | wc -l) 2 "gam chunker produces correct number of graphs"
@@ -60,5 +59,5 @@ vg chunk -x x.xg -n 5 -b x.chunk/
 is $(cat x.chunk/*vg | vg view -V - 2>/dev/null | sort |  md5sum | cut -f 1 -d\ ) $(vg view x.vg | sort  | md5sum | cut -f 1 -d\ ) "n-chunking works and chunks over the full graph"
 
 rm -rf x.sorted.gam x.sorted.gam.gai _chunk_test_bed.bed _chunk_test* x.chunk
-rm -f x.vg x.xg x.gbwt x.gam x.gam.json filter_chunk*.gam chunks.bed
+rm -f x.vg x.xg x.gbwt x.gam.json filter_chunk*.gam chunks.bed
 rm -f chunk_*.annotate.txt
