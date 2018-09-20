@@ -13,16 +13,20 @@ vg index -x j.xg j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -k 11 -g x.gcsa -x x.xg x.vg
 
-# Simulate some reads from just j
-vg map -G <(vg sim -a -n 100 -x j.xg) -g x.gcsa -x x.xg > j.gam
-# And some from all of x
+# We have already simulated some reads from just j
+vg map -G small/x-allref-nohptrouble.gam -g x.gcsa -x x.xg > j.gam
+# Simulate some from all of x
 vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg > x.gam
 
 is $(vg view -aj j.gam | wc -l) \
     100 "reads are generated"
 
+# Surjection uses path_anchored_surject which keeps aligned stuff aligned even if there's a better alignment that shifts it.
+# This means arbitrarily chosen homopolymer indel alignment that arbitrarily chose wrong won't be fixed.
+# We generate GAMs that don't have that problem.
+
 is $(vg surject -p x -x x.xg -t 1 j.gam | vg view -a - | jq .score | grep 110 | wc -l) \
-    100 "vg surject works perfectly for perfect reads derived from the reference"
+    100 "vg surject works perfectly for perfect reads without misaligned homopolymer indels derived from the reference"
     
 is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject actually places reads on the correct path"
