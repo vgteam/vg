@@ -142,5 +142,98 @@ TEST_CASE( "Ambiguous multinomial works", "[distributions][multinomial]" ) {
 
 }
 
+TEST_CASE( "uniform_int_distribution is uniform", "[distributions][rng]" ) {
+
+    int min_num = -100;
+    int max_num = 99;
+    size_t generations = 10000;
+    
+    vector<size_t> counts(max_num - min_num + 1);
+    
+    uniform_int_distribution<int> dist(min_num, max_num);
+    
+    mt19937 rng(1000);
+    
+    for (size_t i = 0; i < generations; i++) {
+    
+        int generated = dist(rng);
+        
+        REQUIRE(generated >= min_num);
+        REQUIRE(generated <= max_num);
+    
+        counts.at(generated - min_num)++;
+    }
+    
+    for (auto& count : counts) {
+        REQUIRE(count > 0);
+        REQUIRE(count < 100);
+    }
+
+}
+
+TEST_CASE( "uniform_int_distribution works near max", "[distributions][rng]" ) {
+
+    
+    
+    mt19937 rng(1000);
+    
+    SECTION ("We can generate from uint8_t min to max") {
+        uniform_int_distribution<int64_t> dist(numeric_limits<uint8_t>::min(), numeric_limits<uint8_t>::max());
+        // It ought to be nonzro probably
+        REQUIRE(dist(rng) > 0);
+    }
+    
+    SECTION ("We can generate only uint8_t max") {
+        uniform_int_distribution<uint8_t> dist(numeric_limits<uint8_t>::max(), numeric_limits<uint8_t>::max());
+        REQUIRE(dist(rng) == numeric_limits<uint8_t>::max());
+    }
+    
+     SECTION ("We can generate only uint8_t min") {
+        uniform_int_distribution<uint8_t> dist(numeric_limits<uint8_t>::min(), numeric_limits<uint8_t>::min());
+        REQUIRE(dist(rng) == numeric_limits<uint8_t>::min());
+    }
+    
+    SECTION ("We can generate from size_t min to max") {
+        uniform_int_distribution<size_t> dist(numeric_limits<size_t>::min(), numeric_limits<size_t>::max());
+        // It ought to be pretty big
+        REQUIRE(dist(rng) > 100000);
+    }
+    
+    SECTION ("We can generate only size_t max") {
+        uniform_int_distribution<size_t> dist(numeric_limits<size_t>::max(), numeric_limits<size_t>::max());
+        REQUIRE(dist(rng) == numeric_limits<size_t>::max());
+    }
+    
+    SECTION ("We can generate only size_t min") {
+        uniform_int_distribution<size_t> dist(numeric_limits<size_t>::min(), numeric_limits<size_t>::min());
+        REQUIRE(dist(rng) == numeric_limits<size_t>::min());
+    }
+    
+    
+    SECTION ("We can generate from int64_t min to max") {
+        uniform_int_distribution<int64_t> dist(numeric_limits<int64_t>::min(), numeric_limits<int64_t>::max());
+        // It ought to be pretty big in absolute terms
+        
+        int64_t got = dist(rng);
+        if (got < 0) {
+            got = -got;
+        }
+        
+        REQUIRE(got > 100000);
+    }
+    
+    SECTION ("We can generate only int64_t max") {
+        uniform_int_distribution<int64_t> dist(numeric_limits<int64_t>::max(), numeric_limits<int64_t>::max());
+        REQUIRE(dist(rng) == numeric_limits<int64_t>::max());
+    }
+    
+     SECTION ("We can generate only int64_t min") {
+        uniform_int_distribution<int64_t> dist(numeric_limits<int64_t>::min(), numeric_limits<int64_t>::min());
+        REQUIRE(dist(rng) == numeric_limits<int64_t>::min());
+    }
+    
+
+}
+
 }
 }

@@ -542,8 +542,92 @@ protected:
     vg::uniform_real_distribution<T> m_distU1;
 };
 
-// This uniform_int_distribution implementation is based on the
-// UniformRealDistribution from https://stackoverflow.com/a/34962942
+/// We use this widerer to widen the output of a PRNG that generates only
+/// numbers in a smaller range so they cover a wider int type.
+template<typename PRNG, typename OutType>
+class WideningPRNG {
+public:
+    
+    using result_type = OutType;
+
+    WideningPRNG(PRNG& to_widen) : base(to_widen) {
+        // Nothing to do
+    }
+    
+    OutType min() const {
+        return numeric_limits<OutType>::min();
+    }
+    
+    OutType max() const {
+        return numeric_limits<OutType>::max();
+    }
+    
+    /// Generate a random number filling all OutType's bits with random bits.
+    OutType operator()() {
+        static_assert(is_unsigned<OutType>::value, "OutType must be an unsigned int type");
+        static_assert(numeric_limits<long long unsigned int>::digits >= numeric_limits<OutType>::digits, "OutType is too wide to bit count in");
+        
+        // Work out how wide the base PRNG range is, in total (counting the inclusive bounds)
+        // We assume that this will fit in the wider type we are trying to fill.
+        // Otherwise you don't need this class.
+        OutType base_range = (OutType) base.max() - (OutType) base.min() + 1;
+        
+        // The base range must be 1 bit at least. Otherwise we will make no progress.
+        assert(base_range >= 2);
+        
+        // Count unset leading bits with this useful compiler builtin.
+        // Hope your compiler has it.
+        auto unused_bits = __builtin_clzll(base_range);
+        auto used_bits = numeric_limits<long long unsigned int>::digits - unused_bits;
+        
+        // Get just that max used bit
+        OutType used_bit = 1 << (used_bits - 1);
+        
+        // If a generated number from the RNG has this bit flag in it, it has
+        // passed the largest complete power of 2 it can make and needs to be
+        // rerolled.
+        OutType reroll_flag = 0;
+        
+        if (base_range > used_bit) {
+            // We don't cover a power of 2 exactly.
+            // If the high bit is set we're going to need to reroll.
+            reroll_flag = used_bit;
+            // Lop off a bit for computing how many bits we actually got.
+            used_bit = used_bit >> 1;
+            used_bits--;
+        }
+
+        assert(used_bits > 0);
+
+        OutType generated = 0;
+        int generated_bits = 0;
+        
+        while (generated_bits < numeric_limits<OutType>::digits) {
+            // Shift what's there up to make room for new bits.
+            generated = generated << used_bits;
+            
+            OutType new_bits;
+            do {
+                // Generate bits until we're below the largest power of 2 we can generate above, if any.
+                new_bits = (OutType) base() - (OutType) base.min();
+            } while (!(new_bits & reroll_flag) && reroll_flag);
+            
+            // Add in the new bits and record that they are there.
+            generated |= new_bits;
+            generated_bits += used_bits;
+        }
+        
+        // Now we have a full type full of bits.
+        return generated;
+    }
+    
+protected:
+    PRNG& base;
+};
+
+
+/// This uniform_int_distribution implementation is based on the
+/// UniformRealDistribution from https://stackoverflow.com/a/34962942
 template<typename T = int>
 class uniform_int_distribution {
 public:
@@ -558,37 +642,35 @@ public:
         // Also nothing to do!
     }
 
+
     template<class Generator>
     T operator()(Generator &_g) {
-        // Jordan's strategy: discard anything above the highest multiple of your range, then mod down to your range.
         
-        // First prohibit the case of trying to generate a bigger range from a smaller range.
-        static_assert(sizeof(T) <= sizeof(typename Generator::result_type), "cannot generate wider numbers from narrower numbers");
+#ifdef debug
+        cerr << "Source range " << _g.min() << " to " << _g.max() << endl;
+        cerr << "Dest range " << m_a << " to " << m_b << endl;
+#endif
         
         // Define an unsigned widest type to work in
-        using WorkType = typename make_unsigned<typename Generator::result_type>::type;
+        using WorkType = typename make_unsigned<typename common_type<typename Generator::result_type, T>::type>::type;
         
         // How big are the source and destination ranges?
-        // Make sure to note that they are inclusive.
-        WorkType source_range_size = (WorkType) _g.max() - (WorkType) _g.min() + 1;
-        WorkType dest_range_size = m_b - m_a + 1;
-        
-        // Make sure we are generating a smaller range from a bugger range.
-        assert(source_range_size >= dest_range_size);
-        
-        // Find the number of tiled dest range copies we can fit
-        WorkType usable_copies = source_range_size / dest_range_size;
-        
-        // Find the max acceptable value
-        WorkType max_acceptable = dest_range_size * usable_copies;
-        
-        // Sample a value in the acceptable range
-        WorkType sampled;
-        do {
-            sampled = (WorkType) _g() - (WorkType) _g.min();
-        } while (sampled > max_acceptable);
-        
-        return sampled % dest_range_size + m_a;
+        // Since they are so big and inclusive we can't always hold their real sizes, so hold size-1
+        WorkType source_range_size_minus_1 = (WorkType) _g.max() - (WorkType) _g.min();
+        WorkType dest_range_size_minus_1 = (WorkType) m_b - (WorkType) m_a;
+    
+        if (source_range_size_minus_1 >= dest_range_size_minus_1) {
+            // The generator's result is going to be wide enough
+            return generate_from_wide_generator(_g);
+        } else {
+            // The hard way is generating a bigger range from a smaller range.
+            // Wrap the generator in something to widen it to our work type
+            // and recurse.
+            WideningPRNG<Generator, WorkType> widened(_g);
+            
+            // Generate with that, which had better be wide enough
+            return generate_from_wide_generator(widened);
+        }
     }
 
     T a() const {
@@ -600,6 +682,62 @@ public:
     }
 
 protected:
+    
+    /// Generate a result when we know the generator will produce a result on a
+    /// range as big as or bigger than ours.
+    template<class Generator>
+    T generate_from_wide_generator(Generator &_g) {
+        // Jordan's strategy: discard anything above the highest multiple of your range, then mod down to your range.
+        
+#ifdef debug
+        cerr << "Source range " << _g.min() << " to " << _g.max() << endl;
+        cerr << "Dest range " << m_a << " to " << m_b << endl;
+#endif
+        
+        // Define an unsigned widest type to work in
+        using WorkType = typename make_unsigned<typename common_type<typename Generator::result_type, T>::type>::type;
+        
+        // How big are the source and destination ranges?
+        // Since they are so big and inclusive we can't always hold their real sizes, so hold size-1
+        WorkType source_range_size_minus_1 = (WorkType) _g.max() - (WorkType) _g.min();
+        WorkType dest_range_size_minus_1 = (WorkType) m_b - (WorkType) m_a;
+        
+        // We must be generating a smaller range from a bigger rnage here.
+        assert(source_range_size_minus_1 >= dest_range_size_minus_1);
+        
+        if (dest_range_size_minus_1 == source_range_size_minus_1) {
+            // Ranges are the same size. No real work to do.
+            return (WorkType) _g() - (WorkType) _g.min() + (WorkType) m_a;
+        }
+        
+        // Otherwise the ranges differ in size. Which means the dest range must
+        // be smaller. Which means the dest range's real size is representable.
+        WorkType dest_range_size = dest_range_size_minus_1 + 1;
+        
+        // Find how many numbers we have to clip off of the top of the source
+        // range so the rest can be covered by tiled destination ranges.
+        WorkType remainder = source_range_size_minus_1 % dest_range_size;
+        // Change the remainder from source_range_size_minus_1 to the remainder for the actual source range size
+        remainder = (remainder + 1) % dest_range_size;
+        
+        if (remainder == 0) {
+            // We perfectly tiled the source range
+            return ((WorkType) _g() - (WorkType) _g.min()) % dest_range_size + (WorkType) m_a;
+        }
+        
+        // Otherwise there are some values we need to reject
+        
+        // Sample a value until we get one that isn't too close to the top of the range.
+        WorkType sampled;
+        do {
+            sampled = (WorkType) _g();
+        } while (_g.max() - sampled < remainder);
+        
+        // Convert to destination range.
+        return (sampled - (WorkType) _g.min()) % dest_range_size + m_a;
+    }
+
+
     T m_a;
     T m_b;
 };
