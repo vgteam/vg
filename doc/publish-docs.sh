@@ -11,7 +11,7 @@ DEST_BRANCH="gh-pages"
 DEST_REPO="git@github.com:vgteam/vg.git"
 # What directory, relative to the source repo's root, do the built docs come from?
 # Probably needs to have a trailing slash
-SOURCE_DIR="doc/doxygen/"
+SOURCE_DIR="doc/doxygen/html/"
 # What directory, relative to the dest repo's root, do the built docs go to?
 # Also probably needs a trailing slash
 DEST_DIR="./"
