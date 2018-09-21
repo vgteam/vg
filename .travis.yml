@@ -122,7 +122,6 @@ matrix:
   include:
     # We have a special entry to do the docs build
     - os: linux
-      env:
-        - BUILD_DOCS_ONLY=1
+      env: BUILD_DOCS_ONLY=1
         
 
