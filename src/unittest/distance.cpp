@@ -480,7 +480,7 @@ class TestDistanceIndex : public DistanceIndex {
     }//End test case
 
 
-    TEST_CASE("Simple chain", "[dist]") {
+    TEST_CASE("Simple chain", "[dist][bug]") {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");

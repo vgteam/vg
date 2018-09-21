@@ -12,10 +12,10 @@ class DistanceIndex {
 
     public: 
     //Constructor 
-    DistanceIndex (VG* vg, SnarlManager* snarlManager, uint64_t cap);
+    DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, uint64_t cap);
 
     //Constructor to load index from serialization 
-    DistanceIndex (VG* vg, SnarlManager* snarlManager, istream& in);
+    DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, istream& in);
   
     //Serialize object into out
     void serialize(ostream& out);
@@ -71,7 +71,7 @@ class DistanceIndex {
             
             //Distance between beginning of node start and beginning of node end
             //Only works for nodes heading their chains (which represent the chains), or snarl boundaries.
-            int64_t snarlDistance(VG* graph,NetGraph* ng,pair<id_t, bool> start,
+            int64_t snarlDistance(HandleGraph* graph,NetGraph* ng,pair<id_t, bool> start,
                                                          pair<id_t, bool> end);
 
  
@@ -85,16 +85,16 @@ class DistanceIndex {
                      int64_t dist);
              
             //Length of a node
-            int64_t nodeLength(VG*graph, NetGraph* ng,  id_t node);
+            int64_t nodeLength(HandleGraph*graph, NetGraph* ng,  id_t node);
         
             //Total length of the snarl
-            int64_t snarlLength(VG* graph, NetGraph* ng);
+            int64_t snarlLength(HandleGraph* graph, NetGraph* ng);
 
             /*Given distances from a position to either end of a node, find the
               shortest distance from that position to the start and end nodes of
               the snarl
             */
-            pair<int64_t, int64_t> distToEnds(VG* graph, NetGraph* ng, 
+            pair<int64_t, int64_t> distToEnds(HandleGraph* graph, NetGraph* ng, 
                              id_t node, bool rev, int64_t distL, int64_t distR);
 
             void printSelf();
@@ -166,7 +166,7 @@ class DistanceIndex {
              * Returns the distance from the **opposite** side of the start
              * node to the specified side of the end node.
              */
-            int64_t chainDistanceShort(VG* graph, pair<id_t, bool> start, 
+            int64_t chainDistanceShort(HandleGraph* graph, pair<id_t, bool> start, 
                                                   pair<id_t, bool> end);
             //Length of entire chain
             int64_t chainLength();
@@ -260,7 +260,7 @@ class DistanceIndex {
     hash_map<id_t, ChainIndex> chainDistances;
 
     //Graph and snarl manager for this index
-    VG* graph;
+    HandleGraph* graph;
 
     SnarlManager* sm;
 
@@ -271,6 +271,7 @@ class DistanceIndex {
     TODO: Maybe put this somewhere else*/
     dac_vector<> nodeToSnarl;
     id_t minNodeID; //minimum node id of the graph
+    id_t maxNodeID; //maximum node id of the graph
 
 //    MaxDistanceIndex maxIndex;
 
@@ -287,7 +288,7 @@ class DistanceIndex {
 
 
     //Helper function for constructor - populate node to snarl
-    int_vector<> calculateNodeToSnarl(VG* vg, SnarlManager* sm);
+    int_vector<> calculateNodeToSnarl(SnarlManager* sm);
 
     //Flag each node with true if it is in a cycle that has minimum length
     //smaller than cap
