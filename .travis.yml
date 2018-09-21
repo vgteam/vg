@@ -101,6 +101,7 @@ addons:
       - libcairo2-dev
       - libpixman-1-dev
       - libffi-dev
+      - doxygen
 
 os:
   - linux
