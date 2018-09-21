@@ -28,12 +28,7 @@ ENCRYPTED_SSH_KEY_FILE="doc/deploy_key.enc"
 # Assumes we are running in the repo root.
 make docs
 
-if [[ "${TRAVIS_PULL_REQUEST}" != "false" || "${TRAVIS_BRANCH}" != "master" ]]; then
-    echo "Documentation should not be deployed"
-    exit 0
-fi
-
-# Otherwise we are deploying the docs
+# Get ready to deploy the docs
 
 # Make a scratch directory
 mkdir -p ./tmp
@@ -80,6 +75,13 @@ git config user.email "${COMMIT_AUTHOR_EMAIL}"
 # Make the commit
 git commit -am "Commit new auto-generated docs"
 
+if [[ "${TRAVIS_PULL_REQUEST}" != "false" || "${TRAVIS_BRANCH}" != "master" ]]; then
+    # If we're not a real master commit, we just did all this for testing purposes.
+    echo "Documentation should not be deployed"
+    exit 0
+fi
+
+# If we are on the right branch, actually push the commit.
 # Push the commit
 git push origin "${DEST_BRANCH}"
 
