@@ -1,5 +1,5 @@
 //#define indexTraverse
-//#define printDistances
+#define printDistances
 
 #include "distance.hpp"
 
@@ -7,10 +7,11 @@ using namespace std;
 namespace vg {
 
 /*TODO: 
+ * Change chain prefix sum to store only distances to beginnings of nodes and just look up node lengths when needed
  * Fix documentation
  * Make chain distance API based on the direction the node is traversed
+ * Also change how nodes are stored in chain - in case of loops
  * Make snarls/chains represented by the node id in netgraph
- * Max distance probably hits long loops
  */
 
 int64_t DistanceIndex::sizeOf() {
@@ -98,6 +99,8 @@ DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, uint64
 
     unordered_set<const Snarl*> seenSnarls;
     for (const Snarl* snarl : topSnarls) {
+       //Make an index for each disconnected snarl/chain
+ 
        if (seenSnarls.count(snarl) == 0){
           if (sm->in_nontrivial_chain(snarl)){
               const Chain* chain = sm->chain_of(snarl);
@@ -117,7 +120,7 @@ DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, uint64
     }
     nodeToSnarl = calculateNodeToSnarl(snarlManager);
     //TODO: Cap should be given
-//    maxIndex = MaxDistanceIndex (this, topSnarls, cap);
+    maxIndex = MaxDistanceIndex (this, topSnarls, cap);
   
 };
 
@@ -154,7 +157,7 @@ DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, istrea
     uint64_t cap = 20;
     const vector<const Snarl*> topSnarls = sm->top_level_snarls();
 //TODO: Serialize this too
-//    maxIndex = MaxDistanceIndex (this, topSnarls, cap);
+    maxIndex = MaxDistanceIndex (this, topSnarls, cap);
 }
 void DistanceIndex::load(istream& in){
     //Load serialized index from an istream
@@ -1131,7 +1134,7 @@ int64_t DistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     }
 */
     int64_t minDist = minDistance(pos1, pos2);
-/*
+
     if (minDist == -1) { 
         return -1;
     } else if (minDist >= maxIndex.cap) {
@@ -1139,8 +1142,6 @@ int64_t DistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     }
      
     return maxIndex.maxDistance(pos1, pos2);
-TODO */
-    return minDist;
 
 }
 
@@ -1173,19 +1174,9 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
             offset2 = get_offset(pos2);
         }
 
-/*TODO: Might need this still
-        if (graph->has_edge(node_start(get_id(pos1)), node_end(get_id(pos1)))){
-            //If there is an edge from start to end of node
 
-            shortestDistance = min(   abs(offset1-offset2)+1,
-                          nodeSize - abs(offset1-offset2) + 1  ); 
+        shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
 
-        } else {
-*/
-
-            shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
-
-//        }
     }
 
     id_t nodeID1 = get_id(pos1);
@@ -2448,7 +2439,7 @@ cerr << endl;
     int64_t minNodeID = distIndex->minNodeID;
     int_vector<> n(maxNodeID- minNodeID + 1, 0);
     nodeToComponent = n;
-//TODO: All distances in these will be +1
+
     int_vector<> max(maxNodeID - minNodeID + 1, 0);
     int_vector<> minFd(maxNodeID - minNodeID + 1, 0);
     int_vector<> minRev(maxNodeID - minNodeID + 1, 0);
@@ -2480,7 +2471,7 @@ cerr << endl;
 
 int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     //Upper bound of distance between two positions
-//TODO: Might incorporate directions- node could be very big
+    
     id_t node1 = get_id(pos1);
     HandleGraph* graph = distIndex->graph;
     int64_t len1 = max(get_offset(pos1),  
@@ -2495,7 +2486,6 @@ int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     int64_t minNodeID = distIndex->minNodeID; 
 
     //Return the max distance between nodes plus maximum length of nodes
-    //TODO: Add just one node len or both?
     uint64_t comp1 = nodeToComponent[node1-minNodeID];
     uint64_t comp2 = nodeToComponent[node2-minNodeID];
     if (comp1 != comp2 || comp1 <= numCycles) {
@@ -2531,7 +2521,6 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
       Returns the maximum component number, the number of connected components
     */
 
-cerr << "NEW COMPONENT " << endl;
     int64_t minNodeID = distIndex->minNodeID;
     HandleGraph* graph = distIndex->graph;
     int64_t maxNodeID = distIndex->maxNodeID;
@@ -2661,7 +2650,6 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
     //TODO: This is arbitrarily breaking long loops
     //TODO: I think not using directions in nodes will still produce an upper bound, just not as tight
 
-cerr << " NEW MAX" << endl;
     HandleGraph* graph = distIndex->graph;
     int64_t minNodeID = distIndex->minNodeID; 
     
@@ -2691,11 +2679,12 @@ cerr << " NEW MAX" << endl;
             
             uint64_t minDist = next.second.first;
             uint64_t maxDist = next.second.second;
+            uint64_t oldMin;
+            uint64_t oldMax;
             bool loopSeen = false;
             if (nodeToComponent[currNode.first-minNodeID] == currComp) {
                 //If in the same component - update distances
 
-                uint64_t oldMin;
                 if (currNode.second) {
                     oldMin = minDistsFd[currNode.first-minNodeID]; 
                     minDist = oldMin == 0 ? minDist :  min(oldMin, minDist);
@@ -2718,13 +2707,13 @@ cerr << " NEW MAX" << endl;
                     uint64_t minDist = currNode.second ? 
                                         minDistsFd[currNode.first-minNodeID] : 
                                         minDistsRev[currNode.first-minNodeID]; 
-                    uint64_t oldMax = maxDists[currNode.first-minNodeID];
+                    oldMax = maxDists[currNode.first-minNodeID];
                     maxDist += 2*(minDist + nodeLen);
                     maxDist = oldMax == 0 ? maxDist : max(oldMax, maxDist);
 
                     maxDists[currNode.first-minNodeID] = maxDist;
                 } else {
-                    uint64_t oldMax = maxDists[currNode.first-minNodeID];
+                    oldMax = maxDists[currNode.first-minNodeID];
                     maxDist = oldMax == 0 ? maxDist : max(oldMax, maxDist);
                     maxDists[currNode.first-minNodeID] = maxDist;
                 }
@@ -2752,21 +2741,28 @@ cerr << " NEW MAX" << endl;
                      graph->get_id(h), graph->get_is_reverse(h));
 
                 uint64_t nodeComp = nodeToComponent[node.first - minNodeID]; 
-                if ( nodeComp == currComp ) {
-//TODO: This might loop
+                if ( nodeComp == currComp) {
                     //If next node is in the same component and either haven't
                     //visited this node before or distance is less than cap
                     if ( nodeToComponent[currNode.first - minNodeID] != currComp
                        && exitNodes.count(make_pair(node.first, !node.second)) 
                             > 0){
                         //If this node is re-entering component from the same node exited
-                        nextNodes.push_back(make_pair(node, 
+                        if (maxDist > oldMax || minDist < oldMin){
+                            //If this node is an improvement
+                            nextNodes.push_back(make_pair(node, 
                                                 make_pair(0, maxDist+nodeLen)));
+                        }
                     } else {
                      
                        
-                        nextNodes.push_back(make_pair(node, 
+                        if (oldMax == 0 || (oldMin+cap > oldMax) 
+                                && (maxDist > oldMax || minDist < oldMin)) {
+                            //If this node hasn't been seen before
+                            //If it has, then if the old distance was not already greater than the cap
+                            nextNodes.push_back(make_pair(node, 
                                   make_pair(minDist+nodeLen, maxDist+nodeLen)));
+                        }
                     }
 
                 } else if ( maxDist < maxMin + cap && !loopSeen) {

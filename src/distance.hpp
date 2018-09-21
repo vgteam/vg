@@ -273,7 +273,7 @@ class DistanceIndex {
     id_t minNodeID; //minimum node id of the graph
     id_t maxNodeID; //maximum node id of the graph
 
-//    MaxDistanceIndex maxIndex;
+    MaxDistanceIndex maxIndex;
 
 
 

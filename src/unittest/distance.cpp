@@ -199,7 +199,7 @@ class TestDistanceIndex : public DistanceIndex {
         using DistanceIndex::DistanceIndex;
         using DistanceIndex::SnarlIndex;
         using DistanceIndex::MaxDistanceIndex;
-       // using DistanceIndex::maxIndex;
+        using DistanceIndex::maxIndex;
         using DistanceIndex::snarlDistances;
         using DistanceIndex::ChainIndex;
         using DistanceIndex::loopDistance;
@@ -1577,7 +1577,7 @@ class TestDistanceIndex : public DistanceIndex {
                                                    make_pair(2, false)) == -1);
             REQUIRE(di.loopDistance(make_pair(1, false),  
                                                    make_pair(12, false)) == -1);
-/*
+
             int64_t c1 = di.maxIndex.nodeToComponent[1];
             int64_t c2 = di.maxIndex.nodeToComponent[6];
             int64_t c3 = di.maxIndex.nodeToComponent[7];
@@ -1596,7 +1596,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.maxIndex.nodeToComponent[10] == c4);
             REQUIRE(di.maxIndex.nodeToComponent[11] == c4);
             REQUIRE(c4 != c5);
-*/
+
         }
     }//End test case
 
@@ -2190,10 +2190,9 @@ class TestDistanceIndex : public DistanceIndex {
  
     }
 
-    TEST_CASE("Random test", "[dist]") {
+    TEST_CASE("Random test", "[dist][rand]") {
 
 
-/*	    
         ifstream vg_stream1("testGraph");
         VG vg1(vg_stream1);
         vg_stream1.close();
@@ -2201,11 +2200,12 @@ class TestDistanceIndex : public DistanceIndex {
         SnarlManager snarl_manager1 = bubble_finder1.find_snarls(); 
 
         TestDistanceIndex di1 (&vg1, &snarl_manager1, 50);
-        pos_t pos1 = make_pos_t(194, true, 0);
-        pos_t pos2 = make_pos_t(35, false, 0);
+        di1.printSelf();
+        pos_t pos1 = make_pos_t(109, true, 0);
+        pos_t pos2 = make_pos_t(111, false, 0);
 
-        REQUIRE(di1.maxDistance(pos1, pos2) >= 37);
-*/
+        REQUIRE(di1.minDistance(pos1, pos2) == 27);
+REQUIRE(false);
 
 /*
  
@@ -2226,7 +2226,7 @@ di.printSelf();
         REQUIRE(di.loopDistance(pos1, pos2 ) == 176);       
 
 */
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 100000; i++) {
             //1000 different graphs
             VG graph = randomGraph(1000, 20, 100); 
 
@@ -2240,7 +2240,7 @@ di.printSelf();
 
             #endif
 
-/*
+
             for (size_t i = 0 ; i < graph.max_node_id(); i++) {
                 if (graph.has_node(i+1)) {
                     REQUIRE(di.maxIndex.nodeToComponent[i] > 0);
@@ -2255,7 +2255,7 @@ di.printSelf();
                     }
                 }
             }
-*/
+
 
 
             vector<const Snarl*> allSnarls;
@@ -2308,9 +2308,9 @@ di.printSelf();
 
                     int64_t myDist = di.minDistance(pos1, pos2);
                     int64_t actDist = distance(&graph, pos1, pos2);
-/*
+
                     int64_t maxDist = di.maxDistance(pos1, pos2);
-*/
+
          
                     int64_t myLoop = di.loopDistance(snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
                     int64_t actLoop = loopDistance(&graph, snarl1, snarl1, make_pair(nodeID1, false), make_pair(nodeID1, false));
@@ -2346,12 +2346,12 @@ di.printSelf();
                     }
                     bool passed = (myDist == actDist) && (myLoop == actLoop) &&
                                    (myEdge == actEdge);
-/*
+
                     if (maxDist != cap) {
                         passed = passed && maxDist > 0;
                         passed = passed &&  (myDist <= maxDist);
                     }	    
-*/
+
 
                     if (!passed) { 
                         graph.serialize_to_file("testGraph");
@@ -2368,7 +2368,7 @@ di.printSelf();
 
                         cerr << "Actual distance: " << actDist << "    " <<
                                 "Guessed distance: " << myDist << endl;
-//                        cerr << "Guessed max distance: " << maxDist << endl;
+                        cerr << "Guessed max distance: " << maxDist << endl;
                         cerr << endl;
 
                         cerr << "Actual loop distance: "  << actLoop << "    " 
