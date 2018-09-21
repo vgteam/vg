@@ -200,9 +200,6 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    mt19937 rng;
-    rng.seed(seed_val);
-
     xg::XG* xgidx = nullptr;
     ifstream xg_stream(xg_name);
     if(xg_stream) {
@@ -220,9 +217,6 @@ int main_sim(int argc, char** argv) {
         }
     }
 
-    // Make a sample to sample reads with
-    Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns);
-    
     // Make a Mapper to score reads, with the default parameters
     Mapper rescorer(xgidx, nullptr, nullptr);
     // We define a function to score a generated alignment under the mapper

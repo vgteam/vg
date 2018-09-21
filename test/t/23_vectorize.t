@@ -9,7 +9,8 @@ plan tests 0
 
 #vg construct -r ../tiny/tiny.fa -v ../tiny/tiny.vcf.gz > tiny.vg
 #vg index -x tiny.xg -g tiny.gcsa -k 16 tiny.vg
-#vg sim -l 10 -s 3 -x tiny.xg tiny.vg > tiny.reads
+## Simulate without seeding to avoid depending on consistent RNG/distribution behavior between versions
+#vg sim -l 10 -x tiny.xg tiny.vg > tiny.reads
 
 ## Can we handle streaming alignments?
 #is $(vg map -x tiny.xg -g tiny.gcsa -r tiny.reads | vg vectorize -x tiny.xg - | wc -l) 10 "Streaming produces the correct number of vectors."

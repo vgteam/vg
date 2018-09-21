@@ -12,9 +12,9 @@ void Sampler::set_source_paths(const vector<string>& source_paths) {
         for (auto& source_path : source_paths) {
             path_lengths.push_back(xgidx->path_length(source_path));
         }
-        path_sampler = discrete_distribution<>(path_lengths.begin(), path_lengths.end());
+        path_sampler = vg::discrete_distribution<>(path_lengths.begin(), path_lengths.end());
     } else {
-        path_sampler = discrete_distribution<>();
+        path_sampler = vg::discrete_distribution<>();
     }
 }
 
@@ -40,10 +40,10 @@ pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_off
 
 pos_t Sampler::position(void) {
     // We sample from the entire graph sequence, 1-based.
-    uniform_int_distribution<size_t> xdist(1, xgidx->seq_length);
+    vg::uniform_int_distribution<size_t> xdist(1, xgidx->seq_length);
     size_t offset = xdist(rng);
     id_t id = xgidx->node_at_seq_pos(offset);
-    uniform_int_distribution<size_t> flip(0, 1);
+    vg::uniform_int_distribution<size_t> flip(0, 1);
     bool rev = forward_only ? false : flip(rng);
     // 1-0 base conversion
     size_t node_offset = offset - xgidx->node_start(id) - 1;
@@ -61,7 +61,7 @@ string Sampler::sequence(size_t length) {
         vector<pos_t> nextp;
         for (auto& n : nextc) nextp.push_back(n.first);
         // pick one at random
-        uniform_int_distribution<int> next_dist(0, nextc.size()-1);
+        vg::uniform_int_distribution<int> next_dist(0, nextc.size()-1);
         // update our position
         pos = nextp.at(next_dist(rng));
         // append to our sequence
@@ -76,8 +76,8 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
                                   double base_error,
                                   double indel_error,
                                   const string& bases,
-                                  uniform_real_distribution<double>& rprob,
-                                  uniform_int_distribution<int>& rbase) {
+                                  vg::uniform_real_distribution<double>& rprob,
+                                  vg::uniform_int_distribution<int>& rbase) {
 
     // we will build up a mapping representing the modified edit
     Mapping new_mapping;
@@ -253,8 +253,8 @@ Alignment Sampler::mutate(const Alignment& aln,
     if (base_error == 0 && indel_error == 0) return aln;
 
     string bases = "ATGC";
-    uniform_real_distribution<double> rprob(0, 1);
-    uniform_int_distribution<int> rbase(0, 3);
+    vg::uniform_real_distribution<double> rprob(0, 1);
+    vg::uniform_int_distribution<int> rbase(0, 3);
 
     Alignment mutaln;
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
@@ -301,7 +301,7 @@ string Sampler::alignment_seq(const Alignment& aln) {
 
 vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double fragment_std_dev, double base_error, double indel_error) {
     // simulate forward/reverse pair by first simulating a long read
-    normal_distribution<> norm_dist(fragment_length, fragment_std_dev);
+    vg::normal_distribution<> norm_dist(fragment_length, fragment_std_dev);
     // bound at read length so we always get enough sequence
     int frag_len = max((int)read_length, (int)round(norm_dist(rng)));
     auto fragment = alignment_with_error(frag_len, base_error, indel_error);
@@ -345,9 +345,9 @@ Alignment Sampler::alignment(size_t length) {
 Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
 
     // Pick a starting point along the path and an orientation
-    uniform_int_distribution<size_t> xdist(0, xgidx->path_length(source_path) - 1);
+    vg::uniform_int_distribution<size_t> xdist(0, xgidx->path_length(source_path) - 1);
     size_t path_offset = xdist(rng);
-    uniform_int_distribution<size_t> flip(0, 1);
+    vg::uniform_int_distribution<size_t> flip(0, 1);
     bool rev = forward_only ? false : flip(rng);
     
     // We will fill in this string
@@ -434,7 +434,7 @@ Alignment Sampler::alignment_to_graph(size_t length) {
         vector<pos_t> nextp;
         for (auto& n : nextc) nextp.push_back(n.first);
         // pick one at random
-        uniform_int_distribution<int> next_dist(0, nextc.size()-1);
+        vg::uniform_int_distribution<int> next_dist(0, nextc.size()-1);
         // update our position
         pos = nextp.at(next_dist(rng));
         // update our char
@@ -587,7 +587,7 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
             path_sizes.push_back(xg_index.path_length(source_path));
             start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
         }
-        path_sampler = discrete_distribution<>(path_sizes.begin(), path_sizes.end());
+        path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
     }
     
     if (substition_polymorphism_rate < 0.0 || substition_polymorphism_rate > 1.0
@@ -976,7 +976,7 @@ bool NGSSimulator::advance_on_graph(pos_t& pos, char& graph_char) {
         return true;
     }
     
-    uniform_int_distribution<size_t> pos_distr(0, next_pos_chars.size() - 1);
+    vg::uniform_int_distribution<size_t> pos_distr(0, next_pos_chars.size() - 1);
     size_t next = pos_distr(prng);
     auto iter = next_pos_chars.begin();
     for (size_t i = 0; i != next; i++) {
@@ -1034,7 +1034,7 @@ bool NGSSimulator::advance_on_graph_by_distance(pos_t& pos, size_t distance) {
         if (edges.empty()) {
             return true;
         }
-        size_t choice = uniform_int_distribution<size_t>(0, edges.size() - 1)(prng);
+        size_t choice = vg::uniform_int_distribution<size_t>(0, edges.size() - 1)(prng);
         Edge& edge = edges[choice];
         if (id(pos) == edge.from() && is_rev(pos) == edge.from_start()) {
             get_id(pos) = edge.to();
@@ -1456,7 +1456,7 @@ void NGSSimulator::MarkovDistribution<From, To>::finalize() {
             cond_distr.second[i] += cond_distr.second[i - 1];
         }
         
-        samplers[cond_distr.first] = uniform_int_distribution<size_t>(1, cond_distr.second.back());
+        samplers[cond_distr.first] = vg::uniform_int_distribution<size_t>(1, cond_distr.second.back());
     }
 }
 
@@ -1464,7 +1464,7 @@ template<class From, class To>
 To NGSSimulator::MarkovDistribution<From, To>::sample_transition(From from) {
     // return randomly if a transition has never been observed
     if (!cond_distrs.count(from)) {
-        return value_at[uniform_int_distribution<size_t>(0, value_at.size() - 1)(prng)];
+        return value_at[vg::uniform_int_distribution<size_t>(0, value_at.size() - 1)(prng)];
     }
     
     size_t sample_val = samplers[from](prng);

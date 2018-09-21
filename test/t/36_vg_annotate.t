@@ -13,9 +13,9 @@ vg mod -N t.vg >t.ref.vg
 vg index -x t.xg t.vg
 vg index -x t.ref.xg t.ref.vg
 
-is "$(vg sim -s 7331 -n 10 -l 50 -x t.xg -a | vg annotate -n -x t.ref.xg -a - | awk '{ if ($5 < 50) print }' | wc -l)" "10" "we can detect when reads contain non-reference variation"
+is "$(vg annotate -n -x t.ref.xg -a tiny/tiny-s7331-n10-l50.gam | awk '{ if ($5 < 50) print }' | wc -l)" "10" "we can detect when reads contain non-reference variation"
 
-vg sim -s 543 -n 30 -l 10 -x t.xg -a | vg annotate -b tiny/tiny.bed -x t.ref.xg -a - > annotated.gam
+vg annotate -b tiny/tiny.bed -x t.ref.xg -a tiny/tiny-s543-n30-l10.gam > annotated.gam
 is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat1 | wc -l)" 3 "vg annotate finds the right number of reads overlapping a feature"
 is "$(vg view -aj annotated.gam | grep feat1 | grep '"node_id":"1"' | wc -l)" "$(vg view -aj annotated.gam | grep feat1 | wc -l)" "all reads overlapping a feature fall on its node"
 is "$(vg view -aj annotated.gam | jq -c '.annotation.features' | grep feat1 | grep feat2 | wc -l)" 0 "vg annotate finds no reads touching both of two distant features"

@@ -24,7 +24,8 @@ include $(wildcard $(ALGORITHMS_OBJ_DIR)/*.d)
 include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
 
-CXXFLAGS := -O3 -fopenmp -Werror=return-type -std=c++11 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
+# We don't ask for -fopenmp here because how we get it can depend on the compiler
+CXXFLAGS := -O3 -Werror=return-type -std=c++11 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo)
 
@@ -38,12 +39,37 @@ ifeq ($(shell uname -s),Darwin)
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /opt/local/lib if present
-	    LD_LIB_FLAGS += -L/opt/local/lib
+        LD_LIB_FLAGS += -L/opt/local/lib
     endif
 
     ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/lib if present.
         LD_LIB_FLAGS += -L/usr/local/lib
+    endif
+
+    # Our compiler might be clang that lacks -fopenmp support.
+    # Sniff that
+    ifeq ($(strip $(shell $(CXX) -fopenmp /dev/null -o/dev/null 2>&1 | grep fopenmp | wc -l)), 1)
+		# The compiler complained about fopenmp instead of its nonsense input file.
+        # We need to use the hard way of getting OpenMP not bundled with the compiler.
+        # The compiler only needs to do the preprocessing
+        CXXFLAGS += -Xpreprocessor -fopenmp
+
+        ifeq ($(shell if [ -d /opt/local/lib/libomp ];then echo 1;else echo 0;fi), 1)
+            # Use /opt/local/lib/libomp if present, because Macports installs libomp there.
+            # Brew is supposed to put it somewhere the compiler can find it by default.
+            LD_LIB_FLAGS += -L/opt/local/lib/libomp
+            # And we need to find the includes. Homebrew puts them in the normal place
+            # but Macports hides them in "libomp"
+            CXXFLAGS += -I/opt/local/include/libomp
+        endif
+
+        # We also need to link it
+        LD_LIB_FLAGS += -lomp
+        # And we need to find the includes. Homebrew puts them in the normal place but macports hides them in "libomp"
+        CXXFLAGS += -I/opt/local/include/libomp
+    else
+        CXXFLAGS += -fopenmp
     endif
 
 else
@@ -56,6 +82,9 @@ else
 
 	# We want to link against the elfutils libraries
 	LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
+
+    # We get OpenMP the normal way, using whatever the compiler knows about
+    CXXFLAGS += -fopenmp
 endif
 
 # These libs need to come after libdw if used, because libdw depends on them
@@ -526,20 +555,33 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	$(RM) -r $(INC_DIR)
 	$(RM) -r $(CPP_DIR)
 	$(RM) -r share/
+	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean
 	cd $(DEP_DIR) && cd htslib && $(MAKE) clean
 	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gbwt && $(MAKE) clean
 	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
+	cd $(DEP_DIR) && cd ssw && cd src && $(MAKE) clean
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd fastahack && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd fsom && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd libVCFH && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd smithwaterman && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd test && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd filevercmp && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd intervaltree && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd multichoose && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && cd tabixpp && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
 	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
+	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
 	## TODO vg source code
 	## TODO LRU_CACHE

@@ -30,6 +30,7 @@ namespace vg {
     class NoAlignmentInBandException : public exception {
         virtual const char* what() const noexcept;
         static const string message;
+        int get_count();
     };
     
     /**
@@ -340,12 +341,7 @@ namespace vg {
         void finish_current_edit();
         void finish_current_node();
     };
-    
-    // define aligners for allowed integer types
-    template class BandedGlobalAligner<int8_t>;
-    template class BandedGlobalAligner<int16_t>;
-    template class BandedGlobalAligner<int32_t>;
-    template class BandedGlobalAligner<int64_t>;
+
 }
 
 #endif /* banded_global_aligner_hpp */

@@ -16,6 +16,7 @@
 #include "position.hpp"
 #include "cached_position.hpp"
 #include "xg_position.hpp"
+#include "distributions.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
 
@@ -51,7 +52,7 @@ public:
     bool no_Ns;
     // A vector which, if nonempty, gives the names of the paths to restrict simulated reads to.
     vector<string> source_paths;
-    discrete_distribution<> path_sampler; // draw an index in source_paths
+    vg::discrete_distribution<> path_sampler; // draw an index in source_paths
     inline Sampler(xg::XG* x,
             int seed = 0,
             bool forward_only = false,
@@ -112,8 +113,8 @@ public:
                              double base_error,
                              double indel_error,
                              const string& bases,
-                             uniform_real_distribution<double>& rprob,
-                             uniform_int_distribution<int>& rbase);
+                             vg::uniform_real_distribution<double>& rprob,
+                             vg::uniform_int_distribution<int>& rbase);
 
     string alignment_seq(const Alignment& aln);
     
@@ -171,7 +172,7 @@ private:
     private:
         
         default_random_engine prng;
-        unordered_map<From, uniform_int_distribution<size_t>> samplers;
+        unordered_map<From, vg::uniform_int_distribution<size_t>> samplers;
         
         unordered_map<To, size_t> column_of;
         vector<To> value_at;
@@ -273,13 +274,13 @@ private:
     LRUCache<id_t, vector<Edge> > edge_cache;
     
     default_random_engine prng;
-    discrete_distribution<> path_sampler;
-    vector<uniform_int_distribution<size_t> > start_pos_samplers;
-    uniform_int_distribution<uint8_t> strand_sampler;
-    uniform_int_distribution<size_t> background_sampler;
-    uniform_int_distribution<size_t> mut_sampler;
-    uniform_real_distribution<double> prob_sampler;
-    normal_distribution<double> insert_sampler;
+    vg::discrete_distribution<> path_sampler;
+    vector<vg::uniform_int_distribution<size_t>> start_pos_samplers;
+    vg::uniform_int_distribution<uint8_t> strand_sampler;
+    vg::uniform_int_distribution<size_t> background_sampler;
+    vg::uniform_int_distribution<size_t> mut_sampler;
+    vg::uniform_real_distribution<double> prob_sampler;
+    vg::normal_distribution<double> insert_sampler;
     
     const double sub_poly_rate;
     const double indel_poly_rate;

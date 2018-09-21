@@ -5769,7 +5769,7 @@ void VG::to_dot(ostream& out,
 
         snarl_manager.for_each_snarl_preorder([&](const Snarl* snarl) {
             // For every snarl
-            if (!snarl->type() == ULTRABUBBLE) {
+            if (snarl->type() != ULTRABUBBLE) {
                 // Make sure it is an ultrabubble
                 return;
             }

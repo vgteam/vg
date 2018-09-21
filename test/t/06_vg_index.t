@@ -146,7 +146,7 @@ is $? 0 "GBWT can be built for both paths and haplotypes"
 rm -f x_ref.gbwt x_both.gbwt
 
 vg index -x x.xg x.vg
-vg sim -s 2384259 -n 100 -l 100 -x x.xg -a >sim.gam
+vg sim -n 100 -l 100 -x x.xg -a >sim.gam
 vg index -G x_gam.gbwt -M sim.gam -x x_gam.xg x.vg
 
 is $(vg paths -g x_gam.gbwt -T -x x_gam.xg -V | vg view -c - | jq -cr '.path[].name'  | sort | md5sum | cut -f 1 -d\ ) $(vg view -a sim.gam | jq -r .name | sort | md5sum | cut -f 1 -d\ ) "we can build a GBWT from alignments and index it by name with xg thread naming"
@@ -169,7 +169,7 @@ is $? 0 "a prebuilt deBruijn graph in GCSA2 format may be used"
 rm -f x.gcsa x.gcsa.lcp x.graph
 
 vg index -x x.xg -g x.gcsa -k 11 x.vg
-vg map -T <(vg sim -s 1337 -n 100 -x x.xg) -d x > x1337.gam
+vg map -T <(vg sim -n 100 -x x.xg) -d x > x1337.gam
 vg index -a x1337.gam -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 101 "index can store alignments"
 is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignments"
@@ -188,7 +188,7 @@ vg index -a x1337.gam -d x.vg.aln
 vg index -a x1337.gam -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 201 "alignment index can be loaded using sequential invocations; next_nonce persistence"
 
-vg map -T <(vg sim -s 1337 -n 100 -x x.xg) -d x | vg index -m - -d x.vg.map
+vg map -T small/x-s1337-n100-v2.reads -d x | vg index -m - -d x.vg.map
 is $(vg index -D -d x.vg.map | wc -l) 1477 "index stores all mappings"
 
 # Compare our indexes against gamsort's
@@ -247,13 +247,13 @@ is $? 0 "can index backward nodes"
 vg index -k 11 -g r.gcsa reversing/reversing_x.vg
 is $? 0 "can index kmers for backward nodes"
 
-vg map -T <(vg sim -s 1338 -n 100 -x r.xg) -d r | vg index -a - -d r.aln.idx
+vg map -T <(vg sim -n 100 -x r.xg) -d r | vg index -a - -d r.aln.idx
 is $(vg index -D -d r.aln.idx | wc -l) 101 "index can store alignments to backward nodes"
 
 rm -rf r.aln.idx r.xg r.gcsa
 
 vg index -x c.xg -g c.gcsa -k 11 cyclic/all.vg
-vg map -T <(vg sim -s 1337 -n 100 -x c.xg) -d c | vg index -a - -d all.vg.aln
+vg map -T <(vg sim -n 100 -x c.xg) -d c | vg index -a - -d all.vg.aln
 is $(vg index -D -d all.vg.aln | wc -l) 101 "index can store alignments to cyclic graphs"
 
 rm -rf all.vg.aln c.xg c.gcsa

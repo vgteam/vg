@@ -19,80 +19,105 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 ## Usage
 
-### building
+### Building on Linux
 
-Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need `jq`, `bc` and `rs`.
+First, obtain the repo and its submodules:
+
+    git clone --recursive https://github.com/vgteam/vg.git
+    cd vg
+    
+Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc` and `rs`. On Ubuntu, you should be able to do:
+
+    make get-deps
+    
+On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
                          jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
                          lzma-dev liblzma-dev liblz4-dev libffi-dev
 
-You can also run `make get-deps`.
-
 At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 16.04 should work.
+Note that a 64-bit OS is required. Ubuntu 16.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
 
-Now, obtain the repo and its submodules:
+When you are ready, build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
+
+### Building on MacOS
+
+#### Clone VG
+
+The first step is to clone the vg repository:
 
     git clone --recursive https://github.com/vgteam/vg.git
+    cd vg
 
-Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
+#### Install Dependencies
 
-#### building on Mac OS X
+VG depends on a number of packages being installed on the system where it is being built. Dependencies can be installed using either [MacPorts](https://www.macports.org/install.php) or [Homebrew](http://brew.sh/).
 
-##### using Mac Ports
+##### Using MacPorts
 
-VG won't build with XCode's compiler (clang), but it should work with GCC >= 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
+You can use MacPorts to install VG's dependencies:
 
-    sudo port install gcc7 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo clang-3.8
+    sudo port install libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
+    
+
+##### Using Homebrew
+
+Homebrew provides another package management solution for OSX, and may be preferable to some users over MacPorts. VG ships a `Brewfile` describing its Homebrew dependencies, so from the root vg directory, you can install dependencies, and expose them to vg, like this:
+
+    # Install all the dependencies in the Brewfile
+    brew bundle
+    
+    # Use GNU versions of coreutils over Apple versions
+    export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+
+    # Force use of new version of bison
+    brew link bison --force
+
+    # Use glibtool/ize
+    export LIBTOOL=glibtool
+    export LIBTOOLIZE=glibtoolize
+
+    # Use installed libraries
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
+    export LIBRARY_PATH=$LD_LIBRARY_PATH;
+
+#### (Optional) Install GNU GCC
+
+While Apple's `clang` can build VG, the C++ standard library it uses doesn't support some parallel extensions, so a Clang-built VG will be slower. Better results can be achieved by building with GNU GCC >= 4.9 and its `libstdc++` standard library.
+
+With **MacPorts**, you can install GNU GCC like this:
+
+    sudo port install gcc7 clang-3.8
 
 To make GCC 7 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
 
     sudo port select gcc mp-gcc7
 
-Some OSX users also need to have the MacPorts clang assembler for dependencies (use `none` instead of `mp-clang-3.8` to revert back):
+Some OSX users also need to have the MacPorts Clang assembler for building VG's dependencies (use `none` instead of `mp-clang-3.8` to revert back):
 
     sudo port select clang mp-clang-3.8
 
-VG can now be cloned and built:
+With **Homebrew**, you can install GNU GCC for VG like this:
 
-    git clone --recursive https://github.com/vgteam/vg.git
-    cd vg
+    brew install gcc6
+    # Manually create symlinks to make Homebrew GCC 6 the default gcc and g++
+    ln -s gcc-6 /usr/local/bin/gcc
+    ln -s g++-6 /usr/local/bin/g++
+    
+#### Build
+
+With dependencies and compilers installed, VG can now be built:
+
     . ./source_me.sh && make
     
 **Note that static binaries cannot yet be built for Mac.**
 
-Our team has also successfully built vg on Mac with GCC versions 4.9, 5.3, 6, and 7.3.
-
-##### using Homebrew
-
-[Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
-
-```
-brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor bison lz4 xz
-export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
-
-# Force use of new version of bison
-brew link bison --force
-
-# Use glibtool/ize
-export LIBTOOL=glibtool
-export LIBTOOLIZE=glibtoolize
-# Make symlinks to use gxx-4.9 instead of builtin gxx (CC and CXX not yet fully honored)
-ln -s gcc-4.9 /usr/local/bin/gcc
-ln -s g++-4.9 /usr/local/bin/g++
-
-export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
-export LIBRARY_PATH=$LD_LIBRARY_PATH;
-
-git clone --recursive https://github.com/vgteam/vg.git  
-cd vg/  
-. ./source_me.sh && make
-```
+Our team has successfully built vg on Mac with GCC versions 4.9, 5.3, 6, 7, and 7.3, as well as Clang 9.0.
 
 ### Variation graph construction
 

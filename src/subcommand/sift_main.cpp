@@ -385,7 +385,7 @@ int main_sift(int argc, char** argv){
             
             ret = ff.insert_size_filter(alns_first, alns_second);
             if (ret){
-                #pragma omp critial (insert_selected)
+                #pragma omp critical (insert_selected)
                 {
                     insert_selected.push_back(alns_first);
                     insert_selected.push_back(alns_second);

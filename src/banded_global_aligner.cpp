@@ -14,7 +14,7 @@
 //#define debug_banded_aligner_traceback
 //#define debug_banded_aligner_print_matrices
 
-using namespace vg;
+namespace vg {
 
 template<class IntType>
 BandedGlobalAligner<IntType>::BABuilder::BABuilder(Alignment& alignment) :
@@ -2677,6 +2677,16 @@ const string NoAlignmentInBandException::message = "error:[BandedGlobalAligner] 
 
 const char* NoAlignmentInBandException::what() const noexcept {
     return message.c_str();
+}
+
+// Define aligners for allowed integer types.
+// This MUST occur after the actual members of the types are defined, according to the standard.
+// Only members with definitions we have seen already are supposed to be created.
+template class BandedGlobalAligner<int8_t>;
+template class BandedGlobalAligner<int16_t>;
+template class BandedGlobalAligner<int32_t>;
+template class BandedGlobalAligner<int64_t>;
+
 }
 
 
