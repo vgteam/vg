@@ -21,7 +21,7 @@ COMMIT_AUTHOR_EMAIL="anovak+travisdocbot@soe.ucsc.edu"
 # What SSH key, relative to this repo's root, should we decrypt and use for doc deployment?
 ENCRYPTED_SSH_KEY_FILE="doc/deploy_key.enc"
 
-# We expect ENCRYPTION_LABEL to come in from the environment, specifying the ID
+# We expect DOCS_KEY_ENCRYPTION_LABEL to come in from the environment, specifying the ID
 # of the encrypted deploy key we will use to get at the docs repo.
 
 # Build the documentation.
@@ -34,8 +34,8 @@ make docs
 mkdir -p ./tmp
 
 # Get our encryption key and IV variable names
-ENCRYPTION_KEY_VAR="encrypted_${ENCRYPTION_LABEL}_key"
-ENCRYPTION_IV_VAR="encrypted_${ENCRYPTION_LABEL}_iv"
+ENCRYPTION_KEY_VAR="encrypted_${DOCS_KEY_ENCRYPTION_LABEL}_key"
+ENCRYPTION_IV_VAR="encrypted_${DOCS_KEY_ENCRYPTION_LABEL}_iv"
 
 # Decrypt the encrypted deploy SSH key
 # Get the key and IV from the variables we have the names of.
