@@ -23,7 +23,7 @@ REGION_NAME="CHR21"
 VCF_BASENAME="1kg_hg19-CHR21.vcf.gz"
 FASTA_BASENAME="CHR21.fa"
 # Define where to get them
-SOURCE_BASE_URL="s3://cgl-pipeline-inputs/vg_cgl/bakeoff"
+SOURCE_BASE_URL="s3://vg-data/bakeoff"
 # Define the contig we are using
 GRAPH_CONTIG="21"
 # Define the region to build the graph on, as contig[:start-end]
