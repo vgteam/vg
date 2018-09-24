@@ -28,6 +28,14 @@ ENCRYPTED_SSH_KEY_FILE="doc/deploy_key.enc"
 # Assumes we are running in the repo root.
 make docs
 
+if [[ ! -z "${TRAVIS_PULL_REQUEST_SLUG}" && "${TRAVIS_PULL_REQUEST_SLUG}" != "${TRAVIS_REPO_SLUG}" ]]; then
+    # This is an external PR. We have no access to the encryption keys for the encrypted deploy SSH key.
+    # We want to check out the dest repo with that key because it's much simpler than hacking the remote from https to ssh.
+    # So we won't even test copying the docs over to the destination repo.
+    echo "Not testing deploy; no encryption keys available for external PRs."
+    exit 0
+fi
+
 # Get ready to deploy the docs
 
 # Make a scratch directory
@@ -88,8 +96,10 @@ git config user.email "${COMMIT_AUTHOR_EMAIL}"
 git commit -am "Commit new auto-generated docs"
 
 if [[ "${TRAVIS_PULL_REQUEST}" != "false" || "${TRAVIS_BRANCH}" != "master" ]]; then
-    # If we're not a real master commit, we just did all this for testing purposes.
-    echo "Documentation should not be deployed"
+    # If we're not a real master commit, we just make sure the docs build.
+    # Also, unless we're a branch in the main vgteam/vg repo, we don't have access to the encryption keys anyway.
+    # So we can't even try to deploy.
+    echo "Documentation should not be deployed because this is not a mainline master build"
     exit 0
 fi
 
