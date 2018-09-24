@@ -37,6 +37,18 @@ mkdir -p ./tmp
 ENCRYPTION_KEY_VAR="encrypted_${DOCS_KEY_ENCRYPTION_LABEL}_key"
 ENCRYPTION_IV_VAR="encrypted_${DOCS_KEY_ENCRYPTION_LABEL}_iv"
 
+echo "Want to decrypt ${ENCRYPTED_SSH_KEY_FILE} using key from variable ${ENCRYPTION_KEY_VAR} and IV from variable ${ENCRYPTION_IV_VAR}"
+
+if [[ -z "${!ENCRYPTION_KEY_VAR}" ]]; then
+    echo "Encryption key not found!"
+    exit 1
+fi
+
+if [[ -z "${!ENCRYPTION_IV_VAR}" ]]; then
+    echo "Encryption IV not found!"
+    exit 1
+fi
+
 # Decrypt the encrypted deploy SSH key
 # Get the key and IV from the variables we have the names of.
 openssl aes-256-cbc -K "${!ENCRYPTION_KEY_VAR}" -iv "${!ENCRYPTION_IV_VAR}" -in "${ENCRYPTED_SSH_KEY_FILE}" -out ./tmp/deploy_key -d
