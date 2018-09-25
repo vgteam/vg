@@ -42,6 +42,7 @@ class DistanceIndex {
     //Given a node, find the snarl containing it
     const Snarl* snarlOf(id_t nodeID);
 
+    int64_t sizeOf();
     protected:
     void printSelf();
     class SnarlIndex {
@@ -135,11 +136,12 @@ class DistanceIndex {
         public:
         
             //Constructor
-            ChainIndex(hash_map<id_t, size_t> s, vector<int64_t> p,
-                        vector<int64_t> fd, vector<int64_t> rev );
+            ChainIndex(DistanceIndex* di, hash_map<id_t, size_t> s, 
+                         vector<int64_t> p, vector<int64_t> fd, 
+                          vector<int64_t> rev );
 
             //Constructor from vector of ints after serialization
-            ChainIndex(vector<int64_t> v);
+            ChainIndex(DistanceIndex* di, vector<int64_t> v);
 
             /*Convert contents into vector of ints for serialization
                stored as [node_id1, prefixsum1 start, prefixsum1 end,
@@ -155,7 +157,8 @@ class DistanceIndex {
              * encounter the node in reverse, then true is the *left* side of
              * the node and false is the *right* side.
              */
-            int64_t chainDistance(pair<id_t, bool> start, pair<id_t, bool> end);
+            int64_t chainDistance(pair<id_t, bool> start, pair<id_t, bool> end,
+                                const Snarl* startSnarl, const Snarl* endSnarl);
 
             /**
              * Takes the graph and two node sides, with orientations specified
@@ -166,17 +169,12 @@ class DistanceIndex {
              * Returns the distance from the **opposite** side of the start
              * node to the specified side of the end node.
              */
-            int64_t chainDistanceShort(HandleGraph* graph, pair<id_t, bool> start, 
-                                                  pair<id_t, bool> end);
+            int64_t chainDistanceShort(HandleGraph* graph, 
+                                pair<id_t, bool> start, pair<id_t, bool> end,
+                                const Snarl* startSnarl, const Snarl* endSnarl);
             //Length of entire chain
             int64_t chainLength();
 
-            /* Given the distance from a position to either end of a snarl in 
-               the chain, find the shortest distance from the position to 
-               either end of the chain
-            */ 
-            pair<int64_t, int64_t> distToEnds(pair<id_t, bool> start,
-                                              int64_t distL, int64_t distR);
             void printSelf();
 
         protected:
@@ -202,8 +200,11 @@ class DistanceIndex {
         
             /*Helper function for finding distances*/
             int64_t chainDistanceHelper(pair<size_t, bool> start, 
-                                   pair<size_t, bool> end, bool recurse = true);
+                     pair<size_t, bool> end, const Snarl* startSnarl, 
+                        const Snarl* endSnarl, bool recurse = true);
 
+        private: 
+            DistanceIndex* distIndex; 
         friend class DistanceIndex;   
         friend class TestDistanceIndex;
     }; 
@@ -247,7 +248,6 @@ class DistanceIndex {
         friend class TestDistanceIndex;
     };
 
-    int64_t sizeOf();
     ///////// Data members of overall index
 
     //map each node to connected component for max distance estimation 
