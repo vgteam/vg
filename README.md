@@ -1,7 +1,7 @@
 # vg
 
 [![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](http://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_reports/branch/master/index.html) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
-[![Documentation Status](https://readthedocs.org/projects/vg/badge/?version=latest)](http://vg.readthedocs.io/en/latest/?badge=latest)
+[![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 

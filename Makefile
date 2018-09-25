@@ -248,7 +248,7 @@ test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB
 
 docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(CPP_DIR)/vg.pb.cc
 	doxygen
-	cd doc && sphinx-build -b html . sphinx
+	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
 
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
