@@ -82,18 +82,15 @@ rsync -aqr "${SOURCE_DIR}" "tmp/dest/${DEST_DIR}" --delete --filter='protect .gi
 
 cd ./tmp/dest
 
-if git diff --quiet; then
-    # Don't commit nothing
-    echo "No changes to commit"
-    exit 0
-fi
+# Add all the files here (except hidden ones)
+git add *
 
 # Become the user we want to be
 git config user.name "${COMMIT_AUTHOR_NAME}"
 git config user.email "${COMMIT_AUTHOR_EMAIL}"
 
 # Make the commit
-git commit -am "Commit new auto-generated docs"
+git commit -m "Commit new auto-generated docs"
 
 if [[ "${TRAVIS_PULL_REQUEST}" != "false" || "${TRAVIS_BRANCH}" != "master" ]]; then
     # If we're not a real master commit, we just make sure the docs build.
