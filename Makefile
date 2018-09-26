@@ -258,14 +258,9 @@ else
 	ln -s `which shuf` $(BIN_DIR)/shuf
 endif
 
-# Make sure we have protoc built, and the protobuf lib, both of which come from the same command using this fake intermediate
-bin/protoc: .rebuild-protobuf
-$(LIB_DIR)/libprotobuf.a: .rebuild-protobuf
-	# intermediate targets don't trigger a rebuild just because they're missing.
-.INTERMEDIATE: .rebuild-protobuf
-	# Make sure to delete outdated libs and headers before rebuilding
-	# Outdated headers can get picked up during the build
-.rebuild-protobuf: deps/protobuf/src/google/protobuf/*.cc
+# Make sure we have protoc built, and the protobuf lib
+bin/protoc: $(LIB_DIR)/libprotobuf.a
+$(LIB_DIR)/libprotobuf.a: deps/protobuf/src/google/protobuf/*.cc
 	rm -rf $(LIB_DIR)/libprotobuf* $(LIB_DIR)/libprotoc*
 	rm -Rf include/google/protobuf/
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && export DIST_LANG=cpp && ./configure --prefix="$(CWD)" $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH

@@ -38,8 +38,9 @@ fi
 
 # Get ready to deploy the docs
 
-# Make a scratch directory
-mkdir -p ./tmp
+# Make a scratch directory *outside* our normal git repo
+SCRATCH_DIR="../tmp"
+mkdir -p "${SCRATCH_DIR}"
 
 # Get our encryption key and IV variable names
 ENCRYPTION_KEY_VAR="encrypted_${DOCS_KEY_ENCRYPTION_LABEL}_key"
@@ -59,33 +60,34 @@ fi
 
 # Decrypt the encrypted deploy SSH key
 # Get the key and IV from the variables we have the names of.
-openssl aes-256-cbc -K "${!ENCRYPTION_KEY_VAR}" -iv "${!ENCRYPTION_IV_VAR}" -in "${ENCRYPTED_SSH_KEY_FILE}" -out ./tmp/deploy_key -d
+openssl aes-256-cbc -K "${!ENCRYPTION_KEY_VAR}" -iv "${!ENCRYPTION_IV_VAR}" -in "${ENCRYPTED_SSH_KEY_FILE}" -out "${SCRATCH_DIR}/deploy_key" -d
 # Protect it so the agent is happy
-chmod 600 ./tmp/deploy_key
+chmod 600 "${SCRATCH_DIR}/deploy_key"
 
 # Start an agent and add the key
 eval "$(ssh-agent -s)"
-ssh-add ./tmp/deploy_key
+ssh-add "${SCRATCH_DIR}/deploy_key"
 
 # Turn on echo so we can see what we're doing.
 # This MUST happen only AFTER we are done toucking the encryption stuff.
-set -e
+set -x
 
-# Check out the dest repo, now that we can authenticate, shallow-ly to avoid getting all history
-git clone "${DEST_REPO}" ./tmp/dest
+# Clone the dest repo, now that we can authenticate.
+# Don't check it out, so we can get just the branch we want or start a new branch with a clean working copy.
+git clone --no-checkout "${DEST_REPO}" "${SCRATCH_DIR}/dest"
 
 # Go in and get/make the destination branch
-cd ./tmp/dest
+pushd "${SCRATCH_DIR}/dest"
 git checkout "${DEST_BRANCH}" || git checkout --orphan "${DEST_BRANCH}"
+popd
 
 # Drop the files in
 # See https://explainshell.com/explain?cmd=rsync+-aqr+--delete+--exclude
 # We need to not clobber any .git in the destination.
-rsync -aqr "../../${SOURCE_DIR}" "${DEST_DIR}" --delete --exclude .git
+rsync -avr "${SOURCE_DIR}" "${SCRATCH_DIR}/dest/${DEST_DIR}" --delete --exclude .git
 
-# Show what things look like now with the files in place
-pwd
-ls -a
+# Go back in to make the commit
+pushd "${SCRATCH_DIR}/dest"
 
 # Add all the files here (except hidden ones)
 git add *
