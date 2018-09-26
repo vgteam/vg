@@ -67,20 +67,25 @@ chmod 600 ./tmp/deploy_key
 eval "$(ssh-agent -s)"
 ssh-add ./tmp/deploy_key
 
+# Turn on echo so we can see what we're doing.
+# This MUST happen only AFTER we are done toucking the encryption stuff.
+set -e
+
 # Check out the dest repo, now that we can authenticate, shallow-ly to avoid getting all history
 git clone "${DEST_REPO}" ./tmp/dest
 
 # Go in and get/make the destination branch
 cd ./tmp/dest
 git checkout "${DEST_BRANCH}" || git checkout --orphan "${DEST_BRANCH}"
-cd ../..
 
 # Drop the files in
-# See https://explainshell.com/explain?cmd=rsync+-aqr+--delete+--filter
+# See https://explainshell.com/explain?cmd=rsync+-aqr+--delete+--exclude
 # We need to not clobber any .git in the destination.
-rsync -aqr "${SOURCE_DIR}" "tmp/dest/${DEST_DIR}" --delete --filter='protect .git/**/*'
+rsync -aqr "../../${SOURCE_DIR}" "${DEST_DIR}" --delete --exclude .git
 
-cd ./tmp/dest
+# Show what things look like now with the files in place
+pwd
+ls -a
 
 # Add all the files here (except hidden ones)
 git add *
