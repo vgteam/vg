@@ -11,42 +11,43 @@ dist: trusty
 # differing/updated files (updating only their mtimes), and then put the fixed
 # version back.
 before_install:
-  - if [ -e deps ]; then mv deps deps_cached; fi
-  - git submodule update --init --recursive
-  - rsync -rv --links --checksum deps/ deps_cached/
-  - rm -Rf deps
+  - if [[ -z "$BUILD_DOCS_ONLY" ]]; then if [[ -e deps ]]; then mv deps deps_cached; fi; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" ]]; then git submodule update --init --recursive; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" ]]; then rsync -rv --links --checksum deps/ deps_cached/; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" ]]; then rm -Rf deps; fi
   # Keep the cached deps if the right compiler version was used.
   # Otherwise start fresh
-  - if [[ "$TRAVIS_OS_NAME" == "linux" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle; fi # TODO: Check back after addon has been fixed.
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-9.4"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew install gcc6 || true; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew link --overwrite gcc@6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p ./bin; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which g++-6` ./bin/g++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p deps; touch deps/gcc6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" ]]; then mkdir -p deps; touch deps/clang; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle; fi # TODO: Check back after addon has been fixed.
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then sudo softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-9.4"; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew install gcc6 || true; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew link --overwrite gcc@6; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p ./bin; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which g++-6` ./bin/g++; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" ]]; then mkdir -p deps; touch deps/clang; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
   - gcc --version && g++ --version
-  - python ./configure.py
-  - source ./source_me.sh
+  - if [[ -z "$BUILD_DOCS_ONLY" ]]; then python ./configure.py; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" ]]; then source ./source_me.sh; fi
 install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps; fi
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then git submodule update --recursive && make -j4 && echo Testing && make test && make static -j4; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then git submodule update --recursive && timeout 1800 make deps -j4 && make -j4 && echo Testing && make test; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then git submodule update --recursive && make -j4 && echo Testing && make test && make static -j4; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then git submodule update --recursive && timeout 1800 make deps -j4 && make -j4 && echo Testing && make test; fi
+  - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
   directories:
@@ -100,6 +101,7 @@ addons:
       - libcairo2-dev
       - libpixman-1-dev
       - libffi-dev
+      - doxygen
 
 os:
   - linux
@@ -107,11 +109,19 @@ os:
 compiler:
   - gcc
 env:
-  - INSTALL_GCC=1
-  - INSTALL_GCC=0
+  global:
+    - DOCS_KEY_ENCRYPTION_LABEL=125272388526
+  matrix:
+    - INSTALL_GCC=1
+    - INSTALL_GCC=0
   
 matrix:
   exclude:
     - os: linux
       env: INSTALL_GCC=1
+  include:
+    # We have a special entry to do the docs build
+    - os: linux
+      env: BUILD_DOCS_ONLY=1
+        
 
