@@ -15,7 +15,7 @@ before_install:
   - if [[ -e deps ]]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
   - rsync -rv --links --checksum deps/ deps_cached/
-  - rm -Rf dep
+  - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
   # Otherwise start fresh
   - if [[ "$TRAVIS_OS_NAME" == "linux" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
