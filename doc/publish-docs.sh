@@ -89,8 +89,8 @@ rsync -avr "${SOURCE_DIR}" "${SCRATCH_DIR}/dest/${DEST_DIR}" --delete --exclude 
 # Go back in to make the commit
 pushd "${SCRATCH_DIR}/dest"
 
-# Add all the files here (except hidden ones)
-git add *
+# Add all the files here (except hidden ones) and add deletions
+git add -A
 
 # Become the user we want to be
 git config user.name "${COMMIT_AUTHOR_NAME}"
