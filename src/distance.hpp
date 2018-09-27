@@ -42,9 +42,9 @@ class DistanceIndex {
     //Given a node, find the snarl containing it
     const Snarl* snarlOf(id_t nodeID);
 
-    int64_t sizeOf();
-    protected:
+    pair<int64_t, int64_t> sizeOf();
     void printSelf();
+    protected:
     class SnarlIndex {
         
         /* Stores distance information for nodes in a snarl.
@@ -226,15 +226,17 @@ class DistanceIndex {
             int_vector<> minDistances;   //Min and max distances to
             int_vector<> maxDistances;   //sink nodes in topological order
             uint64_t numCycles;         //Number of cyclic connected components
-            uint64_t numComponents;     //Number of connected components
             uint64_t cap;               //Maximum distance to be considered
           
             void printSelf();
        
         private:
-            //Helper functions for constructor
-            //Assign each node to a connected component of cycles
             DistanceIndex* distIndex; 
+
+            ////////Helper functions for constructor
+
+            //Assign each node to a connected component of only cycles or 
+            //only not in cycles
             uint64_t findComponents( int_vector<>& nodeToComponent, 
                              int_vector<>& maxDists, int_vector<>& minDistsFd,
                              int_vector<>& minDistsRev, 
