@@ -67,7 +67,7 @@ private:
     size_t bin_size = 0;
     size_t edit_length = 0;
     size_t edit_count = 0;
-    dac_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
+    enc_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
     //
     vector<csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > > edit_csas;
     // make separators that are somewhat unusual, as we escape these
