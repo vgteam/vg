@@ -1765,5 +1765,41 @@ TEST_CASE("create_handle() correctly creates handles using given sequence and id
     
 }
 
+TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
+
+    SECTION("Two redundant SNP values should be merged") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "T"},
+                {"id": 3, "sequence": "T"},
+                {"id": 4, "sequence": "G"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        graph.normalize();
+        
+        // One of the two alternative Ts should have been eliminated
+        REQUIRE(graph.node_size() == 4);
+        
+    }
+        
+    
+}
+
 }
 }
