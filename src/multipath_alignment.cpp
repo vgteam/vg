@@ -116,22 +116,33 @@ namespace vg {
         // the length of read sequence preceding this subpath
         vector<int64_t> prefix_length;
         
-        /// Make a new MultipathProblem over the given number of subpaths
-        MultipathProblem(size_t subpath_size) : prefix_score(subpath_size, 0),
-            prev_subpath(subpath_size, -1), prefix_length(subpath_size, 0) {
+        /// Make a new MultipathProblem over the given number of subpaths with scores
+        /// initialized according to whether we're doing a local or global traceback
+        MultipathProblem(const MultipathAlignment& multipath_aln, bool subpath_global)
+            : prefix_score(multipath_aln.subpath_size(), subpath_global ? numeric_limits<int32_t>::min() / 2 : 0),
+              prev_subpath(multipath_aln.subpath_size(), -1), prefix_length(multipath_aln.subpath_size(), 0) {
             
-            // Nothing to do!
+            if (subpath_global) {
+                // set the starting score at sources to 0 so that alignments can only start there
+                for (const auto& i : multipath_aln.start()) {
+                    prefix_score[i] = 0;
+                }
+            }
         }
     };
     
     /// Internal helper function for running the dynamic programming problem
     /// represented by a multipath alignment. Returns the filled DP problem,
     /// the optimal ending subpath, or -1 if no subpath is optimal, and the
-    /// optimal score, or 0 if no score is optimal.
-    tuple<MultipathProblem, int64_t, int32_t> run_multipath_dp(const MultipathAlignment& multipath_aln) {
-    
+    /// optimal score, or 0 if no score is optimal. An option toggles whether
+    /// the traceback should be global (a source to a sink in the multipath DAG)
+    /// or local (starting and ending at any subpath)
+    tuple<MultipathProblem, int64_t, int32_t> run_multipath_dp(const MultipathAlignment& multipath_aln,
+                                                               bool subpath_global = false) {
+        
         // Create and unpack the return value (including setting up the DP table)
-        tuple<MultipathProblem, int64_t, int32_t> to_return(multipath_aln.subpath_size(), -1, 0);
+        tuple<MultipathProblem, int64_t, int32_t> to_return(MultipathProblem(multipath_aln, subpath_global),
+                                                            -1, 0);
         auto& problem = get<0>(to_return);
         auto& opt_subpath = get<1>(to_return);
         auto& opt_score = get<2>(to_return);
@@ -139,7 +150,6 @@ namespace vg {
         for (size_t i = 0; i < multipath_aln.subpath_size(); i++) {
             const Subpath& subpath = multipath_aln.subpath(i);
             int32_t extended_score = problem.prefix_score[i] + subpath.score();
-            
             // carry DP forward
             if (subpath.next_size() > 0) {
                 int64_t thru_length = path_to_length(subpath.path()) + problem.prefix_length[i];
@@ -154,14 +164,15 @@ namespace vg {
                     }
                 }
             }
-            // check if optimal alignment ends here
-            if (extended_score >= opt_score) {
+            // check if an alignment is allowed to end here according to global/local rules and
+            // if so whether it's optimal
+            if (extended_score >= opt_score && (!subpath_global || subpath.next_size() == 0)) {
                 // We have a better optimal subpath
                 opt_score = extended_score;
                 opt_subpath = i;
             }
         }
-        
+                
         return to_return;
     
     }
@@ -277,10 +288,11 @@ namespace vg {
         }
     }
     
-    int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out) {
+    int32_t optimal_alignment_internal(const MultipathAlignment& multipath_aln, Alignment* aln_out,
+                                       bool subpath_global) {
         
         // Run the dynamic programming
-        auto dp_result = run_multipath_dp(multipath_aln);
+        auto dp_result = run_multipath_dp(multipath_aln, subpath_global);
         
         // C++17 finally gets http://en.cppreference.com/w/cpp/language/structured_binding
         // Until then we have to unpack tuples like this.
@@ -317,21 +329,21 @@ namespace vg {
         return opt_score;
     }
     
-    void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out) {
-        
+    void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out, bool subpath_global) {
+
         // transfer read information over to alignment
         transfer_read_metadata(multipath_aln, aln_out);
         aln_out.set_mapping_quality(multipath_aln.mapping_quality());
         
         // do dynamic programming and traceback the optimal alignment
-        int32_t score = optimal_alignment_internal(multipath_aln, &aln_out);
+        int32_t score = optimal_alignment_internal(multipath_aln, &aln_out, subpath_global);
         
         aln_out.set_score(score);
     }
     
-    int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln){
+    int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln, bool subpath_global){
         // do dynamic programming without traceback
-        return optimal_alignment_internal(multipath_aln, nullptr);
+        return optimal_alignment_internal(multipath_aln, nullptr, subpath_global);
     }
     
     vector<Alignment> optimal_alignments(const MultipathAlignment& multipath_aln, size_t count) {
