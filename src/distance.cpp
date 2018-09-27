@@ -2726,7 +2726,6 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
       (pointing out),get the max and min distances from each node to a sink node
     */
 
-//TODO: make this an actual topological traversal 
     HandleGraph* graph = distIndex->graph;
     int64_t minNodeID = distIndex->minNodeID; 
     
@@ -2752,6 +2751,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
 
     uint64_t maxMin = 0; // Largest min distance
 
+    hash_set<pair<id_t, bool>> seenNodes;//Nodes that have been seen
     hash_set<pair<id_t, bool>> seenLoops;//Nodes in loops that have been seen- only traverse each loop at most once
 
     while (returnNodes.size() != 0) {
@@ -2778,7 +2778,9 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
             currNode = next.first;
             minDist = next.second.first;
             maxDist = next.second.second;
+            seenNodes.insert(currNode);
         }
+        
 
             
         uint64_t oldMin;
@@ -2863,9 +2865,33 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                             }
 
                         } else { 
-                            //If still in same component
-                            nextNodes.push_back(make_pair(node, 
-                                make_pair(minDist + nodeLen, maxDist+nodeLen)));
+                            //If in current component and never left
+
+                            bool add = true;
+                            auto checkNodes = [&](const handle_t& p)-> bool {
+                                //Check if incoming nodes have been seen
+                                pair<id_t, bool> prev = make_pair(
+                                    graph->get_id(p), graph->get_is_reverse(p));
+
+                                uint64_t prevComp = nodeToComponent[
+                                                        prev.first - minNodeID];
+                                if (prevComp == currComp &&
+                                    seenNodes.count(prev) == 0) {
+                                    //If prev node in currComp and hasn't been 
+                                    //seen yet
+                                    add = false;
+                                }
+                                return true;
+                            };
+                             
+                            graph->follow_edges(h, true, checkNodes);
+
+                            if (add) {
+
+                                nextNodes.push_back(make_pair(node, 
+                                                  make_pair(minDist + nodeLen, 
+                                                             maxDist+nodeLen)));
+                            }
                         }
                     }
                }
