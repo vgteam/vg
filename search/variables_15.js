@@ -1,0 +1,19 @@
+var searchData=
+[
+  ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
+  ['unary_5fboundaries',['unary_boundaries',['../classvg_1_1NetGraph.html#ae573871a7c3cd0be507222751f870f72',1,'vg::NetGraph']]],
+  ['unfold_5fmax_5flength',['unfold_max_length',['../classvg_1_1Genotyper.html#ab3e4270419b361c9455125ca305709e2',1,'vg::Genotyper']]],
+  ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
+  ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],
+  ['unstranded_5fclustering',['unstranded_clustering',['../classvg_1_1MultipathMapper.html#ac90fb9a71fa91ebcf78b94c1f8ae0730',1,'vg::MultipathMapper']]],
+  ['upper_5fbound',['upper_bound',['../structvg_1_1BREAKPOINT.html#add7be6a634fda8c98ff9627ecd454683',1,'vg::BREAKPOINT']]],
+  ['use_5fapprox_5fsub_5fmem_5fcount',['use_approx_sub_mem_count',['../classvg_1_1BaseMapper.html#abf1a0a71b2bcc7763690fed623383fb3',1,'vg::BaseMapper']]],
+  ['use_5faverage_5fsupport',['use_average_support',['../classvg_1_1SupportCaller.html#a032117d5fd316be83877834de8d25a99',1,'vg::SupportCaller']]],
+  ['use_5favg',['use_avg',['../classvg_1_1Filter.html#a271fe98c839b17295ecef0dc54cb7d7e',1,'vg::Filter']]],
+  ['use_5fcluster_5fmq',['use_cluster_mq',['../classvg_1_1Mapper.html#a2c4c837c39fa708de934f5c24c3c371e',1,'vg::Mapper']]],
+  ['use_5finternal_5fconnectivity',['use_internal_connectivity',['../classvg_1_1NetGraph.html#a57dedbbe009595f748dc3c4deae2dc72',1,'vg::NetGraph']]],
+  ['use_5fmapq',['use_mapq',['../classvg_1_1Genotyper.html#a5991ce66cc2a9ea45bd27d288dd7d9b8',1,'vg::Genotyper']]],
+  ['use_5fpopulation_5fmapqs',['use_population_mapqs',['../classvg_1_1MultipathMapper.html#aaaecbb0881e444042662a72907442fc1',1,'vg::MultipathMapper']]],
+  ['use_5fsupport_5fcount',['use_support_count',['../classvg_1_1SupportCaller.html#a626d85743ce833b7745afe9c1ab66cb6',1,'vg::SupportCaller']]],
+  ['used',['used',['../classvg_1_1PinchToVGTranslator.html#a4ba24f45298b6e67662245b22d0bef3f',1,'vg::PinchToVGTranslator::used()'],['../structvg_1_1IntervalBitfield.html#a4ce87a0c028df95b777075fb8b378c25',1,'vg::IntervalBitfield::used()']]]
+];

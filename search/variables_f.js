@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['offset',['offset',['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
+  ['offsets',['offsets',['../classxg_1_1XGPath.html#a68ff3492845d876329b9a6a3381ced86',1,'xg::XGPath']]],
+  ['offsets_5frank',['offsets_rank',['../classxg_1_1XGPath.html#a1d3b3643614f6f4e6f5e9e834c8ff2fd',1,'xg::XGPath']]],
+  ['offsets_5fselect',['offsets_select',['../classxg_1_1XGPath.html#aca3ba6a17c469b812c67bf978c0e02c1',1,'xg::XGPath']]],
+  ['old_5fnode',['old_node',['../classhaplo_1_1hDP__graph__accessor.html#a2df5d3849273292541a6d522dd679194',1,'haplo::hDP_graph_accessor::old_node()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor::old_node()']]],
+  ['oneof_5flocation',['oneof_location',['../structvg_1_1LocationSupport.html#a9a000a5b773e07f7cc30614d77c927a0',1,'vg::LocationSupport']]],
+  ['option_5foffsets',['option_offsets',['../classvg_1_1Configurable.html#a6c5fb72d68761ab4b157c817259164a5',1,'vg::Configurable']]],
+  ['options_5fby_5fcode',['options_by_code',['../classvg_1_1ConfigurableParser.html#a8bdfad847167513663ef67839a574e92',1,'vg::ConfigurableParser']]],
+  ['order_5flength_5frepeat_5fhit_5fmax',['order_length_repeat_hit_max',['../classvg_1_1MultipathMapper.html#ae87f55f358023f5c881494ccc4ed884f',1,'vg::MultipathMapper']]],
+  ['orig_5fid',['orig_id',['../structvg_1_1PileupAugmenter_1_1InsertionRecord.html#a5781af0ef841677114b0d3ba4c73662d',1,'vg::PileupAugmenter::InsertionRecord']]],
+  ['orig_5foffset',['orig_offset',['../structvg_1_1PileupAugmenter_1_1InsertionRecord.html#aac64cd4c11ed5e0097f52038d969bdda',1,'vg::PileupAugmenter::InsertionRecord']]],
+  ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
+  ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
+  ['out',['out',['../structhaplo_1_1haplo__DP__edge__memo.html#a5b237e3bd675f8f4c58dd21e3e704f95',1,'haplo::haplo_DP_edge_memo']]],
+  ['outbase',['outbase',['../classvg_1_1ReadFilter.html#a5e3358d7278a3d929a44b4fd670f861b',1,'vg::ReadFilter']]],
+  ['outfile',['outfile',['../classvg_1_1Viz.html#a78a53d3a62a503ff6c29e93cb9a12a88',1,'vg::Viz']]],
+  ['output',['output',['../structvg_1_1stream_1_1hFILE__cppstream.html#acca0c9b4147169d22d16bdf7f46f3872',1,'vg::stream::hFILE_cppstream']]],
+  ['output_5fnames',['output_names',['../classVectorizer.html#aadb47085d4b369b1c9ea341b06311341',1,'Vectorizer']]],
+  ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],
+  ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],
+  ['output_5ftabbed',['output_tabbed',['../classVectorizer.html#a7be5208d3a51438a989dd406fb808fd9',1,'Vectorizer']]],
+  ['output_5fversion',['OUTPUT_VERSION',['../classvg_1_1GAMIndex.html#a375c91cc5c973e0a7e687a00a0496687',1,'vg::GAMIndex::OUTPUT_VERSION()'],['../classxg_1_1XG.html#abb5bdf6d3612b6e93db96a36954a4882',1,'xg::XG::OUTPUT_VERSION()']]],
+  ['overall_5fsupport',['overall_support',['../structvg_1_1Locus.html#a04ac3427a7318a28984c8114cd216675',1,'vg::Locus']]],
+  ['overlap',['overlap',['../structvg_1_1Edge.html#aafdc39a954fd8de9dc3850ad9ecb9ade',1,'vg::Edge']]],
+  ['overlapping_5frefs',['overlapping_refs',['../classvg_1_1SRPE.html#a9bc3e671b90795b69d9b9266d189f89a',1,'vg::SRPE']]]
+];
