@@ -1797,9 +1797,194 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         REQUIRE(graph.node_size() == 4);
         
     }
-        
     
+    SECTION("Leading identical sequences should be condensed") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "TTA"},
+                {"id": 3, "sequence": "TTC"},
+                {"id": 4, "sequence": "GGG"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        graph.normalize();
+        
+        // Those duplicate Ts should be eliminated
+        REQUIRE(graph.length() == 13);
+        
+    }
+    
+    SECTION("Multiple families of leading identical sequences should be condensed") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "TTA"},
+                {"id": 3, "sequence": "TTC"},
+                {"id": 4, "sequence": "GGG"},
+                {"id": 6, "sequence": "GGT"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 1, "to": 6},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5},
+                {"from": 6, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        graph.normalize();
+        
+        // Those duplicate Ts and Gs should be eliminated
+        REQUIRE(graph.length() == 14);
+        
+    }
+    
+    SECTION("Multiple families of trailing identical sequences should be condensed") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "ATT"},
+                {"id": 3, "sequence": "CTT"},
+                {"id": 4, "sequence": "GGG"},
+                {"id": 6, "sequence": "TGG"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "to": 3},
+                {"from": 1, "to": 4},
+                {"from": 1, "to": 6},
+                {"from": 2, "to": 5},
+                {"from": 3, "to": 5},
+                {"from": 4, "to": 5},
+                {"from": 6, "to": 5}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        graph.normalize();
+        
+        // Those duplicate Ts and Gs should be eliminated
+        REQUIRE(graph.length() == 14);
+        
+    }
 }
+
+// TODO: This test case won't pass because VG::simplify_siblings() still thinks
+// about "from" and "to" siblings, and doesn't really understand reversing
+// edges. It doesn't see any siblings in these cases right now.
+#ifdef test_reversing_siblings
+TEST_CASE("normalize() can join nodes and merge siblings when nodes are backward", "[vg][normalize]") {
+
+    SECTION("Leading identical sequences should be condensed even when nodes are backward") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "TAA"},
+                {"id": 3, "sequence": "GAA"},
+                {"id": 4, "sequence": "CCC"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2, "to_end": true},
+                {"from": 1, "to": 3, "to_end": true},
+                {"from": 1, "to": 4, "to_end": true},
+                {"from": 2, "to": 5, "from_start": true},
+                {"from": 3, "to": 5, "from_start": true},
+                {"from": 4, "to": 5, "from_start": true}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        graph.normalize();
+        
+        // Those duplicate Ts (actually As) should be eliminated
+        REQUIRE(graph.length() == 13);
+        
+        bool found = false;
+        graph.for_each_node([&](const Node* n) {
+            if (n->sequence() == "AA") {
+                found = true;
+            }
+        });
+        // They ought to have been combined into an AA node.
+        REQUIRE(found);
+        
+    }
+
+    SECTION("Leading and trailing identical sequences should be condensed correctly when nodes are backward and all siblings match") {
+        // TODO: We don't support mixed orientations. But we should support all-backward.
+    
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "GAT"},
+                {"id": 2, "sequence": "CTAA"},
+                {"id": 3, "sequence": "CGAA"},
+                {"id": 5, "sequence": "ACA"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2, "to_end": true},
+                {"from": 1, "to": 3, "to_end": true},
+                {"from": 2, "to": 5, "from_start": true},
+                {"from": 3, "to": 5, "from_start": true},
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        graph.normalize();
+        
+        // Those duplicate Ts (actually As) and Gs (actually Cs) should be eliminated
+        REQUIRE(graph.length() == 11);
+        
+        bool found = false;
+        graph.for_each_node([&](const Node* n) {
+            if (n->sequence() == "AA") {
+                found = true;
+            }
+        });
+        // The Ts ought to have been combined into an AA node.
+        REQUIRE(found);
+        
+    }
+
+}
+#endif
 
 }
 }

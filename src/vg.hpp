@@ -733,6 +733,7 @@ public:
     /// Get general siblings of a node.
     set<Node*> siblings_of(Node* node);
     /// Remove easily-resolvable redundancy in the graph.
+    /// TODO: Cannot yet handle reversing edges! They will prevent the identification of siblings.
     void simplify_siblings(void);
     /// Remove easily-resolvable redundancy in the graph for all provided to-sibling sets.
     void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);
