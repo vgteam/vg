@@ -72,8 +72,6 @@ using namespace std;
         
         // make a sentinel meant to indicate an unmapped read
         Alignment make_null_alignment(const Alignment& source);
-        
-        xg::XG* xg_index = nullptr;
     };
 }
 
