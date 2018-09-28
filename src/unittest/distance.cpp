@@ -553,13 +553,13 @@ class TestDistanceIndex : public DistanceIndex {
             TestDistanceIndex::SnarlIndex& sd5 = di.snarlDistances.at(make_pair(snarl5->start().node_id(),
                                      snarl5->start().backward()));
 
+            #ifdef print
+            di.printSelf();
+            #endif
             NetGraph ng = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 0) == 0);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 1);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 2);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 3) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 4) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 5) == 6);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 2);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 5);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 0) == -1);
 
             REQUIRE(sd1.snarlDistance(&graph, &ng, make_pair(1, false), make_pair(8, false))
@@ -570,9 +570,6 @@ class TestDistanceIndex : public DistanceIndex {
     
             TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
             REQUIRE(cd.chainDistance(start2, start2, snarl2, snarl2) == 0);
-            #ifdef print
-            di.printSelf();
-            #endif
             REQUIRE(cd.chainDistance(make_pair(2, false), make_pair(5, false), snarl2, snarl5) == 2);
             REQUIRE(cd.chainDistance(make_pair(5, true), make_pair(2, true), snarl5, snarl2) == 4);
 
@@ -719,11 +716,8 @@ class TestDistanceIndex : public DistanceIndex {
             di.printSelf();
             #endif
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 0) == 0);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 1);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 2);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 3) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 4) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 5) == 6);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 2);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 5);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 0) == 9);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 1) == 3);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 2) == 1);
@@ -872,11 +866,8 @@ class TestDistanceIndex : public DistanceIndex {
                                      snarl5->start().backward()));
 
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 0) == 0);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 1);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 2);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 3) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 4) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 5) == 6);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 2);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 5);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 0) == -1);
 
             NetGraph ng1 = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
@@ -1038,12 +1029,8 @@ class TestDistanceIndex : public DistanceIndex {
 
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 0) == 0);
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 1) == 1);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 1);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 3) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 4) == 5);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 5) == 6);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 6) == 10);
-            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 7) == 11);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 5);
+            REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 3) == 10);
 
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 0) == 15);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 1) == 10);
@@ -1267,7 +1254,7 @@ class TestDistanceIndex : public DistanceIndex {
 
         }
     }//end test case
-    TEST_CASE( "Shortest path exits common ancestor","[dist][bug]" ) {
+    TEST_CASE( "Shortest path exits common ancestor","[dist]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -2131,18 +2118,19 @@ class TestDistanceIndex : public DistanceIndex {
     TEST_CASE("Random test", "[dist][rand]") {
 
 
-/*
 
-        ifstream vg_stream("snp1kg-BRCA1.vg");
+
+        ifstream vg_stream("testGraph");
         VG vg(vg_stream);
         vg_stream.close();
         CactusSnarlFinder bubble_finder(vg);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
         TestDistanceIndex di (&vg, &snarl_manager, 50);
-        pos_t pos1 = make_pos_t (2610, false,0 );
-        pos_t pos2 = make_pos_t (2634, false, 0);
-        REQUIRE(di.minDistance(pos1, pos2 ) == distance(&vg, pos1, pos2)); 
+        pos_t pos1 = make_pos_t (1, false,0 );
+        pos_t pos2 = make_pos_t (108, false, 0);
+//di.printSelf();
+        REQUIRE(di.maxDistance(pos1, pos2 ) >= 27); 
 
             for (size_t i = 0 ; i < vg.max_node_id(); i++) {
                 if (vg.has_node(i+1)) {
@@ -2158,7 +2146,7 @@ class TestDistanceIndex : public DistanceIndex {
                     }
                 }
             }
-*/
+
 
 
         for (int i = 0; i < 10000; i++) {
@@ -2319,7 +2307,7 @@ class TestDistanceIndex : public DistanceIndex {
         }
     } //end test case
 
-
+/*
     TEST_CASE("From serialized index", "[dist]"){
 
        ifstream vg_stream("primary-BRCA1.vg");
@@ -2364,6 +2352,7 @@ class TestDistanceIndex : public DistanceIndex {
 
     }
         
+*/
 
 /*
     TEST_CASE("Serialize distance index", "[dist][serial]") {

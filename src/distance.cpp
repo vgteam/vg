@@ -13,7 +13,7 @@ namespace vg {
  * Also change how nodes are stored in chain - in case of loops
  * Make snarls/chains represented by the node id in netgraph
  * For the max distance index, maybe don't store which loop component
- * TODO: plot diff under 1000 path based by position
+ * For max dist - same dynamic progrmming min/max index but traverse each edge ad most n times
  */
 
 pair<int64_t, int64_t> DistanceIndex::sizeOf() {
@@ -454,13 +454,6 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
     vector<int64_t> chainLoopRev; 
     handle_t firstNode = graph->get_handle(get_start_of(*chain));
     
-    #ifdef indexTraverse
-        cerr << "Prefix sum before chain initial node: " << chainPrefixSum.back() << endl;
-    #endif
-    chainPrefixSum.push_back(graph->get_length(firstNode));
-    #ifdef indexTraverse
-        cerr << "Prefix sum after chain initial node: " << chainPrefixSum.back() << endl;
-    #endif
     
     hash_map<id_t, size_t> snarlToIndex;
     snarlToIndex[get_start_of(*chain).node_id()] = 0;
@@ -901,19 +894,10 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                  make_pair (snarlEndID, !snarlEndRev) , 
                  make_pair (snarlStartID, !snarlStartRev));
 
-            chainPrefixSum.push_back(chainPrefixSum[chainPrefixSum.size()-2]+
-                       dist);
+            chainPrefixSum.push_back(chainPrefixSum.back()+ dist);
 
             #ifdef indexTraverse
                 cerr << "Prefix sum before snarl reverse start: " << chainPrefixSum.back() << endl;
-            #endif
-		
-            handle_t tempHandle = graph->get_handle(snarlStartID, false);
-            chainPrefixSum.push_back(chainPrefixSum[chainPrefixSum.size()-1] + 
-                    graph->get_length(tempHandle));
-
-            #ifdef indexTraverse
-                cerr << "Prefix sum after snarl reverse start: " << chainPrefixSum.back() << endl;
             #endif
         
         } else { 
@@ -921,16 +905,9 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                   make_pair (snarlStartID, snarlStartRev),
                   make_pair (snarlEndID, snarlEndRev) );
 
-            chainPrefixSum.push_back(chainPrefixSum[chainPrefixSum.size()-2]+
-                       dist);
+            chainPrefixSum.push_back(chainPrefixSum.back()+dist);
             #ifdef indexTraverse
                 cerr << "Prefix sum before snarl end: " << chainPrefixSum.back() << endl;
-            #endif
-            handle_t tempHandle = graph->get_handle(snarlEndID, false);
-            chainPrefixSum.push_back(chainPrefixSum[chainPrefixSum.size()-1] + 
-                    graph->get_length(tempHandle));
-            #ifdef indexTraverse
-                cerr << "Prefix sum after snarl end: " << chainPrefixSum.back() << endl;
             #endif
         }
         
@@ -971,7 +948,7 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
             }
 
 
-            if (snarlToIndex.size() == (chainPrefixSum.size()/2) -1) {
+            if (snarlToIndex.size() == (chainPrefixSum.size()) -1) {
                 //If the chain loops, might need distance from last snarl
                 ChainIterator chainEndR = chain_rbegin(*chain);
                 const Snarl* lastSnarl = chainEndR->first;
@@ -1071,7 +1048,7 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                          make_pair(snarlEndID, !snarlEndRev));
             }
 
-            if (snarlToIndex.size() == (chainPrefixSum.size()/2) -1) {
+            if (get_start_of(*chain).node_id() == get_end_of(*chain).node_id()) {
                 //If the chain loops, might need distance from first snarl
                 ChainIterator chainStart = chain_begin(*chain);
                 const Snarl* firstSnarl = chainStart->first;
@@ -1136,13 +1113,16 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
     }
     reverse(chainLoopFd.begin(), chainLoopFd.end()); 
  
-    if (chainPrefixSum.size() > 4) { //If chain and not just one snarl
-        chainDistances.insert(make_pair(get_start_of(*chain).node_id(), 
-                 ChainIndex(this, snarlToIndex, chainPrefixSum, chainLoopFd,
-                                                               chainLoopRev)));
+    id_t s = get_start_of(*chain).node_id();
+    id_t e = get_end_of(*chain).node_id();
+    if (chainPrefixSum.size() > 2) { //If chain and not just one snarl
+        chainDistances.insert(make_pair(s, 
+                 ChainIndex(this, s, e, snarlToIndex, chainPrefixSum, 
+                                                   chainLoopFd, chainLoopRev)));
     }
-    return chainPrefixSum.back();//return length of entire chain
-};
+    //return length of entire chain
+    return chainPrefixSum.back() + graph->get_length(graph->get_handle(e,
+                                                                false));};
 
 
 
@@ -2218,11 +2198,13 @@ void DistanceIndex::SnarlIndex::printSelf() {
 }
 
 //ChainDistance methods
-DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, 
+DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, id_t start, id_t end, 
                   hash_map<id_t, size_t> s, 
                  vector<int64_t> p, vector<int64_t> fd, vector<int64_t> rev) {
     
     distIndex = di;
+    chainStartID = start;
+    chainEndID = end;
 
     snarlToIndex = move(s); 
     util::assign(prefixSum, int_vector<>(p.size()));
@@ -2256,20 +2238,19 @@ DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, vector<int64_t> v) {
 
     size_t numNodes = v.size() / 5;
 
-    prefixSum.resize(numNodes * 2);
+    prefixSum.resize(numNodes);
     loopFd.resize(numNodes);
     loopRev.resize(numNodes);
 
     for (size_t i = 0; i <  numNodes; i ++ ) {
-        id_t node = (id_t) v[i*5];
+        id_t node = (id_t) v[i*4];
         if (snarlToIndex.find(node) == snarlToIndex.end()) {
             snarlToIndex[node] = i;
         } 
         
-        prefixSum[2*i] = v[i*5 + 1];
-        prefixSum[2*i+1] = v[i*5 + 2 ];
-        loopFd[i] = v[i*5 + 3];
-        loopRev[i] = v[i*5 + 4];
+        prefixSum[i] = v[i*4 + 1];
+        loopFd[i] = v[i*4 + 2];
+        loopRev[i] = v[i*5 + 3];
    
     }
 }
@@ -2280,17 +2261,16 @@ vector<int64_t> DistanceIndex::ChainIndex::toVector() {
      */
    
     int64_t numNodes = snarlToIndex.size();
-    bool loops = numNodes == prefixSum.size() / 2 - 1;
+    bool loops = chainStartID == chainEndID;
     if (loops) { numNodes = numNodes + 1; } 
 
     vector<int64_t> v;// int_vector<> v (1, 0, sizeof(int64_t));
-    v.resize(numNodes * 5);
+    v.resize(numNodes * 4);
 
     for (int i = 0 ; i < numNodes ; i++) {
-        v[5*i + 1] = prefixSum[2*i];
-        v[5*i + 2] = prefixSum[2*i + 1];
-        v[5*i + 3] = loopFd[i];
-        v[5*i + 4] = loopRev[i];
+        v[4*i + 1] = prefixSum[i];
+        v[4*i + 2] = loopFd[i];
+        v[4*i + 3] = loopRev[i];
     }
    
     for (pair<id_t, size_t> p : snarlToIndex) {
@@ -2302,29 +2282,34 @@ vector<int64_t> DistanceIndex::ChainIndex::toVector() {
 
 }
 int64_t DistanceIndex::ChainIndex::chainDistance(pair<id_t, bool> start, 
-         pair<id_t, bool> end, const Snarl* startSnarl, const Snarl* endSnarl) {
+         pair<id_t, bool> end, const Snarl* startSnarl, const Snarl* endSnarl,
+         bool recurse) {
 
     /*
      * Return the distance between the given node sides, except node side is
      * specified relative to the reading orientation of the chain that the
      * nodes are in. 
      */
-    size_t i1 = snarlToIndex.at(start.first);
-    size_t i2 = snarlToIndex.at(end.first);
-    
-    return chainDistanceHelper(make_pair(i1, start.second), 
-                               make_pair(i2, end.second), startSnarl, endSnarl);
-}
-
-int64_t DistanceIndex::ChainIndex::chainDistanceHelper(
-               pair<size_t, bool> start, pair<size_t, bool> end, 
-               const Snarl* startSnarl, const Snarl* endSnarl, bool recurse) {
-
-    /*Return the distance from the index start to end. Same as chainDistance
-      but given the index of the node in the chain not node id */
-
-    size_t i1 = start.first;
-    size_t i2 = end.first;
+    size_t i1;
+    size_t i2;
+    if (!recurse) {
+//TODO: This is a bad way of doing this, change it
+        if (start.first == -1) {
+            i1 =  snarlToIndex.size();
+            start.first = chainEndID;
+        } else {
+            i1 = snarlToIndex.at(start.first);
+        }
+        if (end.first == -1) {
+            i2 =  snarlToIndex.size();
+            end.first = chainEndID;
+        } else {
+            i2 = snarlToIndex.at(end.first);
+        }
+    } else { 
+        i1 = snarlToIndex.at(start.first);
+        i2 = snarlToIndex.at(end.first);
+    }
     
     //Orientation of snarl in chain
     bool chainRev1 = distIndex->sm->chain_orientation_of(startSnarl);
@@ -2333,10 +2318,10 @@ int64_t DistanceIndex::ChainIndex::chainDistanceHelper(
     //The orientation of the node in the snarl
     //TODO: Might not work for unary snarls??????
     bool snarlRev1 =
-                  start.first == snarlToIndex[startSnarl->start().node_id()] ?
+                  i1 == snarlToIndex[startSnarl->start().node_id()] ?
                                      startSnarl->start().backward() :
                                      startSnarl->end().backward();
-    bool snarlRev2 = end.first == snarlToIndex[endSnarl->start().node_id()] ?
+    bool snarlRev2 = i2 == snarlToIndex[endSnarl->start().node_id()] ?
                                       endSnarl->start().backward() :
                                       endSnarl->end().backward();
     //If the snarl is reversed in the chain, the node is traversed reverse of snarl 
@@ -2344,53 +2329,59 @@ int64_t DistanceIndex::ChainIndex::chainDistanceHelper(
     chainRev1 = chainRev1 ? !snarlRev1 : snarlRev1;
     chainRev2 = chainRev2 ? !snarlRev2 : snarlRev2;
 
-    bool rev1 = chainRev1 ? !start.second : start.second;//TODO: Change
+    bool rev1 = chainRev1 ? !start.second : start.second;
     bool rev2 = chainRev2 ? !end.second : end.second;
     int64_t loopDist = -1;
 
-    if (snarlToIndex.size() == (prefixSum.size()/2) -1 && i1 != i2 && recurse) {
+    if (chainStartID == chainEndID && i1 != i2 && recurse) {
         //If the chain loops
+        // TODO: Different way of checking this
 
-         size_t size = snarlToIndex.size();
          if (i1 == 0) {
 
-             loopDist = chainDistanceHelper(make_pair(size, start.second), 
+             loopDist = chainDistance(make_pair(-1, start.second), 
                                               end, startSnarl, endSnarl, false); 
 
          } else if (i2 == 0) { 
 
-             loopDist = chainDistanceHelper(start, 
-                     make_pair(size, end.second), startSnarl, endSnarl, false);
+             loopDist = chainDistance(start, 
+                     make_pair(-1, end.second), startSnarl, endSnarl, false);
 
          } else if (i1 < i2  && start.second) {
              //If path could pass through first node in reverse
 
              loopDist = 
-                  chainDistanceHelper(start, make_pair(0, start.second), 
+                  chainDistance(start, make_pair(chainStartID, start.second), 
                                                   startSnarl, endSnarl, false) 
-               + chainDistanceHelper(make_pair(size, start.second), end, startSnarl,
+               + chainDistance(make_pair(-1, start.second), end, startSnarl,
                                                          endSnarl, false);
 
          } else if (i1 > i2 && !rev1) {
 
              loopDist =
-                chainDistanceHelper(start, make_pair(size, start.second), startSnarl, 
+                chainDistance(start, make_pair(-1, start.second), startSnarl, 
                                                              endSnarl, false)
-              + chainDistanceHelper(make_pair(0, start.second), end, startSnarl, 
+              + chainDistance(make_pair(chainStartID, start.second), end, startSnarl, 
                                                            endSnarl, false); 
          } 
           
     }
+    HandleGraph* graph = distIndex->graph;
 
     if ((!rev1 && !rev2)) {
         //If start and end are facing forward relative to the start of the chain
         if (i1 <= i2) {
-            int64_t dNoRev = prefixSum[2*i2] - prefixSum[2*i1] ; 
+            int64_t dNoRev = prefixSum[i2] - prefixSum[i1] ; 
             return minPos({loopDist, dNoRev});
         } else {
             int64_t revID1 = loopFd[i1] - 1;
             int64_t revID2 = loopRev[i2] - 1;
-            int64_t chainDist = prefixSum[2*i1+1] - prefixSum[2*i2+1]; 
+            int64_t len1 = graph->get_length(graph->get_handle(start.first,
+                                                                 start.second));
+            int64_t len2 = graph->get_length(graph->get_handle(end.first,
+                                                                 end.second));
+            int64_t chainDist = (prefixSum[i1] + len1) - 
+                                (prefixSum[i2] + len2); 
             return minPos({loopDist, (revID1 == -1 || revID2 == -1) ? -1 : 
                     chainDist + revID1 + revID2}); 
         }
@@ -2398,12 +2389,16 @@ int64_t DistanceIndex::ChainIndex::chainDistanceHelper(
     } else if (rev1 && rev2 ){
         //If start and end are both reversed relative to the start of the chain
         if (i1 >= i2) {
-            int64_t dNoRev = prefixSum[2*i1+1] - prefixSum[2*i2+1] ; 
+            int64_t len1 = graph->get_length(graph->get_handle(start.first,
+                                                                 start.second));
+            int64_t len2 = graph->get_length(graph->get_handle(end.first,
+                                                                 end.second));
+            int64_t dNoRev = (prefixSum[i1] + len1) - (prefixSum[i2]+len2);
             return minPos({loopDist, dNoRev});
         } else {
             int64_t revID1 = loopRev[i1] - 1;
             int64_t revID2 = loopFd[i2] - 1;
-            int64_t chainDist = prefixSum[2*i2] - prefixSum[2*i1]; 
+            int64_t chainDist = prefixSum[i2] - prefixSum[i1]; 
             return minPos({loopDist, ((revID1 == -1 || revID2 == -1) ? -1 : 
                      chainDist+ revID1 + revID2)}); 
         }
@@ -2411,11 +2406,15 @@ int64_t DistanceIndex::ChainIndex::chainDistanceHelper(
         //Start is forward, end is reversed
         if (i1 <= i2) {
             int64_t rev = loopFd[i2] - 1;
-            int64_t chainDist = prefixSum[2*i2]- prefixSum[2*i1];
+            int64_t chainDist = prefixSum[i2]- prefixSum[i1];
             return minPos({loopDist, ((rev == -1) ? -1 : rev + chainDist )});
         } else {
             int64_t rev = loopFd[i1] - 1;
-            int64_t chainDist = prefixSum[2*i1+1] - prefixSum[2*i2+1];
+            int64_t len1 = graph->get_length(graph->get_handle(start.first,
+                                                                 start.second));
+            int64_t len2 = graph->get_length(graph->get_handle(end.first,
+                                                                 end.second));
+            int64_t chainDist = (prefixSum[i1]+len1) - (prefixSum[i2]+len2);
             return minPos({loopDist, ((rev == -1) ? -1 : rev + chainDist )});
         }
         
@@ -2423,13 +2422,17 @@ int64_t DistanceIndex::ChainIndex::chainDistanceHelper(
         //start is reverse, end is forward
         if (i1 <= i2) {
             int64_t rev = loopRev[i1] - 1;
-            int64_t chainDist = prefixSum[2*i2] - prefixSum[2*i1];
+            int64_t chainDist = prefixSum[i2] - prefixSum[i1];
             return minPos({loopDist, (rev == -1 ? -1 : rev + chainDist )});
 
             
         } else {
             int64_t rev = loopRev[i2] - 1; 
-            int64_t chainDist = prefixSum[2*i1+1] - prefixSum[2*i2+1];
+            int64_t len1 = graph->get_length(graph->get_handle(start.first,
+                                                                 start.second));
+            int64_t len2 = graph->get_length(graph->get_handle(end.first,
+                                                                 end.second));
+            int64_t chainDist = (prefixSum[i1]+len1) - (prefixSum[i2]+len2);
             return minPos({loopDist, ((rev == -1) ? -1 : rev + chainDist )});
         }
     }
@@ -2471,7 +2474,9 @@ int64_t DistanceIndex::ChainIndex::chainDistanceShort(HandleGraph* graph,
 int64_t DistanceIndex::ChainIndex::chainLength() {
 
     //Get the length of a chain including length of last node
-    return prefixSum[prefixSum.size()-1] - 1;
+    HandleGraph* graph = distIndex->graph;
+    return prefixSum[prefixSum.size()-1] - 1 + 
+                        graph->get_length(graph->get_handle(chainEndID, false));
 }
 
 void DistanceIndex::ChainIndex::printSelf() {
@@ -2531,8 +2536,8 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
     numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0, true);
 
     //Find connected components of nodes not in cycles
-    cerr << findComponents(nodeToComponent, max, minFd, minRev, 
-                                            numCycles, false) << endl;
+    findComponents(nodeToComponent, max, minFd, minRev, 
+                                            numCycles, false);
 
     maxDistances = max;
     
@@ -2749,6 +2754,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
         //If a path leaves curr component, min dist will never be a minimum
      }
 
+
     uint64_t maxMin = 0; // Largest min distance
 
     hash_set<pair<id_t, bool>> seenNodes;//Nodes that have been seen
@@ -2756,9 +2762,9 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
 
     while (returnNodes.size() != 0) {
             //Traverse graph from one sink node
-        if (nextNodes.size() == 0) {returned = true;}
         
  
+        if (nextNodes.size() == 0) {returned = true;}
         pair<id_t, bool> currNode;
         uint64_t minDist;
         uint64_t maxDist;
@@ -2781,7 +2787,6 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
             seenNodes.insert(currNode);
         }
         
-
             
         uint64_t oldMin;
         uint64_t oldMax;
@@ -2803,9 +2808,11 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                     minDistsRev[currNode.first-minNodeID] = minDist;
                 }
             }
-                oldMax = maxDists[currNode.first-minNodeID];
-                maxDist = oldMax == 0 ? maxDist : max(oldMax, maxDist);
-                maxDists[currNode.first-minNodeID] = maxDist;
+
+            //Update maximum distance
+            oldMax = maxDists[currNode.first-minNodeID];
+            maxDist = oldMax == 0 ? maxDist : max(oldMax, maxDist);
+            maxDists[currNode.first-minNodeID] = maxDist;
 
             maxMin = max(maxMin, minDist);
 
@@ -2832,9 +2839,12 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                     returnNodes.push_back(node);
                     auto vals = returnNodeVals.find(node);
                     if (vals == returnNodeVals.end()) {
+
                        returnNodeVals.insert(make_pair(node, 
-                              make_pair(0, maxDist+nodeLen+cap)));
+                                            make_pair(0, maxDist+nodeLen+cap)));
                     } else {
+
+                        returnNodeVals.erase(node);
                         returnNodeVals.insert(make_pair(node, make_pair(0, 
                                max(maxDist+nodeLen+cap, vals->second.second))));
                     }
@@ -2859,6 +2869,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                                                 make_pair(0, maxDist+nodeLen)));
                             } else {
 
+                                returnNodeVals.erase(node);
                                 returnNodeVals.insert(make_pair(node,
                                           make_pair(0, max(maxDist+nodeLen, 
                                                         vals->second.second))));
@@ -2880,7 +2891,8 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                                     //If prev node in currComp and hasn't been 
                                     //seen yet
                                     add = false;
-                                }
+
+                                } 
                                 return true;
                             };
                              
@@ -2906,6 +2918,8 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                    returnNodeVals.insert(make_pair(node, 
                                           make_pair(0, maxDist+nodeLen)));
                 } else { 
+
+                    returnNodeVals.erase(node);
                     returnNodeVals.insert(make_pair(node, make_pair(0, 
                                    max(maxDist+nodeLen, vals->second.second))));
                 }

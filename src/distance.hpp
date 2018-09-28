@@ -136,7 +136,8 @@ class DistanceIndex {
         public:
         
             //Constructor
-            ChainIndex(DistanceIndex* di, hash_map<id_t, size_t> s, 
+            ChainIndex(DistanceIndex* di, id_t start, id_t end,
+                         hash_map<id_t, size_t> s, 
                          vector<int64_t> p, vector<int64_t> fd, 
                           vector<int64_t> rev );
 
@@ -158,7 +159,8 @@ class DistanceIndex {
              * the node and false is the *right* side.
              */
             int64_t chainDistance(pair<id_t, bool> start, pair<id_t, bool> end,
-                                const Snarl* startSnarl, const Snarl* endSnarl);
+                                const Snarl* startSnarl, const Snarl* endSnarl, 
+                                                            bool recurse=true);
 
             /**
              * Takes the graph and two node sides, with orientations specified
@@ -195,6 +197,8 @@ class DistanceIndex {
                the same node traversing forward*/
 
             int_vector<> loopRev;
+            id_t chainStartID;
+            id_t chainEndID;
 
 
         
