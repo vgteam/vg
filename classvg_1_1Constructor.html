@@ -425,7 +425,7 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Given a vector of lists of VariantAllele edits, trim in from the left and right, leaving a core of edits bounded by edits that actually change the reference in at least one allele.</p>
-<p>Postcondition: either all lists of VariantAlleles are empty, or at least one begins with a non-match and at least one ends with a non-match. </p>
+<p>Postcondition: either all lists of VariantAlleles are empty, or at least one begins with a non-match and at least one ends with a non-match. Adjacent edits in the list abut; there are no uncovered gaps in the edits. This means that <em>internal</em> perfect match edits will be preserved. </p>
 
 </div>
 </div>
@@ -645,7 +645,7 @@ Private Attributes</h2></td></tr>
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Thu Sep 27 2018 17:12:35 for vg by &#160;<a href="http://www.doxygen.org/index.html">
+Generated on Fri Sep 28 2018 16:39:39 for vg by &#160;<a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/>
 </a> 1.8.6
 </small></address>
