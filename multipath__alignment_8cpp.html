@@ -115,18 +115,18 @@ Functions</h2></td></tr>
 <tr class="separator:ae03e9d67c4a774a71895ade9f10c6d19"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a84d3918e06a7c8948bb6e91ba1226fa9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a84d3918e06a7c8948bb6e91ba1226fa9">vg::identify_start_subpaths</a> (MultipathAlignment &amp;multipath_aln)</td></tr>
 <tr class="separator:a84d3918e06a7c8948bb6e91ba1226fa9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6391a2efdfa97a4d44304d06c54b580d"><td class="memItemLeft" align="right" valign="top">tuple&lt; MultipathProblem, <br class="typebreak"/>
-int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6391a2efdfa97a4d44304d06c54b580d">vg::run_multipath_dp</a> (const MultipathAlignment &amp;multipath_aln)</td></tr>
-<tr class="separator:a6391a2efdfa97a4d44304d06c54b580d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af0b28c682c013f735434f20e4d97ba1b"><td class="memItemLeft" align="right" valign="top">tuple&lt; MultipathProblem, <br class="typebreak"/>
+int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af0b28c682c013f735434f20e4d97ba1b">vg::run_multipath_dp</a> (const MultipathAlignment &amp;multipath_aln, bool subpath_global=false)</td></tr>
+<tr class="separator:af0b28c682c013f735434f20e4d97ba1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a856b55f4d89ae8bd7e6dacaa70fba0e0"><td class="memTemplParams" colspan="2">template&lt;typename TracebackIterator &gt; </td></tr>
 <tr class="memitem:a856b55f4d89ae8bd7e6dacaa70fba0e0"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a856b55f4d89ae8bd7e6dacaa70fba0e0">vg::populate_path_from_traceback</a> (const MultipathAlignment &amp;multipath_aln, const MultipathProblem &amp;problem, TracebackIterator traceback_start, TracebackIterator traceback_end, Path *output)</td></tr>
 <tr class="separator:a856b55f4d89ae8bd7e6dacaa70fba0e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a198f1104555a2b9a87a80ea01c9cdd56"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a198f1104555a2b9a87a80ea01c9cdd56">vg::optimal_alignment_internal</a> (const MultipathAlignment &amp;multipath_aln, Alignment *aln_out)</td></tr>
-<tr class="separator:a198f1104555a2b9a87a80ea01c9cdd56"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6ab129966b67efa981945f2d1d6b1a3f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6ab129966b67efa981945f2d1d6b1a3f">vg::optimal_alignment</a> (const MultipathAlignment &amp;multipath_aln, Alignment &amp;aln_out)</td></tr>
-<tr class="separator:a6ab129966b67efa981945f2d1d6b1a3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7ca9826c96221af4f5567ac11fb3ffd5"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7ca9826c96221af4f5567ac11fb3ffd5">vg::optimal_alignment_score</a> (const MultipathAlignment &amp;multipath_aln)</td></tr>
-<tr class="separator:a7ca9826c96221af4f5567ac11fb3ffd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a881ca4cff9243336ba8cf64a18f713e6"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a881ca4cff9243336ba8cf64a18f713e6">vg::optimal_alignment_internal</a> (const MultipathAlignment &amp;multipath_aln, Alignment *aln_out, bool subpath_global)</td></tr>
+<tr class="separator:a881ca4cff9243336ba8cf64a18f713e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f75115e0fa67db91cc2e0102008b995"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7f75115e0fa67db91cc2e0102008b995">vg::optimal_alignment</a> (const MultipathAlignment &amp;multipath_aln, Alignment &amp;aln_out, bool subpath_global)</td></tr>
+<tr class="separator:a7f75115e0fa67db91cc2e0102008b995"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3e693b91cabeed2d861ba666e98a3cab"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3e693b91cabeed2d861ba666e98a3cab">vg::optimal_alignment_score</a> (const MultipathAlignment &amp;multipath_aln, bool subpath_global)</td></tr>
+<tr class="separator:a3e693b91cabeed2d861ba666e98a3cab"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeb27a72a431b2f681c6eb88eb594a62c"><td class="memItemLeft" align="right" valign="top">vector&lt; Alignment &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aeb27a72a431b2f681c6eb88eb594a62c">vg::optimal_alignments</a> (const MultipathAlignment &amp;multipath_aln, size_t count)</td></tr>
 <tr class="separator:aeb27a72a431b2f681c6eb88eb594a62c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a78ead1fdf3f2d57f7a35755d24fd5999"><td class="memItemLeft" align="right" valign="top">vector&lt; Alignment &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a78ead1fdf3f2d57f7a35755d24fd5999">vg::optimal_alignments_with_disjoint_subpaths</a> (const MultipathAlignment &amp;multipath_aln, size_t count)</td></tr>
@@ -161,7 +161,7 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Fri Sep 28 2018 17:12:32 for vg by &#160;<a href="http://www.doxygen.org/index.html">
+Generated on Fri Sep 28 2018 17:49:55 for vg by &#160;<a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/>
 </a> 1.8.6
 </small></address>

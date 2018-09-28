@@ -174,7 +174,7 @@ var searchData=
   ['support_5fquality',['support_quality',['../classvg_1_1SupportCaller.html#aa339586afbf179881045478d4b6f09db',1,'vg::SupportCaller']]],
   ['supportcaller',['SupportCaller',['../classvg_1_1SupportCaller.html#ae794f8e0fba185201cc7ce6d41f2a09d',1,'vg::SupportCaller']]],
   ['supportrestrictedtraversalfinder',['SupportRestrictedTraversalFinder',['../classvg_1_1SupportRestrictedTraversalFinder.html#aceeb94d7e05fdbc113557b61448f6b2a',1,'vg::SupportRestrictedTraversalFinder']]],
-  ['surject_5fclassic',['surject_classic',['../classvg_1_1Surjector.html#a76fbbb935c8a4e279106c964eb0f8560',1,'vg::Surjector']]],
+  ['surject',['surject',['../classvg_1_1Surjector.html#a70699026e24d206a1d830222301c4042',1,'vg::Surjector']]],
   ['surjector',['Surjector',['../classvg_1_1Surjector.html#a7f3f93acbb9643b7007974a2b217fb58',1,'vg::Surjector']]],
   ['swap',['swap',['../classvg_1_1SnarlState.html#a4e3f0d0c720ea665b3db9542d07f7ec1',1,'vg::SnarlState']]],
   ['swap_5falleles',['swap_alleles',['../classvg_1_1PhasedGenome.html#ae325c8488e737b75b980796aacf37246',1,'vg::PhasedGenome']]],

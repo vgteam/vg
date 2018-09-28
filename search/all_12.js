@@ -52,7 +52,7 @@ var searchData=
   ['reduce_5fto_5fsingle_5fpath',['reduce_to_single_path',['../classvg_1_1MultipathMapper.html#a27d289c370da90f69420d260f8298c1e',1,'vg::MultipathMapper']]],
   ['redundant_5fvertexes',['redundant_vertexes',['../classvg_1_1MEMChainModel.html#a6a4132f34b8c9636e02c186ffa75a333',1,'vg::MEMChainModel::redundant_vertexes()'],['../classvg_1_1AlignmentChainModel.html#a2fd794e91dfc7ee2db7fdc9f921c5134',1,'vg::AlignmentChainModel::redundant_vertexes()']]],
   ['reestimation_5ffrequency',['reestimation_frequency',['../classvg_1_1FragmentLengthDistribution.html#a648954fbcb1fd0295fb22a37d79ed3e7',1,'vg::FragmentLengthDistribution']]],
-  ['ref',['Ref',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a3dd20f2cc04fe73ea4361032c0a3af42',1,'vg::NodeDivider::Ref()'],['../structvg_1_1NodeDivider_1_1Entry.html#a3dd62a7cf626f1176b85acc6166843a8',1,'vg::NodeDivider::Entry::ref()']]],
+  ['ref',['ref',['../structvg_1_1NodeDivider_1_1Entry.html#a3dd62a7cf626f1176b85acc6166843a8',1,'vg::NodeDivider::Entry::ref()'],['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a3dd20f2cc04fe73ea4361032c0a3af42',1,'vg::NodeDivider::Ref()']]],
   ['ref_5fbase',['ref_base',['../structvg_1_1BasePileup.html#a8d68d6e5d3ce5d2a9a448f90ed6dfc09',1,'vg::BasePileup']]],
   ['ref_5fbin_5fsize',['ref_bin_size',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a42a0491db90fe51c894b91a7bec5aa54',1,'vg::SupportCaller::PrimaryPath::ref_bin_size()'],['../classvg_1_1SupportCaller.html#a1da5805e7c262a8fe317ad9e0b49817a',1,'vg::SupportCaller::ref_bin_size()']]],
   ['ref_5fcall',['ref_call',['../classvg_1_1PileupAugmenter.html#aa7686c13a2d4054016cebfa912664baf',1,'vg::PileupAugmenter']]],
@@ -168,7 +168,7 @@ var searchData=
   ['rs',['rs',['../structvg_1_1StrandSupport.html#a175699060b5eb7e5c3f473912636da55',1,'vg::StrandSupport']]],
   ['run',['run',['../classvg_1_1Genotyper.html#af760be5c99e086b2c41510b3d3a47e5a',1,'vg::Genotyper']]],
   ['run_5fbenchmark',['run_benchmark',['../namespacevg.html#ac101c453ab2076d74f0324f73d174695',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;under_test)'],['../namespacevg.html#added44ff3bb1c0ce606563a40923c513',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;setup, const function&lt; void(void)&gt; &amp;under_test)']]],
-  ['run_5fmultipath_5fdp',['run_multipath_dp',['../namespacevg.html#a6391a2efdfa97a4d44304d06c54b580d',1,'vg']]],
+  ['run_5fmultipath_5fdp',['run_multipath_dp',['../namespacevg.html#af0b28c682c013f735434f20e4d97ba1b',1,'vg']]],
   ['run_5funit_5ftests',['run_unit_tests',['../namespacevg_1_1unittest.html#ae154dafb36ee57ef618704a37a11fb0c',1,'vg::unittest']]],
   ['runs',['runs',['../structvg_1_1BenchmarkResult.html#a564ed18fb2f561f09e74a254854e2d88',1,'vg::BenchmarkResult']]]
 ];

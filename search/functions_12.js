@@ -100,6 +100,6 @@ var searchData=
   ['rrmemo',['RRMemo',['../structhaplo_1_1haploMath_1_1RRMemo.html#a3958ec23ff1fbaac901d909c5f134f27',1,'haplo::haploMath::RRMemo']]],
   ['run',['run',['../classvg_1_1Genotyper.html#af760be5c99e086b2c41510b3d3a47e5a',1,'vg::Genotyper']]],
   ['run_5fbenchmark',['run_benchmark',['../namespacevg.html#ac101c453ab2076d74f0324f73d174695',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;under_test)'],['../namespacevg.html#added44ff3bb1c0ce606563a40923c513',1,'vg::run_benchmark(const string &amp;name, size_t iterations, const function&lt; void(void)&gt; &amp;setup, const function&lt; void(void)&gt; &amp;under_test)']]],
-  ['run_5fmultipath_5fdp',['run_multipath_dp',['../namespacevg.html#a6391a2efdfa97a4d44304d06c54b580d',1,'vg']]],
+  ['run_5fmultipath_5fdp',['run_multipath_dp',['../namespacevg.html#af0b28c682c013f735434f20e4d97ba1b',1,'vg']]],
   ['run_5funit_5ftests',['run_unit_tests',['../namespacevg_1_1unittest.html#ae154dafb36ee57ef618704a37a11fb0c',1,'vg::unittest']]]
 ];

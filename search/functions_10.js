@@ -33,7 +33,6 @@ var searchData=
   ['pass_5ffilter',['pass_filter',['../classvg_1_1Pileups.html#af66fe3275dcd238b928b254fea8cfbb9',1,'vg::Pileups']]],
   ['patch_5falignment',['patch_alignment',['../classvg_1_1Mapper.html#ad8f03f4ff100a15ea885a5404222a0ad',1,'vg::Mapper']]],
   ['path',['path',['../classvg_1_1Paths.html#a218a01d5d53bf945ef4f0acafd18d6bc',1,'vg::Paths::path()'],['../classxg_1_1XG.html#a17bc235291c89b6550db80b1144822fe',1,'xg::XG::path()']]],
-  ['path_5fanchored_5fsurject',['path_anchored_surject',['../classvg_1_1Surjector.html#a5be4923b8fd845a039b5f0ca4bdb38b9',1,'vg::Surjector']]],
   ['path_5fas_5falignment',['path_as_alignment',['../classxg_1_1XG.html#a432537c5599d4ea5060a58f55f060f8e',1,'xg::XG::path_as_alignment(const string &amp;name)'],['../classxg_1_1XG.html#ad2d5063febd7ceda3d395d0955c2f46e',1,'xg::XG::path_as_alignment(const Path &amp;path)']]],
   ['path_5fcontains_5fnode',['path_contains_node',['../structvg_1_1PathIndex.html#a1bdc360e0f4c273605e71a07bcd4839f',1,'vg::PathIndex::path_contains_node()'],['../classxg_1_1XG.html#aae907dcdb2df5cb93965f53e880ce9a2',1,'xg::XG::path_contains_node()']]],
   ['path_5fdivergence_5ffilter',['path_divergence_filter',['../classvg_1_1Filter.html#a961710b28527b3f9961948a068c3b860',1,'vg::Filter']]],
