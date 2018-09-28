@@ -23,6 +23,7 @@ namespace vg {
     void Constructor::trim_to_variable(vector<list<vcflib::VariantAllele>>& parsed_alleles) {
 
 #ifdef debug
+        cerr << "Before trimming to variable region:" << endl;
         for (auto& allele : parsed_alleles) {
             cerr << "Allele:" << endl;
 
@@ -63,6 +64,11 @@ namespace vg {
 
         for(size_t front_match_count = get_match_count(true); front_match_count > 0; front_match_count = get_match_count(true)) {
             // While we have shared matches at the front
+            
+#ifdef debug
+            cerr << "Edits at the front share " << front_match_count << " match bases and need to be trimmed down" << endl;
+#endif
+            
             for (auto& allele : parsed_alleles) {
                 // Trim each allele
                 if (allele.front().ref.size() > front_match_count) {
@@ -74,6 +80,9 @@ namespace vg {
 #endif
                     allele.front().ref = new_match_string;
                     allele.front().alt = new_match_string;
+                    
+                    // Since we're trimming off the front we need to bump the position up.
+                    allele.front().position += front_match_count;
                 } else {
                     // This perfect match can be completely eliminated
 #ifdef debug
@@ -87,6 +96,11 @@ namespace vg {
 
         for(size_t back_match_count = get_match_count(false); back_match_count > 0; back_match_count = get_match_count(false)) {
             // While we have shared matches at the back
+            
+#ifdef debug
+            cerr << "Edits at the back share " << back_match_count << " match bases and need to be trimmed down" << endl;
+#endif
+            
             for (auto& allele : parsed_alleles) {
                 // Trim each allele
                 if (allele.back().ref.size() > back_match_count) {
@@ -112,6 +126,7 @@ namespace vg {
         }
 
 #ifdef debug
+        cerr << "After trimming to variable region:" << endl;
         for (auto& allele : parsed_alleles) {
             cerr << "Allele: " << endl;
             for (auto& edit : allele) {
@@ -268,6 +283,10 @@ namespace vg {
         // path. We need the node so we can get its length.
         // Automatically fills in rank, starting from 1.
         auto add_match = [&](Path* path, Node* node) {
+            #ifdef debug
+            cerr << "Add node " << node->id() << " to path " << path->name() << endl;
+            #endif
+        
             // Make a mapping for it
             auto* mapping = path->add_mapping();
             mapping->mutable_position()->set_node_id(node->id());
