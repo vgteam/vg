@@ -757,7 +757,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
@@ -773,7 +773,7 @@ int main_map(int argc, char** argv) {
             int64_t path_pos = -1;
             bool path_reverse = false;
             
-            auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(aln, path_names, path_name, path_pos, path_reverse);
+            auto surj = surjectors[omp_get_thread_num()]->surject(aln, path_names, path_name, path_pos, path_reverse);
             surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
             
             // Don't try and populate the header; it should have happened already
