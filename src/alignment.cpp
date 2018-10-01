@@ -539,14 +539,6 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     }
 }
 
-void write_alignments(std::ostream& out, vector<Alignment>& buf) {
-    function<Alignment(size_t)> lambda =
-        [&buf] (size_t n) {
-        return buf[n];
-    };
-    stream::write(cout, buf.size(), lambda);
-}
-
 short quality_char_to_short(char c) {
     return static_cast<short>(c) - 33;
 }
