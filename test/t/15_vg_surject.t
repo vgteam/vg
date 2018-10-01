@@ -21,7 +21,7 @@ vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg > x.gam
 is $(vg view -aj j.gam | wc -l) \
     100 "reads are generated"
 
-# Surjection uses path_anchored_surject which keeps aligned stuff aligned even if there's a better alignment that shifts it.
+# Surjection uses path anchored surject which keeps aligned stuff aligned even if there's a better alignment that shifts it.
 # This means arbitrarily chosen homopolymer indel alignment that arbitrarily chose wrong won't be fixed.
 # We generate GAMs that don't have that problem.
 

@@ -36,8 +36,11 @@ namespace vg {
     ///    multipath_aln     multipath alignment to find optimal path through
     ///    aln_out           empty alignment to store optimal alignment in (data will be
     ///                      overwritten if not empty)
+    ///    subpath_global    if true, only allows alignments that source subpath to sink subpath
+    ///                      in the multipath DAG, else allows any start and end subpath
     ///
-    void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out);
+    void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out,
+                           bool subpath_global = false);
     
     /// Returns the score of the highest scoring alignment contained in the MultipathAlignment
     ///
@@ -46,8 +49,11 @@ namespace vg {
     ///
     ///  Args:
     ///    multipath_aln     multipath alignment to find optimal score in
+    ///    subpath_global    if true, only allows alignments that source subpath to sink subpath
+    ///                      in the multipath DAG, else allows any start and end subpath
     ///
-    int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln);
+    int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln,
+                                    bool subpath_global = false);
     
     /// Returns the top k highest-scoring alignments contained in the MultipathAlignment.
     /// Note that some or all of these may be duplicate Alignments, which were spelled out

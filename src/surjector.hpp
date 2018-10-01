@@ -23,29 +23,26 @@ namespace vg {
 
 using namespace std;
 
-    class Surjector : Mapper {
+    class Surjector : BaseMapper {
     public:
         
         Surjector(xg::XG* xg_index);
         ~Surjector();
         
-        /// lossily project an alignment into a particular path space of a graph
-        /// the resulting alignment is equivalent to a SAM record against the chosen path
-        Alignment surject_classic(const Alignment& source,
-                                  const set<string>& path_names,
-                                  string& path_name,
-                                  int64_t& path_pos,
-                                  bool& path_reverse);
-        
-        /// extract the portions of an alignment that are on a chosen set of paths and try to
+        /// Extract the portions of an alignment that are on a chosen set of paths and try to
         /// align realign the portions that are off of the chosen paths to the intervening
-        /// path segments to obtain an alignment that is fully restricted to the paths
-        Alignment path_anchored_surject(const Alignment& source,
-                                        const set<string>& path_names,
-                                        string& path_name_out,
-                                        int64_t& path_pos_out,
-                                        bool& path_rev_out);
-        
+        /// path segments to obtain an alignment that is fully restricted to the paths.
+        ///
+        /// Also returns the path name, position, and strand of the new alignment.
+        ///
+        /// Optionally either allow softclips so that the alignment has a nonnegative score on
+        /// the path or require the full-length alignment, possibly creating a negative score.
+        Alignment surject(const Alignment& source,
+                          const set<string>& path_names,
+                          string& path_name_out,
+                          int64_t& path_pos_out,
+                          bool& path_rev_out,
+                          bool allow_negative_scores = false);
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;

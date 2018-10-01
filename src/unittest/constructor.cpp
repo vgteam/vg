@@ -1268,6 +1268,63 @@ GATTACACATTAG
 
 }
 
+TEST_CASE( "Non-left-shifted variants can be used to construct valid graphs", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	.	AAA	AAG,A	50	PASS	.	GT
+)";
+
+    auto fasta_data = R"(>ref
+AAAAAAAAAAAAA
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 50, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Find all the edges
+    unordered_set<pair<id_t, id_t>> edges;
+    
+    for (auto& edge : result.edge()) {
+        // All the edges should be end to start
+        REQUIRE(!edge.from_start());
+        REQUIRE(!edge.to_end());
+        
+        pair<id_t, id_t> key = make_pair(edge.from(), edge.to());
+    
+        // Each edge must be unique
+        REQUIRE(!edges.count(key));
+        
+        edges.insert(key);
+    }
+
+    SECTION("Paths follow edges") {
+        for (auto& path : result.path()) {
+            // For each path
+            for (size_t i = 1; i < path.mapping_size(); i++) {
+                // Scan alogn adjacent pairs of nodes
+                id_t prev = path.mapping(i - 1).position().node_id();
+                id_t here = path.mapping(i).position().node_id();
+                
+                // The edge must have been created.
+                REQUIRE(edges.count(make_pair(prev, here)));
+            }
+        }
+    }
+
+}
+
 TEST_CASE( "VG handles structural variants as expected"){
     auto vcf_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
@@ -1280,7 +1337,7 @@ TEST_CASE( "VG handles structural variants as expected"){
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
 x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
-auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
+    auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
 ##source=myImputationProgramV3.1
 ##reference=1000GenomesPilot-NCBI36

@@ -195,6 +195,8 @@ private:
      *
      * Postcondition: either all lists of VariantAlleles are empty, or at least
      * one begins with a non-match and at least one ends with a non-match.
+     * Adjacent edits in the list abut; there are no uncovered gaps in the edits.
+     * This means that *internal* perfect match edits will be preserved.
      */
     static void trim_to_variable(vector<list<vcflib::VariantAllele>>& parsed_alleles);
     
