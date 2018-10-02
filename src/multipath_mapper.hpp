@@ -20,6 +20,7 @@
 #include "edit.hpp"
 #include "snarls.hpp"
 #include "haplotypes.hpp"
+#include "distance.hpp"
 
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
