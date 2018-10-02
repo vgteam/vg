@@ -43,7 +43,9 @@ Other libraries may be required. Please report any build difficulties.
 
 Note that a 64-bit OS is required. Ubuntu 16.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
 
-When you are ready, build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
+When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
+
+You can also produce a static binary with `make static`, assuming you have static versions of all the dependencies installed on your system.
 
 ### Building on MacOS
 
