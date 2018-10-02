@@ -173,17 +173,17 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 # note that the graph file is not opened, but x.vg.index is assumed
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa > read.gam
 
-# simulate a bunch of 150bp reads from the graph and map them
-vg sim -n 1000 -l 150 -x x.xg > x.sim.vg
+# simulate a bunch of 150bp reads from the graph, one per line
+vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
 # now map these reads against the graph to get a GAM
-vg map -T x.sim.vg -x x.xg -g x.gcsa > aln.gam
+vg map -T x.sim.txt -x x.xg -g x.gcsa > aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
 vg surject -x x.xg -b aln.gam > aln.bam
 
 # or alternatively, surject them to BAM in the call to map
-vg sim -n 1000 -l 150 -x x.xg > x.sim.vg
-vg map -T x.sim.vg -x x.xg -g x.gcsa --surject-to bam > aln.bam
+vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
+vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 ```
 ### Variant Calling
 
