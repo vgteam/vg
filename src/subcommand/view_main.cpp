@@ -541,22 +541,11 @@ int main_view(int argc, char** argv) {
         return 0;
     } else if (input_type == "bam") {
         if (output_type == "gam") {
-            //function<void(const Alignment&)>& lambda) {
-            // todo write buffering procedure in alignment.cpp
-            vector<Alignment> buf;
+            stream::ProtobufEmitter<Alignment> buf(std::cout);
             function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
-                buf.push_back(aln);
-                if (buf.size() > 1000) {
-                    write_alignments(std::cout, buf);
-                    buf.clear();
-                }
+                buf.write(std::move(aln));
             };
             hts_for_each(file_name, lambda);
-            write_alignments(std::cout, buf);
-            buf.clear();
-            // Finish the stream with an EOF marker
-            stream::finish(std::cout);
-            cout.flush();
             return 0;
         } else if (output_type == "json") {
             // todo
@@ -666,41 +655,25 @@ int main_view(int argc, char** argv) {
             fastq2 = get_input_file_name(optind, argc, argv);
         }
         if (output_type == "gam") {
-            vector<Alignment> buf;
+            stream::ProtobufEmitter<Alignment> buf(std::cout);
             if (!interleaved_fastq && fastq2.empty()) {
                 function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
-                    buf.push_back(aln);
-                    if (buf.size() > 1000) {
-                        write_alignments(std::cout, buf);
-                        buf.clear();
-                    }
+                    buf.write(std::move(aln));
                 };
                 fastq_unpaired_for_each(fastq1, lambda);
             } else if (interleaved_fastq && fastq2.empty()) {
                 function<void(Alignment&, Alignment&)> lambda = [&buf](Alignment& aln1, Alignment& aln2) {
-                    buf.push_back(aln1);
-                    buf.push_back(aln2);
-                    if (buf.size() > 1000) {
-                        write_alignments(std::cout, buf);
-                        buf.clear();
-                    }
+                    buf.write(std::move(aln1));
+                    buf.write(std::move(aln2));
                 };
                 fastq_paired_interleaved_for_each(fastq1, lambda);
             } else if (!fastq2.empty()) {
                 function<void(Alignment&, Alignment&)> lambda = [&buf](Alignment& aln1, Alignment& aln2) {
-                    buf.push_back(aln1);
-                    buf.push_back(aln2);
-                    if (buf.size() > 1000) {
-                        write_alignments(std::cout, buf);
-                        buf.clear();
-                    }
+                    buf.write(std::move(aln1));
+                    buf.write(std::move(aln2));
                 };
                 fastq_paired_two_files_for_each(fastq1, fastq2, lambda);
             }
-            write_alignments(std::cout, buf);
-            buf.clear();
-            // Finish the stream with an EOF marker
-            stream::finish(std::cout);
         } else {
             // We can't convert fastq to the other graph formats
             cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;

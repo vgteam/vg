@@ -109,39 +109,38 @@ int main_gamcompare(int argc, char** argv) {
         stream::for_each_parallel(truth_file_in, record_truth);
     }
 
-    // We have a buffer for annotated alignments
-    vector<Alignment> buf;
+    // We have a buffered emitter for annotated alignments, if we're not outputting text
+    std::unique_ptr<stream::ProtobufEmitter<Alignment>> emitter;
+    if (!output_tsv) {
+        emitter = std::unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+    }
     
-    // We have an output function to dump all the reads in the buffer in the correct format
-    auto flush_buffer = [&buf,&output_tsv,&aligner_name]() {
+    // We have an ordinary buffer we use for text output
+    vector<Alignment> text_buffer;
+    
+    // We have an output function to dump all the reads in the text buffer in TSV
+    auto flush_text_buffer = [&text_buffer,&output_tsv,&aligner_name]() {
         // We print exactly one header line.
         static bool header_printed = false;
-        if (output_tsv) {
-            // Output TSV to standard out in the format plot-qq.R needs.
-            if (!header_printed) {
-                // It needs a header
-                cout << "correct\tmq\taligner\tread" << endl;
-                header_printed = true;
-            }
-            
-            for (auto& aln : buf) {
-                // Dump each alignment
-                cout << (aln.correctly_mapped() ? "1" : "0") << "\t";
-                cout << aln.mapping_quality() << "\t";
-                cout << aligner_name << "\t";
-                cout << aln.name() << endl;
-            }
-            
-        } else {
-            // Output by serializing Alignment objects
-            write_alignments(cout, buf);
+        // Output TSV to standard out in the format plot-qq.R needs.
+        if (!header_printed) {
+            // It needs a header
+            cout << "correct\tmq\taligner\tread" << endl;
+            header_printed = true;
         }
         
-        buf.clear();
+        for (auto& aln : text_buffer) {
+            // Dump each alignment
+            cout << (aln.correctly_mapped() ? "1" : "0") << "\t";
+            cout << aln.mapping_quality() << "\t";
+            cout << aligner_name << "\t";
+            cout << aln.name() << endl;
+        }
+        text_buffer.clear();
     };
     
     // This function annotates every read with distance and correctness, and batch-outputs them.
-    function<void(Alignment&)> annotate_test = [&buf,&flush_buffer,&true_positions,&range](Alignment& aln) {
+    function<void(Alignment&)> annotate_test = [&](Alignment& aln) {
         auto f = true_positions.find(aln.name());
         if (f != true_positions.end()) {
             auto& true_position = f->second;
@@ -154,11 +153,15 @@ int main_gamcompare(int argc, char** argv) {
             }
             
         }
-#pragma omp critical (buf)
+#pragma omp critical
         {
-            buf.push_back(aln);
-            if (buf.size() > 1000) {
-                flush_buffer();
+            if (output_tsv) {
+                text_buffer.emplace_back(std::move(aln));
+                if (text_buffer.size() > 1000) {
+                    flush_text_buffer();
+                }
+            } else {
+                emitter->write(std::move(aln));
             }
         }
     };
@@ -171,10 +174,11 @@ int main_gamcompare(int argc, char** argv) {
         stream::for_each_parallel(test_file_in, annotate_test);
     }
 
-    // Save whatever's in the buffer at the end.
-    flush_buffer();
-    cout.flush();
-
+    if (output_tsv) {
+        // Save whatever's in the buffer at the end.
+        flush_text_buffer();
+    }
+    
     return 0;
 }
 

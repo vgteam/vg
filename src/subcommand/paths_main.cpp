@@ -193,6 +193,18 @@ int main_paths(int argc, char** argv) {
             thread_ids = xg_index->threads_named_starting(thread_prefix);
         }
         
+        // We may need to emit a stream of Alignemnts
+        unique_ptr<stream::ProtobufEmitter<Alignment>> gam_emitter;
+        // Or we might need to emit a stream of VG Graph objects
+        unique_ptr<stream::ProtobufEmitter<Graph>> graph_emitter;
+        if (extract_as_gam) {
+            // Open up a GAM output stream
+            gam_emitter = unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+        } else if (extract_as_vg) {
+            // Open up a VG Graph chunk output stream
+            graph_emitter = unique_ptr<stream::ProtobufEmitter<Graph>>(new stream::ProtobufEmitter<Graph>(cout));
+        }
+        
         for (auto& id : thread_ids) {
             // For each matching thread
             
@@ -211,6 +223,7 @@ int main_paths(int argc, char** argv) {
             path.set_name(thread_name);
             size_t rank = 1;
             for (auto node : sequence) {
+                // Put each node in the constructed path
                 Mapping* m = path.add_mapping();
                 Position* p = m->mutable_position();
                 p->set_node_id(gbwt::Node::id(node));
@@ -222,15 +235,13 @@ int main_paths(int argc, char** argv) {
                 m->set_rank(rank++);
             }
             if (extract_as_gam) {
-                vector<Alignment> alns;
-                alns.emplace_back(xg_index->path_as_alignment(path));
-                write_alignments(cout, alns);
-                stream::finish(cout);
+                // Write as an Alignment
+                gam_emitter->write(xg_index->path_as_alignment(path));
             } else if (extract_as_vg) {
+                // Write as a Path in a VG
                 Graph g;
                 *(g.add_path()) = path;
-                vector<Graph> gb = { g };
-                stream::write_buffered(cout, gb, 0);
+                graph_emitter->write(std::move(g));
             }
         }
     } else if (graph.get() != nullptr) {
@@ -247,8 +258,10 @@ int main_paths(int argc, char** argv) {
                 });
         } else if (extract_as_gam) {
             vector<Alignment> alns = graph->paths_as_alignments();
-            write_alignments(cout, alns);
-            stream::finish(cout);
+            stream::ProtobufEmitter<Alignment> emitter(cout);
+            for (auto& aln : alns) {
+                emitter.write(std::move(aln));
+            }
         } else if (extract_as_vg) {
             cerr << "[vg paths] Error: vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
             exit(1);
@@ -265,17 +278,17 @@ int main_paths(int argc, char** argv) {
             }
         } else if (extract_as_gam) {
             auto alns = xg_index->paths_as_alignments();
-            write_alignments(cout, alns);
-            stream::finish(cout);
+            stream::ProtobufEmitter<Alignment> emitter(cout);
+            for (auto& aln : alns) {
+                emitter.write(std::move(aln));
+            }
         } else if (!path_prefix.empty()) {
             vector<Path> got = xg_index->paths_by_prefix(path_prefix);
             if (extract_as_gam) {
-                vector<Alignment> alns;
+                stream::ProtobufEmitter<Alignment> emitter(cout);
                 for (auto& path : got) {
-                    alns.emplace_back(xg_index->path_as_alignment(path));
+                    emitter.write(xg_index->path_as_alignment(path));
                 }
-                write_alignments(cout, alns);
-                stream::finish(cout);
             } else if (extract_as_vg) {
                 for(auto& path : got) {
                     Graph g;
