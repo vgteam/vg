@@ -953,7 +953,7 @@ namespace vg {
         
         if (found_consistent) {
             // compute the paired mapping quality
-            sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+            sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances, false);
         }
         else {
 #ifdef debug_multipath_mapper
@@ -1606,6 +1606,12 @@ namespace vg {
             }
         }
         
+        if (use_population_mapqs) {
+            // now that it can't affect any of the mapper's internal heuristics, recompute the mapping quality
+            // using the population component
+            sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, true);
+        }
+        
         if (multipath_aln_pairs_out.empty()) {
             // we tried all of our tricks and still didn't find a mapping
             
@@ -1901,7 +1907,7 @@ namespace vg {
         
         // re-sort the rescued alignments if we actually did it from both sides
         if (rescue_succeeded_from_1 && rescue_succeeded_from_2) {
-            sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances);
+            sort_and_compute_mapping_quality(multipath_aln_pairs_out, pair_distances, false);
         }
         
         // consider whether we should cap the mapping quality based on the chance that we rescued from the wrong clusters
@@ -1944,7 +1950,7 @@ namespace vg {
             }
         }
         
-        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs);
+        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, false);
     }
     
     void MultipathMapper::cap_mapping_quality_by_rescue_probability(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
@@ -2492,7 +2498,7 @@ namespace vg {
         }
         
         // put pairs in score sorted order and compute mapping quality of best pair using the score
-        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, &duplicate_pairs_out);
+        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, false, &duplicate_pairs_out);
         
 #ifdef debug_validate_multipath_alignments
         for (pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair : multipath_aln_pairs_out) {
@@ -3358,6 +3364,7 @@ namespace vg {
     // TODO: pretty duplicative with the unpaired version
     void MultipathMapper::sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                                            vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                                           bool allow_population_component,
                                                            vector<pair<size_t, size_t>>* duplicate_pairs_out) const {
         
 #ifdef debug_multipath_mapper
@@ -3372,7 +3379,11 @@ namespace vg {
         
         // Only do the population MAPQ if it might disambiguate two paths (since it's not
         // as cheap as just using the score), or if we set the setting to always do it.
-        bool include_population_component = (use_population_mapqs && (multipath_aln_pairs.size() > 1 || always_check_population));
+        // During some steps we also skip it for the sake of internal heuristics that get
+        // confused by the population component.
+        bool include_population_component = (use_population_mapqs &&
+                                             allow_population_component &&
+                                             (multipath_aln_pairs.size() > 1 || always_check_population));
         // records whether of the paths followed the edges in the index
         bool all_paths_pop_consistent = true;
         

@@ -277,6 +277,7 @@ namespace vg {
         /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                              bool allow_population_component,
                                               vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr) const;
 
         /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
