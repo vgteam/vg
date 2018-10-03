@@ -229,7 +229,7 @@ int main_mpmap(int argc, char** argv) {
             {"approx-exp", required_argument, 0, 'w'},
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
-            {"delay-popultatin", no_argument, 0, OPT_DELAY_POPULATION_SCORING},
+            {"delay-population", no_argument, 0, OPT_DELAY_POPULATION_SCORING},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
             {"long-read-scoring", no_argument, 0, 'E'},
