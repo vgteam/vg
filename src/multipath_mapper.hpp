@@ -51,7 +51,8 @@ namespace vg {
         ////////////////////////////////////////////////////////////////////////
     
         MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
-                        haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr);
+                        haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
+                        DistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
         
         /// Map read in alignment to graph and make multipath alignments.
@@ -350,6 +351,7 @@ namespace vg {
                                           OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
         
         SnarlManager* snarl_manager;
+        DistanceIndex* distance_index;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;

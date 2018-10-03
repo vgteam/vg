@@ -852,18 +852,21 @@ int main_mpmap(int argc, char** argv) {
         }
     }
     
-
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Configure its temp directory to the system temp directory
     gcsa::TempFile::setDirectory(temp_file::get_dir());
     
+    // Load required indexes
+    
     xg::XG xg_index(xg_stream);
     gcsa::GCSA gcsa_index;
     gcsa_index.load(gcsa_stream);
     gcsa::LCPArray lcp_array;
     lcp_array.load(lcp_stream);
+    
+    // Load optional indexes
     
     gbwt::GBWT* gbwt = nullptr;
     haplo::linear_haplo_structure* sublinearLS = nullptr;
@@ -885,7 +888,6 @@ int main_mpmap(int argc, char** argv) {
         sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, xg_index, xg_ref_rank);
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
-    
     // TODO: Allow using haplo::XGScoreProvider?
     
     SnarlManager* snarl_manager = nullptr;
