@@ -125,6 +125,7 @@ namespace vg {
         size_t alt_anchor_max_length_diff = 5;
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;
+        bool delay_population_scoring = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
