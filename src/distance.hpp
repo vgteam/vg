@@ -24,26 +24,32 @@ class DistanceIndex {
     void load(istream& in);
 
 
-    /*Get the minimum distance between two positions
+    /*Get the minimum distance between two position */
+    int64_t minDistance( pos_t pos1, pos_t pos2);
+
+    /*Minimum distance between given snarls containing positions
       pos1 must be on a node contained in snarl1 and not on any children of
       snarl1. The same for pos2 and snarl2
     */
-    int64_t minDistance( pos_t pos1, pos_t pos2);
     int64_t minDistance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t pos1, pos_t pos2);
 
     /*Get an upper bound of the distance between two positions */
     int64_t maxDistance(pos_t pos1, pos_t pos2);
-  
+ 
+    //Given a node, find the snarl containing it
+    const Snarl* snarlOf(id_t nodeID); 
+
     //Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
 
 
-    //Given a node, find the snarl containing it
-    const Snarl* snarlOf(id_t nodeID);
 
+    /*get the size of the index in bytes*/
     pair<int64_t, int64_t> sizeOf();
+    /*print the distance index for debugging*/
     void printSelf();
+
     protected:
     class SnarlIndex {
         
@@ -64,13 +70,14 @@ class DistanceIndex {
             SnarlIndex(DistanceIndex* di, vector<int64_t> v);
 
             /*Store contents of object as a vector of ints for serialization
-              Stored as [# nodes, start node id, end node id, snarl length] + 
+              Stored as [# nodes, start node id, end node id] + 
                         [visit to index as list of node ids in order of index] +
                         [distances]
             */
             vector<int64_t>  toVector();
             
             //Distance between beginning of node start and beginning of node end
+            //Bool is true if the node is traversed in reverse
             //Only works for nodes heading their chains (which represent the chains), or snarl boundaries.
             int64_t snarlDistance(HandleGraph* graph,NetGraph* ng,pair<id_t, bool> start,
                                                          pair<id_t, bool> end);
@@ -88,7 +95,8 @@ class DistanceIndex {
             //Length of a node
             int64_t nodeLength(HandleGraph*graph, NetGraph* ng,  id_t node);
         
-            //Total length of the snarl
+            //Total length of the snarl-shortest distance from start to end
+            //including the lengths of boundary nodes
             int64_t snarlLength(HandleGraph* graph, NetGraph* ng);
 
             /*Given distances from a position to either end of a node, find the
@@ -145,28 +153,26 @@ class DistanceIndex {
             ChainIndex(DistanceIndex* di, vector<int64_t> v);
 
             /*Convert contents into vector of ints for serialization
-               stored as [node_id1, prefixsum1 start, prefixsum1 end,
-                          loopfd1, loopfd2, node_id2, ...]
+               stored as [chainStartID, chainEndID, node_id1, prefixsum1 start,
+                           prefixsum1 end, loopfd1, loopfd2, node_id2, ...]
             */
             vector<int64_t> toVector();
        
             /** 
              * Distance between two node sides in a chain. id_t values specify
-             * the nodes, and bool values specify the sides. Side orientations
-             * are relative to the node's orientation *in the chain*, so if
-             * reading through the chain in its forward orientation you
-             * encounter the node in reverse, then true is the *left* side of
-             * the node and false is the *right* side.
+             * the nodes, bools specify the side and orientation.
+             *
+             * Bool specifies the direction the node is traversed i.e. if both
+             * bools are false, then the distance is between the left side of
+             * the start node traversing it forward to the left side of the 
+             * end node traversing forward. 
              */
             int64_t chainDistance(pair<id_t, bool> start, pair<id_t, bool> end,
                                 const Snarl* startSnarl, const Snarl* endSnarl, 
                                                             bool recurse=true);
 
             /**
-             * Takes the graph and two node sides, with orientations specified
-             * relative to the nodes' orientation in their chain (i.e. nodes
-             * backward in the chain have false represent the *end* of the
-             * node).
+             * Takes the graph and two node sides.
              *
              * Returns the distance from the **opposite** side of the start
              * node to the specified side of the end node.
@@ -174,6 +180,7 @@ class DistanceIndex {
             int64_t chainDistanceShort(HandleGraph* graph, 
                                 pair<id_t, bool> start, pair<id_t, bool> end,
                                 const Snarl* startSnarl, const Snarl* endSnarl);
+
             //Length of entire chain
             int64_t chainLength();
 
@@ -189,14 +196,15 @@ class DistanceIndex {
 
             /*For each boundary node of snarls in the chain, the distance
                from the start of the node traversing forward to the end of 
-               the same node traversing backwards*/
+               the same node traversing backwards -directions relative to the 
+               direction the node is traversed in the chain*/
             int_vector<> loopFd;
     
             /*For each boundary node of snarls in the chain, the distance
                from the end of the node traversing backward to the start of 
                the same node traversing forward*/
-
             int_vector<> loopRev;
+
             id_t chainStartID;
             id_t chainEndID;
 
@@ -209,6 +217,7 @@ class DistanceIndex {
 
         private: 
             DistanceIndex* distIndex; 
+
         friend class DistanceIndex;   
         friend class TestDistanceIndex;
     }; 
@@ -228,7 +237,7 @@ class DistanceIndex {
 //TODO: Finish testing        protected:
             int_vector<> nodeToComponent;//Maps each node to its connected component
             int_vector<> minDistances;   //Min and max distances to
-            int_vector<> maxDistances;   //sink nodes in topological order
+            int_vector<> maxDistances;   //sink nodes in topological(ish) order
             uint64_t numCycles;         //Number of cyclic connected components
             uint64_t cap;               //Maximum distance to be considered
           
@@ -274,7 +283,7 @@ class DistanceIndex {
     /*Index to find the snarl containing a node
       The start node id of the snarl containing each node - negative if 
        the start node is reverse
-    TODO: Maybe put this somewhere else*/
+    */
     dac_vector<> nodeToSnarl;
     id_t minNodeID; //minimum node id of the graph
     id_t maxNodeID; //maximum node id of the graph
@@ -290,18 +299,18 @@ class DistanceIndex {
 
 
     //Helper function for constructor - populate the minimum distance index
+    //Given the top level snarls
     int64_t calculateMinIndex(const Chain* chain); 
 
 
     //Helper function for constructor - populate node to snarl
     int_vector<> calculateNodeToSnarl(SnarlManager* sm);
 
-    //Flag each node with true if it is in a cycle that has minimum length
-    //smaller than cap
-    void flagCycles(const Snarl* snarl, bit_vector& inCycle,
-                    uint64_t cap);
 
-    //Minimum distance of a loop that involves node
+    /*Minimum distance of a loop that involves node or edge
+      Edge (traversing nodes in orientation specified by bool) must exist
+      in the graph
+    */
     int64_t loopDistance(pair<id_t, bool> node1, pair<id_t, bool> node2); 
     int64_t loopDistance( const Snarl* snarl1, const Snarl* snarl2,
                           pair<id_t, bool> node1, pair<id_t, bool> node2); 

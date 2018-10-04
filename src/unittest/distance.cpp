@@ -2119,6 +2119,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 
 
+/*
 
         ifstream vg_stream("testGraph");
         VG vg(vg_stream);
@@ -2129,7 +2130,6 @@ class TestDistanceIndex : public DistanceIndex {
         TestDistanceIndex di (&vg, &snarl_manager, 50);
         pos_t pos1 = make_pos_t (1, false,0 );
         pos_t pos2 = make_pos_t (108, false, 0);
-//di.printSelf();
         REQUIRE(di.maxDistance(pos1, pos2 ) >= 27); 
 
             for (size_t i = 0 ; i < vg.max_node_id(); i++) {
@@ -2146,6 +2146,7 @@ class TestDistanceIndex : public DistanceIndex {
                     }
                 }
             }
+*/
 
 
 
@@ -2354,7 +2355,7 @@ class TestDistanceIndex : public DistanceIndex {
         
 */
 
-/*
+
     TEST_CASE("Serialize distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
 
@@ -2462,7 +2463,7 @@ class TestDistanceIndex : public DistanceIndex {
              
         }
     } //end test case
-*/
+
 
 }
 
