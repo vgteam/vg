@@ -59,6 +59,7 @@ private:
     bool is_compacted = false;
     // dynamic model
     gcsa::CounterArray coverage_dynamic;
+    gcsa::CounterArray edge_coverage_dynamic;
     vector<string> edit_tmpfile_names;
     vector<ofstream*> tmpfstreams;
     // which bin should we use
