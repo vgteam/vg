@@ -53,9 +53,6 @@ bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
                              map<string, int64_t>& path_length,
                              map<string, string>& rg_sample);
-/// Write alighnents to the given output stream.
-/// Does not write an EOF marker, so stream::finish() must be run on the stream after writing is done.
-void write_alignments(std::ostream& out, vector<Alignment>& buf);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);

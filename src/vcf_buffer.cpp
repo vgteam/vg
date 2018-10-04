@@ -30,11 +30,6 @@ void VcfBuffer::fill_buffer() {
     if(file != nullptr && file->is_open() && !has_buffer && safe_to_get) {
         // Put a new variant in the buffer if we have a file and the buffer was empty.
         has_buffer = safe_to_get = file->getNextVariant(buffer);
-        if(has_buffer) {
-            // Convert to 0-based positions.
-            // TODO: refactor to use vcflib zeroBasedPosition()...
-            buffer.position -= 1;
-        }
 #ifdef debug
         cerr << "Variant in buffer: " << buffer << endl;
 #endif
@@ -126,7 +121,7 @@ bool WindowedVcfBuffer::next() {
     // left that are on the wrong sequence or have gotten too far away.
     while (!variants_before.empty() &&
         (current->sequenceName != variants_before.front()->sequenceName ||
-        current->position - variants_before.front()->position > window_size)) {
+        current->zeroBasedPosition() - variants_before.front()->zeroBasedPosition() > window_size)) {
         
         // As long as the leftmost variant exists and is on the wrong contig or
         // too far left
@@ -144,7 +139,7 @@ bool WindowedVcfBuffer::next() {
     reader.fill_buffer();
     while (reader.get() != nullptr &&
         reader.get()->sequenceName == current->sequenceName &&
-        reader.get()->position - current->position <= window_size) {
+        reader.get()->zeroBasedPosition() - current->zeroBasedPosition() <= window_size) {
         
         // As long as we have a next variant on this contig that's in range,
         // grab a copy.
@@ -191,24 +186,24 @@ tuple<vector<vcflib::Variant*>, vcflib::Variant*, vector<vcflib::Variant*>> Wind
     
     for (auto& v : variants_before) {
         // For every variant before the current one
-        if (v->position > last_position_used && v->position + v->ref.size() <= current->position) {
+        if (v->zeroBasedPosition() > last_position_used && v->zeroBasedPosition() + v->ref.size() <= current->zeroBasedPosition()) {
             // The end of this variant is before the start of our current variant, so use it.
             before.push_back(v.get());
             // Remember it uses its start base, plus 1 base per ref allele base
-            last_position_used = v->position + v->ref.size() - 1;
+            last_position_used = v->zeroBasedPosition() + v->ref.size() - 1;
         }
     }
     
     // Now mark used through the end of the current variant
-    last_position_used = current->position + current->ref.size() - 1;
+    last_position_used = current->zeroBasedPosition() + current->ref.size() - 1;
     
     for (auto& v : variants_after) {
         // For every variant after the current one
-        if (v->position > last_position_used) {
+        if (v->zeroBasedPosition() > last_position_used) {
             // The end of the last variant is before the start of this one, so use it.
             after.push_back(v.get());
             // Remember it uses its start base, plus 1 base per ref allele base
-            last_position_used = v->position + v->ref.size() - 1;
+            last_position_used = v->zeroBasedPosition() + v->ref.size() - 1;
         }
     }
     

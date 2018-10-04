@@ -37,7 +37,7 @@ is $? 0 "vg map takes -d as input without a variant graph"
 
 is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -x x.xg -g x.gcsa -j | jq -r . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
 
-is $(vg map --reads <(vg sim -s 69 -n 1000 -l 100 -x x.xg) -x x.xg -g x.gcsa  | vg view -a - | jq -r -c '.score == 110 // [.score, .sequence]' | grep true | wc -l) 1000 "alignment works on a small graph"
+is $(vg map --reads <(vg sim -n 1000 -l 100 -x x.xg) -x x.xg -g x.gcsa  | vg view -a - | jq -r -c '.score == 110 // [.score, .sequence]' | grep true | wc -l) 1000 "alignment works on a small graph"
 
 seq=TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG
 is $(vg map -s $seq -x x.xg -g x.gcsa | vg view -a - | jq -r -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
@@ -102,10 +102,9 @@ rm -f g.idx.gcsa g.idx.xg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
-vg sim -s 1337 -n 1000 -x x.xg >x.reads
-is $(vg map -T x.reads -d x -j | jq -r -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
+is $(vg map -T small/x-s1337-n1000.reads -d x -j | jq -r -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 
-is $(vg map -T <(head -1 x.reads) -d x -j -t 1 -Q 30 | jq -r .mapping_quality) 30 "the mapping quality may be capped"
+is $(vg map -T <(head -1 small/x-s1337-n1000.reads) -d x -j -t 1 -Q 30 | jq -r .mapping_quality) 30 "the mapping quality may be capped"
 
 vg index -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -k 16 graphs/refonly-lrc_kir.vg
 
@@ -119,7 +118,7 @@ paired_range=$(jq -r ".path.mapping[0].position.node_id" <  temp_paired_alignmen
 independent_range=$(jq -r ".path.mapping[0].position.node_id" <  temp_independent_alignment.json| sort | rs -T | awk '{print ($2 - $1)}')
 is $(printf "%s\t%s\n" $paired_range $independent_range | awk '{if ($1 < $2) print 1; else print 0}') 1 "paired read alignments forced to be consistent are closer together in node id space than unrestricted alignments"
 is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -j -M 4 -UI 832:332.192:50.0602:0:1 | jq -r ".mapping_quality" | grep -v null | wc -l) 2 "only primary alignments have mapping quality scores"
-is $(vg map -T x.reads -x x.xg -g x.gcsa -k 22 -j | jq -r ".mapping_quality" | wc -l) 1000 "unpaired reads produce mapping quality scores"
+is $(vg map -T small/x-s1337-n1000.reads -x x.xg -g x.gcsa -k 22 -j | jq -r ".mapping_quality" | wc -l) 1000 "unpaired reads produce mapping quality scores"
 
 rm temp_paired_alignment.json temp_independent_alignment.json
 
@@ -154,7 +153,7 @@ is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 0 --full-l-bonus 0 -
 is "$(vg map -x x.xg -g x.gcsa --gbwt-name x.gbwt --hap-exp 1 --full-l-bonus 0 -f reads/x.offhap.fq -j | jq -r '.score')" "21" "mapping a read that matches no haplotypes gets a larger penalty"
 
 # Test paired surjected mapping
-vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam
+vg map -d x -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '762\n321')" "surjection of paired reads to SAM yields correct pair partner positions"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"
@@ -162,14 +161,14 @@ is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '=\n=')" "surjecti
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '131\n83')" "surjection of paired reads to SAM produces correct flags"
 
 # And unpaired surjected mapping
-vg map -d x -G <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam
+vg map -d x -G <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) --surject-to SAM >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 4)" "$(printf '321\n762')" "surjection of unpaired reads to SAM yields correct positions"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 8)" "$(printf '0\n0')" "surjection of unpaired reads to SAM yields correct pair partner positions"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "2" "surjection of unpaired reads to SAM yields distinct QNAMEs"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 7)" "$(printf '*\n*')" "surjection of unpaired reads to SAM produces absent partner contigs"
 is "$(cat surjected.sam | grep -v '^@' | sort -k4 | cut -f 2)" "$(printf '0\n16')" "surjection of unpaired reads to SAM produces correct flags"
 
-rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp surjected.sam
+rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.xg x.gcsa x.gcsa.lcp x.gbwt graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp surjected.sam
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
 vg index -k 16 -x tiny.xg -g tiny.gcsa tiny.vg

@@ -214,6 +214,10 @@ int main_construct(int argc, char** argv) {
             // Wrap the chunk in a vg object that can properly divide it into
             // reasonably sized serialized chunks.
             VG* g = new VG(big_chunk, false, true);
+            
+            // Check our work. Never output an invalid graph.
+            // But allow for edges where one node isn't there, because we need those to connect segments.
+            assert(g->is_valid(true, false, true, true));
 #pragma omp critical (cout)
             g->serialize_to_ostream_as_part(cout);
         };

@@ -1,5 +1,5 @@
-#ifndef VG_HOMOGENIZER
-#define VG_HOMOGENIZEER
+#ifndef VG_HOMOGENIZER_HPP_INCLUDED
+#define VG_HOMOGENIZER_HPP_INCLUDED
 #include <iostream>
 #include <vector>
 #include "vg.hpp"

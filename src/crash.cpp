@@ -217,6 +217,7 @@ void enable_crash_handling() {
     sigaction(SIGSEGV, &sig_config, nullptr);
     sigaction(SIGBUS, &sig_config, nullptr);
     sigaction(SIGILL, &sig_config, nullptr);
+    sigaction(SIGFPE, &sig_config, nullptr);
     
     // We don't set_terminate for aborts because we still want the standard
     // library's message about what the exception was.

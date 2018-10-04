@@ -73,6 +73,7 @@ void help_mpmap(char** argv) {
     << "  -d, --max-dist-error INT      maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
     << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
+    << "  --always-check-population     always try o population-score reads, even if there is only a single mapping" << endl
     << "  -C, --drop-subgraph FLOAT     drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     << "  -U, --prune-exp FLOAT         prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
@@ -99,6 +100,7 @@ int main_mpmap(int argc, char** argv) {
     // initialize parameters with their default options
     #define OPT_SCORE_MATRIX 1000
     #define OPT_RECOMBINATION_PENALTY 1001
+    #define OPT_ALWAYS_CHECK_POPULATION 1002
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -143,6 +145,7 @@ int main_mpmap(int argc, char** argv) {
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
     double recombination_penalty = 20.7;
+    bool always_check_population = false;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
@@ -222,6 +225,7 @@ int main_mpmap(int argc, char** argv) {
             {"max-dist-error", required_argument, 0, 'd'},
             {"approx-exp", required_argument, 0, 'w'},
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
+            {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -408,7 +412,7 @@ int main_mpmap(int argc, char** argv) {
                 max_map_attempts_arg = parse<int>(optarg);
                 // let 0 be a sentinel for no limit and also a sentinel for not giving an arg
                 if (max_map_attempts_arg == 0) {
-                    max_map_attempts_arg == numeric_limits<int>::max();
+                    max_map_attempts_arg = numeric_limits<int>::max();
                 }
                 break;
                 
@@ -450,6 +454,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_RECOMBINATION_PENALTY:
                 recombination_penalty = parse<double>(optarg);
+                break;
+                
+            case OPT_ALWAYS_CHECK_POPULATION:
+                always_check_population = true;
                 break;
                 
             case 'C':
@@ -599,6 +607,11 @@ int main_mpmap(int argc, char** argv) {
         // Don't allow anything but the default or the "disabled" setting without an index.
         // TODO: This restriction makes neat auto-generation of command line options for different conditions hard.
         cerr << "error:[vg mpmap] Maximum number of paths per alignment for population scoring (-O) is specified but population database (-H or --linear-index) was not provided." << endl;
+        exit(1);
+    }
+    
+    if (always_check_population && gbwt_name.empty() && sublinearLS_name.empty()) {
+        cerr << "error:[vg mpmap] Cannot --always-check-population if no population database (-H or --linear-index) is provided." << endl;
         exit(1);
     }
     
@@ -883,6 +896,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.use_population_mapqs = (haplo_score_provider != nullptr && population_max_paths > 0);
     multipath_mapper.population_max_paths = population_max_paths;
     multipath_mapper.recombination_penalty = recombination_penalty;
+    multipath_mapper.always_check_population = always_check_population;
     
     // set pruning and clustering parameters
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;

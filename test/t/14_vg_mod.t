@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order
 
-plan tests 40
+plan tests 41
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^P" | cut -f 3 | grep -o "[0-9]\+" |  wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep "^S" | wc -l) \
@@ -41,6 +41,8 @@ is $(vg mod -i t.gam t.vg | vg view - | grep ^S | grep $(vg mod -i t.gam t.vg | 
 rm -rf t.vg t.gam
 
 is $(vg mod -n msgas/q_redundant.vg | vg view - | grep ^S | wc -l) 4 "normalization produces the correct number of nodes"
+
+is $(vg view -vF graphs/redundant-snp.gfa | vg mod -n - | vg view - | grep ^S | wc -l) 4 "normalization removes redundant SNP alleles"
 
 vg mod -n msgas/q_redundant.vg | vg validate -
 is $? 0 "normalization produces a valid graph"
@@ -114,16 +116,15 @@ rm -f c.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
-vg sim -s 1337 -n 100 -e 0.01 -i 0.005 -x x.xg -a >x.sim
-vg map -x x.xg -g x.gcsa -G x.sim -t 1 >x.gam
+vg map -x x.xg -g x.gcsa -G small/x-s1337-n100-e0.01-i0.005.gam -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
 is $(vg view -Z x.trans | wc -l) 1288 "the expected graph translation is exported when the graph is edited"
-rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans x.sim
+rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
 vg construct -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
 vg index -x 2snp.xg 2snp.vg
-vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
+vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
 vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
 is $(vg mod -i 2snp.gam flat.vg | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"

@@ -1,7 +1,7 @@
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](http://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/vg_ci/jenkins_reports/branch/master/index.html) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
-[![Documentation Status](https://readthedocs.org/projects/vg/badge/?version=latest)](http://vg.readthedocs.io/en/latest/?badge=latest)
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](http://vg-data.s3.amazonaws.com/vg_ci/jenkins_reports/branch/master/index.html) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
+[![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/) 
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
@@ -19,80 +19,107 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 ## Usage
 
-### building
+### Building on Linux
 
-Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need `jq`, `bc` and `rs`.
+First, obtain the repo and its submodules:
+
+    git clone --recursive https://github.com/vgteam/vg.git
+    cd vg
+    
+Then, install VG's dependencies. You'll need the protobuf and jansson development libraries installed, and to run the tests you will need `jq`, `bc` and `rs`. On Ubuntu, you should be able to do:
+
+    make get-deps
+    
+On other distros, you will need to perform the equivalent of:
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
                          jq bc rs curl unzip redland-utils librdf-dev bison flex gawk \
                          lzma-dev liblzma-dev liblz4-dev libffi-dev
 
-You can also run `make get-deps`.
-
 At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
 
 Other libraries may be required. Please report any build difficulties.
 
-Note that a 64-bit OS is required. Ubuntu 16.04 should work.
+Note that a 64-bit OS is required. Ubuntu 16.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
 
-Now, obtain the repo and its submodules:
+When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
+
+You can also produce a static binary with `make static`, assuming you have static versions of all the dependencies installed on your system.
+
+### Building on MacOS
+
+#### Clone VG
+
+The first step is to clone the vg repository:
 
     git clone --recursive https://github.com/vgteam/vg.git
+    cd vg
 
-Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
+#### Install Dependencies
 
-#### building on Mac OS X
+VG depends on a number of packages being installed on the system where it is being built. Dependencies can be installed using either [MacPorts](https://www.macports.org/install.php) or [Homebrew](http://brew.sh/).
 
-##### using Mac Ports
+##### Using MacPorts
 
-VG won't build with XCode's compiler (clang), but it should work with GCC >= 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
+You can use MacPorts to install VG's dependencies:
 
-    sudo port install gcc7 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo clang-3.8
+    sudo port install libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison gperftools md5sha1sum rasqal gmake autogen cairo libomp
+    
+
+##### Using Homebrew
+
+Homebrew provides another package management solution for OSX, and may be preferable to some users over MacPorts. VG ships a `Brewfile` describing its Homebrew dependencies, so from the root vg directory, you can install dependencies, and expose them to vg, like this:
+
+    # Install all the dependencies in the Brewfile
+    brew bundle
+    
+    # Use GNU versions of coreutils over Apple versions
+    export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+
+    # Force use of new version of bison
+    brew link bison --force
+
+    # Use glibtool/ize
+    export LIBTOOL=glibtool
+    export LIBTOOLIZE=glibtoolize
+
+    # Use installed libraries
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
+    export LIBRARY_PATH=$LD_LIBRARY_PATH;
+
+#### (Optional) Install GNU GCC
+
+While Apple's `clang` can build VG, the C++ standard library it uses doesn't support some parallel extensions, so a Clang-built VG will be slower. Better results can be achieved by building with GNU GCC >= 4.9 and its `libstdc++` standard library.
+
+With **MacPorts**, you can install GNU GCC like this:
+
+    sudo port install gcc7 clang-3.8
 
 To make GCC 7 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
 
     sudo port select gcc mp-gcc7
 
-Some OSX users also need to have the MacPorts clang assembler for dependencies (use `none` instead of `mp-clang-3.8` to revert back):
+Some OSX users also need to have the MacPorts Clang assembler for building VG's dependencies (use `none` instead of `mp-clang-3.8` to revert back):
 
     sudo port select clang mp-clang-3.8
 
-VG can now be cloned and built:
+With **Homebrew**, you can install GNU GCC for VG like this:
 
-    git clone --recursive https://github.com/vgteam/vg.git
-    cd vg
+    brew install gcc6
+    # Manually create symlinks to make Homebrew GCC 6 the default gcc and g++
+    ln -s gcc-6 /usr/local/bin/gcc
+    ln -s g++-6 /usr/local/bin/g++
+    
+#### Build
+
+With dependencies and compilers installed, VG can now be built:
+
     . ./source_me.sh && make
     
 **Note that static binaries cannot yet be built for Mac.**
 
-Our team has also successfully built vg on Mac with GCC versions 4.9, 5.3, 6, and 7.3.
-
-##### using Homebrew
-
-[Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
-
-```
-brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor bison lz4 xz
-export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
-
-# Force use of new version of bison
-brew link bison --force
-
-# Use glibtool/ize
-export LIBTOOL=glibtool
-export LIBTOOLIZE=glibtoolize
-# Make symlinks to use gxx-4.9 instead of builtin gxx (CC and CXX not yet fully honored)
-ln -s gcc-4.9 /usr/local/bin/gcc
-ln -s g++-4.9 /usr/local/bin/g++
-
-export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
-export LIBRARY_PATH=$LD_LIBRARY_PATH;
-
-git clone --recursive https://github.com/vgteam/vg.git  
-cd vg/  
-. ./source_me.sh && make
-```
+Our team has successfully built vg on Mac with GCC versions 4.9, 5.3, 6, 7, and 7.3, as well as Clang 9.0.
 
 ### Variation graph construction
 
@@ -139,23 +166,26 @@ If your graph is large, you want to use `vg index` to store the graph and `vg ma
 
 ```sh
 # construct the graph
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 
 # store the graph in the xg/gcsa index pair
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
-vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa >read.gam
+vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa > read.gam
 
-# simulate a bunch of 150bp reads from the graph and map them
-vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa >aln.gam
+# simulate a bunch of 150bp reads from the graph, one per line
+vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
+# now map these reads against the graph to get a GAM
+vg map -T x.sim.txt -x x.xg -g x.gcsa > aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
-vg surject -x x.xg -b aln.gam >aln.bam
+vg surject -x x.xg -b aln.gam > aln.bam
 
 # or alternatively, surject them to BAM in the call to map
-vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa --surject-to bam >aln.bam
+vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
+vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 ```
 ### Variant Calling
 

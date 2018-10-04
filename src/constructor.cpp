@@ -23,6 +23,7 @@ namespace vg {
     void Constructor::trim_to_variable(vector<list<vcflib::VariantAllele>>& parsed_alleles) {
 
 #ifdef debug
+        cerr << "Before trimming to variable region:" << endl;
         for (auto& allele : parsed_alleles) {
             cerr << "Allele:" << endl;
 
@@ -63,6 +64,11 @@ namespace vg {
 
         for(size_t front_match_count = get_match_count(true); front_match_count > 0; front_match_count = get_match_count(true)) {
             // While we have shared matches at the front
+            
+#ifdef debug
+            cerr << "Edits at the front share " << front_match_count << " match bases and need to be trimmed down" << endl;
+#endif
+            
             for (auto& allele : parsed_alleles) {
                 // Trim each allele
                 if (allele.front().ref.size() > front_match_count) {
@@ -74,6 +80,9 @@ namespace vg {
 #endif
                     allele.front().ref = new_match_string;
                     allele.front().alt = new_match_string;
+                    
+                    // Since we're trimming off the front we need to bump the position up.
+                    allele.front().position += front_match_count;
                 } else {
                     // This perfect match can be completely eliminated
 #ifdef debug
@@ -87,6 +96,11 @@ namespace vg {
 
         for(size_t back_match_count = get_match_count(false); back_match_count > 0; back_match_count = get_match_count(false)) {
             // While we have shared matches at the back
+            
+#ifdef debug
+            cerr << "Edits at the back share " << back_match_count << " match bases and need to be trimmed down" << endl;
+#endif
+            
             for (auto& allele : parsed_alleles) {
                 // Trim each allele
                 if (allele.back().ref.size() > back_match_count) {
@@ -112,6 +126,7 @@ namespace vg {
         }
 
 #ifdef debug
+        cerr << "After trimming to variable region:" << endl;
         for (auto& allele : parsed_alleles) {
             cerr << "Allele: " << endl;
             for (auto& edit : allele) {
@@ -147,17 +162,18 @@ namespace vg {
         }
     }
 
-    pair<int64_t, int64_t> Constructor::get_bounds(vcflib::Variant var, bool use_flat_alts){
+    pair<int64_t, int64_t> Constructor::get_bounds(vcflib::Variant var){
         int64_t start = numeric_limits<int64_t>::max();
+
+        start = min(start, (int64_t) var.zeroBasedPosition());
         int64_t end = -1;
-        if (var.is_sv()){
-            start = min(start, (int64_t) var.position);
-            end = max(end, (int64_t) var.get_sv_end(0));
-            return std::make_pair( start, end);
-        } else {
-            throw runtime_error("get_bounds(Variant, bool) not implemented for non-SV variants!");
-        }
+
+        
+        end = var.getMaxReferenceLength();
+        
+        return std::make_pair( start, end);
     }
+
 
     pair<int64_t, int64_t> Constructor::get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant) {
 
@@ -169,8 +185,8 @@ namespace vg {
             // For every variable core of an alt (which may be empty)
             if (!trimmed_parts.empty()) {
                 // We have at least one valid non-match edit on this alt. Expand the range.
-                variable_start = min(variable_start, (int64_t) trimmed_parts.front().position);
-                variable_stop = max(variable_stop, (int64_t) (trimmed_parts.back().position + trimmed_parts.back().ref.size() - 1));
+                variable_start = min(variable_start, (int64_t) trimmed_parts.front().position - 1);
+                variable_stop = max(variable_stop, (int64_t) (trimmed_parts.back().position - 1 + trimmed_parts.back().ref.size() - 1));
             }
         }
 
@@ -267,6 +283,10 @@ namespace vg {
         // path. We need the node so we can get its length.
         // Automatically fills in rank, starting from 1.
         auto add_match = [&](Path* path, Node* node) {
+            #ifdef debug
+            cerr << "Add node " << node->id() << " to path " << path->name() << endl;
+            #endif
+        
             // Make a mapping for it
             auto* mapping = path->add_mapping();
             mapping->mutable_position()->set_node_id(node->id());
@@ -404,20 +424,17 @@ namespace vg {
 
             // Group variants into clumps of overlapping variants.
             if (clump.empty() || 
-                (next_variant != variants.end() && clump_end > next_variant->position - chunk_offset)) {
+
+                (next_variant != variants.end() && clump_end > next_variant->zeroBasedPosition() - chunk_offset)) {
+
 
                 // Either there are no variants in the clump, or this variant
                 // overlaps the clump. It belongs in the clump
                 clump.push_back(&(*next_variant));
                 // It may make the clump longer and necessitate adding more variants.
-                if (!next_variant->is_sv()) {
-                    clump_end = max(clump_end, next_variant->position + next_variant->ref.size() - chunk_offset);
-                } else {
-                    clump_end = max(clump_end, next_variant->position + (long) next_variant->get_sv_len(0) - chunk_offset);
-                }
-                #ifdef debug
-                cerr << "Extend clump out to " << clump_end << endl;
-                #endif
+                // TODO: make sure long SVs don't fall outside chunk
+                clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
+
 
                 // Try the variant after that
                 next_variant++;
@@ -462,8 +479,8 @@ namespace vg {
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
 
-                    if (!variant->is_sv()){
-                        auto expected_ref = reference_sequence.substr(variant->position - chunk_offset, variant->ref.size());
+                    if (!variant->is_symbolic_sv()){
+                        auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
 
                         if(variant->ref != expected_ref) {
                         // TODO: report error to caller somehow
@@ -471,6 +488,7 @@ namespace vg {
                             cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
                                 << " vs pos: " << variant->position << ": " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
                                 << "Variant: " << *variant << endl;
+                                cerr << "zero ind: " << variant->zeroBasedPosition() << " 1-indexed: " << variant->position << endl;
                             exit(1);
                         }
                     }
@@ -498,6 +516,7 @@ namespace vg {
                     // completely cover the alt, and some of them may be perfect
                     // matches to stretches of reference sequence. Note that the
                     // reference allele of the variant won't appear here.
+
                     map<string, vector<vcflib::VariantAllele>> alternates;
                     if (flat) {
                         alternates = variant->flatAlternates();
@@ -511,10 +530,12 @@ namespace vg {
                                 }
                             }
                         }
+                    //} else if (!variant->has_sv_tags()) {
                     } else {
                         alternates = variant->parsedAlternates();
                     }
-                    if (!variant->is_sv()){
+                    if (!variant->is_symbolic_sv()){
+
                         //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
                         //auto alternates = use_flat_alts ? variant.flatAlternates() : variant.parsedAlternates();
                         for (auto &kv : alternates){
@@ -526,6 +547,7 @@ namespace vg {
                             // until all the edits for the clump are known.
                             continue;
                         }
+
 
                             // With 0 being the first non-ref allele, which alt are we?
                             // Copy the string out of the map
@@ -556,6 +578,7 @@ namespace vg {
                         // region
                         trim_to_variable(parsed_clump[variant]);
                     } else {
+                        cerr << "Is symbolic: " << *variant << endl;
                         // For now, only permit one allele for SVs
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
@@ -568,11 +591,11 @@ namespace vg {
                     // Get the variable bounds in VCF space for all the trimmed alts of this variant
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
-                    if (variant->is_sv()) {
-                        bounds = get_bounds(*variant, true);
-                    } else {
-                        bounds = get_bounds(parsed_clump[variant]);
+                    bounds = get_bounds(parsed_clump[variant]);
+                    if (variant->is_symbolic_sv()){
+                        bounds = get_bounds(*variant);
                     }
+                    
 
                     if (bounds.first != numeric_limits<int64_t>::max() || bounds.second != -1) {
                         // There's a (possibly 0-length) variable region
@@ -653,41 +676,25 @@ namespace vg {
                             alt_path->set_name(alt_name);
                         }
 
-                        // SV HAX
-                        if (variant->is_sv()) {
-                            // This variant needs to be processed as an SV.
-                            
-                            // We will ignore parsed_clump, but we still need it
-                            // to have empty entries for the alt alleles to
-                            // trigger the outer loop.
-                            
-                            #ifdef debug
-                            cerr << "Process alt " << (alt_index + 1) << " of variant " << variant_name << " as an SV" << endl;
-                            #endif
-                        
-                            // Get SV start and end
-                            // and the SV tag
-                            vector<string> tags = variant->sv_tags();
-                            vector<string> svtypes = variant->get_sv_type();
-                            vector<string> ins_seqs = variant->get_insertion_sequences();
+                    // SV HAX
+                    if (this->do_svs && variant->has_sv_tags() && variant->canonical){
 
-                            auto e_start = variant->position - chunk_offset;
-                            auto e_end = variant->position + variant->get_sv_len(alt_index) - chunk_offset - 1;
+                            auto e_start = variant->zeroBasedPosition() - chunk_offset;
+                            // TODO check index here, may or may not need to subtract 1
+                            auto e_end = variant->zeroBasedPosition() + abs(std::stol(variant->info.at("SVLEN")[0])) - chunk_offset - 1;
 
                             // Make in between nodes by grabbing our sequence from the fasta(s),
                             // either from the reference (deletions) or from insertion sequences.
-                            auto key = make_tuple(variant->position - chunk_offset, tags[alt_index], "");
+                            auto key = make_tuple(variant->zeroBasedPosition() - chunk_offset, variant->info.at("SVTYPE")[0], "");
 
-                            string sv_type = svtypes[alt_index];
+                            string sv_type = variant->info.at("SVTYPE")[0];
 
-                            if (sv_type == "INS") {
-                                #ifdef debug
-                                cerr << "\tIt is an insertion." << endl;
-                                #endif
+                            if (variant->info.at("SVTYPE")[0] == "INS"){
 
                                 // Create insertion sequence nodes
-                                if (created_nodes.count(key) == 0 && ins_seqs[alt_index] != "") {
-                                    vector<Node*> node_run = create_nodes(ins_seqs[alt_index]);
+                                if (created_nodes.count(key) == 0){
+                                    vector<Node*> node_run = create_nodes(variant->info.at("SEQ")[0]);
+
 
                                     nodes_starting_at[e_start].insert(node_run.front()->id());
                                     nodes_ending_at[e_end].insert(node_run.back()->id());
@@ -706,41 +713,41 @@ namespace vg {
                                         }
                                     }
                                 }
-                            } else if (sv_type == "DEL") {
-                                #ifdef debug
-                                cerr << "\tIt is a deletion." << endl;
-                                #endif
-                            
-                                if (created_nodes.count(key) == 0) {
+                        }
 
-                                    size_t arc_end = variant->position - chunk_offset + variant->get_sv_len(alt_index)+1;
-                                    int64_t arc_start = (int64_t) variant->position - chunk_offset; 
+                        else if (sv_type == "DEL"){
+                            if (created_nodes.count(key) == 0){
 
-                                    deletions_ending_at[arc_end].insert(arc_start);
-                                    deletion_starts.insert(arc_start);
+                                size_t arc_end = variant->zeroBasedPosition() - chunk_offset + std::stol(variant->info.at("SVLEN")[0]);
+                                int64_t arc_start = (int64_t) variant->zeroBasedPosition() - chunk_offset; 
+
+                                deletions_ending_at[arc_end].insert(arc_start);
+                                deletion_starts.insert(arc_start);
 
 
-                                    if (alt_paths) {
-                                        deletion_start_to_alt_name[arc_start] = alt_name;
-                                    }
+                                if (alt_paths) {
+                                    deletion_start_to_alt_name[arc_start] = alt_name;
                                 }
-                            } else if (sv_type == "INV") {
-                                #ifdef debug
-                                cerr << "\tIt is an inversion." << endl;
-                                #endif
-                                // Handle inversions
-                                // We only need reference nodes, plus two arcs
-                                // one from the inverted sequence's beginning to the sequence following
-                                // its last node and
-                                // one from the end of the sequence preceding the inversion to the back 
-                                // of the inverted sequence's last node.
-                                
-                                size_t inv_end = variant->position - chunk_offset + variant->get_sv_len(alt_index);
-                                int64_t inv_start = (int64_t) variant->position - chunk_offset;
-                                inversion_starts[inv_start].insert(inv_end + 1);
-                                inversion_ends[inv_end].insert(inv_start - 1);
-                            } else {
-                                // What even is this?
+                            }
+                        }
+                        else if (sv_type == "INV"){
+                            // Handle inversions
+                            // We only need reference nodes, plus two arcs
+                            // one from the inverted sequence's beginning to the sequence following
+                            // its last node and
+                            // one from the end of the sequence preceding the inversion to the back 
+                            // of the inverted sequence's last node.
+                                    
+                            size_t inv_end = variant->zeroBasedPosition() - chunk_offset + std::stol(variant->info.at("SVLEN")[0]);
+                            int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset;
+                            // inversion_starts[inv_start - 1].insert(inv_end);
+                            // inversion_ends[inv_end + 1].insert(inv_start);
+
+                            inversion_starts[inv_start].insert(inv_end);
+                            inversion_ends[inv_end].insert(inv_start);
+                        }
+                        else {
+                            // Unknown or unsupported SV type
                                 cerr << "warning:[vg::Constructor]: unrecognized SV type " << sv_type << endl;
                             }
                         } else {
@@ -757,17 +764,17 @@ namespace vg {
 
                                 if (edit.alt != "") {
                                     // This is a visit to a node for the alt
-
                                     // We need a key to see if a node has been made for this edit already
-                                    auto key = make_tuple(edit.position - chunk_offset, edit.ref, edit.alt);
+                                    auto key = make_tuple(edit.position - 1 - chunk_offset, edit.ref, edit.alt);
 
                                     if (created_nodes.count(key) == 0) {
                                         // We don't have a run of nodes for this edit, so make one.
                                         vector<Node*> node_run = create_nodes(edit.alt);
 
                                         // Compute where the edit starts and ends in local chunk coordinates
-                                        auto edit_start = edit.position - chunk_offset;
-                                        auto edit_end = edit.position - chunk_offset + edit.ref.size() - 1;
+                                        auto edit_start = edit.position - 1 - chunk_offset;
+                                        auto edit_end = edit.position - 1 - chunk_offset + edit.ref.size() - 1;
+
 
                                         #ifdef debug
                                         cerr << "Created nodes running " << edit_start << " to " << edit_end << endl;
@@ -810,11 +817,11 @@ namespace vg {
                                     // It's a deletion (and not a weird ""->"" edit).
 
                                     // Add an entry to the deletion arcs
-
                                     // What is the past-the-end position (first non-deleted)
-                                    size_t arc_end = edit.position - chunk_offset + edit.ref.size();
+                                    size_t arc_end = edit.position - 1 - chunk_offset + edit.ref.size();
                                     // What is the before-the-beginning position (last non-deleted, may be -1)
-                                    int64_t arc_start = (int64_t) edit.position - chunk_offset - 1;
+                                    int64_t arc_start = (int64_t) edit.position - 1 - chunk_offset - 1;
+
 
                                     #ifdef debug
                                     cerr << "Ensure deletion arc " << arc_start << " to " << arc_end << endl;
@@ -1242,8 +1249,8 @@ namespace vg {
         // If we're using an index, we ought to already be at the right place.
         variant_source.fill_buffer();
         while(variant_source.get() && (variant_source.get()->sequenceName != vcf_contig ||
-                    variant_source.get()->position < leading_offset ||
-                    variant_source.get()->position + variant_source.get()->ref.size() > reference_end)) {
+                    variant_source.get()->zeroBasedPosition() < leading_offset ||
+                    variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() > reference_end)) {
             // This variant comes before our region
 
             // Discard variants that come out that are before our region
@@ -1508,45 +1515,41 @@ namespace vg {
         }
 
         while (variant_source.get() && variant_source.get()->sequenceName == vcf_contig &&
-                variant_source.get()->position >= leading_offset &&
-                variant_source.get()->position + variant_source.get()->ref.size() <= reference_end) {
+                variant_source.get()->zeroBasedPosition() >= leading_offset &&
+                variant_source.get()->zeroBasedPosition() + variant_source.get()->ref.size() <= reference_end) {
 
             // While we have variants we want to include
             auto vvar = variant_source.get();
 
+
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
             
-            if (vvar->is_sv()) {
-                if (do_svs) {
-                    // Canonicalize the variant and see if that disqualifies it.
-                    // This also takes care of setting the variant's insertion sequences.
-                    variant_acceptable = vvar->canonicalize_sv(reference, insertions, true, -1);
-                    
-                    if (variant_acceptable) {
-                        // Worth checking for multiple alts.
-                        if (vvar->alt.size() > 1) {
-                            // We can't handle multiallelic SVs yet.
-                            #pragma omp critical (cerr)
-                            cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
-                            variant_acceptable = false;
-                        }
+            if (vvar->is_symbolic_sv() && this->do_svs) {
+                // Canonicalize the variant and see if that disqualifies it.
+                // This also takes care of setting the variant's insertion sequences.
+                variant_acceptable = vvar->canonicalize(reference, insertions, true);
+ 
+                if (variant_acceptable) {
+                    // Worth checking for multiple alts.
+                    if (vvar->alt.size() > 1) {
+                        // We can't handle multiallelic SVs yet.
+                        #pragma omp critical (cerr)
+                        cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
+                        variant_acceptable = false;
                     }
+                }
                     
-                    if (variant_acceptable) {
-                        // Worth checking for bounds problems.
-                        // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
-                        auto bounds = get_bounds(*vvar, true);
-                        if (bounds.second < bounds.first) {
-                            #pragma omp critical (cerr)
-                            cerr << "warning:[vg::Constructor] SV with end position before start being skipped (check liftover?): "
-                                << *vvar << endl;
-                            variant_acceptable = false;
-                        }
+                if (variant_acceptable) {
+                    // Worth checking for bounds problems.
+                    // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
+                    auto bounds = get_bounds(*vvar);
+                    if (bounds.second < bounds.first) {
+                        #pragma omp critical (cerr)
+                        cerr << "warning:[vg::Constructor] SV with end position before start being skipped (check liftover?): "
+                            << *vvar << endl;
+                        variant_acceptable = false;
                     }
-                } else {
-                    // This is a structural variant and we are not doing those this time
-                    variant_acceptable = false;
                 }
             }
             
@@ -1556,41 +1559,52 @@ namespace vg {
                 if(!allATGCN(alt)) {
                     // It may be a symbolic allele or something. Skip this variant.
                     variant_acceptable = false;
-                    #pragma omp critical (cerr)
-                    {
-                        bool warn = true;
-                        if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
-                            if (symbolic_allele_warnings.find(alt) != symbolic_allele_warnings.end()) {
-                                warn = false;
-                            } else {
-                                symbolic_allele_warnings.insert(alt);
+                    if (this->do_svs && vvar->is_symbolic_sv() && vvar->canonicalizable()){
+                        // Only try to normalize SVs if we want to handle SVs,
+                        // the variant is symbolic (i.e. no ref/alts) and the variant
+                        // can be canonicalized (it has at least a type and a length)
+                        variant_acceptable = vvar->canonicalize(reference, insertions, true);
+                    }
+                    else{
+                        #pragma omp critical (cerr)
+                        {
+                            bool warn = true;
+                            if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
+                                if (symbolic_allele_warnings.find(alt) != symbolic_allele_warnings.end()) {
+                                    warn = false;
+                                } else {
+                                    symbolic_allele_warnings.insert(alt);
+                                }
+                            }
+                            if (warn) {
+                                cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
                             }
                         }
-                        if (warn) {
-                            cerr << "warning:[vg::Constructor] Unsupported variant allele \"" << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
-                        }
+                        break;
                     }
-                    break;
+                    
                 }
             }
+
+
             if (!variant_acceptable) {
                 // Skip variants that have symbolic alleles or other nonsense we can't parse.
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
-            } else if (!chunk_variants.empty() && chunk_end > vvar->position) {
+            } else if (!chunk_variants.empty() && chunk_end > vvar->zeroBasedPosition()) {
                 // If the chunk is nonempty and this variant overlaps what's in there, put it in too and try the next.
                 // TODO: this is a lot like the clumping code...
 
                 // Add it in
                 chunk_variants.push_back(*(vvar));
                 // Expand out how big the chunk needs to be, so we can get other overlapping variants.
-                chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+                chunk_end = max(chunk_end, chunk_variants.back().zeroBasedPosition() + chunk_variants.back().ref.size());
 
                 // Try the next variant
                 variant_source.handle_buffer();
                 variant_source.fill_buffer();
 
-            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->position < chunk_start + bases_per_chunk) {
+            } else if(chunk_variants.size() < vars_per_chunk && variant_source.get()->zeroBasedPosition() < chunk_start + bases_per_chunk) {
                 // Otherwise if this variant is close enough and the chunk isn't too big yet, put it in and try the next.
 
                 // TODO: unify with above code?
@@ -1598,7 +1612,7 @@ namespace vg {
                 // Add it in
                 chunk_variants.push_back(*(vvar));
                 // Expand out how big the chunk needs to be, so we can get other overlapping variants.
-                chunk_end = max(chunk_end, chunk_variants.back().position + chunk_variants.back().ref.size());
+                chunk_end = max(chunk_end, chunk_variants.back().zeroBasedPosition() + chunk_variants.back().ref.size());
 
                 // Try the next variant
                 variant_source.handle_buffer();
@@ -1611,7 +1625,7 @@ namespace vg {
                 // end of the reference, before the max chunk size, and after the
                 // last variant the chunk contains.
                 chunk_end = max(chunk_end,
-                        min((size_t ) vvar->position,
+                        min((size_t ) vvar->zeroBasedPosition(),
                             min((size_t) reference_end,
                                 (size_t) (chunk_start + bases_per_chunk))));
 

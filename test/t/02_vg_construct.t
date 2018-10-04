@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 23
+plan tests 24
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -101,3 +101,5 @@ is $? 0 "vg construct does not require a vcf"
 is $short_enough 1 "vg construct respects node size limit"
 
 is $(vg construct -CR 'gi|568815592:29791752-29792749' -r GRCh38_alts/FASTA/HLA/V-352962.fa | vg view - | grep TCTAGAAGAGTCCACGGGGACAGGTAAG | wc -l) 1 "--region can be interpreted to be a reference sequence (and not parsed as a region spec)"
+
+is $(vg construct -r sv/x.fa -v sv/x.inv.vcf -S | vg view - | md5sum | cut -f 1 -d\ ) ae307434859ff706acb9ef1189b07387 "vg constructs the correct graph for inversions."

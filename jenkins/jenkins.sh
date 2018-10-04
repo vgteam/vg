@@ -37,6 +37,10 @@ TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
 # What tests should we run?
 # Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
 PYTEST_TEST_SPEC="jenkins/vgci.py"
+# What S3 URL does test output go to?
+OUTPUT_DESTINATION="s3://vg-data/vg_ci"
+# What bucket owner account ID should be granted full control of uploaded objects?
+OUTPUT_OWNER="b1cf5e10ba0aeeb00e5ec70b3532826f22a979ae96c886d3081d0bdc1f51f67e"
 
 usage() {
     # Print usage to stderr
@@ -264,16 +268,22 @@ then
 
     # we publish the results to the archive
     tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml jenkins/vgci.py jenkins/jenkins.sh vgci_cfg.tsv
-    aws s3 cp --only-show-errors --acl public-read "${VG_VERSION}_output.tar.gz" s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_output_archives/
+    aws s3 cp --only-show-errors \
+        "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/jenkins_output_archives/" \
+        --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
 
     # if we're merging the PR (and not just testing it), we publish results to the baseline
     if [ -z ${ghprbActualCommit} ]
     then
         echo "Updating baseline"
-        aws s3 sync --acl public-read ./vgci-work/ s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline
-        printf "${VG_VERSION}\n" > vg_version_${VG_VERSION}.txt
-        printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> vg_version_${VG_VERSION}.txt
-        aws s3 cp --only-show-errors --acl public-read vg_version_${VG_VERSION}.txt s3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline/
+        aws s3 sync \
+            ./vgci-work/ "${OUTPUT_DESTINATION}/jenkins_regression_baseline" \
+            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"    
+        printf "${VG_VERSION}\n" > "vg_version_${VG_VERSION}.txt"
+        printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> "vg_version_${VG_VERSION}.txt"
+        aws s3 cp --only-show-errors \
+            "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/jenkins_regression_baseline/" \
+            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
     fi
 fi
     
