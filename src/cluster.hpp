@@ -155,7 +155,7 @@ public:
  */
 class OrientedDistanceMeasurer {
 public:
-    virtual ~OrientedDistanceMeasurer() = default;
+    ~OrientedDistanceMeasurer() {}
     
     /// Returns a signed distance, where positive indicates that pos_2 is to the right
     /// of pos_1, and negative indicates to the left. If the distance is infinite or
@@ -216,6 +216,38 @@ private:
     unordered_map<pair<int64_t, bool>, handle_t> handle_memo;
     
     const bool unstranded;
+};
+    
+/*
+ * A distance function that the minimum distance function provided by the Snarl-based
+ * distance index
+ */
+class SnarlOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
+
+public:
+    // Construct a distance service to measures distance as the minimum distance in the graph
+    SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index);
+    
+    /// Default desctructor
+    ~SnarlOrientedDistanceMeasurer() = default;
+    
+    /// Returns a signed distance, where positive indicates that pos_2 is to the right
+    /// of pos_1, and negative indicates to the left. If the distance is infinite or
+    /// can't be determined, returns numeric_limits<int64_t>::max().
+    int64_t oriented_distance(const pos_t& pos_1, const pos_t& pos_2);
+    
+    /// Return a vector of groups that we believe will have finite distances under this metric,
+    /// can be empty.
+    vector<vector<size_t>> get_buckets(const function<pos_t(size_t)>& get_position, size_t num_items);
+    
+    /// Return a vector of pairs of groups (referred to by indexes in the current_groups vector)
+    /// that cannot have finite distances between them (typically because they are on separate components).
+    vector<pair<size_t, size_t>> exclude_merges(vector<vector<size_t>>& current_groups,
+                                                const function<pos_t(size_t)>& get_position);
+    
+private:
+    
+    DistanceIndex* distance_index = nullptr;
 };
     
 class OrientedDistanceClusterer {

@@ -70,8 +70,8 @@ namespace vg {
         // TODO: use the automatic expected MEM length algorithm to restrict the MEMs used for clustering?
         
         // cluster the MEMs
-        PathOrientedDistanceMeasurer distance_measurer(xindex, unstranded_clustering);
-        vector<memcluster_t> clusters = get_clusters(alignment, mems, distance_measurer);
+        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
+        vector<memcluster_t> clusters = get_clusters(alignment, mems, *distance_measurer);
         
         
 #ifdef debug_multipath_mapper
@@ -707,6 +707,20 @@ namespace vg {
         return false;
     }
     
+    unique_ptr<OrientedDistanceMeasurer> MultipathMapper::create_distance_measurer() {
+        // which distance method are we using?
+        OrientedDistanceMeasurer* measurer;
+        if (distance_index) {
+            measurer = new SnarlOrientedDistanceMeasurer(distance_index);
+        }
+        else {
+            measurer = new PathOrientedDistanceMeasurer(xindex, unstranded_clustering);
+        }
+        
+        // wrap it in a unique pointer
+        return move(unique_ptr<OrientedDistanceMeasurer>(measurer));
+    }
+    
     void MultipathMapper::establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                                        vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) {
         
@@ -1286,7 +1300,7 @@ namespace vg {
         vector<pair<pair<size_t, size_t>, int64_t>> cluster_pairs;
         vector<pair<size_t, size_t>> duplicate_pairs;
         
-        PathOrientedDistanceMeasurer distance_measurer(xindex, unstranded_clustering);
+        unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
         
         // do we want to try to only cluster one read end and rescue the other?
         bool do_repeat_rescue_from_1 = min_match_count_2 > rescue_only_min && min_match_count_1 <= rescue_only_anchor_max;
@@ -1315,7 +1329,7 @@ namespace vg {
             
             attempt_rescue_of_repeat_from_non_repeat(alignment1, alignment2, mems1, mems2, do_repeat_rescue_from_1, do_repeat_rescue_from_2,
                                                      clusters1, clusters2, cluster_graphs1, cluster_graphs2, multipath_aln_pairs_out,
-                                                     cluster_pairs, max_alt_mappings, distance_measurer);
+                                                     cluster_pairs, max_alt_mappings, *distance_measurer);
             
             if (multipath_aln_pairs_out.empty() && do_repeat_rescue_from_1 && !do_repeat_rescue_from_2) {
                 // we've clustered and extracted read 1, but rescue failed, so do the same for read 2 to prepare for the
@@ -1332,7 +1346,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters2 = get_clusters(alignment2, mems2, distance_measurer);
+                clusters2 = get_clusters(alignment2, mems2, *distance_measurer);
                 cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
             }
             
@@ -1351,7 +1365,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters1 = get_clusters(alignment1, mems1, distance_measurer);
+                clusters1 = get_clusters(alignment1, mems1, *distance_measurer);
                 cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
             }
         }
@@ -1374,8 +1388,8 @@ namespace vg {
             }
             
             // do the clustering
-            clusters1 = get_clusters(alignment1, mems1, distance_measurer);
-            clusters2 = get_clusters(alignment2, mems2, distance_measurer);
+            clusters1 = get_clusters(alignment1, mems1, *distance_measurer);
+            clusters2 = get_clusters(alignment2, mems2, *distance_measurer);
             
             // extract graphs around the clusters and get the assignments of MEMs to these graphs
             cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -1455,7 +1469,7 @@ namespace vg {
                                                                      cluster_mems_1, cluster_mems_2,
                                                                      alt_anchors_1, alt_anchors_2,
                                                                      min_separation, max_separation,
-                                                                     distance_measurer);
+                                                                     *distance_measurer);
             
             
 #ifdef debug_multipath_mapper

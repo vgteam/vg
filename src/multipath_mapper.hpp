@@ -340,6 +340,9 @@ namespace vg {
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
+        /// Generates a distance measurer to be used for a mapping problem
+        unique_ptr<OrientedDistanceMeasurer> create_distance_measurer();
+        
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         

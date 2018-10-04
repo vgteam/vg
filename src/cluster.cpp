@@ -675,6 +675,44 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
     
     return excludes;
 }
+    
+SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index) : distance_index(distance_index) {
+    
+    // nothing to do
+}
+
+int64_t SnarlOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, const pos_t& pos_2) {
+    
+    int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
+    int64_t backward_dist = distance_index->minDistance(pos_2, pos_1);
+    
+    // -1 is the sentinel returned by the distance index if the distance is not measurable
+    if (forward_dist == -1 && backward_dist == -1) {
+        // convert to the sentinel used by this interface
+        return numeric_limits<int64_t>::max();
+    }
+    else if (forward_dist == -1) {
+        return -backward_dist;
+    }
+    else if (backward_dist == -1) {
+        return forward_dist;
+    }
+    else {
+        return forward_dist < backward_dist ? forward_dist : -backward_dist;
+    }
+    
+}
+
+vector<vector<size_t>> SnarlOrientedDistanceMeasurer::get_buckets(const function<pos_t(size_t)>& get_position, size_t num_items) {
+    // we don't do bucketed distance measurements with this method, return it empty
+    return vector<vector<size_t>>();
+}
+
+vector<pair<size_t, size_t>> SnarlOrientedDistanceMeasurer::exclude_merges(vector<vector<size_t>>& current_groups,
+                                                                           const function<pos_t(size_t)>& get_position) {
+    // we don't do merge exclusion with this method, return it empty
+    return vector<pair<size_t, size_t>>();
+}
 
 OrientedDistanceClusterer::OrientedDistanceClusterer(const Alignment& alignment,
                                                      const vector<MaximalExactMatch>& mems,
