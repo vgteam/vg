@@ -80,6 +80,8 @@ private:
     // take each double delimiter back to a single
     string unescape_delim(const string& s, char d) const;
     string unescape_delims(const string& s) const;
+
+    Edge edge_from_mappings(const Mapping& m, const Mapping& n);
 };
 
 // for making a combined matrix output and maybe doing other fun operations

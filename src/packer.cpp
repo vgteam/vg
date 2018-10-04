@@ -7,6 +7,7 @@ Packer::Packer(void) : xgidx(nullptr) { }
 
 Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
+    edge_coverage_dynamic = gcsa::CounterArray(xgidx->g_iv.size(), 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
 }
 
@@ -143,7 +144,7 @@ size_t Packer::serialize(std::ostream& out,
 }
 
 void Packer::make_compact(void) {
-    // pack the dynamic countarry and edit coverage into the compact data structure
+    // pack the dynamic countarray and edit coverage into the compact data structure
     if (is_compacted) {
 #ifdef debug
         cerr << "Packer is already compact" << endl;
@@ -227,7 +228,13 @@ void Packer::add(const Alignment& aln, bool record_edits) {
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
+    bool is_first = true;
+    // Cache the previous mapping so that we can generate edges.
+    Mapping prev_mapping; 
     for (auto& mapping : aln.path().mapping()) {
+        if (is_first){
+            is_first = false;
+        }
         if (!mapping.has_position()) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
@@ -266,7 +273,50 @@ void Packer::add(const Alignment& aln, bool record_edits) {
                 i += edit.from_length();
             }
         }
+
+        Edge e = edge_from_mappings(mapping, prev_mapping);
+        if (e.from() != -1){
+            e = xgidx->canonicalize(e);
+            size_t edge_idx = xgidx->edge_graph_idx(e);
+            edge_coverage_dynamic.increment(edge_idx);
+        }
+
+        prev_mapping = mapping;
     }
+}
+
+Edge Packer::edge_from_mappings(const Mapping& m, const Mapping& n){
+    Edge e;
+    // Set a sentinel value to mark if we can't fill in the edge fields
+    e.set_from(-1);
+    
+    // Return a blank edge if m and n are on the same node
+    if (m.position().node_id() == n.position().node_id()){
+        return Edge();
+    }
+
+    // Check that the last edit of M and the first edit of N are matches.
+    // if they are, set the edge's source and sink IDs
+    Edit last_m_edit = m.edit(m.edit_size() - 1);
+    Edit first_n_edit = n.edit(0);
+    if (last_m_edit.to_length() != last_m_edit.from_length() ||
+        last_m_edit.sequence() != "" ||
+        first_n_edit.to_length()  != first_n_edit.from_length() ||
+        first_n_edit.sequence != ""){
+            return Edge();
+        }
+    e.set_from( m.position().node_id() );
+    e.set_to(n.position().node_id() );
+
+    // Set the direction of the edge's to_start and from_end.
+    if (m.position().is_reverse()){
+        e.set_from_start(true);
+    }
+    if (n.position().is_reverse()){
+        e.set_to_end(true);
+    }
+
+    return e;
 }
 
 // find the position on the forward strand in the sequence vector
