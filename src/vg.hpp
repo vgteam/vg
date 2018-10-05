@@ -585,7 +585,7 @@ public:
     /// edits that hit the end of a node to be attached to what comes
     /// before/after the node by the caller, as this function doesn't handle
     /// that.
-    vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling);
+    vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size = 1024);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need
