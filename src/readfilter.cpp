@@ -569,7 +569,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     }
 
     // index chunk regions
-    IntervalTree<int, int64_t> region_map(interval_list);
+    IntervalTree<int, int64_t> region_map(std::move(interval_list));
 
     // which chunk(s) does a gam belong to?
     function<void(Alignment&, vector<int>&)> get_chunks = [&region_map, &regions](Alignment& aln, vector<int>& chunks) {
@@ -584,8 +584,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 min_aln_id = min(min_aln_id, (int64_t)mapping.position().node_id());
                 max_aln_id = max(max_aln_id, (int64_t)mapping.position().node_id());
             }
-            vector<Interval<int, int64_t> > found_ranges;
-            region_map.findOverlapping(min_aln_id, max_aln_id, found_ranges);
+            vector<Interval<int, int64_t> > found_ranges = region_map.findOverlapping(min_aln_id, max_aln_id);
             for (auto& interval : found_ranges) {
                 chunks.push_back(interval.value);
             }
