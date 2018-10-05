@@ -12,6 +12,7 @@ class DistanceIndex {
 
     public: 
     //Constructor 
+    //Cap is the distance up to which the maximum distance will give a reliable bound - if there is a path with length greater than cap, then cap may be returned
     DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, uint64_t cap);
 
     //Constructor to load index from serialization 
@@ -24,7 +25,9 @@ class DistanceIndex {
     void load(istream& in);
 
 
-    /*Get the minimum distance between two position */
+    /*Get the minimum distance between two position
+     *If there is no path between the two positions then the distance is -1
+     */
     int64_t minDistance( pos_t pos1, pos_t pos2);
 
     /*Minimum distance between given snarls containing positions
@@ -34,7 +37,11 @@ class DistanceIndex {
     int64_t minDistance( 
          const Snarl* snarl1, const Snarl* snarl2, pos_t pos1, pos_t pos2);
 
-    /*Get an upper bound of the distance between two positions */
+    /*Get an upper bound of the distance between two positions
+     *May return a non-negative distance even if there is no path between the 
+     *positions 
+     *If the actual max is greater than the given cap, then cap may be returned
+     */
     int64_t maxDistance(pos_t pos1, pos_t pos2);
  
     //Given a node, find the snarl containing it
@@ -92,7 +99,9 @@ class DistanceIndex {
             void insertDistance(pair<id_t, bool> start, pair<id_t, bool> curr, 
                      int64_t dist);
              
-            //Length of a node
+            //Length of a node in the netgraph of the snarl
+            //If it is a node, then the length of the node. If it is a snarl or
+            //chain, then the shortest distance between the boundaries
             int64_t nodeLength(HandleGraph*graph, NetGraph* ng,  id_t node);
         
             //Total length of the snarl-shortest distance from start to end

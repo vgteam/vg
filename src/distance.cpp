@@ -10,72 +10,6 @@ namespace vg {
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
  */
-
-pair<int64_t, int64_t> DistanceIndex::sizeOf() {
-//TODO: Delete this
-    //Estimate of the size of the object in memory
-   
-    int64_t totalMin = 0;
-   
-    int64_t numSnarls = snarlDistances.size();
-
-    int64_t snarlDists = 0;
-    int64_t snarlNodes = 0; //# node ids + direction
-
-    for (auto x : snarlDistances) {
-        //Add size of each SnarlIndex object
-        SnarlIndex sd = x.second;
-        int64_t numNodes = sd.visitToIndex.size();
-
-        snarlNodes += numNodes; 
-        snarlDists += ((numNodes + 1) * numNodes) / 2;
-  
-        totalMin += numNodes * 17; //Add all elements in visitToIndex
-        totalMin += sd.distances.capacity() / 8;
-        
-        totalMin += 3 * sizeof(pair<id_t, bool>);
-        totalMin += sizeof(hash_map<pair<id_t, bool>, int64_t>);
-        
-
-    }
-    
-    int64_t chainDists = 0;
-    int64_t chainNodes = 0;
-
-    int64_t numChains = chainDistances.size();
-  
-    for (auto x : chainDistances) {
-        ChainIndex cd = x.second;
-        int64_t numNodes = cd.snarlToIndex.size();
-        
-        chainDists += numNodes*3;
-        chainNodes += numNodes;
-
-        totalMin += numNodes * 16; //Add all elements in snarlToIndex
-        totalMin += cd.prefixSum.capacity() / 8;
-        totalMin += cd.loopFd.capacity() / 8;
-        totalMin += cd.loopRev.capacity() / 8;
-        totalMin += sizeof(id_t) + sizeof(hash_map<id_t, int64_t>);
-    }
- 
-    totalMin += nodeToSnarl.size() * 8;//TODO: ???
-  
-    int64_t totalMax = 0;
-    totalMax += maxIndex.minDistances.capacity()/8;
-    totalMax += maxIndex.maxDistances.capacity()/8;
-    totalMax += maxIndex.nodeToComponent.capacity()/8;
-
-
-    cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;
-    cerr << numChains << " chains containing " << chainNodes << " nodes" << endl;
-    cerr << "Total for min index: " << totalMin << " bytes??" << endl;
-    cerr << "Total for max index: " << totalMax << " bytes??" << endl;
-    return make_pair(totalMin, totalMax); 
-    
-
-}
-
-
 DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, uint64_t cap){
     /*Constructor for the distance index given a VG and snarl manager
       cap is the largest distance that the maximum distance estimation will be
@@ -1560,7 +1494,6 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
             shortestDistance = minPos({shortestDistance, d1, d2, d3, d4});
            
             //Find distances to ends of the current chain
-            //TODO: clean this up a bit
 
                     
             Visit chainStart = get_start_of(*currChain); //facing in
@@ -2039,15 +1972,13 @@ int64_t DistanceIndex::SnarlIndex::nodeLength(HandleGraph* graph,
     handle_t handle = ng->get_handle(node, false);   
     SnarlManager* sm = distIndex->sm;
 //TODO: Should be able to use is_child
-                    //Get the snarl that the node represents, if any
-                    const Snarl* tempSnarl = sm->into_which_snarl(
+    //Get the snarl that the node represents, if any
+    const Snarl* tempSnarl = sm->into_which_snarl(
                                               node, false);
-                    const Snarl* currSnarl = tempSnarl == NULL ? 
-                        sm->into_which_snarl(node, true) :
-                        tempSnarl; 
+    const Snarl* currSnarl = tempSnarl == NULL ? 
+                        sm->into_which_snarl(node, true) : tempSnarl; 
 
-                    if (node!= snarlStart.first && node!= snarlEnd.first &&
-                            currSnarl != NULL) {
+    if (node!= snarlStart.first && node!= snarlEnd.first && currSnarl != NULL) {
         //If node represents a chain or snarl
         auto chainDists = distIndex->chainDistances.find(node);
 
@@ -2533,11 +2464,9 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
     numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0, true);
 
     //Find connected components of nodes not in cycles
-    cerr << numCycles << " cyclic components ";
 
-    cerr << findComponents(nodeToComponent, max, minFd, minRev, 
+    findComponents(nodeToComponent, max, minFd, minRev, 
                                             numCycles, false);
-    cerr << " total components " << endl;
 
     maxDistances = max;
     
@@ -3351,12 +3280,9 @@ cerr << "DISTANCES IN CHILD SNARL " << snarl2->start().node_id() << " : " << dis
             int64_t distER = snarlDists.snarlDistanceShort(node2, node1);
 
             int64_t distSFdTemp = minPos({ 
-//TODO
-//                (distEFd == -1 || distSR == -1) ? -1 : distEFd + distSR,
                 (distSFd == -1 || distSL == -1) ? -1 : distSFd + distSL});
 
             int64_t distERevTemp = minPos({ 
-//                (distSRev == -1 || distER == -1) ? -1 : distSRev + distER,
                 (distERev == -1 || distEL == -1) ? -1 : distERev + distEL});
 
             distSFd2 = distSFdTemp;
@@ -3607,6 +3533,73 @@ cerr << "DISTANCES TO ENDS OF CHAIN: " << distSRev << " " << distSFd << " " << d
 
 
 //////////////////////Methods for testing
+//
+
+
+pair<int64_t, int64_t> DistanceIndex::sizeOf() {
+    //Estimate of the size of the object in memory
+   
+    int64_t totalMin = 0;
+   
+    int64_t numSnarls = snarlDistances.size();
+
+    int64_t snarlDists = 0;
+    int64_t snarlNodes = 0; //# node ids + direction
+
+    for (auto x : snarlDistances) {
+        //Add size of each SnarlIndex object
+        SnarlIndex sd = x.second;
+        int64_t numNodes = sd.visitToIndex.size();
+
+        snarlNodes += numNodes; 
+        snarlDists += ((numNodes + 1) * numNodes) / 2;
+  
+        totalMin += numNodes * 17; //Add all elements in visitToIndex
+        totalMin += sd.distances.capacity() / 8;
+        
+        totalMin += 3 * sizeof(pair<id_t, bool>);
+        totalMin += sizeof(hash_map<pair<id_t, bool>, int64_t>);
+        
+
+    }
+    
+    int64_t chainDists = 0;
+    int64_t chainNodes = 0;
+
+    int64_t numChains = chainDistances.size();
+  
+    for (auto x : chainDistances) {
+        ChainIndex cd = x.second;
+        int64_t numNodes = cd.snarlToIndex.size();
+        
+        chainDists += numNodes*3;
+        chainNodes += numNodes;
+
+        totalMin += numNodes * 16; //Add all elements in snarlToIndex
+        totalMin += cd.prefixSum.capacity() / 8;
+        totalMin += cd.loopFd.capacity() / 8;
+        totalMin += cd.loopRev.capacity() / 8;
+        totalMin += sizeof(id_t) + sizeof(hash_map<id_t, int64_t>);
+    }
+ 
+    totalMin += nodeToSnarl.size() * 8;//TODO: ???
+  
+    int64_t totalMax = 0;
+    totalMax += maxIndex.minDistances.capacity()/8;
+    totalMax += maxIndex.maxDistances.capacity()/8;
+    totalMax += maxIndex.nodeToComponent.capacity()/8;
+
+
+    cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;
+    cerr << numChains << " chains containing " << chainNodes << " nodes" << endl;
+    cerr << "Total for min index: " << totalMin << " bytes??" << endl;
+    cerr << "Total for max index: " << totalMax << " bytes??" << endl;
+    return make_pair(totalMin, totalMax); 
+    
+
+}
+
+
 int64_t DistanceIndex::checkChainDist(id_t snarl, size_t index) {
     return chainDistances.at(snarl).prefixSum[index] - 1;
 }

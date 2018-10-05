@@ -2150,7 +2150,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 
 
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 100; i++) {
             //1000 different graphs
             VG graph = randomGraph(1000, 20, 100); 
 
@@ -2355,7 +2355,7 @@ class TestDistanceIndex : public DistanceIndex {
         
 */
 
-
+/*
     TEST_CASE("Serialize distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
 
@@ -2463,7 +2463,7 @@ class TestDistanceIndex : public DistanceIndex {
              
         }
     } //end test case
-
+*/
 
 }
 
