@@ -33,7 +33,7 @@ void help_mpmap(char** argv) {
     << "  -x, --xg-name FILE            use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT haplotype index for population-based MAPQs" << endl
-    << "  -d, --dist-name FILE          use this snarl distance index for clustering (if given, raquires snarls from -s)" << endl
+    << "  -d, --dist-name FILE          use this snarl distance index for clustering (if given, requires matched snarls from -s)" << endl
     << "      --linear-index FILE       use this sublinear Li and Stephens index file for population-based MAPQs" << endl
     << "      --linear-path PATH        use the given path name as the path that the linear index is against" << endl
     << "input:" << endl

@@ -711,9 +711,15 @@ namespace vg {
         // which distance method are we using?
         OrientedDistanceMeasurer* measurer;
         if (distance_index) {
+#ifdef debug_multipath_mapper
+            cerr << "using a snarl-based distance measurer" << endl;
+#endif
             measurer = new SnarlOrientedDistanceMeasurer(distance_index);
         }
         else {
+#ifdef debug_multipath_mapper
+            cerr << "using a path-based distance measurer" << endl;
+#endif
             measurer = new PathOrientedDistanceMeasurer(xindex, unstranded_clustering);
         }
         

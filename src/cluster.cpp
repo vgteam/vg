@@ -683,21 +683,37 @@ SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(DistanceIndex* dist
 
 int64_t SnarlOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, const pos_t& pos_2) {
     
+#ifdef debug_od_clusterer
+    cerr << "measuring distance between " << pos_1 << " and " << pos_2 << endl;
+#endif
+    
     int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
     int64_t backward_dist = distance_index->minDistance(pos_2, pos_1);
     
     // -1 is the sentinel returned by the distance index if the distance is not measurable
     if (forward_dist == -1 && backward_dist == -1) {
+#ifdef debug_od_clusterer
+        cerr << "cannot measure distance" << endl;
+#endif
         // convert to the sentinel used by this interface
         return numeric_limits<int64_t>::max();
     }
     else if (forward_dist == -1) {
+#ifdef debug_od_clusterer
+        cerr << "distance backward is " << -backward_dist << endl;
+#endif
         return -backward_dist;
     }
     else if (backward_dist == -1) {
+#ifdef debug_od_clusterer
+        cerr << "distance forward is " << -forward_dist << endl;
+#endif
         return forward_dist;
     }
     else {
+#ifdef debug_od_clusterer
+        cerr << "min absolute distance of " << forward_dist << " and " << backward_dist << " is " << (forward_dist < backward_dist ? forward_dist : -backward_dist) << endl;
+#endif
         return forward_dist < backward_dist ? forward_dist : -backward_dist;
     }
     
