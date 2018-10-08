@@ -144,6 +144,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
+<tr class="memitem:a3e1dae34969d5779d09819de627a6bd5"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#a3e1dae34969d5779d09819de627a6bd5">max_node_size</a> = 32</td></tr>
+<tr class="separator:a3e1dae34969d5779d09819de627a6bd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa23751086259b5976ffe78169a6000b9"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#aa23751086259b5976ffe78169a6000b9">variant_range</a> = 50</td></tr>
 <tr class="memdesc:aa23751086259b5976ffe78169a6000b9"><td class="mdescLeft">&#160;</td><td class="mdescRight">How wide of a range in bases should we look for nearby variants in?  <a href="#aa23751086259b5976ffe78169a6000b9">More...</a><br/></td></tr>
 <tr class="separator:aa23751086259b5976ffe78169a6000b9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -154,9 +156,9 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a7a8bd35e29cbd240fd0f2a7156630943"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a943bba24f9a1a7197744e74ee5465e5d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#a943bba24f9a1a7197744e74ee5465e5d">max_context_radius</a> = 50</td></tr>
 <tr class="separator:a943bba24f9a1a7197744e74ee5465e5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab40df39042e4ce4fee3eeea919be1c96"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#ab40df39042e4ce4fee3eeea919be1c96">whole_alignment_cutoff</a> = 1000</td></tr>
+<tr class="memitem:ab40df39042e4ce4fee3eeea919be1c96"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#ab40df39042e4ce4fee3eeea919be1c96">whole_alignment_cutoff</a> = 4096</td></tr>
 <tr class="separator:ab40df39042e4ce4fee3eeea919be1c96"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aefe81cd7c81a7f3ba54c73e25c24ba3f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#aefe81cd7c81a7f3ba54c73e25c24ba3f">large_alignment_band_padding</a> = 20</td></tr>
+<tr class="memitem:aefe81cd7c81a7f3ba54c73e25c24ba3f"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#aefe81cd7c81a7f3ba54c73e25c24ba3f">large_alignment_band_padding</a> = 30</td></tr>
 <tr class="separator:aefe81cd7c81a7f3ba54c73e25c24ba3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aae129564bcf5ec9fd9d0838754d27323"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VariantAdder.html#aae129564bcf5ec9fd9d0838754d27323">min_score_factor</a> = 0.95</td></tr>
 <tr class="separator:aae129564bcf5ec9fd9d0838754d27323"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -629,7 +631,7 @@ Protected Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::VariantAdder::large_alignment_band_padding = 20</td>
+          <td class="memname">size_t vg::VariantAdder::large_alignment_band_padding = 30</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -659,6 +661,19 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>What's the max radius on a variant we can have in order to use that variant as context for another main variant? </p>
+
+</div>
+</div>
+<a class="anchor" id="a3e1dae34969d5779d09819de627a6bd5"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::VariantAdder::max_node_size = 32</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>What's the maximum node size we should produce, and the size we should chop the input graph to? Since alt sequences are forced out to node boundaries, it makes sense for this to be small relative to whole_alignment_cutoff. </p>
 
 </div>
 </div>
@@ -801,7 +816,7 @@ Protected Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::VariantAdder::whole_alignment_cutoff = 1000</td>
+          <td class="memname">size_t vg::VariantAdder::whole_alignment_cutoff = 4096</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -816,7 +831,7 @@ Protected Attributes</h2></td></tr>
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Thu Oct 4 2018 23:01:19 for vg by &#160;<a href="http://www.doxygen.org/index.html">
+Generated on Mon Oct 8 2018 17:10:15 for vg by &#160;<a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/>
 </a> 1.8.6
 </small></address>

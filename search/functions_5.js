@@ -21,7 +21,7 @@ var searchData=
   ['edges_5fto',['edges_to',['../classvg_1_1VG.html#a3789cf6561f2d3da5ef85f23b5c6454f',1,'vg::VG::edges_to()'],['../classxg_1_1XG.html#a82b0a40f1a671a20a04991eaa5e04d14',1,'xg::XG::edges_to()']]],
   ['edit',['edit',['../classvg_1_1VG.html#a4355473c385843b7652d49601dd630d2',1,'vg::VG']]],
   ['edit_5fcount',['edit_count',['../namespacevg.html#a2610da8a8fbe723e13519d79ac2d0afe',1,'vg']]],
-  ['edit_5ffast',['edit_fast',['../classvg_1_1VG.html#ac1daa70708a15fe8e703d1014af1d2d1',1,'vg::VG']]],
+  ['edit_5ffast',['edit_fast',['../classvg_1_1VG.html#a78f70eb7eddb0245be7cdfc048616638',1,'vg::VG']]],
   ['edit_5fis_5fdeletion',['edit_is_deletion',['../namespacevg.html#abb5390be8a05d69c4807cb63f74d7975',1,'vg']]],
   ['edit_5fis_5fempty',['edit_is_empty',['../namespacevg.html#af2e5aa1a7b7ef3a03f12091e9ab82940',1,'vg']]],
   ['edit_5fis_5finsertion',['edit_is_insertion',['../namespacevg.html#a179a9dfaf52b28a041ecb121b89a97ef',1,'vg']]],

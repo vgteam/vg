@@ -175,7 +175,7 @@ var searchData=
   ['max_5fmultimaps',['max_multimaps',['../classvg_1_1Mapper.html#a462268836d2c5f5f4acde6ca9060e593',1,'vg::Mapper']]],
   ['max_5fnode_5fid',['max_node_id',['../classvg_1_1VG.html#ab47dd6f7fb7b783a69b52d6ede81772c',1,'vg::VG']]],
   ['max_5fnode_5frank',['max_node_rank',['../classxg_1_1XG.html#ac5c6db511eb943b93edb19779d377093',1,'xg::XG']]],
-  ['max_5fnode_5fsize',['max_node_size',['../classvg_1_1Constructor.html#a6ca9a0b7785c1c9c6e859cc75ea2a2f4',1,'vg::Constructor']]],
+  ['max_5fnode_5fsize',['max_node_size',['../classvg_1_1Constructor.html#a6ca9a0b7785c1c9c6e859cc75ea2a2f4',1,'vg::Constructor::max_node_size()'],['../classvg_1_1VariantAdder.html#a3e1dae34969d5779d09819de627a6bd5',1,'vg::VariantAdder::max_node_size()']]],
   ['max_5foverhang',['max_overhang',['../classvg_1_1ReadFilter.html#ab73972404a3db8d8f902d3d47896857d',1,'vg::ReadFilter::max_overhang()'],['../structvg_1_1ReadFilter_1_1Counts.html#ad447ca6737247746cea7cda3b019e9dd',1,'vg::ReadFilter::Counts::max_overhang()']]],
   ['max_5fp_5fvalue_5fmemo_5fsize',['max_p_value_memo_size',['../classvg_1_1MultipathMapper.html#ada39acac8f403bf92632024be4e448e1',1,'vg::MultipathMapper']]],
   ['max_5fpath_5fid',['max_path_id',['../classvg_1_1Paths.html#ac5e9e182ecf09166f516c6fbf9923a29',1,'vg::Paths']]],
