@@ -83,8 +83,7 @@ int64_t loopDistance(VG* graph, const Snarl* snarl1, const Snarl* snarl2, pair<i
 };
 
 
-int64_t distanceHelp(VG* graph, pos_t pos1, pos_t pos2,
-                       bool rev){
+int64_t distance(VG* graph, pos_t pos1, pos_t pos2){
     //Distance using djikstras algorithm
 
     auto cmp = [] (pair<pair<id_t, bool> , int64_t> x, 
@@ -93,21 +92,11 @@ int64_t distanceHelp(VG* graph, pos_t pos1, pos_t pos2,
     };
  
     int64_t shortestDistance = -1;
-    if (get_id(pos1) == get_id(pos2)) { //if positions are on the same node
-        int64_t nodeSize = graph->get_node(get_id(pos1))->sequence().size();
-        int64_t offset1;
-        if (is_rev(pos1)) {
-            offset1 = nodeSize -get_offset(pos1) - 1;//Len of node - offset 
-        } else {
-            offset1 = get_offset(pos1);
-        }
+    if (get_id(pos1) == get_id(pos2) && is_rev(pos1) == is_rev(pos2)) { //if positions are on the same node
 
-        int64_t offset2;
-        if (is_rev(pos2)) {
-            offset2 = nodeSize - get_offset(pos2) - 1;
-        } else {
-            offset2 = get_offset(pos2);
-        }
+        int64_t nodeSize = graph->get_node(get_id(pos1))->sequence().size();
+        int64_t offset1 = get_offset(pos1);
+        int64_t offset2 = get_offset(pos2);
 
         if (graph->has_edge(node_start(get_id(pos1)), node_end(get_id(pos2)))){
             //If there is an edge from start to end of node
@@ -126,14 +115,9 @@ int64_t distanceHelp(VG* graph, pos_t pos1, pos_t pos2,
     priority_queue< pair<pair<id_t, bool> , int64_t>, 
                     vector<pair<pair<id_t, bool>, int64_t>>,
                           decltype(cmp)> reachable(cmp); 
-    handle_t currHandle = graph->get_handle(get_id(pos1), rev);
+    handle_t currHandle = graph->get_handle(get_id(pos1), is_rev(pos1));
 
-    int64_t dist;
-    if (is_rev(pos1) != rev) { 
-        dist = get_offset(pos1) + 1;
-    } else {
-        dist = graph->get_length(currHandle) - get_offset(pos1);
-    }
+    int64_t dist = graph->get_length(currHandle) - get_offset(pos1);
 
     auto addFirst = [&](const handle_t& h) -> bool {
         pair<id_t, bool> node = make_pair(graph->get_id(h), 
@@ -167,7 +151,7 @@ int64_t distanceHelp(VG* graph, pos_t pos1, pos_t pos2,
         
         }
 
-        if (currID.first == get_id(pos2)){
+        if (currID.first == get_id(pos2) && currID.second == is_rev(pos2)){
         //Dist is distance to beginning or end of node containing pos2
         
             if (is_rev(pos2) == currID.second) { 
@@ -181,19 +165,7 @@ int64_t distanceHelp(VG* graph, pos_t pos1, pos_t pos2,
         }
 
     }
-    return shortestDistance;
-};
-
-int64_t distance(VG* graph, pos_t pos1, pos_t pos2){
-    //Find the distance between two positions
-    int64_t d1 = distanceHelp(graph, pos1, pos2, true);
-    int64_t d2 = distanceHelp(graph, pos1, pos2, false);
-    d1 = d1 == -1 ? -1 : d1-1;
-    d2 = d2 == -1 ? -1 : d2-1;
-   
-    if (d1 == -1) {return d2;}
-    else if (d2 == -1) {return d1;}
-    else {return min(d1, d2);}
+    return shortestDistance == -1 ? -1 : shortestDistance-1;
 };
 class TestDistanceIndex : public DistanceIndex {
 
@@ -216,7 +188,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 
     TEST_CASE( "Create distance index for simple nested snarl",
-                   "[dist]" ) {
+                   "[dist][bug]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -341,35 +313,28 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos8 = make_pos_t(8, true, 1);
             pos_t pos9 = make_pos_t(6, true, 0);
 
-            pair<int64_t, int64_t> distances = di.distToCommonAncestor(snarl3, snarl1, pos4).first;
-            REQUIRE(((distances.first == 5)||(distances.first == 6)));
-            REQUIRE(((distances.first == 5)||(distances.second == 5)));
-
-            pair<int64_t, int64_t> distances1= di.distToCommonAncestor(snarl3, snarl2, pos2).first;
-            REQUIRE(((distances1.first == 4)||(distances1.second == 4)));
-            REQUIRE(((distances1.first == 4)||(distances1.first == 1)));
-            REQUIRE(((distances1.second == 4)||(distances1.second == 1)));
-
             REQUIRE(di.minDistance(pos3, pos2) == 1);
 
             REQUIRE(di.minDistance(pos1,pos2) == 5);
 
             REQUIRE(di.minDistance(pos5,pos2) == 4);
-            REQUIRE(di.minDistance(pos6,pos2) == 4);
-            REQUIRE(di.minDistance(pos2, pos5) == 4);
-            REQUIRE(di.minDistance( pos7, pos8r) == 4);
-            REQUIRE(di.minDistance( pos7, pos8) == 4);
+            REQUIRE(di.minDistance(pos6,pos2) == -1);
+            REQUIRE(di.minDistance(pos2, pos5) == -1);
+            REQUIRE(di.minDistance( pos7, pos8r) == -1);
+            REQUIRE(di.minDistance( pos8, pos7) == 4);
+            REQUIRE(di.minDistance( pos7, pos8) == -1);
             REQUIRE(di.minDistance(pos4, pos9) == -1);
 
-            REQUIRE(distance(&graph, pos3, pos2) == 1);
-            REQUIRE(distance(&graph, pos1,pos2) == 5);
-            REQUIRE(distance(&graph, pos5,pos2) == 4);
-            REQUIRE(distance(&graph, pos6,pos2) == 4);
-            REQUIRE(distance(&graph, pos2, pos5) == 4);
-            REQUIRE(distance(&graph, pos7, pos8r) == 4);
-            REQUIRE(distance(&graph, pos7, pos8) == 4);
-            REQUIRE(distance(&graph, pos4, pos9) == -1);
 
+            REQUIRE(distance(&graph, pos1,pos2) == 5);
+
+            REQUIRE(distance(&graph, pos5,pos2) == 4);
+            REQUIRE(distance(&graph, pos6,pos2) == -1);
+            REQUIRE(distance(&graph, pos2, pos5) == -1);
+            REQUIRE(distance( &graph, pos7, pos8r) == -1);
+            REQUIRE(distance( &graph, pos8, pos7) == 4);
+            REQUIRE(distance( &graph, pos7, pos8) == -1);
+            REQUIRE(distance(&graph, pos4, pos9) == -1);
  
             REQUIRE(di.loopDistance(snarl2, snarl2, make_pair(2, false),  
                                         make_pair(2, false)) == -1);
@@ -482,7 +447,7 @@ class TestDistanceIndex : public DistanceIndex {
     }//End test case
 
 
-    TEST_CASE("Simple chain", "[dist][bug]") {
+    TEST_CASE("Simple chain", "[dist]") {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -1426,11 +1391,11 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos9 = make_pos_t(6, false, 0);
             pos_t pos10 = make_pos_t(4, false, 0);
 
-            pair<int64_t, int64_t> distances = di.distToCommonAncestor(snarl3, snarl1, pos4).first;
+            pair<int64_t, int64_t> distances = di.distToCommonAncestor(snarl3, snarl1, pos4, false).first;
             REQUIRE(((distances.first == 5)||(distances.first == 6)));
             REQUIRE(((distances.first == 5)||(distances.second == 5)));
 
-            pair<int64_t, int64_t> distances1= di.distToCommonAncestor(snarl3, snarl2, pos2).first;
+            pair<int64_t, int64_t> distances1= di.distToCommonAncestor(snarl3, snarl2, pos2, false).first;
             REQUIRE(((distances1.first == 4)||(distances1.second == 4)));
             REQUIRE(((distances1.first == 4)||(distances1.first == 1)));
             REQUIRE(((distances1.second == 4)||(distances1.second == 1)));
@@ -2119,7 +2084,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 
 
-/*
+
 
         ifstream vg_stream("testGraph");
         VG vg(vg_stream);
@@ -2128,9 +2093,9 @@ class TestDistanceIndex : public DistanceIndex {
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
         TestDistanceIndex di (&vg, &snarl_manager, 50);
-        pos_t pos1 = make_pos_t (1, false,0 );
-        pos_t pos2 = make_pos_t (108, false, 0);
-        REQUIRE(di.maxDistance(pos1, pos2 ) >= 27); 
+        pos_t pos1 = make_pos_t (66, false, 3 );
+        pos_t pos2 = make_pos_t (128, true, 2);
+//        REQUIRE(di.minDistance(pos1, pos2 ) == distance(&vg, pos1, pos2)); 
 
             for (size_t i = 0 ; i < vg.max_node_id(); i++) {
                 if (vg.has_node(i+1)) {
@@ -2146,7 +2111,7 @@ class TestDistanceIndex : public DistanceIndex {
                     }
                 }
             }
-*/
+
 
 
 

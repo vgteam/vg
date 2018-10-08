@@ -1089,32 +1089,20 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
     
     int64_t shortestDistance = -1; 
 
-    if (get_id(pos1) == get_id(pos2)) { //if positions are on the same node
-        int64_t nodeSize = graph->get_length(graph->get_handle(get_id(pos1),
-                                                                false));
-        int64_t offset1;
-        if (is_rev(pos1)) {
-            offset1 = nodeSize -get_offset(pos1) - 1;//Len of node - offset 
-        } else {
-            offset1 = get_offset(pos1);
-        }
+    id_t nodeID1 = get_id(pos1);
+    bool nodeRev1 = is_rev(pos1);
+    id_t nodeID2 = get_id(pos2); 
+    bool nodeRev2 = is_rev(pos2);
 
-        int64_t offset2;
-        if (is_rev(pos2)) {
-            offset2 = nodeSize - get_offset(pos2) - 1;
-        } else {
-            offset2 = get_offset(pos2);
-        }
-
+    if (nodeID1 == nodeID2 && nodeRev1 == nodeRev2 ) {
+        //if positions are on the same node and strand
+        int64_t offset1 = get_offset(pos1);
+        int64_t offset2 = get_offset(pos2);
 
         shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
 
     }
 
-    id_t nodeID1 = get_id(pos1);
-    bool nodeRev1 = false;
-    id_t nodeID2 = get_id(pos2); 
-    bool nodeRev2 = false;
 
 
     const Snarl* commonAncestor = NULL; 
@@ -1187,9 +1175,11 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
 
     //Find distances from pos1 and pos2 to ends of child snarls of ancestor
     pair<pair<int64_t, int64_t>, const Snarl*> p1 = 
-                             distToCommonAncestor(snarl1, commonAncestor, pos1);
+                             distToCommonAncestor(snarl1, commonAncestor, pos1, false);
     pair<int64_t, int64_t> temp1 = p1.first; 
     snarl1 = p1.second;
+
+    nodeRev1 = false;
     if (snarl1 != commonAncestor) {
         nodeID1 = snarl1->start().node_id();
         nodeRev1 = snarl1->start().backward();
@@ -1197,7 +1187,8 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
     int64_t distL1 = temp1.first; int64_t distR1 = temp1.second;
     
     pair<pair<int64_t, int64_t>, const Snarl*> p2 = 
-                             distToCommonAncestor(snarl2, commonAncestor, pos2);
+                             distToCommonAncestor(snarl2, commonAncestor, pos2, true);
+    nodeRev2 = false;
     pair<int64_t, int64_t> temp3 = p2.first; 
     snarl2 = p2.second;
     if (snarl2 != commonAncestor) {
@@ -1644,7 +1635,7 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
 
 
 pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
-          const Snarl* snarl, const Snarl* commonAncestor, pos_t& pos){
+          const Snarl* snarl, const Snarl* commonAncestor, pos_t& pos, bool rev){
 
     /* Find the distance from pos to either end of a snarl node in 
        commonAncestor. Doesn't find the distance to ends of a chain child of 
@@ -1661,17 +1652,22 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
     int64_t offset = get_offset(pos);
     #ifdef printDistances
     cerr << "Dist to common ancestor" << "node " << get_id(pos) << " offset " <<           offset <<" reversed " << is_rev(pos) 
-              << " in snarl " << snarl->start().node_id() << endl;
+              << " in snarl " << snarl->start().node_id();
+    rev ? cerr << " end pos" << endl : cerr << " start pos" << endl;
     
     #endif
-    if (is_rev(pos)) {//Get distance to ends of current node
+    if (is_rev(pos)) {
+        distR = offset+1;
         distL = graph->get_length(graph->get_handle(get_id(pos), false))-offset;
-        distR = offset + 1;
     } else {
+        distL = offset+1;
         distR = graph->get_length(graph->get_handle(get_id(pos), false))-offset;
-        distL = offset + 1;
     }
-
+    if (rev == is_rev(pos)) {
+        distL = -1;
+    } else {
+        distR = -1;
+    }
     #ifdef printDistances
         cerr << "start pos: " << get_offset(pos) << "-> start: " << distL << 
                ", end: " << distR << endl;
@@ -1699,7 +1695,7 @@ pair<pair<int64_t, int64_t>, const Snarl*> DistanceIndex::distToCommonAncestor(
     NetGraph ng (snarl->start(), snarl->end(), sm->chains_of(snarl), graph);
  
     pair<int64_t, int64_t> endDists = snarlDists.distToEnds(graph, &ng, 
-                                               nodeID, false, distL, distR);
+                                             nodeID, false, distL, distR);
     distL = endDists.first;
     distR = endDists.second;
 
@@ -2056,6 +2052,8 @@ pair<int64_t, int64_t> DistanceIndex::SnarlIndex::distToEnds(HandleGraph* graph,
             der = 0;
         }
     }
+cerr << " Ds " << distL << " " << distR << endl;
+cerr << dsl << " " << dsr << " " << der << " " << del << " " << rev << " " << snarlEnd.first << " " << snarlEnd.second << endl;
  
     dsl = dsl == -1 || distL == -1? -1 : distL + dsl; 
     dsr =  dsr == -1 || distR == -1? -1 : distR + dsr; 
@@ -2449,7 +2447,6 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
     //Calculate maximum distance index
 
 
-    /////// DFS to get connected componpents that are in cycles
     distIndex = di;
     cap = c;
     int64_t maxNodeID = distIndex->maxNodeID;
@@ -2461,12 +2458,13 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
     int_vector<> minFd(maxNodeID - minNodeID + 1, 0);
     int_vector<> minRev(maxNodeID - minNodeID + 1, 0);
 
-    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0, true);
+    /////// DFS to get connected componpents that are in cycles
+    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0);
 
     //Find connected components of nodes not in cycles
 
     findComponents(nodeToComponent, max, minFd, minRev, 
-                                            numCycles, false);
+                                            numCycles);
 
     maxDistances = max;
     
@@ -2530,15 +2528,17 @@ int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
 uint64_t DistanceIndex::MaxDistanceIndex::findComponents( 
         int_vector<>& nodeToComponent, int_vector<>& maxDists, 
         int_vector<>& minDistsFd, int_vector<>& minDistsRev, 
-        uint64_t currComponent, bool onlyCycles   ){
+        uint64_t currComponent                                ){
 
-    /*If onlyCycles, assign all nodes to a component of connected cycles 
+    /*Assign nodes to a component
+     *If onlyCycles, assign all nodes to a component of connected cycles 
                if in a cycle, 0 otherwise
       If not onlyCycles, assign all unassigned nodes to a connected component
 
       Returns the maximum component number, the number of connected components
     */
 
+    bool onlyCycles = currComponent == 0; //if currComp = 0 then only look at cyclic components
     int64_t minNodeID = distIndex->minNodeID;
     HandleGraph* graph = distIndex->graph;
     int64_t maxNodeID = distIndex->maxNodeID;
