@@ -1,3 +1,6 @@
+#ifndef VG_DISTANCE_HPP_INCLUDED
+#define VG_DISTANCE_HPP_INCLUDED
+
 #include "snarls.hpp"
 #include "hash_map.hpp"
 using namespace sdsl;
@@ -322,3 +325,5 @@ class DistanceIndex {
 };
  
 }
+
+#endif
