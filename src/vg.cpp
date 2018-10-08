@@ -4757,7 +4757,7 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
 }
 
 // The not quite as robust (TODO: how?) but actually efficient way to edit the graph.
-vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
+vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -4795,7 +4795,7 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling) {
     // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
     map<Node*, Path> added_nodes;
     // create new nodes/wire things up.
-    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling);
+    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, max_node_size);
 
     // Make the translations (in about the same format as VG::edit(), but
     // without a translation for every single node and with just the nodes we
