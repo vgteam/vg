@@ -182,14 +182,7 @@ struct graph_pos_s XdropAligner::calculate_seed_position(Graph const &graph, vec
 	 * computing the DP matrix (it is true local alignment).
 	 */
     struct graph_pos_s pos;
-    // bail out if we don't have any MEMs
-    if (mems.empty()) {
-        pos.node_index = 0;
-        pos.ref_offset = 0;
-        pos.query_offset = 0;
-        return pos;
-    }
-	MaximalExactMatch const &seed = mems[direction ? (mems.size() - 1) : 0];
+	MaximalExactMatch const &seed = mems[direction ? (mems.size() - 1) : 0];		// here mems is never empty
 
 	auto seed_pos = direction ? seed.nodes.front() : seed.nodes.back();
 	size_t node_id = gcsa::Node::id(seed_pos);
@@ -228,6 +221,71 @@ struct graph_pos_s XdropAligner::calculate_max_position(Graph const &graph, stru
 	pos.query_offset = seed_pos.query_offset + (direction ? -qpos : qpos);
 	// fprintf(stderr, "calc_max_pos, rpos(%lu, %u), qpos(%u, %u)\n", pos.node_index, pos.ref_offset, seed_pos.query_offset, pos.query_offset);
 	return(pos);
+}
+
+struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::string const &query_seq, bool direction)
+{
+	uint64_t const qlen = query_seq.length(), scan_len = qlen < 16 ? qlen : 16;		// FIXME: scan_len should be variable
+
+	struct dz_query_s const *packed_query = (direction
+		? dz_pack_query_forward(dz, &query_seq.c_str()[0],               scan_len)
+		: dz_pack_query_reverse(dz, &query_seq.c_str()[qlen - scan_len], scan_len)
+	);
+
+	int64_t inc = direction ? -1 : 1;
+	size_t max_node_index = 0, prev_node_index = direction ? graph.node_size() : 0;
+	for(vector<uint64_t>::const_iterator p = index_edges.begin(); p != index_edges.end();) {
+		size_t node_index = _dst_index(*p), n_incoming_edges = 0, n_incoming_forefronts = 0;
+
+		// fill ends
+		for(size_t empty_node_index = prev_node_index + inc; compare[direction](empty_node_index, node_index); empty_node_index += inc) {
+			std::string const &seq = graph.node(empty_node_index).sequence();
+			forefronts[empty_node_index] = dz_scan(dz,
+				packed_query,
+				dz_root(dz), 1,
+				&seq.c_str()[direction ? seq.length() : 0],
+				direction ? -seq.length() : seq.length(),
+				empty_node_index
+			);
+		}
+		prev_node_index = node_index;
+
+
+		// count #incoming edges
+		while(p + n_incoming_edges != index_edges.end() && _dst_index(p[n_incoming_edges]) == node_index) { n_incoming_edges++; }
+		assert(n_incoming_edges > 0);
+
+		// pack incoming edges
+		struct dz_forefront_s const *incoming_forefronts[n_incoming_edges + 1];
+		for(size_t i = 0; i < n_incoming_edges; i++) {
+			struct dz_forefront_s const *t = forefronts[_src_index(p[i])];
+			assert(t != nullptr);
+			incoming_forefronts[i] = t;
+		}
+
+		// forward edge_index_base
+		p += n_incoming_edges;
+
+		Node const &n = graph.node(node_index);
+		std::string const &ref_seq = n.sequence();
+		forefronts[node_index] = dz_scan(dz,
+			packed_query,
+			incoming_forefronts, n_incoming_forefronts,
+			&ref_seq.c_str()[direction ? ref_seq.length() : 0],
+			direction ? -ref_seq.length() : ref_seq.length(),
+			node_index
+		);
+		if(forefronts[node_index]->max + (direction & dz_geq(forefronts[node_index])) > forefronts[max_node_index]->max) {
+			max_node_index = node_index;
+		}
+
+	}
+
+	struct graph_pos_s pos;
+	pos.node_index = 0;
+	pos.ref_offset = 0;
+	pos.query_offset = 0;
+	return(calculate_max_position(graph, pos, max_node_index, direction));
 }
 
 size_t XdropAligner::extend(
@@ -496,7 +554,10 @@ XdropAligner::align(
 
 	// extract seed node
 	// MaximalExactMatch const &seed = select_root_seed(mems);
-	struct graph_pos_s seed_pos = calculate_seed_position(graph, mems, qlen, direction);
+	struct graph_pos_s seed_pos = (mems.empty()
+		? scan_seed_position(graph, query_seq, direction)		// scan seed position mems is empty
+		: calculate_seed_position(graph, mems, qlen, direction)
+	);
 
 	// build edge table
 	build_index_edge_table(graph, seed_pos.node_index, direction);
