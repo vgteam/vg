@@ -20,7 +20,7 @@ VariantAdder::VariantAdder(VG& graph) : graph(graph), sync(graph) {
     
     // Make sure to dice nodes to 1024 or smaller, the max size that GCSA2
     // supports, in case we need to GCSA-index part of the graph.
-    graph.dice_nodes(1024);
+    graph.dice_nodes(max_node_size);
     
     // Configure the aligner to use a full length bonus
     aligner.full_length_bonus = 5;
@@ -348,7 +348,7 @@ void VariantAdder::add_variants(vcflib::VariantCallFile* vcf) {
                     
                     // Make this path's edits to the original graph. We don't need to do
                     // anything with the translations.
-                    lock.apply_full_length_edit(aln.path());
+                    lock.apply_full_length_edit(aln.path(), max_node_size);
                     
                     // Count all the bases in the haplotype
                     total_haplotype_bases += to_align.str().size();

@@ -301,12 +301,12 @@ set<NodeSide> GraphSynchronizer::Lock::get_peripheral_attachments(NodeSide graph
     }
 }
 
-vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path) {
+vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, size_t max_node_size) {
     set<NodeSide> dangling;
-    return apply_edit(path, dangling);
+    return apply_edit(path, dangling, max_node_size);
 }
 
-vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<NodeSide>& dangling) {
+vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<NodeSide>& dangling, size_t max_node_size) {
     // Make sure we have exclusive ownership of the graph itself since we're
     // going to be modifying its data structures.
     std::lock_guard<std::mutex> guard(synchronizer.whole_graph_lock);
@@ -320,7 +320,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<No
     }
     
     // Make all the edits, passing along the dangling node set.
-    vector<Translation> translations = synchronizer.graph.edit_fast(path, dangling);
+    vector<Translation> translations = synchronizer.graph.edit_fast(path, dangling, max_node_size);
     
     // Lock all the nodes that result from the translations. They're guaranteed
     // to either be nodes we already have or novel nodes with fresh IDs.
@@ -347,7 +347,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_edit(const Path& path, set<No
     return translations;
 }
 
-vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& path) {
+vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& path, size_t max_node_size) {
     // Find the left and right outer nodesides of the subgraph
     auto ends = get_endpoints();
     
@@ -357,7 +357,7 @@ vector<Translation> GraphSynchronizer::Lock::apply_full_length_edit(const Path& 
     // Apply the edit, attaching its left end to the stuff attached to the left
     // end of the graph. Get back in the dangling set where the right end of the
     // edit's material is.
-    auto translations = apply_edit(path, dangling);
+    auto translations = apply_edit(path, dangling, max_node_size);
     
     // Get the places that the right end of the graph attaches to
     auto right_periphery = get_peripheral_attachments(ends.second);
