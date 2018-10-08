@@ -25,27 +25,28 @@ void help_filter(char** argv) {
          << "Filter alignments by properties." << endl
          << endl
          << "options:" << endl
-         << "    -n, --name-prefix NAME  keep only reads with this prefix in their names [default='']" << endl
-         << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
-         << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
-         << "    -O, --rescore           re-score reads using default parameters and only alignment information" << endl
-         << "    -f, --frac-score        normalize score based on length" << endl
-         << "    -u, --substitutions     use substitution count instead of score" << endl
-         << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
-         << "    -m, --min-end-matches N filter reads that don't begin with at least N matches on each end" << endl
-         << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
-         << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
-         << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
-         << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
-         << "    -A, --append-regions    append to alignments created with -RB" << endl
-         << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
-         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
-         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
-         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
-         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
-         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
-         << "    -d, --downsample S.P    filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
-         << "    -t, --threads N         number of threads [1]" << endl;
+         << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
+         << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
+         << "    -s, --min-secondary N      minimum score to keep secondary alignment [default=0]" << endl
+         << "    -r, --min-primary N        minimum score to keep primary alignment [default=0]" << endl
+         << "    -O, --rescore              re-score reads using default parameters and only alignment information" << endl
+         << "    -f, --frac-score           normalize score based on length" << endl
+         << "    -u, --substitutions        use substitution count instead of score" << endl
+         << "    -o, --max-overhang N       filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
+         << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
+         << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
+         << "    -x, --xg-name FILE         use this xg index (required for -R, -S, and -D)" << endl
+         << "    -R, --regions-file         only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
+         << "    -B, --output-basename      output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
+         << "    -A, --append-regions       append to alignments created with -RB" << endl
+         << "    -c, --context STEPS        expand the context of the subgraph this many steps when looking up chunks" << endl
+         << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
+         << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
+         << "    -E, --repeat-ends N        filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
+         << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
+         << "    -C, --defray-count N       stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
+         << "    -d, --downsample S.P       filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
+         << "    -t, --threads N            number of threads [1]" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -70,6 +71,7 @@ int main_filter(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"name-prefix", required_argument, 0, 'n'},
+                {"exclude-contig", required_argument, 0, 'X'},
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
                 {"rescore", no_argument, 0, 'O'},
@@ -94,7 +96,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:d:t:",
+        c = getopt_long (argc, argv, "n:X:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:d:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -105,6 +107,9 @@ int main_filter(int argc, char** argv) {
         {
         case 'n':
             filter.name_prefix = optarg;
+            break;
+        case 'X':
+            filter.excluded_refpos_contigs.push_back(parse<std::regex>(optarg));
             break;
         case 's':
             filter.min_secondary = parse<double>(optarg);
@@ -179,9 +184,15 @@ int main_filter(int argc, char** argv) {
                     
                     // Everything before that is the seed
                     auto seed_string = opt_string.substr(0, point);
+                    // Use the 0 seed by default even if no actual seed shows up
+                    int32_t seed = 0;
                     if (seed_string != "") {
                         // If there was a seed (even 0), parse it
-                        int32_t seed = parse<int32_t>(seed_string);
+                        seed = parse<int32_t>(seed_string);
+                    }
+                    
+                    if (seed != 0) {
+                        // We want a nonempty mask.
                         
                         // Use the C rng like Samtools does to get a mask.
                         // See https://github.com/samtools/samtools/blob/60138c42cf04c5c473dc151f3b9ca7530286fb1b/sam_view.c#L298-L299

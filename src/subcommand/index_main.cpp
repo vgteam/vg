@@ -17,6 +17,8 @@
 #include "../vg_set.hpp"
 #include "../utility.hpp"
 #include "../region.hpp"
+#include "../snarls.hpp"
+#include "../distance.hpp"
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
@@ -40,6 +42,7 @@ void help_index(char** argv) {
          << "    -F, --thread-db FILE   read thread database from FILE (may repeat)" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
+         << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
@@ -47,8 +50,9 @@ void help_index(char** argv) {
          << "    -F, --thread-db FILE   write thread database to FILE" << endl
          << "    -P, --force-phasing    replace unphased genotypes with randomly phased ones" << endl
          << "    -o, --discard-overlaps skip overlapping alternate alleles if the overlap cannot be resolved" << endl
-         << "    -O, --check-overlaps   print information on overlapping variants to stderr" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
+         << "    -u, --buffer-size N    GBWT construction buffer size in millions of nodes (default 100)" << endl
+         << "    -n, --id-interval N    store haplotype ids at one out of N positions (default 1024)" << endl
          << "    -R, --range X..Y       process samples X to Y (inclusive)" << endl
          << "    -r, --rename V=P       rename contig V in the VCFs to path P in the graph (may repeat)" << endl
          << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
@@ -71,7 +75,11 @@ void help_index(char** argv) {
          << "    -N, --node-alignments  input is (ideally, sorted) .gam format," << endl
          << "                           cross reference nodes by alignment traversals" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
-         << "    -C, --compact          compact the index into a single level (improves performance)" << endl;
+         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
+         << "snarl distance index options" << endl
+         << "    -c  --dist-graph FILE  generate snarl distane index from VG in FILE" << endl
+         << "    -s  --snarl-name FILE  load snarls from FILE" << endl
+         << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl;
 }
 
 // Convert gbwt::node_type to ThreadMapping.
@@ -113,6 +121,8 @@ gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
     return result;
 }
 
+std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples);
+
 // Thread database files written by vg index -G and read by vg index -x.
 // These should probably be in thread_database.cpp or something like that.
 void write_thread_db(const std::string& filename, const std::vector<std::string>& thread_names, size_t haplotype_count);
@@ -126,29 +136,31 @@ int main_index(int argc, char** argv) {
     }
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false;
+    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
     // Files we should read.
-    string vcf_name, mapping_name;
+    string vcf_name, mapping_name, dist_graph;
     vector<string> thread_db_names;
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, threads_name, gcsa_name, rocksdb_name;
+    string xg_name, gbwt_name, parse_name, threads_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
 
     // General
     bool show_progress = false;
 
     // GBWT
     bool index_haplotypes = false, index_paths = false, index_gam = false;
+    bool parse_only = false;
     vector<string> gam_file_names;
-    bool force_phasing = false, discard_overlaps = false, check_overlaps = false;
-    size_t samples_in_batch = 200; // Samples per batch.
+    bool force_phasing = false, discard_overlaps = false;
+    size_t samples_in_batch = 200;
+    size_t gbwt_buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION; // Millions of nodes.
+    size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
     std::pair<size_t, size_t> sample_range(0, ~(size_t)0); // The semiopen range of samples to process.
     map<string, string> path_to_vcf; // Path name conversion from --rename.
     map<string, pair<size_t, size_t>> regions; // Region restrictions for contigs, in VCF name space, as 0-based exclusive-end ranges.
     unordered_set<string> excluded_samples; // Excluded sample names from --exclude.
-    std::set<std::pair<gbwt::size_type, gbwt::size_type>> overlaps; // Unresolved overlaps in the haplotypes.
 
     // GCSA
     gcsa::size_type kmer_size = gcsa::Key::MAX_LENGTH;
@@ -184,14 +196,16 @@ int main_index(int argc, char** argv) {
 
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
+            {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
             {"store-gam", required_argument, 0, 'M'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
             {"force-phasing", no_argument, 0, 'P'},
             {"discard-overlaps", no_argument, 0, 'o'},
-            {"check-overlaps", no_argument, 0, 'O'},
             {"batch-size", required_argument, 0, 'B'},
+            {"buffer-size", required_argument, 0, 'u'},
+            {"id-interval", required_argument, 0, 'n'},
             {"range", required_argument, 0, 'R'},
             {"rename", required_argument, 0, 'r'},
             {"region", required_argument, 0, 'I'},
@@ -217,11 +231,16 @@ int main_index(int argc, char** argv) {
             {"node-alignments", no_argument, 0, 'N'},
             {"dump", no_argument, 0, 'D'},
             {"compact", no_argument, 0, 'C'},
+
+            //Snarl distance index
+            {"dist-graph", required_argument, 0, 'c'},
+            {"snarl-name", required_argument, 0, 's'},
+            {"dist-name", required_argument, 0, 'j'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:TM:G:H:PoOB:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCh",
+        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -256,6 +275,10 @@ int main_index(int argc, char** argv) {
             build_xg = true;
             vcf_name = optarg;
             break;
+        case 'e':
+            parse_only = true;
+            parse_name = optarg;
+            break;
         case 'T':
             index_paths = true;
             build_xg = true;
@@ -279,11 +302,14 @@ int main_index(int argc, char** argv) {
         case 'o':
             discard_overlaps = true;
             break;
-        case 'O':
-            check_overlaps = true;
-            break;
         case 'B':
             samples_in_batch = std::max(parse<size_t>(optarg), 1ul);
+            break;
+        case 'u':
+            gbwt_buffer_size = std::max(parse<size_t>(optarg), 1ul);
+            break;
+        case 'n':
+            id_interval = parse<size_t>(optarg);
             break;
         case 'R':
             {
@@ -388,6 +414,20 @@ int main_index(int argc, char** argv) {
             compact = true;
             break;
 
+        //Snarl distance index
+        case 'c':
+            build_dist = true;
+            dist_graph = optarg;
+            break;
+        case 's':
+            build_dist = true;
+            snarl_name = optarg;
+            break;
+        case 'j':
+            build_dist = true;
+            dist_name = optarg;
+            break;
+
         case 'h':
         case '?':
             help_index(argv);
@@ -404,13 +444,18 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index) {
+    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index && dist_graph.empty() ) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
 
     if ((build_gbwt || write_threads) && !(index_haplotypes || index_paths || index_gam)) {
         cerr << "error: [vg index] cannot build GBWT without threads" << endl;
+        return 1;
+    }
+
+    if (parse_only && (index_paths || index_gam)) {
+        cerr << "error: [vg index] --parse-only does not work with --store-threads or --store-gam" << endl;
         return 1;
     }
 
@@ -444,7 +489,7 @@ int main_index(int argc, char** argv) {
             return 1;
         }
         VGset graphs(file_names);
-        build_gpbwt = !build_gbwt & !write_threads;
+        build_gpbwt = !build_gbwt & !write_threads & !parse_only;
         graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
         if (show_progress) {
             cerr << "Built base XG index" << endl;
@@ -454,7 +499,7 @@ int main_index(int argc, char** argv) {
     // Generate threads
     if (index_haplotypes || index_paths || index_gam) {
 
-        if (!build_gbwt && !write_threads && !build_gpbwt) {
+        if (!build_gbwt && !(parse_only && index_haplotypes) && !write_threads && !build_gpbwt) {
             cerr << "error: [vg index] No output format specified for the threads" << endl;
             return 1;
         }
@@ -496,9 +541,11 @@ int main_index(int argc, char** argv) {
         // Do we build GBWT?
         gbwt::GBWTBuilder* gbwt_builder = 0;
         if (build_gbwt) {
-            if (show_progress) { cerr << "Building GBWT index" << endl; }
+            if (show_progress) {
+                cerr << "GBWT parameters: buffer size " << gbwt_buffer_size << ", id interval " << id_interval << endl;
+            }
             gbwt::Verbosity::set(gbwt::Verbosity::SILENT);  // Make the construction thread silent.
-            gbwt_builder = new gbwt::GBWTBuilder(id_width);
+            gbwt_builder = new gbwt::GBWTBuilder(id_width, gbwt_buffer_size * gbwt::MILLION, id_interval);
         }
 
         // Do we write threads?
@@ -567,6 +614,7 @@ int main_index(int argc, char** argv) {
         // Generate haplotypes
         if (index_haplotypes) {
             vcflib::VariantCallFile variant_file;
+            variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
             variant_file.open(vcf_name);
             if (!variant_file.is_open()) {
                 cerr << "error: [vg index] could not open " << vcf_name << endl;
@@ -591,7 +639,15 @@ int main_index(int argc, char** argv) {
             sample_range.second = std::min(sample_range.second, num_samples);
             haplotype_count += 2 * (sample_range.second - sample_range.first);  // Assuming a diploid genome
             if (show_progress) {
-                cerr << "Processing samples " << sample_range.first << " to " << (sample_range.second - 1) << " with batch size " << samples_in_batch << endl;
+                cerr << "Haplotype generation parameters:" << endl;
+                cerr << "- Samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
+                cerr << "- Batch size " << samples_in_batch << endl;
+                if (force_phasing) {
+                    cerr << "- Force phasing" << endl;
+                }
+                if (discard_overlaps) {
+                    cerr << "- Discard overlaps" << endl;
+                }
             }
 
             // Process each VCF contig corresponding to an XG path.
@@ -602,6 +658,7 @@ int main_index(int argc, char** argv) {
                 if (show_progress) {
                     cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
                 }
+                string parse_file = parse_name + '_' + vcf_contig_name;
 
                 // Structures to parse the VCF file into.
                 const xg::XGPath& path = xg_index->get_path(path_name);
@@ -616,7 +673,14 @@ int main_index(int argc, char** argv) {
 
                 // Create a PhasingInformation for each batch.
                 for (size_t batch_start = sample_range.first; batch_start < sample_range.second; batch_start += samples_in_batch) {
-                    phasings.emplace_back(batch_start, std::min(samples_in_batch, sample_range.second - batch_start));
+                    if (parse_only) {
+                        // Use a permanent file.
+                        phasings.emplace_back(parse_file, batch_start, std::min(samples_in_batch, sample_range.second - batch_start));
+                        variants.addFile(phasings.back().name(), phasings.back().offset(), phasings.back().size());
+                    } else {
+                        // Use a temporary file.
+                        phasings.emplace_back(batch_start, std::min(samples_in_batch, sample_range.second - batch_start));
+                    }
                 }
 
                 // Set the VCF region or process the entire contig.
@@ -646,10 +710,7 @@ int main_index(int argc, char** argv) {
 
                     // Determine the reference nodes for the current variant and create a variant site.
                     // If the variant is not an insertion, there should be a path for the ref allele.
-                    // Otherwise the reference position can be determined from the predecessors of the
-                    // alternate alleles.
-                    // TODO: What if the reference visits the same node several times?
-                    var.position--; // Use a 0-based position to get the correct var_name.
+                    
                     std::string var_name = make_variant_id(var);
                     std::string ref_path_name = "_alt_" + var_name + "_0";
                     auto ref_path_iter = alt_paths.find(ref_path_name);
@@ -709,11 +770,12 @@ int main_index(int argc, char** argv) {
                     }
 
                     // Store the phasings in PhasingInformation structures.
+                    std::vector<std::string> genotypes = parseGenotypes(var.originalLine, num_samples);
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         std::vector<gbwt::Phasing> current_phasings;
                         for (size_t sample = phasings[batch].offset(); sample < phasings[batch].limit(); sample++) {
                             string& sample_name = variant_file.sampleNames[sample];
-                            current_phasings.emplace_back(var.getGenotype(sample_name), was_diploid[sample]);
+                            current_phasings.emplace_back(genotypes[sample], was_diploid[sample]);
                             was_diploid[sample] = current_phasings.back().diploid;
                             if(force_phasing) {
                                 current_phasings.back().forcePhased([&]() {
@@ -733,9 +795,6 @@ int main_index(int argc, char** argv) {
                     }
                     cerr << "- Phasing information: " << gbwt::inMegabytes(phasing_bytes) << " MB" << endl;
                 }
-                if (check_overlaps) {
-                    gbwt::checkOverlaps(variants, cerr, true);
-                }
 
                 // Save memory:
                 // - Delete the alt paths if we no longer need them.
@@ -752,37 +811,31 @@ int main_index(int argc, char** argv) {
                     phasings[batch].close();
                 }
 
-                // Generate the haplotypes.
-                for (size_t batch = 0; batch < phasings.size(); batch++) {
-                    gbwt::generateHaplotypes(variants, phasings[batch],
-                        [&](gbwt::size_type sample) -> bool {
-                            return (excluded_samples.find(sample_names[sample]) == excluded_samples.end());
-                        },
-                        [&](const gbwt::Haplotype& haplotype) {
-                            stringstream sn;
-                            sn  << "_thread_" << sample_names[haplotype.sample]
-                                << "_" << path_name
-                                << "_" << haplotype.phase
-                                << "_" << haplotype.count;
-                            store_thread(haplotype.path, sn.str());
-                        },
-                        [&](gbwt::size_type site, gbwt::size_type allele) -> bool {
-                            if (check_overlaps) {
-                                overlaps.insert(std::make_pair(site, allele));
-                            }
-                            return discard_overlaps;
-                        });
-                    if (show_progress) {
-                        cerr << "- Processed samples " << phasings[batch].offset() << " to " << (phasings[batch].offset() + phasings[batch].size() - 1) << endl;
+                // Save the VCF parse or generate the haplotypes.
+                if (parse_only) {
+                    sdsl::store_to_file(variants, parse_file);
+                } else {
+                    for (size_t batch = 0; batch < phasings.size(); batch++) {
+                        gbwt::generateHaplotypes(variants, phasings[batch],
+                            [&](gbwt::size_type sample) -> bool {
+                                return (excluded_samples.find(sample_names[sample]) == excluded_samples.end());
+                            },
+                            [&](const gbwt::Haplotype& haplotype) {
+                                stringstream sn;
+                                sn  << "_thread_" << sample_names[haplotype.sample]
+                                    << "_" << path_name
+                                    << "_" << haplotype.phase
+                                    << "_" << haplotype.count;
+                                store_thread(haplotype.path, sn.str());
+                            },
+                            [&](gbwt::size_type, gbwt::size_type) -> bool {
+                                return discard_overlaps;
+                            });
+                        if (show_progress) {
+                            cerr << "- Processed samples " << phasings[batch].offset() << " to " << (phasings[batch].offset() + phasings[batch].size() - 1) << endl;
+                        }
                     }
-                }
-                if (check_overlaps && !overlaps.empty()) {
-                    cerr << overlaps.size() << " unresolved overlaps:" << endl;
-                    for (auto overlap : overlaps) {
-                        cerr << "- site " << overlap.first << ", allele " << overlap.second << endl;
-                    }
-                    overlaps.clear();
-                }
+                } // End of haplotype generation for the current contig.
             } // End of contigs.
         } // End of haplotypes.
 
@@ -790,35 +843,37 @@ int main_index(int argc, char** argv) {
         // or store it in the XG index if building gPBWT or if the XG index
         // will be written to disk.
         alt_paths.clear();
-        if (build_gbwt) {
-            gbwt_builder->finish();
-            if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
-            sdsl::store_to_file(gbwt_builder->index, gbwt_name);
-            delete gbwt_builder; gbwt_builder = nullptr;
-        }
-        if (write_threads) {
-            binary_file.close();
-        }
-        if (build_gbwt || write_threads) {
-            if (!thread_db_names.empty()) {
-                write_thread_db(thread_db_names.front(), thread_names, haplotype_count);
-            } else if (!xg_name.empty()) {
-                if (show_progress) {
-                    cerr << "Storing " << thread_names.size() << " thread names from "
-                         << haplotype_count << " haplotypes in the XG index..." << endl;
+        if (!parse_only) {
+            if (build_gbwt) {
+                gbwt_builder->finish();
+                if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
+                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+                delete gbwt_builder; gbwt_builder = nullptr;
+            }
+            if (write_threads) {
+                binary_file.close();
+            }
+            if (build_gbwt || write_threads) {
+                if (!thread_db_names.empty()) {
+                    write_thread_db(thread_db_names.front(), thread_names, haplotype_count);
+                } else if (!xg_name.empty()) {
+                    if (show_progress) {
+                        cerr << "Storing " << thread_names.size() << " thread names from "
+                             << haplotype_count << " haplotypes in the XG index..." << endl;
+                    }
+                    xg_index->set_thread_names(thread_names);
+                    xg_index->set_haplotype_count(haplotype_count);
                 }
-                xg_index->set_thread_names(thread_names);
+            }
+            if (build_gpbwt) {
+                if (show_progress) {
+                    cerr << "Inserting all phase threads into DAG..." << endl;
+                }
+                xg_index->insert_threads_into_dag(all_phase_threads, thread_names);
                 xg_index->set_haplotype_count(haplotype_count);
             }
         }
-        if (build_gpbwt) {
-            if (show_progress) {
-                cerr << "Inserting all phase threads into DAG..." << endl;
-            }
-            xg_index->insert_threads_into_dag(all_phase_threads, thread_names);
-            xg_index->set_haplotype_count(haplotype_count);            
-        }
-    }
+    } // End of thread indexing.
 
     // Save XG
     if (!xg_name.empty()) {
@@ -1012,10 +1067,89 @@ int main_index(int argc, char** argv) {
 
     }
 
+    //Build snarl distance index
+    if (build_dist) {
+        if (dist_graph.empty()) {
+            cerr << "error: [vg index] distance index requires a vg file" << endl;
+            return 1;
+        } else if (dist_name.empty()) {
+            cerr << "error: [vg index] distance index requires an output file" << endl;
+            return 1;
+        } else if (snarl_name.empty()) {
+            cerr << "error: [vg index] distance index requires a snarl file" << endl;
+            return 1;
+            
+        } else {
+            ifstream vg_stream(dist_graph);
+            if (!vg_stream) {
+                cerr << "error: [vg index] cannot open VG file" << endl;
+                exit(1);
+            }
+            VG vg(vg_stream);
+            vg_stream.close();
+          
+            ifstream snarl_stream(snarl_name);
+            if (!snarl_stream) {
+                cerr << "error: [vg index] cannot open Snarls file" << endl;
+                exit(1);
+            }
+            SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
+            snarl_stream.close();
+
+            int64_t cap = 20; //TODO: Take this as an argument or something
+            DistanceIndex di (&vg, snarl_manager, cap);
+            
+
+ 
+            ofstream dist_out(dist_name);           
+            di.serialize(dist_out);
+            dist_out.close();
+        }
+
+    }
+
     if (show_progress) {
         cerr << "Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
     }
     return 0;
+}
+
+std::vector<std::string> parseGenotypes(const std::string& vcf_line, size_t num_samples) {
+    std::vector<std::string> result;
+
+    // The 9th tab-separated field should start with "GT".
+    size_t offset = 0;
+    for (int i = 0; i < 8; i++) {
+        size_t pos = vcf_line.find('\t', offset);
+        if (pos == std::string::npos) {
+            std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        offset = pos + 1;
+    }
+    if (vcf_line.substr(offset, 2) != "GT") {
+        std::cerr << "error: [vg index] VCF line does not contain genotype information" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // Genotype strings are the first colon-separated fields in the 10th+ tab-separated fields.
+    offset = vcf_line.find('\t', offset);
+    while (offset != std::string::npos && offset + 1 < vcf_line.length()) {
+        offset++;
+        size_t pos = vcf_line.find_first_of("\t:", offset);
+        if (pos == std::string::npos) {
+            pos = vcf_line.length();
+        }
+        result.emplace_back(vcf_line.substr(offset, pos - offset));
+        offset = vcf_line.find('\t', offset);
+    }
+
+    if (result.size() != num_samples) {
+        std::cerr << "error: [vg index] expected " << num_samples << " samples, got " << result.size() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return result;
 }
 
 void write_thread_db(const std::string& filename, const std::vector<std::string>& thread_names, size_t haplotype_count) {

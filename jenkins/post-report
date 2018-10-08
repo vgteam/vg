@@ -163,31 +163,31 @@ if [ ! -z "${BUILD_NUMBER}" ]; then
         
         if [ "${BUILD_NUMBER}" -gt "${OLD_BUILD_NUMBER}" ]; then
             # Upload to the path for master, overwriting whatever was there.
-            HTML_PATH="vg_cgl/vg_ci/jenkins_reports/branch/master"
+            HTML_PATH="vg_ci/jenkins_reports/branch/master"
             
             # Save the new higher build number
             write_build_number "master_sync" "${BUILD_NUMBER}"
             
         else
             # Just work on the commit, since a newer master build has already finished.
-            HTML_PATH="vg_cgl/vg_ci/jenkins_reports/commit/${GIT_COMMIT}"
+            HTML_PATH="vg_ci/jenkins_reports/commit/${GIT_COMMIT}"
         fi
         
     else
         echo "Running on a pull request"
         
         # Upload to a path specific to this commit.
-        HTML_PATH="vg_cgl/vg_ci/jenkins_reports/commit/${ghprbActualCommit}"
+        HTML_PATH="vg_ci/jenkins_reports/commit/${ghprbActualCommit}"
         
         # Say we had 0 as the last build number
         OLD_BUILD_NUMBER=0
     fi
     
     # Upload the HTML to S3 as the current master report
-    aws s3 sync --acl public-read "${HTML_DIR_IN}" "s3://cgl-pipeline-inputs/${HTML_PATH}"
+    aws s3 sync --acl public-read "${HTML_DIR_IN}" "s3://vg-data/${HTML_PATH}"
     
     # Make the URL for the report HTML
-    REPORT_URL="http://cgl-pipeline-inputs.s3.amazonaws.com/${HTML_PATH}/index.html"
+    REPORT_URL="http://vg-data.s3.amazonaws.com/${HTML_PATH}/index.html"
     
 else
     echo "Running locally"

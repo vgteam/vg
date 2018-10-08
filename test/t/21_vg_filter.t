@@ -5,12 +5,11 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 8
+plan tests 10
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
-vg sim -x x.xg -l 100 -n 5000 -s 10 -e 0.01 -i 0.001 -a > x.gam
-vg view -a x.gam > x.gam.json
+vg sim -x x.xg -l 100 -n 5000 -e 0.01 -i 0.001 -a > x.gam
 
 # sanity check: does passing no options preserve input
 is $(vg filter x.gam | vg view -a - | jq . | grep mapping | wc -l) 5000 "vg filter with no options preserves input."
@@ -44,15 +43,15 @@ fi
 
 is "${OUT_OF_RANGE}" "0" "vg filter downsamples correctly"
 
-rm -f x.gam x.gam.json filter_chunk*.gam chunks.bed
+rm -f x.gam filter_chunk*.gam chunks.bed
 
-vg sim -l 100 -n 100 -p 50 -x x.xg -s 1 -a > paired.gam
-vg sim -l 100 -n 100 -x x.xg -s 1 -a > single.gam
+cp small/x-s1-l100-n100-p50.gam paired.gam
+cp small/x-s1-l100-n100.gam single.gam
 
 # Check downsampling against samtools 1.0+
 # If the installed samtools isn't new enough, fall back on precalculated hashes
 PAIRED_HASH=a31e81e05f86224b5aec73f6f8e2d9a9
-SINGLE_HASH=028711c7ec6189442095698cfbeab356
+SINGLE_HASH=854be75583698d41023bf073d26833d6
 if samtools 2>&1 | grep "Version" | grep -v ": 0" >/dev/null; then
     # We can calculate hashes ourselves
     vg surject -x x.xg -s -i paired.gam > paired.sam
@@ -61,7 +60,7 @@ if samtools 2>&1 | grep "Version" | grep -v ": 0" >/dev/null; then
     PAIRED_HASH="$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum | cut -f1 -d' ')"
     
     vg surject -x x.xg -s single.gam > single.sam
-    samtools view -s 456.2 -S single.sam > filtered.sam
+    samtools view -s .2 -S single.sam > filtered.sam
     
     SINGLE_HASH="$(cat filtered.sam | grep -v "^@" | cut -f1 | sort | md5sum | cut -f1 -d' ')"
 fi
@@ -70,9 +69,14 @@ vg filter -d 123.5 -t 10 paired.gam > filtered.gam
 
 is "$(vg view -aj filtered.gam | jq -rc '.name' | sed 's/_[12]//g' | sort | md5sum | cut -f1 -d' ')" "${PAIRED_HASH}"  "samtools 1.0+ and vg filter agree on how to select downsampled paired reads"
 
-vg filter -d 456.2 -t 10 single.gam > filtered.gam
+# "0." and "." syntax need to mean the same thing.
+vg filter -d 0.2 -t 10 single.gam > filtered.gam
 
-is "$(vg view -aj filtered.gam | jq -rc '.name' | sort | md5sum | cut -f1 -d' ')" "${SINGLE_HASH}" "samtools 1.0+ and vg filter agree on how to select downsampled unpaired reads"   
+is "$(vg view -aj filtered.gam | jq -rc '.name' | sort | md5sum | cut -f1 -d' ')" "${SINGLE_HASH}" "samtools 1.0+ and vg filter agree on how to select downsampled unpaired reads"
 
-rm -f x.vg x.xg paired.gam paired.sam single.gam single.sam filtered.gam filtered.sam
+vg annotate -p -x x.xg -a paired.gam > paired.annotated.gam
+is "$(vg filter -X "[a-f]" paired.annotated.gam | vg view -aj - | wc -l)" "200" "reads with refpos annotations not matching an exclusion regex are let through"
+is "$(vg filter -X "[w-z]" paired.annotated.gam | vg view -aj - | wc -l)" "0" "reads with refpos annotations matching an exclusion regex are removed"
+
+rm -f x.vg x.xg paired.gam paired.sam paired.annotated.gam single.gam single.sam filtered.gam filtered.sam
                                                                

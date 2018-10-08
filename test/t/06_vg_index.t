@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 52
+plan tests 59
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -47,10 +47,22 @@ is $? 0 "building all indexes at once"
 cmp x.xg x2.xg && cmp x.gbwt x2.gbwt && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
 is $? 0 "the indexes are identical"
 
+# Build the same GBWT indirectly from a VCF parse
+vg index -v small/x.vcf.gz -e parse x.vg
+is $? 0 "storing a VCF parse for a graph with haplotypes"
+
+../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
+is $? 0 "building a GBWT index from the VCF parse"
+
+cmp parse_x.gbwt x.gbwt
+is $? 0 "the indexes are identical"
+
 rm -f x.vg
 rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
+rm -f parse_x parse_x_0_1 parse_x.gbwt
+
 
 # Subregion graph with haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz -a --region x:100-200 > x.part.vg
@@ -61,6 +73,7 @@ is $? 0 "building GBWT index for a regional graph"
 is "$(cat log.txt | wc -c)" "0" "no warnings about missing variants produced"
 
 rm -f x.part.vg x.part.xg x.part.gbwt log.txt
+
 
 # Multiple graphs without haplotypes
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C > x.vg 2> /dev/null
@@ -104,10 +117,21 @@ is $? 0 "building all three indexes at once"
 cmp xy.xg xy2.xg && cmp xy.gcsa xy2.gcsa && cmp xy.gcsa.lcp xy2.gcsa.lcp && cmp xy.gbwt xy2.gbwt
 is $? 0 "the indexes are identical"
 
+# Build the same GBWT indirectly from a VCF parse
+vg index -v small/xy2.vcf.gz -e parse x.vg && vg index -v small/xy2.vcf.gz -e parse y.vg
+is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
+
+../deps/gbwt/build_gbwt -p -r -o parse_xy parse_x parse_y > /dev/null 2> /dev/null
+is $? 0 "building a GBWT index from the VCF parses"
+
+cmp parse_xy.gbwt xy.gbwt
+is $? 0 "the indexes are identical"
+
 rm -f x.vg y.vg
 rm -f x.gbwt y.gbwt x.threads y.threads
 rm -f xy.xg xy.gbwt xy.gcsa xy.gcsa.lcp
 rm -f xy2.xg xy2.gbwt xy2.gcsa xy2.gcsa.lcp
+rm -f parse_x parse_x_0_1 parse_y parse_y_0_1 parse_xy.gbwt
 
 
 # GBWT construction options
@@ -122,12 +146,16 @@ is $? 0 "GBWT can be built for both paths and haplotypes"
 rm -f x_ref.gbwt x_both.gbwt
 
 vg index -x x.xg x.vg
-vg sim -s 2384259 -n 100 -l 100 -x x.xg -a >sim.gam
+vg sim -n 100 -l 100 -x x.xg -a >sim.gam
 vg index -G x_gam.gbwt -M sim.gam -x x_gam.xg x.vg
 
 is $(vg paths -g x_gam.gbwt -T -x x_gam.xg -V | vg view -c - | jq -cr '.path[].name'  | sort | md5sum | cut -f 1 -d\ ) $(vg view -a sim.gam | jq -r .name | sort | md5sum | cut -f 1 -d\ ) "we can build a GBWT from alignments and index it by name with xg thread naming"
 
 rm -f x.vg x.xg sim.gam x_gam.gbwt
+
+# We do not test GBWT construction parameters (-B, -u, -n) because they matter only for large inputs.
+# We do not test chromosome-length path generation (-P, -o) for the same reason.
+
 
 # Other tests
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -141,7 +169,7 @@ is $? 0 "a prebuilt deBruijn graph in GCSA2 format may be used"
 rm -f x.gcsa x.gcsa.lcp x.graph
 
 vg index -x x.xg -g x.gcsa -k 11 x.vg
-vg map -T <(vg sim -s 1337 -n 100 -x x.xg) -d x > x1337.gam
+vg map -T <(vg sim -n 100 -x x.xg) -d x > x1337.gam
 vg index -a x1337.gam -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 101 "index can store alignments"
 is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignments"
@@ -160,7 +188,7 @@ vg index -a x1337.gam -d x.vg.aln
 vg index -a x1337.gam -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 201 "alignment index can be loaded using sequential invocations; next_nonce persistence"
 
-vg map -T <(vg sim -s 1337 -n 100 -x x.xg) -d x | vg index -m - -d x.vg.map
+vg map -T small/x-s1337-n100-v2.reads -d x | vg index -m - -d x.vg.map
 is $(vg index -D -d x.vg.map | wc -l) 1477 "index stores all mappings"
 
 # Compare our indexes against gamsort's
@@ -219,13 +247,13 @@ is $? 0 "can index backward nodes"
 vg index -k 11 -g r.gcsa reversing/reversing_x.vg
 is $? 0 "can index kmers for backward nodes"
 
-vg map -T <(vg sim -s 1338 -n 100 -x r.xg) -d r | vg index -a - -d r.aln.idx
+vg map -T <(vg sim -n 100 -x r.xg) -d r | vg index -a - -d r.aln.idx
 is $(vg index -D -d r.aln.idx | wc -l) 101 "index can store alignments to backward nodes"
 
 rm -rf r.aln.idx r.xg r.gcsa
 
 vg index -x c.xg -g c.gcsa -k 11 cyclic/all.vg
-vg map -T <(vg sim -s 1337 -n 100 -x c.xg) -d c | vg index -a - -d all.vg.aln
+vg map -T <(vg sim -n 100 -x c.xg) -d c | vg index -a - -d all.vg.aln
 is $(vg index -D -d all.vg.aln | wc -l) 101 "index can store alignments to cyclic graphs"
 
 rm -rf all.vg.aln c.xg c.gcsa
@@ -259,3 +287,12 @@ rm -f t.gcsa
 rm -f x.vg
 
 rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp ins_and_del.vg ins_and_del.vg.xg
+
+# Test distance index 
+vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
+vg snarls -t x.vg > snarls.pb
+
+vg index -c x.vg -s snarls.pb -j distIndex
+is $? 0 "building a distance index of a graph"
+
+rm -f x.vg distIndex snarls.pb

@@ -142,14 +142,14 @@ else
      STORE_TAG="bakeoff"
 fi
 if [[ "${USE_S3}" -eq "1" ]]; then
-     INPUT_STORE="s3://cgl-pipeline-inputs/vg_cgl/${STORE_TAG}"
+     INPUT_STORE="s3://vg-data/${STORE_TAG}"
 else
-     INPUT_STORE="https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/${STORE_TAG}"     
+     INPUT_STORE="https://vg-data.s3.amazonaws.com/${STORE_TAG}"     
 fi
 
 # Where do we save our results from the various jobs responsible for writing them?
-OUTPUT_STORE="aws:us-west-2:cgl-pipeline-inputs/vg_cgl/comparison-script/runs/${RUN_ID}"
-OUTPUT_STORE_URL="s3://cgl-pipeline-inputs/vg_cgl/comparison-script/runs/${RUN_ID}"
+OUTPUT_STORE="aws:us-west-2:vg-data/comparison-script/runs/${RUN_ID}"
+OUTPUT_STORE_URL="s3://vg-data/comparison-script/runs/${RUN_ID}"
 
 # Where do we store our jobs?
 JOB_TREE="aws:us-west-2:${RUN_ID}"

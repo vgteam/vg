@@ -215,7 +215,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
     vcflib::Variant var;
     while (vcf.getNextVariant(var)) {
         // Make sure to correct each variant's position to 0-based
-        var.position -= 1;
+        //var.position -= 1;
         variants.push_back(var);
     }
 
@@ -232,7 +232,7 @@ ConstructedChunk construct_test_chunk(string ref_sequence, string ref_name, stri
  * Testing wrapper to build a whole graph from a VCF string. Adds alt paths by default.
  */
 Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_size,
-    bool do_svs) {
+    bool do_svs, bool use_flat_alts = false) {
     
     // Merge all the graphs we get into this graph
     Graph built;
@@ -273,6 +273,7 @@ Graph construct_test_graph(string fasta_data, string vcf_data, size_t max_node_s
     Constructor constructor;
     constructor.alt_paths = true;
     constructor.do_svs = do_svs;
+    constructor.flat = use_flat_alts;
     // Make sure we can test the node splitting behavior at reasonable sizes
     constructor.max_node_size = max_node_size;
 
@@ -805,7 +806,7 @@ ref	5	rs1337	A	G	29	PASS	.	GT
     vcflib::Variant var;
     while (vcf.getNextVariant(var)) {
         // Make sure to correct each variant's position to 0-based
-        var.position -= 1;
+        //var.position -= 1;
         variants.push_back(var);
     }
 
@@ -1267,6 +1268,129 @@ GATTACACATTAG
 
 }
 
+TEST_CASE( "Non-left-shifted variants can be used to construct valid graphs", "[constructor]" ) {
+
+    auto vcf_data = R"(##fileformat=VCFv4.0
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+ref	5	.	AAA	AAG,A	50	PASS	.	GT
+)";
+
+    auto fasta_data = R"(>ref
+AAAAAAAAAAAAA
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 50, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Find all the edges
+    unordered_set<pair<id_t, id_t>> edges;
+    
+    for (auto& edge : result.edge()) {
+        // All the edges should be end to start
+        REQUIRE(!edge.from_start());
+        REQUIRE(!edge.to_end());
+        
+        pair<id_t, id_t> key = make_pair(edge.from(), edge.to());
+    
+        // Each edge must be unique
+        REQUIRE(!edges.count(key));
+        
+        edges.insert(key);
+    }
+
+    SECTION("Paths follow edges") {
+        for (auto& path : result.path()) {
+            // For each path
+            for (size_t i = 1; i < path.mapping_size(); i++) {
+                // Scan alogn adjacent pairs of nodes
+                id_t prev = path.mapping(i - 1).position().node_id();
+                id_t here = path.mapping(i).position().node_id();
+                
+                // The edge must have been created.
+                REQUIRE(edges.count(make_pair(prev, here)));
+            }
+        }
+    }
+
+}
+
+TEST_CASE( "VG handles structural variants as expected"){
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    SECTION("vg ignores symbolic SVs by default"){
+        auto result = construct_test_graph(fasta_data, vcf_data, 10, false, false);
+
+        unordered_map<size_t, string> expected_nodes;
+        expected_nodes.insert({1, "CAAATAAGGC"});
+        expected_nodes.insert({2, "TTGGAAATTT"});
+        expected_nodes.insert({3, "TCTGGAGTTC"});
+        expected_nodes.insert({4, "TATTATATTC"});
+        expected_nodes.insert({5, "CAACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected_nodes[node.id()]);
+        }
+    }
+
+    SECTION("vg handles SVs with alt data by default, even if they have SV tags"){
+        auto result = construct_test_graph(fasta_data, vcf_with_alt_data, 10, false, false);
+
+        unordered_map<size_t, string> expected_nodes;
+        expected_nodes.insert({1, "CAAATAAGG"});
+        expected_nodes.insert({2, "CTTGGAAATT"});
+        expected_nodes.insert({3, "TTCTGGAGTT"});
+        expected_nodes.insert({4, "CTATTATATT"});
+        expected_nodes.insert({5, "CCAACTCTCT"});
+        expected_nodes.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected_nodes[node.id()]);
+        }
+    }
+
+
+
+}
+
+
+
 TEST_CASE( "A deletion is represented properly" , "[constructor]") {
 
     auto vcf_data = R"(##fileformat=VCFv4.2
@@ -1285,7 +1409,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
 
     // Build the graph
-    auto result = construct_test_graph(fasta_data, vcf_data, 10, true);
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
     
 #ifdef debug
     std::cerr << pb2json(result) << std::endl;
@@ -1295,13 +1419,13 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
         // Look at each node
 
         unordered_map<size_t, string> expected;
-        expected.insert({1, "CAAATAAG"});
-        expected.insert({2, "G"});
-        expected.insert({3, "CTTGGAAATT"});
-        expected.insert({4, "TTCTGGAGTT"});
-        expected.insert({5, "CTATTATATT"});
-        expected.insert({6, "CCAACTCTCT"});
-        expected.insert({7, "G"});
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
         for (size_t i = 0; i < result.node_size(); i++) {
             auto& node = result.node(i);
             REQUIRE(node.sequence()==expected[node.id()]);
@@ -1309,5 +1433,44 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
     }
 
 }
+
+
+TEST_CASE("VG handles insertions", "[constructor"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=13;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+    unordered_map<size_t, string> expected;
+    expected.insert({1, "CAAATAAGG"});
+    expected.insert({2, "ACTG"});
+    expected.insert({3, "CTTGGAAATT"});
+    expected.insert({4, "TTCTGGAGTT"});
+    expected.insert({5, "CTATTATATT"});
+    expected.insert({6, "CCAACTCTCT"});
+    expected.insert({7, "G"});
+
+
+    for (size_t i = 0; i < result.node_size(); i++){
+        auto& node = result.node(i);
+        REQUIRE(node.sequence() == expected[node.id()]);
+    }
+
+}
+
+
+
 }
 }

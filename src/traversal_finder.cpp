@@ -449,7 +449,7 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
 
 #ifdef debug
 #pragma omp critical (cerr)
-                cerr << "Trying mapping of read/path " << name_and_mappings.first << " to " << pb2json(mapping->position()) << endl;
+                cerr << "Trying mapping of read/path " << name_and_mappings.first << " to " << mapping->node_id() << (mapping->is_reverse() ? "-" : "+") << endl;
 #endif
 
                 // How many times have we gone to the next mapping looking for a
@@ -514,7 +514,7 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
 
 #ifdef debug
 #pragma omp critical (cerr)
-                    cerr << "\tTraversing " << pb2json(*mapping) << endl;
+                    cerr << "\tTraversing " << mapping->node_id() << (mapping->is_reverse() ? "-" : "+") << endl;
 #endif
 
                     // Say we visit this node along the path, in this orientation

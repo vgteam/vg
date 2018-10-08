@@ -28,6 +28,7 @@ void help_surject(char** argv) {
          << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
          << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
+         << "    -f, --full-length       use the full length of the graph alignment, even if it makes a negative score" << endl
          << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
@@ -44,13 +45,12 @@ int main_surject(int argc, char** argv) {
 
     string xg_name;
     set<string> path_names;
-    string path_prefix;
     string path_file;
     string output_type = "gam";
     string input_type = "gam";
     bool interleaved = false;
-    string header_file;
     int compress_level = 9;
+    bool full_length = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -58,22 +58,21 @@ int main_surject(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"xb-name", required_argument, 0, 'x'},
+            {"xg-name", required_argument, 0, 'x'},
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'F'},
-            {"into-prefix", required_argument, 0, 'P'},
+            {"full-length", required_argument, 0, 'f'},
             {"interleaved", no_argument, 0, 'i'},
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
-            {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:P:icbsH:C:t:",
+        c = getopt_long (argc, argv, "hx:p:F:ficbsC:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -95,12 +94,8 @@ int main_surject(int argc, char** argv) {
             path_file = optarg;
             break;
 
-        case 'P':
-            path_prefix = optarg;
-            break;
-
-        case 'H':
-            header_file = optarg;
+        case 'f':
+            full_length = true;
             break;
 
         case 'i':
@@ -184,7 +179,7 @@ int main_surject(int argc, char** argv) {
         if (output_type == "gam") {
             vector<vector<Alignment> > buffer;
             buffer.resize(thread_count);
-            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &surjectors](Alignment& src) {
+            function<void(Alignment&)> lambda = [&](Alignment& src) {
                 int tid = omp_get_thread_num();
                 // Since we're outputting full GAM, we ignore all this info
                 // about where on the path the alignment falls. But we need to
@@ -192,11 +187,12 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                buffer[tid].push_back(surjectors[omp_get_thread_num()]->path_anchored_surject(src,
-                                                                                              path_names,
-                                                                                              path_name,
-                                                                                              path_pos,
-                                                                                              path_reverse));
+                buffer[tid].push_back(surjectors[omp_get_thread_num()]->surject(src,
+                                                                                path_names,
+                                                                                path_name,
+                                                                                path_pos,
+                                                                                path_reverse,
+                                                                                full_length));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             get_input_file(file_name, [&](istream& in) {
@@ -255,11 +251,12 @@ int main_surject(int argc, char** argv) {
                 // reads need to come out with a 0 1-based position.
                 int64_t path_pos = -1; 
                 bool path_reverse = false;
-                auto surj = surjectors[omp_get_thread_num()]->path_anchored_surject(src,
-                                                                                    path_names,
-                                                                                    path_name,
-                                                                                    path_pos,
-                                                                                    path_reverse);
+                auto surj = surjectors[omp_get_thread_num()]->surject(src,
+                                                                      path_names,
+                                                                      path_name,
+                                                                      path_pos,
+                                                                      path_reverse,
+                                                                      full_length);
                 // Always use the surjected alignment, even if it surjects to unmapped.
                 
                 if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {

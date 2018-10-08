@@ -53,7 +53,6 @@ namespace vg {
                 Mapping* mapping2 = subpath1->mutable_path()->add_mapping();
                 mapping2->mutable_position()->set_node_id(4);
                 
-                
                 identify_start_subpaths(multipath_aln);
                 
                 REQUIRE(multipath_aln.start_size() == 1);
@@ -341,6 +340,66 @@ namespace vg {
                 REQUIRE(aln.path().mapping(1).position().offset() == 0);
                 REQUIRE(aln.path().mapping(1).edit(0).from_length() == 5);
                 REQUIRE(aln.path().mapping(1).edit(0).to_length() == 5);
+            }
+            
+            SECTION( "The optimal alignment can be forced to take low-scoring intervening subpaths" ) {
+                
+                string read = "GCAGTG";
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(1);
+                subpath1->add_next(2);
+                
+                // set scores
+                subpath0->set_score(3);
+                subpath1->set_score(-4);
+                subpath2->set_score(2);
+                
+                // designate mappings
+                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                mapping0->mutable_position()->set_node_id(1);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                
+                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                mapping1->mutable_position()->set_node_id(2);
+                Edit* edit1 = mapping0->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                edit1->set_sequence("T");
+                
+                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                mapping2->mutable_position()->set_node_id(3);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(2);
+                edit2->set_to_length(2);
+                
+                // get optimal alignment
+                identify_start_subpaths(multipath_aln);
+                Alignment aln;
+                optimal_alignment(multipath_aln, aln, true);
+                
+                // follows correct path
+                REQUIRE(aln.path().mapping_size() == 3);
+                REQUIRE(aln.path().mapping(0).position().node_id() == 1);
+                REQUIRE(aln.path().mapping(1).position().node_id() == 2);
+                REQUIRE(aln.path().mapping(2).position().node_id() == 3);
+                
+                // has correct ranks
+                REQUIRE(aln.path().mapping(0).rank() == 1);
+                REQUIRE(aln.path().mapping(1).rank() == 2);
+                REQUIRE(aln.path().mapping(2).rank() == 3);
+                
+                // has correct score
+                REQUIRE(aln.score() == 1);
             }
         }
         
@@ -1110,6 +1169,271 @@ namespace vg {
                         }
                     }
                 }
+            }
+        }
+        
+        TEST_CASE( "Non-branching paths in a multipath alignment can be merged", "[alignment][multipath]") {
+            SECTION("Non-branching paths can be merged across an edge") {
+                
+                MultipathAlignment mpaln;
+                
+                Subpath* sp1 = mpaln.add_subpath();
+                
+                Mapping* m11 = sp1->mutable_path()->add_mapping();
+                Position* p11 = m11->mutable_position();
+                p11->set_node_id(1);
+                
+                Edit* e111 = m11->add_edit();
+                e111->set_from_length(1);
+                e111->set_to_length(1);
+                
+                Subpath* sp2 = mpaln.add_subpath();
+                
+                Mapping* m21 = sp2->mutable_path()->add_mapping();
+                Position* p21 = m21->mutable_position();
+                p21->set_node_id(2);
+                
+                Edit* e211 = m21->add_edit();
+                e211->set_from_length(2);
+                e211->set_to_length(2);
+                
+                sp1->add_next(1);
+                
+                merge_non_branching_subpaths(mpaln);
+                
+                REQUIRE(mpaln.subpath_size() == 1);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping_size() == 2);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().node_id() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().is_reverse() == false);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit_size() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).from_length() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).to_length() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(1).position().node_id() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).position().is_reverse() == false);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit_size() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit(0).from_length() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit(0).to_length() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(1).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).next_size() == 0);
+            }
+            
+            SECTION("Non-branching paths can be merged within a node") {
+                
+                MultipathAlignment mpaln;
+                
+                Subpath* sp1 = mpaln.add_subpath();
+                
+                Mapping* m11 = sp1->mutable_path()->add_mapping();
+                Position* p11 = m11->mutable_position();
+                p11->set_node_id(1);
+                p11->set_is_reverse(true);
+                
+                Edit* e111 = m11->add_edit();
+                e111->set_from_length(1);
+                e111->set_to_length(1);
+                
+                Subpath* sp2 = mpaln.add_subpath();
+                
+                Mapping* m21 = sp2->mutable_path()->add_mapping();
+                Position* p21 = m21->mutable_position();
+                p21->set_node_id(1);
+                p21->set_offset(1);
+                p21->set_is_reverse(true);
+                
+                Edit* e211 = m21->add_edit();
+                e211->set_from_length(0);
+                e211->set_to_length(2);
+                
+                sp1->add_next(1);
+                
+                merge_non_branching_subpaths(mpaln);
+                
+                REQUIRE(mpaln.subpath_size() == 1);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping_size() == 1);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().node_id() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().is_reverse() == true);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit_size() == 2);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).from_length() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).to_length() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(1).from_length() == 0);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(1).to_length() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(1).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).next_size() == 0);
+            }
+            
+            SECTION("Non-branching paths can be merged within an edit") {
+                
+                MultipathAlignment mpaln;
+                
+                Subpath* sp1 = mpaln.add_subpath();
+                
+                Mapping* m11 = sp1->mutable_path()->add_mapping();
+                Position* p11 = m11->mutable_position();
+                p11->set_node_id(1);
+                p11->set_is_reverse(true);
+                
+                Edit* e111 = m11->add_edit();
+                e111->set_from_length(1);
+                e111->set_to_length(1);
+                
+                Subpath* sp2 = mpaln.add_subpath();
+                
+                Mapping* m21 = sp2->mutable_path()->add_mapping();
+                Position* p21 = m21->mutable_position();
+                p21->set_node_id(1);
+                p21->set_offset(1);
+                p21->set_is_reverse(true);
+                
+                Edit* e211 = m21->add_edit();
+                e211->set_from_length(2);
+                e211->set_to_length(2);
+                
+                sp1->add_next(1);
+                
+                merge_non_branching_subpaths(mpaln);
+                
+                REQUIRE(mpaln.subpath_size() == 1);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping_size() == 1);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().node_id() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().is_reverse() == true);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit_size() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).from_length() == 3);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).to_length() == 3);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).next_size() == 0);
+            }
+            
+            SECTION("Non-branching paths can be distinguished from branching paths") {
+                
+                MultipathAlignment mpaln;
+                
+                Subpath* sp1 = mpaln.add_subpath();
+                
+                Mapping* m11 = sp1->mutable_path()->add_mapping();
+                Position* p11 = m11->mutable_position();
+                p11->set_node_id(1);
+                p11->set_is_reverse(true);
+                
+                Edit* e111 = m11->add_edit();
+                e111->set_from_length(1);
+                e111->set_to_length(1);
+                
+                Subpath* sp2 = mpaln.add_subpath();
+                
+                Mapping* m21 = sp2->mutable_path()->add_mapping();
+                Position* p21 = m21->mutable_position();
+                p21->set_node_id(1);
+                p21->set_offset(1);
+                p21->set_is_reverse(true);
+                
+                Edit* e211 = m21->add_edit();
+                e211->set_from_length(2);
+                e211->set_to_length(2);
+                
+                Edit* e212 = m21->add_edit();
+                e212->set_from_length(2);
+                e212->set_to_length(0);
+                
+                Subpath* sp3 = mpaln.add_subpath();
+                
+                Mapping* m31 = sp3->mutable_path()->add_mapping();
+                Position* p31 = m31->mutable_position();
+                p31->set_node_id(2);
+                p31->set_offset(0);
+                
+                Edit* e311 = m31->add_edit();
+                e311->set_from_length(1);
+                e311->set_to_length(1);
+                
+                Subpath* sp4 = mpaln.add_subpath();
+                
+                Mapping* m41 = sp4->mutable_path()->add_mapping();
+                Position* p41 = m41->mutable_position();
+                p41->set_node_id(3);
+                p41->set_offset(0);
+                
+                Edit* e411 = m41->add_edit();
+                e411->set_from_length(1);
+                e411->set_to_length(1);
+                
+                sp1->add_next(1);
+                sp2->add_next(2);
+                sp2->add_next(3);
+                
+                merge_non_branching_subpaths(mpaln);
+                                
+                REQUIRE(mpaln.subpath_size() == 3);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping_size() == 1);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().node_id() == 1);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().is_reverse() == true);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit_size() == 2);
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).from_length() == 3);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).to_length() == 3);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(1).from_length() == 2);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(1).to_length() == 0);
+                REQUIRE(mpaln.subpath(0).path().mapping(0).edit(1).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(0).next_size() == 2);
+                
+                REQUIRE(mpaln.subpath(0).next(0) == 1);
+                REQUIRE(mpaln.subpath(0).next(1) == 2);
+                
+                REQUIRE(mpaln.subpath(1).path().mapping_size() == 1);
+                
+                REQUIRE(mpaln.subpath(1).path().mapping(0).position().node_id() == 2);
+                REQUIRE(mpaln.subpath(1).path().mapping(0).position().is_reverse() == false);
+                REQUIRE(mpaln.subpath(1).path().mapping(0).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(1).path().mapping(0).edit_size() == 1);
+                
+                REQUIRE(mpaln.subpath(1).path().mapping(0).edit(0).from_length() == 1);
+                REQUIRE(mpaln.subpath(1).path().mapping(0).edit(0).to_length() == 1);
+                REQUIRE(mpaln.subpath(1).path().mapping(0).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(1).next_size() == 0);
+                
+                REQUIRE(mpaln.subpath(2).path().mapping_size() == 1);
+                
+                REQUIRE(mpaln.subpath(2).path().mapping(0).position().node_id() == 3);
+                REQUIRE(mpaln.subpath(2).path().mapping(0).position().is_reverse() == false);
+                REQUIRE(mpaln.subpath(2).path().mapping(0).position().offset() == 0);
+                
+                REQUIRE(mpaln.subpath(2).path().mapping(0).edit_size() == 1);
+                
+                REQUIRE(mpaln.subpath(2).path().mapping(0).edit(0).from_length() == 1);
+                REQUIRE(mpaln.subpath(2).path().mapping(0).edit(0).to_length() == 1);
+                REQUIRE(mpaln.subpath(2).path().mapping(0).edit(0).sequence() == "");
+                
+                REQUIRE(mpaln.subpath(2).next_size() == 0);
             }
         }
         

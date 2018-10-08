@@ -203,8 +203,8 @@ int main_recalibrate(int argc, char** argv) {
             // Make the model
             vw* model = VW::initialize(vw_args);
        
-            // Define a buffer for alignments to print
-            vector<Alignment> buf;
+            // Define a buffering emitter to print the alignments
+            stream::ProtobufEmitter<Alignment> buf(cout);
             
             // Specify how to recalibrate an alignment
             function<void(Alignment&)> recalibrate = [&](Alignment& aln) {
@@ -242,12 +242,7 @@ int main_recalibrate(int argc, char** argv) {
 #pragma omp critical (buf)
                 {
                     // Save to the buffer
-                    buf.push_back(aln);
-                    if (buf.size() > 1000) {
-                        // And output if buffer is full
-                        write_alignments(cout, buf);
-                        buf.clear();
-                    }
+                    buf.write(std::move(aln));
                 }
             };
             
@@ -257,12 +252,6 @@ int main_recalibrate(int argc, char** argv) {
             
             VW::finish(*model);
             
-            // Flush the buffer
-            write_alignments(cout, buf);
-            buf.clear();
-            // Finish the stream with an EOF marker
-            stream::finish(cout);
-            cout.flush();
         }
         
     });

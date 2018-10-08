@@ -10,54 +10,46 @@ dist: trusty
 # version out of the way, check out the versions we want, rsync over only the
 # differing/updated files (updating only their mtimes), and then put the fixed
 # version back.
+# Doxygen docs depend on Protobuf so we still need to do dep cache stuff for docs.
 before_install:
-  - if [ -e deps ]; then mv deps deps_cached; fi
+  - if [[ -e deps ]]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
   - rsync -rv --links --checksum deps/ deps_cached/
   - rm -Rf deps
   # Keep the cached deps if the right compiler version was used.
-  # Otherwise start fresk
+  # Otherwise start fresh
   - if [[ "$TRAVIS_OS_NAME" == "linux" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" && -e deps_cached/gcc6 ]]; then mv deps_cached deps; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" && -e deps_cached/clang ]]; then mv deps_cached deps; fi
   - (ls -lah deps/; ls -lah bin/; ls -lah lib/; ls -lah include/) || true
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
+  - git submodule update --init --recursive
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq gcc-6 g++-6; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
-  - gcc --version && g++ --version
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq bc rs jq samtools; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install cmake; fi
-  # Record that we are building these deps with gcc 6
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle; fi # TODO: Check back after addon has been fixed.
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-9.4"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm install ruby-2.3.3; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rvm use 2.3.3; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install jq jansson coreutils md5sha1sum samtools rasqal bison raptor rasqal gperftools autogen gcc6 lz4 xz cairo expat || true; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link --overwrite gcc@6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew install gcc6 || true; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew link --overwrite gcc@6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p ./bin; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which g++-6` ./bin/g++; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" ]]; then mkdir -p deps; touch deps/clang; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then echo pkg-config results should be $(pkg-config --libs --cflags cairo); fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which g++-6 || (brew install gcc6; brew link --overwrite gcc@6); fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-6` ./bin/g++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
-  # Record that we are building these deps with gcc 6
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p deps; touch deps/gcc6; fi
+  - gcc --version && g++ --version
   - python ./configure.py
   - source ./source_me.sh
 install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps; fi
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then git submodule update --recursive && make -j4 && echo Testing && make test && make static -j4; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then git submodule update --recursive && timeout 1500 make deps -j4 && make -j4 && echo Testing && make test; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && echo Testing && make test && make static -j4; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1800 make deps -j4 && make -j4 && echo Testing && make test; fi
+  - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
   directories:
@@ -69,9 +61,69 @@ before_cache:
   - rm -f lib/libvg.*
   - rm -f include/vg.pb.h include/vg_git_version.hpp
   - rm -f bin/vg /bin/vg* bin/g++ bin/gcc
+
+addons:
+  homebrew:
+    # We should be able to list packages here, but it isn't quite working, so let's try a Brewfile
+    brewfile: true 
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    update: true
+    packages: # Get all the current dependency packages in advance. We will still do make get-deps but it will do less work.
+      - gcc-6
+      - g++-6
+      - bc 
+      - rs 
+      - jq
+      - samtools
+      - cmake
+      - protobuf-compiler
+      - libprotoc-dev
+      - libjansson-dev
+      - libbz2-dev
+      - libncurses5-dev
+      - automake
+      - libtool
+      - curl
+      - unzip
+      - redland-utils
+      - librdf-dev
+      - pkg-config
+      - wget 
+      - gtk-doc-tools
+      - raptor2-utils
+      - rasqal-utils
+      - bison
+      - flex
+      - gawk
+      - libgoogle-perftools-dev
+      - liblz4-dev
+      - liblzma-dev
+      - libcairo2-dev
+      - libpixman-1-dev
+      - libffi-dev
+      - doxygen
+
 os:
   - linux
   - osx
 compiler:
   - gcc
+env:
+  global:
+    - DOCS_KEY_ENCRYPTION_LABEL=125272388526
+  matrix:
+    - INSTALL_GCC=1
+    - INSTALL_GCC=0
+  
+matrix:
+  exclude:
+    - os: linux
+      env: INSTALL_GCC=1
+  include:
+    # We have a special entry to do the docs build
+    - os: linux
+      env: BUILD_DOCS_ONLY=1
+        
 

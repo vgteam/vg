@@ -88,15 +88,11 @@ int main_inject(int argc, char** argv) {
       return 1;
     }
 
-    vector<Alignment> buf;
+    stream::ProtobufEmitter<Alignment> buf(cout);
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
 #pragma omp critical (buf)
         {
-            buf.push_back(aln);
-            if (buf.size() > 1000) {
-                write_alignments(cout, buf);
-                buf.clear();
-            }
+            buf.write(std::move(aln));
         }
     };
     if (threads > 1) {
@@ -104,11 +100,6 @@ int main_inject(int argc, char** argv) {
     } else {
         hts_for_each(file_name, lambda, xgidx);
     }
-    write_alignments(cout, buf);
-    buf.clear();
-    // Finish the stream with an EOF marker
-    stream::finish(cout);
-    cout.flush();
     return 0;
 }
 

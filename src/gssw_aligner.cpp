@@ -889,6 +889,10 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         cerr << "error:[Aligner] cannot specify maximum number of alignments in single alignment" << endl;
         exit(EXIT_FAILURE);
     }
+    if (max_alt_alns <= 0) {
+        cerr << "error:[Aligner] cannot do less than 1 alignment" << endl;
+        exit(EXIT_FAILURE);
+    }
 
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
@@ -943,6 +947,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         
             // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
             // this will have been set to the first in the vector)
+            // We know the 0th alignment always exists because we enforce that max_alt_alns >= 1
             if (gms[0]->score > 0) {
                 // have a mapping, can just convert normally
                 gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);
@@ -1313,6 +1318,10 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         cerr << "error:[Aligner] cannot specify maximum number of alignments in single alignment" << endl;
         exit(EXIT_FAILURE);
     }
+    if (max_alt_alns <= 0) {
+        cerr << "error:[Aligner] cannot do less than 1 alignment" << endl;
+        exit(EXIT_FAILURE);
+    }
     
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
@@ -1376,6 +1385,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         
             // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
             // this will have been set to the first in the vector)
+            // We know that the 0th alignment will always exist because we enforce that max_alt_alns >= 1
             if (gms[0]->score > 0) {
                 // have a mapping, can just convert normally
                 gssw_mapping_to_alignment(graph, gms[0], alignment, pinned, pin_left, print_score_matrices);

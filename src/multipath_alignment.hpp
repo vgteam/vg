@@ -36,8 +36,11 @@ namespace vg {
     ///    multipath_aln     multipath alignment to find optimal path through
     ///    aln_out           empty alignment to store optimal alignment in (data will be
     ///                      overwritten if not empty)
+    ///    subpath_global    if true, only allows alignments that source subpath to sink subpath
+    ///                      in the multipath DAG, else allows any start and end subpath
     ///
-    void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out);
+    void optimal_alignment(const MultipathAlignment& multipath_aln, Alignment& aln_out,
+                           bool subpath_global = false);
     
     /// Returns the score of the highest scoring alignment contained in the MultipathAlignment
     ///
@@ -46,8 +49,11 @@ namespace vg {
     ///
     ///  Args:
     ///    multipath_aln     multipath alignment to find optimal score in
+    ///    subpath_global    if true, only allows alignments that source subpath to sink subpath
+    ///                      in the multipath DAG, else allows any start and end subpath
     ///
-    int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln);
+    int32_t optimal_alignment_score(const MultipathAlignment& multipath_aln,
+                                    bool subpath_global = false);
     
     /// Returns the top k highest-scoring alignments contained in the MultipathAlignment.
     /// Note that some or all of these may be duplicate Alignments, which were spelled out
@@ -134,6 +140,9 @@ namespace vg {
     ///
     void transfer_read_metadata(const MultipathAlignment& from, MultipathAlignment& to);
     
+    /// Merges non-branching paths in a multipath alignment in place
+    void merge_non_branching_subpaths(MultipathAlignment& multipath_aln);
+    
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
     /// each connected component
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln);
@@ -147,7 +156,10 @@ namespace vg {
     /// Debugging function to check that multipath alignment meets the formalism's basic
     /// invariants. Returns true if multipath alignment is valid, else false. Does not
     /// validate alignment score.
-    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, HandleGraph& xg_index);
+    bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph);
+    
+    /// Send a formatted string representation of the MultipathAlignment into the ostream
+    void view_multipath_alignment(ostream& out, const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph);
     
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }

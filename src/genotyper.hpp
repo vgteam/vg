@@ -158,7 +158,6 @@ public:
              string contig_name = "",
              string sample_name = "",
              string augmented_file_name = "",
-             bool subset_graph = false,
              bool output_vcf = false,
              bool output_json = false,
              int length_override = 0,

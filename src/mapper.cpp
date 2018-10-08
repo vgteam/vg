@@ -1,6 +1,7 @@
 #include <unordered_set>
 #include "mapper.hpp"
 #include "haplotypes.hpp"
+#include "annotation.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 
 //#define debug_mapper
@@ -1666,7 +1667,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     
     // Build Yohei's recombination probability calculator. Feed it the haplotype
     // count from the XG index that was generated alongside the GBWT.
-    haplo::haploMath::RRMemo haplo_memo(NEG_LOG_PER_BASE_RECOMB_PROB, haplotype_count);
+    haplo::haploMath::RRMemo haplo_memo(recombination_penalty, haplotype_count);
     
     // This holds all the computed haplotype logprobs
     vector<double> haplotype_logprobs;
@@ -1720,14 +1721,15 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         if (alns[i]->path().mapping_size() != 0) {
             // We actually did rescore this one
             
-            int64_t score_penalty = round(haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base));
+            // This is a score "penalty" because it is usually negative. But positive = more score.
+            double score_penalty = haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base);
 
             // Convert to points, raise to haplotype consistency exponent power, and apply
-            alns[i]->set_score(max((int64_t)0, alns[i]->score() + score_penalty));
+            alns[i]->set_score(max((int64_t) 0, alns[i]->score() + (int64_t) round(score_penalty)));
             // Note that we successfully corrected the score
-            alns[i]->set_haplotype_scored(true);
-            // And save the raw log probability
-            alns[i]->set_haplotype_logprob(haplotype_logprobs[i]);
+            set_annotation(alns[i], "haplotype_score_used", true);
+            // And save the score penalty/bonus
+            set_annotation(alns[i], "haplotype_score", score_penalty);
 
             if (debug) {
                 cerr << "Alignment statring at " << alns[i]->path().mapping(0).position().node_id()
@@ -1735,7 +1737,6 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
                     << " from " << alns[i]->score() - score_penalty << " to " << alns[i]->score() << endl;
             }
         }
-        // Otherwise leave haplotype_scored as false, the default.
     }
 }
     
@@ -3497,14 +3498,9 @@ VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExa
                                     + (mem.begin - aln.sequence().begin()));
     }
     
-    
-    // extract the protobuf Graph
-    Graph proto_graph;
-    algorithms::extract_containing_graph(xindex, proto_graph, positions, forward_max_dist, backward_max_dist);
-                                         
-    // Wrap it in a vg
+    // Extract the graph
     VG graph;
-    graph.extend(proto_graph);
+    algorithms::extract_containing_graph(xindex, &graph, positions, forward_max_dist, backward_max_dist);
     
     graph.remove_orphan_edges();
     

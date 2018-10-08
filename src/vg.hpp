@@ -78,7 +78,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutableHandleGraph {
+class VG : public Progressive, public MutableHandleGraph, public PathHandleGraph {
 
 public:
 
@@ -127,6 +127,52 @@ public:
     virtual size_t node_size() const;
     
     ////////////////////////////////////////////////////////////////////////////
+    // Path handle interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Look up the path handle for the given path name
+    virtual path_handle_t get_path_handle(const string& path_name) const;
+    
+    /// Look up the name of a path from a handle to it
+    virtual string get_path_name(const path_handle_t& path_handle) const;
+    
+    /// Returns the number of node occurrences in the path
+    virtual size_t get_occurrence_count(const path_handle_t& path_handle) const;
+    
+    /// Returns the number of paths stored in the graph
+    virtual size_t get_path_count() const;
+    
+    /// Execute a function on each path in the graph
+    virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const;
+    
+    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
+    virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Get a handle to the first occurrence in a path
+    virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to the last occurrence in a path
+    virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
+    
+    /// Returns true if the occurrence is not the last occurence on the path, else false
+    virtual bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns true if the occurrence is not the first occurence on the path, else false
+    virtual bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns a handle to the next occurrence on the path
+    virtual occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns a handle to the previous occurrence on the path
+    virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns a handle to the path that an occurrence is on
+    virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /// Returns the 0-based ordinal rank of a occurrence on a path
+    virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
     // Mutable handle-based interface
     ////////////////////////////////////////////////////////////////////////////
     
@@ -144,6 +190,9 @@ public:
     
     /// Remove the edge connecting the given handles in the given order and orientations.
     virtual void destroy_edge(const handle_t& left, const handle_t& right);
+    
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear();
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
@@ -339,9 +388,6 @@ public:
     /// the same as the input graph. If inverting edges are present, node strandedness is arbitrary.
     VG unfold(uint32_t max_length,
               unordered_map<id_t, pair<id_t, bool> >& node_translation);
-    /// Create reverse complement nodes and edges for the entire graph. Doubles the size. Converts all inverting
-    /// edges into non-inverting edges.
-    VG split_strands(unordered_map<id_t, pair<id_t, bool> >& node_translation);
     /// Create the reverse complemented graph with topology preserved. Record translation in provided map.
     VG reverse_complement_graph(unordered_map<id_t, pair<id_t, bool>>& node_translation);
     /// Record the translation of this graph into itself in the provided map.
@@ -687,6 +733,7 @@ public:
     /// Get general siblings of a node.
     set<Node*> siblings_of(Node* node);
     /// Remove easily-resolvable redundancy in the graph.
+    /// TODO: Cannot yet handle reversing edges! They will prevent the identification of siblings.
     void simplify_siblings(void);
     /// Remove easily-resolvable redundancy in the graph for all provided to-sibling sets.
     void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);

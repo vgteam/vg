@@ -53,12 +53,12 @@ class VGCITest(TestCase):
         # What (additional) portion of reads are allowed to get worse scores
         # when moving to a more inclusive reference?
         self.worse_threshold = 0.005
-        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/bakeoff'
+        self.input_store = 'https://vg-data.s3.amazonaws.com/bakeoff'
         self.vg_docker = None
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
         self.do_teardown = True
-        self.baseline = 's3://cgl-pipeline-inputs/vg_cgl/vg_ci/jenkins_regression_baseline'
+        self.baseline = 's3://vg-data/vg_ci/jenkins_regression_baseline'
         self.cores = 8
         self.sim_chunk_size = 100000
         self.force_outstore = False
@@ -1189,10 +1189,10 @@ class VGCITest(TestCase):
         calling comparison between call, genotype and freebayes on an alignment extracted
         from the HG002 whole genome experiment run from the paper
         """
-        giab = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/giab/'
-        #self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/CHR21_DEC3'
+        giab = 'https://vg-data.s3.amazonaws.com/giab/'
+        #self.input_store = 'https://vg-data.s3.amazonaws.com/CHR21_DEC3'
         # using this one until above is fixed
-        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/dnanexus'
+        self.input_store = 'https://vg-data.s3.amazonaws.com/dnanexus'
         log.info("Test start at {}".format(datetime.now()))
         self._test_calleval('CHR21', 'snp1kg', "HG002",
                             self._input('snp1kg_21.vg'),
@@ -1314,7 +1314,7 @@ class VGCITest(TestCase):
         cactus_SK1 : keep only SK1 path
         cactus_S288c : keep only S288c (reference) path
         """
-        self.input_store = 'https://cgl-pipeline-inputs.s3.amazonaws.com/vg_cgl/cactus_yeast'
+        self.input_store = 'https://vg-data.s3.amazonaws.com/cactus_yeast'
         log.info("Test start at {}".format(datetime.now()))
         self._test_mapeval(100000, 'YEAST', 'cactus',
                            ['cactus', 'cactus_drop_SK1', 'cactus_SK1', 'cactus_S288c'],

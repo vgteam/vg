@@ -9,7 +9,7 @@ plan tests 2
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.xg -g tiny.gcsa -k 16 tiny.vg
-vg sim -s 420 -n 5 -e 0.01 -i 0.005 -x tiny.xg -l 30 -a | vg view -a - | sort | vg view -JGa - > tiny.sim
+vg sim -n 5 -e 0.01 -i 0.005 -x tiny.xg -l 30 -a | vg view -a - | sort | vg view -JGa - > tiny.sim
 vg map -G tiny.sim -x tiny.xg -g tiny.gcsa -t 1 > tiny.gam
 vg mod -Z tiny.trans -i tiny.gam tiny.vg >tiny.mod.vg
 vg paths -v tiny.mod.vg -X | vg view -a - | grep -v x | sort | vg view -JGa - >tiny.paths.gam
@@ -22,12 +22,10 @@ rm -Rf tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp tiny.sim tiny.gam tiny.trans tiny
 
 vg construct -r tiny/tiny.fa >flat.vg
 vg index -x flat.xg -g flat.gcsa -k 8 flat.vg
-vg sim -n 1 -l 50 -e 0.05 -s 69 -x flat.xg -a >flat.sim
-vg map -x flat.xg -g flat.gcsa -G flat.sim >flat.gam
+vg map -x flat.xg -g flat.gcsa -G tiny/flat-s69-n1-l50-e0.05.gam >flat.gam
 vg mod -i flat.gam -Z flat1.trans flat.vg >flat1.vg
 vg index -x flat1.xg -g flat1.gcsa -k 8 flat1.vg
-vg sim -n 1 -l 50 -e 0.05 -s 77 -x flat1.xg -a >flat1.sim
-vg map -x flat1.xg -g flat1.gcsa -G flat1.sim >flat1.gam
+vg map -x flat1.xg -g flat1.gcsa -G tiny/flat1-s77-n1-l50-e0.05.gam >flat1.gam
 vg mod -i flat1.gam -Z flat2.trans flat1.vg >flat2.vg
 vg translate -o flat2.trans flat1.trans >flatover.trans
 vg paths -v flat2.vg -X | vg view -a - | grep -v x | vg view -JGa - >flat2.paths.gam
@@ -35,4 +33,4 @@ vg translate -a flat2.paths.gam flatover.trans >flatback.gam
 vg mod -i flatback.gam flat.vg >flat2back.vg
 is $(vg view flat2back.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 3ce4390abe667b24eb5148e216a2f5ec "translation overlay works and produces a sane result"
 
-rm -f flat.vg flat.xg flat.gcsa.lcp flat.gcsa flat.sim flat.gam flat1.vg flat1.trans flat1.sim flat1.xg flat1.gcsa.lcp flat1.gcsa flat1.gam flat2.vg flat2.trans flatover.trans flat2.paths.gam flatback.gam flat2back.vg
+rm -f flat.vg flat.xg flat.gcsa.lcp flat.gcsa flat.gam flat1.vg flat1.trans flat1.xg flat1.gcsa.lcp flat1.gcsa flat1.gam flat2.vg flat2.trans flatover.trans flat2.paths.gam flatback.gam flat2back.vg

@@ -195,6 +195,8 @@ private:
      *
      * Postcondition: either all lists of VariantAlleles are empty, or at least
      * one begins with a non-match and at least one ends with a non-match.
+     * Adjacent edits in the list abut; there are no uncovered gaps in the edits.
+     * This means that *internal* perfect match edits will be preserved.
      */
     static void trim_to_variable(vector<list<vcflib::VariantAllele>>& parsed_alleles);
     
@@ -218,7 +220,7 @@ private:
      * This function handles SVs properly, since they won't
      * always have their ref and alt fields put in.
      */
-    static pair<int64_t, int64_t> get_bounds(vcflib::Variant var, bool use_flat_alts);
+    static pair<int64_t, int64_t> get_bounds(vcflib::Variant var);
     /// What sequences have we warned about containing lowercase characters?
     mutable unordered_set<string> warned_sequences;
     

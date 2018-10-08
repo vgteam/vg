@@ -13,16 +13,20 @@ vg index -x j.xg j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -k 11 -g x.gcsa -x x.xg x.vg
 
-# Simulate some reads from just j
-vg map -G <(vg sim -a -s 1337 -n 100 -x j.xg) -g x.gcsa -x x.xg > j.gam
-# And some from all of x
-vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg > x.gam
+# We have already simulated some reads from just j
+vg map -G small/x-allref-nohptrouble.gam -g x.gcsa -x x.xg > j.gam
+# Simulate some from all of x
+vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg > x.gam
 
 is $(vg view -aj j.gam | wc -l) \
     100 "reads are generated"
 
+# Surjection uses path anchored surject which keeps aligned stuff aligned even if there's a better alignment that shifts it.
+# This means arbitrarily chosen homopolymer indel alignment that arbitrarily chose wrong won't be fixed.
+# We generate GAMs that don't have that problem.
+
 is $(vg surject -p x -x x.xg -t 1 j.gam | vg view -a - | jq .score | grep 110 | wc -l) \
-    100 "vg surject works perfectly for perfect reads derived from the reference"
+    100 "vg surject works perfectly for perfect reads without misaligned homopolymer indels derived from the reference"
     
 is $(vg surject -p x -x x.xg -t 1 -s j.gam | grep -v "@" | cut -f3 | grep x | wc -l) \
     100 "vg surject actually places reads on the correct path"
@@ -36,10 +40,10 @@ is $(vg surject -p x -x x.xg -t 1 x.gam | vg view -a - | wc -l) \
 is $(vg surject -p x -x x.xg -s x.gam | grep -v ^@ | wc -l) \
     100 "vg surject produces valid SAM output"
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-to sam | grep -v ^@ | wc -l) \
+is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-to sam | grep -v ^@ | wc -l) \
     100 "vg map may surject reads to produce valid SAM output"
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-to bam | samtools view - | grep -v ^@ | wc -l) \
+is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg --surject-to bam | samtools view - | grep -v ^@ | wc -l) \
     100 "vg map may surject reads to produce valid BAM output"
 
 is $(vg view -aj j.gam | jq '.name = "Alignment"' | vg view -JGa - | vg surject -p x -x x.xg - | vg view -aj - | jq -c 'select(.name)' | wc -l) \
@@ -53,10 +57,10 @@ SEQ_RC="CACTCTGGACACAAAGGAGAGCTGTCCTTGAGCCTCGACTCTGGGTGAGCCCTCTGGGTCTTAGATTTGAGA
 
 is "$(vg map -s $SEQ -g x.gcsa -x x.xg | vg surject -p x -x x.xg - -s | cut -f1,3,4,5,6,7,8,9,10)" "$(vg map -s $SEQ_RC -g x.gcsa -x x.xg | vg surject -p x -x x.xg - -s | cut -f1,3,4,5,6,7,8,9,10)" "forward and reverse orientations of a read produce the same surjected SAM, ignoring flags"
 
-is $(vg map -G <(vg sim -a -s 1337 -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -b - | samtools view - | wc -l) \
+is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -x x.xg -b - | samtools view - | wc -l) \
     100 "vg surject produces valid BAM output"
 
-#is $(vg map -G <(vg sim -a -s 1337 -n 100 x.vg) x.vg | vg surject -p x -g x.gcsa -x x.xg -c - | samtools view - | wc -l) \
+#is $(vg map -G <(vg sim -a -n 100 x.vg) x.vg | vg surject -p x -g x.gcsa -x x.xg -c - | samtools view - | wc -l) \
 #    100 "vg surject produces valid CRAM output"
 
 echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
@@ -65,7 +69,7 @@ is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')"
 echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg -i read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
 
-vg map -d x -iG <(vg sim -a -s 13241 -n 1 -p 500 -v 300 -x x.xg | vg view -a - | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) | vg surject -x x.xg -p x -s -i - >surjected.sam
+vg map -d x -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) | vg surject -x x.xg -p x -s -i - >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"
 is "$(cat surjected.sam | grep -v '^@' | sort | cut -f 8)" "$(printf '762\n321')" "surjection of paired reads to SAM yields correct pair partner positions"
 is "$(cat surjected.sam | grep -v '^@' | cut -f 1 | sort | uniq | wc -l)" "1" "surjection of paired reads to SAM yields properly matched QNAMEs"

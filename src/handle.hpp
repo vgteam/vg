@@ -74,7 +74,65 @@ struct wang_hash<handle_t> {
         return wang_hash<std::int64_t>()(as_integer(handle));
     }
 };
+    
+struct path_handle_t {
+    char data[sizeof(int64_t)];
+};
+    
+/// View a path handle as an integer
+inline int64_t& as_integer(path_handle_t& path_handle) {
+    return reinterpret_cast<int64_t&>(path_handle);
+}
 
+/// View a const path handle as a const integer
+inline const int64_t& as_integer(const path_handle_t& path_handle) {
+    return reinterpret_cast<const int64_t&>(path_handle);
+}
+
+/// View an integer as a path handle
+inline path_handle_t& as_path_handle(int64_t& value) {
+    return reinterpret_cast<path_handle_t&>(value);
+}
+
+/// View a const integer as a const path handle
+inline const path_handle_t& as_path_handle(const int64_t& value) {
+    return reinterpret_cast<const path_handle_t&>(value);
+}
+
+/// Define equality on path handles
+inline bool operator==(const path_handle_t& a, const path_handle_t& b) {
+    return as_integer(a) == as_integer(b);
+}
+
+/// Define inequality on path handles
+inline bool operator!=(const path_handle_t& a, const path_handle_t& b) {
+    return as_integer(a) != as_integer(b);
+}
+
+struct occurrence_handle_t {
+    char data[2 * sizeof(int64_t)];
+};
+    
+/// View an occurrence handle as an integer
+inline int64_t* as_integers(occurrence_handle_t& occurrence_handle) {
+    return reinterpret_cast<int64_t*>(&occurrence_handle);
+}
+
+/// View a const occurrence handle as a const integer
+inline const int64_t* as_integers(const occurrence_handle_t& occurrence_handle) {
+    return reinterpret_cast<const int64_t*>(&occurrence_handle);
+}
+
+/// Define equality on occurrence handles
+inline bool operator==(const occurrence_handle_t& a, const occurrence_handle_t& b) {
+    return as_integers(a)[0] == as_integers(b)[0] && as_integers(a)[1] == as_integers(b)[1];
+}
+
+/// Define inequality on occurrence handles
+inline bool operator!=(const occurrence_handle_t& a, const occurrence_handle_t& b) {
+    return !(a == b);
+}
+    
 }   // namespace vg
 
 // This needs to be outside the vg namespace
@@ -88,6 +146,16 @@ template<> struct hash<vg::handle_t> {
 public:
     inline size_t operator()(const vg::handle_t& handle) const {
         return std::hash<int64_t>()(vg::as_integer(handle));
+    }
+};
+
+/**
+ * Define hashes for path handles.
+ */
+template<> struct hash<vg::path_handle_t> {
+public:
+    inline size_t operator()(const vg::path_handle_t& path_handle) const {
+        return std::hash<int64_t>()(vg::as_integer(path_handle));
     }
 };
 
@@ -107,7 +175,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
-
+    
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
@@ -208,16 +276,77 @@ public:
     /// Get the locally forward version of a handle
     handle_t forward(const handle_t& handle) const;
     
-    // A pair of handles can be used as an edge. When so used, the handles have a
-    // cannonical order and orientation.
+    /// A pair of handles can be used as an edge. When so used, the handles have a
+    /// canonical order and orientation.
     edge_t edge_handle(const handle_t& left, const handle_t& right) const;
+    
+    /// Such a pair can be viewed from either inward end handle and produce the
+    /// outward handle you would arrive at.
+    handle_t traverse_edge_handle(const edge_t& edge, const handle_t& left) const;
+};
+    
+/**
+ * This is the interface for a handle graph that stores embedded paths.
+ */
+class PathHandleGraph : virtual public HandleGraph {
+public:
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Path handle interface that needs to be implemented
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Look up the path handle for the given path name
+    virtual path_handle_t get_path_handle(const string& path_name) const = 0;
+    
+    /// Look up the name of a path from a handle to it
+    virtual string get_path_name(const path_handle_t& path_handle) const = 0;
+    
+    /// Returns the number of node occurrences in the path
+    virtual size_t get_occurrence_count(const path_handle_t& path_handle) const = 0;
+    
+    /// Returns the number of paths stored in the graph
+    virtual size_t get_path_count() const = 0;
+    
+    /// Execute a function on each path in the graph
+    virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const = 0;
+    
+    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
+    virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+    
+    /// Get a handle to the first occurrence in a path
+    virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const = 0;
+    
+    /// Get a handle to the last occurrence in a path
+    virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const = 0;
+    
+    /// Returns true if the occurrence is not the last occurence on the path, else false
+    virtual bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+    
+    /// Returns true if the occurrence is not the first occurence on the path, else false
+    virtual bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+    
+    /// Returns a handle to the next occurrence on the path
+    virtual occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+    
+    /// Returns a handle to the previous occurrence on the path
+    virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+    
+    /// Returns a handle to the path that an occurrence is on
+    virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+    
+    /// Returns the 0-based ordinal rank of a occurrence on a path
+    virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
 };
 
 /**
  * This is the interface for a handle graph that supports modification.
  */
-class MutableHandleGraph : public HandleGraph {
+class MutableHandleGraph : virtual public HandleGraph {
 public:
+    /*
+     * Note: All operations may invalidate path handles and occurrence handles.
+     */
+    
     /// Create a new node with the given sequence and return the handle.
     virtual handle_t create_handle(const string& sequence) = 0;
 
@@ -232,10 +361,23 @@ public:
     /// Ignores existing edges.
     virtual void create_edge(const handle_t& left, const handle_t& right) = 0;
     
+    /// Convenient wrapper for create_edge.
+    inline void create_edge(const edge_t& edge) {
+        create_edge(edge.first, edge.second);
+    }
+    
     /// Remove the edge connecting the given handles in the given order and orientations.
     /// Ignores nonexistent edges.
     /// Does not update any stored paths.
     virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
+    
+    /// Convenient wrapper for destroy_edge.
+    inline void destroy_edge(const edge_t& edge) {
+        destroy_edge(edge.first, edge.second);
+    }
+    
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear() = 0;
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
@@ -252,7 +394,8 @@ public:
     /// reflect this. Invalidates all handles to the node (including the one
     /// passed). Returns a new, valid handle to the node in its new forward
     /// orientation. Note that it is possible for the node's ID to change.
-    /// Does not update any stored paths.
+    /// Does not update any stored paths. May change the ordering of the underlying
+    /// graph.
     virtual handle_t apply_orientation(const handle_t& handle) = 0;
     
     /// Split a handle's underlying node at the given offsets in the handle's

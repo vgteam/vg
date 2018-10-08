@@ -114,10 +114,17 @@ namespace vg {
                                     
         /// Do intervening and tail alignments between the anchoring paths and store the result
         /// in a MultipathAlignment. Reachability edges must be in the graph.
-        /// Reachability edges must be in the graph.
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
-                   size_t num_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
-                   
+                   size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
+        
+        /// Do intervening and tail alignments between the anchoring paths and store the result
+        /// in a MultipathAlignment. Reachability edges must be in the graph. Also, choose the
+        /// band padding dynamically as a function of the inter-MEM sequence and graph
+        void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+                   size_t max_alt_alns, bool dynamic_alt_alns,
+                   function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
+                   MultipathAlignment& multipath_aln_out);
+        
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
         void to_dot(ostream& out) const;
         

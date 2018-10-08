@@ -57,6 +57,7 @@ namespace vg {
 		// MaximalExactMatch const &select_root_seed(vector<MaximalExactMatch> const &mems);
 		struct graph_pos_s calculate_seed_position(Graph const &graph, vector<MaximalExactMatch> const &mems, size_t query_length, bool direction);
 		struct graph_pos_s calculate_max_position(Graph const &graph, struct graph_pos_s const &seed_pos, size_t max_node_index, bool direction);
+		struct graph_pos_s scan_seed_position(Graph const &graph, std::string const &query_seq, bool direction);
 
 		size_t push_edit(Mapping *mapping, uint8_t op, char const *alt, size_t len);
 

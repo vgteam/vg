@@ -93,10 +93,13 @@ public:
  * Snarls are defined at the Protobuf level, but here is how we define
  * chains as real objects.
  *
+ * A chain is a sequence of Snarls, in either normal (false) or reverse (true)
+ * orientation.
+ *
  * The SnarlManager is going to have one official copy of each chain stored,
  * and it will give you a pointer to it on demand.
  */
-using Chain = vector<const Snarl*>;
+using Chain = vector<pair<const Snarl*, bool>>;
     
 /**
  * Return true if the first snarl in the given chain is backward relative to the chain.
@@ -136,9 +139,7 @@ struct ChainIterator {
         
     /// Are we a reverse iterator or not?
     bool go_left;
-    /// Is the snarl we are at backward or forward in its chain?
-    bool backward;
-        
+    
     /// What position in the underlying vector are we in?
     Chain::const_iterator pos;
         
@@ -189,9 +190,8 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
  * within another HandleGraph. Uses its own internal child index because
  * it's used in the construction of snarls to feed to SnarlManagers.
  *
- * Assumes that the chains we get from Cactus are in a consistent order, so
- * the start of the first snarl is the very first thing in the chain, and
- * the end of the last snarl is the very last.
+ * Assumes that the snarls in the chains we get are in the order they
+ * occur in the graph.
  *
  * We adapt the handle graph abstraction as follows:
  *
@@ -236,9 +236,9 @@ public:
         // All we need to do is index the children. They come mixed as real chains and unary snarls.
             
         for (auto& chain : child_chains_mixed) {
-            if (chain.size() == 1 && chain.front()->type() == UNARY) {
+            if (chain.size() == 1 && chain.front().first->type() == UNARY) {
                 // This is a unary snarl wrapped in a chain
-                add_unary_child(chain.front());
+                add_unary_child(chain.front().first);
             } else {
                 // This is a real (but possibly trivial) chain
                 add_chain_child(chain);
@@ -255,7 +255,6 @@ public:
              bool use_internal_connectivity = false) : NetGraph(start, end, graph, use_internal_connectivity) {
             
         // All we need to do is index the children.
-            
         for (const Snarl* unary : child_unary_snarls) {
             add_unary_child(unary);
         }
@@ -268,7 +267,7 @@ public:
     /// Make a net graph from the given chains and unary snarls (as raw values) in the given backing graph.
     /// Mostly for testing.
     NetGraph(const Visit& start, const Visit& end,
-             const vector<vector<Snarl>>& child_chains,
+             const vector<vector<pair<Snarl, bool>>>& child_chains,
              const vector<Snarl>& child_unary_snarls,
              const HandleGraph* graph,
              bool use_internal_connectivity = false);
@@ -326,11 +325,16 @@ public:
     /// chain or unary snarl, and false if it is a normal node actually in
     /// the net graph snarl's contents.
     bool is_child(const handle_t& handle) const;
-        
+    
     /// Get the handle in the backing graph reading into the child chain or
     /// unary snarl in the orientation represented by this handle to a node
     /// representing a child chain or unary snarl.
     handle_t get_inward_backing_handle(const handle_t& child_handle) const;
+    
+    /// Given a handle to a node in the backing graph that reads into a child
+    /// chain or snarl (in either direction), get the handle in this graph used
+    /// to represent that child chain or snarl in that orientation.
+    handle_t get_handle_from_inward_backing_handle(const handle_t& backing_handle) const;
         
 protected:
     
@@ -366,7 +370,7 @@ protected:
         
     // We keep basically the reverse map, from chain start in chain forward
     // orientation to chain end in chain forward orientation. This lets us
-    // find the edges off the far end of a chian.
+    // find the edges off the far end of a chain.
     unordered_map<handle_t, handle_t> chain_ends_by_start;
         
     // Stores whether a chain or unary snarl, identified by the ID of its
@@ -390,7 +394,8 @@ public:
     /// Construct a SnarlManager for the snarls contained in an input stream
     SnarlManager(istream& in);
         
-    /// Default constructor
+    /// Default constructor for an empty SnarlManager. Must call finish() once
+    /// all snarls have been added with add_snarl().
     SnarlManager() = default;
         
     /// Destructor
@@ -403,7 +408,34 @@ public:
     /// Can be moved
     SnarlManager(SnarlManager&& other) = default;
     SnarlManager& operator=(SnarlManager&& other) = default;
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // Write API
+    ///////////////////////////////////////////////////////////////////////////
+    
+    /// Add the given snarl to the SnarlManager. After all snarls have been
+    /// added, finish() must be called to compute chains and indexes. We don't
+    /// let precomputed chains be added, because we want chain orientations
+    /// relative to snarls to be deterministic given an order of snarls.
+    /// Returns a pointer to the managed snarl copy.
+    /// Only this function may add in new Snarls.
+    const Snarl* add_snarl(const Snarl& new_snarl);
+    
+    /// Reverses the orientation of a managed snarl.
+    void flip(const Snarl* snarl);
+    
+    /// Reverses the order and orientation of a managed chain, leaving all the
+    /// component snarls in their original orientations.
+    void flip(const Chain* snarl);
         
+    /// Note that we have finished calling add_snarl. Compute the snarl
+    /// parent/child indexes and chains.
+    void finish();
+    
+    ///////////////////////////////////////////////////////////////////////////
+    // Read API
+    ///////////////////////////////////////////////////////////////////////////
+
     /// Returns a vector of pointers to the children of a Snarl.
     /// If given null, returns the top-level root snarls.
     const vector<const Snarl*>& children_of(const Snarl* snarl) const;
@@ -421,14 +453,18 @@ public:
     /// Snarl rather than a node ID, returns a pointer the managed version
     /// of that snarl.
     const Snarl* into_which_snarl(const Visit& visit) const;
-        
-    /// Get the Chain that the given snarl participates in. Instead of
-    /// asking this class to walk the chain for you, use ChainIterators on
-    /// this chain.
+    
+    /// Get the Chain that the given snarl participates in. Instead of asking
+    /// this class to walk the chain for you, use ChainIterators on this chain.
+    /// This is always non-null.
     const Chain* chain_of(const Snarl* snarl) const;
+    
+    /// If the given Snarl is backward in its chain, return true. Otherwise,
+    /// return false.
+    bool chain_orientation_of(const Snarl* snarl) const;
         
-    /// Return true if a Snarl is part of a nontrivial chain of more than
-    /// one snarl.
+    /// Return true if a Snarl is part of a nontrivial chain of more than one
+    /// snarl. Note that chain_of() still works for snarls in trivial chains.
     bool in_nontrivial_chain(const Snarl* here) const;
         
     /// Get all the snarls in all the chains under the given parent snarl.
@@ -454,23 +490,6 @@ public:
         
     /// Returns a reference to a vector with the roots of the Snarl trees
     const vector<const Snarl*>& top_level_snarls() const;
-        
-    /// Reverses the orientation of a snarl
-    void flip(const Snarl* snarl);
-        
-    /// Add the given snarl to the SnarlManager as neither a root nor a
-    /// child of any other snarl. The snarl must eventually either be added
-    /// to a parent snarl or as a root snarl through add_chain() or it will
-    /// not be visible.
-    const Snarl* add_snarl(const Snarl& new_snarl);
-        
-    /// Add the given chain of snarls that have already been added with
-    /// add_snarl(). Parents the chain to the given parent snarl, also added
-    /// with add_snarl(). If the parent is null, makes the chain a root
-    /// chain and all of its snarls root snarls. Note that the chains are
-    /// allowed to be reallocated until the last child chain of a snarl is
-    /// added.
-    void add_chain(const Chain& new_chain, const Snarl* chain_parent);
         
     /// Returns the Nodes and Edges contained in this Snarl but not in any child Snarls (always includes the
     /// Nodes that form the boundaries of child Snarls, optionally includes this Snarl's own boundary Nodes)
@@ -512,6 +531,12 @@ public:
         
     /// Execute a function on all sites in parallel
     void for_each_snarl_parallel(const function<void(const Snarl*)>& lambda) const;
+    
+    /// Ececute a function on all chains
+    void for_each_chain(const function<void(const Chain*)>& lambda) const;
+    
+    /// Ececute a function on all chains in parallel
+    void for_each_chain_parallel(const function<void(const Chain*)>& lambda) const;
         
     /// Given a Snarl that we don't own (like from a Visit), find the
     /// pointer to the managed copy of that Snarl.
@@ -519,37 +544,75 @@ public:
         
 private:
     
-    /// Define the key type
-    using key_t = pair<pair<int64_t, bool>, pair<int64_t, bool>>;
+    /// To support the Snarl*-driven API, we use a struct that lays out a snarl
+    /// followed by indexing metadata, one after the other in memory. We can
+    /// just cast a Snarl* to a pointer to one of these to get access to all
+    /// the metadata.
+    struct SnarlRecord : public Snarl {
+        // Instead of relying on the first member being at offset 0, we inherit
+        // from the Protobuf type.
         
+        /// This is a vector of pointers into the master snarl container at
+        /// children. We know the pointers are to valid SnarlRecords. A
+        /// SnarlRecord does not own its children.
+        vector<const Snarl*> children;
+        
+        /// This holds chains over the child snarls.
+        deque<Chain> child_chains;
+        
+        /// This points to the parent SnarlRecord (as a snarl), or null if we
+        /// are a root snarl or have not been told of our parent yet.
+        const Snarl* parent = nullptr;
+        
+        /// This points to the chain we are in, or null if we are not in a chain.
+        Chain* parent_chain = nullptr;
+        /// And this is what index we are at in the chain;
+        size_t parent_chain_index = 0;
+        
+        /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
+        SnarlRecord& operator=(const Snarl& other) {
+            // Just call the base assignment operator
+            (*(Snarl*)this) = other;
+            return *this;
+        }
+    };
+    
+    /// Get the const SnarlRecord for a const managed snarl
+    inline const SnarlRecord* record(const Snarl* snarl) const {
+        return (const SnarlRecord*) snarl;
+    }
+    
+    /// Get the SnarlRecord for a managed snarl
+    inline SnarlRecord* record(Snarl* snarl) {
+        return (SnarlRecord*) snarl;
+    }
+    
+    /// Get the const Snarl owned by a const SnarlRecord
+    inline const Snarl* unrecord(const SnarlRecord* record) const {
+        return (const Snarl*) record;
+    }
+    
+    /// Get the Snarl owned by a SnarlRecord
+    inline Snarl* unrecord(SnarlRecord* record) {
+        return (Snarl*) record;
+    }
+    
     /// Master list of the snarls in the graph.
     /// Use a deque so pointers never get invalidated but we still have some locality.
-    deque<Snarl> snarls;
+    deque<SnarlRecord> snarls;
+    
+    /// Have we finished adding snarls? This ought to be true for any
+    /// non-trivial read operations. Otherwise the parent/child/chain indexes
+    /// haven't been computed.
+    bool finished = false;
         
     /// Roots of snarl trees
     vector<const Snarl*> roots;
     /// Chains of root-level snarls. Uses a deque so Chain* pointers don't get invalidated.
     deque<Chain> root_chains;
         
-    /// Map of snarls to the child snarls they contain
-    unordered_map<key_t, vector<const Snarl*>> children;
-    /// Map of snarls to the child chains they contain
-    /// Uses a deque so Chain* pointers don't get invalidated.
-    unordered_map<key_t, deque<Chain>> child_chains;
-    /// Map of snarls to their parent snarls
-    unordered_map<key_t, const Snarl*> parent;
-    /// Map of snarls to the chain each appears in
-    unordered_map<key_t, const Chain*> parent_chain;
-        
-    /// Map of snarl keys to the pointer to the managed copy in the snarls vector.
-    /// Is non-const so we can do flip nicely.
-    unordered_map<key_t, Snarl*> self;
-        
     /// Map of node traversals to the snarls they point into
     unordered_map<pair<int64_t, bool>, const Snarl*> snarl_into;
-        
-    /// Converts Snarl to the form used as keys in internal data structures
-    inline key_t key_form(const Snarl* snarl) const;
         
     /// Builds tree indexes after Snarls have been added to the snarls vector
     void build_indexes();
@@ -557,6 +620,23 @@ private:
     /// Actually compute chains for a set of already indexed snarls, which
     /// is important when chains were not provided. Returns the chains.
     deque<Chain> compute_chains(const vector<const Snarl*>& input_snarls);
+    
+    /// Modify the snarls and chains to enforce a couple of invariants:
+    ///
+    /// 1. The start node IDs of the snarls in a chain shall be unique.
+    ///
+    /// (This is needed by the distance indexing code, which identifies child
+    /// snarls by their start nodes. TODO: That distance indexing code needs to
+    /// also work out unary snarls abitting the ends of chains, which may be
+    /// allowed eventually.)
+    ///
+    /// 2. Snarls will be oriented forward in their chains.
+    ///
+    /// 3. Snarls will be oriented in a chain to maximize the number of snarls
+    /// that start with lower node IDs than they end with.
+    ///
+    /// Depends on the indexes from build_indexes() having been built.
+    void regularize();
         
     // Chain computation uses these pseudo-chain-traversal functions, which
     // walk around based on the snarl boundary index. This basically gets
@@ -703,11 +783,11 @@ ostream& operator<<(ostream& out, const Snarl& snarl);
 template <typename SnarlIterator>
 SnarlManager::SnarlManager(SnarlIterator begin, SnarlIterator end) {
     // add snarls to master list
-    for (auto iter = begin; iter != end; iter++) {
-        snarls.push_back(*iter);
+    for (auto iter = begin; iter != end; ++iter) {
+        add_snarl(*iter);
     }
     // record the tree structure and build the other indexes
-    build_indexes();
+    finish();
 }
     
 inline NodeTraversal to_node_traversal(const Visit& visit, VG& graph) {
