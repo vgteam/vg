@@ -1509,41 +1509,15 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
                             make_pair(startID, startRev), endSnarl, currSnarl);
 
 
-            if (dsl == -1) {
+            distL1 = minPos({dsr == -1 || distR1 == -1? -1 : distR1 + dsr, 
+                             dsl == -1 || distL1 == -1? -1 : distL1 + dsl});
+            distL2 = minPos({dsr == -1 || distR2 == -1? -1 : distR2 + dsr, 
+                             dsl == -1 || distL2 == -1? -1 : distL2 + dsl});
 
-                distL1 = dsr == -1 || distR1 == -1? -1 : distR1 + dsr;
-                distL2 = dsr == -1 || distR2 == -1? -1 : distR2 + dsr;
-
-            } else if (dsr ==-1) {
-
-                distL1 = dsl == -1 || distL1 == -1? -1 : distL1 + dsl;
-                distL2 =  dsl == -1 || distL2 == -1? -1 : distL2 + dsl;
-
-            } else {
-
-                distL1 = min(dsr == -1 || distR1 == -1? -1 : distR1 + dsr, 
-                             dsl == -1 || distL1 == -1? -1 : distL1 + dsl);
-                distL2 = min(dsr == -1 || distR2 == -1? -1 : distR2 + dsr, 
-                             dsl == -1 || distL2 == -1? -1 : distL2 + dsl);
-            }
-
-            if (del == -1) {
-
-                distR1 = der == -1 || distR1 == -1? -1 : distR1 + der;
-                distR2 = der == -1 || distR2 == -1? -1 : distR2 + der;
-
-            } else if (der ==-1) {
-
-                distR1 = del == -1 || distL1 == -1? -1 : distL1 + del;
-                distR2 = del == -1 || distL2 == -1? -1 : distL2 + del;
-
-            } else {
-
-                distR1 = min(der == -1 || distR1 == -1? -1 : distR1 + der, 
-                             del == -1 || distL1 == -1? -1 : distL1 + del);
-                distR2 = min(der == -1 || distR2 == -1? -1 : distR2 + der, 
-                             del == -1 || distL2 == -1? -1 : distL2 + del);
-            }
+            distR1 = minPos({der == -1 || distR1 == -1? -1 : distR1 + der, 
+                             del == -1 || distL1 == -1? -1 : distL1 + del});
+            distR2 = minPos({der == -1 || distR2 == -1? -1 : distR2 + der, 
+                             del == -1 || distL2 == -1? -1 : distL2 + del});
 
 
 
@@ -2052,8 +2026,6 @@ pair<int64_t, int64_t> DistanceIndex::SnarlIndex::distToEnds(HandleGraph* graph,
             der = 0;
         }
     }
-cerr << " Ds " << distL << " " << distR << endl;
-cerr << dsl << " " << dsr << " " << der << " " << del << " " << rev << " " << snarlEnd.first << " " << snarlEnd.second << endl;
  
     dsl = dsl == -1 || distL == -1? -1 : distL + dsl; 
     dsr =  dsr == -1 || distR == -1? -1 : distR + dsr; 
