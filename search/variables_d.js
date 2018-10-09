@@ -76,6 +76,7 @@ var searchData=
   ['max_5fwidth',['max_width',['../classvg_1_1RepresentativeTraversalFinder.html#aac2939337439d7566246889b3a4655c6',1,'vg::RepresentativeTraversalFinder']]],
   ['maxdistances',['maxDistances',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aff46cc10e89b87a441aabe07cc3f590d',1,'vg::DistanceIndex::MaxDistanceIndex']]],
   ['maximum_5fsample_5fsize',['maximum_sample_size',['../classvg_1_1FragmentLengthDistribution.html#a82ad9fe36dc81ea108a530b7f9792b78',1,'vg::FragmentLengthDistribution']]],
+  ['maxindex',['maxIndex',['../classvg_1_1DistanceIndex.html#a867358a62cbc467216d8d7fc73757da8',1,'vg::DistanceIndex']]],
   ['maxnodeid',['maxNodeID',['../classvg_1_1DistanceIndex.html#a719069f6a527678b707b4932dc4ebd85',1,'vg::DistanceIndex']]],
   ['maybe_5fmq_5fthreshold',['maybe_mq_threshold',['../classvg_1_1Mapper.html#a26d2d7d3964d9210c963b325c64678b0',1,'vg::Mapper']]],
   ['mem',['mem',['../classvg_1_1MEMChainModelVertex.html#acd9990963345deb38096763554ae4b3d',1,'vg::MEMChainModelVertex::mem()'],['../classvg_1_1OrientedDistanceClusterer_1_1ODNode.html#a99d9168f9b165fe6b4948acca14b5aaa',1,'vg::OrientedDistanceClusterer::ODNode::mem()']]],

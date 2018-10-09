@@ -140,6 +140,5 @@ var searchData=
   ['num_5fpairs',['num_pairs',['../classvg_1_1ShuffledPairs.html#abf8913c70ff6595d8b288bdab3c88981',1,'vg::ShuffledPairs']]],
   ['num_5freads',['num_reads',['../structvg_1_1EdgePileup.html#aa95aa0337a5bc6229762abaa56dcdbff',1,'vg::EdgePileup']]],
   ['num_5fseeds',['num_seeds',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7ff6bfc495cad6fb62e7d4127ec0e956',1,'vg::BandedGlobalAligner::BAMatrix']]],
-  ['numcomponents',['numComponents',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#af63cfd844cad066fb47962bc4cf2ea9b',1,'vg::DistanceIndex::MaxDistanceIndex']]],
   ['numcycles',['numCycles',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a4a0ca5f262321b665d0c09e1198395db',1,'vg::DistanceIndex::MaxDistanceIndex']]]
 ];

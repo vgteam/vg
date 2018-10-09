@@ -104,7 +104,7 @@ var searchData=
   ['simplify_5fsiblings',['simplify_siblings',['../classvg_1_1VG.html#a3e90bd47ffc24a55b1588be8f5328717',1,'vg::VG']]],
   ['simplify_5fto_5fsiblings',['simplify_to_siblings',['../classvg_1_1VG.html#a5c037db7f5ec45293ac6650d46040237',1,'vg::VG']]],
   ['size',['size',['../classvg_1_1SnarlState.html#a502b3fe50eb937e293f704bae5d06175',1,'vg::SnarlState::size()'],['../structhaplo_1_1int__itvl__t.html#ac0ae98c991c4e3f714e1d5a556203862',1,'haplo::int_itvl_t::size()'],['../structhaplo_1_1gbwt__thread__t.html#a1e39a9e4c8070dbc0f4b76c966b5b875',1,'haplo::gbwt_thread_t::size()'],['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a0fe138ca89321d8f6ef7d9d5005bb8a2',1,'haplo::linear_haplo_structure::SNVvector::size()'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#ae6a02e90c0b97ceff0738526329ab669',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::size()'],['../classvg_1_1Paths.html#aea5daad1ff734b7ce8e8296809127c88',1,'vg::Paths::size()'],['../classvg_1_1VG.html#a9e3720ce267c8167ce679a015063dab6',1,'vg::VG::size()']]],
-  ['sizeof',['sizeOf',['../classvg_1_1DistanceIndex.html#a52640a85369a118f5184c311df2cae76',1,'vg::DistanceIndex']]],
+  ['sizeof',['sizeOf',['../classvg_1_1DistanceIndex.html#a4a67acfea2048be7afefd84003416065',1,'vg::DistanceIndex']]],
   ['skip',['Skip',['../classvg_1_1stream_1_1BlockedGzipInputStream.html#a3697559ad541b52c8dfaa0b2d773e8d8',1,'vg::stream::BlockedGzipInputStream']]],
   ['slope',['slope',['../namespacevg.html#ad477b45059373004136e69022e802e0b',1,'vg']]],
   ['smart_5falign',['smart_align',['../classvg_1_1VariantAdder.html#ad3c7e7030142e70f27bc9f0bc42c2cce',1,'vg::VariantAdder']]],

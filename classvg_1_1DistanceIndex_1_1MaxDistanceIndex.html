@@ -122,15 +122,13 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aff46cc10e89b87a441aabe07cc3f590d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4a0ca5f262321b665d0c09e1198395db"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a4a0ca5f262321b665d0c09e1198395db">numCycles</a></td></tr>
 <tr class="separator:a4a0ca5f262321b665d0c09e1198395db"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af63cfd844cad066fb47962bc4cf2ea9b"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#af63cfd844cad066fb47962bc4cf2ea9b">numComponents</a></td></tr>
-<tr class="separator:af63cfd844cad066fb47962bc4cf2ea9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8590726a22d24450c181a3b8cdc9aef0"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a8590726a22d24450c181a3b8cdc9aef0">cap</a></td></tr>
 <tr class="separator:a8590726a22d24450c181a3b8cdc9aef0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
-<tr class="memitem:aa5f5989580e093f6d517779f4573f198"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aa5f5989580e093f6d517779f4573f198">findComponents</a> (int_vector&lt;&gt; &amp;<a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aba2cf2a89db14bcc177d05f24ac0b3fe">nodeToComponent</a>, int_vector&lt;&gt; &amp;maxDists, int_vector&lt;&gt; &amp;minDistsFd, int_vector&lt;&gt; &amp;minDistsRev, uint64_t currComponent, bool onlyCycles)</td></tr>
-<tr class="separator:aa5f5989580e093f6d517779f4573f198"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8676c79ef2894c7f1cc4cf49dd9be840"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a8676c79ef2894c7f1cc4cf49dd9be840">findComponents</a> (int_vector&lt;&gt; &amp;<a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aba2cf2a89db14bcc177d05f24ac0b3fe">nodeToComponent</a>, int_vector&lt;&gt; &amp;maxDists, int_vector&lt;&gt; &amp;minDistsFd, int_vector&lt;&gt; &amp;minDistsRev, uint64_t currComponent)</td></tr>
+<tr class="separator:a8676c79ef2894c7f1cc4cf49dd9be840"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a68a9e3cab9559e55900bb79b72f5e953"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a68a9e3cab9559e55900bb79b72f5e953">calculateMaxDistances</a> (unordered_set&lt; pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;sinkNodes, int_vector&lt;&gt; &amp;<a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aba2cf2a89db14bcc177d05f24ac0b3fe">nodeToComponent</a>, int_vector&lt;&gt; &amp;maxDists, int_vector&lt;&gt; &amp;minDistsFd, int_vector&lt;&gt; &amp;minDistsRev)</td></tr>
 <tr class="separator:a68a9e3cab9559e55900bb79b72f5e953"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -247,7 +245,7 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="aa5f5989580e093f6d517779f4573f198"></a>
+<a class="anchor" id="a8676c79ef2894c7f1cc4cf49dd9be840"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -282,13 +280,7 @@ Friends</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">uint64_t&#160;</td>
-          <td class="paramname"><em>currComponent</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>onlyCycles</em>&#160;</td>
+          <td class="paramname"><em>currComponent</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -456,18 +448,6 @@ Friends</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="af63cfd844cad066fb47962bc4cf2ea9b"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">uint64_t vg::DistanceIndex::MaxDistanceIndex::numComponents</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a4a0ca5f262321b665d0c09e1198395db"></a>
 <div class="memitem">
 <div class="memproto">
@@ -487,7 +467,7 @@ Friends</h2></td></tr>
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
-Generated on Tue Oct 9 2018 18:06:12 for vg by &#160;<a href="http://www.doxygen.org/index.html">
+Generated on Tue Oct 9 2018 18:25:09 for vg by &#160;<a href="http://www.doxygen.org/index.html">
 <img class="footer" src="doxygen.png" alt="doxygen"/>
 </a> 1.8.6
 </small></address>

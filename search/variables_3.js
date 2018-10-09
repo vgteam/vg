@@ -14,6 +14,8 @@ var searchData=
   ['chain_5fends_5fby_5fstart',['chain_ends_by_start',['../classvg_1_1NetGraph.html#a76c5bb7e62e87ab890cf7568c8ab74b6',1,'vg::NetGraph']]],
   ['chain_5fstart',['chain_start',['../structvg_1_1ChainIterator.html#a61e019f94f481b190d14bebe51264c09',1,'vg::ChainIterator']]],
   ['chaindistances',['chainDistances',['../classvg_1_1DistanceIndex.html#af2eaf5b901bd4489ca08366f87132e83',1,'vg::DistanceIndex']]],
+  ['chainendid',['chainEndID',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#a16e135091283369006c54d471f2f4ae1',1,'vg::DistanceIndex::ChainIndex']]],
+  ['chainstartid',['chainStartID',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#ab9ced0ef0ba2379e85dd21fc7a98a338',1,'vg::DistanceIndex::ChainIndex']]],
   ['char_5fcount',['char_count',['../classvg_1_1Pictographs.html#ad19f958ce6ab190b47a0c2761923d013',1,'vg::Pictographs']]],
   ['chars',['chars',['../classvg_1_1Pictographs.html#a322a2d02ca384f0c182944bf8eebcb09',1,'vg::Pictographs']]],
   ['child_5fchains',['child_chains',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33',1,'vg::SnarlManager::SnarlRecord']]],
