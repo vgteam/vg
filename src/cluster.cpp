@@ -2524,11 +2524,12 @@ TargetValueSearch::TargetValueSearch(const HandleGraph& handle_graph,
 }
 
 bool TargetValueSearch::tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
-    
+    // TODO: fill in this algorithm
     return false;
 }
     
 vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
+    // TODO: fill in this algorithm
     return vector<handle_t>();
 }
     
