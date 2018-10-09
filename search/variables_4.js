@@ -13,6 +13,7 @@ var searchData=
   ['defray',['defray',['../structvg_1_1ReadFilter_1_1Counts.html#a96b48377cdbf0c7f9ea92db210d92b7c',1,'vg::ReadFilter::Counts']]],
   ['defray_5fcount',['defray_count',['../classvg_1_1ReadFilter.html#ac7397dca610aa815fd6a1abac7d67b5c',1,'vg::ReadFilter']]],
   ['defray_5flength',['defray_length',['../classvg_1_1ReadFilter.html#a0d85ffe55c3074f0b5f9664465fec883',1,'vg::ReadFilter']]],
+  ['delay_5fpopulation_5fscoring',['delay_population_scoring',['../classvg_1_1MultipathMapper.html#a0435e272fb95a07554afacfaf9bd34c5',1,'vg::MultipathMapper']]],
   ['deleted_5fprior_5flogprob',['deleted_prior_logprob',['../classvg_1_1Genotyper.html#a853fb8840552901b359153ec80aa81e1',1,'vg::Genotyper']]],
   ['deletions',['deletions',['../structvg_1_1DeleteHaplotypeCommand.html#a33e4ac2752620369abb200e585e667a4',1,'vg::DeleteHaplotypeCommand::deletions()'],['../structvg_1_1ReplaceLocalHaplotypeCommand.html#a3371d6a46feb1f9d218a577156aef698',1,'vg::ReplaceLocalHaplotypeCommand::deletions()']]],
   ['delim1',['delim1',['../classvg_1_1Packer.html#acffc9465bdaa0bb770372edf788aad48',1,'vg::Packer']]],
