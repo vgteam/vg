@@ -342,7 +342,7 @@ $(LIB_DIR)/libgssw.a: $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 	+cd $(GSSW_DIR) && $(MAKE) $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/lru_cache.h: $(DEP_DIR)/lru_cache/*.h $(DEP_DIR)/lru_cache/*.cc
-	+cd $(DEP_DIR)/lru_cache && $(MAKE) $(FILTER) && cp *.h* $(CWD)/$(INC_DIR)/
+	+cd $(DEP_DIR)/lru_cache && cp *.h* $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/dynamic.hpp: $(DYNAMIC_DIR)/include/*.hpp $(DYNAMIC_DIR)/include/internal/*.hpp 
 	+cat $(DYNAMIC_DIR)/include/dynamic.hpp | sed 's%<internal/%<dynamic/%' >$(INC_DIR)/dynamic.hpp && cp -r $(CWD)/$(DYNAMIC_DIR)/include/internal $(CWD)/$(INC_DIR)/dynamic
@@ -562,15 +562,6 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd fastahack && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd fsom && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd libVCFH && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd smithwaterman && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd test && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd filevercmp && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd intervaltree && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd multichoose && $(MAKE) clean
-	cd $(DEP_DIR) && cd vcflib && cd tabixpp && $(MAKE) clean
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
@@ -578,9 +569,8 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	rm -Rf $(RAPTOR_DIR)/build/*
-	## TODO vg source code
-	## TODO LRU_CACHE
-	## TODO bash-tap
+	# lru_cache is never built because it is header-only.
+	# bash-tap is never built either.
 
 clean-rocksdb:
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean

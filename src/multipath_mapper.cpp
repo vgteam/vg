@@ -1495,6 +1495,8 @@ namespace vg {
             
             // do we find any pairs that satisfy the distance requirements?
             if (!cluster_pairs.empty()) {
+                // We got some pairs that satisfy the distance requirements.
+                
                 // only perform the mappings that satisfy the expectations on distance
                 
                 align_to_cluster_graph_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, cluster_pairs,
@@ -1521,8 +1523,17 @@ namespace vg {
 #ifdef debug_multipath_mapper
                         cerr << "found some rescue pairs, merging into current list of consistent mappings" << endl;
 #endif
-                        
+
                         merge_rescued_mappings(multipath_aln_pairs_out, cluster_pairs, rescue_aln_pairs, rescue_distances);
+                        
+                        if (use_population_mapqs && delay_population_scoring) {
+                            // now that it can't affect any of the mapper's
+                            // internal heuristics, and since we know the
+                            // alignments we have are actually paired,
+                            // recompute the mapping quality using the
+                            // population component.
+                            sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, true);
+                        }
                         
                         // if we still haven't found mappings that are distinguishable from matches to random sequences,
                         // don't let them have any mapping quality
@@ -1545,9 +1556,13 @@ namespace vg {
                     else {
                         // rescue didn't find any consistent mappings, revert to the single ended mappings
                         std::swap(multipath_aln_pairs_out, rescue_aln_pairs);
+                        
+                        // Don't sort and compute mapping quality; preserve the single-ended MAPQs
                     }
                 }
                 else {
+                
+                    // We don;t think any of our hits are likely to be mismapped
                     
                     // does it look like we might be overconfident about this pair because of our clustering strategy
                     bool do_secondary_rescue = (multipath_aln_pairs_out.front().first.mapping_quality() >= max_mapping_quality - secondary_rescue_subopt_diff &&
@@ -1558,10 +1573,26 @@ namespace vg {
                         // so we use this routine to use rescue on other very good looking independent end clusters
                         attempt_rescue_for_secondaries(alignment1, alignment2, cluster_graphs1, cluster_graphs2,
                                                        duplicate_pairs, multipath_aln_pairs_out, cluster_pairs);
+                                                       
+                        if (use_population_mapqs && delay_population_scoring) {
+                            // now that it can't affect any of the mapper's
+                            // internal heuristics, and since we know the
+                            // alignments we have are actually paired,
+                            // recompute the mapping quality using the
+                            // population component.
+                            sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, true);
+                        }
                         
                         // account for the possiblity that we selected the wrong ends to rescue with
                         cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
                                                                   cluster_graphs1, cluster_graphs2, true);
+                    } else if (use_population_mapqs && delay_population_scoring) {
+                        // now that it can't affect any of the mapper's
+                        // internal heuristics, and since we know the
+                        // alignments we have are actually paired,
+                        // recompute the mapping quality using the
+                        // population component.
+                        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, true);
                     }
                     
                     // account for the possibility that we missed the correct cluster because of hit sub-sampling
@@ -1572,6 +1603,8 @@ namespace vg {
                 }
             }
             else {
+                // We got no pairs that siatisfy the distance requirements
+                
                 // revert to independent single ended mappings, but skip any rescues that we already tried
                 
 #ifdef debug_multipath_mapper
@@ -1582,17 +1615,27 @@ namespace vg {
                                                                    do_repeat_rescue_from_2, multipath_aln_pairs_out, cluster_pairs, max_alt_mappings);
                 
                 if (rescued) {
+                    // We found valid pairs from rescue
+                    
+                    if (use_population_mapqs && delay_population_scoring) {
+                        // now that it can't affect any of the mapper's
+                        // internal heuristics, and since we know the
+                        // alignments we have are actually paired,
+                        // recompute the mapping quality using the
+                        // population component.
+                        sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, true);
+                    }
+                    
+                
                     // account for the possiblity that we selected the wrong ends to rescue with
                     cap_mapping_quality_by_rescue_probability(multipath_aln_pairs_out, cluster_pairs,
                                                               cluster_graphs1, cluster_graphs2, false);
                 }
+                
+                // Otherwise, we are just using single-end alignments, so don't
+                // sort and compute mapping qualities. Leave the single-ended
+                // MAPQs.
             }
-        }
-        
-        if (use_population_mapqs && delay_population_scoring) {
-            // now that it can't affect any of the mapper's internal heuristics, recompute the mapping quality
-            // using the population component
-            sort_and_compute_mapping_quality(multipath_aln_pairs_out, cluster_pairs, true);
         }
         
         if (multipath_aln_pairs_out.empty()) {
