@@ -2500,20 +2500,20 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
     return cumul_coverage_count[hi].first;
 }
 
-SnarlMinDistance::SnarlMinDistance(DistanceIndex* distance_index) : distance_index(distance_index) {
+SnarlMinDistance::SnarlMinDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
 int64_t SnarlMinDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
-    return distance_index->minDistance(pos_1, pos_2);
+    return distance_index.minDistance(pos_1, pos_2);
 }
 
-TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex* distance_index) : distance_index(distance_index) {
+TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
 int64_t TipAnchoredMaxDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
-    return distance_index->maxDistance(pos_1, pos_2);
+    return distance_index.maxDistance(pos_1, pos_2);
 }
 
 TargetValueSearch::TargetValueSearch(const HandleGraph& handle_graph,
@@ -2533,7 +2533,15 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     return vector<handle_t>();
 }
     
-TVSClusterer::TVSClusterer() {
+TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index) :
+      tvs(*handle_graph, TipAnchoredMaxDistance(*distance_index), SnarlMinDistance(*distance_index))   {
+    
+    // nothing else to do
+}
+    
+vector<cluster_t> TVSClusterer::clusters(const Alignment& alignment,
+                                         const vector<MaximalExactMatch>& mems) {
+    
     
 }
 

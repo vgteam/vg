@@ -502,13 +502,13 @@ public:
  */
 class SnarlMinDistance : public DistanceHeuristic {
 public:
-    SnarlMinDistance() = delete;
-    SnarlMinDistance(DistanceIndex* distance_index);
+    SnarlMinDistance() = default;
+    SnarlMinDistance(DistanceIndex& distance_index);
     ~SnarlMinDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex* distance_index;
+    DistanceIndex& distance_index;
 };
 
 /*
@@ -518,13 +518,13 @@ private:
  */
 class TipAnchoredMaxDistance : public DistanceHeuristic {
 public:
-    TipAnchoredMaxDistance() = delete;
-    TipAnchoredMaxDistance(DistanceIndex* distance_index);
+    TipAnchoredMaxDistance() = default;
+    TipAnchoredMaxDistance(DistanceIndex& distance_index);
     ~TipAnchoredMaxDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex* distance_index;
+    DistanceIndex& distance_index;
 };
 
 /*
@@ -533,10 +533,10 @@ private:
  */
 class TargetValueSearch {
 public:
-    TargetValueSearch() = delete;
+    TargetValueSearch() = default;
     TargetValueSearch(const HandleGraph& handle_graph,
-                      DistanceHeuristic& upper_bound_heuristic,
-                      DistanceHeuristic& lower_bound_heuristic);
+                      const DistanceHeuristic& upper_bound_heuristic,
+                      const DistanceHeuristic& lower_bound_heuristic);
     ~TargetValueSearch() = default;
     
     /// Does a path exist from pos_1 to pos_2 with length within the tolerance from the target value?
@@ -548,8 +548,8 @@ public:
     
 private:
     const HandleGraph& handle_graph;
-    DistanceHeuristic& upper_bound_heuristic;
-    DistanceHeuristic& lower_bound_heuristic;
+    DistanceHeuristic upper_bound_heuristic;
+    DistanceHeuristic lower_bound_heuristic;
 };
     
 /*
@@ -557,8 +557,24 @@ private:
  */
 class TVSClusterer {
 public:
-    TVSClusterer();
+    TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index);
     ~TVSClusterer() = default;
+    
+    
+    vector<cluster_t> clusters(const Alignment& alignment,
+                               const vector<MaximalExactMatch>& mems);
+    
+    // TODO: these are duplicated from OrientedDistanceClusterer
+    
+    /// Each hit contains a pointer to the original MEM and the position of that
+    /// particular hit in the graph.
+    using hit_t = pair<const MaximalExactMatch*, pos_t>;
+    
+    /// Each cluster is a vector of hits.
+    using cluster_t = vector<hit_t>;
+    
+private:
+    TargetValueSearch tvs;
 };
 
 /// get the handles that a mem covers
