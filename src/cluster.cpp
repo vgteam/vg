@@ -2535,8 +2535,43 @@ size_t OrientedDistanceClusterer::median_mem_coverage(const vector<size_t>& comp
 #endif
     return cumul_coverage_count[hi].first;
 }
+
+SnarlMinDistance::SnarlMinDistance(DistanceIndex* distance_index) : distance_index(distance_index) {
+    // nothing else to do
+}
+
+int64_t SnarlMinDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
+    return distance_index->minDistance(pos_1, pos_2);
+}
+
+TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex* distance_index) : distance_index(distance_index) {
+    // nothing else to do
+}
+
+int64_t TipAnchoredMaxDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
+    return distance_index->maxDistance(pos_1, pos_2);
+}
+
+TargetValueSearch::TargetValueSearch(const HandleGraph& handle_graph,
+                                     DistanceHeuristic& upper_bound_heuristic,
+                                     DistanceHeuristic& lower_bound_heuristic) :
+    handle_graph(handle_graph), upper_bound_heuristic(upper_bound_heuristic), lower_bound_heuristic(lower_bound_heuristic) {
+    // nothing else to do
+}
+
+bool TargetValueSearch::tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
     
+    return false;
+}
     
+vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
+    return vector<handle_t>();
+}
+    
+TVSClusterer::TVSClusterer() {
+    
+}
+
 // collect node starts to build out graph
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
     // walk the match, getting all the nodes that it touches

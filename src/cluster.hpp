@@ -436,6 +436,83 @@ public:
         return nodes[i].dp_score < nodes[j].dp_score;
     }
 };
+    
+/*
+ * An abtract class that provides a heuristic distance between two positions. The semantics are
+ * unspecified for what manner of "approximate" the heuristic is (upperbound, lowerbound, etc.).
+ */
+class DistanceHeuristic {
+public:
+    DistanceHeuristic() = delete;
+    ~DistanceHeuristic() {}
+    
+    virtual int64_t operator()(const pos_t& pos_1, const pos_t& pos_2) = 0;
+};
+    
+/*
+ * An exact computation of the minimum distance between two positions using the snarl
+ * decomposition
+ */
+class SnarlMinDistance : public DistanceHeuristic {
+public:
+    SnarlMinDistance() = delete;
+    SnarlMinDistance(DistanceIndex* distance_index);
+    ~SnarlMinDistance() = default;
+    
+    int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
+private:
+    DistanceIndex* distance_index;
+};
+
+/*
+ * An upperbound on the distance between two positions computed using the distance
+ * between those positions and tips. Strict upperbound in DAGs, only an upperbound
+ * among a subset of paths in cyclic graphs (as distance is unbounded above).
+ */
+class TipAnchoredMaxDistance : public DistanceHeuristic {
+public:
+    TipAnchoredMaxDistance() = delete;
+    TipAnchoredMaxDistance(DistanceIndex* distance_index);
+    ~TipAnchoredMaxDistance() = default;
+    
+    int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
+private:
+    DistanceIndex* distance_index;
+};
+
+/*
+ * Implements the heuristic solution to the Target Value Search problem described
+ * in Kuhn, et al. (2008).
+ */
+class TargetValueSearch {
+public:
+    TargetValueSearch() = delete;
+    TargetValueSearch(const HandleGraph& handle_graph,
+                      DistanceHeuristic& upper_bound_heuristic,
+                      DistanceHeuristic& lower_bound_heuristic);
+    ~TargetValueSearch() = default;
+    
+    /// Does a path exist from pos_1 to pos_2 with length within the tolerance from the target value?
+    bool tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
+    
+    /// Returns a path from pos_1 to pos_2 with length closest to the target value. If there is no such
+    /// path within the tolerance of the target value, returns an empty vector.
+    vector<handle_t> tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
+    
+private:
+    const HandleGraph& handle_graph;
+    DistanceHeuristic& upper_bound_heuristic;
+    DistanceHeuristic& lower_bound_heuristic;
+};
+    
+/*
+ * A MEM clusterer built around the Target Value Search problem.
+ */
+class TVSClusterer {
+public:
+    TVSClusterer();
+    ~TVSClusterer() = default;
+};
 
 /// get the handles that a mem covers
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);
