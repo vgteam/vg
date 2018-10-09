@@ -491,7 +491,6 @@ public:
  */
 class DistanceHeuristic {
 public:
-    DistanceHeuristic() = delete;
     ~DistanceHeuristic() {}
     
     virtual int64_t operator()(const pos_t& pos_1, const pos_t& pos_2) = 0;
