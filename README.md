@@ -79,6 +79,8 @@ Homebrew provides another package management solution for OSX, and may be prefer
 
     # Force use of new version of bison
     brew link bison --force
+    # NOTE! If brew says that it is refusing to link Bison, follow its suggested
+    # instructions to put Bison on your PATH instead.
 
     # Use glibtool/ize
     export LIBTOOL=glibtool
