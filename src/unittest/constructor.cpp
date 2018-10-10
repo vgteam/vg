@@ -1335,7 +1335,7 @@ TEST_CASE( "VG handles structural variants as expected"){
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
@@ -1346,7 +1346,7 @@ x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIE
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
@@ -1402,7 +1402,7 @@ TEST_CASE( "An SV deletion is represented properly" , "[constructor]") {
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
@@ -1538,7 +1538,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=9;CIPOS=0,3	GT)";
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;CIPOS=0,3	GT)";
 
     auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
 
@@ -1598,7 +1598,7 @@ TEST_CASE( "An SV inversion is represented properly" , "[constructor]") {
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	10	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;SVLEN=0;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	10	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG

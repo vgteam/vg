@@ -542,6 +542,7 @@ namespace vg {
                     } else {
                         alternates = variant->parsedAlternates();
                     }
+                    
                     if (!variant->is_symbolic_sv()){
 
                         //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
@@ -1375,7 +1376,7 @@ namespace vg {
             to_return.right_ends.insert(node_id);
         }
 
-        for(auto& deletion_start : deletions_ending_at[reference_sequence.size()]) {
+        for(auto& deletion_start : deletions_ending_at[reference_sequence.size() - 1]) {
             // Also add in nodes at the starts of deletions that go to the end of the chunk
 
             if(deletion_start == -1) {
