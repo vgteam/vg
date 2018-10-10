@@ -1433,14 +1433,13 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
     }
     
     SECTION("edges are as expected") {
-        unordered_set<pair<id_t, id_t>> edges_wanted = {
-            {1, 2},
-            {1, 4},
-            {2, 3},
-            {3, 4},
-            {4, 5},
-            {5, 6}
-        };
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
         
         // We should have the right number of edges
         REQUIRE(result.edge_size() == edges_wanted.size());
@@ -1499,14 +1498,13 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
     }
     
     SECTION("edges are as expected") {
-        unordered_set<pair<id_t, id_t>> edges_wanted = {
-            {1, 2},
-            {1, 4},
-            {2, 3},
-            {3, 4},
-            {4, 5},
-            {5, 6}
-        };
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
         
         // We should have the right number of edges
         REQUIRE(result.edge_size() == edges_wanted.size());
@@ -1562,15 +1560,14 @@ x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;CIPOS=0,3	GT)
     
     SECTION("Edges are as expected") {
     
-        unordered_set<pair<id_t, id_t>> edges_wanted = {
-            {1, 2},
-            {1, 3},
-            {2, 3},
-            {3, 4},
-            {4, 5},
-            {5, 6},
-            {6, 7}
-        };
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
         
         // We should have the right number of edges
         REQUIRE(result.edge_size() == edges_wanted.size());
@@ -1631,15 +1628,14 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
     }
     
     SECTION("edges are as expected") {
-        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted = {
-            {1, false, 2, false},
-            {2, false, 3, false},
-            {3, false, 4, false},
-            {4, false, 5, false},
-            {5, false, 6, false},
-            {1, false, 3, true},
-            {2, true, 4, false}
-        };
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 3, true);
+        edges_wanted.emplace(2, true, 4, false);
         
         // We should have the right number of edges
         REQUIRE(result.edge_size() == edges_wanted.size());
