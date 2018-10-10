@@ -98,17 +98,8 @@ int64_t distance(VG* graph, pos_t pos1, pos_t pos2){
         int64_t offset1 = get_offset(pos1);
         int64_t offset2 = get_offset(pos2);
 
-        if (graph->has_edge(node_start(get_id(pos1)), node_end(get_id(pos2)))){
-            //If there is an edge from start to end of node
+        shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
 
-            shortestDistance = min(   abs(offset1-offset2)+1,
-                          nodeSize - abs(offset1-offset2) + 1  );
-
-        } else {
-
-            shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
-
-        }
     }
 
 
@@ -1298,9 +1289,13 @@ class TestDistanceIndex : public DistanceIndex {
             pos_t pos4 = make_pos_t(4, false, 0);
             pos_t pos4r = make_pos_t(4, true, 3);
             pos_t pos5 = make_pos_t(5, false, 0);
+            pos_t pos5e = make_pos_t(5, false, 11);
             pos_t pos5r = make_pos_t(5, true, 11);
             pos_t pos7 = make_pos_t(7, false, 0);
 
+            REQUIRE(di.minDistance(pos5e, pos5) == 1);
+            REQUIRE(di.minDistance(pos5, pos5e) == 11);
+            REQUIRE(distance(&graph, pos5, pos5e) == 11);
             REQUIRE(di.minDistance(pos4, pos5) == -1);
             REQUIRE(di.minDistance(pos4r, pos5) == 5);
             REQUIRE(di.minDistance(pos5, pos5) == 0);
