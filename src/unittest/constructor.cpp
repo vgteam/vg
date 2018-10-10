@@ -1431,11 +1431,34 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
             REQUIRE(node.sequence()==expected[node.id()]);
         }
     }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted = {
+            {1, 2},
+            {1, 4},
+            {2, 3},
+            {3, 4},
+            {4, 5},
+            {5, 6}
+        };
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
 
 }
 
 
-TEST_CASE("VG handles insertions", "[constructor"){
+TEST_CASE("VG handles insertions", "[constructor]"){
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
@@ -1449,23 +1472,116 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=13;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=9;CIPOS=0,3	GT)";
 
     auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
 
-    unordered_map<size_t, string> expected;
-    expected.insert({1, "CAAATAAGG"});
-    expected.insert({2, "ACTG"});
-    expected.insert({3, "CTTGGAAATT"});
-    expected.insert({4, "TTCTGGAGTT"});
-    expected.insert({5, "CTATTATATT"});
-    expected.insert({6, "CCAACTCTCT"});
-    expected.insert({7, "G"});
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
 
 
-    for (size_t i = 0; i < result.node_size(); i++){
-        auto& node = result.node(i);
-        REQUIRE(node.sequence() == expected[node.id()]);
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted = {
+            {1, 2},
+            {1, 3},
+            {2, 3},
+            {3, 4},
+            {4, 5},
+            {5, 6},
+            {6, 7}
+        };
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An inversion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	10	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;SVLEN=0;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted = {
+            {1, false, 2, false},
+            {2, false, 3, false},
+            {3, false, 4, false},
+            {4, false, 5, false},
+            {5, false, 6, false},
+            {1, false, 3, true},
+            {2, true, 4, false}
+        };
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
     }
 
 }

@@ -243,15 +243,24 @@ namespace vg {
         // And nodes starting at these reference positions that haven't yet all been
         // wired up. 
         map<size_t, set<id_t>> nodes_starting_at;
-
+        
+        // We also keep separate maps for reference nodes only, for tracing
+        // back through inversions. Since when we trace through an inversion we
+        // need to visit every node in a run, we don't just care about the
+        // bounding IDs. So we store entire copies of the runs. But since the
+        // inversions always go backward, we only need them by their end.
+        map<size_t, vector<Node*>> ref_runs_by_end;
+        
         // We don't want to wire inserts to each other, so we have a set of all
         // insert endpoints.
         set<id_t> inserts;
 
-        // We need to wire up our inversions super specially.
-        map<size_t, set<id_t> > inversion_starts;
-        map<size_t, set<id_t> > inversion_ends;
-
+        // We need to wire up our inversions super specially. These hold the
+        // end positions for each inversion starting a the key, for
+        // inversions_starting, or visa-versa, for inversions_ending. 
+        map<size_t, set<size_t>> inversions_starting;
+        map<size_t, set<size_t>> inversions_ending;
+        
         // Here we remember deletions that end at paritcular positions in the
         // reference, which are the positions of the last deleted bases. We map from
         // last deleted base to last non-deleted base before the deletion, so we can
@@ -261,10 +270,6 @@ namespace vg {
         // We also need to track all points at which deletions start, so we can
         // search for the next one when deciding where to break the reference.
         set<int64_t> deletion_starts;
-
-        // We need to track where the alt paths of deletions start/end (and maintain their ids)
-        // so that we can put them in the graph.
-        map<int64_t, string> deletion_start_to_alt_name;
 
         // We use this to get the next variant
         auto next_variant = variants.begin();
@@ -282,14 +287,15 @@ namespace vg {
         // We have a utility function to tack a full length perfect match onto a
         // path. We need the node so we can get its length.
         // Automatically fills in rank, starting from 1.
-        auto add_match = [&](Path* path, Node* node) {
+        auto add_match = [&](Path* path, Node* node, bool is_reverse = false) {
             #ifdef debug
-            cerr << "Add node " << node->id() << " to path " << path->name() << endl;
+            cerr << "Add node " << node->id() << " orientation " << is_reverse << " to path " << path->name() << endl;
             #endif
         
             // Make a mapping for it
             auto* mapping = path->add_mapping();
             mapping->mutable_position()->set_node_id(node->id());
+            mapping->mutable_position()->set_is_reverse(is_reverse);
 
             // Set the rank to the next available rank in the path.
             mapping->set_rank(++max_rank[path]);
@@ -394,7 +400,6 @@ namespace vg {
                 // Remember where it starts and ends along the reference path
                 nodes_starting_at[reference_cursor].insert(new_nodes.front()->id());
 
-
                 for (Node* node : new_nodes) {
                     // Add matches on the reference path for all the new nodes
                     add_match(ref_path, node);
@@ -405,6 +410,9 @@ namespace vg {
 
                 // Add the end node to the ending at map.
                 nodes_ending_at[reference_cursor + seen_bases - 1].insert(new_nodes.back()->id());
+                
+                // Save the whole run for inversion tracing
+                ref_runs_by_end[reference_cursor + seen_bases - 1] = std::move(new_nodes);
 
             }
 
@@ -474,7 +482,7 @@ namespace vg {
                 // ignored, out of the clump. This is better than erasing out of a
                 // vector.
                 set<vcflib::Variant*> duplicates;
-
+                
                 for (vcflib::Variant* variant : clump) {
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
@@ -538,15 +546,15 @@ namespace vg {
 
                         //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
                         //auto alternates = use_flat_alts ? variant.flatAlternates() : variant.parsedAlternates();
-                        for (auto &kv : alternates){
-                     // For each alt in the variant
+                        for (auto &kv : alternates) {
+                            // For each alt in the variant
 
-                        if (kv.first == variant->ref)
-                        {
-                            // Skip the ref, because we can't make any ref nodes
-                            // until all the edits for the clump are known.
-                            continue;
-                        }
+                            if (kv.first == variant->ref)
+                            {
+                                // Skip the ref, because we can't make any ref nodes
+                                // until all the edits for the clump are known.
+                                continue;
+                            }
 
 
                             // With 0 being the first non-ref allele, which alt are we?
@@ -582,6 +590,7 @@ namespace vg {
                         // For now, only permit one allele for SVs
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
+                        // TODO: Warn if we are lopping anything off!
                         
                         // We need to make sure parsed_clump[variant] has an entry for each allele.
                         // But the contents won't matter since this is an SV.
@@ -645,6 +654,13 @@ namespace vg {
                 // in until all the variants in the clump have had their non-ref
                 // paths done.
                 map<vcflib::Variant*, Path*> variant_ref_paths;
+                
+                // This holds alt Path pointers and the inversions (start, end)
+                // that they need to trace through in their inverted
+                // orientations. They can't be traced until the corresponding
+                // reference nodes have been made. This can be resolved at the
+                // clump level.
+                vector<tuple<Path*, size_t, size_t>> inversion_trace_queue;
 
                 for (auto& kv : variants_by_name) {
                     // For each variant in the clump, sorted by name
@@ -676,26 +692,47 @@ namespace vg {
                             alt_path->set_name(alt_name);
                         }
 
-                    // SV HAX
-                    if (this->do_svs && variant->has_sv_tags() && variant->canonical){
+                        // SV HAX
+                        if (this->do_svs && variant->has_sv_tags() && variant->canonical) {
+                            // This is an SV
+                            
+                            #ifdef debug
+                            cerr << "Process alt " << (alt_index + 1) << " of variant " << variant_name << " as an SV" << endl;
+                            #endif
+                            
+                            string sv_type = variant->info.at("SVTYPE").at(0);
 
-                            auto e_start = variant->zeroBasedPosition() - chunk_offset;
-                            // TODO check index here, may or may not need to subtract 1
-                            auto e_end = variant->zeroBasedPosition() + abs(std::stol(variant->info.at("SVLEN")[0])) - chunk_offset - 1;
+                            if (sv_type == "INS") {
+                            
+                                // For an insertion, the created node will
+                                // start at the next base after the base used
+                                // to position the variant, just like we would
+                                // do for a non-SV insertion with the same POS
+                                // anchored on that base.
+                                auto e_start = variant->zeroBasedPosition() - chunk_offset + 1;
+                                
+                                // The insertion will "end" at the position
+                                // *before* that, so the things it is getting
+                                // inserted before can link up with it. TODO:
+                                // Respect the END tag if it says something
+                                // different.
+                                auto e_end = e_start - 1;
+                            
+                                auto inserted_sequence = variant->info.at("SEQ").at(alt_index);
+                            
+                                // Identify our created node run with a key, in
+                                // case it exists already somehow.
+                                auto key = make_tuple(e_start, "", inserted_sequence);
 
-                            // Make in between nodes by grabbing our sequence from the fasta(s),
-                            // either from the reference (deletions) or from insertion sequences.
-                            auto key = make_tuple(variant->zeroBasedPosition() - chunk_offset, variant->info.at("SVTYPE")[0], "");
+                                if (created_nodes.count(key) == 0) {
+                                    // Create insertion sequence nodes
+                                    vector<Node*> node_run = create_nodes(inserted_sequence);
 
-                            string sv_type = variant->info.at("SVTYPE")[0];
-
-                            if (variant->info.at("SVTYPE")[0] == "INS"){
-
-                                // Create insertion sequence nodes
-                                if (created_nodes.count(key) == 0){
-                                    vector<Node*> node_run = create_nodes(variant->info.at("SEQ")[0]);
-
-
+                                    #ifdef debug
+                                    cerr << "Inserted node " << node_run.front()->id() << " starts at " << e_start << endl;
+                                    cerr << "Inserted node " << node_run.back()->id() << " ends at " << e_end << endl;
+                                    #endif
+                                    
                                     nodes_starting_at[e_start].insert(node_run.front()->id());
                                     nodes_ending_at[e_end].insert(node_run.back()->id());
 
@@ -713,41 +750,56 @@ namespace vg {
                                         }
                                     }
                                 }
-                        }
-
-                        else if (sv_type == "DEL"){
-                            if (created_nodes.count(key) == 0){
-
-                                size_t arc_end = variant->zeroBasedPosition() - chunk_offset + std::stol(variant->info.at("SVLEN")[0]);
+                            } else if (sv_type == "DEL") {
+                                // Deletions also start after the base used
+                                // to anchor them, so you can keep the same
+                                // POS between SV and non-SV
+                                // representations. The END is inclusive.
                                 int64_t arc_start = (int64_t) variant->zeroBasedPosition() - chunk_offset; 
+                                size_t arc_end = std::stol(variant->info.at("END").at(alt_index)) - chunk_offset - 1;
+                               
+                                #ifdef debug
+                                cerr << "Deletion arc runs " << arc_start << " to " << arc_end << endl;
+                                #endif
 
                                 deletions_ending_at[arc_end].insert(arc_start);
                                 deletion_starts.insert(arc_start);
+                                
+                                // No alt path mappings necessary for the
+                                // deletion; the existence of the empty
+                                // path is sufficient.
+                                
+                            } else if (sv_type == "INV"){
+                                // Handle inversions
+                                // We only need reference nodes, plus two arcs
+                                // one from the inverted sequence's beginning to the sequence following
+                                // its last node and
+                                // one from the end of the sequence preceding the inversion to the back 
+                                // of the inverted sequence's last node.
+                                
+                                // Note that inversions actually invert the base at their POS, as a substitution would.
+                                // Insertions and deletions use that base as an anchor.
+                                
+                                // The END is still inclusive.
+                                
+                                int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset;
+                                size_t inv_end = std::stol(variant->info.at("END").at(alt_index)) - chunk_offset - 1;
 
+                                #ifdef debug
+                                cerr << "Inversion arcs connect " << inv_start << " and " << inv_end << endl;
+                                #endif
 
+                                inversions_starting[inv_start].insert(inv_end);
+                                inversions_ending[inv_end].insert(inv_start);
+                                
                                 if (alt_paths) {
-                                    deletion_start_to_alt_name[arc_start] = alt_name;
+                                    // We need to make alt path entries through this inverted sequence, backward.
+                                    // But we don't have the reference nodes created yet.
+                                    // So we queue them up
+                                    inversion_trace_queue.emplace_back(alt_path, inv_start, inv_end);
                                 }
-                            }
-                        }
-                        else if (sv_type == "INV"){
-                            // Handle inversions
-                            // We only need reference nodes, plus two arcs
-                            // one from the inverted sequence's beginning to the sequence following
-                            // its last node and
-                            // one from the end of the sequence preceding the inversion to the back 
-                            // of the inverted sequence's last node.
-                                    
-                            size_t inv_end = variant->zeroBasedPosition() - chunk_offset + std::stol(variant->info.at("SVLEN")[0]);
-                            int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset;
-                            // inversion_starts[inv_start - 1].insert(inv_end);
-                            // inversion_ends[inv_end + 1].insert(inv_start);
-
-                            inversion_starts[inv_start].insert(inv_end);
-                            inversion_ends[inv_end].insert(inv_start);
-                        }
-                        else {
-                            // Unknown or unsupported SV type
+                            } else {
+                                // Unknown or unsupported SV type
                                 cerr << "warning:[vg::Constructor]: unrecognized SV type " << sv_type << endl;
                             }
                         } else {
@@ -836,6 +888,10 @@ namespace vg {
 
                                     // Remember that an arc comes from this base
                                     deletion_starts.insert(arc_start);
+                                    
+                                    // No alt path mappings necessary for the
+                                    // deletion; the existence of the empty
+                                    // path is sufficient.
                                 }
 
                             }
@@ -901,12 +957,12 @@ namespace vg {
                         // If we found something, walk back where the breakpoint
                         // needs to be so we break before the node after the
                         // deletion starts.
-                        to_return = min(to_return, deletion_end_iter->first - 1);
+                        to_return = min(to_return, deletion_end_iter->first);
                         #ifdef debug
-                        cerr << "Next deletion ends at " << deletion_end_iter->first - 1 << endl;
+                        cerr << "Next deletion ends by deleting " << deletion_end_iter->first << endl;
                         #endif
                     }
-
+                    
                     // See if any deletions are known to start at or after this
                     // base. We care about exact hits now, because deletions break
                     // after the base they start at.
@@ -920,25 +976,27 @@ namespace vg {
                         // needs to leave from.
                         to_return = min(to_return, (size_t)*deletion_start_iter);
                         #ifdef debug
-                        cerr << "Next deletion starts at " << *deletion_start_iter << endl;
+                        cerr << "Next deletion starts by deleting " << *deletion_start_iter << endl;
                         #endif
                     }
 
-                    // Check to see if any inversions happen past this point
+                    // Check to see if any inversions' last inverted bases are past this point
                     // Inversions break the reference twice, much like deletions.
-                    auto inv_end_iter = inversion_ends.upper_bound(position);
-                    if (inv_end_iter != inversion_ends.end()){
-                        to_return = min(to_return, (size_t) inv_end_iter->first - 1);
+                    auto inv_end_iter = inversions_ending.upper_bound(position);
+                    if (inv_end_iter != inversions_ending.end()){
+                        to_return = min(to_return, (size_t) inv_end_iter->first);
                         #ifdef debug
-                        cerr << "Next inversion ends at " << inv_end_iter->first - 1 << endl;
+                        cerr << "Next inversion ends by inverting " << inv_end_iter->first << endl;
                         #endif
                     }
 
-                    auto inv_start_iter = inversion_starts.lower_bound(position);
-                    if (inv_start_iter != inversion_starts.end()){
+                    // Inversions break with the base they start at, not after,
+                    // so we don't care about exact hits and use upper_bound.
+                    auto inv_start_iter = inversions_starting.upper_bound(position);
+                    if (inv_start_iter != inversions_starting.end()){
                         to_return = min(to_return, (size_t) inv_start_iter->first);
                         #ifdef debug
-                        cerr << "Next inversion starts at " << inv_start_iter->first << endl;
+                        cerr << "Next inversion starts by inverting " << inv_start_iter->first << endl;
                         #endif
                     }
                     
@@ -986,6 +1044,10 @@ namespace vg {
                         // Remember where the first one starts and the last one ends, for wiring up later.
                         nodes_starting_at[reference_cursor].insert(node_run.front()->id());
                         nodes_ending_at[next_end].insert(node_run.back()->id());
+                        
+                        // Remember the whole node run for inversion tracing
+                        ref_runs_by_end[next_end] = node_run;
+                        
 
 #ifdef debug
                         cerr << "Created reference nodes running " << reference_cursor << " to " << next_end << endl;
@@ -1035,6 +1097,59 @@ namespace vg {
                 }
 
                 // Now we have gotten through all the places where nodes start, before the end of the clump.
+                
+                #ifdef debug
+                for (auto& kv : ref_runs_by_end) {
+                    cerr << "Ref run ends at " << kv.first << endl;
+                }
+                #endif
+                
+                for (auto& to_trace : inversion_trace_queue) {
+                    // Now that all the ref nodes exist, create the path entries for inversion alt paths.
+                    auto& alt_path = get<0>(to_trace);
+                    auto& inv_start = get<1>(to_trace);
+                    auto& inv_end = get<2>(to_trace);
+                    
+                    // We will walk this cursor back from the end of the
+                    // inversion to the start, going backward through runs of
+                    // reference nodes that end here.
+                    // Our inversion end is inclusive and that base is inverted, so start there.
+                    int64_t inv_end_cursor = inv_end;
+                    
+                    
+                    while (inv_end_cursor > inv_start) {
+                        #ifdef debug
+                        cerr << "Inversion cursor at " << inv_end_cursor << endl;
+                        #endif
+                    
+                        // Get the next ref run on the right that the inversion has to visit
+                        auto& trailing_run = ref_runs_by_end.at(inv_end_cursor);
+                        
+                        for (auto it = trailing_run.rbegin(); it != trailing_run.rend(); it++) {
+                            // For each node in the run in reverse order
+                            Node* node = *it;
+                            
+                            #ifdef debug
+                            cerr << "Reverse node " << node->id() << endl;
+                            #endif
+                            
+                            // Add a match to this node in its reverse orientation, since we are inverting.
+                            add_match(alt_path, node, true);
+                            
+                            // Advance the cursor left after visiting the node
+                            inv_end_cursor -= node->sequence().size();
+                        }
+                    }
+                    
+                    #ifdef debug
+                    cerr << "Added inversion alt path from " << inv_end << " back to " << inv_start << " and arrived at "
+                        << inv_end_cursor << endl;
+                    #endif
+                    
+                    // Make sure we did it right
+                    assert(inv_end_cursor + 1 == inv_start);
+                
+                }
 
                 // Now the clump is handled
                 clump.clear();
@@ -1059,6 +1174,10 @@ namespace vg {
                 // These are nodes that start somewhere else.
                 for (auto& right_node : kv.second) {
                     // For every node that could occur here
+                    
+#ifdef debug
+                    cerr << "Node " << right_node << " can start at " << kv.first << endl;
+#endif
 
                     for (auto& left_node : nodes_ending_at[kv.first - 1]) {
                         // For every node that could come before these nodes
@@ -1091,7 +1210,7 @@ namespace vg {
 
                     // We also keep a list of unexplored deletion end points to chain from.
                     list<int64_t> possible_ends;
-                    possible_ends.push_back(kv.first);
+                    possible_ends.push_back(kv.first - 1);
 
                     // And a set of explored ones
                     set<int64_t> explored_ends;
@@ -1102,6 +1221,10 @@ namespace vg {
                         int64_t deletion_end = possible_ends.front();
                         possible_ends.pop_front();
 
+#ifdef debug
+                        cerr << deletions_ending_at[deletion_end].size() << " deletions end by deleting " << deletion_end << endl;
+#endif
+    
                         for (auto& deletion_start : deletions_ending_at[deletion_end]) {
                             // For every deletion start that can end there.
 
@@ -1109,9 +1232,9 @@ namespace vg {
                             // transitive deletions.
                             possible_starts.insert(deletion_start);
 
-                            // We can daisy chain from deletions that end at the
-                            // base after this deletion starts.
-                            int64_t possible_end = deletion_start + 1;
+                            // We can daisy chain from deletions that end by
+                            // deleting the anchor base that this deletion starts at.
+                            int64_t possible_end = deletion_start;
 
                             if(chain_deletions && possible_end > 0 && !explored_ends.count(possible_end)) {
                                 // Queue it up if not already queued. If we aren't
@@ -1135,7 +1258,9 @@ namespace vg {
                             // but actually starts at a place where there are nodes.
 
                             for (auto& left_node : nodes_ending_at[deletion_start]) {
-                                // For every node that the deletion could start with
+                                // For every node that the deletion could
+                                // anchor from (because they end exactly where
+                                // it starts with its anchor)
 
                                 if (inserts.count(left_node)) {
                                     // Don't let an inserted node happen just before a deletion.
@@ -1157,28 +1282,86 @@ namespace vg {
                             }
                         }
                     }
-
-                    for (auto& inv_end : inversion_starts[kv.first]){
-                        for (auto& n : nodes_starting_at[inv_end]){
-                            auto* e = to_return.graph.add_edge();
-                            e->set_from(right_node);
-                            e->set_to(n);
-                            e->set_from_start(true);
-                            e->set_to_end(false);
-                        }
-                    }
-                    for (auto& inv_start : inversion_ends[kv.first]){
-                        for (auto& n : nodes_ending_at[inv_start]){
-                            auto* e = to_return.graph.add_edge();
-                            e->set_from(n);
-                            e->set_to(right_node);
-                            e->set_to_end(true);
-                            e->set_from_start(false);
-                        }
-                    }
                     
+                    #ifdef debug
+                    for (auto& kv2 : inversions_starting) {
+                        cerr << "Inversion can start at " << kv2.first << endl;
+                    }
+                    for (auto& kv2 : inversions_ending) {
+                        cerr << "Inversion can end at " << kv2.first << endl;
+                    }
+                    #endif
 
-
+                    // Now do the inversions.
+                    
+                    // What do we hook up to the start of right_node, which starts at kv.first?
+                    // For any inversions that end by inverting kv.first - 1, we hook up the starts of anything where the inversion started.
+                    if (inversions_ending.count(kv.first - 1)) {
+                        for (auto& inv_start : inversions_ending[kv.first - 1]) {
+                            // For each inversion start position corresponding to inversions ending by inverting this base
+                            
+#ifdef debug
+                            cerr << "Inversion ending by inverting " << kv.first - 1 << " can start at " << inv_start
+                                << " where " << nodes_starting_at[inv_start].size() << " nodes start" << endl;
+#endif
+                            
+                            for (auto& n : nodes_starting_at[inv_start]) {
+#ifdef debug
+                                cerr << "Node " << n << " can start at " << inv_start << " where inversion does. "
+                                 << "So link its start to our right_node's start." << endl;
+#endif
+                                
+                                // For each node that starts at the inversion start position, link it up inverted.
+                                auto* e = to_return.graph.add_edge();
+                                e->set_from(n);
+                                e->set_from_start(true);
+                                e->set_to(right_node);
+                                e->set_to_end(false);
+                                
+#ifdef debug
+                                cerr << "Invert " << n << " to " << right_node << endl;
+#endif
+                            }
+                        }
+                    }
+                
+                
+                }
+                
+                // Inversions continue with another loop over the left nodes
+                for (auto& left_node : nodes_ending_at[kv.first - 1]) {
+                
+                    // What do we hook up to the end of left_node, which ends right before kv.first?
+                    // For any inversions starting by inverting kv.first, we hook up the ends of everything that is at where the inversion ends.
+                    
+                    if (inversions_starting.count(kv.first)) {
+                        for (auto& inv_end : inversions_starting[kv.first]) {
+                            // For each inversion end position corresponding to inversions starting by inverting this base
+                            
+#ifdef debug
+                            cerr << "Inversion starting by inverting " << kv.first << " can end at " << inv_end
+                                << " where " << nodes_ending_at[inv_end].size() << " nodes end" << endl;
+#endif
+                            
+                            for (auto& n : nodes_ending_at[inv_end]) {
+#ifdef debug
+                                cerr << "Node " << n << " can end at " << inv_end << " where inversion does. "
+                                 << "So link its end to our left_node's end." << endl;
+#endif
+                            
+                                // For each node that ends at that inversion end position, link it up inverted.
+                                auto* e = to_return.graph.add_edge();
+                                e->set_from(left_node);
+                                e->set_from_start(false);
+                                e->set_to(n);
+                                e->set_to_end(true);
+                                
+#ifdef debug
+                                cerr << "Invert " << left_node << " to " << n << endl;
+#endif
+                            }
+                        }
+                    }
                 }
             }
         }
