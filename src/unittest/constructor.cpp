@@ -1391,7 +1391,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 
 
-TEST_CASE( "A deletion is represented properly" , "[constructor]") {
+TEST_CASE( "An SV deletion is represented properly" , "[constructor]") {
 
     auto vcf_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
@@ -1457,8 +1457,74 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 }
 
+TEST_CASE( "A non-SV deletion is represented properly" , "[constructor]") {
 
-TEST_CASE("VG handles insertions", "[constructor]"){
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted = {
+            {1, 2},
+            {1, 4},
+            {2, 3},
+            {3, 4},
+            {4, 5},
+            {5, 6}
+        };
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+
+TEST_CASE("VG handles SV insertions", "[constructor]"){
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
@@ -1521,7 +1587,7 @@ x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=9;CIPOS=0
 
 }
 
-TEST_CASE( "An inversion is represented properly" , "[constructor]") {
+TEST_CASE( "An SV inversion is represented properly" , "[constructor]") {
 
     auto vcf_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805

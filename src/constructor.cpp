@@ -869,9 +869,11 @@ namespace vg {
                                     // It's a deletion (and not a weird ""->"" edit).
 
                                     // Add an entry to the deletion arcs
-                                    // What is the past-the-end position (first non-deleted)
-                                    size_t arc_end = edit.position - 1 - chunk_offset + edit.ref.size();
-                                    // What is the before-the-beginning position (last non-deleted, may be -1)
+                                    // What is the end position (last deleted)
+                                    // Take the 0-based edit position, remove the chunk offset,
+                                    // advance the ref bases, and then back up 1 base to the last deleted ref base.
+                                    size_t arc_end = (edit.position - 1) - chunk_offset + edit.ref.size() - 1;
+                                    // What is the before-the-beginning anchoring position (last non-deleted, may be -1)
                                     int64_t arc_start = (int64_t) edit.position - 1 - chunk_offset - 1;
 
 
