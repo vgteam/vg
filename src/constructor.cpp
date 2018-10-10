@@ -171,6 +171,17 @@ namespace vg {
         
         end = var.getMaxReferenceLength();
         
+        if (var.has_sv_tags() && var.canonical) {
+            string sv_type = var.info.at("SVTYPE").at(0);
+            
+            if (sv_type == "INV") {
+                // We need to adjust these for inversion symbolic structural variants.
+                // They really are substitution-like, but they are encoded with a left anchoring base that does not vary.
+                // We should remove it.
+                start++;
+            }
+        }
+        
         return std::make_pair( start, end);
     }
 
@@ -778,12 +789,20 @@ namespace vg {
                                 // one from the end of the sequence preceding the inversion to the back 
                                 // of the inverted sequence's last node.
                                 
-                                // Note that inversions actually invert the base at their POS, as a substitution would.
-                                // Insertions and deletions use that base as an anchor.
+                                // Inversions also require a left anchoring base, according to the spec.
+                                //
+                                // "If any of the ALT alleles is a symbolic
+                                // allele (an angle-bracketed ID String “<ID>”)
+                                // then the padding base is required and POS
+                                // denotes the coordinate of the base preceding
+                                // the polymorphism."
+                                //
                                 
                                 // The END is still inclusive.
                                 
-                                int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset;
+                                // Add 1 to account for the anchoring base.
+                                // Internally we use inclusive inversion starts.
+                                int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset + 1;
                                 size_t inv_end = std::stol(variant->info.at("END").at(alt_index)) - chunk_offset - 1;
 
                                 #ifdef debug
