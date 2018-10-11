@@ -52,6 +52,12 @@ public:
     size_t get_n_bins(void) const;
     bool is_dynamic(void);
     size_t coverage_size(void);
+
+    size_t edge_coverage(const Edge& e) const;
+    size_t edge_coverage(size_t i) const;
+    size_t coverage_at_position(size_t i) const ;
+    size_t edge_count(void) const;
+    size_t edge_vector_size(void) const;
 private:
     void ensure_edit_tmpfiles_open(void);
     void close_edit_tmpfiles(void);
@@ -69,6 +75,7 @@ private:
     size_t edit_length = 0;
     size_t edit_count = 0;
     dac_vector<> coverage_civ; // graph coverage (compacted coverage_dynamic)
+    dac_vector<> edge_coverage_civ; // edge coverage (compacted)
     //
     vector<csa_sada<enc_vector<>, 32, 32, sa_order_sa_sampling<>, isa_sampling<>, succinct_byte_alphabet<> > > edit_csas;
     // make separators that are somewhat unusual, as we escape these
@@ -82,6 +89,7 @@ private:
     string unescape_delims(const string& s) const;
 
     Edge edge_from_mappings(const Mapping& m, const Mapping& n);
+    
 };
 
 // for making a combined matrix output and maybe doing other fun operations

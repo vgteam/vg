@@ -125,6 +125,9 @@ void Packer::collect_coverage(const Packer& c) {
     for (size_t i = 0; i < c.graph_length(); ++i) {
         coverage_dynamic.increment(i, c.coverage_at_position(i));
     }
+    for (size_t i = 0; i < c.edge_vector_size(); ++i){
+        edge_coverage_dynamic.increment(i, c.edge_coverage(i));
+    }
 }
 
 size_t Packer::serialize(std::ostream& out,
@@ -394,11 +397,44 @@ size_t Packer::graph_length(void) const {
     }
 }
 
+size_t Packer::edge_count(void) const{
+    return xgidx->edge_count();
+}
+
+size_t Packer::edge_vector_size(void) const{
+    if (is_compacted){
+        return edge_coverage_civ.size();
+    }
+    else{
+        return edge_coverage_dynamic.size()
+    }
+}
+
 size_t Packer::coverage_at_position(size_t i) const {
     if (is_compacted) {
         return coverage_civ[i];
     } else {
         return coverage_dynamic[i];
+    }
+}
+
+size_t Packer::edge_coverage(size_t i) const {
+    if (is_compacted){
+        return 0;
+    }
+    else{
+        return edge_coverage_dynamic[i];
+    }
+}
+
+size_t Packer::edge_coverage(const Edge& e) const {
+    e = xgidx->canonicalize(e);
+    if (is_compacted){
+        return 0;
+    }
+    else{
+        size_t pos = xgidx->edge_graph_idx(e);
+        return edge_coverage_dynamic[pos];
     }
 }
 
