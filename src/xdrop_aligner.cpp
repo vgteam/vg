@@ -76,8 +76,7 @@ XdropAligner::XdropAligner(
 	assert(_max_gap_length > 0);
 
 	uint64_t go = _gap_open - _gap_extension, ge = _gap_extension;
-	uint64_t xdrop_threshold = ge * (uint64_t)_max_gap_length + go;
-	dz = dz_init((int8_t const *)_score_matrix, go, ge, xdrop_threshold, _full_length_bonus);
+	dz = dz_init((int8_t const *)_score_matrix, go, ge, _max_gap_length, _full_length_bonus);
 	// bench_init(bench);
 }
 
@@ -104,8 +103,7 @@ XdropAligner::XdropAligner(
 		X, X, X, M
 	};
 	uint64_t go = _gap_open - _gap_extension, ge = _gap_extension;
-	uint64_t xdrop_threshold = ge * (uint64_t)_max_gap_length + go;
-	dz = dz_init((int8_t const *)_score_matrix, go, ge, xdrop_threshold, _full_length_bonus);
+	dz = dz_init((int8_t const *)_score_matrix, go, ge, _max_gap_length, _full_length_bonus);
 	// bench_init(bench);
 }
 
@@ -225,20 +223,26 @@ struct graph_pos_s XdropAligner::calculate_max_position(Graph const &graph, stru
 
 struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::string const &query_seq, bool direction)
 {
-	uint64_t const qlen = query_seq.length(), scan_len = qlen < 16 ? qlen : 16;		// FIXME: scan_len should be variable
+	uint64_t const qlen = query_seq.length(), scan_len = qlen < 15 ? qlen : 15;		// FIXME: scan_len should be variable
 
+	debug("scan seeds, direction(%u), qlen(%lu), scan_len(%lu)", direction, qlen, scan_len);
+	for(vector<uint64_t>::const_reverse_iterator p = index_edges.rbegin(); p != index_edges.rend(); p++) {
+		// debug("i(%lu), %lu -> %lu", p - index_edges.rbegin(), _dst_index(*p), _src_index(*p));
+	}
 	struct dz_query_s const *packed_query = (direction
-		? dz_pack_query_forward(dz, &query_seq.c_str()[0],               scan_len)
-		: dz_pack_query_reverse(dz, &query_seq.c_str()[qlen - scan_len], scan_len)
+		? dz_pack_query_reverse(dz, &query_seq.c_str()[0],               scan_len)
+		: dz_pack_query_forward(dz, &query_seq.c_str()[qlen - scan_len], scan_len)
 	);
 
 	int64_t inc = direction ? -1 : 1;
-	size_t max_node_index = 0, prev_node_index = direction ? graph.node_size() : 0;
-	for(vector<uint64_t>::const_iterator p = index_edges.begin(); p != index_edges.end();) {
-		size_t node_index = _dst_index(*p), n_incoming_edges = 0, n_incoming_forefronts = 0;
+	size_t max_node_index = direction ? graph.node_size() - 1 : 0, prev_node_index = max_node_index - inc;
+	for(vector<uint64_t>::const_reverse_iterator p = index_edges.rbegin(); p != index_edges.rend();) {
+		size_t node_index = _src_index(*p), n_incoming_edges = 0;
+		debug("i(%lu), node_index(%lu), max_node_index(%lu), prev_node_index(%lu)", p - index_edges.rbegin(), node_index, max_node_index, prev_node_index);
 
 		// fill ends
 		for(size_t empty_node_index = prev_node_index + inc; compare[direction](empty_node_index, node_index); empty_node_index += inc) {
+			debug("fill root for empty_node_index(%lu)", empty_node_index);
 			std::string const &seq = graph.node(empty_node_index).sequence();
 			forefronts[empty_node_index] = dz_scan(dz,
 				packed_query,
@@ -252,13 +256,14 @@ struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::str
 
 
 		// count #incoming edges
-		while(p + n_incoming_edges != index_edges.end() && _dst_index(p[n_incoming_edges]) == node_index) { n_incoming_edges++; }
+		while(p + n_incoming_edges != index_edges.rend() && _src_index(p[n_incoming_edges]) == node_index) { n_incoming_edges++; }
 		assert(n_incoming_edges > 0);
+		debug("n_incoming_edges(%lu)", n_incoming_edges);
 
 		// pack incoming edges
 		struct dz_forefront_s const *incoming_forefronts[n_incoming_edges + 1];
 		for(size_t i = 0; i < n_incoming_edges; i++) {
-			struct dz_forefront_s const *t = forefronts[_src_index(p[i])];
+			struct dz_forefront_s const *t = forefronts[_dst_index(p[i])];
 			assert(t != nullptr);
 			incoming_forefronts[i] = t;
 		}
@@ -270,11 +275,13 @@ struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::str
 		std::string const &ref_seq = n.sequence();
 		forefronts[node_index] = dz_scan(dz,
 			packed_query,
-			incoming_forefronts, n_incoming_forefronts,
+			incoming_forefronts, n_incoming_edges,
 			&ref_seq.c_str()[direction ? ref_seq.length() : 0],
 			direction ? -ref_seq.length() : ref_seq.length(),
 			node_index
 		);
+		debug("i(%lu), forefront(%p), max(%d)", p - index_edges.rbegin(), forefronts[node_index], forefronts[node_index]->max);
+
 		if(forefronts[node_index]->max + (direction & dz_geq(forefronts[node_index])) > forefronts[max_node_index]->max) {
 			max_node_index = node_index;
 		}
@@ -284,8 +291,10 @@ struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::str
 	struct graph_pos_s pos;
 	pos.node_index = 0;
 	pos.ref_offset = 0;
-	pos.query_offset = 0;
-	return(calculate_max_position(graph, pos, max_node_index, direction));
+	pos.query_offset = direction ? scan_len : qlen - scan_len;
+	struct graph_pos_s p = calculate_max_position(graph, pos, max_node_index, direction);
+	debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_node_index]->max);
+	return(p);
 }
 
 size_t XdropAligner::extend(
@@ -553,29 +562,31 @@ XdropAligner::align(
 	forefronts.reserve(graph.node_size());		// vector< void * >
 
 	// extract seed node
-	// MaximalExactMatch const &seed = select_root_seed(mems);
-	struct graph_pos_s seed_pos = (mems.empty()
-		? scan_seed_position(graph, query_seq, direction)		// scan seed position mems is empty
-		: calculate_seed_position(graph, mems, qlen, direction)
-	);
+	struct graph_pos_s head_pos;
+	if(mems.empty()) {
+		// seeds are not available here; probably called from mate_rescue
+		build_index_edge_table(graph, direction ? graph.node_size() : 0, direction);			// we need edge information before we traverse the graph for scan seeds
+		head_pos = scan_seed_position(graph, query_seq, direction);								// scan seed position mems is empty
+	} else {
+		// ordinary extension DP
+		struct graph_pos_s seed_pos = calculate_seed_position(graph, mems, qlen, direction);	// we need seed to build edge table (for semi-global extension)
+		build_index_edge_table(graph, seed_pos.node_index, direction);
 
-	// build edge table
-	build_index_edge_table(graph, seed_pos.node_index, direction);
+		// pack query (upward)
+		struct dz_query_s const *packed_query_seq_up = (direction
+			? dz_pack_query_reverse(dz, &query_seq.c_str()[0],                            seed_pos.query_offset)
+			: dz_pack_query_forward(dz, &query_seq.c_str()[seed_pos.query_offset], qlen - seed_pos.query_offset)
+		);
 
-	// pack query (upward)
-	struct dz_query_s const *packed_query_seq_up = (direction
-		? dz_pack_query_reverse(dz, &query_seq.c_str()[0],                            seed_pos.query_offset)
-		: dz_pack_query_forward(dz, &query_seq.c_str()[seed_pos.query_offset], qlen - seed_pos.query_offset)
-	);
-
-	// upward extension
-	struct graph_pos_s head_pos = calculate_max_position(graph, seed_pos,
-		extend(graph, index_edges_head.begin(), index_edges_head.end(),
-			packed_query_seq_up, seed_pos.node_index, seed_pos.ref_offset,
+		// upward extension
+		head_pos = calculate_max_position(graph, seed_pos,
+			extend(graph, index_edges_head.begin(), index_edges_head.end(),
+				packed_query_seq_up, seed_pos.node_index, seed_pos.ref_offset,
+				direction
+			),
 			direction
-		),
-		direction
-	);
+		);
+	}
 	// fprintf(stderr, "head_node_index(%lu), rpos(%lu, %u), qpos(%u), direction(%d)\n", head_pos.node_index, head_pos.node_index, head_pos.ref_offset, head_pos.query_offset, direction);
 
 	// pack query (downward)
@@ -598,6 +609,10 @@ XdropAligner::align(
 	);
 	dz_flush(dz);
 	// bench_end(bench);
+
+	#ifdef DEBUG
+		if(mems.empty()) { fprintf(stderr, "rescue: score(%d)\n", alignment.score()); }
+	#endif
 	return;
 }
 
