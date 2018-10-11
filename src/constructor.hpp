@@ -215,12 +215,14 @@ private:
      * the base after it and the base before it.
      */
     static pair<int64_t, int64_t> get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant);
+    
     /**
-     *  Given a variant, check its bounds and return them.
-     * This function handles SVs properly, since they won't
-     * always have their ref and alt fields put in.
+     * Given a symbolic variant, check its bounds and return them. This
+     * function is needed to handle SVs properly, since they won't always have
+     * their ref and alt fields put in. Note that insertions may have an end
+     * bound before their start, because the anchoring base isn't included.
      */
-    static pair<int64_t, int64_t> get_bounds(vcflib::Variant var);
+    static pair<int64_t, int64_t> get_symbolic_bounds(vcflib::Variant var);
     /// What sequences have we warned about containing lowercase characters?
     mutable unordered_set<string> warned_sequences;
     

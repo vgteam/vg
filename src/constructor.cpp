@@ -162,27 +162,19 @@ namespace vg {
         }
     }
 
-    pair<int64_t, int64_t> Constructor::get_bounds(vcflib::Variant var){
-        int64_t start = numeric_limits<int64_t>::max();
-
-        start = min(start, (int64_t) var.zeroBasedPosition());
-        int64_t end = -1;
-
+    pair<int64_t, int64_t> Constructor::get_symbolic_bounds(vcflib::Variant var) {
+        // TODO: We assume that the variant actually has at laest one symbolic alt allele like <INS>.
+        // If that is the case, the base at POS must be an anchoring, unmodified base.
+        // But you can also have SV tags on something like a CCATG->G right-anchored deletion as long as
+        // none of the alleles are symbolic.
+        // We really should be calling this on variants that *were* symbolic before canonicalization.
+    
+        // Move the start 1 base right to account for the required anchor base.
+        // This may make us start after the end.
+        int64_t start = (int64_t) var.zeroBasedPosition() + 1;
+        int64_t end = var.getMaxReferencePos();
         
-        end = var.getMaxReferenceLength();
-        
-        if (var.has_sv_tags() && var.canonical) {
-            string sv_type = var.info.at("SVTYPE").at(0);
-            
-            if (sv_type == "INV") {
-                // We need to adjust these for inversion symbolic structural variants.
-                // They really are substitution-like, but they are encoded with a left anchoring base that does not vary.
-                // We should remove it.
-                start++;
-            }
-        }
-        
-        return std::make_pair( start, end);
+        return std::make_pair(start, end);
     }
 
 
@@ -267,8 +259,10 @@ namespace vg {
         set<id_t> inserts;
 
         // We need to wire up our inversions super specially. These hold the
-        // end positions for each inversion starting a the key, for
-        // inversions_starting, or visa-versa, for inversions_ending. 
+        // end positions for each inversion anchored at the key, for
+        // inversions_starting, or visa-versa, for inversions_ending. In other
+        // words, the start position is exclusive and the end position is
+        // inclusive.
         map<size_t, set<size_t>> inversions_starting;
         map<size_t, set<size_t>> inversions_ending;
         
@@ -381,7 +375,7 @@ namespace vg {
         auto add_reference_nodes_until = [&](size_t target_position) {
 
             #ifdef debug
-            cerr << "Create reference from cursor at " << reference_cursor << " out to "
+            cerr << "Create reference from cursor at " << reference_cursor << " out up to before "
                 << target_position << "/" << reference_sequence.size() << endl;
             #endif
 
@@ -431,7 +425,7 @@ namespace vg {
             reference_cursor = target_position;
             
             #ifdef debug
-            cerr << "Advanced reference cursor to " << reference_cursor << "/" << reference_sequence.size() << endl;
+            cerr << "Advanced reference cursor for next unmade base to " << reference_cursor << "/" << reference_sequence.size() << endl;
             #endif
             
             assert(reference_cursor <= reference_sequence.size());
@@ -495,23 +489,24 @@ namespace vg {
                 set<vcflib::Variant*> duplicates;
                 
                 for (vcflib::Variant* variant : clump) {
+                
+                    // No variants should still be symbolic at this point.
+                    // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
+                    assert(!variant->is_symbolic_sv());
+                    // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
+                    auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
 
-                    if (!variant->is_symbolic_sv()){
-                        auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
-
-                        if(variant->ref != expected_ref) {
-                        // TODO: report error to caller somehow
-                        #pragma omp critical (cerr)
-                            cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
-                                << " vs pos: " << variant->position << ": " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
-                                << "Variant: " << *variant << endl;
-                                cerr << "zero ind: " << variant->zeroBasedPosition() << " 1-indexed: " << variant->position << endl;
-                            exit(1);
-                        }
+                    if(variant->ref != expected_ref) {
+                    // TODO: report error to caller somehow
+                    #pragma omp critical (cerr)
+                        cerr << "error:[vg::Constructor] Variant/reference sequence mismatch: " << variant->ref
+                            << " vs pos: " << variant->position << ": " << expected_ref << "; do your VCF and FASTA coordinates match?"<< endl
+                            << "Variant: " << *variant << endl;
+                            cerr << "zero ind: " << variant->zeroBasedPosition() << " 1-indexed: " << variant->position << endl;
+                        exit(1);
                     }
-                    
 
                     // Name the variant and place it in the order that we'll
                     // actually construct nodes in (see utility.hpp)
@@ -549,15 +544,17 @@ namespace vg {
                                 }
                             }
                         }
-                    //} else if (!variant->has_sv_tags()) {
                     } else {
                         alternates = variant->parsedAlternates();
                     }
                     
-                    if (!variant->is_symbolic_sv()){
-
-                        //map<vcflib::Variant*, vector<list<vcflib::VariantAllele>>> parsed_clump;
-                        //auto alternates = use_flat_alts ? variant.flatAlternates() : variant.parsedAlternates();
+                    // Get the variable bounds in VCF space for all the trimmed alts of this variant
+                    // Note: we still want bounds for SVs, we just have to get them differently
+                    std::pair<int64_t, int64_t> bounds;
+                    
+                    if (!variant->has_sv_tags()){
+                        // We will process the variant as a normal variant, based on its ref and alt sequences.
+                        
                         for (auto &kv : alternates) {
                             // For each alt in the variant
 
@@ -597,8 +594,16 @@ namespace vg {
                         // Trim the alts down to the variant's (possibly empty) variable
                         // region
                         trim_to_variable(parsed_clump[variant]);
+                        
+                        // The bounds are determined from that
+                        bounds = get_bounds(parsed_clump[variant]);
                     } else {
-                        cerr << "Is symbolic: " << *variant << endl;
+                        // We are going to make the edit specified by the SV
+                        // tags, instead of whatever edits are implied by
+                        // aligning the ref and alt sequences.
+                        #ifdef debug
+                        cerr << "Use SV tags to define edit for: " << *variant << endl;
+                        #endif
                         // For now, only permit one allele for SVs
                         // in the future, we'll build out VCF lib to fix this.
                         // TODO build out vcflib to fix this.
@@ -607,17 +612,11 @@ namespace vg {
                         // We need to make sure parsed_clump[variant] has an entry for each allele.
                         // But the contents won't matter since this is an SV.
                         parsed_clump[variant].resize(variant->alt.size());
+                        
+                        // The bounds are determined symbolically
+                        bounds = get_symbolic_bounds(*variant);
                     }
                 
-                    // Get the variable bounds in VCF space for all the trimmed alts of this variant
-                    // Note: we still want bounds for SVs, we just have to get them differently
-                    std::pair<int64_t, int64_t> bounds;
-                    bounds = get_bounds(parsed_clump[variant]);
-                    if (variant->is_symbolic_sv()){
-                        bounds = get_bounds(*variant);
-                    }
-                    
-
                     if (bounds.first != numeric_limits<int64_t>::max() || bounds.second != -1) {
                         // There's a (possibly 0-length) variable region
                         bounds.first -= chunk_offset;
@@ -800,13 +799,12 @@ namespace vg {
                                 
                                 // The END is still inclusive.
                                 
-                                // Add 1 to account for the anchoring base.
-                                // Internally we use inclusive inversion starts.
-                                int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset + 1;
+                                // Start at the anchoring base
+                                int64_t inv_start = (int64_t) variant->zeroBasedPosition() - chunk_offset;
                                 size_t inv_end = std::stol(variant->info.at("END").at(alt_index)) - chunk_offset - 1;
 
                                 #ifdef debug
-                                cerr << "Inversion arcs connect " << inv_start << " and " << inv_end << endl;
+                                cerr << "Inversion arcs connect right of " << inv_start << " and right of " << inv_end << endl;
                                 #endif
 
                                 inversions_starting[inv_start].insert(inv_end);
@@ -998,7 +996,7 @@ namespace vg {
                         // needs to leave from.
                         to_return = min(to_return, (size_t)*deletion_start_iter);
                         #ifdef debug
-                        cerr << "Next deletion starts by deleting " << *deletion_start_iter << endl;
+                        cerr << "Next deletion starts after " << *deletion_start_iter << endl;
                         #endif
                     }
 
@@ -1012,13 +1010,13 @@ namespace vg {
                         #endif
                     }
 
-                    // Inversions break with the base they start at, not after,
-                    // so we don't care about exact hits and use upper_bound.
-                    auto inv_start_iter = inversions_starting.upper_bound(position);
+                    // Inversions break just after the anchor the base they start at,
+                    // so we care about exact hits and use lower_bound.
+                    auto inv_start_iter = inversions_starting.lower_bound(position);
                     if (inv_start_iter != inversions_starting.end()){
                         to_return = min(to_return, (size_t) inv_start_iter->first);
                         #ifdef debug
-                        cerr << "Next inversion starts by inverting " << inv_start_iter->first << endl;
+                        cerr << "Next inversion starts after " << inv_start_iter->first << endl;
                         #endif
                     }
                     
@@ -1135,7 +1133,8 @@ namespace vg {
                     // We will walk this cursor back from the end of the
                     // inversion to the start, going backward through runs of
                     // reference nodes that end here.
-                    // Our inversion end is inclusive and that base is inverted, so start there.
+                    // It will track the first base from right to left that we have yet to cover with our path.
+                    // Our inversion end is inclusive and that base is inverted, so start past there.
                     int64_t inv_end_cursor = inv_end;
                     
                     
@@ -1169,7 +1168,7 @@ namespace vg {
                     #endif
                     
                     // Make sure we did it right
-                    assert(inv_end_cursor + 1 == inv_start);
+                    assert(inv_end_cursor == inv_start);
                 
                 }
 
@@ -1307,10 +1306,10 @@ namespace vg {
                     
                     #ifdef debug
                     for (auto& kv2 : inversions_starting) {
-                        cerr << "Inversion can start at " << kv2.first << endl;
+                        cerr << "Inversion can start after " << kv2.first << endl;
                     }
                     for (auto& kv2 : inversions_ending) {
-                        cerr << "Inversion can end at " << kv2.first << endl;
+                        cerr << "Inversion can end by inverting " << kv2.first << endl;
                     }
                     #endif
 
@@ -1323,13 +1322,13 @@ namespace vg {
                             // For each inversion start position corresponding to inversions ending by inverting this base
                             
 #ifdef debug
-                            cerr << "Inversion ending by inverting " << kv.first - 1 << " can start at " << inv_start
-                                << " where " << nodes_starting_at[inv_start].size() << " nodes start" << endl;
+                            cerr << "Inversion ending by inverting " << kv.first - 1 << " is anchored at " << inv_start
+                                << " after which " << nodes_starting_at[inv_start + 1].size() << " nodes start" << endl;
 #endif
                             
-                            for (auto& n : nodes_starting_at[inv_start]) {
+                            for (auto& n : nodes_starting_at[inv_start + 1]) {
 #ifdef debug
-                                cerr << "Node " << n << " can start at " << inv_start << " where inversion does. "
+                                cerr << "Node " << n << " can start at " << (inv_start + 1) << " where inversion first inverts. "
                                  << "So link its start to our right_node's start." << endl;
 #endif
                                 
@@ -1354,21 +1353,21 @@ namespace vg {
                 for (auto& left_node : nodes_ending_at[kv.first - 1]) {
                 
                     // What do we hook up to the end of left_node, which ends right before kv.first?
-                    // For any inversions starting by inverting kv.first, we hook up the ends of everything that is at where the inversion ends.
+                    // For any inversions anchoring where this node ends, we hook up the ends of everything that is at where the inversion ends.
                     
-                    if (inversions_starting.count(kv.first)) {
-                        for (auto& inv_end : inversions_starting[kv.first]) {
+                    if (inversions_starting.count(kv.first - 1)) {
+                        for (auto& inv_end : inversions_starting[kv.first - 1]) {
                             // For each inversion end position corresponding to inversions starting by inverting this base
                             
 #ifdef debug
-                            cerr << "Inversion starting by inverting " << kv.first << " can end at " << inv_end
-                                << " where " << nodes_ending_at[inv_end].size() << " nodes end" << endl;
+                            cerr << "Inversion starting by inverting " << kv.first << " and anchored at " << (kv.first - 1)
+                                << " can end at " << inv_end << " where " << nodes_ending_at[inv_end].size() << " nodes end" << endl;
 #endif
                             
                             for (auto& n : nodes_ending_at[inv_end]) {
 #ifdef debug
                                 cerr << "Node " << n << " can end at " << inv_end << " where inversion does. "
-                                 << "So link its end to our left_node's end." << endl;
+                                 << "So link its end to " << left_node << "'s end at anchor point " << (kv.first - 1) << endl;
 #endif
                             
                                 // For each node that ends at that inversion end position, link it up inverted.
@@ -1732,7 +1731,7 @@ namespace vg {
             
             if (vvar->is_symbolic_sv() && this->do_svs) {
                 // Canonicalize the variant and see if that disqualifies it.
-                // This also takes care of setting the variant's insertion sequences.
+                // This also takes care of setting the variant's alt sequences.
                 variant_acceptable = vvar->canonicalize(reference, insertions, true);
  
                 if (variant_acceptable) {
@@ -1748,10 +1747,12 @@ namespace vg {
                 if (variant_acceptable) {
                     // Worth checking for bounds problems.
                     // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
-                    auto bounds = get_bounds(*vvar);
-                    if (bounds.second < bounds.first) {
+                    // But for inserts the bounds will have the end right before the start, so we have to allow for those.
+                    auto bounds = get_symbolic_bounds(*vvar);
+                    if (bounds.second + 1 < bounds.first) {
                         #pragma omp critical (cerr)
-                        cerr << "warning:[vg::Constructor] SV with end position before start being skipped (check liftover?): "
+                        cerr << "warning:[vg::Constructor] SV with end position " << bounds.second
+                            << " significantly before start " << bounds.first << " being skipped (check liftover?): "
                             << *vvar << endl;
                         variant_acceptable = false;
                     }
