@@ -192,8 +192,8 @@ Static Private Member Functions</h2></td></tr>
 <tr class="separator:a1b13ae925876f9f7617850ab4e2ad355"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a06078b6af1dc190c74806b30b669daae"><td class="memItemLeft" align="right" valign="top">static pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a06078b6af1dc190c74806b30b669daae">get_bounds</a> (const vector&lt; list&lt; vcflib::VariantAllele &gt;&gt; &amp;trimmed_variant)</td></tr>
 <tr class="separator:a06078b6af1dc190c74806b30b669daae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a95e274ecdcfba09bc3a3d8c6b71a0d0d"><td class="memItemLeft" align="right" valign="top">static pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a95e274ecdcfba09bc3a3d8c6b71a0d0d">get_bounds</a> (vcflib::Variant <a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>)</td></tr>
-<tr class="separator:a95e274ecdcfba09bc3a3d8c6b71a0d0d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a31a7837804bd45819ab249687a858fbb"><td class="memItemLeft" align="right" valign="top">static pair&lt; int64_t, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Constructor.html#a31a7837804bd45819ab249687a858fbb">get_symbolic_bounds</a> (vcflib::Variant <a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>)</td></tr>
+<tr class="separator:a31a7837804bd45819ab249687a858fbb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -378,7 +378,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a95e274ecdcfba09bc3a3d8c6b71a0d0d"></a>
+<a class="anchor" id="a31a7837804bd45819ab249687a858fbb"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -386,7 +386,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">pair&lt; int64_t, int64_t &gt; vg::Constructor::get_bounds </td>
+          <td class="memname">pair&lt; int64_t, int64_t &gt; vg::Constructor::get_symbolic_bounds </td>
           <td>(</td>
           <td class="paramtype">vcflib::Variant&#160;</td>
           <td class="paramname"><em>var</em></td><td>)</td>
@@ -399,7 +399,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Given a variant, check its bounds and return them. This function handles SVs properly, since they won't always have their ref and alt fields put in. </p>
+<p>Given a symbolic variant, check its bounds and return them. This function is needed to handle SVs properly, since they won't always have their ref and alt fields put in. Note that insertions may have an end bound before their start, because the anchoring base isn't included. </p>
 
 </div>
 </div>

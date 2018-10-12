@@ -3,7 +3,7 @@ var searchData=
   ['lane',['lane',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#a197d4920d6cbdfabac08f0de992a425a',1,'vg::ReplaceSnarlHaplotypeCommand']]],
   ['large_5falignment_5fband_5fpadding',['large_alignment_band_padding',['../classvg_1_1VariantAdder.html#aefe81cd7c81a7f3ba54c73e25c24ba3f',1,'vg::VariantAdder']]],
   ['larger_5fprime',['larger_prime',['../classvg_1_1ShuffledPairs.html#a20b31eca7b0fc0185246c560fd8e266d',1,'vg::ShuffledPairs']]],
-  ['last',['Last',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a228b0b89df1091e9f4c35ed04f649c28',1,'vg::NodeDivider::Last()'],['../structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b',1,'vg::FeatureSet::Feature::last()']]],
+  ['last',['last',['../structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b',1,'vg::FeatureSet::Feature::last()'],['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a228b0b89df1091e9f4c35ed04f649c28',1,'vg::NodeDivider::Last()']]],
   ['last_5fgroup_5fmin_5fid',['last_group_min_id',['../classvg_1_1GAMIndex.html#abbb915dddfae7d8ef81afd16d814dfc8',1,'vg::GAMIndex']]],
   ['last_5fnode_5flength',['last_node_length',['../structvg_1_1PathIndex.html#ac64a3532df12093eeccf3201184ea4d9',1,'vg::PathIndex']]],
   ['last_5fpath_5fposition',['last_path_position',['../namespacevg.html#aa1c1e5b8ce9f9607976913317102d6dc',1,'vg']]],
