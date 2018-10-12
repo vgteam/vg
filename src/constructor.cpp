@@ -163,7 +163,7 @@ namespace vg {
     }
 
     pair<int64_t, int64_t> Constructor::get_symbolic_bounds(vcflib::Variant var) {
-        // TODO: We assume that the variant actually has at laest one symbolic alt allele like <INS>.
+        // TODO: We assume that the variant actually has at least one symbolic alt allele like <INS>.
         // If that is the case, the base at POS must be an anchoring, unmodified base.
         // But you can also have SV tags on something like a CCATG->G right-anchored deletion as long as
         // none of the alleles are symbolic.
