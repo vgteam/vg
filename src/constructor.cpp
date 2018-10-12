@@ -492,7 +492,7 @@ namespace vg {
                 
                     // No variants should still be symbolic at this point.
                     // Either we canonicalized them into base-level sequence, or we rejected them whn making the clump.
-                    assert(!variant->is_symbolic_sv());
+                    assert(!variant->isSymbolicSV());
                     // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
@@ -552,7 +552,7 @@ namespace vg {
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
                     
-                    if (!variant->has_sv_tags()){
+                    if (!variant->hasSVTags()){
                         // We will process the variant as a normal variant, based on its ref and alt sequences.
                         
                         for (auto &kv : alternates) {
@@ -704,7 +704,7 @@ namespace vg {
                         }
 
                         // SV HAX
-                        if (this->do_svs && variant->has_sv_tags() && variant->canonical) {
+                        if (this->do_svs && variant->hasSVTags() && variant->canonical) {
                             // This is an SV
                             
                             #ifdef debug
@@ -1729,7 +1729,7 @@ namespace vg {
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
             
-            if (vvar->is_symbolic_sv() && this->do_svs) {
+            if (vvar->isSymbolicSV() && this->do_svs) {
                 // Canonicalize the variant and see if that disqualifies it.
                 // This also takes care of setting the variant's alt sequences.
                 variant_acceptable = vvar->canonicalize(reference, insertions, true);
@@ -1765,7 +1765,7 @@ namespace vg {
                 if(!allATGCN(alt)) {
                     // It may be a symbolic allele or something. Skip this variant.
                     variant_acceptable = false;
-                    if (this->do_svs && vvar->is_symbolic_sv() && vvar->canonicalizable()){
+                    if (this->do_svs && vvar->isSymbolicSV() && vvar->canonicalizable()){
                         // Only try to normalize SVs if we want to handle SVs,
                         // the variant is symbolic (i.e. no ref/alts) and the variant
                         // can be canonicalized (it has at least a type and a length)
