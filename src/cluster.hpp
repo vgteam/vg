@@ -155,7 +155,7 @@ public:
  */
 class OrientedDistanceMeasurer {
 public:
-    ~OrientedDistanceMeasurer() {}
+    virtual ~OrientedDistanceMeasurer() = default;
     
     /// Returns a signed distance, where positive indicates that pos_2 is to the right
     /// of pos_1, and negative indicates to the left. If the distance is infinite or
