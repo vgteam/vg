@@ -33,6 +33,7 @@ void help_mpmap(char** argv) {
     << "  -x, --xg-name FILE            use this xg index (required)" << endl
     << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT haplotype index for population-based MAPQs" << endl
+    << "  -d, --dist-name FILE          use this snarl distance index for clustering (if given, requires matched snarls from -s)" << endl
     << "      --linear-index FILE       use this sublinear Li and Stephens index file for population-based MAPQs" << endl
     << "      --linear-path PATH        use the given path name as the path that the linear index is against" << endl
     << "input:" << endl
@@ -70,7 +71,7 @@ void help_mpmap(char** argv) {
     << "  -k, --min-mem-length INT      minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT        minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT             use at most this many hits for any MEM (0 for no limit) [1024]" << endl
-    << "  -d, --max-dist-error INT      maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
+    << "  -F, --max-dist-error INT      maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
     << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     << "  --always-check-population     always try o population-score reads, even if there is only a single mapping" << endl
@@ -110,6 +111,7 @@ int main_mpmap(int argc, char** argv) {
     string sublinearLS_name;
     string sublinearLS_ref_path;
     string snarls_name;
+    string distance_index_name;
     string fastq_name_1;
     string fastq_name_2;
     string gam_file_name;
@@ -196,6 +198,7 @@ int main_mpmap(int argc, char** argv) {
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
             {"gbwt-name", required_argument, 0, 'H'},
+            {"dist-name", required_argument, 0, 'd'},
             {"linear-index", required_argument, 0, 1},
             {"linear-path", required_argument, 0, 2},
             {"fastq", required_argument, 0, 'f'},
@@ -225,7 +228,7 @@ int main_mpmap(int argc, char** argv) {
             {"min-mem-length", required_argument, 0, 'k'},
             {"clustlength", required_argument, 0, 'K'},
             {"hit-max", required_argument, 0, 'c'},
-            {"max-dist-error", required_argument, 0, 'd'},
+            {"max-dist-error", required_argument, 0, 'F'},
             {"approx-exp", required_argument, 0, 'w'},
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
@@ -247,7 +250,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:f:G:N:R:ieSs:u:O:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:d:w:C:R:Eq:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:u:O:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:F:w:C:R:Eq:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -275,6 +278,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'H':
                 gbwt_name = optarg;
+                break;
+                
+            case 'd':
+                distance_index_name = optarg;
                 break;
                 
             case 1: // --linear-index
@@ -448,7 +455,7 @@ int main_mpmap(int argc, char** argv) {
                 hit_max = parse<int>(optarg);
                 break;
                 
-            case 'd':
+            case 'F':
                 max_dist_error = parse<int>(optarg);
                 break;
                 
@@ -562,6 +569,11 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (!distance_index_name.empty() && snarls_name.empty()) {
+        cerr << "error:[vg mpmap] Snarl distance index (-d) requires a snarl file (-s) to also be provided." << endl;
+        exit(1);
+    }
+    
     if (!fastq_name_1.empty() && !gam_file_name.empty()) {
         cerr << "error:[vg mpmap] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
         exit(1);
@@ -573,7 +585,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (!interleaved_input && fastq_name_2.empty() && same_strand) {
-        cerr << "warning:[vg mpmap] Ignoring same strand parameter (-d) because no paired end input provided." << endl;
+        cerr << "warning:[vg mpmap] Ignoring same strand parameter (-e) because no paired end input provided." << endl;
     }
     
     if (num_alt_alns <= 0) {
@@ -675,7 +687,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (max_dist_error < 0) {
-        cerr << "error:[vg mpmap] Maximum distance approximation error (-d) set to " << max_dist_error << ", must set to a nonnegative integer." << endl;
+        cerr << "error:[vg mpmap] Maximum distance approximation error (-F) set to " << max_dist_error << ", must set to a nonnegative integer." << endl;
         exit(1);
     }
     
@@ -815,12 +827,50 @@ int main_mpmap(int argc, char** argv) {
           exit(1);
       }
     }
-
+    
+    ifstream distance_index_stream;
+    if (!distance_index_name.empty()) {
+        distance_index_stream.open(distance_index_name);
+        if (!distance_index_stream) {
+            cerr << "error:[vg mpmap] Cannot open distance index file " << distance_index_name << endl;
+            exit(1);
+        }
+    }
+    
+    ifstream snarl_stream;
+    if (!snarls_name.empty()) {
+        snarl_stream.open(snarls_name);
+        if (!snarl_stream) {
+            cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
+            exit(1);
+        }
+    }
+    
+    ifstream gbwt_stream;
+    ifstream ls_stream;
+    if (!gbwt_name.empty()) {
+        gbwt_stream.open(gbwt_name);
+        if (!gbwt_stream) {
+            cerr << "error:[vg mpmap] Cannot open GBWT file " << gbwt_name << endl;
+            exit(1);
+        }
+    }
+    else if (!sublinearLS_name.empty()) {
+        // We want to use sublinear Li and Stephens as our haplotype scoring approach
+        ls_stream.open(sublinearLS_name);
+        if (!ls_stream) {
+            cerr << "error:[vg mpmap] Cannot open sublinear Li & Stevens file " << sublinearLS_name << endl;
+            exit(1);
+        }
+    }
+    
     // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
     gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
     
     // Configure its temp directory to the system temp directory
     gcsa::TempFile::setDirectory(temp_file::get_dir());
+    
+    // Load required indexes
     
     xg::XG xg_index(xg_stream);
     gcsa::GCSA gcsa_index;
@@ -828,23 +878,18 @@ int main_mpmap(int argc, char** argv) {
     gcsa::LCPArray lcp_array;
     lcp_array.load(lcp_stream);
     
+    // Load optional indexes
+    
     gbwt::GBWT* gbwt = nullptr;
     haplo::linear_haplo_structure* sublinearLS = nullptr;
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
-        ifstream gbwt_stream(gbwt_name);
-        if (!gbwt_stream) {
-            cerr << "error:[vg mpmap] Cannot open GBWT file " << gbwt_name << endl;
-            exit(1);
-        }
         gbwt = new gbwt::GBWT();
         gbwt->load(gbwt_stream);
         
         // We have the GBWT available for scoring haplotypes
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
     } else if (!sublinearLS_name.empty()) {
-        // We want to use sublinear Li and Stephens as our haplotype scoring approach
-        ifstream ls_stream(sublinearLS_name);
         
         // TODO: we only support a single ref contig, and we use these
         // hardcoded mutation and recombination likelihoods
@@ -855,20 +900,19 @@ int main_mpmap(int argc, char** argv) {
         sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, xg_index, xg_ref_rank);
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
-    
     // TODO: Allow using haplo::XGScoreProvider?
     
     SnarlManager* snarl_manager = nullptr;
     if (!snarls_name.empty()) {
-        ifstream snarl_stream(snarls_name);
-        if (!snarl_stream) {
-            cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
-            exit(1);
-        }
         snarl_manager = new SnarlManager(snarl_stream);
     }
-        
-    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, haplo_score_provider, snarl_manager);
+    
+    DistanceIndex* distance_index = nullptr;
+    if (!distance_index_name.empty()) {
+        distance_index = new DistanceIndex(&xg_index, snarl_manager, distance_index_stream);
+    }
+    
+    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, haplo_score_provider, snarl_manager, distance_index);
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
@@ -1331,6 +1375,10 @@ int main_mpmap(int argc, char** argv) {
    
     if (gbwt != nullptr) {
         delete gbwt;
+    }
+    
+    if (distance_index != nullptr) {
+        delete distance_index;
     }
     
     return 0;
