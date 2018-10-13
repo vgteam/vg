@@ -123,8 +123,8 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a808f0813d292d6bcd5af9b7446b3f8ce"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a808f0813d292d6bcd5af9b7446b3f8ce">MultipathMapper</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *xg_index, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_array, <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> *<a class="el" href="classvg_1_1BaseMapper.html#af69ce88df203124121b71bdfdc6f3694">haplo_score_provider</a>=nullptr, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *<a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a>=nullptr)</td></tr>
-<tr class="separator:a808f0813d292d6bcd5af9b7446b3f8ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc3f954c49a556ca49b8d571e2bf0f80"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#acc3f954c49a556ca49b8d571e2bf0f80">MultipathMapper</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *xg_index, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_array, <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> *<a class="el" href="classvg_1_1BaseMapper.html#af69ce88df203124121b71bdfdc6f3694">haplo_score_provider</a>=nullptr, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *<a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a>=nullptr, <a class="el" href="classvg_1_1DistanceIndex.html">DistanceIndex</a> *<a class="el" href="classvg_1_1MultipathMapper.html#a4c23c9347169a532cac0e21636c2d4bb">distance_index</a>=nullptr)</td></tr>
+<tr class="separator:acc3f954c49a556ca49b8d571e2bf0f80"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aae4b40b1c3c0668b884ae3247779f188"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aae4b40b1c3c0668b884ae3247779f188">~MultipathMapper</a> ()</td></tr>
 <tr class="separator:aae4b40b1c3c0668b884ae3247779f188"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a422996497786dca48fec812d13ffc81b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a422996497786dca48fec812d13ffc81b">multipath_map</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, size_t max_alt_mappings)</td></tr>
@@ -319,18 +319,21 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:a58a6a2bccf8123914bcf4e378edcbb61"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0e10da35d46a51134c29d96ecb329fdb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a0e10da35d46a51134c29d96ecb329fdb">align_to_cluster_graphs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39">MappingQualityMethod</a> mapq_method, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs, vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, size_t <a class="el" href="classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa">num_mapping_attempts</a>, vector&lt; size_t &gt; *cluster_idxs=nullptr)</td></tr>
 <tr class="separator:a0e10da35d46a51134c29d96ecb329fdb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aff7d3b3c5496553ffdb21c2536b063bf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aff7d3b3c5496553ffdb21c2536b063bf">align_to_cluster_graph_pairs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs_out, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a737ebeac982c5247bdf194ce944d5bbb">OrientedDistanceClusterer::paths_of_node_memo_t</a> *paths_of_node_memo=nullptr, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a091fb35c93f2f4e6d13276061ee25d8f">OrientedDistanceClusterer::oriented_occurences_memo_t</a> *oriented_occurences_memo=nullptr, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#ac2df9538c8a92b22f5ae157d31585b80">OrientedDistanceClusterer::handle_memo_t</a> *handle_memo=nullptr)</td></tr>
-<tr class="separator:aff7d3b3c5496553ffdb21c2536b063bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a22e559455e46e8fc3b4e1b6850db1768"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a22e559455e46e8fc3b4e1b6850db1768">align_to_cluster_graph_pairs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs_out)</td></tr>
+<tr class="separator:a22e559455e46e8fc3b4e1b6850db1768"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7dd5a0243c79cbb71c9ca2af2f86fcd5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a7dd5a0243c79cbb71c9ca2af2f86fcd5">align_to_cluster_graphs_with_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool block_rescue_from_1, bool block_rescue_from_2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings)</td></tr>
 <tr class="separator:a7dd5a0243c79cbb71c9ca2af2f86fcd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1751c97818eef51d83a0e8f31260822b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b">attempt_rescue_for_secondaries</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs)</td></tr>
 <tr class="memdesc:a1751c97818eef51d83a0e8f31260822b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary.  <a href="#a1751c97818eef51d83a0e8f31260822b">More...</a><br/></td></tr>
 <tr class="separator:a1751c97818eef51d83a0e8f31260822b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1fb72a5743ec2525a496b2631d44c446"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a1fb72a5743ec2525a496b2631d44c446">attempt_rescue_of_repeat_from_non_repeat</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems1, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems2, bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a737ebeac982c5247bdf194ce944d5bbb">OrientedDistanceClusterer::paths_of_node_memo_t</a> *paths_of_node_memo=nullptr, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a091fb35c93f2f4e6d13276061ee25d8f">OrientedDistanceClusterer::oriented_occurences_memo_t</a> *oriented_occurences_memo=nullptr, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#ac2df9538c8a92b22f5ae157d31585b80">OrientedDistanceClusterer::handle_memo_t</a> *handle_memo=nullptr)</td></tr>
-<tr class="separator:a1fb72a5743ec2525a496b2631d44c446"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a17aa98cc9509dd4e9cec05610dc629ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a17aa98cc9509dd4e9cec05610dc629ea">attempt_rescue_of_repeat_from_non_repeat</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems1, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems2, bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;distance_measurer)</td></tr>
+<tr class="separator:a17aa98cc9509dd4e9cec05610dc629ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a435fa7c040563791dcae4386cb0128ed"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a435fa7c040563791dcae4386cb0128ed">merge_rescued_mappings</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;rescued_multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;rescued_cluster_pairs) const </td></tr>
 <tr class="memdesc:a435fa7c040563791dcae4386cb0128ed"><td class="mdescLeft">&#160;</td><td class="mdescRight">Merge the rescued mappings into the output vector and deduplicate pairs.  <a href="#a435fa7c040563791dcae4386cb0128ed">More...</a><br/></td></tr>
 <tr class="separator:a435fa7c040563791dcae4386cb0128ed"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade4dcb4753c509237e6608c274150623"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ade4dcb4753c509237e6608c274150623">get_clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;distance_measurer) const </td></tr>
+<tr class="memdesc:ade4dcb4753c509237e6608c274150623"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use the oriented distance clusterer to cluster MEMs.  <a href="#ade4dcb4753c509237e6608c274150623">More...</a><br/></td></tr>
+<tr class="separator:ade4dcb4753c509237e6608c274150623"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a961427b7963da3d8ba3ae3c075dcb55d"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d">query_cluster_graphs</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters)</td></tr>
 <tr class="separator:a961427b7963da3d8ba3ae3c075dcb55d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaf5567509cf58d2d8b675e7cba5b8bf2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aaf5567509cf58d2d8b675e7cba5b8bf2">split_multicomponent_alignments</a> (vector&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt; &amp;multipath_alns_out, vector&lt; size_t &gt; *cluster_idxs=nullptr) const </td></tr>
@@ -385,11 +388,15 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:ac5398224011f7ed5f8f200e801b515a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae152e4fca517f42655c1747e0abe10d0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ae152e4fca517f42655c1747e0abe10d0">share_terminal_positions</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_1, const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_2) const </td></tr>
 <tr class="separator:ae152e4fca517f42655c1747e0abe10d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa52161f4cd35f9d9ca0980ec34ebd4c8"><td class="memItemLeft" align="right" valign="top">unique_ptr<br class="typebreak"/>
+&lt; <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aa52161f4cd35f9d9ca0980ec34ebd4c8">create_distance_measurer</a> ()</td></tr>
+<tr class="memdesc:aa52161f4cd35f9d9ca0980ec34ebd4c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Generates a distance measurer to be used for a mapping problem.  <a href="#aa52161f4cd35f9d9ca0980ec34ebd4c8">More...</a><br/></td></tr>
+<tr class="separator:aa52161f4cd35f9d9ca0980ec34ebd4c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afdea9e5e3d5e07cc05e367d572a9b37c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhaplo_1_1haploMath_1_1RRMemo.html">haploMath::RRMemo</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#afdea9e5e3d5e07cc05e367d572a9b37c">get_rr_memo</a> (double <a class="el" href="classvg_1_1MultipathMapper.html#a26993f76e9bbe5c48e0b436cc9c3fda8">recombination_penalty</a>, size_t population_size) const </td></tr>
 <tr class="memdesc:afdea9e5e3d5e07cc05e367d572a9b37c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a thread_local RRMemo with these parameters.  <a href="#afdea9e5e3d5e07cc05e367d572a9b37c">More...</a><br/></td></tr>
 <tr class="separator:afdea9e5e3d5e07cc05e367d572a9b37c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a30ce9698815760778cc608c1f7a974f6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a30ce9698815760778cc608c1f7a974f6">establish_strand_consistency</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a737ebeac982c5247bdf194ce944d5bbb">OrientedDistanceClusterer::paths_of_node_memo_t</a> *paths_of_node_memo=nullptr, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a091fb35c93f2f4e6d13276061ee25d8f">OrientedDistanceClusterer::oriented_occurences_memo_t</a> *oriented_occurences_memo=nullptr, <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#ac2df9538c8a92b22f5ae157d31585b80">OrientedDistanceClusterer::handle_memo_t</a> *handle_memo=nullptr)</td></tr>
-<tr class="separator:a30ce9698815760778cc608c1f7a974f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acef2de4240323f32bd2966e4a7f46556"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#acef2de4240323f32bd2966e4a7f46556">establish_strand_consistency</a> (vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs)</td></tr>
+<tr class="separator:acef2de4240323f32bd2966e4a7f46556"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classvg_1_1BaseMapper"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classvg_1_1BaseMapper')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classvg_1_1BaseMapper.html">vg::BaseMapper</a></td></tr>
 <tr class="memitem:a77079f609cab775e59ff0750ef9e84d9 inherit pro_methods_classvg_1_1BaseMapper"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseMapper.html#a77079f609cab775e59ff0750ef9e84d9">find_sub_mems</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, int parent_layer_begin, int parent_layer_end, int mem_idx, string::const_iterator next_mem_end, int <a class="el" href="classvg_1_1BaseMapper.html#a6de91c39c73a95b014b1773495985a09">min_mem_length</a>, vector&lt; pair&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a>, vector&lt; size_t &gt;&gt;&gt; &amp;sub_mems_out)</td></tr>
 <tr class="separator:a77079f609cab775e59ff0750ef9e84d9 inherit pro_methods_classvg_1_1BaseMapper"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -434,6 +441,8 @@ Static Protected Member Functions</h2></td></tr>
 Protected Attributes</h2></td></tr>
 <tr class="memitem:a82e1a1af4b8ba0170cf7817cd44f1008"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a></td></tr>
 <tr class="separator:a82e1a1af4b8ba0170cf7817cd44f1008"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c23c9347169a532cac0e21636c2d4bb"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1DistanceIndex.html">DistanceIndex</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a4c23c9347169a532cac0e21636c2d4bb">distance_index</a></td></tr>
+<tr class="separator:a4c23c9347169a532cac0e21636c2d4bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abdbf3ba803032d80377c54aa49f1e007"><td class="memItemLeft" align="right" valign="top">vector&lt; size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#abdbf3ba803032d80377c54aa49f1e007">band_padding_memo</a></td></tr>
 <tr class="separator:abdbf3ba803032d80377c54aa49f1e007"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classvg_1_1BaseMapper"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classvg_1_1BaseMapper')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classvg_1_1BaseMapper.html">vg::BaseMapper</a></td></tr>
@@ -497,7 +506,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a808f0813d292d6bcd5af9b7446b3f8ce"></a>
+<a class="anchor" id="acc3f954c49a556ca49b8d571e2bf0f80"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -529,7 +538,13 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *&#160;</td>
-          <td class="paramname"><em>snarl_manager</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramname"><em>snarl_manager</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1DistanceIndex.html">DistanceIndex</a> *&#160;</td>
+          <td class="paramname"><em>distance_index</em> = <code>nullptr</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -557,7 +572,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="aff7d3b3c5496553ffdb21c2536b063bf"></a>
+<a class="anchor" id="a22e559455e46e8fc3b4e1b6850db1768"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -604,25 +619,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>duplicate_pairs_out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a737ebeac982c5247bdf194ce944d5bbb">OrientedDistanceClusterer::paths_of_node_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a091fb35c93f2f4e6d13276061ee25d8f">OrientedDistanceClusterer::oriented_occurences_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>oriented_occurences_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#ac2df9538c8a92b22f5ae157d31585b80">OrientedDistanceClusterer::handle_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramname"><em>duplicate_pairs_out</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -925,7 +922,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
 
 </div>
 </div>
-<a class="anchor" id="a1fb72a5743ec2525a496b2631d44c446"></a>
+<a class="anchor" id="a17aa98cc9509dd4e9cec05610dc629ea"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -1013,20 +1010,8 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a737ebeac982c5247bdf194ce944d5bbb">OrientedDistanceClusterer::paths_of_node_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a091fb35c93f2f4e6d13276061ee25d8f">OrientedDistanceClusterer::oriented_occurences_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>oriented_occurences_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#ac2df9538c8a92b22f5ae157d31585b80">OrientedDistanceClusterer::handle_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;&#160;</td>
+          <td class="paramname"><em>distance_measurer</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1301,6 +1286,31 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
 
 </div>
 </div>
+<a class="anchor" id="aa52161f4cd35f9d9ca0980ec34ebd4c8"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unique_ptr&lt; <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &gt; vg::MultipathMapper::create_distance_measurer </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Generates a distance measurer to be used for a mapping problem. </p>
+
+</div>
+</div>
 <a class="anchor" id="a936b743d3cd63fe8a07e0139f63bbf62"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1349,7 +1359,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
 
 </div>
 </div>
-<a class="anchor" id="a30ce9698815760778cc608c1f7a974f6"></a>
+<a class="anchor" id="acef2de4240323f32bd2966e4a7f46556"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -1366,25 +1376,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>cluster_pairs</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a737ebeac982c5247bdf194ce944d5bbb">OrientedDistanceClusterer::paths_of_node_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a091fb35c93f2f4e6d13276061ee25d8f">OrientedDistanceClusterer::oriented_occurences_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>oriented_occurences_memo</em> = <code>nullptr</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceClusterer.html#ac2df9538c8a92b22f5ae157d31585b80">OrientedDistanceClusterer::handle_memo_t</a> *&#160;</td>
-          <td class="paramname"><em>handle_memo</em> = <code>nullptr</code>&#160;</td>
+          <td class="paramname"><em>cluster_pairs</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1425,6 +1417,48 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
 </div><div class="memdoc">
 
 <p>Computes the log-likelihood of a given fragment length in the trained distribution. </p>
+
+</div>
+</div>
+<a class="anchor" id="ade4dcb4753c509237e6608c274150623"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">MultipathMapper::memcluster_t</a> &gt; vg::MultipathMapper::get_clusters </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>mems</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;&#160;</td>
+          <td class="paramname"><em>distance_measurer</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Use the oriented distance clusterer to cluster MEMs. </p>
 
 </div>
 </div>
@@ -2343,6 +2377,26 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
           <td class="memname">bool vg::MultipathMapper::delay_population_scoring = false</td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a4c23c9347169a532cac0e21636c2d4bb"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1DistanceIndex.html">DistanceIndex</a>* vg::MultipathMapper::distance_index</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>

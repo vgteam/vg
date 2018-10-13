@@ -9,7 +9,7 @@ var searchData=
   ['handle_5fbase_5foption',['handle_base_option',['../classvg_1_1ConfigurableParser.html#a0c39f36cf64d91a336afaac0604ff9f0',1,'vg::ConfigurableParser']]],
   ['handle_5fbuffer',['handle_buffer',['../classvg_1_1VcfBuffer.html#a1d8968beb2952113ea8a724dad1e1752',1,'vg::VcfBuffer']]],
   ['handle_5fgraph_5fto_5fcactus',['handle_graph_to_cactus',['../namespacevg.html#a2a6d7cffb12deb3ea3f7ae293755edf4',1,'vg']]],
-  ['handle_5fmemo_5ft',['handle_memo_t',['../classvg_1_1OrientedDistanceClusterer.html#ac2df9538c8a92b22f5ae157d31585b80',1,'vg::OrientedDistanceClusterer']]],
+  ['handle_5fmemo',['handle_memo',['../classvg_1_1PathOrientedDistanceMeasurer.html#a73fae6600abc1114e0f28b1cd9e74ee4',1,'vg::PathOrientedDistanceMeasurer']]],
   ['handle_5ft',['handle_t',['../structvg_1_1handle__t.html',1,'vg']]],
   ['handle_5fto_5fvg',['handle_to_vg',['../namespacevg.html#adfbbf25510f3a739532e075c2d59041a',1,'vg']]],
   ['handle_5fto_5fvg_2ecpp',['handle_to_vg.cpp',['../handle__to__vg_8cpp.html',1,'']]],

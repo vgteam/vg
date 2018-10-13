@@ -1,7 +1,7 @@
 var searchData=
 [
   ['packer',['Packer',['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#ab795a0ae9e84d26817a119a314b01a30',1,'vg::Packer::Packer(xg::XG *xidx, size_t bin_size=0)']]],
-  ['pair_5fclusters',['pair_clusters',['../classvg_1_1OrientedDistanceClusterer.html#a8575ce5cdb9237b9a47e0d6f0d31cf7a',1,'vg::OrientedDistanceClusterer']]],
+  ['pair_5fclusters',['pair_clusters',['../classvg_1_1OrientedDistanceClusterer.html#a64fc16304bbe979775dda279258c4757',1,'vg::OrientedDistanceClusterer']]],
   ['pair_5fconsistent',['pair_consistent',['../classvg_1_1Mapper.html#ad3a62e0a91818c4e20508ab2a0f47fa5',1,'vg::Mapper']]],
   ['pair_5ffrom_5fedge',['pair_from_edge',['../classvg_1_1NodeSide.html#ad48cc3d977ad0f6ffc5ce1034cbbae65',1,'vg::NodeSide::pair_from_edge(Edge *e)'],['../classvg_1_1NodeSide.html#a97eed27ab7b77be54b68062b780a9f36',1,'vg::NodeSide::pair_from_edge(const Edge &amp;e)']]],
   ['pair_5ffrom_5fend_5fedge',['pair_from_end_edge',['../classvg_1_1NodeSide.html#a23f18cf5f9ae9c7fc8475800d967275c',1,'vg::NodeSide']]],
@@ -76,6 +76,7 @@ var searchData=
   ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html#a2da7d3caa439d39a316de13892fb7a50',1,'vg::PathBasedTraversalFinder']]],
   ['pathchunker',['PathChunker',['../classvg_1_1PathChunker.html#a62d91c10f12b984241d9df4b7f415308',1,'vg::PathChunker']]],
   ['pathindex',['PathIndex',['../structvg_1_1PathIndex.html#ac9bdc9df55bcad668ab35b713c366994',1,'vg::PathIndex::PathIndex(const Path &amp;path)'],['../structvg_1_1PathIndex.html#a99878fd10f43e040987e334a70d22d87',1,'vg::PathIndex::PathIndex(const list&lt; mapping_t &gt; &amp;mappings)'],['../structvg_1_1PathIndex.html#a91e9971a2ddb597ea1c229659b9c9b93',1,'vg::PathIndex::PathIndex(const list&lt; mapping_t &gt; &amp;mappings, VG &amp;vg)'],['../structvg_1_1PathIndex.html#aeaa05b5f2bf88ae5c697b6d08b225a57',1,'vg::PathIndex::PathIndex(const Path &amp;path, const xg::XG &amp;vg)'],['../structvg_1_1PathIndex.html#a9b82679a8d5040f0160edc008d8b348d',1,'vg::PathIndex::PathIndex(VG &amp;vg, const string &amp;path_name, bool extract_sequence=false)'],['../structvg_1_1PathIndex.html#af2da012738fdea2c92f620ce018c4309',1,'vg::PathIndex::PathIndex(const xg::XG &amp;index, const string &amp;path_name, bool extract_sequence=false)']]],
+  ['pathorienteddistancemeasurer',['PathOrientedDistanceMeasurer',['../classvg_1_1PathOrientedDistanceMeasurer.html#a661b4eb33abc809cc896d3495c7096f8',1,'vg::PathOrientedDistanceMeasurer']]],
   ['pathrestrictedtraversalfinder',['PathRestrictedTraversalFinder',['../classvg_1_1PathRestrictedTraversalFinder.html#aed1ab865da8fad3789f06d78f750eb04',1,'vg::PathRestrictedTraversalFinder']]],
   ['paths',['Paths',['../classvg_1_1Paths.html#af048f547f9c4976c17aaa34f1cbec312',1,'vg::Paths::Paths(void)'],['../classvg_1_1Paths.html#a92fa1ad35d1cf495d96e8fbd468f2700',1,'vg::Paths::Paths(const Paths &amp;other)'],['../classvg_1_1Paths.html#a7b932a39b910d477cd7f3e65a0af3c93',1,'vg::Paths::Paths(Paths &amp;&amp;other) noexcept']]],
   ['paths_5fas_5falignments',['paths_as_alignments',['../classvg_1_1VG.html#a871d05e0a2d0b76092e20fe86bd12e2b',1,'vg::VG::paths_as_alignments()'],['../classxg_1_1XG.html#a876e49c5a44ca20b4f9c5319df78700e',1,'xg::XG::paths_as_alignments()']]],

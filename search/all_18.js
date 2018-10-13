@@ -41,9 +41,10 @@ var searchData=
   ['xg_5fref_5frank',['xg_ref_rank',['../structhaplo_1_1linear__haplo__structure.html#a83378cd23abf5027399a382ee4d73b3f',1,'haplo::linear_haplo_structure']]],
   ['xgformaterror',['XGFormatError',['../classxg_1_1XGFormatError.html',1,'xg']]],
   ['xgidx',['xgidx',['../classvg_1_1Packer.html#ad4599bf658a71523b56b16e091b982f2',1,'vg::Packer::xgidx()'],['../classvg_1_1Sampler.html#a2025bfd50d008778f983fa77146bee7a',1,'vg::Sampler::xgidx()'],['../classvg_1_1Viz.html#a368fc0bf7a0c44d9b72101aa92fcc873',1,'vg::Viz::xgidx()']]],
+  ['xgindex',['xgindex',['../classvg_1_1PathOrientedDistanceMeasurer.html#a41392a4a80407469d655fdbf28962c35',1,'vg::PathOrientedDistanceMeasurer']]],
   ['xgpath',['XGPath',['../classxg_1_1XGPath.html',1,'xg']]],
   ['xgpath',['XGPath',['../classxg_1_1XGPath.html#af623a612337301ad98ed9c45108b9616',1,'xg::XGPath::XGPath(void)=default'],['../classxg_1_1XGPath.html#a1c234ec1fb6c4682bb2797232eff6cc9',1,'xg::XGPath::XGPath(const string &amp;path_name, const vector&lt; trav_t &gt; &amp;path, bool is_circular, size_t node_count, XG &amp;graph, size_t *unique_member_count_out=nullptr)'],['../classxg_1_1XGPath.html#aeb3f65f6d78a0fa02486f0c9c51c97a8',1,'xg::XGPath::XGPath(const XGPath &amp;other)=delete'],['../classxg_1_1XGPath.html#a010789a1a74731505b2b8a570f4e7547',1,'xg::XGPath::XGPath(XGPath &amp;&amp;other)=delete']]],
-  ['xgscoreprovider',['XGScoreProvider',['../classhaplo_1_1XGScoreProvider.html#af309042e4bbb20c8faf320a152a76245',1,'haplo::XGScoreProvider']]],
   ['xgscoreprovider',['XGScoreProvider',['../classhaplo_1_1XGScoreProvider.html',1,'haplo']]],
+  ['xgscoreprovider',['XGScoreProvider',['../classhaplo_1_1XGScoreProvider.html#af309042e4bbb20c8faf320a152a76245',1,'haplo::XGScoreProvider']]],
   ['xindex',['xindex',['../classvg_1_1BaseMapper.html#a215d1113b92168a450e89133b03569fe',1,'vg::BaseMapper']]]
 ];

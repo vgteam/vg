@@ -5,6 +5,7 @@ var searchData=
   ['unfold_5fmax_5flength',['unfold_max_length',['../classvg_1_1Genotyper.html#ab3e4270419b361c9455125ca305709e2',1,'vg::Genotyper']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
   ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],
+  ['unstranded',['unstranded',['../classvg_1_1PathOrientedDistanceMeasurer.html#a76f22a53508287163b78a6d9aafb4797',1,'vg::PathOrientedDistanceMeasurer']]],
   ['unstranded_5fclustering',['unstranded_clustering',['../classvg_1_1MultipathMapper.html#ac90fb9a71fa91ebcf78b94c1f8ae0730',1,'vg::MultipathMapper']]],
   ['upper_5fbound',['upper_bound',['../structvg_1_1BREAKPOINT.html#add7be6a634fda8c98ff9627ecd454683',1,'vg::BREAKPOINT']]],
   ['use_5fapprox_5fsub_5fmem_5fcount',['use_approx_sub_mem_count',['../classvg_1_1BaseMapper.html#abf1a0a71b2bcc7763690fed623383fb3',1,'vg::BaseMapper']]],

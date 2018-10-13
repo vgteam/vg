@@ -29,6 +29,7 @@ var searchData=
   ['unrecord',['unrecord',['../classvg_1_1SnarlManager.html#a42a87a6e424e9b39f77b43061b692039',1,'vg::SnarlManager::unrecord(const SnarlRecord *record) const '],['../classvg_1_1SnarlManager.html#aeeb8bf1eb342004f69b33caadad5a713',1,'vg::SnarlManager::unrecord(SnarlRecord *record)']]],
   ['unreverse_5fgraph',['unreverse_graph',['../classvg_1_1BaseAligner.html#aaab9d2cb1a778b19a29c9e616aaa0325',1,'vg::BaseAligner']]],
   ['unreverse_5fgraph_5fmapping',['unreverse_graph_mapping',['../classvg_1_1BaseAligner.html#a69124dcbade7c24de28db9b15eb3d8cf',1,'vg::BaseAligner']]],
+  ['unstranded',['unstranded',['../classvg_1_1PathOrientedDistanceMeasurer.html#a76f22a53508287163b78a6d9aafb4797',1,'vg::PathOrientedDistanceMeasurer']]],
   ['unstranded_5fclustering',['unstranded_clustering',['../classvg_1_1MultipathMapper.html#ac90fb9a71fa91ebcf78b94c1f8ae0730',1,'vg::MultipathMapper']]],
   ['untranslate',['untranslate',['../classvg_1_1GFAToPinchTranslator.html#afea7a7df95463feaa429d75ec3545387',1,'vg::GFAToPinchTranslator']]],
   ['update_5faugmented_5fgraph',['update_augmented_graph',['../classvg_1_1PileupAugmenter.html#a1b9c34b0b86cb3798da4fd832deae878',1,'vg::PileupAugmenter']]],

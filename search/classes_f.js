@@ -16,6 +16,7 @@ var searchData=
   ['pathhandlegraph',['PathHandleGraph',['../classvg_1_1PathHandleGraph.html',1,'vg']]],
   ['pathindex',['PathIndex',['../structvg_1_1PathIndex.html',1,'vg']]],
   ['pathnode',['PathNode',['../classvg_1_1PathNode.html',1,'vg']]],
+  ['pathorienteddistancemeasurer',['PathOrientedDistanceMeasurer',['../classvg_1_1PathOrientedDistanceMeasurer.html',1,'vg']]],
   ['pathrestrictedtraversalfinder',['PathRestrictedTraversalFinder',['../classvg_1_1PathRestrictedTraversalFinder.html',1,'vg']]],
   ['paths',['Paths',['../classvg_1_1Paths.html',1,'vg']]],
   ['phasedgenome',['PhasedGenome',['../classvg_1_1PhasedGenome.html',1,'vg']]],

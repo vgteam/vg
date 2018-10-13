@@ -73,6 +73,7 @@ var searchData=
   ['max_5fsub_5fmem_5frecursion_5fdepth',['max_sub_mem_recursion_depth',['../classvg_1_1BaseMapper.html#ac12496865e23fd68ba1f579dcb050037',1,'vg::BaseMapper']]],
   ['max_5fsuboptimal_5fpath_5fscore_5fratio',['max_suboptimal_path_score_ratio',['../classvg_1_1MultipathMapper.html#ac117889984b58f3c0fd3d389a8ee7f26',1,'vg::MultipathMapper']]],
   ['max_5ftarget_5ffactor',['max_target_factor',['../classvg_1_1Mapper.html#a5ecf825b76d29c8b8242d8167fae6cc4',1,'vg::Mapper']]],
+  ['max_5fwalk',['max_walk',['../classvg_1_1PathOrientedDistanceMeasurer.html#a6d8dc74ae9eaaabf35ba1c89cfae8a11',1,'vg::PathOrientedDistanceMeasurer']]],
   ['max_5fwidth',['max_width',['../classvg_1_1RepresentativeTraversalFinder.html#aac2939337439d7566246889b3a4655c6',1,'vg::RepresentativeTraversalFinder']]],
   ['maxdistances',['maxDistances',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aff46cc10e89b87a441aabe07cc3f590d',1,'vg::DistanceIndex::MaxDistanceIndex']]],
   ['maximum_5fsample_5fsize',['maximum_sample_size',['../classvg_1_1FragmentLengthDistribution.html#a82ad9fe36dc81ea108a530b7f9792b78',1,'vg::FragmentLengthDistribution']]],
