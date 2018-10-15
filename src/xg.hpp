@@ -659,10 +659,6 @@ private:
     const static int G_EDGE_TYPE_OFFSET = 1;
     const static int G_EDGE_LENGTH = 2;
     
-    // And some masks
-    const static size_t HIGH_BIT = (size_t)1 << 63;
-    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
-    
     /// This is a utility function for the edge exploration. It says whether we
     /// want to visit an edge depending on its type, whether we're the to or
     /// from node, whether we want to look left or right, and whether we're

@@ -25,8 +25,13 @@ using namespace std;
 /// Two handles are equal iff they refer to the same orientation of the same node.
 /// Only handles in the same graph may be compared.
 /// Handles have no ordering, but can be hashed.
-struct handle_t {
-    char data[sizeof(id_t)];
+/// Bit usage should be right-justified in machine endian order (i.e. a graph
+/// implementation must use the lowest bits of the lowest byte first, and must
+/// only use other bits of other bytes when the number of nodes/handles is
+/// sufficiently large as to require itin the chosen representation).
+/// This allows for overlays that can wrap their backing graphs' handles without using any more space.
+/// TODO: Note that this precludes us using pointers as handles unless we make them wider.
+struct handle_t { char data[sizeof(id_t)];
 };
 
 typedef pair<handle_t, handle_t> edge_t;

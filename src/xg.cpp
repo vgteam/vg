@@ -1623,30 +1623,32 @@ Graph XG::graph_context_g(const pos_t& g_pos, int64_t length) const {
 }
 
 handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
-    // Handles will be g vector index with is_reverse in the high bit
+    // Handles will be g vector index with is_reverse in the low bit
     
     // Where in the g vector do we need to be
     size_t handle = g_bv_select(id_to_rank(node_id));
-    // And set the high bit if it's reverse
-    if (is_reverse) handle |= HIGH_BIT;
+    // Make room for the orientation
+    handle = handle << 1;
+    // And set the low bit if it's reverse
+    if (is_reverse) handle |= 1;
     return as_handle(handle);
 }
 
 id_t XG::get_id(const handle_t& handle) const {
     // Go get the g offset and then look up the noder ID
-    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_ID_OFFSET];
+    return g_iv[(((size_t) as_integer(handle)) >> 1) + G_NODE_ID_OFFSET];
 }
 
 bool XG::get_is_reverse(const handle_t& handle) const {
-    return as_integer(handle) & HIGH_BIT;
+    return as_integer(handle) & 1;
 }
 
 handle_t XG::flip(const handle_t& handle) const {
-    return as_handle(as_integer(handle) ^ HIGH_BIT);
+    return as_handle(as_integer(handle) ^ 1);
 }
 
 size_t XG::get_length(const handle_t& handle) const {
-    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_LENGTH_OFFSET];
+    return g_iv[(((size_t) as_integer(handle)) >> 1) + G_NODE_LENGTH_OFFSET];
 }
 
 string XG::get_sequence(const handle_t& handle) const {
@@ -1656,7 +1658,7 @@ string XG::get_sequence(const handle_t& handle) const {
     // Allocate the sequence string
     string sequence(sequence_size, '\0');
     // Extract the node record start
-    size_t g = as_integer(handle) & LOW_BITS;
+    size_t g = ((size_t) as_integer(handle)) >> 1;
     // Figure out where the sequence starts
     size_t sequence_start = g_iv[g + G_NODE_SEQ_START_OFFSET];
     for (int64_t i = 0; i < sequence_size; i++) {
@@ -1664,7 +1666,7 @@ string XG::get_sequence(const handle_t& handle) const {
         sequence[i] = revdna3bit(s_iv[sequence_start + i]);
     }
     
-    if (as_integer(handle) & HIGH_BIT) {
+    if (as_integer(handle) & 1) {
         return reverse_complement(sequence);
     } else {
         return sequence;
@@ -1721,7 +1723,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             bool new_reverse = is_reverse != (type == 2 || type == 3);
             
             // Compose the handle for where we are going
-            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
+            handle_t next_handle = as_handle(((g + offset) << 1) | (new_reverse ? 1 : 0));
             
             // We want this edge
             
@@ -1734,7 +1736,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             // TODO: delete this after using it to debug
             int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
             bool new_reverse = is_reverse != (type == 2 || type == 3);
-            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
+            handle_t next_handle = as_handle(((g + offset) << 1) | (new_reverse ? 1 : 0));
         }
     }
     // Iteratee didn't stop us.
@@ -1744,7 +1746,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
 bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
 
     // Unpack the handle
-    size_t g = as_integer(handle) & LOW_BITS;
+    size_t g = ((size_t) as_integer(handle)) >> 1;
     bool is_reverse = get_is_reverse(handle);
 
     // How many edges are there of each type?
@@ -1771,11 +1773,11 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     bool stop_early = false;
     auto lambda = [&](size_t g) {
         // Make the handle
-        // We need to make sure our index won't set the orientation bit.
-        assert((g & (~LOW_BITS)) == 0);
+        // We need to make sure our index isn't trying to use the high bit we shift off
+        assert((g & ((size_t)1 << 63)) == 0);
         
-        // Just make it into a handle; we're always forward.
-        handle_t handle = as_handle(g);
+        // Make it into a handle, packing it as the node ID and using 0 for orientation
+        handle_t handle = as_handle(g << 1);
         
         // Run the iteratee
         if (!iteratee(handle)) {

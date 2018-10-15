@@ -215,11 +215,6 @@ public:
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
     
-private:
-    // We have some masks for cramming things into handles
-    const static size_t HIGH_BIT = (size_t)1 << 63;
-    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
-    
 public:
     
     ////////////////////////////////////////////////////////////////////////////
