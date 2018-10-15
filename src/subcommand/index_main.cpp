@@ -510,7 +510,7 @@ int main_index(int argc, char** argv) {
         // if we already made the xg index we can determine the
         size_t id_width;
         if (!index_gam) {
-            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
+            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->max_node_id(), true));
         } else { // indexing a GAM
             if (show_progress) {
                 cerr << "Finding maximum node id in GAM..." << endl;

@@ -155,9 +155,6 @@ public:
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
 
-    int64_t get_min_id() const { return min_id; }
-    int64_t get_max_id() const { return max_id; }
-
     ////////////////////////////////////////////////////////////////////////////
     // Here is the old low-level API that needs to be restated in terms of the 
     // locally traversable graph API and then removed.
@@ -236,6 +233,10 @@ public:
     using HandleGraph::for_each_handle;
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
+    /// Get the minimum node ID used in the graph, if any are used
+    virtual id_t min_node_id() const;
+    /// Get the maximum node ID used in the graph, if any are used
+    virtual id_t max_node_id() const;
     
     ////////////////////////
     // Path handle graph API

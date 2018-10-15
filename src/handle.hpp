@@ -213,6 +213,14 @@ public:
     /// TODO: can't be node_count because XG has a field named node_count.
     virtual size_t node_size() const = 0;
     
+    /// Return the smallest ID in the graph, or some smaller number if the
+    /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
+    virtual id_t min_node_id() const = 0;
+    
+    /// Return the largest ID in the graph, or some larger number if the
+    /// largest ID is unavailable. Return value is unspecified if the graph is empty.
+    virtual id_t max_node_id() const = 0;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Interface that needs to be using'd
     ////////////////////////////////////////////////////////////////////////////

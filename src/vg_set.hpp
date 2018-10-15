@@ -30,7 +30,7 @@ public:
     void for_each_graph_chunk(std::function<void(Graph&)> lamda);
 
     /// Stream through the files and determine the max node id
-    id_t get_max_id(void);
+    id_t max_node_id(void);
     
     /// merges the id space of a set of graphs on-disk
     /// necessary when storing many graphs in the same index

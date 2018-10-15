@@ -1896,6 +1896,14 @@ size_t XG::node_size() const {
     return this->node_count;
 }
 
+id_t XG::min_node_id() const {
+    return min_id;
+}
+    
+id_t XG::max_node_id() const {
+    return max_id;
+}
+
 vector<Edge> XG::edges_of(int64_t id) const {
     size_t g = g_bv_select(id_to_rank(id));
     int edges_to_count = g_iv[g+G_NODE_TO_COUNT_OFFSET];

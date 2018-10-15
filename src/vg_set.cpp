@@ -53,7 +53,7 @@ void VGset::for_each_graph_chunk(std::function<void(Graph&)> lamda) {
     }
 }
 
-id_t VGset::get_max_id(void) {
+id_t VGset::max_node_id(void) {
     id_t max_id = 0;
     for_each_graph_chunk([&](const Graph& graph) {
             for (size_t i = 0; i < graph.node_size(); ++i) {
@@ -177,7 +177,7 @@ void VGset::for_each_kmer_parallel(int kmer_size, const function<void(const kmer
 void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
                                    id_t head_id, id_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
-        id_t max_id = get_max_id(); // expensive, as we'll stream through all the files
+        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
@@ -204,7 +204,7 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
 void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_limit,
                                     id_t head_id, id_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
-        id_t max_id = get_max_id(); // expensive, as we'll stream through all the files
+        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }
@@ -225,7 +225,7 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
 vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
                                               id_t head_id, id_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
-        id_t max_id = get_max_id(); // expensive, as we'll stream through all the files
+        id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
     }

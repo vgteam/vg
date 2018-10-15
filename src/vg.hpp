@@ -126,6 +126,11 @@ public:
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
     
+    /// Get the minimum node ID used in the graph, if any are used
+    virtual id_t min_node_id() const;
+    /// Get the maximum node ID used in the graph, if any are used
+    virtual id_t max_node_id() const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
@@ -505,10 +510,6 @@ public:
     // can we handle this with merge?
     //void concatenate(VG& g);
 
-    /// Get the maximum node ID in the graph.
-    id_t max_node_id(void);
-    /// Get the minimum node ID in the graph.
-    id_t min_node_id(void);
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
     /// Add the given value to all node IDs. Preserves the paths.

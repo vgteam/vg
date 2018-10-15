@@ -2749,23 +2749,23 @@ void VG::include(const Path& path) {
     paths.extend(path);
 }
 
-id_t VG::max_node_id(void) {
+id_t VG::max_node_id(void) const {
     id_t max_id = 0;
     for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        if (n->id() > max_id) {
-            max_id = n->id();
+        const Node& n = graph.node(i);
+        if (n.id() > max_id) {
+            max_id = n.id();
         }
     }
     return max_id;
 }
 
-id_t VG::min_node_id(void) {
-    id_t min_id = max_node_id();
+id_t VG::min_node_id(void) const {
+    id_t min_id = numeric_limits<id_t>::max();
     for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        if (n->id() < min_id) {
-            min_id = n->id();
+        const Node& n = graph.node(i);
+        if (n.id() < min_id) {
+            min_id = n.id();
         }
     }
     return min_id;
