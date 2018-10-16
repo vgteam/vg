@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 59
+plan tests 60
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -22,11 +22,15 @@ vg index -x x2.xg -g x2.gcsa x.vg
 is $? 0 "building both indexes at once"
 
 cmp x.xg x2.xg && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
-is $? 0 "the indexes are identical"
+is $? 0 "the indexes are identical when built one at a time and together"
+
+vg index -x x.xg -g x3.gcsa
+is $? 0 "building GCSA from XG"
 
 rm -f x.vg
 rm -f x.xg x.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gcsa x2.gcsa.lcp
+rm -f x3.gcsa x3.gcsa.lcp
 
 
 # Single graph with haplotypes
