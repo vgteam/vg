@@ -5,9 +5,20 @@ namespace vg {
 
 using namespace std;
 
-SourceSinkOverlay::SourceSinkOverlay(HandleGraph* backing, size_t length, bool break_disconnected) : node_length(length),
-    backing(backing), backing_max_node(backing->node_size() > 0 ? backing->max_node_id() : 0),
-    source_id(backing_max_node + 1), sink_id(source_id + 1), backing_heads(), backing_tails() {
+SourceSinkOverlay::SourceSinkOverlay(const HandleGraph* backing, size_t length, id_t source_id, id_t sink_id,
+    bool break_disconnected) : node_length(length), backing(backing), source_id(source_id), sink_id(sink_id) {
+   
+    // Both IDs or neither must be specified.
+    assert((this->source_id == 0) == (this->sink_id == 0));
+   
+    if (this->source_id == 0 || this->sink_id == 0) {
+        // We need to autodetect our source and sink IDs
+        id_t backing_max_id = backing->node_size() > 0 ? backing->max_node_id() : 0;
+        
+        this->source_id = backing_max_id + 1;
+        this->sink_id = this->source_id + 1;
+    }
+    
     
     // We have to divide the graph into connected components and get ahold of the tips.
     vector<pair<unordered_set<id_t>, vector<handle_t>>> components = algorithms::weakly_connected_components_with_tips(backing);
@@ -52,6 +63,14 @@ SourceSinkOverlay::SourceSinkOverlay(HandleGraph* backing, size_t length, bool b
     }
     
     
+}
+
+handle_t SourceSinkOverlay::get_source_handle() const {
+    return source_fwd;
+}
+
+handle_t SourceSinkOverlay::get_sink_handle() const {
+    return sink_fwd;
 }
 
 handle_t SourceSinkOverlay::get_handle(const id_t& node_id, bool is_reverse) const {
@@ -201,11 +220,11 @@ size_t SourceSinkOverlay::node_size() const {
 }
 
 id_t SourceSinkOverlay::min_node_id() const {
-    return backing->min_node_id();
+    return min(backing->min_node_id(), min(source_id, sink_id));
 }
     
 id_t SourceSinkOverlay::max_node_id() const {
-    return sink_id;
+    return max(backing->max_node_id(), max(source_id, sink_id));
 }
 
 size_t SourceSinkOverlay::get_degree(const handle_t& handle, bool go_left) const {

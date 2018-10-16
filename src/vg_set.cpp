@@ -1,5 +1,6 @@
 #include "vg_set.hpp"
 #include "stream.hpp"
+#include "source_sink_overlay.hpp"
 
 namespace vg {
 // sets of VGs on disk
@@ -192,12 +193,13 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
     };
 
     for_each([&](VG* g) {
-            // set up the graph with the head/tail nodes
-            Node* head_node = nullptr; Node* tail_node = nullptr;
-            g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
-            // now get the kmers
-            for_each_kmer(*g, kmer_size, write_kmer, head_id, tail_id);
-        });
+        // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
+        // Make sure to use a consistent head and tail ID across all graphs in the set.
+        SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
+        
+        // Now get the kmers in the graph that pretends to have single head and tail nodes
+        for_each_kmer(overlay, kmer_size, write_kmer, head_id, tail_id);
+    });
 }
 
 // writes to a specific output stream
@@ -211,11 +213,12 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
 
     size_t total_size = 0;
     for_each([&](VG* g) {
-        // set up the graph with the head/tail nodes
-        Node* head_node = nullptr; Node* tail_node = nullptr;
-        g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
+        // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
+        // Make sure to use a consistent head and tail ID across all graphs in the set.
+        SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
+        
         size_t current_bytes = size_limit - total_size;
-        write_gcsa_kmers(*g, kmer_size, out, current_bytes, head_id, tail_id);
+        write_gcsa_kmers(overlay, kmer_size, out, current_bytes, head_id, tail_id);
         total_size += current_bytes;
     });
     size_limit = total_size;
@@ -233,10 +236,12 @@ vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
     vector<string> tmpnames;
     size_t total_size = 0;
     for_each([&](VG* g) {
-        Node* head_node = nullptr; Node* tail_node = nullptr;
-        g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
+        // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
+        // Make sure to use a consistent head and tail ID across all graphs in the set.
+        SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
+        
         size_t current_bytes = size_limit - total_size;
-        tmpnames.push_back(write_gcsa_kmers_to_tmpfile(*g, kmer_size, current_bytes, head_id, tail_id));
+        tmpnames.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, current_bytes, head_id, tail_id));
         total_size += current_bytes;
     });
     size_limit = total_size;

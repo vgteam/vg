@@ -30,13 +30,22 @@ public:
      * The overlay will project a source node consisting of '$' characters, and
      * a sink node consisting of '#' characters. The lengths of the nodes may
      * be specified, and default to 1024, the max length that GCSA2 supports.
+     * The IDs of the nodes will be autodetected from the backing graph's max
+     * ID if not specified. If either is specified, both must be specified.
      *
      * Also breaks into disconnected components with no tips, unless
      * break_disconnected is false. When breaking into such a component, we
      * choose an arbitrary node, link the source node to its start, and link
      * everything that also went to its start to the sink node.
      */
-    SourceSinkOverlay(HandleGraph* backing, size_t length = 1024, bool break_disconnected = true);
+    SourceSinkOverlay(const HandleGraph* backing, size_t length = 1024, id_t source_id = 0, id_t sink_id = 0,
+        bool break_disconnected = true);
+    
+    /// Expose the handle to the synthetic source
+    handle_t get_source_handle() const;
+    
+    /// Expose the handle to the synthetic sink
+    handle_t get_sink_handle() const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Handle-based interface
@@ -99,10 +108,7 @@ protected:
     size_t node_length;
     
     /// What backing graph do we overlay?
-    HandleGraph* backing;
-    
-    /// What is the backing graph's max node ID?
-    id_t backing_max_node;
+    const HandleGraph* backing;
     
     /// What is our projected source node ID?
     id_t source_id;
