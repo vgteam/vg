@@ -1,8 +1,6 @@
 var searchData=
 [
   ['occurrence_5fhandle_5ft',['occurrence_handle_t',['../structvg_1_1occurrence__handle__t.html',1,'vg']]],
-  ['odedge',['ODEdge',['../classvg_1_1OrientedDistanceClusterer_1_1ODEdge.html',1,'vg::OrientedDistanceClusterer']]],
-  ['odnode',['ODNode',['../classvg_1_1OrientedDistanceClusterer_1_1ODNode.html',1,'vg::OrientedDistanceClusterer']]],
   ['option',['Option',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20bool_20_3e',['Option&lt; bool &gt;',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20double_20_3e',['Option&lt; double &gt;',['../classvg_1_1Option.html',1,'vg']]],

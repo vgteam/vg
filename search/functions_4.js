@@ -40,7 +40,7 @@ var searchData=
   ['divide_5fpath',['divide_path',['../classvg_1_1VG.html#a1ce3b7afc274a50cd7b1296e64ca2f01',1,'vg::VG']]],
   ['dna3bit',['dna3bit',['../namespacexg.html#a0b632a6673e7464eced03fe8bb491f97',1,'xg']]],
   ['do_5fedges',['do_edges',['../classxg_1_1XG.html#ae60fdc8ed226b49b5d5632a9c6d33708',1,'xg::XG']]],
-  ['dpscorecomparator',['DPScoreComparator',['../structvg_1_1OrientedDistanceClusterer_1_1DPScoreComparator.html#ab8b1f7f1f00b5aeb65da8537546c6300',1,'vg::OrientedDistanceClusterer::DPScoreComparator::DPScoreComparator()=delete'],['../structvg_1_1OrientedDistanceClusterer_1_1DPScoreComparator.html#a7953caa4dd60a80b4d857bf013ade20e',1,'vg::OrientedDistanceClusterer::DPScoreComparator::DPScoreComparator(const vector&lt; ODNode &gt; &amp;nodes)']]],
+  ['dpscorecomparator',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#aac5cf15234c5137ca426604d910340c8',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator()=delete'],['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a1c6be54ddf88de294dd910d8f39427aa',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator(const vector&lt; HitNode &gt; &amp;nodes)']]],
   ['draw',['draw',['../classvg_1_1Viz.html#aed21697f1ddd4fb1b9c5ea2fcaa831b3',1,'vg::Viz']]],
   ['draw_5fgraph',['draw_graph',['../classvg_1_1Viz.html#ad8b787e3208a261c77e12d8cd70e0d08',1,'vg::Viz']]],
   ['dumb_5fsort',['dumb_sort',['../classvg_1_1GAMSorter.html#a89bc0b8ea44ebe646ecf78201fa41b9a',1,'vg::GAMSorter']]],

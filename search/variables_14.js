@@ -21,7 +21,7 @@ var searchData=
   ['to',['to',['../structvg_1_1Edge.html#affb3decf0a8b18ad319405c303cdf6a5',1,'vg::Edge::to()'],['../structvg_1_1Alignment.html#a9db86772c1bd48808c0588f96f3c0865',1,'vg::Alignment::to()'],['../structvg_1_1Translation.html#a25a5dc4de6c11119522e319af3639e30',1,'vg::Translation::to()']]],
   ['to_5fcorrect',['to_correct',['../structvg_1_1Alignment.html#a8957ee4a5a3ef66c93f6b6b685774df2',1,'vg::Alignment']]],
   ['to_5fend',['to_end',['../structvg_1_1Edge.html#af1538e8b7416c9af6aae7b3d587182dd',1,'vg::Edge']]],
-  ['to_5fidx',['to_idx',['../classvg_1_1OrientedDistanceClusterer_1_1ODEdge.html#ab5e0a6f4b9d468e60d3e332904224656',1,'vg::OrientedDistanceClusterer::ODEdge']]],
+  ['to_5fidx',['to_idx',['../classvg_1_1MEMClusterer_1_1HitEdge.html#a94b63347e0a6a9907b5573fae257aace',1,'vg::MEMClusterer::HitEdge']]],
   ['to_5flength',['to_length',['../structvg_1_1Edit.html#a4f9854d5ba5503280306f1a06bfb3c89',1,'vg::Edit']]],
   ['to_5fmatrix',['to_matrix',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a6d6778356b79ef4f4831acafc090f566',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['to_5fnode_5fid',['to_node_id',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a3ebf9c322668234f32083e3f9d42b38f',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
@@ -42,5 +42,6 @@ var searchData=
   ['ts_5fciv',['ts_civ',['../classxg_1_1XG.html#a10edf2d06ea2dd4c2447fee2d45315d0',1,'xg::XG']]],
   ['ts_5fiv',['ts_iv',['../classxg_1_1XG.html#a05141e12ffaf3a49aef046d3e2d7181a',1,'xg::XG']]],
   ['tumor_5fsupports',['tumor_supports',['../structvg_1_1BREAKPOINT.html#a66f75cad38b9fa5a3aab6b09b7a4ef8a',1,'vg::BREAKPOINT']]],
+  ['tvs',['tvs',['../classvg_1_1TVSClusterer.html#ad59ad1a2a88d40a980a7b7fb2cc18a0d',1,'vg::TVSClusterer']]],
   ['type',['type',['../structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6',1,'vg::Snarl']]]
 ];

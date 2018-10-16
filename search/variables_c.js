@@ -36,5 +36,6 @@ var searchData=
   ['loopfd',['loopFd',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#a2fb2eb2d02f3f57e4f7760362339245d',1,'vg::DistanceIndex::ChainIndex']]],
   ['looprev',['loopRev',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#abdbd2510188f0814787f971b529b5a23',1,'vg::DistanceIndex::ChainIndex']]],
   ['low_5fbits',['LOW_BITS',['../classvg_1_1VG.html#ae0aba2d46c4bc118fade0643f09578de',1,'vg::VG::LOW_BITS()'],['../classxg_1_1XG.html#ae8b903226a9d0c02e1b9f6ff1d2b6d56',1,'xg::XG::LOW_BITS()']]],
-  ['lower_5fbound',['lower_bound',['../structvg_1_1BREAKPOINT.html#a1b854b285738913830671a54ce0857f5',1,'vg::BREAKPOINT']]]
+  ['lower_5fbound',['lower_bound',['../structvg_1_1BREAKPOINT.html#a1b854b285738913830671a54ce0857f5',1,'vg::BREAKPOINT']]],
+  ['lower_5fbound_5fheuristic',['lower_bound_heuristic',['../classvg_1_1TargetValueSearch.html#a93c1f2cb35452719dc87fb4ec8cf714e',1,'vg::TargetValueSearch']]]
 ];

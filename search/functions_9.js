@@ -5,7 +5,7 @@ var searchData=
   ['id_5frev_5fto_5fside',['id_rev_to_side',['../classxg_1_1XG.html#addfde41df1c487fead4ff605571f1949',1,'xg::XG']]],
   ['id_5fto_5frank',['id_to_rank',['../classxg_1_1XG.html#acc5e2413b28e3f5889436b3e9b0b528f',1,'xg::XG']]],
   ['identically_5foriented_5fsibling_5fsets',['identically_oriented_sibling_sets',['../classvg_1_1VG.html#acb33bdc43954b8acd955bb4425a48df1',1,'vg::VG']]],
-  ['identify_5fsources_5fand_5fsinks',['identify_sources_and_sinks',['../classvg_1_1OrientedDistanceClusterer.html#a96510c3f1316864da113417fd418db32',1,'vg::OrientedDistanceClusterer']]],
+  ['identify_5fsources_5fand_5fsinks',['identify_sources_and_sinks',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a6f516a61ac5a9a7194c6841eabc39e42',1,'vg::MEMClusterer::HitGraph']]],
   ['identify_5fstart_5fsubpaths',['identify_start_subpaths',['../namespacevg.html#a84d3918e06a7c8948bb6e91ba1226fa9',1,'vg']]],
   ['identity',['identity',['../namespacevg.html#ab3c5c7a407962a8c735c1d533cc0b186',1,'vg']]],
   ['identity_5ftranslation',['identity_translation',['../classvg_1_1VG.html#abbd7b9f01799a351e0e5ba420fa06679',1,'vg::VG']]],

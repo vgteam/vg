@@ -1,7 +1,7 @@
 var searchData=
 [
   ['qual',['qual',['../structvg_1_1StrandSupport.html#a3c79edd74306e3b47950dce1ac57e19d',1,'vg::StrandSupport']]],
-  ['qual_5fadj_5faligner',['qual_adj_aligner',['../classvg_1_1OrientedDistanceClusterer.html#a8ad9627382493b606581f85deb4cd317',1,'vg::OrientedDistanceClusterer::qual_adj_aligner()'],['../classvg_1_1BaseMapper.html#a11f57a57897054ec9523197f32b821e1',1,'vg::BaseMapper::qual_adj_aligner()']]],
+  ['qual_5fadj_5faligner',['qual_adj_aligner',['../classvg_1_1BaseMapper.html#a11f57a57897054ec9523197f32b821e1',1,'vg::BaseMapper']]],
   ['qual_5ffilter',['qual_filter',['../classvg_1_1Filter.html#ac0b864f9350cb8d9be52e2c13e69c30c',1,'vg::Filter']]],
   ['qual_5foffset',['qual_offset',['../classvg_1_1Filter.html#ac989d47373aa80519790159a8a67cfc8',1,'vg::Filter']]],
   ['qualadjaligner',['QualAdjAligner',['../classvg_1_1QualAdjAligner.html',1,'vg']]],

@@ -53,6 +53,7 @@ var searchData=
   ['escape_5fdelims',['escape_delims',['../classvg_1_1Packer.html#ac64b875e76e0c519d0e746c5818949af',1,'vg::Packer']]],
   ['establish_5fstrand_5fconsistency',['establish_strand_consistency',['../classvg_1_1MultipathMapper.html#acef2de4240323f32bd2966e4a7f46556',1,'vg::MultipathMapper']]],
   ['estimate_5fdistribution',['estimate_distribution',['../classvg_1_1FragmentLengthDistribution.html#a87a5794f706a81748136f0890f2168cd',1,'vg::FragmentLengthDistribution']]],
+  ['estimate_5fedge_5fscore',['estimate_edge_score',['../classvg_1_1MEMClusterer.html#a94c25cde22a8be56157178d5f8012222',1,'vg::MEMClusterer']]],
   ['estimate_5fgc_5fcontent',['estimate_gc_content',['../classvg_1_1BaseMapper.html#a0f6e5fb687c8c22bb4bb02752d1d9a2c',1,'vg::BaseMapper']]],
   ['estimate_5fmax_5fpossible_5fmapping_5fquality',['estimate_max_possible_mapping_quality',['../classvg_1_1BaseAligner.html#a9c3c3573c3d19f6da8e05f9bfcb7897a',1,'vg::BaseAligner::estimate_max_possible_mapping_quality()'],['../classvg_1_1Mapper.html#ac8613c49c8390b280aef7323151a4fd8',1,'vg::Mapper::estimate_max_possible_mapping_quality()']]],
   ['estimate_5fnext_5fbest_5fscore',['estimate_next_best_score',['../classvg_1_1BaseAligner.html#aba4e7dd63a4140484f09e5d2772972d9',1,'vg::BaseAligner']]],

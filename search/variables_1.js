@@ -6,7 +6,7 @@ var searchData=
   ['adjust_5falignments_5ffor_5fbase_5fquality',['adjust_alignments_for_base_quality',['../classvg_1_1BaseMapper.html#a46b95cc1764a5e81a7976e0929b06920',1,'vg::BaseMapper']]],
   ['adjust_5ffor_5fbase_5fquality',['adjust_for_base_quality',['../classvg_1_1BandedGlobalAligner.html#a00b5ed0e20f4dd989bf5219b0273828e',1,'vg::BandedGlobalAligner']]],
   ['affinity',['affinity',['../structvg_1_1Genotyper_1_1Affinity.html#a77332c5a3e180693907d5b6d28c7ca32',1,'vg::Genotyper::Affinity']]],
-  ['aligner',['aligner',['../classvg_1_1OrientedDistanceClusterer.html#a02815fdd278c050d280e4722b128f32d',1,'vg::OrientedDistanceClusterer::aligner()'],['../classvg_1_1VariantAdder.html#a13027b4029d1afe257878e807b56e24f',1,'vg::VariantAdder::aligner()']]],
+  ['aligner',['aligner',['../classvg_1_1VariantAdder.html#a13027b4029d1afe257878e807b56e24f',1,'vg::VariantAdder']]],
   ['alignment',['alignment',['../classvg_1_1BandedGlobalAligner.html#ab0cb70d08f759c4f661206b318a96bd7',1,'vg::BandedGlobalAligner::alignment()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a389f62ad0c08ec025e72334c8840da9f',1,'vg::BandedGlobalAligner::BAMatrix::alignment()'],['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#aafbeded7714f362e7a4b7802fa6f77a1',1,'vg::BandedGlobalAligner::BABuilder::alignment()']]],
   ['alignment_5fthreads',['alignment_threads',['../classvg_1_1BaseMapper.html#a36f6b3fe1ed67c244e0379346dd18465',1,'vg::BaseMapper']]],
   ['alignments',['alignments',['../classvg_1_1MSAConverter.html#a47c97fb19598ec7786d2497e4fb86327',1,'vg::MSAConverter']]],

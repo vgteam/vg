@@ -10,6 +10,7 @@ var searchData=
   ['snarlfinder',['SnarlFinder',['../classvg_1_1SnarlFinder.html',1,'vg']]],
   ['snarlindex',['SnarlIndex',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html',1,'vg::DistanceIndex']]],
   ['snarlmanager',['SnarlManager',['../classvg_1_1SnarlManager.html',1,'vg']]],
+  ['snarlmindistance',['SnarlMinDistance',['../classvg_1_1SnarlMinDistance.html',1,'vg']]],
   ['snarlorienteddistancemeasurer',['SnarlOrientedDistanceMeasurer',['../classvg_1_1SnarlOrientedDistanceMeasurer.html',1,'vg']]],
   ['snarlrecord',['SnarlRecord',['../structvg_1_1SnarlManager_1_1SnarlRecord.html',1,'vg::SnarlManager']]],
   ['snarlstate',['SnarlState',['../classvg_1_1SnarlState.html',1,'vg']]],

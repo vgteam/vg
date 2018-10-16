@@ -6,7 +6,7 @@ var searchData=
   ['add_5falt_5fallele',['add_alt_allele',['../namespacevg.html#a6391a10ec421fbb6c487f491bd978ef6',1,'vg']]],
   ['add_5fbv',['add_bv',['../classVectorizer.html#a88203fab4049c471c963135c4c52ce03',1,'Vectorizer']]],
   ['add_5fchain_5fchild',['add_chain_child',['../classvg_1_1NetGraph.html#a0fadfaf9261a911ec04b4c10f75c5b9b',1,'vg::NetGraph']]],
-  ['add_5fedge',['add_edge',['../classvg_1_1VG.html#a613c931c81518212917053d07e9bf8a8',1,'vg::VG']]],
+  ['add_5fedge',['add_edge',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a9ea6a73a76afd51e8e3faee8d76575a2',1,'vg::MEMClusterer::HitGraph::add_edge()'],['../classvg_1_1VG.html#a613c931c81518212917053d07e9bf8a8',1,'vg::VG::add_edge()']]],
   ['add_5fedges',['add_edges',['../classvg_1_1VG.html#a7f23cdd532ca7b8d3c0bb9cceff3d378',1,'vg::VG::add_edges(const vector&lt; Edge &gt; &amp;edges)'],['../classvg_1_1VG.html#a679e39a7c1771c3ecc7204bd3b999583',1,'vg::VG::add_edges(const vector&lt; Edge * &gt; &amp;edges)'],['../classvg_1_1VG.html#acb8712eefbfd373c45f54d6bac8188c6',1,'vg::VG::add_edges(const set&lt; Edge * &gt; &amp;edges)']]],
   ['add_5ffragment',['add_fragment',['../structvg_1_1NodeDivider.html#a284fdf0232f747d08b0492045c6746dd',1,'vg::NodeDivider']]],
   ['add_5fgroup',['add_group',['../classvg_1_1GAMIndex.html#afc09684ba6f63fa9188db5241cfdcbfa',1,'vg::GAMIndex::add_group(const vector&lt; Alignment &gt; &amp;alns, int64_t virtual_start, int64_t virtual_past_end)'],['../classvg_1_1GAMIndex.html#aef48df601b1be068088906afc47b13a3',1,'vg::GAMIndex::add_group(id_t min_id, id_t max_id, int64_t virtual_start, int64_t virtual_past_end)']]],
