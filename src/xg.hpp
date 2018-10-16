@@ -238,6 +238,10 @@ public:
     /// Get the maximum node ID used in the graph, if any are used
     virtual id_t max_node_id() const;
     
+    // TODO: There's currently no really good efficient way to implement
+    // get_degree; we have to decode each edge to work out what node side it is
+    // on. So we use the default implementation.
+    
     ////////////////////////
     // Path handle graph API
     ////////////////////////

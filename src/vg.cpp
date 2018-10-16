@@ -230,6 +230,47 @@ void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
 size_t VG::node_size() const {
     return graph.node_size();
 }
+
+id_t VG::max_node_id(void) const {
+    id_t max_id = 0;
+    for (int i = 0; i < graph.node_size(); ++i) {
+        const Node& n = graph.node(i);
+        if (n.id() > max_id) {
+            max_id = n.id();
+        }
+    }
+    return max_id;
+}
+
+id_t VG::min_node_id(void) const {
+    id_t min_id = numeric_limits<id_t>::max();
+    for (int i = 0; i < graph.node_size(); ++i) {
+        const Node& n = graph.node(i);
+        if (n.id() < min_id) {
+            min_id = n.id();
+        }
+    }
+    return min_id;
+}
+
+size_t VG::get_degree(const handle_t& handle, bool go_left) const {
+    // Are we reverse?
+    bool is_reverse = get_is_reverse(handle);
+    
+    // Which edges will we look at?
+    auto& edge_set = (go_left != is_reverse) ? edges_on_start : edges_on_end;
+    
+    // Look up edges of this node specifically
+    auto found = edge_set.find(get_id(handle));
+    if (found != edge_set.end()) {
+        // There are (or may be) edges.
+        // Return the count.
+        return found->second.size();
+    }
+    
+    // Otherwise there can be no edges
+    return 0;
+}
     
 path_handle_t VG::get_path_handle(const string& path_name) const {
     return as_path_handle(paths.name_to_id.at(path_name));
@@ -2747,28 +2788,6 @@ void VG::include(const Path& path) {
         }
     }
     paths.extend(path);
-}
-
-id_t VG::max_node_id(void) const {
-    id_t max_id = 0;
-    for (int i = 0; i < graph.node_size(); ++i) {
-        const Node& n = graph.node(i);
-        if (n.id() > max_id) {
-            max_id = n.id();
-        }
-    }
-    return max_id;
-}
-
-id_t VG::min_node_id(void) const {
-    id_t min_id = numeric_limits<id_t>::max();
-    for (int i = 0; i < graph.node_size(); ++i) {
-        const Node& n = graph.node(i);
-        if (n.id() < min_id) {
-            min_id = n.id();
-        }
-    }
-    return min_id;
 }
 
 void VG::compact_ids(void) {

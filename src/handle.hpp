@@ -206,7 +206,10 @@ public:
     virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const = 0;
     
     /// Loop over all the nodes in the graph in their local forward
-    /// orientations, in their internal stored order. Stop if the iteratee returns false.
+    /// orientations, in their internal stored order. Stop if the iteratee
+    /// returns false. Can be told to run in parallel, in which case stopping
+    /// after a false return value is on a best-effort basis and iteration
+    /// order is not defined.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const = 0;
     
     /// Return the number of nodes in the graph
@@ -275,13 +278,23 @@ public:
         for_each_handle(lambda, parallel);
     }
     
-    ////////////////////////////////////////////////////////////////////////////
-    // Concrete utility methods
-    ////////////////////////////////////////////////////////////////////////////
-    
     /// Get a handle from a Visit Protobuf object.
     /// Must be using'd to avoid shadowing.
     handle_t get_handle(const Visit& visit) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Additional optional interface with a default implementation
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Get the number of edges on the right (go_left = false) or left (go_left
+    /// = true) side of the given handle. The default implementation is O(n) in
+    /// the number of edges returned, but graph implementations that track this
+    /// information more efficiently can override this method.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Concrete utility methods
+    ////////////////////////////////////////////////////////////////////////////
     
     /// Get a Protobuf Visit from a handle.
     Visit to_visit(const handle_t& handle) const;

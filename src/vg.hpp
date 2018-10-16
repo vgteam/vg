@@ -131,6 +131,10 @@ public:
     /// Get the maximum node ID used in the graph, if any are used
     virtual id_t max_node_id() const;
     
+    /// Efficiently get the number of edges attached to one side of a handle.
+    /// Uses the VG graph's internal degree index.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
