@@ -178,6 +178,7 @@ void VGset::for_each_kmer_parallel(int kmer_size, const function<void(const kmer
 void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
                                    id_t head_id, id_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
+        // Detect head and tail IDs in advance if we have multiple graphs
         id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
@@ -197,6 +198,10 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
         
+        // Read back the head and tail IDs in case we have only one graph and we just detected them now.
+        head_id = overlay.get_id(overlay.get_source_handle());
+        tail_id = overlay.get_id(overlay.get_sink_handle());
+        
         // Now get the kmers in the graph that pretends to have single head and tail nodes
         for_each_kmer(overlay, kmer_size, write_kmer, head_id, tail_id);
     });
@@ -206,6 +211,7 @@ void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
 void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_limit,
                                     id_t head_id, id_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
+        // Detect head and tail IDs in advance if we have multiple graphs
         id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
@@ -216,6 +222,10 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
+        
+        // Read back the head and tail IDs in case we have only one graph and we just detected them now.
+        head_id = overlay.get_id(overlay.get_source_handle());
+        tail_id = overlay.get_id(overlay.get_sink_handle());
         
         size_t current_bytes = size_limit - total_size;
         write_gcsa_kmers(overlay, kmer_size, out, current_bytes, head_id, tail_id);
@@ -228,6 +238,7 @@ void VGset::write_gcsa_kmers_binary(ostream& out, int kmer_size, size_t& size_li
 vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
                                               id_t head_id, id_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {
+        // Detect head and tail IDs in advance if we have multiple graphs
         id_t max_id = max_node_id(); // expensive, as we'll stream through all the files
         head_id = max_id + 1;
         tail_id = max_id + 2;
@@ -239,6 +250,10 @@ vector<string> VGset::write_gcsa_kmers_binary(int kmer_size, size_t& size_limit,
         // Make an overlay for each graph, without modifying it. Break into tip-less cycle components.
         // Make sure to use a consistent head and tail ID across all graphs in the set.
         SourceSinkOverlay overlay(g, kmer_size, head_id, tail_id);
+        
+        // Read back the head and tail IDs in case we have only one graph and we just detected them now.
+        head_id = overlay.get_id(overlay.get_source_handle());
+        tail_id = overlay.get_id(overlay.get_sink_handle());
         
         size_t current_bytes = size_limit - total_size;
         tmpnames.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, current_bytes, head_id, tail_id));

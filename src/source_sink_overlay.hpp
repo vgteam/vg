@@ -27,11 +27,12 @@ public:
      * Make a new SourceSinkOverlay. The backing graph must not be modified
      * while the overlay exists.
      *
-     * The overlay will project a source node consisting of '$' characters, and
-     * a sink node consisting of '#' characters. The lengths of the nodes may
+     * The overlay will project a source node consisting of '#' characters, and
+     * a sink node consisting of '$' characters. The lengths of the nodes may
      * be specified, and default to 1024, the max length that GCSA2 supports.
      * The IDs of the nodes will be autodetected from the backing graph's max
-     * ID if not specified. If either is specified, both must be specified.
+     * ID if not specified (or given as 0). If either is specified, both must
+     * be specified.
      *
      * Also breaks into disconnected components with no tips, unless
      * break_disconnected is false. When breaking into such a component, we
@@ -136,7 +137,7 @@ protected:
     
     /// Convert our handle to a backing graph node into a backing graph handle to the same node
     inline handle_t to_backing(const handle_t& our_handle) const {
-        return as_handle(as_integer(our_handle) + 4);
+        return as_handle(as_integer(our_handle) - 4);
     }
     
     /// Determine if a handle points to an overlay-added node or not

@@ -1,6 +1,8 @@
 #include "source_sink_overlay.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 
+//#define debug
+
 namespace vg {
 
 using namespace std;
@@ -19,6 +21,9 @@ SourceSinkOverlay::SourceSinkOverlay(const HandleGraph* backing, size_t length, 
         this->sink_id = this->source_id + 1;
     }
     
+#ifdef debug
+    cerr << "Make overlay for kmer size " << length << " with source " << this->source_id << " and sink " << this->sink_id << endl;
+#endif
     
     // We have to divide the graph into connected components and get ahold of the tips.
     vector<pair<unordered_set<id_t>, vector<handle_t>>> components = algorithms::weakly_connected_components_with_tips(backing);
@@ -27,6 +32,13 @@ SourceSinkOverlay::SourceSinkOverlay(const HandleGraph* backing, size_t length, 
         // Unpack each component
         auto& component_ids = component.first;
         auto& component_tips = component.second;
+        
+#ifdef debug
+        cerr << "Weakly connected component of " << component_ids.size() << " has " << component_tips.size() << " tips:" << endl;
+        for (auto& tip : component_tips) {
+            cerr << "\t" << backing->get_id(tip) << " orientation " << backing->get_is_reverse(tip) << endl;
+        }
+#endif
         
         // All the components need to be nonempty
         assert(!component_ids.empty());
@@ -130,12 +142,13 @@ size_t SourceSinkOverlay::get_length(const handle_t& handle) const {
 
 string SourceSinkOverlay::get_sequence(const handle_t& handle) const {
     if (handle == source_fwd || handle == sink_rev) {
-        // Reading into the graph is all '$'
-        return string(node_length, '$');
-    } else if (handle == source_rev || handle == sink_fwd) {
-        // Reading out of the graph is all '#'
+        // Reading into the graph is all '#'
         return string(node_length, '#');
+    } else if (handle == source_rev || handle == sink_fwd) {
+        // Reading out of the graph is all '$'
+        return string(node_length, '$');
     } else {
+        assert(!is_ours(handle));
         return backing->get_sequence(to_backing(handle));
     }
 }
