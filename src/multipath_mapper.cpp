@@ -73,7 +73,6 @@ namespace vg {
         unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
         vector<memcluster_t> clusters = get_clusters(alignment, mems, *distance_measurer);
         
-        
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
         for (int i = 0; i < clusters.size(); i++) {
@@ -148,22 +147,9 @@ namespace vg {
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                         OrientedDistanceMeasurer& distance_measurer) const {
         
-        OrientedDistanceClusterer clusterer = adjust_alignments_for_base_quality ? OrientedDistanceClusterer(alignment,
-                                                                                                             mems,
-                                                                                                             *get_qual_adj_aligner(),
-                                                                                                             distance_measurer,
-                                                                                                             unstranded_clustering,
-                                                                                                             max_expected_dist_approx_error,
-                                                                                                             min_clustering_mem_length)
-                                                                                 : OrientedDistanceClusterer(alignment,
-                                                                                                             mems,
-                                                                                                             *get_regular_aligner(),
-                                                                                                             distance_measurer,
-                                                                                                             unstranded_clustering,
-                                                                                                             max_expected_dist_approx_error,
-                                                                                                             min_clustering_mem_length);
-        
-        return clusterer.clusters(alignment, max_mapping_quality, log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        OrientedDistanceClusterer clusterer(distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
+        return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                  log_likelihood_approx_factor, min_median_mem_coverage_for_split);
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
