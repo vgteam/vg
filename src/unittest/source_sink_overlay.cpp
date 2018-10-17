@@ -31,100 +31,103 @@ TEST_CASE("SourceSinkOverlay adds a source and a sink to a 1-node graph", "[over
     // Make an overlay
     SourceSinkOverlay overlay(&vg, 10);
     
-    bool found_node = false;
-    bool found_source = false;
-    bool found_sink = false;
+    SECTION("we see the right graph") {
     
-    // Make sure the nodes are as expected
-    overlay.for_each_handle([&](const handle_t& handle) {
+        bool found_node = false;
+        bool found_source = false;
+        bool found_sink = false;
         
+        // Make sure the nodes are as expected
+        overlay.for_each_handle([&](const handle_t& handle) {
+            
 #ifdef debug
-        cerr << "Observed node " << overlay.get_id(handle) << " orientation " << overlay.get_is_reverse(handle)
-            << " with sequence " << overlay.get_sequence(handle) << endl;
+            cerr << "Observed node " << overlay.get_id(handle) << " orientation " << overlay.get_is_reverse(handle)
+                << " with sequence " << overlay.get_sequence(handle) << endl;
 #endif
-    
-        if (overlay.get_id(handle) == n1->id()) {
-            // This is the real node
-            REQUIRE(!found_node);
-            found_node = true;
-            
-            REQUIRE(overlay.get_sequence(handle) == "GATTACA");
-            REQUIRE(overlay.get_degree(handle, false) == 1);
-            REQUIRE(overlay.get_degree(handle, true) == 1);
-            
-            unordered_set<pair<id_t, bool>> overlay_neighbors;
-            overlay.follow_edges(handle, false, [&](const handle_t& neighbor) {
-                overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
-            });
-            
-            REQUIRE(overlay_neighbors.size() == 1);
-            REQUIRE(overlay_neighbors.count(make_pair(overlay.get_id(overlay.get_sink_handle()), false)));
-            
-            overlay_neighbors.clear();
-            overlay.follow_edges(handle, true, [&](const handle_t& neighbor) {
-                overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
-            });
-            
-            REQUIRE(overlay_neighbors.size() == 1);
-            REQUIRE(overlay_neighbors.count(make_pair(overlay.get_id(overlay.get_source_handle()), false)));
-            
-        } else if (handle == overlay.get_source_handle()) {
-            // This is the fake source
-            REQUIRE(!found_source);
-            found_source = true;
-            
-            REQUIRE(overlay.get_sequence(handle) == "##########");
-            REQUIRE(overlay.get_degree(handle, false) == 1);
-            REQUIRE(overlay.get_degree(handle, true) == 0);
-            
-            unordered_set<pair<id_t, bool>> overlay_neighbors;
-            overlay.follow_edges(handle, false, [&](const handle_t& neighbor) {
-                overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
-            });
-            
-            REQUIRE(overlay_neighbors.size() == 1);
-            REQUIRE(overlay_neighbors.count(make_pair(n1->id(), false)));
-            
-            overlay_neighbors.clear();
-            overlay.follow_edges(handle, true, [&](const handle_t& neighbor) {
-                overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
-            });
-            
-            REQUIRE(overlay_neighbors.empty());
-            
-        } else if (handle == overlay.get_sink_handle()) {
-            // This is the fake sink
-            REQUIRE(!found_sink);
-            found_sink = true;
-            
-            REQUIRE(overlay.get_sequence(handle) == "$$$$$$$$$$");
-            REQUIRE(overlay.get_degree(handle, false) == 0);
-            REQUIRE(overlay.get_degree(handle, true) == 1);
-            
-            unordered_set<pair<id_t, bool>> overlay_neighbors;
-            overlay.follow_edges(handle, false, [&](const handle_t& neighbor) {
-                overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
-            });
-            
-            REQUIRE(overlay_neighbors.empty());
-            
-            overlay_neighbors.clear();
-            overlay.follow_edges(handle, true, [&](const handle_t& neighbor) {
-                overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
-            });
-            
-            REQUIRE(overlay_neighbors.size() == 1);
-            REQUIRE(overlay_neighbors.count(make_pair(n1->id(), false)));
-            
-        } else {
-            // This is an unrecognized node!
-            REQUIRE(false);
-        }
-    });
-    
-    REQUIRE(found_node);
-    REQUIRE(found_source);
-    REQUIRE(found_sink);
+        
+            if (overlay.get_id(handle) == n1->id()) {
+                // This is the real node
+                REQUIRE(!found_node);
+                found_node = true;
+                
+                REQUIRE(overlay.get_sequence(handle) == "GATTACA");
+                REQUIRE(overlay.get_degree(handle, false) == 1);
+                REQUIRE(overlay.get_degree(handle, true) == 1);
+                
+                unordered_set<pair<id_t, bool>> overlay_neighbors;
+                overlay.follow_edges(handle, false, [&](const handle_t& neighbor) {
+                    overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
+                });
+                
+                REQUIRE(overlay_neighbors.size() == 1);
+                REQUIRE(overlay_neighbors.count(make_pair(overlay.get_id(overlay.get_sink_handle()), false)));
+                
+                overlay_neighbors.clear();
+                overlay.follow_edges(handle, true, [&](const handle_t& neighbor) {
+                    overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
+                });
+                
+                REQUIRE(overlay_neighbors.size() == 1);
+                REQUIRE(overlay_neighbors.count(make_pair(overlay.get_id(overlay.get_source_handle()), false)));
+                
+            } else if (handle == overlay.get_source_handle()) {
+                // This is the fake source
+                REQUIRE(!found_source);
+                found_source = true;
+                
+                REQUIRE(overlay.get_sequence(handle) == "##########");
+                REQUIRE(overlay.get_degree(handle, false) == 1);
+                REQUIRE(overlay.get_degree(handle, true) == 0);
+                
+                unordered_set<pair<id_t, bool>> overlay_neighbors;
+                overlay.follow_edges(handle, false, [&](const handle_t& neighbor) {
+                    overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
+                });
+                
+                REQUIRE(overlay_neighbors.size() == 1);
+                REQUIRE(overlay_neighbors.count(make_pair(n1->id(), false)));
+                
+                overlay_neighbors.clear();
+                overlay.follow_edges(handle, true, [&](const handle_t& neighbor) {
+                    overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
+                });
+                
+                REQUIRE(overlay_neighbors.empty());
+                
+            } else if (handle == overlay.get_sink_handle()) {
+                // This is the fake sink
+                REQUIRE(!found_sink);
+                found_sink = true;
+                
+                REQUIRE(overlay.get_sequence(handle) == "$$$$$$$$$$");
+                REQUIRE(overlay.get_degree(handle, false) == 0);
+                REQUIRE(overlay.get_degree(handle, true) == 1);
+                
+                unordered_set<pair<id_t, bool>> overlay_neighbors;
+                overlay.follow_edges(handle, false, [&](const handle_t& neighbor) {
+                    overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
+                });
+                
+                REQUIRE(overlay_neighbors.empty());
+                
+                overlay_neighbors.clear();
+                overlay.follow_edges(handle, true, [&](const handle_t& neighbor) {
+                    overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
+                });
+                
+                REQUIRE(overlay_neighbors.size() == 1);
+                REQUIRE(overlay_neighbors.count(make_pair(n1->id(), false)));
+                
+            } else {
+                // This is an unrecognized node!
+                REQUIRE(false);
+            }
+        });
+        
+        REQUIRE(found_node);
+        REQUIRE(found_source);
+        REQUIRE(found_sink);
+    }
     
 }
 
@@ -150,73 +153,101 @@ TEST_CASE("SourceSinkOverlay agrees with VG::add_start_end_markers in a tiny gra
     
     // We know this graph has no tipless components.
     
-    // Get handles for all the nodes
-    unordered_map<id_t, handle_t> copy_handles;
-    copy.for_each_handle([&](const handle_t& handle) {
-        copy_handles[copy.get_id(handle)] = handle;
-    });
+    SECTION("graphs agree") {
     
-    unordered_map<id_t, handle_t> overlay_handles;
-    overlay.for_each_handle([&](const handle_t& handle) {
-        overlay_handles[overlay.get_id(handle)] = handle;
-    });
-    
-    REQUIRE(copy_handles.size() == overlay_handles.size());
-    
-    for (auto& kv : copy_handles) {
-        // Unpack the copy handle
-        auto& id = kv.first;
-        auto& copy_handle = kv.second;
+        // Get handles for all the nodes
+        unordered_map<id_t, handle_t> copy_handles;
+        copy.for_each_handle([&](const handle_t& handle) {
+            copy_handles[copy.get_id(handle)] = handle;
+        });
         
-        // Find the corresponding overlay handle
-        REQUIRE(overlay_handles.count(id));
-        auto& overlay_handle = overlay_handles.at(id);
+        unordered_map<id_t, handle_t> overlay_handles;
+        overlay.for_each_handle([&](const handle_t& handle) {
+            overlay_handles[overlay.get_id(handle)] = handle;
+        });
         
-        // Both should be forward
-        REQUIRE(!copy.get_is_reverse(copy_handle));
-        REQUIRE(!overlay.get_is_reverse(overlay_handle));
+        REQUIRE(copy_handles.size() == overlay_handles.size());
         
-        // Both should have the same sequence
-        REQUIRE(copy.get_sequence(copy_handle) == overlay.get_sequence(overlay_handle));
-        
-        for (bool go_left : {false, true}) {
-            // Both should have the same neighbors
-            unordered_set<pair<id_t, bool>> copy_neighbors;
-            unordered_set<pair<id_t, bool>> overlay_neighbors;
+        for (auto& kv : copy_handles) {
+            // Unpack the copy handle
+            auto& id = kv.first;
+            auto& copy_handle = kv.second;
             
-#ifdef debug
-            cerr << "Look " << (go_left ? "left" : "right") << " from " << id << endl;
-#endif
+            // Find the corresponding overlay handle
+            REQUIRE(overlay_handles.count(id));
+            auto& overlay_handle = overlay_handles.at(id);
             
-            copy.follow_edges(copy_handle, go_left, [&](const handle_t& neighbor) {
+            // Both should be forward
+            REQUIRE(!copy.get_is_reverse(copy_handle));
+            REQUIRE(!overlay.get_is_reverse(overlay_handle));
+            
+            // Both should have the same sequence
+            REQUIRE(copy.get_sequence(copy_handle) == overlay.get_sequence(overlay_handle));
+            
+            for (bool go_left : {false, true}) {
+                // Both should have the same neighbors
+                unordered_set<pair<id_t, bool>> copy_neighbors;
+                unordered_set<pair<id_t, bool>> overlay_neighbors;
+                
 #ifdef debug
-                cerr << "\tIn copy find node " << copy.get_id(neighbor) << " orientation " << copy.get_is_reverse(neighbor) << endl;
+                cerr << "Look " << (go_left ? "left" : "right") << " from " << id << endl;
 #endif
                 
-                copy_neighbors.emplace(copy.get_id(neighbor), copy.get_is_reverse(neighbor));
-            });
-            
-            overlay.follow_edges(overlay_handle, go_left, [&](const handle_t& neighbor) {
+                copy.follow_edges(copy_handle, go_left, [&](const handle_t& neighbor) {
 #ifdef debug
-                cerr << "\tIn overlay find node " << overlay.get_id(neighbor) << " orientation " << overlay.get_is_reverse(neighbor) << endl;
+                    cerr << "\tIn copy find node " << copy.get_id(neighbor) << " orientation " << copy.get_is_reverse(neighbor) << endl;
 #endif
+                    
+                    copy_neighbors.emplace(copy.get_id(neighbor), copy.get_is_reverse(neighbor));
+                });
                 
-                overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
-            });
-            
-            REQUIRE(copy_neighbors.size() == overlay_neighbors.size());
-            for (auto& item : copy_neighbors) {
-                REQUIRE(overlay_neighbors.count(item));
+                overlay.follow_edges(overlay_handle, go_left, [&](const handle_t& neighbor) {
+#ifdef debug
+                    cerr << "\tIn overlay find node " << overlay.get_id(neighbor) << " orientation " << overlay.get_is_reverse(neighbor) << endl;
+#endif
+                    
+                    overlay_neighbors.emplace(overlay.get_id(neighbor), overlay.get_is_reverse(neighbor));
+                });
+                
+                REQUIRE(copy_neighbors.size() == overlay_neighbors.size());
+                for (auto& item : copy_neighbors) {
+                    REQUIRE(overlay_neighbors.count(item));
+                }
             }
         }
+        
+    }
+        
+    
+    SECTION("kmer generation works") {
+        // Now test kmer generation
+        size_t size_limit = 10000;
+        temp_file::remove(write_gcsa_kmers_to_tmpfile(copy, 10, size_limit, start_id, end_id));
+        size_limit = 10000;
+        temp_file::remove(write_gcsa_kmers_to_tmpfile(overlay, 10, size_limit, start_id, end_id));
     }
     
+    SECTION("for_each_handle works in parallel mode") {
     
-    // Now test kmer generation
-    size_t size_limit = 10000;
-    temp_file::remove(write_gcsa_kmers_to_tmpfile(copy, 10, size_limit, start_id, end_id));
-    size_limit = 10000;
-    temp_file::remove(write_gcsa_kmers_to_tmpfile(overlay, 10, size_limit, start_id, end_id));
+        size_t found = 0;
+    
+        overlay.for_each_handle([&](const handle_t& handle) {
+            
+            #pragma omp critical
+            {
+            
+#ifdef debug
+                cerr << "Observed node " << overlay.get_id(handle) << " orientation " << overlay.get_is_reverse(handle)
+                    << " with sequence " << overlay.get_sequence(handle) << endl;
+#endif
+        
+            
+                found++;
+            }
+        }, true);
+        
+        REQUIRE(found == produced.node_size() + 2);
+    }
 }
 
 TEST_CASE("SourceSinkOverlay agrees with VG::add_start_end_markers in a random graph", "[overlay]") {

@@ -222,8 +222,14 @@ void SourceSinkOverlay::for_each_handle(const function<bool(const handle_t&)>& i
         return;
     }
     
+#ifdef debug
+    cerr << "Try backing graph " << (parallel ? "in parallel" : "") << endl;
+#endif
     backing->for_each_handle([&](const handle_t& backing_handle) -> bool {
         // Now do each backing node, possibly in parallel.
+#ifdef debug
+        cerr << "Invoke iteratee on " << backing->get_id(backing_handle) << endl;
+#endif
         return iteratee(from_backing(backing_handle));
     }, parallel);
 }

@@ -1771,6 +1771,7 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     size_t entry_size = 0;
     // The lambda function will let us know if we're bailing early.
     bool stop_early = false;
+    
     auto lambda = [&](size_t g) {
         // Make the handle
         // We need to make sure our index isn't trying to use the high bit we shift off
@@ -1779,31 +1780,48 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
         // Make it into a handle, packing it as the node ID and using 0 for orientation
         handle_t handle = as_handle(g << 1);
         
-        // Run the iteratee
-        if (!iteratee(handle)) {
-            // The iteratee is bored and wants to stop.
-#pragma omp atomic write
-            stop_early = true;
-            return;
+        if (parallel) {
+            // Run the iteratee as a task
+            # pragma omp task
+            {
+                // Run the iteratee
+                if (!iteratee(handle)) {
+                    // The iteratee is bored and wants to stop.
+                    #pragma omp atomic write
+                    stop_early = true;
+                }
+            }
+        } else {
+            // Run the iteratee in-line
+            if (!iteratee(handle)) {
+                // The iteratee is bored and wants to stop.
+                stop_early = true;
+            }
         }
         
         // How many edges are there of each type on this record?
         size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
         size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
         
-        // This record is the header plus all the edge records it contains
+        // This record is the header plus all the edge records it contains.
+        // Decode the entry size in the same thread doing the iteration.
         entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
         
     };
+    
     if (parallel) {
-#pragma omp parallel for schedule(dynamic,1)
-        for (size_t g = 0; g < g_iv.size(); g += entry_size) {
-            lambda(g);
-            
-            // This is hack-y, but it achieves a 'break' statement while keeping OpenMP happy.
-            if (stop_early) {
-                entry_size = g_iv.size() - g;
+        #pragma omp parallel
+        {
+            #pragma omp single 
+            {
+                // We need to do a serial scan of the g vector because each entry is variable size.
+                for (size_t g = 0; g < g_iv.size() && !stop_early; g += entry_size) {
+                    lambda(g);
+                }
             }
+            
+            // Make the tasks finish before we return, so the variables they reference stick around
+            # pragma omp taskwait
         }
     } else {
         for (size_t g = 0; g < g_iv.size() && !stop_early; g += entry_size) {
