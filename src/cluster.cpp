@@ -613,7 +613,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
         }
         new_components.emplace_back();
         vector<size_t> stack(1, component[i]);
-        enqueued[node_idx_to_component_idx[i]] = true;
+        enqueued[i] = true;
         while (!stack.empty()) {
             size_t node_idx = stack.back();
             stack.pop_back();
@@ -1009,7 +1009,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
         size_t num_original_components = components.size();
         for (size_t i = 0; i < num_original_components; i++) {
 #ifdef debug_od_clusterer
-            cerr << "component " << i << " has median coverage " << hit_graph.median_mem_coverage(components[i], alignment) << endl;
+            cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
 #endif
             size_t curr_num_components = components.size();
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
@@ -1630,14 +1630,13 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
                     continue;
                 }
                 
+                // add the edge in
+                int32_t edge_score = estimate_edge_score(pivot.mem, next.mem, graph_dist, aligner);
+                hit_graph.add_edge(pivot_idx, next_idx, edge_score, graph_dist);
                 
 #ifdef debug_od_clusterer
                 cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ") with weight " << edge_score << endl;
 #endif
-                
-                // add the edge in
-                int32_t edge_score = estimate_edge_score(pivot.mem, next.mem, graph_dist, aligner);
-                hit_graph.add_edge(pivot_idx, next_idx, edge_score, graph_dist);
             }
         }
     }
