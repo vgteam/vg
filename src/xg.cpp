@@ -1767,70 +1767,70 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
 }
 
 void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
-    // How big is the g vector entry size we are on?
-    size_t entry_size = 0;
-    // The lambda function will let us know if we're bailing early.
+    // This shared flag lets us bail early even when running in parallel
     bool stop_early = false;
     
-    // OMP on old compilers is having trouble sharing some of these variables
-    // by reference, so we share pointers by value instead.
-    auto* stop_early_ptr = &stop_early;
-    auto* iteratee_ptr = &iteratee;
-    
-    auto lambda = [&](size_t g) {
-        // Make the handle
-        // We need to make sure our index isn't trying to use the high bit we shift off
-        assert((g & ((size_t)1 << 63)) == 0);
-        
-        // Make it into a handle, packing it as the node ID and using 0 for orientation
-        handle_t handle = as_handle(g << 1);
-        
-        if (parallel) {
-            // Run the iteratee as a task
-            # pragma omp task shared(iteratee, stop_early)
-            {
-                // Run the iteratee
-                if (!(*iteratee_ptr)(handle)) {
-                    // The iteratee is bored and wants to stop.
-                    #pragma omp atomic write
-                    *stop_early_ptr = true;
-                }
-            }
-        } else {
-            // Run the iteratee in-line
-            if (!iteratee(handle)) {
-                // The iteratee is bored and wants to stop.
-                stop_early = true;
-            }
-        }
-        
-        // How many edges are there of each type on this record?
-        size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
-        size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
-        
-        // This record is the header plus all the edge records it contains.
-        // Decode the entry size in the same thread doing the iteration.
-        entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
-        
-    };
-    
     if (parallel) {
+        // OMP on old compilers is having trouble sharing some of these variables
+        // by reference, so we share pointers by value instead.
+        auto* stop_early_ptr = &stop_early;
+        auto* iteratee_ptr = &iteratee;
+    
         #pragma omp parallel
         {
             #pragma omp single 
             {
                 // We need to do a serial scan of the g vector because each entry is variable size.
-                for (size_t g = 0; g < g_iv.size() && !(*stop_early_ptr); g += entry_size) {
-                    lambda(g);
+                for (size_t g = 0; g < g_iv.size() && !(*stop_early_ptr);) {
+                    assert((g & ((size_t)1 << 63)) == 0);
+        
+                    // Make it into a handle, packing it as the node ID and using 0 for orientation
+                    handle_t handle = as_handle(g << 1);
+                
+                    #pragma omp task firstprivate(handle)
+                    {
+                        // Run the iteratee
+                        if (!(*iteratee_ptr)(handle)) {
+                            // The iteratee is bored and wants to stop.
+                            #pragma omp atomic write
+                            *stop_early_ptr = true;
+                        }
+                    }
+                    
+                    // How many edges are there of each type on this record?
+                    size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
+                    size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
+                    
+                    // This record is the header plus all the edge records it contains.
+                    // Decode the entry size in the same thread doing the iteration.
+                    g += G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
                 }
             }
             
-            // Make the tasks finish before we return, so the variables they reference stick around
-            # pragma omp taskwait
+            // The end of the single block waits for all the tasks 
         }
     } else {
-        for (size_t g = 0; g < g_iv.size() && !stop_early; g += entry_size) {
-            lambda(g);
+        for (size_t g = 0; g < g_iv.size() && !stop_early;) {
+            // Make the handle
+            // We need to make sure our index isn't trying to use the high bit we shift off
+            assert((g & ((size_t)1 << 63)) == 0);
+            
+            // Make it into a handle, packing it as the node ID and using 0 for orientation
+            handle_t handle = as_handle(g << 1);
+            
+            // Run the iteratee in-line
+            if (!iteratee(handle)) {
+                // The iteratee is bored and wants to stop.
+                stop_early = true;
+            }
+            
+            // How many edges are there of each type on this record?
+            size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
+            size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
+            
+            // This record is the header plus all the edge records it contains.
+            // Decode the entry size in the same thread doing the iteration.
+            g += G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
         }
     }
 }
