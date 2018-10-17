@@ -1772,6 +1772,11 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     // The lambda function will let us know if we're bailing early.
     bool stop_early = false;
     
+    // OMP on old compilers is having trouble sharing some of these variables
+    // by reference, so we share pointers by value instead.
+    auto* stop_early_ptr = &stop_early;
+    auto* iteratee_ptr = &iteratee;
+    
     auto lambda = [&](size_t g) {
         // Make the handle
         // We need to make sure our index isn't trying to use the high bit we shift off
@@ -1785,10 +1790,10 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
             # pragma omp task shared(iteratee, stop_early)
             {
                 // Run the iteratee
-                if (!iteratee(handle)) {
+                if (!(*iteratee_ptr)(handle)) {
                     // The iteratee is bored and wants to stop.
                     #pragma omp atomic write
-                    stop_early = true;
+                    *stop_early_ptr = true;
                 }
             }
         } else {
@@ -1810,12 +1815,12 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     };
     
     if (parallel) {
-        #pragma omp parallel shared(iteratee, stop_early)
+        #pragma omp parallel
         {
             #pragma omp single 
             {
                 // We need to do a serial scan of the g vector because each entry is variable size.
-                for (size_t g = 0; g < g_iv.size() && !stop_early; g += entry_size) {
+                for (size_t g = 0; g < g_iv.size() && !(*stop_early_ptr); g += entry_size) {
                     lambda(g);
                 }
             }
