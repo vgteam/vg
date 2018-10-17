@@ -1782,7 +1782,7 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
         
         if (parallel) {
             // Run the iteratee as a task
-            # pragma omp task
+            # pragma omp task shared(iteratee)
             {
                 // Run the iteratee
                 if (!iteratee(handle)) {
