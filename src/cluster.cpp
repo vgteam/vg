@@ -2541,15 +2541,23 @@ TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* dista
 MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                     BaseAligner* aligner, size_t min_mem_length) {
     
+    
     // intialize with nodes
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
-    // adjacency list with edges encoded as (index, TVS path length)
+    // assumes that MEMs are given in lexicographic order by read interval
     for (size_t i = 0; i < hit_graph.nodes.size(); i++) {
         HitNode& hit_node_1 = hit_graph.nodes[i];
+        
         for (size_t j = i + 1; j < hit_graph.nodes.size(); j++){
             
             HitNode& hit_node_2 = hit_graph.nodes[j];
+            
+            if (hit_node_2.mem->begin <= hit_node_1.mem->begin
+                && hit_node_2.mem->end <= hit_node_1.mem->end) {
+                // this node is at the same place or earlier in the read, so they can't be colinear
+                continue
+            }
             
             // how far apart do we expect them to be based on the read?
             int64_t read_separation = hit_node_2.mem->begin - hit_node_1.mem->begin;
@@ -2561,14 +2569,26 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
             // how close can we get to the expected distance, restricting to detectable edits
             int64_t tv_len = tvs.tv_path_length(hit_node_1.start_pos, hit_node_2.start_pos, read_separation, longest_gap);
             
-            if (tv_len != numeric_limits<int64_t>::max()) {
-                // there's a path within in the limit
+            if (tv_len == read_separation
+                && hit_node_2.mem->begin >= hit_node_1.mem->begin
+                && hit_node_2.mem->end <= hit_node_1.mem->end) {
+                // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
+                // a separate cluster
+                
+                // we add a dummy edge, but only to connect the nodes' components and join the clusters,
+                // not to actually use in dynamic programming (given arbitrary low weight that should not
+                // cause overflow)
+                hit_graph.add_edge(i, j, numeric_limits<int32_t>::lowest() / 2, tv_len);
+            }
+            else if (tv_len != numeric_limits<int64_t>::max()
+                     && hit_node_2.mem->begin >= hit_node_1.mem->begin
+                     && hit_node_2.mem->end >= hit_node_1.mem->end) {
+                // there's a path within in the limit, and these hits are read colinear
                 hit_graph.add_edge(i, j, estimate_edge_score(hit_node_1.mem, hit_node_2.mem, tv_len, aligner), tv_len);
                 
             }
         }
     }
-    
     
     return hit_graph;
 }
