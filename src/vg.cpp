@@ -123,25 +123,19 @@ VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
     
 
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
-    // Handle is ID in low bits and orientation in high bit
-    
-    // Where in the g vector do we need to be
-    size_t handle = node_id;
-    // And set the high bit if it's reverse
-    if (is_reverse) handle |= HIGH_BIT;
-    return as_handle(handle);
+    return EasyHandlePacking::pack(node_id, is_reverse);
 }
 
 id_t VG::get_id(const handle_t& handle) const {
-    return as_integer(handle) & LOW_BITS;
+    return EasyHandlePacking::unpack_number(handle);
 }
 
 bool VG::get_is_reverse(const handle_t& handle) const {
-    return as_integer(handle) & HIGH_BIT;
+    return EasyHandlePacking::unpack_bit(handle);
 }
 
 handle_t VG::flip(const handle_t& handle) const {
-    return as_handle(as_integer(handle) ^ HIGH_BIT);
+    return EasyHandlePacking::toggle_bit(handle);
 }
 
 size_t VG::get_length(const handle_t& handle) const {
@@ -163,7 +157,7 @@ string VG::get_sequence(const handle_t& handle) const {
         // We found a node. Grab its sequence
         auto sequence = (*found).second->sequence();
         
-        if (as_integer(handle) & HIGH_BIT) {
+        if (get_is_reverse(handle)) {
             // Needs to be reverse-complemented
             return reverse_complement(sequence);
         } else {
