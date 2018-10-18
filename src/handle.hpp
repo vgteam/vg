@@ -90,7 +90,7 @@ struct EasyHandlePacking {
         // Make sure the number doesn't use all the bits
         assert(number < (0x1ULL << 63));
         
-        return as_handle(number | (bit * HIGH_BIT));
+        return as_handle(number | (bit ? HIGH_BIT : 0));
     }
     
     /// Toggle the packed bit and return a new handle
