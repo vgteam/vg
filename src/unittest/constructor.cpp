@@ -2147,7 +2147,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 }
 
-TEST_CASE( "Letita's SV inversions parse correctly" , "[constructor]") {
+TEST_CASE( "SV inversions with smart quotes and a lower-case reference parse correctly" , "[constructor]") {
 
     // Note the smart quotes
 
@@ -2159,7 +2159,7 @@ TEST_CASE( "Letita's SV inversions parse correctly" , "[constructor]") {
 x	10	SRR026655.22810753-B	N	<INV>	.	.	END=41;SVTYPE=INV)";
 
     auto fasta_data = R"(>x
-CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+caaataaggcttggaaattttctggagttctattatattccaactctctg
 )";
 
     // Build the graph
