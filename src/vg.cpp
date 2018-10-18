@@ -123,30 +123,19 @@ VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
     
 
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
-    // Handle is ID in low bits and orientation in high bit
-    
-    // What node ID are we encoding?
-    size_t handle = node_id;
-    // Make room for the orientation bit.
-    handle = handle << 1;
-    // And set the low bit if it's reverse
-    if (is_reverse) handle |= 1;
-    return as_handle(handle);
+    return EasyHandlePacking::pack(node_id, is_reverse);
 }
 
 id_t VG::get_id(const handle_t& handle) const {
-    // Drop the low bit that encodes orientation
-    return ((size_t) as_integer(handle)) >> 1;
+    return EasyHandlePacking::unpack_number(handle);
 }
 
 bool VG::get_is_reverse(const handle_t& handle) const {
-    // Orientation is stored in the low bit
-    return as_integer(handle) & 1;
+    return EasyHandlePacking::unpack_bit(handle);
 }
 
 handle_t VG::flip(const handle_t& handle) const {
-    // Toggle the orientation, in the low bit
-    return as_handle(as_integer(handle) ^ 1);
+    return EasyHandlePacking::toggle_bit(handle);
 }
 
 size_t VG::get_length(const handle_t& handle) const {
