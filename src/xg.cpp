@@ -1771,17 +1771,12 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     bool stop_early = false;
     
     if (parallel) {
-        // OMP on old compilers is having trouble sharing some of these variables
-        // by reference, so we share pointers by value instead.
-        auto* stop_early_ptr = &stop_early;
-        auto* iteratee_ptr = &iteratee;
-    
         #pragma omp parallel
         {
             #pragma omp single 
             {
                 // We need to do a serial scan of the g vector because each entry is variable size.
-                for (size_t g = 0; g < g_iv.size() && !(*stop_early_ptr);) {
+                for (size_t g = 0; g < g_iv.size() && !stop_early;) {
                     assert((g & ((size_t)1 << 63)) == 0);
         
                     // Make it into a handle, packing it as the node ID and using 0 for orientation
@@ -1790,10 +1785,10 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
                     #pragma omp task firstprivate(handle)
                     {
                         // Run the iteratee
-                        if (!(*iteratee_ptr)(handle)) {
+                        if (!iteratee(handle)) {
                             // The iteratee is bored and wants to stop.
                             #pragma omp atomic write
-                            *stop_early_ptr = true;
+                            stop_early = true;
                         }
                     }
                     
