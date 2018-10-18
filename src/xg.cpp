@@ -1634,11 +1634,11 @@ handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
 
 id_t XG::get_id(const handle_t& handle) const {
     // Go get the g offset and then look up the noder ID
-    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_ID_OFFSET];
+    return g_iv[EasyHandlePacking::unpack_number(handle) + G_NODE_ID_OFFSET];
 }
 
 bool XG::get_is_reverse(const handle_t& handle) const {
-    return as_integer(handle) & HIGH_BIT;
+    return EasyHandlePacking::unpack_bit(handle);
 }
 
 handle_t XG::flip(const handle_t& handle) const {
