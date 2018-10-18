@@ -70,19 +70,14 @@ inline bool operator!=(const handle_t& a, const handle_t& b) {
 /// packing themselves.
 struct EasyHandlePacking {
 
-    // Have some masks
-    const static uint64_t HIGH_BIT = (uint64_t)1 << 63;
-    const static uint64_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
-    
-
     /// Extract the packed integer
     inline static uint64_t unpack_number(const handle_t& handle) {
-        return as_integer(handle) & LOW_BITS;
+        return as_integer(handle) >> 1;
     }
     
     /// Extract the packed bit
     inline static bool unpack_bit(const handle_t& handle) {
-        return as_integer(handle) & HIGH_BIT;
+        return as_integer(handle) & 1;
     }
     
     /// Pack up an integer and a bit into a handle
@@ -90,12 +85,12 @@ struct EasyHandlePacking {
         // Make sure the number doesn't use all the bits
         assert(number < (0x1ULL << 63));
         
-        return as_handle(number | (bit ? HIGH_BIT : 0));
+        return as_handle((number << 1) | (bit ? 1 : 0));
     }
     
     /// Toggle the packed bit and return a new handle
     inline static handle_t toggle_bit(const handle_t& handle) {
-        return as_handle(as_integer(handle) ^ HIGH_BIT);
+        return as_handle(as_integer(handle) ^ 1);
     }
 
 };
