@@ -2109,9 +2109,9 @@ class TestDistanceIndex : public DistanceIndex {
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
         TestDistanceIndex di (&vg, &snarl_manager, 50);
-        pos_t pos1 = make_pos_t (66, false, 3 );
-        pos_t pos2 = make_pos_t (128, true, 2);
-//        REQUIRE(di.minDistance(pos1, pos2 ) == distance(&vg, pos1, pos2)); 
+            pos_t pos1 = make_pos_t(47, false, 2);
+            pos_t pos2 = make_pos_t(47, true, 2); 
+            REQUIRE(di.maxDistance(pos1, pos2) >= 17);
 
             for (size_t i = 0 ; i < vg.max_node_id(); i++) {
                 if (vg.has_node(i+1)) {
@@ -2130,7 +2130,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 */
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 0; i++) {
             //1000 different graphs
             VG graph = randomGraph(1000, 20, 100); 
 
@@ -2143,21 +2143,6 @@ class TestDistanceIndex : public DistanceIndex {
                 di.printSelf();
 
             #endif
-
-            for (size_t i = 0 ; i < graph.max_node_id(); i++) {
-                if (graph.has_node(i+1)) {
-                    REQUIRE(di.maxIndex.nodeToComponent[i] > 0);
-                    REQUIRE(di.maxIndex.maxDistances[i] >= 
-                            di.maxIndex.minDistances[i]);
-                    REQUIRE(di.maxIndex.minDistances[i] >= 0);
-                    REQUIRE(di.maxIndex.maxDistances[i] >= 0);
-                    if (di.maxIndex.nodeToComponent[i] > 
-                                di.maxIndex.numCycles) {
-                        REQUIRE(di.maxIndex.maxDistances[i] > 0);
-                        REQUIRE(di.maxIndex.minDistances[i] > 0);
-                    }
-                }
-            }
 
 
 
