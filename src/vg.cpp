@@ -7613,7 +7613,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
               unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length,
               size_t component_length_max) {
-
+              
     VG dag;
     // Find the strongly connected components in the graph.
     set<set<id_t>> strong_components = strongly_connected_components();
@@ -7707,7 +7707,23 @@ VG VG::dagify(uint32_t expand_scc_steps,
             set<id_t> seen;
             for (auto id : component) {
                 seen.insert(id);
-                for (auto e : edges_of(get_node(id))) {
+                for (Edge* e : edges_of(get_node(id))) {
+                    // We may have to modify the edge, so make a place to hold
+                    // a modified copy. This lets us work as if all edges are
+                    // end to start wehn working on their from and to later.
+                    unique_ptr<Edge> clone;
+                    if (e->from_start() && e->to_end()) {
+                        // Flip doubly-reversing edges from the input, which
+                        // can appear even if the graph is all on one strand.
+                        clone = unique_ptr<Edge>(new Edge(*e));
+                        e = clone.get();
+                        auto old_to = e->to();
+                        e->set_to(e->from());
+                        e->set_from(old_to);
+                        e->set_from_start(false);
+                        e->set_to_end(false);
+                    }
+                
                     if (e->from() == id && e->to() != id) {
                         // if other end is not in the component
                         if (!component.count(e->to())) {
@@ -7790,7 +7806,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
         }
     }
 
-    // ensure normalized edges in output; we may introduced flipped/flipped edges
+    // ensure normalized edges in output; we may have preserved some flipped/flipped edges
     // which are valid but can introduce problems for some algorithms
     dag.flip_doubly_reversed_edges();
     return dag;

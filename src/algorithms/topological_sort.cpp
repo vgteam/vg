@@ -286,7 +286,7 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
         
         if (orientation.size() != g->node_size()) {
             cerr << "error:[algorithms] attempting to use lazy topological sort on unorientable graph" << endl;
-            exit(1);
+            assert(false);
         }
         
         // compute the degrees by following the edges backward
@@ -331,7 +331,7 @@ vector<handle_t> lazy_topological_order_internal(const HandleGraph* g, bool lazi
     
     if (order.size() != g->node_size()) {
         cerr << "error:[algorithms] lazy topological sort is invalid on non-DAG graph, cannot complete algorithm" << endl;
-        exit(1);
+        assert(false);
     }
     
     return order;

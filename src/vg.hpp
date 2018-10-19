@@ -379,6 +379,8 @@ public:
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
     /// and translating the edges in the component to flow through the copies in one direction.
+    /// Assumes that all nodes in the graph are articulated on one consistent strand.
+    /// Tolerates doubly-reversing edges in the input graph.
     VG dagify(uint32_t expand_scc_steps,
               unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
