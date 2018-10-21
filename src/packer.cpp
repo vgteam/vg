@@ -7,7 +7,8 @@ Packer::Packer(void) : xgidx(nullptr) { }
 
 Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
-    edge_coverage_dynamic = gcsa::CounterArray(xgidx->g_iv.size(), 8);
+    size_t g_iv_sz = xgidx->get_g_iv_size();
+    edge_coverage_dynamic = gcsa::CounterArray(g_iv_sz, 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
 }
 
@@ -305,7 +306,7 @@ Edge Packer::edge_from_mappings(const Mapping& m, const Mapping& n){
     if (last_m_edit.to_length() != last_m_edit.from_length() ||
         last_m_edit.sequence() != "" ||
         first_n_edit.to_length()  != first_n_edit.from_length() ||
-        first_n_edit.sequence != ""){
+        first_n_edit.sequence() != ""){
             return Edge();
         }
     e.set_from( m.position().node_id() );
@@ -398,7 +399,7 @@ size_t Packer::graph_length(void) const {
 }
 
 size_t Packer::edge_count(void) const{
-    return xgidx->edge_count();
+    return xgidx->edge_count;
 }
 
 size_t Packer::edge_vector_size(void) const{
@@ -406,7 +407,7 @@ size_t Packer::edge_vector_size(void) const{
         return edge_coverage_civ.size();
     }
     else{
-        return edge_coverage_dynamic.size()
+        return edge_coverage_dynamic.size();
     }
 }
 
@@ -427,7 +428,7 @@ size_t Packer::edge_coverage(size_t i) const {
     }
 }
 
-size_t Packer::edge_coverage(const Edge& e) const {
+size_t Packer::edge_coverage(Edge& e) const {
     e = xgidx->canonicalize(e);
     if (is_compacted){
         return 0;

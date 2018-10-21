@@ -481,8 +481,12 @@ void XG::serialize(ostream& out) const {
     serialize_and_measure(out);
 }
 
-size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
+size_t XG::get_g_iv_size() const {
+   return this->node_count * this->G_NODE_HEADER_LENGTH +
+                       this->edge_count * 2 * this->G_EDGE_LENGTH;
+}
 
+size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
     size_t written = 0;
     

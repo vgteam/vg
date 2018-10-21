@@ -53,9 +53,8 @@ public:
     bool is_dynamic(void);
     size_t coverage_size(void);
 
-    size_t edge_coverage(const Edge& e) const;
+    size_t edge_coverage(Edge& e) const;
     size_t edge_coverage(size_t i) const;
-    size_t coverage_at_position(size_t i) const ;
     size_t edge_count(void) const;
     size_t edge_vector_size(void) const;
 private:
