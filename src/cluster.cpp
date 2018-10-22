@@ -2564,15 +2564,14 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     node_to_target.emplace(make_pair(id_1, rev_1), s);
 
     //map each node and target for node to the node+target leading to it
+    //TODO: Maybe better to map each node to the actual path and remove old ones as necessary
     hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>
              node_to_path; 
     
-    //reachable node
+    //reachable node TODO: Could prioritize by target somehow
     list<pair<pair<id_t, bool>, int64_t>> next_nodes; //node and target
     next_nodes.push_back(make_pair(make_pair(id_1, rev_1),
                                         target_value + offset_1));
-cerr << " NEW CALCULATION: " << endl;
-cerr << target_value << "-> " << target_value + offset_1;
 
     handle_t h = handle_graph.get_handle(id_1, rev_1);
 
@@ -2584,7 +2583,6 @@ cerr << target_value << "-> " << target_value + offset_1;
         pair<id_t, bool> curr_node = next.first;
         int64_t curr_target = next.second;
 
-        pair<pair<id_t, bool>, int64_t> prev_node = next;
   
         if (curr_node.first == id_2 && curr_node.second == rev_2) {
             //If this node is the end node
@@ -2611,109 +2609,107 @@ cerr << target_value << "-> " << target_value + offset_1;
                 } 
             }
         }
-            //If this is any other node
-            //TODO Fix indentation
+
+        //If this is any other node
  
         handle_t curr_handle = handle_graph.get_handle(curr_node.first, curr_node.second);           
-            int64_t new_target = curr_target - 
-                                 handle_graph.get_length(curr_handle);
-cerr << endl << curr_node.first << " " << curr_target << ": " << endl;
-            auto add_next = [&](const handle_t& h)-> bool {
+        int64_t new_target = curr_target - handle_graph.get_length(curr_handle);
 
-                id_t id = handle_graph.get_id(h);
-                bool rev = handle_graph.get_is_reverse(h);
-                pos_t new_pos = make_pos_t(id, rev, 0);
+        auto add_next = [&](const handle_t& h)-> bool {
+            //For each adjacent node, add it to next nodes if end node is 
+            //reachable with target 
 
-                int64_t min_dist = min_distance(new_pos, pos_2); 
-                int64_t max_dist = max_distance(new_pos, pos_2); 
-                int64_t lower_target = new_target - tolerance;
-                int64_t upper_target = new_target + tolerance;  
+            id_t id = handle_graph.get_id(h);
+            bool rev = handle_graph.get_is_reverse(h);
+            pos_t new_pos = make_pos_t(id, rev, 0);
 
-cerr << "    " << id << " " << new_target << " " << min_dist << " " << max_dist << endl;
-                if (min_dist != -1 && 
-                    min_dist <= new_target && max_dist >= new_target) {
-                    //If the target is within the bounds    
+            int64_t min_dist = min_distance(new_pos, pos_2); 
+            int64_t max_dist = max_distance(new_pos, pos_2); 
+            int64_t lower_target = new_target - tolerance;
+            int64_t upper_target = new_target + tolerance;  
 
-                    auto prev = node_to_target.find(make_pair(id, rev));
-                    if (prev == node_to_target.end()) {
-                        //If this node hasn't been seen before 
-                        hash_set<int64_t> s;
-                        s.insert(new_target);
-                        node_to_target[make_pair(id, rev)] = s;
-                        node_to_path[make_pair(make_pair(id, rev), new_target)]=
+            if (min_dist != -1 && 
+                    min_dist <= new_target && new_target <= max_dist) {
+                //If the target is within the distance bounds
+
+                auto prev = node_to_target.find(make_pair(id, rev));
+                if (prev == node_to_target.end()) {
+                    //If this node hasn't been seen before 
+                    hash_set<int64_t> s;
+                    s.insert(new_target);
+                    node_to_target[make_pair(id, rev)] = s;
+                    node_to_path[make_pair(make_pair(id, rev), new_target)]=
                              make_pair(curr_node, curr_target);
+                    next_nodes.emplace_back(make_pair(id, rev), new_target);
+                } else {
+                    hash_set<int64_t> prev_targets = prev->second;
+                    auto prev_target = prev_targets.find(new_target);
+                    if (prev_target == prev_targets.end()) {
+                        //If this target hasn't been seen for this node
+                        prev_targets.insert(new_target);
+                        node_to_target[make_pair(id, rev)] = prev_targets;
+                        node_to_path[make_pair(make_pair(id, rev), 
+                           new_target)] = make_pair(curr_node, curr_target);
                         next_nodes.emplace_back(make_pair(id, rev), new_target);
-                    } else {
-                        hash_set<int64_t> prev_targets = prev->second;
-                        auto prev_target = prev_targets.find(new_target);
-                        if (prev_target == prev_targets.end()) {
-                            //If this target hasn't been seen for this node
-                            prev_targets.insert(new_target);
-                            node_to_target[make_pair(id, rev)] = prev_targets;
-                            node_to_path[make_pair(make_pair(id, rev), 
-                               new_target)] = make_pair(curr_node, curr_target);
-                            next_nodes.emplace_back(make_pair(id, rev), 
-                                                                    new_target);
-                        }
                     }
+                }
 
-                } else if (min_dist != -1 && 
+            } else if (min_dist != -1 && 
                        (min_dist <= upper_target || max_dist >= lower_target)){
 
-                    //If no path will hit target but there are paths 
-                    //within tolerance, then add to node_to_target_out for later
-                    //TODO: Could take a shortcut if assume that the min dist is actual min dist
-                    auto prev_targets = node_to_target_out.find(
-                                                            make_pair(id, rev));
-                    if (prev_targets == node_to_target_out.end()){
-                        //If not seen before
-                        if (min_dist >= new_target) {
-                           //All paths too long
-                           node_to_target_out.emplace(make_pair(id, rev), 
-                                                  make_pair(-1, new_target));
-                           node_to_path[make_pair(make_pair(id, rev), 
+                //If no path will hit the target but there are paths 
+                //within tolerance, then add to node_to_target_out for later
+                //TODO: Could take a shortcut if we assume that the min dist is actual min dist
+                auto prev_targets = node_to_target_out.find(
+                                                           make_pair(id, rev));
+                if (prev_targets == node_to_target_out.end()){
+                    //If not seen before
+                    if (min_dist >= new_target) {
+                       //All paths too long
+                       node_to_target_out.emplace(make_pair(id, rev), 
+                                              make_pair(-1, new_target));
+                       node_to_path[make_pair(make_pair(id, rev), 
                                new_target)] = make_pair(curr_node, curr_target);
-                        } else {
-                           //All paths too short
-                           node_to_target_out.emplace(make_pair(id, rev), 
-                                                  make_pair(new_target, -1));
-                           node_to_path[make_pair(make_pair(id, rev), 
+                    } else {
+                       //All paths too short
+                       node_to_target_out.emplace(make_pair(id, rev), 
+                                              make_pair(new_target, -1));
+                       node_to_path[make_pair(make_pair(id, rev), 
+                               new_target)] = make_pair(curr_node, curr_target);
+                    }
+                } else {
+                    int64_t prev_max_target = prev_targets->second.first;
+                    int64_t prev_min_target = prev_targets->second.second;
+                    if (prev_min_target == -1 || 
+                                           prev_min_target >= new_target) {
+                        //All paths too long
+                        if (new_target <= prev_min_target) {
+                            //If this target is better than last one
+                            node_to_target_out.emplace(make_pair(id, rev), 
+                                       make_pair(prev_max_target, new_target));
+                            node_to_path[make_pair(make_pair(id, rev), 
                                new_target)] = make_pair(curr_node, curr_target);
                         }
                     } else {
-                        int64_t prev_max_target = prev_targets->second.first;
-                        int64_t prev_min_target = prev_targets->second.second;
-                        if (prev_min_target == -1 || 
-                                               prev_min_target >= new_target) {
-                            //All paths too long
-                            if (new_target <= prev_min_target) {
-                                //If this target is better than last one
-                                node_to_target_out.emplace(make_pair(id, rev), 
-                                        make_pair(prev_max_target, new_target));
-                                node_to_path[make_pair(make_pair(id, rev), 
-                               new_target)] = make_pair(curr_node, curr_target);
-                            }
-                        } else {
-                           //All paths too short
-                           if (prev_max_target == -1 || 
+                        //All paths too short
+                        if (prev_max_target == -1 || 
                                                  new_target >= prev_max_target){
-                               node_to_target_out.emplace(make_pair(id, rev), 
+                            node_to_target_out.emplace(make_pair(id, rev), 
                                         make_pair(new_target, prev_min_target));
-                                node_to_path[make_pair(make_pair(id, rev), 
+                            node_to_path[make_pair(make_pair(id, rev), 
                               new_target)] =  make_pair(curr_node, curr_target);
-                            }
                         }
                     }
-                    
-                    
                 }
-                return true;
-            };
-            handle_graph.follow_edges(curr_handle, false, add_next);
+                    
+                    
+            }
+            return true;
+        };
+        handle_graph.follow_edges(curr_handle, false, add_next);
         
     }
     
-    //TODO: Could return the best path that reached the target node now - would be faster but probably misses better paths 
     ///////// Phase 2
     //If there is no perfect path, look for ones still within tolerance
     //node_to_target_out contains nodes that have a path within tolerance
@@ -2747,92 +2743,86 @@ cerr << "    " << id << " " << new_target << " " << min_dist << " " << max_dist 
                 next_best.first = diff;
                 next_best.second = prev_node;
             }
-        } else {
+        }
 
-            //If this is any other node
+        //If this is any other node
             
-            int64_t new_target = curr_target - 
-                                           handle_graph.get_length(curr_handle);
-            auto add_next = [&](const handle_t& h)-> bool {
-                id_t id = handle_graph.get_id(h);
-                bool rev = handle_graph.get_is_reverse(h);
-                pos_t new_pos = make_pos_t(id, rev, 0);
+        int64_t new_target = curr_target -handle_graph.get_length(curr_handle);
+        auto add_next = [&](const handle_t& h)-> bool {
+            id_t id = handle_graph.get_id(h);
+            bool rev = handle_graph.get_is_reverse(h);
+            pos_t new_pos = make_pos_t(id, rev, 0);
 
-                auto prev_targets = node_to_target_out.find(
-                                                            make_pair(id, rev));
+            auto prev_targets = node_to_target_out.find(make_pair(id, rev));
 
-                int64_t min_dist = min_distance(new_pos, pos_2); 
-                int64_t max_dist = max_distance(new_pos, pos_2); 
+            int64_t min_dist = min_distance(new_pos, pos_2); 
+            int64_t max_dist = max_distance(new_pos, pos_2); 
 
-                if (prev_targets == node_to_target_out.end()){
-                    //If not seen before
-                    if (min_dist != -1 && min_dist >= new_target){ 
-                       //All paths too long but within tolerance
-                        if (min_dist <= curr_target + tolerance ) {
-                            node_to_target_out.emplace(make_pair(id, rev), 
+            if (min_dist != -1 && prev_targets == node_to_target_out.end()){
+                //If not seen before
+                if (min_dist >= new_target){ 
+                   //All paths too long but within tolerance
+                    if (min_dist <= curr_target + tolerance ) {
+                        node_to_target_out.emplace(make_pair(id, rev), 
                                                  make_pair(-1, new_target));
-                            node_to_path[make_pair(make_pair(id, rev), 
+                        node_to_path[make_pair(make_pair(id, rev), 
                                                       new_target)] = prev_node;
-                            next_nodes.emplace_back(make_pair(id, rev), 
-                                                                    new_target);
-                        }
-                    } else if (min_dist != -1){
-                        if(max_dist >= curr_target - tolerance ){
-                            //All paths too short but within tolerance
-                            node_to_target_out.emplace(make_pair(id, rev), 
-                                                  make_pair(new_target, -1));
-                            node_to_path[make_pair(make_pair(id, rev), 
-                                                      new_target)] = prev_node;
-                            next_nodes.emplace_back(make_pair(id, rev), 
-                                                                    new_target);
-                        }
+                        next_nodes.emplace_back(make_pair(id, rev), new_target);
                     }
-                } else {
-                    int64_t prev_max_target = prev_targets->second.first;
-                    int64_t prev_min_target = prev_targets->second.second;
-                    if (min_dist != -1 && min_dist >= new_target) {
-                        //If paths are too long
-                        if ( min_dist <= curr_target + tolerance && 
-                              (prev_min_target == -1 ||
-                                              new_target <= prev_min_target)) {
-                            //If this target is better than last one
-                            node_to_target_out.emplace(make_pair(id, rev), 
-                                    make_pair(prev_max_target, new_target));
-                            node_to_path[make_pair(make_pair(id, rev), 
+                } else{
+                    if(max_dist >= curr_target - tolerance ){
+                        //All paths too short but within tolerance
+                        node_to_target_out.emplace(make_pair(id, rev), 
+                                                 make_pair(new_target, -1));
+                        node_to_path[make_pair(make_pair(id, rev), 
                                                       new_target)] = prev_node;
-                            next_nodes.emplace_back(make_pair(id, rev), 
-                                                                    new_target);
-                        }
-                     
-                    } else if (min_dist != -1) {
-                        //All paths too short
-                        if ( max_dist >= curr_target - tolerance && 
-                          (prev_max_target == -1 || 
-                           new_target >= prev_max_target)){
-                            node_to_target_out.emplace(make_pair(id, rev), 
-                                      make_pair(new_target, prev_min_target));
-                            node_to_path[make_pair(make_pair(id, rev), 
-                                                       new_target)] = prev_node;
-                            next_nodes.emplace_back(make_pair(id, rev), new_target);
-                        }
+                        next_nodes.emplace_back(make_pair(id, rev), 
+                                                                new_target);
                     }
                 }
+            } else if (min_dist != -1) {
+                int64_t prev_max_target = prev_targets->second.first;
+                int64_t prev_min_target = prev_targets->second.second;
+                if (min_dist >= new_target) {
+                    //If paths are too long
+                    if ( min_dist <= curr_target + tolerance && 
+                              (prev_min_target == -1 ||
+                                            new_target <= prev_min_target)) {
+                        //If this target is better than last one
+                        node_to_target_out.emplace(make_pair(id, rev), 
+                                  make_pair(prev_max_target, new_target));
+                        node_to_path[make_pair(make_pair(id, rev), 
+                                                      new_target)] = prev_node;
+                        next_nodes.emplace_back(make_pair(id, rev), new_target);
+                    }
+                     
+                } else {
+                    //All paths too short
+                    if ( max_dist >= curr_target - tolerance && 
+                      (prev_max_target == -1 || new_target >= prev_max_target)){
 
-                return true;
-            };
-            handle_graph.follow_edges(curr_handle, false, add_next);
-        }
+                        node_to_target_out.emplace(make_pair(id, rev), 
+                                  make_pair(new_target, prev_min_target));
+                        node_to_path[make_pair(make_pair(id, rev), 
+                                                       new_target)] = prev_node;
+                        next_nodes.emplace_back(make_pair(id, rev), new_target);
+                    }
+                }
+            }
+
+            return true;
+        };
+        handle_graph.follow_edges(curr_handle, false, add_next);
     }
     
-for (auto x : node_to_path){
-cerr << x.first.first.first << " " << x.first.first.second << ": " << x.first.second << " <- " << x.second.first.first << " " << x.second.first.second << ": " << x.second.second << endl;
-}
-cerr << endl;
-
+    
     if (next_best.first <= tolerance) {
+        
+        //Backtrack to get path
         list<handle_t> result;
         auto prev = node_to_path.find(next_best.second);
-        handle_t handle = handle_graph.get_handle(next_best.second.first.first, next_best.second.first.second);
+        handle_t handle = handle_graph.get_handle(next_best.second.first.first,
+                                                 next_best.second.first.second);
         result.push_front(handle);
         while (prev != node_to_path.end()) {
             pair<pair<id_t, bool>, int64_t> prev_node = prev->second;
