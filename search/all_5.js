@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['easyhandlepacking',['EasyHandlePacking',['../structvg_1_1EasyHandlePacking.html',1,'vg']]],
   ['edge',['Edge',['../structvg_1_1Edge.html',1,'vg']]],
   ['edge',['edge',['../structvg_1_1Graph.html#ae581df485daa482523eb1a7954ac9561',1,'vg::Graph::edge()'],['../structvg_1_1EdgePileup.html#a61793befcf507143604cf6e0af1cab6a',1,'vg::EdgePileup::edge()'],['../classvg_1_1XdropAligner.html#abe8df6d7c151d4585cf01dc0d0962940',1,'vg::XdropAligner::edge()']]],
   ['edge_5fallele_5flabels',['edge_allele_labels',['../classvg_1_1Genotyper.html#aae52b974044843aed34fc31152ccda77',1,'vg::Genotyper']]],
@@ -37,8 +38,8 @@ var searchData=
   ['edges_5fstart',['edges_start',['../classvg_1_1VG.html#a5eaedf10280d72862aa6f0b65a3d383e',1,'vg::VG::edges_start(Node *node)'],['../classvg_1_1VG.html#ad9a9f315e43b96496fb5674df52623f7',1,'vg::VG::edges_start(id_t id)']]],
   ['edges_5fto',['edges_to',['../classvg_1_1MEMClusterer_1_1HitNode.html#a9c63a5662cc86132572113bbcebb05a8',1,'vg::MEMClusterer::HitNode::edges_to()'],['../classvg_1_1VG.html#a3789cf6561f2d3da5ef85f23b5c6454f',1,'vg::VG::edges_to()'],['../classxg_1_1XG.html#a82b0a40f1a671a20a04991eaa5e04d14',1,'xg::XG::edges_to()']]],
   ['edgesuphash',['EdgeSupHash',['../classvg_1_1PileupAugmenter.html#a13a79d5d1f995d332a3c8d36086f90fe',1,'vg::PileupAugmenter']]],
-  ['edit',['edit',['../structvg_1_1Mapping.html#a657c55428cdcb049036edde19e0dbc2c',1,'vg::Mapping::edit()'],['../classvg_1_1VG.html#a4355473c385843b7652d49601dd630d2',1,'vg::VG::edit()']]],
   ['edit',['Edit',['../structvg_1_1Edit.html',1,'vg']]],
+  ['edit',['edit',['../structvg_1_1Mapping.html#a657c55428cdcb049036edde19e0dbc2c',1,'vg::Mapping::edit()'],['../classvg_1_1VG.html#a4355473c385843b7652d49601dd630d2',1,'vg::VG::edit()']]],
   ['edit_2ecpp',['edit.cpp',['../edit_8cpp.html',1,'']]],
   ['edit_2ehpp',['edit.hpp',['../edit_8hpp.html',1,'']]],
   ['edit_5fcount',['edit_count',['../classvg_1_1Packer.html#a9b05681219f9fc45a6f65b5e59c8224e',1,'vg::Packer::edit_count()'],['../namespacevg.html#a2610da8a8fbe723e13519d79ac2d0afe',1,'vg::edit_count()']]],
@@ -84,8 +85,8 @@ var searchData=
   ['entropy',['entropy',['../namespacevg.html#ac3165438256db24864e88601839197df',1,'vg::entropy(const string &amp;st)'],['../namespacevg.html#a77c1cb6069f865239d0365b55649bc8a',1,'vg::entropy(const char *st, size_t len)']]],
   ['entropy_2ecpp',['entropy.cpp',['../entropy_8cpp.html',1,'']]],
   ['entropy_2ehpp',['entropy.hpp',['../entropy_8hpp.html',1,'']]],
-  ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html#a581f38a59d42c7e54ed83fccd8da2d55',1,'vg::NodeDivider::Entry']]],
   ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html',1,'vg::NodeDivider']]],
+  ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html#a581f38a59d42c7e54ed83fccd8da2d55',1,'vg::NodeDivider::Entry']]],
   ['entry_5fto_5fstring',['entry_to_string',['../classvg_1_1Index.html#a18c0d0d11da737aa6e4a040810b5c986',1,'vg::Index']]],
   ['entrycat',['EntryCat',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0',1,'vg::NodeDivider']]],
   ['equal_5fto',['equal_to',['../classvg_1_1GAMSorter.html#af3e280a89ab932aa357c9adcb7bda946',1,'vg::GAMSorter']]],

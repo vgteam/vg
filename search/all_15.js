@@ -22,6 +22,8 @@ var searchData=
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
   ['unlock',['unlock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1cfc8d66ced1ef3d435f99579ac44ca6',1,'vg::GraphSynchronizer::Lock']]],
   ['unmapped_5ffilter',['unmapped_filter',['../classvg_1_1Filter.html#a3a02d37cb7cf0b042aa5933186a76061',1,'vg::Filter']]],
+  ['unpack_5fbit',['unpack_bit',['../structvg_1_1EasyHandlePacking.html#a66c45e581f8edf6030a760252340f79d',1,'vg::EasyHandlePacking']]],
+  ['unpack_5fnumber',['unpack_number',['../structvg_1_1EasyHandlePacking.html#a4d0dc26dbe25f9112ba828fdd9a2c0a2',1,'vg::EasyHandlePacking']]],
   ['unpack_5fsuccinct_5fcomponent_5fpath_5fsets',['unpack_succinct_component_path_sets',['../classxg_1_1XG.html#a2b1f25454ebfef9f8ac08056225cb842',1,'xg::XG']]],
   ['unpaired_5ffor_5feach_5fparallel',['unpaired_for_each_parallel',['../namespacevg.html#ad9d7a5ca192b47b922e17a717774ff66',1,'vg']]],
   ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],

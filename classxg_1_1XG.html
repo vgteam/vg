@@ -192,10 +192,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4ba2d26b83d14d8bc0abbdd5c23fa231"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a573b29b1acc221928ea868b92b724956"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a573b29b1acc221928ea868b92b724956">edge_graph_idx</a> (const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge) const </td></tr>
 <tr class="separator:a573b29b1acc221928ea868b92b724956"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6ed1d34d29f6a6b6771f5e6208371e75"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a6ed1d34d29f6a6b6771f5e6208371e75">get_min_id</a> () const </td></tr>
-<tr class="separator:a6ed1d34d29f6a6b6771f5e6208371e75"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adb6269ce6557eb93c6ad6f6ddda6cc83"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#adb6269ce6557eb93c6ad6f6ddda6cc83">get_max_id</a> () const </td></tr>
-<tr class="separator:adb6269ce6557eb93c6ad6f6ddda6cc83"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a237beb62f62f4f5a11e9ad9b061ab964"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a237beb62f62f4f5a11e9ad9b061ab964">has_edge</a> (int64_t id1, bool is_start, int64_t id2, bool is_end) const </td></tr>
 <tr class="memdesc:a237beb62f62f4f5a11e9ad9b061ab964"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the given edge is present in the given orientation, and false otherwise.  <a href="#a237beb62f62f4f5a11e9ad9b061ab964">More...</a><br/></td></tr>
 <tr class="separator:a237beb62f62f4f5a11e9ad9b061ab964"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -263,6 +259,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:afa7fb605bd6b69d99514211cd5ab73c7"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#afa7fb605bd6b69d99514211cd5ab73c7">node_size</a> () const </td></tr>
 <tr class="memdesc:afa7fb605bd6b69d99514211cd5ab73c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#afa7fb605bd6b69d99514211cd5ab73c7">More...</a><br/></td></tr>
 <tr class="separator:afa7fb605bd6b69d99514211cd5ab73c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7533b06f70676a9d16f193156cb2f3a2"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a7533b06f70676a9d16f193156cb2f3a2">min_node_id</a> () const </td></tr>
+<tr class="memdesc:a7533b06f70676a9d16f193156cb2f3a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the minimum node ID used in the graph, if any are used.  <a href="#a7533b06f70676a9d16f193156cb2f3a2">More...</a><br/></td></tr>
+<tr class="separator:a7533b06f70676a9d16f193156cb2f3a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24f00a47b292a43b2ab77b120d439b6b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a24f00a47b292a43b2ab77b120d439b6b">max_node_id</a> () const </td></tr>
+<tr class="memdesc:a24f00a47b292a43b2ab77b120d439b6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the maximum node ID used in the graph, if any are used.  <a href="#a24f00a47b292a43b2ab77b120d439b6b">More...</a><br/></td></tr>
+<tr class="separator:a24f00a47b292a43b2ab77b120d439b6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a58d0d705391f4f5528d5eb48b45d16f7"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a58d0d705391f4f5528d5eb48b45d16f7">get_path_handle</a> (const string &amp;<a class="el" href="classxg_1_1XG.html#a8756d0af57b326811a6331896ba7a6fb">path_name</a>) const </td></tr>
 <tr class="memdesc:a58d0d705391f4f5528d5eb48b45d16f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the path handle for the given path name.  <a href="#a58d0d705391f4f5528d5eb48b45d16f7">More...</a><br/></td></tr>
 <tr class="separator:a58d0d705391f4f5528d5eb48b45d16f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -538,6 +540,8 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="separator:a2d0856da0aa5c07e104ad067294c7214 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa93a545944215ba9654d3be7f716cad4 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#aa93a545944215ba9654d3be7f716cad4">get_handle</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit) const </td></tr>
 <tr class="separator:aa93a545944215ba9654d3be7f716cad4 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7b3e0ec1c0ec12024897e8d04727e178 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a7b3e0ec1c0ec12024897e8d04727e178">get_degree</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left) const </td></tr>
+<tr class="separator:a7b3e0ec1c0ec12024897e8d04727e178 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a89eb63ad01cbb2e816a808d617b4536c inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Visit.html">Visit</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a89eb63ad01cbb2e816a808d617b4536c">to_visit</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:a89eb63ad01cbb2e816a808d617b4536c inherit pub_methods_classvg_1_1HandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a Protobuf <a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl. ">Visit</a> from a handle.  <a href="#a89eb63ad01cbb2e816a808d617b4536c">More...</a><br/></td></tr>
 <tr class="separator:a89eb63ad01cbb2e816a808d617b4536c inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -706,10 +710,6 @@ Static Private Attributes</h2></td></tr>
 <tr class="separator:a295c6707c85941b10c5fd3cefe9127f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8fdd723f475a286b3c5ebfe808614a4"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ac8fdd723f475a286b3c5ebfe808614a4">G_EDGE_LENGTH</a> = 2</td></tr>
 <tr class="separator:ac8fdd723f475a286b3c5ebfe808614a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aae0e3170e158fec7cd46671d5863cbc8"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aae0e3170e158fec7cd46671d5863cbc8">HIGH_BIT</a> = (size_t)1 &lt;&lt; 63</td></tr>
-<tr class="separator:aae0e3170e158fec7cd46671d5863cbc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae8b903226a9d0c02e1b9f6ff1d2b6d56"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ae8b903226a9d0c02e1b9f6ff1d2b6d56">LOW_BITS</a> = 0x7FFFFFFFFFFFFFFF</td></tr>
-<tr class="separator:ae8b903226a9d0c02e1b9f6ff1d2b6d56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa456e28e5b3d0e9a232cc8b2b57daabd"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="classxg_1_1XG.html#a068fbce892ff486b74da4cd344072d31">destination_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aa456e28e5b3d0e9a232cc8b2b57daabd">BS_SEPARATOR</a> = 1</td></tr>
 <tr class="separator:aa456e28e5b3d0e9a232cc8b2b57daabd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac6f3bca58dcd7820ccc3969fa7598515"><td class="memItemLeft" align="right" valign="top">static const <a class="el" href="classxg_1_1XG.html#a068fbce892ff486b74da4cd344072d31">destination_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ac6f3bca58dcd7820ccc3969fa7598515">BS_NULL</a> = 0</td></tr>
@@ -2685,52 +2685,6 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="adb6269ce6557eb93c6ad6f6ddda6cc83"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t xg::XG::get_max_id </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a6ed1d34d29f6a6b6771f5e6208371e75"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">int64_t xg::XG::get_min_id </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a3c0a39f1812c2165ba768813cd01bda0"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3569,6 +3523,34 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a24f00a47b292a43b2ab77b120d439b6b"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> xg::XG::max_node_id </td>
+          <td>(</td>
+          <td class="paramtype">void&#160;</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the maximum node ID used in the graph, if any are used. </p>
+
+<p>Implements <a class="el" href="classvg_1_1HandleGraph.html#ab1aec5f66a976e05bed4a1c1b5d07fc8">vg::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="ac5c6db511eb943b93edb19779d377093"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3805,6 +3787,34 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a7533b06f70676a9d16f193156cb2f3a2"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> xg::XG::min_node_id </td>
+          <td>(</td>
+          <td class="paramtype">void&#160;</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get the minimum node ID used in the graph, if any are used. </p>
+
+<p>Implements <a class="el" href="classvg_1_1HandleGraph.html#aa1e1111d95d1a51bbec312f372e09593">vg::HandleGraph</a>.</p>
 
 </div>
 </div>
@@ -5967,46 +5977,6 @@ Static Private Attributes</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aae0e3170e158fec7cd46671d5863cbc8"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const size_t xg::XG::HIGH_BIT = (size_t)1 &lt;&lt; 63</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="ae8b903226a9d0c02e1b9f6ff1d2b6d56"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const size_t xg::XG::LOW_BITS = 0x7FFFFFFFFFFFFFFF</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

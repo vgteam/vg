@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['pack',['pack',['../structvg_1_1EasyHandlePacking.html#ab445510f0dd6c075f238cc4a100cee2c',1,'vg::EasyHandlePacking']]],
   ['packer',['Packer',['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#ab795a0ae9e84d26817a119a314b01a30',1,'vg::Packer::Packer(xg::XG *xidx, size_t bin_size=0)']]],
   ['pair_5fclusters',['pair_clusters',['../classvg_1_1OrientedDistanceClusterer.html#a64fc16304bbe979775dda279258c4757',1,'vg::OrientedDistanceClusterer']]],
   ['pair_5fconsistent',['pair_consistent',['../classvg_1_1Mapper.html#ad3a62e0a91818c4e20508ab2a0f47fa5',1,'vg::Mapper']]],

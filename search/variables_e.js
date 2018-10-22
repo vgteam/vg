@@ -25,6 +25,7 @@ var searchData=
   ['node_5fid',['node_id',['../structvg_1_1Position.html#aef891b22e577fdcce6062cf78edd2474',1,'vg::Position::node_id()'],['../structvg_1_1KmerMatch.html#a6d59f7a7bc30d06c055d768324410853',1,'vg::KmerMatch::node_id()'],['../structvg_1_1NodePileup.html#a3ed5e4d46aadb0402badb75e3138dac2',1,'vg::NodePileup::node_id()'],['../structvg_1_1Visit.html#a0dc6e6745e330afc09f338fd50f7fa6c',1,'vg::Visit::node_id()'],['../structvg_1_1LocationSupport.html#a5729cf43650d3357ae350f91291823d3',1,'vg::LocationSupport::node_id()'],['../structxg_1_1XG_1_1ThreadMapping.html#affe2f53213b3bfb9184d150a02ac916c',1,'xg::XG::ThreadMapping::node_id()']]],
   ['node_5fid_5fto_5fidx',['node_id_to_idx',['../classvg_1_1BandedGlobalAligner.html#ad892d2f28a60a26de8f9afb4461765d0',1,'vg::BandedGlobalAligner']]],
   ['node_5findex',['node_index',['../classvg_1_1VG.html#a2ce9aecf57e0684821ee277d983eb248',1,'vg::VG::node_index()'],['../structvg_1_1graph__pos__s.html#afb4634ec504a5d307a60632d84ac9380',1,'vg::graph_pos_s::node_index()']]],
+  ['node_5flength',['node_length',['../classvg_1_1SourceSinkOverlay.html#aeba2436177cd49e0ec49c1447ba55180',1,'vg::SourceSinkOverlay']]],
   ['node_5flengths',['node_lengths',['../structhaplo_1_1gbwt__thread__t.html#afb9949e8024637afcf7f254f91fd0c97',1,'haplo::gbwt_thread_t']]],
   ['node_5flocations',['node_locations',['../classvg_1_1PhasedGenome.html#a00b61ff3ca8566865774b0661d5f47c6',1,'vg::PhasedGenome']]],
   ['node_5fmapping',['node_mapping',['../classvg_1_1Paths.html#a724b545027d19a3fd4658494d676f61a',1,'vg::Paths']]],

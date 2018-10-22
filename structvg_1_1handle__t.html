@@ -103,7 +103,7 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ad1b51ccd1600f54436239edf27feee28"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>A handle is 8 (assuming id_t is still int64_t) opaque bytes. A handle refers to an oriented node. Two handles are equal iff they refer to the same orientation of the same node. Only handles in the same graph may be compared. Handles have no ordering, but can be hashed. </p>
+<div class="textblock"><p>A handle is 8 (assuming id_t is still int64_t) opaque bytes. A handle refers to an oriented node. Two handles are equal iff they refer to the same orientation of the same node. Only handles in the same graph may be compared. Handles have no ordering, but can be hashed. Bit usage should be right-justified in machine endian order (i.e. a graph implementation must use the lowest bits of the lowest byte first, and must only use other bits of other bytes when the number of nodes/handles is sufficiently large as to require itin the chosen representation). This allows for overlays that can wrap their backing graphs' handles without using any more space. TODO: Note that this precludes us using pointers as handles unless we make them wider. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
 <a class="anchor" id="ad1b51ccd1600f54436239edf27feee28"></a>
 <div class="memitem">

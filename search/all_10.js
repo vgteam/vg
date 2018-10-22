@@ -1,6 +1,7 @@
 var searchData=
 [
   ['p_5fvalue_5fmemo',['p_value_memo',['../classvg_1_1MultipathMapper.html#aa6e45b752367bcc299b3427d2edd3e54',1,'vg::MultipathMapper']]],
+  ['pack',['pack',['../structvg_1_1EasyHandlePacking.html#ab445510f0dd6c075f238cc4a100cee2c',1,'vg::EasyHandlePacking']]],
   ['pack_5fmain_2ecpp',['pack_main.cpp',['../pack__main_8cpp.html',1,'']]],
   ['pack_5fnames',['pack_names',['../classvg_1_1Viz.html#abb3fd61d416351930f2e7399e6f6001b',1,'vg::Viz']]],
   ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg']]],
@@ -240,8 +241,8 @@ var searchData=
   ['previous_5fsum',['previous_sum',['../structhaplo_1_1haplo__DP__column.html#a474364179d091eda8dd0684d4d86afa8',1,'haplo::haplo_DP_column']]],
   ['previous_5fvalues',['previous_values',['../structhaplo_1_1haplo__DP__column.html#a5e1664796c443719bd4e775f503ab8ad',1,'haplo::haplo_DP_column']]],
   ['primary',['primary',['../classvg_1_1MaximalExactMatch.html#a2e34dcded590361daf8ca3a9ed3fb62f',1,'vg::MaximalExactMatch']]],
-  ['primarypath',['PrimaryPath',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a7cb61a6558ea834c229afdb8742318c5',1,'vg::SupportCaller::PrimaryPath']]],
   ['primarypath',['PrimaryPath',['../classvg_1_1SupportCaller_1_1PrimaryPath.html',1,'vg::SupportCaller']]],
+  ['primarypath',['PrimaryPath',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a7cb61a6558ea834c229afdb8742318c5',1,'vg::SupportCaller::PrimaryPath']]],
   ['primitive_5froot',['primitive_root',['../classvg_1_1ShuffledPairs.html#a78c948366b8eec98b8393ae2ac75f86a',1,'vg::ShuffledPairs']]],
   ['print',['print',['../classhaplo_1_1hDP__graph__accessor.html#afcb958151bbc73d478b1beb1c092a5d8',1,'haplo::hDP_graph_accessor::print()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ae97765d2ca1a95b2a42eb5630029a518',1,'haplo::hDP_gbwt_graph_accessor::print()'],['../structhaplo_1_1haplo__DP__column.html#a6cbbc2dc3f7cf35a8dfb47da407fd4b0',1,'haplo::haplo_DP_column::print()']]],
   ['print_5fband',['print_band',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a8e73399aefd1402a5f694776d64e8ed8',1,'vg::BandedGlobalAligner::BAMatrix']]],
@@ -272,8 +273,8 @@ var searchData=
   ['progressive_2ehpp',['progressive.hpp',['../progressive_8hpp.html',1,'']]],
   ['propose_5fdeflection',['propose_deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a662b5ce1fa402a6c8e7a5f20f92773b3',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['proto',['proto',['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'vg.proto']]],
-  ['protobufemitter',['ProtobufEmitter',['../classvg_1_1stream_1_1ProtobufEmitter.html#a5bd5ceae0bfeca4c41f5e483f8947853',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(std::ostream &amp;out, size_t max_group_size=1000)'],['../classvg_1_1stream_1_1ProtobufEmitter.html#a9f1700cb2dd6d08e12fa627aa6161ea3',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(const ProtobufEmitter &amp;other)=delete'],['../classvg_1_1stream_1_1ProtobufEmitter.html#a3a34486b42eba8f065f14065d5274b4e',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(ProtobufEmitter &amp;&amp;other)=default']]],
   ['protobufemitter',['ProtobufEmitter',['../classvg_1_1stream_1_1ProtobufEmitter.html',1,'vg::stream']]],
+  ['protobufemitter',['ProtobufEmitter',['../classvg_1_1stream_1_1ProtobufEmitter.html#a5bd5ceae0bfeca4c41f5e483f8947853',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(std::ostream &amp;out, size_t max_group_size=1000)'],['../classvg_1_1stream_1_1ProtobufEmitter.html#a9f1700cb2dd6d08e12fa627aa6161ea3',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(const ProtobufEmitter &amp;other)=delete'],['../classvg_1_1stream_1_1ProtobufEmitter.html#a3a34486b42eba8f065f14065d5274b4e',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(ProtobufEmitter &amp;&amp;other)=default']]],
   ['protobufiterator',['ProtobufIterator',['../classvg_1_1stream_1_1ProtobufIterator.html',1,'vg::stream']]],
   ['protobufiterator',['ProtobufIterator',['../classvg_1_1stream_1_1ProtobufIterator.html#ae3059225b6ff4b2c2745f357daf985e6',1,'vg::stream::ProtobufIterator']]],
   ['prune_2ecpp',['prune.cpp',['../prune_8cpp.html',1,'']]],
