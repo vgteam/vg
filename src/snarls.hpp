@@ -310,6 +310,12 @@ public:
         
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
+    
+    /// Return the smallest ID used. 
+    virtual id_t min_node_id() const;
+    
+    /// Return the largest ID used.
+    virtual id_t max_node_id() const;
         
     // We also have some extra functions
         

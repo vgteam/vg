@@ -145,6 +145,84 @@ TEST_CASE("is_acyclic() should return whether the graph is acyclic", "[vg][cycle
     }
 }
 
+TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
+   
+    unordered_map<id_t, pair<id_t, bool> > node_translation;
+   
+    SECTION("a tiny DAG should remain unmodified") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "G"},
+                {"id": 2, "sequence": "A"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        
+        VG dag = graph.dagify(5, node_translation, 5, 0);
+        
+        REQUIRE(dag.is_acyclic() == true);
+        REQUIRE(dag.node_size() == 2);
+        REQUIRE(dag.edge_count() == 1);
+    }
+    
+    SECTION("a tiny cyclic graph should become acyclic") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "G"},
+                {"id": 2, "sequence": "A"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 2, "to": 1}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        
+        VG dag = graph.dagify(5, node_translation, 5, 0);
+        
+        REQUIRE(dag.is_acyclic() == true);
+        REQUIRE(dag.node_size() >= 2);
+    }
+    
+    SECTION("a tiny cyclic graph with doubly reversing edges should become acyclic") {
+        const string graph_json = R"(
+        
+        {
+            "node": [
+                {"id": 1, "sequence": "G"},
+                {"id": 2, "sequence": "A"}
+            ],
+            "edge": [
+                {"from": 1, "to": 2},
+                {"from": 1, "from_start": true, "to": 2, "to_end": true}
+            ]
+        }
+    
+        )";
+        
+        VG graph = string_to_graph(graph_json);
+        
+        VG dag = graph.dagify(5, node_translation, 5, 0);
+        
+        REQUIRE(dag.is_acyclic() == true);
+        REQUIRE(dag.node_size() >= 2);
+    }
+    
+}
+
 TEST_CASE("unfold() should properly unfold a graph out to the requested length", "[vg][unfold]") {
 
     SECTION("Unfolding a graph with no reversing edges should create an isomorphic graph") {
