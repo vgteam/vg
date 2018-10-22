@@ -752,9 +752,7 @@ int main_mod(int argc, char** argv) {
             }
         } else {
             // just add the path labels to the graph
-            for (auto& path : paths) {
-                graph->paths.extend(path);
-            }
+            graph->paths.extend(paths);
         }
     }
 

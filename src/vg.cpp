@@ -2705,7 +2705,7 @@ void VG::extend(const Graph& graph, bool warn_on_duplicates) {
         }
     }
     // Append the path mappings from this graph, but don't sort by rank
-    paths.append(graph, warn_on_duplicates);
+    paths.append(graph, warn_on_duplicates, false);
 }
 
 // extend this graph by g, connecting the tails of this graph to the heads of the other
@@ -4726,8 +4726,8 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
         Path added = add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
         
         if (save_paths) {
-            // Add this path to the graph's paths object
-            paths.extend(added);
+            // Add this path to the graph's paths object without rebuilding path ranks, aux mapping, etc.
+            paths.extend(added, false, false);
         }
         
         if (update_paths) {
