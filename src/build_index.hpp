@@ -19,7 +19,7 @@ namespace vg {
 
 using namespace std;
 
-void build_gcsa_lcp(VG& graph,
+void build_gcsa_lcp(const HandleGraph& graph,
                     gcsa::GCSA*& gcsa,
                     gcsa::LCPArray*& lcp,
                     int kmer_size,

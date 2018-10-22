@@ -8,11 +8,16 @@ void for_each_kmer(const HandleGraph& graph, size_t k,
     // for each position on the forward and reverse of the graph
     // TODO -- add parallel interface in handlegraph
     bool using_head_tail = head_id + tail_id > 0;
+#ifdef debug
+    cerr << "Looping over kmers" << endl;
+#endif
     graph.for_each_handle([&](const handle_t& h) {
+#ifdef debug
+            cerr << "Process handle " << graph.get_id(h) << endl;
+#endif
             // for the forward and reverse of this handle
             // walk k bases from the end, so that any kmer starting on the node will be represented in the tree we build
             for (auto handle_is_rev : { false, true }) {
-                //cerr << "###########################################" << endl;
                 handle_t handle = handle_is_rev ? graph.flip(h) : h;
                 list<kmer_t> kmers;
                 // for each position in the node, set up a kmer with that start position and the node end or kmer length as the end position

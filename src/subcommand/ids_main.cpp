@@ -144,7 +144,7 @@ int main_ids(int argc, char** argv) {
         }
 
         VGset graphs(graph_file_names);
-        vg::id_t max_node_id = (join ? graphs.merge_id_space() : graphs.get_max_id());
+        vg::id_t max_node_id = (join ? graphs.merge_id_space() : graphs.max_node_id());
         if (!mapping_name.empty()) {
             gcsa::NodeMapping mapping(max_node_id + 1);
             std::ofstream out(mapping_name, std::ios_base::binary);

@@ -123,25 +123,19 @@ VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
     
 
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
-    // Handle is ID in low bits and orientation in high bit
-    
-    // Where in the g vector do we need to be
-    size_t handle = node_id;
-    // And set the high bit if it's reverse
-    if (is_reverse) handle |= HIGH_BIT;
-    return as_handle(handle);
+    return EasyHandlePacking::pack(node_id, is_reverse);
 }
 
 id_t VG::get_id(const handle_t& handle) const {
-    return as_integer(handle) & LOW_BITS;
+    return EasyHandlePacking::unpack_number(handle);
 }
 
 bool VG::get_is_reverse(const handle_t& handle) const {
-    return as_integer(handle) & HIGH_BIT;
+    return EasyHandlePacking::unpack_bit(handle);
 }
 
 handle_t VG::flip(const handle_t& handle) const {
-    return as_handle(as_integer(handle) ^ HIGH_BIT);
+    return EasyHandlePacking::toggle_bit(handle);
 }
 
 size_t VG::get_length(const handle_t& handle) const {
@@ -163,7 +157,7 @@ string VG::get_sequence(const handle_t& handle) const {
         // We found a node. Grab its sequence
         auto sequence = (*found).second->sequence();
         
-        if (as_integer(handle) & HIGH_BIT) {
+        if (get_is_reverse(handle)) {
             // Needs to be reverse-complemented
             return reverse_complement(sequence);
         } else {
@@ -224,6 +218,47 @@ void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
 
 size_t VG::node_size() const {
     return graph.node_size();
+}
+
+id_t VG::max_node_id(void) const {
+    id_t max_id = 0;
+    for (int i = 0; i < graph.node_size(); ++i) {
+        const Node& n = graph.node(i);
+        if (n.id() > max_id) {
+            max_id = n.id();
+        }
+    }
+    return max_id;
+}
+
+id_t VG::min_node_id(void) const {
+    id_t min_id = numeric_limits<id_t>::max();
+    for (int i = 0; i < graph.node_size(); ++i) {
+        const Node& n = graph.node(i);
+        if (n.id() < min_id) {
+            min_id = n.id();
+        }
+    }
+    return min_id;
+}
+
+size_t VG::get_degree(const handle_t& handle, bool go_left) const {
+    // Are we reverse?
+    bool is_reverse = get_is_reverse(handle);
+    
+    // Which edges will we look at?
+    auto& edge_set = (go_left != is_reverse) ? edges_on_start : edges_on_end;
+    
+    // Look up edges of this node specifically
+    auto found = edge_set.find(get_id(handle));
+    if (found != edge_set.end()) {
+        // There are (or may be) edges.
+        // Return the count.
+        return found->second.size();
+    }
+    
+    // Otherwise there can be no edges
+    return 0;
 }
     
 path_handle_t VG::get_path_handle(const string& path_name) const {
@@ -2742,28 +2777,6 @@ void VG::include(const Path& path) {
         }
     }
     paths.extend(path);
-}
-
-id_t VG::max_node_id(void) {
-    id_t max_id = 0;
-    for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        if (n->id() > max_id) {
-            max_id = n->id();
-        }
-    }
-    return max_id;
-}
-
-id_t VG::min_node_id(void) {
-    id_t min_id = max_node_id();
-    for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        if (n->id() < min_id) {
-            min_id = n->id();
-        }
-    }
-    return min_id;
 }
 
 void VG::compact_ids(void) {
@@ -7600,7 +7613,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
               unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length,
               size_t component_length_max) {
-
+              
     VG dag;
     // Find the strongly connected components in the graph.
     set<set<id_t>> strong_components = strongly_connected_components();
@@ -7694,7 +7707,23 @@ VG VG::dagify(uint32_t expand_scc_steps,
             set<id_t> seen;
             for (auto id : component) {
                 seen.insert(id);
-                for (auto e : edges_of(get_node(id))) {
+                for (Edge* e : edges_of(get_node(id))) {
+                    // We may have to modify the edge, so make a place to hold
+                    // a modified copy. This lets us work as if all edges are
+                    // end to start wehn working on their from and to later.
+                    unique_ptr<Edge> clone;
+                    if (e->from_start() && e->to_end()) {
+                        // Flip doubly-reversing edges from the input, which
+                        // can appear even if the graph is all on one strand.
+                        clone = unique_ptr<Edge>(new Edge(*e));
+                        e = clone.get();
+                        auto old_to = e->to();
+                        e->set_to(e->from());
+                        e->set_from(old_to);
+                        e->set_from_start(false);
+                        e->set_to_end(false);
+                    }
+                
                     if (e->from() == id && e->to() != id) {
                         // if other end is not in the component
                         if (!component.count(e->to())) {
@@ -7777,7 +7806,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
         }
     }
 
-    // ensure normalized edges in output; we may introduced flipped/flipped edges
+    // ensure normalized edges in output; we may have preserved some flipped/flipped edges
     // which are valid but can introduce problems for some algorithms
     dag.flip_doubly_reversed_edges();
     return dag;
