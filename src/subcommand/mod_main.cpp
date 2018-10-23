@@ -752,9 +752,7 @@ int main_mod(int argc, char** argv) {
             }
         } else {
             // just add the path labels to the graph
-            for (auto& path : paths) {
-                graph->paths.extend(path);
-            }
+            graph->paths.extend(paths);
         }
     }
 
@@ -840,6 +838,7 @@ int main_mod(int argc, char** argv) {
             cerr << "[vg mod]: when adding start and end markers you must provide a --path-length" << endl;
             return 1;
         }
+        // TODO: replace this with the SourceSinkOverlay somehow?
         Node* head_node = NULL;
         Node* tail_node = NULL;
         vg::id_t head_id = 0, tail_id = 0;

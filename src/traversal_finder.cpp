@@ -932,7 +932,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         backbone_index = unique_ptr<PathIndex>(new PathIndex(backbone));
     }
     
-    // Determnine what path will be the path we use to scaffold the traversals:
+    // Determine what path will be the path we use to scaffold the traversals:
     // the primary path index by default, or the backbone index if we needed one.
     PathIndex& index = (backbone_index.get() != nullptr ? *backbone_index : *primary_path_index);
     
@@ -1090,10 +1090,12 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         }
         
         if(index.by_id.count(node->id())) {
-            cerr << "Node " << node->id() << " is on backbone path at "
+            cerr << "error[RepresentativeTraversalFinder]: Node " << node->id() << " is on backbone path at "
                  << index.by_id.at(node->id()).first << " but not traced in site "
                  << to_node_traversal(site.start(), augmented.graph) << " to " 
                  << to_node_traversal(site.end(), augmented.graph) << " that contains it." << endl;
+            cerr << "error[RepresentativeTraversalFinder]: This can happen when the path you are calling "
+                 << "against traverses the same part of your graph twice." << endl;
             throw runtime_error("Extra ref node found");
         }
     }

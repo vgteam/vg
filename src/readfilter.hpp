@@ -68,10 +68,12 @@ public:
         vector<size_t> split;
         vector<size_t> repeat;
         vector<size_t> defray;
+        vector<size_t> defray_all;
         vector<size_t> random;
         Counts() : read(2, 0), filtered(2, 0), wrong_name(2, 0), wrong_refpos(2, 0),
                    min_score(2, 0), max_overhang(2, 0), min_end_matches(2, 0),
-                   min_mapq(2, 0), split(2, 0), repeat(2, 0), defray(2, 0), random(2, 0) {}
+                   min_mapq(2, 0), split(2, 0), repeat(2, 0), defray(2, 0),
+                   defray_all(2, 0), random(2, 0) {}
         Counts& operator+=(const Counts& other) {
             for (int i = 0; i < 2; ++i) {
                 read[i] += other.read[i];
@@ -85,6 +87,7 @@ public:
                 split[i] += other.split[i];
                 repeat[i] += other.repeat[i];
                 defray[i] += other.defray[i];
+                defray_all[i] += other.defray_all[i];
                 random[i] += other.random[i];
             }
             return *this;
