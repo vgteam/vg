@@ -2522,21 +2522,10 @@ bool TargetValueSearch::tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, i
     return false;
 }
     
-vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
-    // TODO: fill in this algorithm
+vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, bool exact_min) {
 
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
     DistanceHeuristic& max_distance = *upper_bound_heuristic;
-    int64_t min = min_distance(pos_1, pos_2);
-    int64_t max = max_distance(pos_1, pos_2);
-    if ( min == -1 || target_value + tolerance < min || 
-                      target_value - tolerance > max) {
-        //If there is no path between the positions
-
-        return vector<handle_t>();
-    } 
-
-    //////////// Phase 1 of tsv search: get target for each reachable node
     
 
     id_t id_1 = id(pos_1);
@@ -2555,13 +2544,11 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     //Path that is closest to the target and difference from target
     pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best 
                                (-1, make_pair(make_pair(0, false), -1));
+    //Best that is too long - use when min heuristic finds actual minimum 
+    //difference between target and best dist, node, and target from that node
+    pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long 
+                               (-1, make_pair(make_pair(0, false), -1));
 
-    //map each node to all target values within bounds for that node
-    hash_map<pair<id_t, bool>, hash_set<int64_t>> node_to_target; 
-    //Pretend start from beginning of the first node
-    hash_set<int64_t> s;
-    s.insert( target_value + offset_1);
-    node_to_target.emplace(make_pair(id_1, rev_1), s);
 
     //map each node and target for node to the node+target leading to it
     //TODO: Maybe better to map each node to the actual path and remove old ones as necessary
@@ -2575,6 +2562,73 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
     handle_t h = handle_graph.get_handle(id_1, rev_1);
 
+
+
+
+    //TODO: maybe move this somewhere else
+    auto get_min_path = [&](pair<pair<id_t, bool>, int64_t> node) 
+       -> vector<handle_t> {
+        /*given the path up to start, add the minimum path from start to end to
+         * path
+         */ 
+
+        //If perfect path
+        list<handle_t> result;
+        auto prev = node_to_path.find(node);
+        handle_t curr_handle = handle_graph.get_handle(node.first.first, 
+                                                  node.first.second);
+        result.push_front(curr_handle);
+        while (prev != node_to_path.end()) {
+            pair<pair<id_t, bool>, int64_t> prev_n = prev->second;
+            curr_handle = handle_graph.get_handle(
+                                 prev_n.first.first, prev_n.first.second);
+            result.push_front(curr_handle);
+            prev = node_to_path.find(prev_n);
+            
+        }
+
+        vector<handle_t> path (result.begin(), result.end());
+        //Path contains handles from pos_1 to start
+
+        pos_t curr_pos = make_pos_t(node.first.first, node.first.second, 0);
+        int64_t dist = min_distance(curr_pos, pos_2);
+        while (id(curr_pos) != id(pos_2) || is_rev(curr_pos) != is_rev(pos_2)){
+
+            handle_t handle = handle_graph.get_handle(id(curr_pos), 
+                                                       is_rev(curr_pos));
+            auto try_next = [&](const handle_t& h)-> bool {
+                curr_pos = make_pos_t(handle_graph.get_id(h), 
+                                      handle_graph.get_is_reverse(h), 0);
+
+                int64_t node_len = handle_graph.get_length(handle); 
+                if (min_distance(curr_pos, pos_2) + node_len == dist) {
+                    //If this node is on a minimum path
+                    dist = dist - node_len; 
+                    path.push_back(h);
+                    return false;
+                } else {
+                    return true;
+                } 
+
+            };
+            
+            handle_graph.follow_edges(handle, false, try_next);
+
+        }   
+        return path;
+         
+    };
+
+    int64_t min = min_distance(pos_1, pos_2);
+    int64_t max = max_distance(pos_1, pos_2);
+    if ( min == -1 || target_value + tolerance < min || 
+                      target_value - tolerance > max) {
+        //If there is no path between the positions
+
+        return vector<handle_t>();
+    } 
+
+    //////////// Phase 1 of tsv search: get target for each reachable node
     while (next_nodes.size() != 0) {
         //A*-like traversal
 
@@ -2614,6 +2668,8 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
  
         handle_t curr_handle = handle_graph.get_handle(curr_node.first, curr_node.second);           
         int64_t new_target = curr_target - handle_graph.get_length(curr_handle);
+ 
+        vector<handle_t> best_path;//Use this if the best path can be found using min distance
 
         auto add_next = [&](const handle_t& h)-> bool {
             //For each adjacent node, add it to next nodes if end node is 
@@ -2627,32 +2683,27 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
             int64_t max_dist = max_distance(new_pos, pos_2); 
             int64_t lower_target = new_target - tolerance;
             int64_t upper_target = new_target + tolerance;  
+ 
+            if (exact_min && min_dist != -1 && min_dist == new_target) {
+                //If the minimum path is the best path
+                node_to_path[make_pair(make_pair(id, rev), new_target)]=
+                             make_pair(curr_node, curr_target);
+                best_path = get_min_path(make_pair(make_pair(id, rev), new_target)); 
+                return false;
+            }
 
             if (min_dist != -1 && 
                     min_dist <= new_target && new_target <= max_dist) {
                 //If the target is within the distance bounds
 
-                auto prev = node_to_target.find(make_pair(id, rev));
-                if (prev == node_to_target.end()) {
+                auto prev = node_to_path.find(make_pair(make_pair(id, rev), 
+                                                        new_target));
+                if (prev == node_to_path.end()) {
                     //If this node hasn't been seen before 
-                    hash_set<int64_t> s;
-                    s.insert(new_target);
-                    node_to_target[make_pair(id, rev)] = s;
                     node_to_path[make_pair(make_pair(id, rev), new_target)]=
                              make_pair(curr_node, curr_target);
                     next_nodes.emplace_back(make_pair(id, rev), new_target);
-                } else {
-                    hash_set<int64_t> prev_targets = prev->second;
-                    auto prev_target = prev_targets.find(new_target);
-                    if (prev_target == prev_targets.end()) {
-                        //If this target hasn't been seen for this node
-                        prev_targets.insert(new_target);
-                        node_to_target[make_pair(id, rev)] = prev_targets;
-                        node_to_path[make_pair(make_pair(id, rev), 
-                           new_target)] = make_pair(curr_node, curr_target);
-                        next_nodes.emplace_back(make_pair(id, rev), new_target);
-                    }
-                }
+                } 
 
             } else if (min_dist != -1 && 
                        (min_dist <= upper_target || max_dist >= lower_target)){
@@ -2665,25 +2716,43 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
                 if (prev_targets == node_to_target_out.end()){
                     //If not seen before
                     if (min_dist >= new_target) {
-                       //All paths too long
-                       node_to_target_out.emplace(make_pair(id, rev), 
-                                              make_pair(-1, new_target));
-                       node_to_path[make_pair(make_pair(id, rev), 
+                        //All paths too long
+                        node_to_path[make_pair(make_pair(id, rev), 
                                new_target)] = make_pair(curr_node, curr_target);
+
+                        if (exact_min && (best_long.first == -1 || 
+                                     min_dist - new_target < best_long.first)) {
+                            best_long.first = min_dist - new_target;
+                            best_long.second = make_pair(make_pair(id, rev), 
+                                                                    new_target);
+                        } else {
+                           node_to_target_out.emplace(make_pair(id, rev), 
+                                              make_pair(-1, new_target));
+                        }
                     } else {
-                       //All paths too short
-                       node_to_target_out.emplace(make_pair(id, rev), 
+                        //All paths too short
+                        node_to_target_out.emplace(make_pair(id, rev), 
                                               make_pair(new_target, -1));
-                       node_to_path[make_pair(make_pair(id, rev), 
+                        node_to_path[make_pair(make_pair(id, rev), 
                                new_target)] = make_pair(curr_node, curr_target);
                     }
                 } else {
                     int64_t prev_max_target = prev_targets->second.first;
                     int64_t prev_min_target = prev_targets->second.second;
-                    if (prev_min_target == -1 || 
-                                           prev_min_target >= new_target) {
+                    if (min_dist >= new_target) {
                         //All paths too long
-                        if (new_target <= prev_min_target) {
+                        
+                        if (exact_min && (best_long.first == -1 || 
+                                     min_dist - new_target < best_long.first)) {
+                            //If the min from here is better than previous longer path
+                            best_long.first = min_dist - new_target;
+                            best_long.second = make_pair(make_pair(id, rev), 
+                                                                    new_target);
+                            node_to_path[make_pair(make_pair(id, rev), 
+                               new_target)] = make_pair(curr_node, curr_target);
+
+                        } else if (!exact_min && (prev_min_target == -1 || 
+                                           prev_min_target >= new_target)) {
                             //If this target is better than last one
                             node_to_target_out.emplace(make_pair(id, rev), 
                                        make_pair(prev_max_target, new_target));
@@ -2706,7 +2775,10 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
             }
             return true;
         };
-        handle_graph.follow_edges(curr_handle, false, add_next);
+        if (!handle_graph.follow_edges(curr_handle, false, add_next)){
+            return best_path;
+
+        }
         
     }
     
@@ -2816,7 +2888,12 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     }
     
     
-    if (next_best.first <= tolerance) {
+    if (best_long.first != -1 && best_long.first <= tolerance &&
+                (next_best.first == -1 || best_long.first <= next_best.first)) {
+        //Get path for the best that is longer than the target
+        return get_min_path(best_long.second);
+
+    } else if (next_best.first <= tolerance) {
         
         //Backtrack to get path
         list<handle_t> result;
