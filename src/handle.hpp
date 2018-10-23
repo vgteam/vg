@@ -109,7 +109,8 @@ struct wang_hash<handle_t> {
         return wang_hash<std::int64_t>()(as_integer(handle));
     }
 };
-    
+
+/// A path handle is an opaque reference to a named path in a graph.
 struct path_handle_t {
     char data[sizeof(int64_t)];
 };
@@ -144,6 +145,8 @@ inline bool operator!=(const path_handle_t& a, const path_handle_t& b) {
     return as_integer(a) != as_integer(b);
 }
 
+/// An occurrence handle is an opaque reference to an occurrence of an oriented
+/// node along a path in a graph
 struct occurrence_handle_t {
     char data[2 * sizeof(int64_t)];
 };
@@ -468,7 +471,36 @@ public:
         auto parts = divide_handle(handle, vector<size_t>{offset});
         return make_pair(parts.front(), parts.back());
     }
-}; 
+};
+
+/**
+ * This is the interface for a handle graph with embedded paths where the paths can be modified.
+ * Note that if the *graph* can also be modified, the implementation will also need to inherit from Mutable HandleGraph.
+ * TODO: This is a very limited interface at the moment. It will probably need to be extended.
+ */
+class MutablePathHandleGraph : virtual public PathHandleGraph {
+public:
+    
+    /**
+     * Destroy the given path. Invalidates handles to the path and its node occurrences.
+     */
+    virtual void destroy_path(const path_handle_t& path) = 0;
+
+    /**
+     * Create a path with the given name. The caller must ensure that no path
+     * with the given name exists already, or the behavior is undefined.
+     * Returns a handle to the created empty path. Handles to other paths must
+     * remain valid.
+     */
+    virtual path_handle_t create_path_handle(const string& name) = 0;
+    
+    /**
+     * Append a visit to a node to the given path. Returns a handle to the new
+     * final occurrence on the path which is appended. Handles to prior
+     * occurrences on the path, and to other paths, must remain valid.
+     */
+    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append) = 0;
+};
 
 }
 

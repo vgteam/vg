@@ -498,6 +498,25 @@ vector<handle_t> VG::divide_handle(const handle_t& handle, const vector<size_t>&
     
 }
 
+void VG::destroy_path(const path_handle_t& path) {
+    paths.remove_path(get_path_name(path));
+}
+
+path_handle_t VG::create_path_handle(const string& name) {
+    // Create the path
+    paths.create_path(name);
+    // Grab the handle
+    return get_path_handle(name);
+    
+}
+    
+occurrence_handle_t VG::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+    // Make the new path mapping/visit (which weirdly requires the node length)
+    paths.append_mapping(get_path_name(path), get_id(to_append), get_is_reverse(to_append), get_length(to_append));
+    // Get the occurrence we just made, now last on the path.
+    return get_last_occurrence(path);
+}
+
 void VG::clear_paths(void) {
     paths.clear();
     graph.clear_path(); // paths.clear() should do this too
