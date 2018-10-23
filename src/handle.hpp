@@ -263,6 +263,7 @@ public:
     
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
+    /// Has to be a template because we can't overload on the types of std::function arguments otherwise.
     /// MUST be pulled into implementing classes with `using` in order to work!
     template <typename T>
     auto follow_edges(const handle_t& handle, bool go_left, T&& iteratee) const
@@ -362,20 +363,23 @@ public:
     
     /// Returns the number of node occurrences in the path
     virtual size_t get_occurrence_count(const path_handle_t& path_handle) const = 0;
-    
+
     /// Returns the number of paths stored in the graph
     virtual size_t get_path_count() const = 0;
     
     /// Execute a function on each path in the graph
+    // TODO: allow stopping early?
     virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const = 0;
     
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
     virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
     
-    /// Get a handle to the first occurrence in a path
+    /// Get a handle to the first occurrence in a path.
+    /// The path MUST be nonempty.
     virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const = 0;
     
     /// Get a handle to the last occurrence in a path
+    /// The path MUST be nonempty.
     virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const = 0;
     
     /// Returns true if the occurrence is not the last occurence on the path, else false
@@ -395,6 +399,20 @@ public:
     
     /// Returns the 0-based ordinal rank of a occurrence on a path
     virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Additional optional interface with a default implementation
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Returns true if the given path is empty, and false otherwise
+    virtual bool is_empty(const path_handle_t& path_handle) const;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Concrete utility methods
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Loop over all the occurrences along a path, from first through last
+    void for_each_occurrence_in_path(const path_handle_t& path, const function<void(const occurrence_handle_t&)>& iteratee) const;
 };
 
 /**
@@ -414,6 +432,10 @@ public:
     
     /// Remove the node belonging to the given handle and all of its edges.
     /// Does not update any stored paths.
+    /// Invalidates the destroyed handle.
+    /// May be called during serial for_each_handle iteration **ONLY** on the node being iterated.
+    /// May **NOT** be called during parallel for_each_handle iteration.
+    /// May **NOT** be called on the node from which edges are being followed during follow_edges.
     virtual void destroy_handle(const handle_t& handle) = 0;
     
     /// Create an edge connecting the given handles in the given order and orientations.
@@ -475,7 +497,9 @@ public:
 
 /**
  * This is the interface for a handle graph with embedded paths where the paths can be modified.
- * Note that if the *graph* can also be modified, the implementation will also need to inherit from Mutable HandleGraph.
+ * Note that if the *graph* can also be modified, the implementation will also
+ * need to inherit from MutableHandleGraph, via the combination
+ * MutablePathMutableHandleGraph interface.
  * TODO: This is a very limited interface at the moment. It will probably need to be extended.
  */
 class MutablePathHandleGraph : virtual public PathHandleGraph {
@@ -500,6 +524,13 @@ public:
      * occurrences on the path, and to other paths, must remain valid.
      */
     virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append) = 0;
+};
+
+/**
+ * This is the interface for a graph which is mutable and which has paths which are also mutable.
+ */
+class MutablePathMutableHandleGraph : virtual public MutablePathHandleGraph, virtual public MutableHandleGraph {
+    // No extra methods!
 };
 
 }

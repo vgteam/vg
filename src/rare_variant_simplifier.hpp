@@ -24,15 +24,18 @@ class RareVariantSimplifier : public Progressive {
 public:
     /// Make a simplifier that simplifies the given graph in place, using
     /// variants read using the given buffer.
-    RareVariantSimplifier(VG& graph, VcfBuffer& variant_source);
+    RareVariantSimplifier(MutablePathMutableHandleGraph& graph, VcfBuffer& variant_source);
     
     /// Simplify the graph.
     void simplify();
+
+    /// Keep variants at this total alt allele frequency or higher
+    double min_frequency_to_keep = 0.001;
      
 protected:
 
     /// Holds a reference to the graph we're simplifying
-    VG& graph;
+    MutablePathMutableHandleGraph& graph;
 
     /// Holds a reference to the variant buffer we are getting avriants from.
     VcfBuffer& variant_source;
