@@ -1,17 +1,17 @@
-#include "simplifier.hpp"
+#include "small_snarl_simplifier.hpp"
 
 namespace vg {
 
 using namespace std;
 
-Simplifier::Simplifier(VG& graph) : Progressive(), graph(graph), traversal_finder(graph) {
+SmallSnarlSimplifier::SmallSnarlSimplifier(VG& graph) : Progressive(), graph(graph), traversal_finder(graph) {
     
     // create a SnarlManager using Cactus
     CactusSnarlFinder site_finder(graph);
     site_manager = site_finder.find_snarls();
 }
 
-pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
+pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
 
     // Set up the deleted node and edge counts
     pair<size_t, size_t> to_return {0, 0};
@@ -20,7 +20,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
 
     if(!graph.is_valid(true, true, true, true)) {
         // Make sure the graph is valid and not missing nodes or edges
-        cerr << "error:[vg::Simplifier] Invalid graph on iteration " << iteration << endl;
+        cerr << "error:[vg::SmallSnarlSimplifier] Invalid graph on iteration " << iteration << endl;
         exit(1);
     }
 
@@ -421,7 +421,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     
                     // Make sure we have an edge so we can traverse this node and then the node we're going to.
                     if(graph.get_edge(here_traversal, next_traversal) == nullptr) {
-                        cerr << "error:[vg::Simplifier] No edge " << here_traversal << " to " << next_traversal << endl;
+                        cerr << "error:[vg::SmallSnarlSimplifier] No edge " << here_traversal << " to " << next_traversal << endl;
                         exit(1);
                     }
                     
@@ -748,7 +748,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
 
 }
 
-void Simplifier::simplify() {
+void SmallSnarlSimplifier::simplify() {
     for (size_t i = 0; i < max_iterations; i++) {
         // Try up to the max number of iterations
         auto deleted_elements = simplify_once(i);

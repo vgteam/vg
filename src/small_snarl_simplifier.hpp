@@ -1,5 +1,5 @@
-#ifndef VG_SIMPLIFIER_HPP_INCLUDED
-#define VG_SIMPLIFIER_HPP_INCLUDED
+#ifndef VG_SMALL_SNARL_SIMPLIFIER_HPP_INCLUDED
+#define VG_SMALL_SNARL_SIMPLIFIER_HPP_INCLUDED
 
 
 #include "progressive.hpp"
@@ -26,11 +26,11 @@ using namespace std;
  * like features up to date. TODO: doesn't handle path start and end positions
  * within nodes.
  */
-class Simplifier : public Progressive {
+class SmallSnarlSimplifier : public Progressive {
 
 public:
     /// Make a simplifier that simplifies the given graph in place.
-    Simplifier(VG& graph);
+    SmallSnarlSimplifier(VG& graph);
     
     /// Simplify the graph by one step. Returns the number of nodes deleted and
     /// the number of edges deleted. Can be passed an iteration for its progress

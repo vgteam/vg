@@ -10,7 +10,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../simplifier.hpp"
+#include "../small_snarl_simplifier.hpp"
 
 
 
@@ -123,10 +123,10 @@ int main_simplify(int argc, char** argv) {
     }
     
     {
-        // Make a Simplifier for the graph and copy over settings. Need sto be
+        // Make a SmallSnarlSimplifier for the graph and copy over settings. Needs to be
         // in a block so that the graph doesn't get deleted before the
         // simplifier goes out of scope.
-        Simplifier simplifier(*graph);
+        SmallSnarlSimplifier simplifier(*graph);
         simplifier.show_progress = show_progress;
         simplifier.max_iterations = max_iterations;
         simplifier.min_size = min_size;
