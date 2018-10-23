@@ -53,9 +53,11 @@ public:
     /// bubbles unsimplified?
     bool drop_hairpin_paths = false;
     
-    /// Stores the features in the graph, and gets updated as simplification
-    /// proceeds. The user should load the features in and pull them out.
-    FeatureSet features;
+    /// If the user points this to a FeatureSet, that FeatureSet will get its
+    /// features updated with changes to the graph as simplification proceeds.
+    /// The user should load the features in and pull them out.
+    /// TODO: Replace this with an on_path_edit event on this object that can be listened on.
+    FeatureSet* features = nullptr;
     
 protected:
 

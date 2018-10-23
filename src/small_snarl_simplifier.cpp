@@ -490,7 +490,9 @@ pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
 #endif
 
                 // Actually update any BED features
-                features.on_path_edit(path_name, variable_start, old_site_length, new_site_length);
+                if (features != nullptr) {
+                    features->on_path_edit(path_name, variable_start, old_site_length, new_site_length);
+                }
                 
                 // Where will we insert the new site traversal into the path?
                 list<mapping_t>::iterator insert_position;

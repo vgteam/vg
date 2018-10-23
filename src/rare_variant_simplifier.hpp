@@ -29,8 +29,12 @@ public:
     /// Simplify the graph.
     void simplify();
 
-    /// Keep variants at this total alt allele frequency or higher
-    double min_frequency_to_keep = 0.001;
+    /// Keep variants at this total alt allele frequency or higher.
+    double min_frequency_to_keep = 0;
+
+    /// Keep variants with this total alt allele count or higher.
+    /// AND'd with the frequency condition.
+    size_t min_count_to_keep = 0;
      
 protected:
 
