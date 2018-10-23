@@ -143,6 +143,11 @@ void RareVariantSimplifier::simplify() {
             // If it is sufficiently common, mark all its alt path nodes as to-keep
             for (auto& path_name : variant_alt_paths) {
                 // For each alt path
+                if (!graph.has_path(path_name)) {
+                    // Skip those that do not exist
+                    continue;
+                }
+                
                 path_handle_t path = graph.get_path_handle(path_name);
 
                 graph.for_each_occurrence_in_path(path, [&](const occurrence_handle_t& occurrence) {
@@ -154,6 +159,11 @@ void RareVariantSimplifier::simplify() {
         } else {
             // Otherwise delete all its alt paths and also its ref path
             for (auto& path_name : variant_alt_paths) {
+                if (!graph.has_path(path_name)) {
+                    // This path doesn't exist at all, so skip it
+                    continue;
+                }
+                
                 // For each alt path
                 path_handle_t path = graph.get_path_handle(path_name);
 
@@ -164,6 +174,10 @@ void RareVariantSimplifier::simplify() {
 
             // The nodes will get destroyed if nothing else sufficiently frequent visited them.
         }
+
+        // Load the next variant
+        variant_source.handle_buffer();
+        variant_source.fill_buffer();
     }
     
     graph.for_each_handle([&](const handle_t& handle) {

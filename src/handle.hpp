@@ -213,7 +213,9 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
-    
+   
+    // TODO: Method to check if a node exists by ID?
+   
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
@@ -355,7 +357,11 @@ public:
     // Path handle interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
     
-    /// Look up the path handle for the given path name
+    /// Determine if a path name exists and is legal to get a path handle for.
+    virtual bool has_path(const string& path_name) const = 0;
+    
+    /// Look up the path handle for the given path name.
+    /// The path with that name must exist.
     virtual path_handle_t get_path_handle(const string& path_name) const = 0;
     
     /// Look up the name of a path from a handle to it

@@ -84,10 +84,12 @@ void PathHandleGraph::for_each_occurrence_in_path(const path_handle_t& path, con
     
     // Otherwise the path is nonempty so it is safe to try and grab a first occurrence
     auto here = get_first_occurrence(path);
+    auto last = get_last_occurrence(path);
     // Run for the first occurrence
     iteratee(here);
-    while (has_next_occurrence(here)) {
+    while (here != last) {
         // Run for all subsequent occurrences on the path
+        // TODO: This loop doesn't work with has_next_occurrence because VG's is broken!
         here = get_next_occurrence(here);
         iteratee(here);
     }

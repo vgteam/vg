@@ -124,7 +124,7 @@ void Paths::for_each(const function<void(const Path&)>& lambda) {
     }
 }
 
-void Paths::for_each_name(const function<void(const string&)>& lambda) {
+void Paths::for_each_name(const function<void(const string&)>& lambda) const {
     for (auto& p : _paths) {
         const string& name = p.first;
         lambda(name);
@@ -294,9 +294,11 @@ void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_
     }
 }
 
-int64_t Paths::get_path_id(const string& name) {
+int64_t Paths::get_path_id(const string& name) const {
     auto f = name_to_id.find(name);
     if (f == name_to_id.end()) {
+        // Assign an ID.
+        // These members are mutable.
         ++max_path_id;
         name_to_id[name] = max_path_id;
         id_to_name[max_path_id] = name;
@@ -304,7 +306,7 @@ int64_t Paths::get_path_id(const string& name) {
     return name_to_id[name];
 }
 
-const string& Paths::get_path_name(int64_t id) {
+const string& Paths::get_path_name(int64_t id) const {
     return id_to_name[id];
 }
 
@@ -421,7 +423,7 @@ pair<mapping_t*, mapping_t*> Paths::replace_mapping(mapping_t* m, pair<mapping_t
     }
 }
 
-bool Paths::has_path(const string& name) {
+bool Paths::has_path(const string& name) const {
     return _paths.find(name) != _paths.end();
 }
 

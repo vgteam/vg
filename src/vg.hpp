@@ -139,6 +139,9 @@ public:
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
     
+    /// Determine if a path name exists and is legal to get a path handle for.
+    virtual bool has_path(const string& path_name) const;
+    
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
     
