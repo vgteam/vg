@@ -79,7 +79,8 @@ void help_index(char** argv) {
          << "snarl distance index options" << endl
          << "    -c  --dist-graph FILE  generate snarl distane index from VG in FILE" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE" << endl
-         << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl;
+         << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
+         << "    -w  --max_dist N   cap beyond which the maximum distance is no longer accurate" << endl;
 }
 
 // Convert gbwt::node_type to ThreadMapping.
@@ -181,6 +182,7 @@ int main_index(int argc, char** argv) {
     bool compact = false;
 
     int c;
+    int cap;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
@@ -236,11 +238,12 @@ int main_index(int argc, char** argv) {
             {"dist-graph", required_argument, 0, 'c'},
             {"snarl-name", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'j'},
+            {"max-dist", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:h",
+        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -426,6 +429,10 @@ int main_index(int argc, char** argv) {
         case 'j':
             build_dist = true;
             dist_name = optarg;
+            break;
+        case 'w':
+            build_dist = true;
+            cap = parse<int>(optarg);
             break;
 
         case 'h':
@@ -1096,7 +1103,6 @@ int main_index(int argc, char** argv) {
             SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
             snarl_stream.close();
 
-            int64_t cap = 20; //TODO: Take this as an argument or something
             DistanceIndex di (&vg, snarl_manager, cap);
             
 
