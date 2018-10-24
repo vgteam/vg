@@ -549,7 +549,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (!distance_index_name.empty() && snarls_name.empty()) {
-        cerr << "error:[vg mpmap] Snarl distance index (-d) requires a snarl file (-s) to also be provided." << endl;
+        cerr << "error:[vg mpmap] Snarl distance index (-d) requires a matching snarl file (-s) to also be provided." << endl;
         exit(1);
     }
     
@@ -572,6 +572,15 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (unstranded_clustering && use_tvs_clusterer) {
+        cerr << "warning:[vg mpmap] Target value search clustering (-v) does not have an unstranded option (-n), ignoring unstranded option" << endl;
+        unstranded_clustering = false;
+    }
+    else if (unstranded_clustering && !distance_index_name.empty()) {
+        cerr << "warning:[vg mpmap] Snarl distance index-based clustering (-d) does not have an unstranded option (-n), ignoring unstranded option" << endl;
+        unstranded_clustering = false;
+    }
+    
     if (frag_length_sample_size <= 0) {
         cerr << "error:[vg mpmap] Fragment length distribution sample size (-b) set to " << frag_length_sample_size << ", must set to a positive integer." << endl;
         exit(1);
@@ -579,6 +588,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (snarl_cut_size < 0) {
         cerr << "error:[vg mpmap] Max snarl cut size (-U) set to " << snarl_cut_size << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
+    if (max_mapping_p_value <= 0.0) {
+        cerr << "error:[vg mpmap] Max mapping p-value (-P) set to " << max_mapping_p_value << ", must set to a positive number." << endl;
         exit(1);
     }
     

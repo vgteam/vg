@@ -5,7 +5,7 @@
 
 #include "cluster.hpp"
 
-//#define debug_mem_clusterer
+#define debug_mem_clusterer
 
 using namespace std;
 using namespace structures;
@@ -1497,8 +1497,7 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
                                                                                                      },
                                                                                                      [&](size_t node_number) {
                                                                                                          return 0;
-                                                                                                     },
-                                                                                                     distance_measurer);
+                                                                                                     });
     
     // Flatten the trees to maps of relative position by node ID.
     vector<unordered_map<size_t, int64_t>> strand_relative_position = flatten_distance_tree(hit_graph.nodes.size(), recorded_finite_dists);
@@ -1653,8 +1652,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(OrientedDistanceMeasurer& d
 
 unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items,
                                                                                                     const function<pos_t(size_t)>& get_position,
-                                                                                                    const function<int64_t(size_t)>& get_offset,
-                                                                                                    OrientedDistanceMeasurer& distance_measurer) {
+                                                                                                    const function<int64_t(size_t)>& get_offset) {
     
     // for recording the distance of any pair that we check with a finite distance
     unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists;
@@ -1671,25 +1669,24 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     int64_t max_failed_distance_probes = 2;
     
     // an initial pass that only looks at easily identifiable buckets
-    extend_dist_tree_by_buckets(get_position, get_offset, num_items, distance_measurer,
-                                recorded_finite_dists, component_union_find, num_possible_merges_remaining);
+    extend_dist_tree_by_buckets(get_position, get_offset, num_items, recorded_finite_dists,
+                                component_union_find, num_possible_merges_remaining);
     
     // another initial pass that tries to identify groups that cannot be merged
-    exclude_dist_tree_merges(get_position, distance_measurer, num_infinite_dists, component_union_find,
+    exclude_dist_tree_merges(get_position, num_infinite_dists, component_union_find,
                              num_possible_merges_remaining, max_failed_distance_probes);
     
     // TODO: permutations that try to assign singletons
     
     // a second pass that measures distances between randomly selected pairs
     size_t nlogn = ceil(num_items * log(num_items));
-    extend_dist_tree_by_permutations(get_position, get_offset, num_items, distance_measurer, max_failed_distance_probes,
-                                     nlogn, recorded_finite_dists, num_infinite_dists, component_union_find, num_possible_merges_remaining);
+    extend_dist_tree_by_permutations(get_position, get_offset, num_items, max_failed_distance_probes, nlogn,
+                                     recorded_finite_dists, num_infinite_dists, component_union_find, num_possible_merges_remaining);
     
     return recorded_finite_dists;
 }
     
 void OrientedDistanceClusterer::exclude_dist_tree_merges(const function<pos_t(size_t)>& get_position,
-                                                         OrientedDistanceMeasurer& distance_measurer,
                                                          map<pair<size_t, size_t>, size_t>& num_infinite_dists,
                                                          UnionFind& component_union_find,
                                                          size_t& num_possible_merges_remaining,
@@ -1716,7 +1713,6 @@ void OrientedDistanceClusterer::exclude_dist_tree_merges(const function<pos_t(si
 void OrientedDistanceClusterer::extend_dist_tree_by_buckets(const function<pos_t(size_t)>& get_position,
                                                             const function<int64_t(size_t)>& get_offset,
                                                             size_t num_items,
-                                                            OrientedDistanceMeasurer& distance_measurer,
                                                             unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
                                                             UnionFind& component_union_find,
                                                             size_t& num_possible_merges_remaining) {
@@ -1778,7 +1774,6 @@ void OrientedDistanceClusterer::extend_dist_tree_by_buckets(const function<pos_t
 void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<pos_t(size_t)>& get_position,
                                                                  const function<int64_t(size_t)>& get_offset,
                                                                  size_t num_items,
-                                                                 OrientedDistanceMeasurer& distance_measurer,
                                                                  int64_t max_failed_distance_probes,
                                                                  size_t decrement_frequency,
                                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
@@ -2251,13 +2246,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                                                                                      const vector<cluster_t*>& right_clusters,
                                                                                      const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
                                                                                      const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
-                                                                                     int64_t min_inter_cluster_distance,
-                                                                                     int64_t max_inter_cluster_distance,
-                                                                                     OrientedDistanceMeasurer& distance_measurer) {
+                                                                                     int64_t optimal_separation,
+                                                                                     int64_t max_deviation) {
     
 #ifdef debug_mem_clusterer
     cerr << "beginning clustering of MEM cluster pairs for " << left_clusters.size() << " left clusters and " << right_clusters.size() << " right clusters" << endl;
-    cerr << "looking for pairs in the distance range of " << min_inter_cluster_distance << " to " << max_inter_cluster_distance << endl;
+    cerr << "looking for pairs with separation within of " << max_deviation << " from " << optimal_separation << endl;
 #endif
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
@@ -2312,8 +2306,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                  const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[cluster_num - total_clusters - left_alt_cluster_anchors.size()];
                  return alignment_2.sequence().end() - right_clusters[alt_anchor.first]->at(alt_anchor.second).first->begin;
              }
-         },
-         distance_measurer);
+         });
     
     // Flatten the distance tree to a set of linear spaces, one per tree.
     vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_cluster_positions, distance_tree);
@@ -2340,6 +2333,17 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
         }
     }
 #endif
+    
+    // choose bounds based on whether we're measuring stranded or unstranded distances
+    int64_t max_inter_cluster_distance, min_inter_cluster_distance;
+    if (unstranded) {
+        max_inter_cluster_distance = abs(optimal_separation) + max_deviation;
+        min_inter_cluster_distance = -max_inter_cluster_distance;
+    }
+    else {
+        max_inter_cluster_distance = optimal_separation + max_deviation;
+        min_inter_cluster_distance = optimal_separation - max_deviation;
+    }
     
     for (const unordered_map<size_t, int64_t>& linear_space : linear_spaces) {
         // For each linear space
@@ -2439,8 +2443,6 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     }
     
     if (!left_alt_cluster_anchors.empty() || !right_alt_cluster_anchors.empty()) {
-        // We assume that we're looking for the middle of the distances
-        int64_t target_separation = (max_inter_cluster_distance + min_inter_cluster_distance) / 2;
         
         // sort so that pairs with same clusters are adjacent
         sort(to_return.begin(), to_return.end());
@@ -2450,7 +2452,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
         for (const auto& pair_record : to_return) {
             cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
         }
-        cerr << "target separation " << target_separation << endl;
+        cerr << "target separation " << optimal_separation << endl;
 #endif
         
         size_t removed_so_far = 0;
@@ -2466,7 +2468,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             int64_t best_separation = to_return[i].second;
             size_t best_idx = i;
             for (size_t j = i + 1; j < range_end; j++) {
-                if (abs(to_return[j].second - target_separation) < abs(best_separation - target_separation)) {
+                if (abs(to_return[j].second - optimal_separation) < abs(best_separation - optimal_separation)) {
                     best_separation = to_return[j].second;
                     best_idx = j;
                 }
@@ -2525,12 +2527,16 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
     DistanceHeuristic& max_distance = *upper_bound_heuristic;
+    
     int64_t min = min_distance(pos_1, pos_2);
+    if (min == -1 || target_value + tolerance < min) {
+        // The positions are too far apart, or are unreachable
+        return vector<handle_t>();
+    }
+    
     int64_t max = max_distance(pos_1, pos_2);
-    if ( min == -1 || target_value + tolerance < min || 
-                      target_value - tolerance > max) {
-        //If there is no path between the positions
-
+    if (target_value - tolerance > max) {
+        // The positions are too close together
         return vector<handle_t>();
     } 
 
@@ -2845,11 +2851,11 @@ int64_t TargetValueSearch::tv_path_length(const pos_t& pos_1, const pos_t& pos_2
     else {
         // TODO: we should move tv_path into an internal function that also returns length,
         // there shouldn't be any reason to recompute it here!
-        int64_t length = 0;
-        for (const handle_t& handle : path) {
-            length += handle_graph.get_length(handle);
+        int64_t length = offset(pos_2) - offset(pos_1);
+        for (size_t i = 0, end = path.size() - 1; i < end; i++) {
+            length += handle_graph.get_length(path[i]);
         }
-        return length + offset(pos_2) - offset(pos_1);
+        return length;
     }
 }
     

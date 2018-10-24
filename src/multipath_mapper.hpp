@@ -230,6 +230,14 @@ namespace vg {
         vector<memcluster_t> get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                           OrientedDistanceMeasurer* distance_measurer = nullptr) const;
         
+        /// Use the oriented distance clusterer or the TVS clusterer to cluster pairs of clusters. Assumes that
+        /// the fragment length distribution has been estimated and fixed.
+        vector<pair<pair<size_t, size_t>, int64_t>> get_cluster_pairs(const Alignment& alignment1,
+                                                                      const Alignment& alignment2,
+                                                                      vector<clustergraph_t>& cluster_graphs1,
+                                                                      vector<clustergraph_t>& cluster_graphs2,
+                                                                      OrientedDistanceMeasurer* distance_measurer = nullptr);
+        
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
         /// local alignment anchored at the MEMs. If any subgraphs overlap, they

@@ -4,7 +4,7 @@
 //
 //
 
-//#define debug_multipath_mapper
+#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -156,6 +156,58 @@ namespace vg {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
                                       log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        }
+    }
+    
+    vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
+                                                                                   const Alignment& alignment2,
+                                                                                   vector<clustergraph_t>& cluster_graphs1,
+                                                                                   vector<clustergraph_t>& cluster_graphs2,
+                                                                                   OrientedDistanceMeasurer* distance_measurer) {
+        if (use_tvs_clusterer) {
+            return vector<pair<pair<size_t, size_t>, int64_t>>();
+        }
+        else {
+            // make vectors of cluster pointers to shim into the cluster pairing function
+            vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
+            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+                cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
+            }
+            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+                cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
+            }
+            
+            // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
+            vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
+            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+                auto& mem_cluster = *cluster_mems_1[i];
+                for (size_t j = 1; j < mem_cluster.size(); j++) {
+                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                        alt_anchors_1.emplace_back(i, j);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+                auto& mem_cluster = *cluster_mems_2[i];
+                for (size_t j = 1; j < mem_cluster.size(); j++) {
+                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                        alt_anchors_2.emplace_back(i, j);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            
+            // Compute the pairs of cluster graphs and their approximate distances from each other
+            OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(fragment_length_distr.stdev()));
         }
     }
     
@@ -1422,59 +1474,8 @@ namespace vg {
             // we haven't already obtained a paired mapping by rescuing into a repeat, so we should try to get one
             // by cluster pairing
             
-            // make vectors of cluster pointers to shim into the cluster pairing function
-            vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
-            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-                cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
-            }
-            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-                cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
-            }
             
-            // Chebyshev bound for 99% of all fragments regardless of distribution
-            // TODO: I don't love having this internal aspect of the stranded/unstranded clustering outside the clusterer...
-            int64_t max_separation, min_separation;
-            if (unstranded_clustering) {
-                max_separation = (int64_t) ceil(abs(fragment_length_distr.mean()) + 10.0 * fragment_length_distr.stdev());
-                min_separation = -max_separation;
-            }
-            else {
-                max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
-                min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
-            }
-            
-            // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
-            vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
-            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-                auto& mem_cluster = *cluster_mems_1[i];
-                for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
-                        alt_anchors_1.emplace_back(i, j);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-                auto& mem_cluster = *cluster_mems_2[i];
-                for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
-                        alt_anchors_2.emplace_back(i, j);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            
-            // Compute the pairs of cluster graphs and their approximate distances from each other
-            cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1, alignment2,
-                                                                     cluster_mems_1, cluster_mems_2,
-                                                                     alt_anchors_1, alt_anchors_2,
-                                                                     min_separation, max_separation,
-                                                                     *distance_measurer);
-            
+            cluster_pairs = get_cluster_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, &(*distance_measurer));
             
 #ifdef debug_multipath_mapper
             cerr << "obtained cluster pairs:" << endl;
