@@ -73,12 +73,20 @@ handle_t HandleGraph::traverse_edge_handle(const edge_t& edge, const handle_t& l
 bool PathHandleGraph::is_empty(const path_handle_t& path_handle) const {
     // By default, we can answer emptiness queries with the length query.
     // But some implementations may have an expensive length query and a cheaper emptiness one
-    return get_occurrence_count(path_handle) > 0;
+    return get_occurrence_count(path_handle) == 0;
 }
 
 void PathHandleGraph::for_each_occurrence_in_path(const path_handle_t& path, const function<void(const occurrence_handle_t&)>& iteratee) const {
+    
+#ifdef debug
+    cerr << "Go over occurrences in path " << get_path_name(path) << " with " <<  get_occurrence_count(path) << " occurrences in it" << endl;
+#endif
+
     if (is_empty(path)) {
         // Nothing to do!
+#ifdef debug
+        cerr << "Path is empty!" << endl;
+#endif
         return;
     }
     
