@@ -50,6 +50,10 @@ void mapping_t::set_is_reverse(bool is_rev) {
     traversal = abs(traversal) * (is_rev ? -1 : 1);
 }
 
+ostream& operator<<(ostream& out, mapping_t mapping) {
+    return out << mapping.node_id() << " " << (mapping.is_reverse() ? "rev" : "fwd");
+}
+
 Paths::Paths(void) {
     max_path_id = 0;
     // noop

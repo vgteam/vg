@@ -5,16 +5,15 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 3
+plan tests 5
 
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 
-# TODO: These tests don't pass! They really should!
+# Make sure to discard all the warnings about having removed alt paths.
+vg simplify --algorithm small x.vg > x.small.vg 2>/dev/null
+is "${?}" "0" "vg simplify runs through when popping small bubbles"
 
-#vg simplify --algorithm small x.vg > x.small.vg
-#is "${?}" "0" "vg simplify runs through when popping small bubbles"
-
-#is "$(vg mod --unchop x.small.vg | vg stats -N -)" "1" "simplification pops all the bubbles in a simple graph"
+is "$(vg mod --drop-paths x.small.vg | vg mod --unchop - | vg stats -N -)" "1" "simplification pops all the bubbles in a simple graph"
 
 vg simplify --algorithm rare --min-count 2 -v small/x.vcf.gz x.vg > x.rare.vg
 is "${?}" "0" "vg simplify runs through when removing rare variants"

@@ -37,6 +37,9 @@ public:
     void set_is_reverse(bool is_rev);
 };
 
+/// Allow a mapping_t to be printed, for debugging purposes
+ostream& operator<<(ostream& out, mapping_t mapping);
+
 class Paths {
 public:
 
