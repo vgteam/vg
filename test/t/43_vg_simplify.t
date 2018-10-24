@@ -21,7 +21,7 @@ is "${?}" "0" "vg simplify runs through when removing rare variants"
 vg validate x.rare.vg
 is "${?}" "0" "the graph is valid after removing rare variants"
 
-is "$(vg mod --unchop x.rare.vg | vg stats -N -)" "104" "simplification keeps only some variants"
+is "$(vg mod --drop-paths x.rare.vg | vg mod --unchop - | vg stats -N -)" "118" "simplification keeps only some variants"
 
 rm -f x.vg x.small.vg x.rare.vg
  
