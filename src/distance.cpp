@@ -56,6 +56,7 @@ DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, uint64
         
     }
     nodeToSnarl = calculateNodeToSnarl(snarlManager);
+    //TODO: Cap should be given
     maxIndex = MaxDistanceIndex (this, topSnarls, cap);
   
 };
@@ -400,6 +401,13 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
         id_t snarlEndID = snarl->end().node_id();
         bool snarlEndRev = snarl->end().backward();   //pointing out
 
+
+/*TODO: Make a test that uses handle graph
+        if (!( graph->has_node(snarlStartID) && graph->has_node(snarlEndID))) {
+            //Make sure that vg contains the boundary nodes of this snarl
+            throw runtime_error("Snarl manager does not match vg");
+        }
+*/
 
         if (snarlToIndex.find(snarlEndID) == snarlToIndex.end()){
             //Store the index of the start of the snarl only if it hasn't
@@ -1050,6 +1058,19 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
 int64_t DistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     //Get the upper bound of the distance between two positions
 
+/* TODO: Make test that uses handle graph
+    if (!(graph->has_node(get_id(pos1)) && graph->has_node(get_id(pos2)))) {
+        throw runtime_error("Node not in graph");       
+    }
+
+    int64_t minDist = minDistance(pos1, pos2);
+
+    if (minDist == -1) { 
+        return -1;
+    } else if (minDist >= maxIndex.cap) {
+        return minDist;
+    }
+*/
      
     return maxIndex.maxDistance(pos1, pos2);
 
@@ -1920,7 +1941,7 @@ int64_t DistanceIndex::SnarlIndex::nodeLength(HandleGraph* graph,
  
     handle_t handle = ng->get_handle(node, false);   
     SnarlManager* sm = distIndex->sm;
-
+//TODO: Should be able to use is_child
     //Get the snarl that the node represents, if any
     const Snarl* tempSnarl = sm->into_which_snarl(
                                               node, false);
@@ -2166,11 +2187,11 @@ int64_t DistanceIndex::ChainIndex::chainDistance(pair<id_t, bool> start,
      * Return the distance between the given node sides, except node side is
      * specified relative to the reading orientation of the chain that the
      * nodes are in. 
-     * May check the same distance in reverse - recurse at most once
      */
     size_t i1;
     size_t i2;
     if (!recurse) {
+//TODO: This is a bad way of doing this, change it
         if (start.first == -1) {
             i1 =  snarlToIndex.size();
             start.first = chainEndID;
@@ -2410,12 +2431,12 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
     int_vector<> minRev(maxNodeID - minNodeID + 1, 0);
 
     /////// DFS to get connected componpents that are in cycles
-    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0, true);
+    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0);
 
     //Find connected components of nodes not in cycles
 
     findComponents(nodeToComponent, max, minFd, minRev, 
-                                            numCycles, false);
+                                            numCycles);
 
     maxDistances = max;
     
@@ -2479,7 +2500,7 @@ int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
 uint64_t DistanceIndex::MaxDistanceIndex::findComponents( 
         int_vector<>& nodeToComponent, int_vector<>& maxDists, 
         int_vector<>& minDistsFd, int_vector<>& minDistsRev, 
-        uint64_t currComponent, bool onlyCycles                       ){
+        uint64_t currComponent                                ){
 
     /*Assign nodes to a component
      *If onlyCycles, assign all nodes to a component of connected cycles 
@@ -2489,6 +2510,7 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
       Returns the maximum component number, the number of connected components
     */
 
+    bool onlyCycles = currComponent == 0; //if currComp = 0 then only look at cyclic components
     int64_t minNodeID = distIndex->minNodeID;
     HandleGraph* graph = distIndex->graph;
     int64_t maxNodeID = distIndex->maxNodeID;

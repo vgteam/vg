@@ -265,7 +265,7 @@ class DistanceIndex {
             uint64_t findComponents( int_vector<>& nodeToComponent, 
                              int_vector<>& maxDists, int_vector<>& minDistsFd,
                              int_vector<>& minDistsRev, 
-                             uint64_t currComponent, bool onlyCycles);
+                             uint64_t currComponent);
             //Populate minDistances and maxDistances
             void calculateMaxDistances(unordered_set<pair<id_t, bool>>& sinkNodes,
                       int_vector<>& nodeToComponent,int_vector<>& maxDists, 
