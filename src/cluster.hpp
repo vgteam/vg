@@ -579,6 +579,7 @@ public:
     
     /// Returns a path from pos_1 to pos_2 with length closest to the target value. If there is no such
     /// path within the tolerance of the target value, returns an empty vector.
+    //exact_min is true if the minimum distance heuristic returns the exact minimum distance
     vector<handle_t> tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
     
 private:

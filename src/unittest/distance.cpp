@@ -179,7 +179,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 
     TEST_CASE( "Create distance index for simple nested snarl",
-                   "[dist][bug]" ) {
+                   "[dist]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
