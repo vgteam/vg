@@ -2910,12 +2910,13 @@ namespace vg {
         }
 
         // if necessary, convert from cyclic to acylic
-        if (!algorithms::is_directed_acyclic(vg)) {
+        if (!algorithms::is_directed_acyclic(&align_graph)) {
             unordered_map<id_t, pair<id_t, bool> > dagify_trans;
             align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
                                              dagify_trans,
                                              target_length,
                                              0); // no maximum on size of component
+                                             
             node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
         }
         
