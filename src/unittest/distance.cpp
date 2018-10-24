@@ -2109,9 +2109,9 @@ class TestDistanceIndex : public DistanceIndex {
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
         TestDistanceIndex di (&vg, &snarl_manager, 50);
-            pos_t pos1 = make_pos_t(47, false, 2);
-            pos_t pos2 = make_pos_t(47, true, 2); 
-            REQUIRE(di.maxDistance(pos1, pos2) >= 17);
+        pos_t pos1 = make_pos_t(98, false, 4);
+        pos_t pos2 = make_pos_t(98, true, 6); 
+        REQUIRE(di.maxDistance(pos1, pos2) >= 41);
 
             for (size_t i = 0 ; i < vg.max_node_id(); i++) {
                 if (vg.has_node(i+1)) {

@@ -2658,7 +2658,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                                                          sink.second));
         returnNodes.push_back(sink);
         returnNodeVals[sink] = make_pair(0, len+1);
-        //If a path leaves curr component, min dist will never be a minimum
+        //If a path leaves curr component, new min dist will never be a minimum
      }
 
 
@@ -2680,6 +2680,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
             currNode = returnNodes.front();
             returnNodes.pop_front(); 
             pair<uint64_t, uint64_t> vals = returnNodeVals[currNode]; 
+            returnNodeVals.erase(currNode);
             minDist = vals.first;
             maxDist = vals.second;
             
