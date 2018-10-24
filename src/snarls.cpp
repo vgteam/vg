@@ -2176,6 +2176,24 @@ size_t NetGraph::node_size() const {
         });
     return size;
 }
+
+id_t NetGraph::min_node_id() const {
+    // TODO: this is inefficient!
+    id_t winner = numeric_limits<id_t>::max();
+    for_each_handle([&](const handle_t& handle) {
+            winner = min(winner, this->get_id(handle));
+        });
+    return winner;
+}
+
+id_t NetGraph::max_node_id() const {
+    // TODO: this is inefficient!
+    id_t winner = numeric_limits<id_t>::min();
+    for_each_handle([&](const handle_t& handle) {
+            winner = max(winner, this->get_id(handle));
+        });
+    return winner;
+}
     
 const handle_t& NetGraph::get_start() const {
     return start;

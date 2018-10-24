@@ -19,6 +19,7 @@
 #include "../region.hpp"
 #include "../snarls.hpp"
 #include "../distance.hpp"
+#include "../source_sink_overlay.hpp"
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
@@ -38,7 +39,7 @@ void help_index(char** argv) {
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s)" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA indexing" << endl
          << "    -F, --thread-db FILE   read thread database from FILE (may repeat)" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
@@ -58,7 +59,7 @@ void help_index(char** argv) {
          << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "gcsa options:" << endl
-         << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -g, --gcsa-out FILE    output a GCSA2 index to the given file" << endl
          << "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
          << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
@@ -478,6 +479,12 @@ int main_index(int argc, char** argv) {
         cerr << "error: [vg index] cannot use multiple thread database files with -G or -H" << endl;
         return 1;
     }
+    
+    if (build_xg && build_gcsa && file_names.empty()) {
+        // Really we want to build a GCSA by *reading* and XG
+        build_xg = false;
+        // We'll continue in the build_gcsa section
+    }
 
     // Build XG
     xg::XG* xg_index = new xg::XG();
@@ -510,7 +517,7 @@ int main_index(int argc, char** argv) {
         // if we already made the xg index we can determine the
         size_t id_width;
         if (!index_gam) {
-            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
+            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->max_node_id(), true));
         } else { // indexing a GAM
             if (show_progress) {
                 cerr << "Finding maximum node id in GAM..." << endl;
@@ -876,7 +883,7 @@ int main_index(int argc, char** argv) {
     } // End of thread indexing.
 
     // Save XG
-    if (!xg_name.empty()) {
+    if (build_xg && !xg_name.empty()) {
         if (!thread_db_names.empty()) {
             vector<string> thread_names;
             size_t haplotype_count = 0;
@@ -918,12 +925,43 @@ int main_index(int argc, char** argv) {
             if (show_progress) {
                 cerr << "Generating kmer files..." << endl;
             }
-            VGset graphs(file_names);
-            graphs.show_progress = show_progress;
-            size_t kmer_bytes = params.getLimitBytes();
-            dbg_names = graphs.write_gcsa_kmers_binary(kmer_size, kmer_bytes);
-            params.reduceLimit(kmer_bytes);
-            delete_kmer_files = true;
+            
+            if (!file_names.empty()) {
+                // Get the kmers from a VGset.
+                VGset graphs(file_names);
+                graphs.show_progress = show_progress;
+                size_t kmer_bytes = params.getLimitBytes();
+                dbg_names = graphs.write_gcsa_kmers_binary(kmer_size, kmer_bytes);
+                params.reduceLimit(kmer_bytes);
+                delete_kmer_files = true;
+            } else if (!xg_name.empty()) {
+                // Get the kmers from an XG
+                
+                get_input_file(xg_name, [&](istream& xg_stream) {
+                    // Load the XG
+                    xg::XG xg(xg_stream);
+                
+                    // Make an overlay on it to add source and sink nodes
+                    // TODO: Don't use this directly; unify this code with VGset's code.
+                    SourceSinkOverlay overlay(&xg, kmer_size);
+                    
+                    // Get the size limit
+                    size_t kmer_bytes = params.getLimitBytes();
+                    
+                    // Write just the one kmer temp file
+                    dbg_names.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, kmer_bytes,
+                        overlay.get_id(overlay.get_source_handle()),
+                        overlay.get_id(overlay.get_sink_handle())));
+                        
+                    // Feed back into the size limit
+                    params.reduceLimit(kmer_bytes);
+                    delete_kmer_files = true;
+                
+                });
+            } else {
+                cerr << "error[vg index]: Can't generate GCSA index without either a vg or an xg" << endl;
+                exit(1);
+            }
         }
 
         // Build the index

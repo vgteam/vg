@@ -10,6 +10,7 @@
 #include "mem.hpp"
 #include "xg.hpp"
 #include "handle.hpp"
+#include "distance.hpp"
 
 #include <functional>
 #include <string>
@@ -148,9 +149,15 @@ public:
     void display(ostream& out);
     void clear_scores(void);
 };
-    
-class OrientedDistanceClusterer {
+
+/*
+ * A base class to hold some shared methods and data types between the TVS and
+ * oriented distance clusterers.
+ */
+class MEMClusterer {
 public:
+    MEMClusterer() = default;
+    ~MEMClusterer() = default;
     
     /// Each hit contains a pointer to the original MEM and the position of that
     /// particular hit in the graph.
@@ -159,46 +166,242 @@ public:
     /// Each cluster is a vector of hits.
     using cluster_t = vector<hit_t>;
     
-    /// A memo for the results of XG::paths_of_node
-    using paths_of_node_memo_t = unordered_map<id_t, vector<size_t>>;
-    
-    /// A memo for the results of XG::oriented_occurrences_on_path
-    using oriented_occurences_memo_t = unordered_map<pair<id_t, size_t>, vector<pair<size_t, bool>>>;
-    
-    /// A memo for the results of XG::get_handle
-    using handle_memo_t = unordered_map<pair<int64_t, bool>, handle_t>;
-    
-    /// Constructor using QualAdjAligner, optionally memoizing succinct data structure operations
-    OrientedDistanceClusterer(const Alignment& alignment,
-                              const vector<MaximalExactMatch>& mems,
-                              const QualAdjAligner& aligner,
-                              xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error = 8,
-                              size_t min_mem_length = 1,
-                              bool unstranded = false,
-                              paths_of_node_memo_t* paths_of_node_memo = nullptr,
-                              oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
-                              handle_memo_t* handle_memo = nullptr);
-    
-    /// Constructor using Aligner, optionally memoizing succinct data structure operations
-    OrientedDistanceClusterer(const Alignment& alignment,
-                              const vector<MaximalExactMatch>& mems,
-                              const Aligner& aligner,
-                              xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error = 8,
-                              size_t min_mem_length = 1,
-                              bool unstranded = false,
-                              paths_of_node_memo_t* paths_of_node_memo = nullptr,
-                              oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
-                              handle_memo_t* handle_memo = nullptr);
-    
     /// Returns a vector of clusters. Each cluster is represented a vector of MEM hits. Each hit
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
     vector<cluster_t> clusters(const Alignment& alignment,
+                               const vector<MaximalExactMatch>& mems,
+                               BaseAligner* Aligner,
+                               size_t min_mem_length = 1,
                                int32_t max_qual_score = 60,
                                int32_t log_likelihood_approx_factor = 0,
                                size_t min_median_mem_coverage_for_split = 0,
                                double suboptimal_edge_pruning_factor = .75);
+    
+protected:
+    class HitNode;
+    class HitEdge;
+    class HitGraph;
+    class DPScoreComparator;
+    
+    /// Initializes a hit graph and adds edges to it, this must be implemented by any inheriting
+    /// class
+    virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                    BaseAligner* aligner, size_t min_mem_length) = 0;
+    
+    /// Once the distance between two hits has been estimated, estimate the score of the hit graph edge
+    /// connecting them
+    int32_t estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2, int64_t graph_dist,
+                                BaseAligner* aligner) const;
+};
+    
+class MEMClusterer::HitGraph {
+public:
+    
+    /// Initializes nodes in the hit graph, but does not add edges
+    HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
+             size_t min_mem_length = 1);
+    
+    /// Add an edge
+    void add_edge(size_t from, size_t to, int32_t weight, int64_t distance);
+    
+    /// Returns the top scoring connected components
+    vector<cluster_t> clusters(const Alignment& alignment,
+                               BaseAligner* aligner,
+                               int32_t max_qual_score,
+                               int32_t log_likelihood_approx_factor,
+                               size_t min_median_mem_coverage_for_split,
+                               double suboptimal_edge_pruning_factor);
+    
+    vector<HitNode> nodes;
+    
+private:
+    
+    /// Identify weakly connected components in the graph
+    void connected_components(vector<vector<size_t>>& components_out) const;
+    
+    /// Prune edges that are not on any traceback that scores highly compared to the best score in the component,
+    /// splits up the components (adding some to the end of the vector) if doing so splits a component
+    void prune_low_scoring_edges(vector<vector<size_t>>& components, size_t component_idx, double score_factor);
+    
+    /// Perform dynamic programming and store scores in nodes
+    void perform_dp();
+    
+    /// Fills input vectors with indices of source and sink nodes
+    void identify_sources_and_sinks(vector<size_t>& sources_out, vector<size_t>& sinks_out) const;
+    
+    /// Fills the input vector with the indices of a topological sort
+    void topological_order(vector<size_t>& order_out) const;
+    
+    /// Computes the topological order of
+    void component_topological_order(const vector<size_t>& component, vector<size_t>& order_out) const;
+    
+    /// Returns the median coverage of bases in the reads by bases in the cluster, attempts to remove apparent
+    /// redundant sub-MEMs
+    size_t median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const;
+    
+    
+};
+    
+class MEMClusterer::HitNode {
+public:
+    HitNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) : mem(&mem), start_pos(start_pos), score(score) {}
+    HitNode() = default;
+    ~HitNode() = default;
+    
+    const MaximalExactMatch* mem;
+    
+    /// Position of GCSA hit in the graph
+    pos_t start_pos;
+    
+    /// Score of the exact match this node represents
+    int32_t score;
+    
+    /// Score used in dynamic programming
+    int32_t dp_score;
+    
+    /// Edges from this node that are colinear with the read
+    vector<HitEdge> edges_from;
+    
+    /// Edges to this node that are colinear with the read
+    vector<HitEdge> edges_to;
+};
+
+class MEMClusterer::HitEdge {
+public:
+    HitEdge(size_t to_idx, int32_t weight, int64_t distance) : to_idx(to_idx), weight(weight), distance(distance) {}
+    HitEdge() = default;
+    ~HitEdge() = default;
+    
+    /// Index of the node that the edge points to
+    size_t to_idx;
+    
+    /// Weight for dynamic programming
+    int32_t weight;
+    
+    /// Estimated distance
+    int64_t distance;
+};
+
+struct MEMClusterer::DPScoreComparator {
+private:
+    const vector<HitNode>& nodes;
+public:
+    DPScoreComparator() = delete;
+    DPScoreComparator(const vector<HitNode>& nodes) : nodes(nodes) {}
+    ~DPScoreComparator() {}
+    inline bool operator()(const size_t i, const size_t j) {
+        return nodes[i].dp_score < nodes[j].dp_score;
+    }
+};
+    
+    
+/*
+ * An abstract class that provides distances to the oriented distance clusterer
+ */
+class OrientedDistanceMeasurer {
+public:
+    virtual ~OrientedDistanceMeasurer() = default;
+    
+    /// Returns a signed distance, where positive indicates that pos_2 is to the right
+    /// of pos_1, and negative indicates to the left. If the distance is infinite or
+    /// can't be determined, returns numeric_limits<int64_t>::max().
+    virtual int64_t oriented_distance(const pos_t& pos_1, const pos_t& pos_2) = 0;
+    
+    /// Return a vector of groups that we believe will have finite distances under this metric,
+    /// can be empty.
+    virtual vector<vector<size_t>> get_buckets(const function<pos_t(size_t)>& get_position, size_t num_items) = 0;
+    
+    /// Return a vector of pairs of groups (referred to by indexes in the current_groups vector)
+    /// that cannot have finite distances between them (typically because they are on separate components).
+    virtual vector<pair<size_t, size_t>> exclude_merges(vector<vector<size_t>>& current_groups,
+                                                        const function<pos_t(size_t)>& get_position) = 0;
+};
+
+/*
+ * A distance function that uses an XG's embedded paths to measure distances, either in a stranded
+ * or unstranded manner.
+ */
+class PathOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
+
+public:
+    
+    /// Construct a distance service to measures distance along paths in this XG. Optionally
+    /// measures all distances on the forward strand of the paths.
+    PathOrientedDistanceMeasurer(xg::XG* xgindex, bool unstranded = false);
+    
+    /// Default desctructor
+    ~PathOrientedDistanceMeasurer() = default;
+    
+    /// Returns a signed distance, where positive indicates that pos_2 is to the right
+    /// of pos_1, and negative indicates to the left. If the distance is infinite or
+    /// can't be determined, returns numeric_limits<int64_t>::max().
+    int64_t oriented_distance(const pos_t& pos_1, const pos_t& pos_2);
+    
+    /// Return a vector of groups that we believe will have finite distances under this metric,
+    /// can be empty.
+    vector<vector<size_t>> get_buckets(const function<pos_t(size_t)>& get_position, size_t num_items);
+    
+    /// Return a vector of pairs of groups (referred to by indexes in the current_groups vector)
+    /// that cannot have finite distances between them (typically because they are on separate components).
+    vector<pair<size_t, size_t>> exclude_merges(vector<vector<size_t>>& current_groups,
+                                                const function<pos_t(size_t)>& get_position);
+    
+    /// The maximum distance we will walk trying to find a shared path
+    size_t max_walk = 50;
+    
+private:
+    
+    xg::XG* xgindex = nullptr;
+    
+    /// A memo for the results of XG::paths_of_node
+    unordered_map<id_t, vector<size_t>> paths_of_node_memo;
+    /// A memo for the results of XG::oriented_occurrences_on_path
+    unordered_map<pair<id_t, size_t>, vector<pair<size_t, bool>>> oriented_occurences_memo;
+    /// A memo for the results of XG::get_handle
+    unordered_map<pair<int64_t, bool>, handle_t> handle_memo;
+    
+    const bool unstranded;
+};
+    
+/*
+ * A distance function that the minimum distance function provided by the Snarl-based
+ * distance index
+ */
+class SnarlOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
+
+public:
+    // Construct a distance service to measures distance as the minimum distance in the graph
+    SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index);
+    
+    /// Default desctructor
+    ~SnarlOrientedDistanceMeasurer() = default;
+    
+    /// Returns a signed distance, where positive indicates that pos_2 is to the right
+    /// of pos_1, and negative indicates to the left. If the distance is infinite or
+    /// can't be determined, returns numeric_limits<int64_t>::max().
+    int64_t oriented_distance(const pos_t& pos_1, const pos_t& pos_2);
+    
+    /// Return a vector of groups that we believe will have finite distances under this metric,
+    /// can be empty.
+    vector<vector<size_t>> get_buckets(const function<pos_t(size_t)>& get_position, size_t num_items);
+    
+    /// Return a vector of pairs of groups (referred to by indexes in the current_groups vector)
+    /// that cannot have finite distances between them (typically because they are on separate components).
+    vector<pair<size_t, size_t>> exclude_merges(vector<vector<size_t>>& current_groups,
+                                                const function<pos_t(size_t)>& get_position);
+    
+private:
+    
+    DistanceIndex* distance_index = nullptr;
+};
+    
+class OrientedDistanceClusterer : public MEMClusterer {
+public:
+    
+    /// Constructor
+    OrientedDistanceClusterer(OrientedDistanceMeasurer& distance_measurer,
+                              bool unstranded,
+                              size_t max_expected_dist_approx_error = 8);
     
     /**
      * Given two vectors of clusters, an xg index, an bounds on the distance between clusters,
@@ -211,13 +414,9 @@ public:
                                                                      const vector<cluster_t*>& right_clusters,
                                                                      const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
                                                                      const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
-                                                                     xg::XG* xgindex,
                                                                      int64_t min_inter_cluster_distance,
                                                                      int64_t max_inter_cluster_distance,
-                                                                     bool unstranded,
-                                                                     paths_of_node_memo_t* paths_of_node_memo = nullptr,
-                                                                     oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
-                                                                     handle_memo_t* handle_memo = nullptr);
+                                                                     OrientedDistanceMeasurer& distance_measurer);
     
     //static size_t PRUNE_COUNTER;
     //static size_t CLUSTER_TOTAL;
@@ -229,23 +428,7 @@ public:
     //static size_t POST_SPLIT_CLUSTER_COUNTER;
     
 private:
-    class ODNode;
-    class ODEdge;
-    struct DPScoreComparator;
-    
-    /// Internal constructor that public constructors filter into
-    OrientedDistanceClusterer(const Alignment& alignment,
-                              const vector<MaximalExactMatch>& mems,
-                              const Aligner* aligner,
-                              const QualAdjAligner* qual_adj_aligner,
-                              xg::XG* xgindex,
-                              size_t max_expected_dist_approx_error,
-                              size_t min_mem_length,
-                              bool unstranded,
-                              paths_of_node_memo_t* paths_of_node_memo,
-                              oriented_occurences_memo_t* oriented_occurences_memo,
-                              handle_memo_t* handle_memo);
-    
+
     /**
      * Given a certain number of items, and a callback to get each item's
      * position, and a callback to a fixed offset from that position
@@ -260,81 +443,49 @@ private:
      * be negative) from the first to the second along the items' forward
      * strand.
      */
-    static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items, bool unstranded, xg::XG* xgindex,
+    static unordered_map<pair<size_t, size_t>, int64_t> get_on_strand_distance_tree(size_t num_items,
                                                                                     const function<pos_t(size_t)>& get_position,
                                                                                     const function<int64_t(size_t)>& get_offset,
-                                                                                    paths_of_node_memo_t* paths_of_node_memo,
-                                                                                    oriented_occurences_memo_t* oriented_occurences_memo,
-                                                                                    handle_memo_t* handle_memo);
+                                                                                    OrientedDistanceMeasurer& distance_measurer);
     
     /**
      * Adds edges into the distance tree by estimating the distance between pairs
      * generated by a high entropy deterministic permutation
      */
-    static void extend_dist_tree_by_permutations(int64_t max_failed_distance_probes,
-                                                 int64_t max_search_distance_to_path,
+    static void extend_dist_tree_by_permutations(const function<pos_t(size_t)>& get_position,
+                                                 const function<int64_t(size_t)>& get_offset,
+                                                 size_t num_items,
+                                                 OrientedDistanceMeasurer& distance_measurer,
+                                                 int64_t max_failed_distance_probes,
                                                  size_t decrement_frequency,
-                                                 size_t& num_possible_merges_remaining,
-                                                 UnionFind& component_union_find,
                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
                                                  map<pair<size_t, size_t>, size_t>& num_infinite_dists,
-                                                 bool unstranded,
-                                                 size_t num_items,
-                                                 xg::XG* xgindex,
-                                                 const function<pos_t(size_t)>& get_position,
-                                                 const function<int64_t(size_t)>& get_offset,
-                                                 paths_of_node_memo_t* paths_of_node_memo,
-                                                 oriented_occurences_memo_t* oriented_occurences_memo,
-                                                 handle_memo_t* handle_memo);
-    
+                                                 UnionFind& component_union_find,
+                                                 size_t& num_possible_merges_remaining);
     
     /**
      * Adds edges into the distance tree by estimating the distance only between pairs
-     * of items that can be directly inferred to share a strand of a path based on the memo of
-     * node occurrences on paths
+     * of items that can be easily identified as having a finite distance (e.g. by sharing
+     * a path)
      */
-    static void extend_dist_tree_by_strand_buckets(int64_t max_failed_distance_probes,
-                                                   size_t& num_possible_merges_remaining,
-                                                   UnionFind& component_union_find,
-                                                   unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
-                                                   map<pair<size_t, size_t>, size_t>& num_infinite_dists,
-                                                   size_t num_items,
-                                                   xg::XG* xgindex,
-                                                   const function<pos_t(size_t)>& get_position,
-                                                   const function<int64_t(size_t)>& get_offset,
-                                                   paths_of_node_memo_t* paths_of_node_memo,
-                                                   oriented_occurences_memo_t* oriented_occurences_memo,
-                                                   handle_memo_t* handle_memo);
-    /**
-     * Adds edges into the distance tree by estimating the distance only between pairs
-     * of items that can be directly inferred to share a path based on the memo of
-     */
-    static void extend_dist_tree_by_path_buckets(int64_t max_failed_distance_probes,
-                                                 size_t& num_possible_merges_remaining,
-                                                 UnionFind& component_union_find,
-                                                 unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
-                                                 map<pair<size_t, size_t>, size_t>& num_infinite_dists,
-                                                 size_t num_items,
-                                                 xg::XG* xgindex,
-                                                 const function<pos_t(size_t)>& get_position,
-                                                 const function<int64_t(size_t)>& get_offset,
-                                                 paths_of_node_memo_t* paths_of_node_memo,
-                                                 oriented_occurences_memo_t* oriented_occurences_memo,
-                                                 handle_memo_t* handle_memo);
+    static void extend_dist_tree_by_buckets(const function<pos_t(size_t)>& get_position,
+                                            const function<int64_t(size_t)>& get_offset,
+                                            size_t num_items,
+                                            OrientedDistanceMeasurer& distance_measurer,
+                                            unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
+                                            UnionFind& component_union_find,
+                                            size_t& num_possible_merges_remaining);
     
     /**
      * Automatically blocks off merges in the distance tree between groups that can be inferred
-     * to be on separate components based on the paths they overlap
+     * to be on separate components
      */
-    static void exclude_dist_tree_merges_by_components(int64_t max_failed_distance_probes,
-                                                       size_t& num_possible_merges_remaining,
-                                                       UnionFind& component_union_find,
-                                                       map<pair<size_t, size_t>, size_t>& num_infinite_dists,
-                                                       unordered_map<size_t, id_t> neighbors_on_paths,
-                                                       xg::XG* xgindex,
-                                                       const function<pos_t(size_t)>& get_position,
-                                                       const function<int64_t(size_t)>& get_offset,
-                                                       paths_of_node_memo_t* paths_of_node_memo);
+    static void exclude_dist_tree_merges(const function<pos_t(size_t)>& get_position,
+                                         OrientedDistanceMeasurer& distance_measurer,
+                                         map<pair<size_t, size_t>, size_t>& num_infinite_dists,
+                                         UnionFind& component_union_find,
+                                         size_t& num_possible_merges_remaining,
+                                         int64_t max_failed_distance_probes);
     
     /**
      * Given a number of nodes, and a map from node pair to signed relative
@@ -355,86 +506,100 @@ private:
     vector<pair<size_t, size_t>> compute_tail_mem_coverage(const Alignment& alignment,
                                                            const vector<MaximalExactMatch>& mems);
     
-    /// Fills input vectors with indices of source and sink nodes
-    void identify_sources_and_sinks(vector<size_t>& sources_out, vector<size_t>& sinks_out);
     
-    /// Identify weakly connected components in the graph
-    void connected_components(vector<vector<size_t>>& components_out);
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
+                            size_t min_mem_length);
     
-    /// Fills the input vector with the indices of a topological sort
-    void topological_order(vector<size_t>& order_out);
+    OrientedDistanceMeasurer& distance_measurer;
+    size_t max_expected_dist_approx_error;
+    bool unstranded;
     
-    /// Perform dynamic programming and store scores in nodes
-    void perform_dp();
-    
-    /// Returns the median coverage of bases in the reads by bases in the cluster, attempts to remove apparent
-    /// redundant sub-MEMs
-    size_t median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const;
-    
-    /// Prune edges that are not on any traceback that scores highly compared to the best score in the component,
-    /// splits up the components (adding some to the end of the vector) if doing so splits a component
-    void prune_low_scoring_edges(vector<vector<size_t>>& components, size_t component_idx, double score_factor);
-    
-    /// Computes the topological order of
-    void component_topological_order(const vector<size_t>& component, vector<size_t>& order_out) const;
-    
-    vector<ODNode> nodes;
-    
-    const Aligner* aligner;
-    const QualAdjAligner* qual_adj_aligner;
 };
-
-class OrientedDistanceClusterer::ODNode {
+    
+/*
+ * An abtract class that provides a heuristic distance between two positions. The semantics are
+ * unspecified for what manner of "approximate" the heuristic is (upperbound, lowerbound, etc.).
+ */
+class DistanceHeuristic {
 public:
-    ODNode(const MaximalExactMatch& mem, pos_t start_pos, int32_t score) :
-    mem(&mem), start_pos(start_pos), score(score) {}
-    ODNode() = default;
-    ~ODNode() = default;
+    virtual ~DistanceHeuristic() = default;
     
-    const MaximalExactMatch* mem;
-    
-    /// Position of GCSA hit in the graph
-    pos_t start_pos;
-    
-    /// Score of the exact match this node represents
-    int32_t score;
-    
-    /// Score used in dynamic programming
-    int32_t dp_score;
-    
-    /// Edges from this node that are colinear with the read
-    vector<ODEdge> edges_from;
-    
-    /// Edges to this node that are colinear with the read
-    vector<ODEdge> edges_to;
+    virtual int64_t operator()(const pos_t& pos_1, const pos_t& pos_2) = 0;
 };
-
-class OrientedDistanceClusterer::ODEdge {
+    
+/*
+ * An exact computation of the minimum distance between two positions using the snarl
+ * decomposition
+ */
+class SnarlMinDistance : public DistanceHeuristic {
 public:
-    ODEdge(size_t to_idx, int32_t weight, int64_t distance) : to_idx(to_idx), weight(weight), distance(distance) {}
-    ODEdge() = default;
-    ~ODEdge() = default;
+    SnarlMinDistance() = default;
+    SnarlMinDistance(DistanceIndex& distance_index);
+    ~SnarlMinDistance() = default;
     
-    /// Index of the node that the edge points to
-    size_t to_idx;
-    
-    /// Weight for dynamic programming
-    int32_t weight;
-    
-    /// Estimated distance
-    int64_t distance;
-};
-
-struct OrientedDistanceClusterer::DPScoreComparator {
+    int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    const vector<ODNode>& nodes;
+    DistanceIndex& distance_index;
+};
+
+/*
+ * An upperbound on the distance between two positions computed using the distance
+ * between those positions and tips. Strict upperbound in DAGs, only an upperbound
+ * among a subset of paths in cyclic graphs (as distance is unbounded above).
+ */
+class TipAnchoredMaxDistance : public DistanceHeuristic {
 public:
-    DPScoreComparator() = delete;
-    DPScoreComparator(const vector<ODNode>& nodes) : nodes(nodes) {}
-    ~DPScoreComparator() {}
-    inline bool operator()(const size_t i, const size_t j) {
-        return nodes[i].dp_score < nodes[j].dp_score;
-    }
+    TipAnchoredMaxDistance() = default;
+    TipAnchoredMaxDistance(DistanceIndex& distance_index);
+    ~TipAnchoredMaxDistance() = default;
+    
+    int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
+private:
+    DistanceIndex& distance_index;
+};
+
+/*
+ * Implements the heuristic solution to the Target Value Search problem described
+ * in Kuhn, et al. (2008).
+ */
+class TargetValueSearch {
+public:
+    TargetValueSearch() = default;
+    TargetValueSearch(const HandleGraph& handle_graph,
+                      DistanceHeuristic* upper_bound_heuristic,
+                      DistanceHeuristic* lower_bound_heuristic);
+    ~TargetValueSearch() = default;
+    
+    /// Does a path exist from pos_1 to pos_2 with length within the tolerance from the target value?
+    bool tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
+    
+    /// Returns the length of path from pos_1 to pos_2 with length closest to the target value. If there
+    /// is no such path within the tolerance of the target value, returns numeric_limits<int64_t>::max().
+    int64_t tv_path_length(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
+    
+    /// Returns a path from pos_1 to pos_2 with length closest to the target value. If there is no such
+    /// path within the tolerance of the target value, returns an empty vector.
+    vector<handle_t> tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
+    
+private:
+    const HandleGraph& handle_graph;
+    unique_ptr<DistanceHeuristic> upper_bound_heuristic;
+    unique_ptr<DistanceHeuristic> lower_bound_heuristic;
+};
+    
+/*
+ * A MEM clusterer built around the Target Value Search problem.
+ */
+class TVSClusterer : public MEMClusterer {
+public:
+    TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index);
+    ~TVSClusterer() = default;
+    
+private:
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
+                            size_t min_mem_length);
+    
+    TargetValueSearch tvs;
 };
 
 /// get the handles that a mem covers

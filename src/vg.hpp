@@ -126,6 +126,15 @@ public:
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
     
+    /// Get the minimum node ID used in the graph, if any are used
+    virtual id_t min_node_id() const;
+    /// Get the maximum node ID used in the graph, if any are used
+    virtual id_t max_node_id() const;
+    
+    /// Efficiently get the number of edges attached to one side of a handle.
+    /// Uses the VG graph's internal degree index.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
@@ -214,11 +223,6 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
-    
-private:
-    // We have some masks for cramming things into handles
-    const static size_t HIGH_BIT = (size_t)1 << 63;
-    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
     
 public:
     
@@ -375,6 +379,8 @@ public:
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
     /// and translating the edges in the component to flow through the copies in one direction.
+    /// Assumes that all nodes in the graph are articulated on one consistent strand.
+    /// Tolerates doubly-reversing edges in the input graph.
     VG dagify(uint32_t expand_scc_steps,
               unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
@@ -510,10 +516,6 @@ public:
     // can we handle this with merge?
     //void concatenate(VG& g);
 
-    /// Get the maximum node ID in the graph.
-    id_t max_node_id(void);
-    /// Get the minimum node ID in the graph.
-    id_t min_node_id(void);
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
     /// Add the given value to all node IDs. Preserves the paths.
@@ -585,7 +587,7 @@ public:
     /// edits that hit the end of a node to be attached to what comes
     /// before/after the node by the caller, as this function doesn't handle
     /// that.
-    vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling);
+    vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size = 1024);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need

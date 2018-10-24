@@ -1335,7 +1335,7 @@ TEST_CASE( "VG handles structural variants as expected"){
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto vcf_with_alt_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
@@ -1346,7 +1346,7 @@ x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIE
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
@@ -1391,7 +1391,7 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 
 
-TEST_CASE( "A deletion is represented properly" , "[constructor]") {
+TEST_CASE( "An SV deletion is represented properly" , "[constructor]") {
 
     auto vcf_data = R"(##fileformat=VCFv4.2
 ##fileDate=20090805
@@ -1402,7 +1402,7 @@ TEST_CASE( "A deletion is represented properly" , "[constructor]") {
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
 
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
@@ -1431,11 +1431,355 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
             REQUIRE(node.sequence()==expected[node.id()]);
         }
     }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with matching SVLEN is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;SVLEN=-20;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with only SVLEN is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-20;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with only SPAN is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;SPAN=20;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV deletion with mismatching SVLEN is rejected" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<DEL>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=DEL;END=29;SVLEN=-19;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTTC"});
+        expected.insert({4, "TATTATATTC"});
+        expected.insert({5, "CAACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "A non-SV deletion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	GCTTGGAAATTTTCTGGAGTT	G	99	PASS	AC=1;NA=1;NS=1;	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 4);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
 
 }
 
 
-TEST_CASE("VG handles insertions", "[constructor"){
+TEST_CASE("VG handles SV insertions", "[constructor]"){
     auto fasta_data = R"(>x
 CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 )";
@@ -1449,26 +1793,487 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 ##FILTER=<ID=s50,Description="Less than 50% of samples have data">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
-x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=13;CIPOS=0,3;CIEND=-3,0	GT)";
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;CIPOS=0,3	GT)";
 
     auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
 
-    unordered_map<size_t, string> expected;
-    expected.insert({1, "CAAATAAGG"});
-    expected.insert({2, "ACTG"});
-    expected.insert({3, "CTTGGAAATT"});
-    expected.insert({4, "TTCTGGAGTT"});
-    expected.insert({5, "CTATTATATT"});
-    expected.insert({6, "CCAACTCTCT"});
-    expected.insert({7, "G"});
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
 
 
-    for (size_t i = 0; i < result.node_size(); i++){
-        auto& node = result.node(i);
-        REQUIRE(node.sequence() == expected[node.id()]);
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
     }
 
 }
+
+TEST_CASE("VG handles SV insertions with both SVLEN and END", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=9;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
+
+
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE("VG handles SV insertions with no SVLEN or END", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
+
+
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE("VG rejects SV insertions with bad ENDs", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=18;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+   SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTTC"});
+        expected.insert({4, "TATTATATTC"});
+        expected.insert({5, "CAACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE("VG handles SV insertions with misunderstood ENDs set to POS + SVLEN", "[constructor]"){
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INS>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INS;SEQ=ACTG;SVLEN=4;END=13;CIPOS=0,3	GT)";
+
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+
+    SECTION("Nodes are as expected") {
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "ACTG"});
+        expected.insert({3, "CTTGGAAATT"});
+        expected.insert({4, "TTCTGGAGTT"});
+        expected.insert({5, "CTATTATATT"});
+        expected.insert({6, "CCAACTCTCT"});
+        expected.insert({7, "G"});
+
+
+        for (size_t i = 0; i < result.node_size(); i++){
+            auto& node = result.node(i);
+            REQUIRE(node.sequence() == expected[node.id()]);
+        }
+    }
+    
+    SECTION("Edges are as expected") {
+    
+        unordered_set<pair<id_t, id_t>> edges_wanted;
+        edges_wanted.emplace(1, 2);
+        edges_wanted.emplace(1, 3);
+        edges_wanted.emplace(2, 3);
+        edges_wanted.emplace(3, 4);
+        edges_wanted.emplace(4, 5);
+        edges_wanted.emplace(5, 6);
+        edges_wanted.emplace(6, 7);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // All the edges should be forward
+            REQUIRE(!edge.from_start());
+            REQUIRE(!edge.to_end());
+            
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_pair(edge.from(), edge.to())));
+        }
+    }
+
+}
+
+TEST_CASE( "An SV inversion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	9	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGG"});
+        expected.insert({2, "CTTGGAAATT"});
+        expected.insert({3, "TTCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 3, true);
+        edges_wanted.emplace(2, true, 4, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
+TEST_CASE( "SV inversions with smart quotes and a lower-case reference parse correctly" , "[constructor]") {
+
+    // Note the smart quotes
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##INFO=<ID=END,Number=1,Type=Integer,Description=“End position of the variant described in this record”>
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description=“Type of structural variant”>
+##ALT=<ID=IV,Description=“Inversion”>
+#CHROM  POS     ID      REF ALT QUAL    FILTER  INFO
+x	10	SRR026655.22810753-B	N	<INV>	.	.	END=41;SVTYPE=INV)";
+
+    auto fasta_data = R"(>x
+caaataaggcttggaaattttctggagttctattatattccaactctctg
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTTC"});
+        expected.insert({4, "TATTATATTC"});
+        expected.insert({5, "C"});
+        expected.insert({6, "AACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 5, true);
+        edges_wanted.emplace(2, true, 6, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
+
+TEST_CASE( "A shorter SV inversion is represented properly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	10	sv1	N	<INV>	99	PASS	AC=1;NA=1;NS=1;SVTYPE=INV;END=29;CIPOS=0,3;CIEND=-3,0	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTT"});
+        expected.insert({4, "CTATTATATT"});
+        expected.insert({5, "CCAACTCTCT"});
+        expected.insert({6, "G"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 3, true);
+        edges_wanted.emplace(2, true, 4, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
 
 
 

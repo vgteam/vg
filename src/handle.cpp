@@ -13,6 +13,15 @@ handle_t HandleGraph::get_handle(const Visit& visit) const {
     return get_handle(visit.node_id(), visit.backward());
 }
 
+size_t HandleGraph::get_degree(const handle_t& handle, bool go_left) const {
+    size_t count = 0;
+    follow_edges(handle, go_left, [&](const handle_t& ignored) {
+        // Just manually count every edge we get by looking at the handle in that orientation
+        count++;
+    });
+    return count;
+}
+
 Visit HandleGraph::to_visit(const handle_t& handle) const {
     return vg::to_visit(this->get_id(handle), this->get_is_reverse(handle));
 }
