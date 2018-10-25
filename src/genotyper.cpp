@@ -139,6 +139,7 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
 
         if (snarl->type() != ULTRABUBBLE) {
             // We only work on ultrabubbles right now
+            cerr << "Skip snarl " << snarl->start() << " - " << snarl->end() << " due to not being an ultrabubble" << endl;
             return;
         }
 
@@ -153,10 +154,24 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             use_traversal_alg = read_bounded ? TraversalAlg::Reads : TraversalAlg::Representative;
         }
 
-        if ((use_traversal_alg != TraversalAlg::Reads && !manager.is_leaf(snarl)) ||
-            (use_traversal_alg == TraversalAlg::Reads && !manager.is_root(snarl))) {
+        if (use_traversal_alg != TraversalAlg::Reads && !manager.is_leaf(snarl)) {
             // Todo : support nesting hierarchy!
-            
+            if (show_progress) {
+                cerr << "Skip snarl " << snarl->start() << " - " << snarl->end()
+                    << " because it isn't a leaf and traversal algorithm "
+                    << alg2name[use_traversal_alg] << " only works on leaves" << endl;
+            }
+            return;
+        }
+
+
+        if (use_traversal_alg == TraversalAlg::Reads && !manager.is_root(snarl)) {
+            // Todo : support nesting hierarchy!
+            if (show_progress) {
+                cerr << "Skip snarl " << snarl->start() << " - " << snarl->end()
+                    << " because it isn't a root and traversal algorithm "
+                    << alg2name[use_traversal_alg] << " only works on roots" << endl;
+            }
             return;
         }
         
