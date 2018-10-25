@@ -43,6 +43,7 @@ void help_index(char** argv) {
          << "    -F, --thread-db FILE   read thread database from FILE (may repeat)" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
+         << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
          << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
@@ -152,6 +153,7 @@ int main_index(int argc, char** argv) {
     bool show_progress = false;
 
     // GBWT
+    bool warn_on_missing_variants = true;
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     bool parse_only = false;
     vector<string> gam_file_names;
@@ -199,6 +201,7 @@ int main_index(int argc, char** argv) {
 
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
+            {"ignore-missing", no_argument, 0, 'W'},
             {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
             {"store-gam", required_argument, 0, 'M'},
@@ -244,7 +247,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:w:h",
+        c = getopt_long (argc, argv, "b:t:px:F:v:We:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -278,6 +281,9 @@ int main_index(int argc, char** argv) {
             index_haplotypes = true;
             build_xg = true;
             vcf_name = optarg;
+            break;
+        case 'W':
+            warn_on_missing_variants = false;
             break;
         case 'e':
             parse_only = true;
@@ -764,9 +770,16 @@ int main_index(int argc, char** argv) {
                             }
                         }
                         if (!found) {
-                            cerr << "warning: [vg index] Alt and ref paths for " << var_name
-                                 << " at " << var.sequenceName << ":" << var.position
-                                 << " missing/empty! Was the variant skipped during construction?" << endl;
+                            // This variant from the VCF is just not in the graph
+
+                            if (warn_on_missing_variants) {
+                                // The user might not know it. Warn them in case they mixed up their VCFs.
+                                cerr << "warning: [vg index] Alt and ref paths for " << var_name
+                                     << " at " << var.sequenceName << ":" << var.position
+                                     << " missing/empty! Was the variant skipped during construction?" << endl;
+                            }
+
+                            // Skip this variant and move on to the next as if it never appeared.
                             continue;
                         }
                     }

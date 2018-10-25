@@ -1820,6 +1820,10 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     }
 }
 
+bool XG::has_path(const string& path_name) const {
+    return path_rank(path_name) != 0;
+}
+
 path_handle_t XG::get_path_handle(const string& path_name) const {
     return as_path_handle(path_rank(path_name));
 }
