@@ -261,16 +261,20 @@ size_t VG::get_degree(const handle_t& handle, bool go_left) const {
     return 0;
 }
     
+bool VG::has_path(const string& path_name) const {
+    return paths.has_path(path_name);
+}
+    
 path_handle_t VG::get_path_handle(const string& path_name) const {
-    return as_path_handle(paths.name_to_id.at(path_name));
+    return as_path_handle(paths.get_path_id(path_name));
 }
     
 string VG::get_path_name(const path_handle_t& path_handle) const {
-    return paths.id_to_name.at(as_integer(path_handle));
+    return paths.get_path_name(as_integer(path_handle));
 }
 
 size_t VG::get_occurrence_count(const path_handle_t& path_handle) const {
-    return paths._paths.at(paths.id_to_name.at(as_integer(path_handle))).size();
+    return paths._paths.at(paths.get_path_name(as_integer(path_handle))).size();
 }
 
 size_t VG::get_path_count() const {
@@ -278,9 +282,9 @@ size_t VG::get_path_count() const {
 }
 
 void VG::for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const {
-    for (const pair<int64_t, string>& path_record : paths.id_to_name) {
-        iteratee(as_path_handle(path_record.first));
-    }
+    paths.for_each_name([&](const string& name) {
+        iteratee(get_path_handle(name));
+    });
 }
 
 handle_t VG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
@@ -291,26 +295,26 @@ handle_t VG::get_occurrence(const occurrence_handle_t& occurrence_handle) const 
 occurrence_handle_t VG::get_first_occurrence(const path_handle_t& path_handle) const {
     occurrence_handle_t occurrence_handle;
     as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.id_to_name.at(as_integer(path_handle))).front());
+    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).front());
     return occurrence_handle;
 }
 
 occurrence_handle_t VG::get_last_occurrence(const path_handle_t& path_handle) const {
     occurrence_handle_t occurrence_handle;
     as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.id_to_name.at(as_integer(path_handle))).back());
+    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).back());
     return occurrence_handle;
 }
 
 bool VG::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
     list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
     iter++;
-    return iter != paths._paths.at(paths.id_to_name.at(as_integers(occurrence_handle)[0])).end();
+    return iter != paths._paths.at(paths.get_path_name(as_integers(occurrence_handle)[0])).end();
 }
 
 bool VG::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
     list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    return iter != paths._paths.at(paths.id_to_name.at(as_integers(occurrence_handle)[0])).begin();
+    return iter != paths._paths.at(paths.get_path_name(as_integers(occurrence_handle)[0])).begin();
 }
 
 occurrence_handle_t VG::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
@@ -496,6 +500,25 @@ vector<handle_t> VG::divide_handle(const handle_t& handle, const vector<size_t>&
     
     return to_return;
     
+}
+
+void VG::destroy_path(const path_handle_t& path) {
+    paths.remove_path(get_path_name(path));
+}
+
+path_handle_t VG::create_path_handle(const string& name) {
+    // Create the path
+    paths.create_path(name);
+    // Grab the handle
+    return get_path_handle(name);
+    
+}
+    
+occurrence_handle_t VG::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+    // Make the new path mapping/visit (which weirdly requires the node length)
+    paths.append_mapping(get_path_name(path), get_id(to_append), get_is_reverse(to_append), get_length(to_append));
+    // Get the occurrence we just made, now last on the path.
+    return get_last_occurrence(path);
 }
 
 void VG::clear_paths(void) {

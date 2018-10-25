@@ -37,6 +37,9 @@ public:
     void set_is_reverse(bool is_rev);
 };
 
+/// Allow a mapping_t to be printed, for debugging purposes
+ostream& operator<<(ostream& out, mapping_t mapping);
+
 class Paths {
 public:
 
@@ -75,11 +78,19 @@ public:
 
     // This maps from path name to the list of Mappings for that path.
     map<string, list<mapping_t> > _paths;
-    int64_t max_path_id;
-    map<string, int64_t> name_to_id;
-    int64_t get_path_id(const string& name);
-    map<int64_t, string> id_to_name;
-    const string& get_path_name(int64_t id);
+
+private:
+    // These need to be private because path names are lazily assigned IDs by the accessors
+    // They also need to be mutable because we want our accessors to treat our object as logical const
+    mutable int64_t max_path_id;
+    mutable map<string, int64_t> name_to_id;
+    mutable map<int64_t, string> id_to_name;
+public:
+    /// Get the lazily assigned numeric ID for a path, by name.
+    int64_t get_path_id(const string& name) const;
+    /// Get the name of a path, by numeric ID.
+    const string& get_path_name(int64_t id) const;
+    
     // This maps from mapping_t* pointer to its iterator in its list of Mappings
     // for its path and the id of the path.
     // The list in question is stored above in _paths.
@@ -133,7 +144,7 @@ public:
     void remove_path(const string& name);
     void keep_paths(const set<string>& name);
     void remove_node(id_t id);
-    bool has_path(const string& name);
+    bool has_path(const string& name) const;
     void to_json(ostream& out);
     list<mapping_t>& get_path(const string& name);
     list<mapping_t>& get_create_path(const string& name);
@@ -212,7 +223,7 @@ public:
     void extend(const vector<Path> & paths, bool warn_on_duplicates = false, bool rebuild_indexes = true);
     void for_each(const function<void(const Path&)>& lambda);
     // Loop over the names of paths without actually extracting the Path objects.
-    void for_each_name(const function<void(const string&)>& lambda);
+    void for_each_name(const function<void(const string&)>& lambda) const;
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
     // Replace the node IDs used as keys with those used as values.
