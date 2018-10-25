@@ -133,8 +133,7 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:ae0157d603d27d962a8dbd83d12e0fad6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Provides a one-variant look-ahead buffer on a vcflib::VariantFile. Lets construction functions peek and see if they want the next variant, or lets them ignore it for the next construction function for a different contig to handle. Ought not to be copied.</p>
-<p>Handles conversion from 1-based vcflib coordinates to 0-based vg coordinates. </p>
+<div class="textblock"><p>Provides a one-variant look-ahead buffer on a vcflib::VariantFile. Lets construction functions peek and see if they want the next variant, or lets them ignore it for the next construction function for a different contig to handle. Ought not to be copied. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a class="anchor" id="a402d5cadd95f5725876b22b8c9bd830b"></a>
 <div class="memitem">
@@ -206,7 +205,7 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Return a pointer to the buffered variant, or null if no variant is buffered. Pointer is invalidated when the buffer is handled. The variant will have a 0-based start coordinate.</p>
+<p>Return a pointer to the buffered variant, or null if no variant is buffered. Pointer is invalidated when the buffer is handled.</p>
 <p>Although the variant is not const, it may not be moved out of or modified in ways that confuse vcflib. </p>
 
 </div>

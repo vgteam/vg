@@ -4,7 +4,7 @@ var searchData=
   ['fast_5freseed_5flength_5fdiff',['fast_reseed_length_diff',['../classvg_1_1BaseMapper.html#a74ce7cb0903b14c4b4132f504dcdc412',1,'vg::BaseMapper']]],
   ['fasta_5fto_5fvcf_5frenames',['fasta_to_vcf_renames',['../classvg_1_1NameMapper.html#ad908156325375d8008c9ac68790b71e8',1,'vg::NameMapper']]],
   ['feature_5fname',['feature_name',['../structvg_1_1FeatureSet_1_1Feature.html#a0a95f9497d07cd5fed761983787884c6',1,'vg::FeatureSet::Feature']]],
-  ['features',['features',['../classvg_1_1FeatureSet.html#a43f00a84d400bf90ee2cb26d1bf561d7',1,'vg::FeatureSet::features()'],['../classvg_1_1Simplifier.html#ae6fbce3259dbf674522707809384dcc8',1,'vg::Simplifier::features()']]],
+  ['features',['features',['../classvg_1_1FeatureSet.html#a43f00a84d400bf90ee2cb26d1bf561d7',1,'vg::FeatureSet::features()'],['../classvg_1_1SmallSnarlSimplifier.html#af9de906fc14f2cf280aaad638acaa526',1,'vg::SmallSnarlSimplifier::features()']]],
   ['ff',['ff',['../classvg_1_1SRPE.html#a0e30bccfb4cef8cc04d1934a2b658ac1',1,'vg::SRPE']]],
   ['file',['file',['../classvg_1_1VcfBuffer.html#a6d744dafd27fb2fdea09d106b1553a55',1,'vg::VcfBuffer']]],
   ['filenames',['filenames',['../structvg_1_1temp__file_1_1Handler.html#a712176aeac999c1930b246fa02dc0f25',1,'vg::temp_file::Handler::filenames()'],['../classvg_1_1VGset.html#a49cf0bee988a30fb024218dd4f4eed56',1,'vg::VGset::filenames()']]],

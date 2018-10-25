@@ -9,6 +9,7 @@ var searchData=
   ['range',['range',['../classvg_1_1stream_1_1ProtobufIterator.html#a6699759db236dbb71d604fc4c922012e',1,'vg::stream::ProtobufIterator']]],
   ['range_5fvector',['range_vector',['../namespacevg.html#a931d9271de88fc786030fdd0ab4bf534',1,'vg::range_vector(size_t begin, size_t end)'],['../namespacevg.html#a39adca1737de5d28d007d95b809deb7f',1,'vg::range_vector(size_t end)']]],
   ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#a8d19ce6227588602947bd8deff30ae6c',1,'xg::XG']]],
+  ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a87e9cb73aaa5056b19d9609edf88b20f',1,'vg::RareVariantSimplifier']]],
   ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5fcoverage_5fz_5fscore',['read_coverage_z_score',['../classvg_1_1MultipathMapper.html#ac5398224011f7ed5f8f200e801b515a6',1,'vg::MultipathMapper']]],
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],

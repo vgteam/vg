@@ -37,7 +37,7 @@ var searchData=
   ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
   ['traversal',['traversal',['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
-  ['traversal_5ffinder',['traversal_finder',['../classvg_1_1Simplifier.html#ac6449871bfbd1468792b4c02940aa437',1,'vg::Simplifier']]],
+  ['traversal_5ffinder',['traversal_finder',['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier']]],
   ['true',['true',['../classvg_1_1SupportCaller.html#ae80afc297411ff87d793461d259106a2',1,'vg::SupportCaller']]],
   ['ts_5fciv',['ts_civ',['../classxg_1_1XG.html#a10edf2d06ea2dd4c2447fee2d45315d0',1,'xg::XG']]],
   ['ts_5fiv',['ts_iv',['../classxg_1_1XG.html#a05141e12ffaf3a49aef046d3e2d7181a',1,'xg::XG']]],

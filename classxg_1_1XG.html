@@ -265,6 +265,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a24f00a47b292a43b2ab77b120d439b6b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a24f00a47b292a43b2ab77b120d439b6b">max_node_id</a> () const </td></tr>
 <tr class="memdesc:a24f00a47b292a43b2ab77b120d439b6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the maximum node ID used in the graph, if any are used.  <a href="#a24f00a47b292a43b2ab77b120d439b6b">More...</a><br/></td></tr>
 <tr class="separator:a24f00a47b292a43b2ab77b120d439b6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38e7f5e6d051bbfb1769a998b0b14b71"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a38e7f5e6d051bbfb1769a998b0b14b71">has_path</a> (const string &amp;<a class="el" href="classxg_1_1XG.html#a8756d0af57b326811a6331896ba7a6fb">path_name</a>) const </td></tr>
+<tr class="memdesc:a38e7f5e6d051bbfb1769a998b0b14b71"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a path with a given name exists.  <a href="#a38e7f5e6d051bbfb1769a998b0b14b71">More...</a><br/></td></tr>
+<tr class="separator:a38e7f5e6d051bbfb1769a998b0b14b71"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a58d0d705391f4f5528d5eb48b45d16f7"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a58d0d705391f4f5528d5eb48b45d16f7">get_path_handle</a> (const string &amp;<a class="el" href="classxg_1_1XG.html#a8756d0af57b326811a6331896ba7a6fb">path_name</a>) const </td></tr>
 <tr class="memdesc:a58d0d705391f4f5528d5eb48b45d16f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the path handle for the given path name.  <a href="#a58d0d705391f4f5528d5eb48b45d16f7">More...</a><br/></td></tr>
 <tr class="separator:a58d0d705391f4f5528d5eb48b45d16f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -531,6 +534,13 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="separator:a65ff0e57a71769742bcca3de4de283b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa3d74f4b6a8da5e9eec9e2ac0591da77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aa3d74f4b6a8da5e9eec9e2ac0591da77">bs_dump</a> (ostream &amp;out) const </td></tr>
 <tr class="separator:aa3d74f4b6a8da5e9eec9e2ac0591da77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classvg_1_1PathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1PathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1PathHandleGraph.html">vg::PathHandleGraph</a></td></tr>
+<tr class="memitem:a373e2c9973e81d20269cf2ad9dde985d inherit pub_methods_classvg_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathHandleGraph.html#a373e2c9973e81d20269cf2ad9dde985d">is_empty</a> (const <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
+<tr class="memdesc:a373e2c9973e81d20269cf2ad9dde985d inherit pub_methods_classvg_1_1PathHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the given path is empty, and false otherwise.  <a href="#a373e2c9973e81d20269cf2ad9dde985d">More...</a><br/></td></tr>
+<tr class="separator:a373e2c9973e81d20269cf2ad9dde985d inherit pub_methods_classvg_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a51a6d2b2904c2a6214dcdcb4fec9a8a2 inherit pub_methods_classvg_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathHandleGraph.html#a51a6d2b2904c2a6214dcdcb4fec9a8a2">for_each_occurrence_in_path</a> (const <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a> &amp;path, const function&lt; void(const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
+<tr class="memdesc:a51a6d2b2904c2a6214dcdcb4fec9a8a2 inherit pub_methods_classvg_1_1PathHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loop over all the occurrences along a path, from first through last.  <a href="#a51a6d2b2904c2a6214dcdcb4fec9a8a2">More...</a><br/></td></tr>
+<tr class="separator:a51a6d2b2904c2a6214dcdcb4fec9a8a2 inherit pub_methods_classvg_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1HandleGraph.html">vg::HandleGraph</a></td></tr>
 <tr class="memitem:a8f125524a5f48b6649afcf7f9d148853 inherit pub_methods_classvg_1_1HandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a8f125524a5f48b6649afcf7f9d148853 inherit pub_methods_classvg_1_1HandleGraph"><td class="memTemplItemLeft" align="right" valign="top">auto&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a8f125524a5f48b6649afcf7f9d148853">follow_edges</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, T &amp;&amp;iteratee) const -&gt; typename std::enable_if&lt; std::is_void&lt; decltype(iteratee(<a class="el" href="classvg_1_1HandleGraph.html#a4494fdac542d1003881c5c4d0af653f5">get_handle</a>(0, false)))&gt;::value &gt;::type</td></tr>
@@ -3232,6 +3242,34 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a38e7f5e6d051bbfb1769a998b0b14b71"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool xg::XG::has_path </td>
+          <td>(</td>
+          <td class="paramtype">const string &amp;&#160;</td>
+          <td class="paramname"><em>path_name</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Determine if a path with a given name exists. </p>
+
+<p>Implements <a class="el" href="classvg_1_1PathHandleGraph.html#a75a8f83e85941ec1bd020b17f72c2099">vg::PathHandleGraph</a>.</p>
 
 </div>
 </div>

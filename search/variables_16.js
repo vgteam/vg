@@ -7,6 +7,7 @@ var searchData=
   ['variant_5falts',['variant_alts',['../structvg_1_1VG_1_1Plan.html#ad2b28e3a651018396d6c0a1b3377e161',1,'vg::VG::Plan']]],
   ['variant_5foffset',['variant_offset',['../classvg_1_1SupportCaller.html#afed18b083fd15705d07c6a5e35739937',1,'vg::SupportCaller']]],
   ['variant_5frange',['variant_range',['../classvg_1_1VariantAdder.html#aa23751086259b5976ffe78169a6000b9',1,'vg::VariantAdder']]],
+  ['variant_5fsource',['variant_source',['../classvg_1_1RareVariantSimplifier.html#afd96f926d4135c8c1ae967ad22aad03a',1,'vg::RareVariantSimplifier']]],
   ['variant_5fto_5ftraversal',['variant_to_traversal',['../classvg_1_1VG.html#ac697184acf2edadca58ddc776f9f4e7e',1,'vg::VG']]],
   ['variants_5fafter',['variants_after',['../classvg_1_1WindowedVcfBuffer.html#a8c0bf4d78e07bcc7ec8f58287452ad9e',1,'vg::WindowedVcfBuffer']]],
   ['variants_5fbefore',['variants_before',['../classvg_1_1WindowedVcfBuffer.html#a24156cab3205fcb845418259a91ada3a',1,'vg::WindowedVcfBuffer']]],

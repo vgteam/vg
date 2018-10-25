@@ -37,7 +37,7 @@ var searchData=
   ['sink_5fnodes',['sink_nodes',['../classvg_1_1BandedGlobalAligner.html#ab0436cf3a9d5d7e824a75e739df597ad',1,'vg::BandedGlobalAligner']]],
   ['sink_5frev',['sink_rev',['../classvg_1_1SourceSinkOverlay.html#a4c00143bd29d3f3adbf571f6333ea761',1,'vg::SourceSinkOverlay']]],
   ['site_5fends',['site_ends',['../classvg_1_1PhasedGenome.html#afc338c2bf1776ec1ccb29c8efee6aaa3',1,'vg::PhasedGenome']]],
-  ['site_5fmanager',['site_manager',['../classvg_1_1Simplifier.html#a683dc1a17a9bf809a69c40b92407d107',1,'vg::Simplifier']]],
+  ['site_5fmanager',['site_manager',['../classvg_1_1SmallSnarlSimplifier.html#a4991294aedb029a70d1d4f459e009bd3',1,'vg::SmallSnarlSimplifier']]],
   ['site_5fstarts',['site_starts',['../classvg_1_1PhasedGenome.html#accfaae53e12f924b914623734a68102f',1,'vg::PhasedGenome']]],
   ['sites',['sites',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a7fee7818b260154898be386649d3bfe7',1,'vg::PhasedGenome::Haplotype']]],
   ['size',['size',['../classvg_1_1DepthMap.html#acb11be955a40c316fcdd1c261bfb639e',1,'vg::DepthMap']]],

@@ -102,13 +102,16 @@ Inheritance diagram for vg::HandleGraph:</div>
  <div class="center">
   <img src="classvg_1_1HandleGraph.png" usemap="#vg::HandleGraph_map" alt=""/>
   <map id="vg::HandleGraph_map" name="vg::HandleGraph_map">
-<area href="classvg_1_1MutableHandleGraph.html" alt="vg::MutableHandleGraph" shape="rect" coords="0,56,152,80"/>
-<area href="classvg_1_1NetGraph.html" alt="vg::NetGraph" shape="rect" coords="162,56,314,80"/>
-<area href="classvg_1_1PathHandleGraph.html" alt="vg::PathHandleGraph" shape="rect" coords="324,56,476,80"/>
-<area href="classvg_1_1SourceSinkOverlay.html" alt="vg::SourceSinkOverlay" shape="rect" coords="486,56,638,80"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,112,152,136"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="243,112,395,136"/>
-<area href="classxg_1_1XG.html" alt="xg::XG" shape="rect" coords="405,112,557,136"/>
+<area href="classvg_1_1MutableHandleGraph.html" alt="vg::MutableHandleGraph" shape="rect" coords="0,56,222,80"/>
+<area href="classvg_1_1NetGraph.html" alt="vg::NetGraph" shape="rect" coords="232,56,454,80"/>
+<area href="classvg_1_1PathHandleGraph.html" alt="vg::PathHandleGraph" shape="rect" coords="464,56,686,80"/>
+<area href="classvg_1_1SourceSinkOverlay.html" alt="vg::SourceSinkOverlay" shape="rect" coords="696,56,918,80"/>
+<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="0,112,222,136"/>
+<area href="classvg_1_1MutablePathHandleGraph.html" alt="vg::MutablePathHandleGraph" shape="rect" coords="348,112,570,136"/>
+<area href="classxg_1_1XG.html" alt="xg::XG" shape="rect" coords="580,112,802,136"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,168,222,192"/>
+<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="348,168,570,192"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="348,224,570,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -302,7 +305,7 @@ template&lt;typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Loop over all the handles to next/previous (right/left) nodes. Works with a callback that just takes all the handles and returns void. MUST be pulled into implementing classes with <code>using</code> in order to work! </p>
+<p>Loop over all the handles to next/previous (right/left) nodes. Works with a callback that just takes all the handles and returns void. Has to be a template because we can't overload on the types of std::function arguments otherwise. MUST be pulled into implementing classes with <code>using</code> in order to work! </p>
 
 </div>
 </div>

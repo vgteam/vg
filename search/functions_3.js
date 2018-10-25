@@ -150,6 +150,7 @@ var searchData=
   ['create_5fnode_5fcalls',['create_node_calls',['../classvg_1_1PileupAugmenter.html#aaaa0a8c3f747f41b1582d1b506f91e2c',1,'vg::PileupAugmenter']]],
   ['create_5fpath',['create_path',['../classvg_1_1Paths.html#a55306d115aee9abbf3166505bacdb35a',1,'vg::Paths::create_path()'],['../classvg_1_1VG.html#a3195bfadb7e65e4952c4b98d51e862f1',1,'vg::VG::create_path(const list&lt; NodeTraversal &gt; &amp;nodes)'],['../classvg_1_1VG.html#adc07ec73a57485a700e621517c962b8b',1,'vg::VG::create_path(const vector&lt; NodeTraversal &gt; &amp;nodes)']]],
   ['create_5fpath_5fchunk_5fnodes',['create_path_chunk_nodes',['../classvg_1_1MultipathAlignmentGraph.html#a8f5bc7c5d625b6e89aa48aca434f0ec0',1,'vg::MultipathAlignmentGraph']]],
+  ['create_5fpath_5fhandle',['create_path_handle',['../classvg_1_1MutablePathHandleGraph.html#a27bae43aecdfdda8e5cd7eacbfee3c95',1,'vg::MutablePathHandleGraph::create_path_handle()'],['../classvg_1_1VG.html#a4bcd5d003953bbec11cd6162e53bb974',1,'vg::VG::create_path_handle()']]],
   ['create_5fprogress',['create_progress',['../classvg_1_1Progressive.html#a1cce3f715516ed2bbb4ce3a312b01e02',1,'vg::Progressive::create_progress(const string &amp;message, long count)'],['../classvg_1_1Progressive.html#a75d4e92a36a277be5bc0cee5d01f5ca1',1,'vg::Progressive::create_progress(long count)']]],
   ['create_5fref_5fallele',['create_ref_allele',['../namespacevg.html#ae9e16eec9e4a4120718eba7d5711a7df',1,'vg']]],
   ['create_5fstate',['create_state',['../classvg_1_1PhaseUnfolder.html#ad02d721a40368b2da3a34909399c82d2',1,'vg::PhaseUnfolder']]],

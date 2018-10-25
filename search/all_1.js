@@ -154,6 +154,7 @@ var searchData=
   ['append_5fhaplotype',['append_haplotype',['../classvg_1_1GenomeState.html#aa9f6862f286a2f28ebeb75251e1fe059',1,'vg::GenomeState']]],
   ['append_5fleft',['append_left',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a6eae6ee85866e8a90efd0d7d7f5de0be',1,'vg::PhasedGenome::Haplotype']]],
   ['append_5fmapping',['append_mapping',['../classvg_1_1Paths.html#aec7ad289d23cf879bdefb682dc464313',1,'vg::Paths::append_mapping(const string &amp;name, const mapping_t &amp;m, bool warn_on_duplicates=false)'],['../classvg_1_1Paths.html#a490ae73c613867d5621e17b6ff6635dd',1,'vg::Paths::append_mapping(const string &amp;name, id_t id, bool is_reverse, size_t length, size_t rank=0, bool warn_on_duplicates=false)']]],
+  ['append_5foccurrence',['append_occurrence',['../classvg_1_1MutablePathHandleGraph.html#af876e799ddde6285646957452753f7ed',1,'vg::MutablePathHandleGraph::append_occurrence()'],['../classvg_1_1VG.html#aa27ce8091357377810e01f45bc783e49',1,'vg::VG::append_occurrence()']]],
   ['append_5fpath',['append_path',['../namespacevg.html#a75a663b07489d2aba3f800943eeb0eaf',1,'vg']]],
   ['append_5fregions',['append_regions',['../classvg_1_1ReadFilter.html#a457e9fef8d1e19c78b4a72ff10d14260',1,'vg::ReadFilter']]],
   ['append_5fright',['append_right',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a8336638c37c43db1db857b380da94ab3',1,'vg::PhasedGenome::Haplotype']]],

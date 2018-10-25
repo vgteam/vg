@@ -5,7 +5,7 @@ var searchData=
   ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs.html',1,'vg']]],
   ['simpleconsistencycalculator',['SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html',1,'vg']]],
   ['simpletraversalsupportcalculator',['SimpleTraversalSupportCalculator',['../classvg_1_1SimpleTraversalSupportCalculator.html',1,'vg']]],
-  ['simplifier',['Simplifier',['../classvg_1_1Simplifier.html',1,'vg']]],
+  ['smallsnarlsimplifier',['SmallSnarlSimplifier',['../classvg_1_1SmallSnarlSimplifier.html',1,'vg']]],
   ['snarl',['Snarl',['../structvg_1_1Snarl.html',1,'vg']]],
   ['snarlfinder',['SnarlFinder',['../classvg_1_1SnarlFinder.html',1,'vg']]],
   ['snarlindex',['SnarlIndex',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html',1,'vg::DistanceIndex']]],
