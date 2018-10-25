@@ -78,7 +78,6 @@ void help_index(char** argv) {
          << "    -D, --dump             print the contents of the db to stdout" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "snarl distance index options" << endl
-         << "    -c  --dist-graph FILE  generate snarl distane index from VG in FILE" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
          << "    -w  --max_dist N   cap beyond which the maximum distance is no longer accurate" << endl;
@@ -141,7 +140,7 @@ int main_index(int argc, char** argv) {
     bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
     // Files we should read.
-    string vcf_name, mapping_name, dist_graph;
+    string vcf_name, mapping_name;
     vector<string> thread_db_names;
     vector<string> dbg_names;
 
@@ -179,11 +178,13 @@ int main_index(int argc, char** argv) {
     bool store_mappings = false;
     bool dump_alignments = false;
 
+    //Distance index
+    int cap = -1;
+
     // Unused?
     bool compact = false;
 
     int c;
-    int cap;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
@@ -236,7 +237,6 @@ int main_index(int argc, char** argv) {
             {"compact", no_argument, 0, 'C'},
 
             //Snarl distance index
-            {"dist-graph", required_argument, 0, 'c'},
             {"snarl-name", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'j'},
             {"max-dist", required_argument, 0, 'w'},
@@ -419,10 +419,6 @@ int main_index(int argc, char** argv) {
             break;
 
         //Snarl distance index
-        case 'c':
-            build_dist = true;
-            dist_graph = optarg;
-            break;
         case 's':
             build_dist = true;
             snarl_name = optarg;
@@ -452,7 +448,7 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index && dist_graph.empty() ) {
+    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index && dist_name.empty() ) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -474,6 +470,10 @@ int main_index(int argc, char** argv) {
     
     if (file_names.size() != 1 && build_gam_index) {
         cerr << "error: [vg index] can only index exactly one sorted GAM file at a time" << endl;
+        return 1;
+    }
+    if (file_names.size() != 1 && build_dist) {
+        cerr << "error: [vg index] can only create one distance index at a time" << endl;
         return 1;
     }
     
@@ -1114,8 +1114,8 @@ int main_index(int argc, char** argv) {
 
     //Build snarl distance index
     if (build_dist) {
-        if (dist_graph.empty()) {
-            cerr << "error: [vg index] distance index requires a vg file" << endl;
+        if (file_names.empty()) {
+            cerr << "error: [vg index] one graph is required to build a distance index" << endl;
             return 1;
         } else if (dist_name.empty()) {
             cerr << "error: [vg index] distance index requires an output file" << endl;
@@ -1124,8 +1124,12 @@ int main_index(int argc, char** argv) {
             cerr << "error: [vg index] distance index requires a snarl file" << endl;
             return 1;
             
+        } else if (cap < 0) {
+            cerr << "error: [vg index] distance index requires a positive cap value" << endl;
+            return 1;
+            
         } else {
-            ifstream vg_stream(dist_graph);
+            ifstream vg_stream(file_names.at(0));
             if (!vg_stream) {
                 cerr << "error: [vg index] cannot open VG file" << endl;
                 exit(1);
