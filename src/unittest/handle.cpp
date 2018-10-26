@@ -717,7 +717,31 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
                 check_occurrence(occurrence_handle, i);
                 occurrence_handle = graph.get_next_occurrence(occurrence_handle);
             }
-            
+
+            // iterate front to back with a while
+            {
+                occurrence_handle = graph.get_first_occurrence(path_handle);
+                int i = 0;
+                check_occurrence(occurrence_handle, i);
+                i++;
+                while(graph.has_next_occurrence(occurrence_handle)) {
+                    occurrence_handle = graph.get_next_occurrence(occurrence_handle);
+                    check_occurrence(occurrence_handle, i);
+                    i++;
+                }
+                REQUIRE(i == path.mapping_size());
+            }
+
+            // iterate front to back with the iteration function
+            {
+                int i = 0;
+                graph.for_each_occurrence_in_path(path_handle, [&i, &check_occurrence](const occurrence_handle_t& occurrence_handle) {
+                    check_occurrence(occurrence_handle, i);
+                    i++;
+                });
+                REQUIRE(i == path.mapping_size());
+            }
+
             // iterate back to front
             occurrence_handle = graph.get_last_occurrence(path_handle);
             for (int i = path.mapping_size() - 1; i >= 0; i--) {
@@ -737,6 +761,20 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
                 
                 check_occurrence(occurrence_handle, i);
                 occurrence_handle = graph.get_previous_occurrence(occurrence_handle);
+            }
+
+            // iterate back to front with a while
+            {
+                occurrence_handle = graph.get_last_occurrence(path_handle);
+                int i = path.mapping_size() - 1;
+                check_occurrence(occurrence_handle, i);
+                i--;
+                while(graph.has_previous_occurrence(occurrence_handle)) {
+                    occurrence_handle = graph.get_previous_occurrence(occurrence_handle);
+                    check_occurrence(occurrence_handle, i);
+                    i--;
+                }
+                REQUIRE(i == -1);
             }
         };
         

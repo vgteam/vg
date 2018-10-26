@@ -78,7 +78,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutableHandleGraph, public PathHandleGraph {
+class VG : public Progressive, public MutablePathMutableHandleGraph {
 
 public:
 
@@ -138,6 +138,9 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
+    
+    /// Determine if a path name exists and is legal to get a path handle for.
+    virtual bool has_path(const string& path_name) const;
     
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
@@ -223,6 +226,19 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Mutable path handle interface
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Destroy the given path. Invalidates handles to the path and its node occurrences.
+    virtual void destroy_path(const path_handle_t& path);
+
+    /// Create a path with the given name.
+    virtual path_handle_t create_path_handle(const string& name);
+    
+    /// Append a visit to a node to the given path
+    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
     
 public:
     
