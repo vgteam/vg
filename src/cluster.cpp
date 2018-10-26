@@ -2522,8 +2522,8 @@ bool TargetValueSearch::tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, i
     return false;
 }
     
-vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, bool exact_min) {
-
+vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
+    bool exact_min = true;//TODO: Put this somewhere else. True if the min heuristic is exact
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
     DistanceHeuristic& max_distance = *upper_bound_heuristic;
     
@@ -2893,7 +2893,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
         //Get path for the best that is longer than the target
         return get_min_path(best_long.second);
 
-    } else if (next_best.first <= tolerance) {
+    } else if (next_best.first != -1 && next_best.first <= tolerance) {
         
         //Backtrack to get path
         list<handle_t> result;

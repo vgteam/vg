@@ -69,24 +69,24 @@ namespace unittest {
             pos_t pos7 = make_pos_t(7, false, 0);
             pos_t pos8 = make_pos_t(8, false, 0);
 
-            REQUIRE(tvs.tv_path(pos1, pos2, 3, 5, true).size() == 2);
-            REQUIRE(tvs.tv_path(pos1, pos2, 4, 5, true).size() == 2);
-            REQUIRE(tvs.tv_path(pos1, pos2, 9, 4, true).size() == 0);
-            REQUIRE(tvs.tv_path(pos1, pos5, 5, 4, true).size() == 4);
-            REQUIRE(tvs.tv_path(pos1, pos5, 6, 4, true).size() == 4);
-            REQUIRE(tvs.tv_path(pos1, pos5, 7, 1, true).size() == 0);
+            REQUIRE(tvs.tv_path(pos1, pos2, 3, 5).size() == 2);
+            REQUIRE(tvs.tv_path(pos1, pos2, 4, 5).size() == 2);
+            REQUIRE(tvs.tv_path(pos1, pos2, 9, 4).size() == 0);
+            REQUIRE(tvs.tv_path(pos1, pos5, 5, 4).size() == 4);
+            REQUIRE(tvs.tv_path(pos1, pos5, 6, 4).size() == 4);
+            REQUIRE(tvs.tv_path(pos1, pos5, 7, 1).size() == 0);
 
-            REQUIRE(tvs.tv_path(pos1, pos5, 8, 4, true).size() == 5);
-            REQUIRE(tvs.tv_path(pos1, pos5, 9, 4, true).size() == 5);
-            REQUIRE(tvs.tv_path(pos1, pos8, 4, 4, true).size() == 2);
-            REQUIRE(tvs.tv_path(pos1, pos8, 3, 4, true).size() == 2);
-            REQUIRE(tvs.tv_path(pos1, pos8, 7, 4, true).size() == 5);
-            REQUIRE(tvs.tv_path(pos1, pos8, 6, 4, true).size() == 5);
-            REQUIRE(tvs.tv_path(pos1, pos8, 9, 4, true).size() == 6);
-            REQUIRE(tvs.tv_path(pos1, pos8, 13, 4, true).size() == 7);
-            REQUIRE(tvs.tv_path(pos1, pos8, 12, 4, true).size() == 7);
-            REQUIRE(tvs.tv_path(pos6, pos1, 22, 4, true).size() == 0);
-            REQUIRE(tvs.tv_path(pos6r, pos1r, 2, 4, true).size() == 3);
+            REQUIRE(tvs.tv_path(pos1, pos5, 8, 4).size() == 5);
+            REQUIRE(tvs.tv_path(pos1, pos5, 9, 4).size() == 5);
+            REQUIRE(tvs.tv_path(pos1, pos8, 4, 4).size() == 2);
+            REQUIRE(tvs.tv_path(pos1, pos8, 3, 4).size() == 2);
+            REQUIRE(tvs.tv_path(pos1, pos8, 7, 4).size() == 5);
+            REQUIRE(tvs.tv_path(pos1, pos8, 6, 4).size() == 5);
+            REQUIRE(tvs.tv_path(pos1, pos8, 9, 4).size() == 6);
+            REQUIRE(tvs.tv_path(pos1, pos8, 13, 4).size() == 7);
+            REQUIRE(tvs.tv_path(pos1, pos8, 12, 4).size() == 7);
+            REQUIRE(tvs.tv_path(pos6, pos1, 22, 4).size() == 0);
+            REQUIRE(tvs.tv_path(pos6r, pos1r, 2, 4).size() == 3);
            
         }
     }//End test case
@@ -154,19 +154,19 @@ namespace unittest {
             pos_t pos11 = make_pos_t(11, false, 0);
             pos_t pos12 = make_pos_t(12, false, 0);
 
-            REQUIRE(tvs.tv_path(pos1, pos2, 3, 5, true).size() == 2);
-            REQUIRE(tvs.tv_path(pos1, pos11, 18, 5, true).size() == 10);
+            REQUIRE(tvs.tv_path(pos1, pos2, 3, 5).size() == 2);
+            REQUIRE(tvs.tv_path(pos1, pos11, 18, 5).size() == 10);
 //TODO: This depends on the max distance            REQUIRE(tvs.tv_path(pos1, pos11, 26, 5).size() == 10);
-            REQUIRE(tvs.tv_path(pos1, pos11, 8, 5, true).size() == 6);
-            REQUIRE(tvs.tv_path(pos1, pos11, 7, 5, true).size() == 6);
-            REQUIRE(tvs.tv_path(pos2, pos11, 8, 5, true).size() == 8);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 8, 5, true).size() == 6);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 9, 1, true).size() == 6);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 10, 0, true).size() == 6);
-            REQUIRE(tvs.tv_path(pos11, pos6r, 9, 0, true).size() == 0);
-            REQUIRE(tvs.tv_path(pos1, pos12, 3, 3, true).size() == 0);
-            REQUIRE(tvs.tv_path(pos1, pos9, 9, 5, true).size() == 7);
-            REQUIRE(tvs.tv_path(pos1, pos9, 60, 5, true).size() == 0);
+            REQUIRE(tvs.tv_path(pos1, pos11, 8, 5).size() == 6);
+            REQUIRE(tvs.tv_path(pos1, pos11, 7, 5).size() == 6);
+            REQUIRE(tvs.tv_path(pos2, pos11, 8, 5).size() == 8);
+            REQUIRE(tvs.tv_path(pos11, pos6r, 8, 5).size() == 6);
+            REQUIRE(tvs.tv_path(pos11, pos6r, 9, 1).size() == 6);
+            REQUIRE(tvs.tv_path(pos11, pos6r, 10, 0).size() == 6);
+            REQUIRE(tvs.tv_path(pos11, pos6r, 9, 0).size() == 0);
+            REQUIRE(tvs.tv_path(pos1, pos12, 3, 3).size() == 0);
+            REQUIRE(tvs.tv_path(pos1, pos9, 9, 5).size() == 7);
+            REQUIRE(tvs.tv_path(pos1, pos9, 60, 5).size() == 0);
            
         }
     }//End test case
@@ -216,10 +216,10 @@ namespace unittest {
             pos_t pos11 = make_pos_t(11, false, 0);
             pos_t pos12 = make_pos_t(12, false, 0);
 
-            REQUIRE(tvs.tv_path(pos1, pos2, 3, 5, true).size() == 2);
-            REQUIRE(tvs.tv_path(pos1, pos2, 5, 5, true).size() == 2);
-            REQUIRE(tvs.tv_path(pos1r, pos2, 6, 5, true).size() == 3);
-            REQUIRE(tvs.tv_path(pos6r, pos3, 11, 5, true).size() == 6);
+            REQUIRE(tvs.tv_path(pos1, pos2, 3, 5).size() == 2);
+            REQUIRE(tvs.tv_path(pos1, pos2, 5, 5).size() == 2);
+            REQUIRE(tvs.tv_path(pos1r, pos2, 6, 5).size() == 3);
+            REQUIRE(tvs.tv_path(pos6r, pos3, 11, 5).size() == 6);
         }
     }//End test case
 
