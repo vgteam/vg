@@ -47,7 +47,7 @@ var searchData=
   ['verify_5fpath',['verify_path',['../classvg_1_1PileupAugmenter.html#ace7499e03014dd63c79d71af48168240',1,'vg::PileupAugmenter::verify_path()'],['../namespacevg.html#a8fa0776e6865e98b3f7a2e8c6722cfb1',1,'vg::verify_path()']]],
   ['verify_5fpaths',['verify_paths',['../classvg_1_1PhaseUnfolder.html#a3aab2694e14dac4f3520932588711388',1,'vg::PhaseUnfolder']]],
   ['version',['Version',['../classvg_1_1Version.html',1,'vg']]],
-  ['version',['VERSION',['../classvg_1_1Version.html#a06ae288f165de69ddbfdec65c217d222',1,'vg::Version::VERSION()'],['../classvg_1_1Version.html#a05bb9f14c7597bf90a2981db7e59b058',1,'vg::Version::Version()=delete']]],
+  ['version',['Version',['../classvg_1_1Version.html#a05bb9f14c7597bf90a2981db7e59b058',1,'vg::Version::Version()=delete'],['../classvg_1_1Version.html#a06ae288f165de69ddbfdec65c217d222',1,'vg::Version::VERSION()']]],
   ['version_2ecpp',['version.cpp',['../version_8cpp.html',1,'']]],
   ['version_2ehpp',['version.hpp',['../version_8hpp.html',1,'']]],
   ['version_5fmain_2ecpp',['version_main.cpp',['../version__main_8cpp.html',1,'']]],

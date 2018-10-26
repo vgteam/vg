@@ -162,6 +162,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aae7efb7b2608894b946c78b889f0db2b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aae7efb7b2608894b946c78b889f0db2b">is_root</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const </td></tr>
 <tr class="memdesc:aae7efb7b2608894b946c78b889f0db2b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if snarl has no parent and false otherwise.  <a href="#aae7efb7b2608894b946c78b889f0db2b">More...</a><br/></td></tr>
 <tr class="separator:aae7efb7b2608894b946c78b889f0db2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abf421ca80fa05d3a9371fddb19b86014"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#abf421ca80fa05d3a9371fddb19b86014">is_trivial</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph) const </td></tr>
+<tr class="separator:abf421ca80fa05d3a9371fddb19b86014"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0fac44cd969db5961b536197bcee8f8f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a0fac44cd969db5961b536197bcee8f8f">all_children_trivial</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;graph) const </td></tr>
+<tr class="memdesc:a0fac44cd969db5961b536197bcee8f8f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the snarl lacks any nontrivial children.  <a href="#a0fac44cd969db5961b536197bcee8f8f">More...</a><br/></td></tr>
+<tr class="separator:a0fac44cd969db5961b536197bcee8f8f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6aab5ee175227d2f8c016d2522afaabb"><td class="memItemLeft" align="right" valign="top">const vector&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a6aab5ee175227d2f8c016d2522afaabb">top_level_snarls</a> () const </td></tr>
 <tr class="memdesc:a6aab5ee175227d2f8c016d2522afaabb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a reference to a vector with the roots of the <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes. ">Snarl</a> trees.  <a href="#a6aab5ee175227d2f8c016d2522afaabb">More...</a><br/></td></tr>
 <tr class="separator:a6aab5ee175227d2f8c016d2522afaabb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -419,6 +424,34 @@ template&lt;typename SnarlIterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Add the given snarl to the <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a>. After all snarls have been added, <a class="el" href="classvg_1_1SnarlManager.html#aacf5fd439b35298107ddf2900559259c">finish()</a> must be called to compute chains and indexes. We don't let precomputed chains be added, because we want chain orientations relative to snarls to be deterministic given an order of snarls. Returns a pointer to the managed snarl copy. Only this function may add in new Snarls. </p>
+
+</div>
+</div>
+<a class="anchor" id="a0fac44cd969db5961b536197bcee8f8f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::SnarlManager::all_children_trivial </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
+          <td class="paramname"><em>snarl</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Returns true if the snarl lacks any nontrivial children. </p>
 
 </div>
 </div>
@@ -826,6 +859,33 @@ template&lt;typename SnarlIterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Returns true if snarl has no parent and false otherwise. </p>
+
+</div>
+</div>
+<a class="anchor" id="abf421ca80fa05d3a9371fddb19b86014"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::SnarlManager::is_trivial </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
+          <td class="paramname"><em>snarl</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Returns true if the sanrl is trivial (an ultrabubble with just the start and end nodes) and false otherwise. TODO: Implement without needing the vg graph, by adding a flag to trivial snarls. </p>
 
 </div>
 </div>

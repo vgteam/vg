@@ -1,6 +1,7 @@
 var searchData=
 [
   ['easyhandlepacking',['EasyHandlePacking',['../structvg_1_1EasyHandlePacking.html',1,'vg']]],
+  ['eat_5ftrivial_5fchildren',['eat_trivial_children',['../classvg_1_1RepresentativeTraversalFinder.html#a7399762276304b196332d0660c169605',1,'vg::RepresentativeTraversalFinder']]],
   ['edge',['Edge',['../structvg_1_1Edge.html',1,'vg']]],
   ['edge',['edge',['../structvg_1_1Graph.html#ae581df485daa482523eb1a7954ac9561',1,'vg::Graph::edge()'],['../structvg_1_1EdgePileup.html#a61793befcf507143604cf6e0af1cab6a',1,'vg::EdgePileup::edge()'],['../classvg_1_1XdropAligner.html#abe8df6d7c151d4585cf01dc0d0962940',1,'vg::XdropAligner::edge()']]],
   ['edge_5fallele_5flabels',['edge_allele_labels',['../classvg_1_1Genotyper.html#aae52b974044843aed34fc31152ccda77',1,'vg::Genotyper']]],
@@ -85,8 +86,8 @@ var searchData=
   ['entropy',['entropy',['../namespacevg.html#ac3165438256db24864e88601839197df',1,'vg::entropy(const string &amp;st)'],['../namespacevg.html#a77c1cb6069f865239d0365b55649bc8a',1,'vg::entropy(const char *st, size_t len)']]],
   ['entropy_2ecpp',['entropy.cpp',['../entropy_8cpp.html',1,'']]],
   ['entropy_2ehpp',['entropy.hpp',['../entropy_8hpp.html',1,'']]],
-  ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html',1,'vg::NodeDivider']]],
   ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html#a581f38a59d42c7e54ed83fccd8da2d55',1,'vg::NodeDivider::Entry']]],
+  ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html',1,'vg::NodeDivider']]],
   ['entry_5fto_5fstring',['entry_to_string',['../classvg_1_1Index.html#a18c0d0d11da737aa6e4a040810b5c986',1,'vg::Index']]],
   ['entrycat',['EntryCat',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0',1,'vg::NodeDivider']]],
   ['equal_5fto',['equal_to',['../classvg_1_1GAMSorter.html#af3e280a89ab932aa357c9adcb7bda946',1,'vg::GAMSorter']]],
