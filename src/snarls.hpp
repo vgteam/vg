@@ -493,7 +493,15 @@ public:
         
     /// Returns true if snarl has no parent and false otherwise
     bool is_root(const Snarl* snarl) const;
-        
+
+    /// Returns true if the sanrl is trivial (an ultrabubble with just the
+    /// start and end nodes) and false otherwise.
+    /// TODO: Implement without needing the vg graph, by adding a flag to trivial snarls.
+    bool is_trivial(const Snarl* snarl, VG& graph) const;
+    
+    /// Returns true if the snarl lacks any nontrivial children.
+    bool all_children_trivial(const Snarl* snarl, VG& graph) const;
+
     /// Returns a reference to a vector with the roots of the Snarl trees
     const vector<const Snarl*>& top_level_snarls() const;
         
