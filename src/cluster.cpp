@@ -2523,17 +2523,11 @@ bool TargetValueSearch::tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, i
 }
     
 vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
+
     bool exact_min = true;//TODO: Put this somewhere else. True if the min heuristic is exact
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
     DistanceHeuristic& max_distance = *upper_bound_heuristic;
-    
-
-    id_t id_1 = id(pos_1);
-    bool rev_1 = is_rev(pos_1);
     int64_t offset_1 = offset(pos_1);
-
-    id_t id_2 = id(pos_2);
-    bool rev_2 = is_rev(pos_2);
     int64_t offset_2 = offset(pos_2);
 
     //map each node to the target values from that node that are out of the min
@@ -2544,6 +2538,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     //Path that is closest to the target and difference from target
     pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best 
                                (-1, make_pair(make_pair(0, false), -1));
+
     //Best that is too long - use when min heuristic finds actual minimum 
     //difference between target and best dist, node, and target from that node
     pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long 
@@ -2555,12 +2550,12 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>>
              node_to_path; 
     
-    //reachable node TODO: Could prioritize by target somehow
+    //reachable node 
     list<pair<pair<id_t, bool>, int64_t>> next_nodes; //node and target
-    next_nodes.push_back(make_pair(make_pair(id_1, rev_1),
+    next_nodes.push_back(make_pair(make_pair(id(pos_1), is_rev(pos_1)),
                                         target_value + offset_1));
 
-    handle_t h = handle_graph.get_handle(id_1, rev_1);
+    handle_t h = handle_graph.get_handle(id(pos_1), is_rev(pos_1));
 
 
 
@@ -2568,11 +2563,12 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     //TODO: maybe move this somewhere else
     auto get_min_path = [&](pair<pair<id_t, bool>, int64_t> node) 
        -> vector<handle_t> {
-        /*given the path up to start, add the minimum path from start to end to
-         * path
+        /* Assuming that the path from node to pos_2 is the best path,
+         * find the path from pos_1 to pos_2 that passes through node with the
+         * given target value
          */ 
 
-        //If perfect path
+        //Get the path from pos_1 to node
         list<handle_t> result;
         auto prev = node_to_path.find(node);
         handle_t curr_handle = handle_graph.get_handle(node.first.first, 
@@ -2588,8 +2584,9 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
         }
 
         vector<handle_t> path (result.begin(), result.end());
-        //Path contains handles from pos_1 to start
+        //Path contains handles from pos_1 to node 
 
+        //Get the path from node to pos_2
         pos_t curr_pos = make_pos_t(node.first.first, node.first.second, 0);
         int64_t dist = min_distance(curr_pos, pos_2);
         while (id(curr_pos) != id(pos_2) || is_rev(curr_pos) != is_rev(pos_2)){
@@ -2638,7 +2635,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
         int64_t curr_target = next.second;
 
   
-        if (curr_node.first == id_2 && curr_node.second == rev_2) {
+        if (curr_node.first == id(pos_2) && curr_node.second == is_rev(pos_2)) {
             //If this node is the end node
             if (curr_target == offset_2) {
                 //If perfect path
@@ -2656,7 +2653,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
                 }
                 return vector<handle_t>(result.begin(), result.end());
             } else {
-                int64_t diff = abs(offset_2 - curr_target);
+                int64_t diff = abs(curr_target-offset_2 );
                 if (next_best.first == -1 || diff < next_best.first) {
                     next_best.first = diff;
                     next_best.second = make_pair(curr_node, curr_target);
@@ -2781,7 +2778,9 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
         }
         
     }
-    
+ 
+//TODO: Any path that has been found is probably still pretty good, could return it here  
+
     ///////// Phase 2
     //If there is no perfect path, look for ones still within tolerance
     //node_to_target_out contains nodes that have a path within tolerance
@@ -2798,7 +2797,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     }
 
     while (next_nodes.size() != 0) {
-        //Continue A* search
+        //Continue A* search of nodes that cannot reach pos_2 with target length
 
         pair<pair<id_t, bool>, int64_t> next = next_nodes.front();
         next_nodes.pop_front();
@@ -2808,9 +2807,9 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
         handle_t curr_handle = handle_graph.get_handle(curr_node.first, curr_node.second);
         pair<pair<id_t, bool>, int64_t> prev_node (curr_node, curr_target);
   
-        if (curr_node.first == id_2 && curr_node.second == rev_2) {
+        if (curr_node.first == id(pos_2) && curr_node.second == is_rev(pos_2)) {
             //If this node is the end node
-            int64_t diff = abs(offset_2 - curr_target);
+            int64_t diff = abs( curr_target - offset_2);
             if (next_best.first == -1 || diff < next_best.first) {
                 next_best.first = diff;
                 next_best.second = prev_node;

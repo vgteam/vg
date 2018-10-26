@@ -91,7 +91,7 @@ namespace unittest {
         }
     }//End test case
     TEST_CASE( "TVS for loopy snarls",
-                   "[tvs][bug]" ) {
+                   "[tvs]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -171,7 +171,7 @@ namespace unittest {
         }
     }//End test case
     TEST_CASE( "TVS for unary snarl",
-                   "[tvs][bug]" ) {
+                   "[tvs]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
