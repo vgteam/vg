@@ -108,6 +108,11 @@ gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
 
     vg::id_t first_node = path.mapping(0).position().node_id();
     bool is_reverse = path.mapping(0).position().is_reverse();
+    
+#ifdef debug
+    cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
+#endif
+    
     auto pred_edges = (is_reverse ? xg_index.edges_on_end(first_node) : xg_index.edges_on_start(first_node));
     for (auto& edge : pred_edges) {
         if (edge.from() == edge.to()) {
@@ -509,6 +514,13 @@ int main_index(int argc, char** argv) {
         }
     }
 
+#ifdef debug
+    cerr << "Alt paths:" << endl;
+    for (auto& kv : alt_paths) {
+        cerr << kv.first << ": " << kv.second.mapping_size() << " entries" << endl;
+    }
+#endif
+
     // Generate threads
     if (index_haplotypes || index_paths || index_gam) {
 
@@ -737,7 +749,8 @@ int main_index(int argc, char** argv) {
                                  << var.sequenceName << ":" << var.position << endl;
                             continue;
                         }
-                    } else { // Try using alt paths instead.
+                    } else {
+                        // Try using alt paths instead.
                         bool found = false;
                         for (size_t alt_index = 1; alt_index < var.alleles.size(); alt_index++) {
                             std::string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
@@ -749,6 +762,10 @@ int main_index(int argc, char** argv) {
                                 for (auto node : pred_nodes) {
                                     size_t pred_pos = variants.firstOccurrence(node);
                                     if (pred_pos != variants.invalid_position()) {
+#ifdef debug
+                                        cerr << "Found predecessor node " << gbwt::Node::id(node) << " " << gbwt::Node::is_reverse(node)
+                                            << " occurring at valid pos " << pred_pos << endl;
+#endif
                                         candidate_pos = std::max(candidate_pos, pred_pos + 1);
                                         candidate_found = true;
                                         found = true;
