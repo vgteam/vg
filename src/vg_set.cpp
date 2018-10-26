@@ -82,9 +82,9 @@ void VGset::to_xg(xg::XG& index, bool store_threads) {
 
 void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths) {
     
-    // We need to sort out the mappings from different paths by rank. This maps
-    // from path anme and then rank to Mapping.
-    map<string, map<int64_t, Mapping>> mappings;
+    // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
+    // This maps from path name to all the Mappings in the path in the order we encountered them
+    map<string, list<Mapping>> mappings;
     
     // Set up an XG index
     index.from_callback([&](function<void(Graph&)> callback) {
@@ -106,36 +106,15 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
                 cerr << "Got chunk of " << name << "!" << endl;
 #endif
 
-                // We'll move all the paths into one of these (if removed_paths is not null)
+                // We'll move all the path fragments into one of these (if removed_paths is not null)
                 std::list<Path> paths_taken;
 
                 // Remove the matching paths.
                 remove_paths(graph, paths_to_take, removed_paths ? &paths_taken : nullptr);
 
-                // Sort out all the mappings from the paths we pulled out
-                for(Path& path : paths_taken) {
-                    mappings[path.name()] = map<int64_t, Mapping>(); // We want to include empty paths as well.
-
-                    for(size_t i = 0; i < path.mapping_size(); i++) {
-                        // For each mapping, file it under its rank if a rank is
-                        // specified, or at the last rank otherwise.
-                        // TODO: this sort of duplicates logic from Paths...
-                        Mapping& mapping = *path.mutable_mapping(i);
-                        
-                        if(mapping.rank() == 0) {
-                            if(mappings[path.name()].size() > 0) {
-                                // Calculate a better rank, which is 1 more than the current largest rank.
-                                int64_t last_rank = (*mappings[path.name()].rbegin()).first;
-                                mapping.set_rank(last_rank + 1);
-                            } else {
-                                // Say it has rank 1 now.
-                                mapping.set_rank(1);
-                            }
-                        }
-                        
-                        // Move the mapping into place
-                        mappings[path.name()][mapping.rank()] = mapping;
-                    }
+                for (auto& path : paths_taken) {
+                    // Copy all the mappings from each path into the collection of mappings in order encountered
+                    std::copy(path.mapping().begin(), path.mapping().end(), std::back_inserter(mappings[path.name()]));
                 }
 
                 // Ship out the corrected graph
@@ -145,12 +124,40 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
             stream::for_each(in, handle_graph);
             
             // Now that we got all the chunks, reconstitute any siphoned-off paths into Path objects and return them.
+            // We have to handle chunks being encountered in any order, if ranks are set, or in path-forward order, if ranks are missing.
             for(auto& kv : mappings) {
                 // We'll fill in this Path object
                 Path path;
                 path.set_name(kv.first);
-                
-                for(auto& rank_and_mapping : kv.second) {
+
+                // This will hold mappings by rank.
+                // If they don't have ranks assigned, we will assign them in the order encountered.
+                map<int64_t, Mapping> mappings_by_rank;
+
+                for (auto& mapping : kv.second) {
+                    if (mapping.rank() != 0) {
+                        // It has a rank already.
+                        // Make sure we didn't try to assign something to its rank
+                        assert(!mappings_by_rank.count(mapping.rank()));
+
+                        mappings_by_rank[mapping.rank()] = mapping;
+                    } else {
+                        // Assign it the next available rank in its path
+                        int64_t next_rank;
+                        if (!mappings_by_rank.empty()) {
+                            next_rank = mappings_by_rank.rbegin()->first + 1;
+                        } else {
+                            next_rank = 1;
+                        }
+
+                        mapping.set_rank(next_rank);
+
+                        assert(!mappings_by_rank.count(mapping.rank()));
+                        mappings_by_rank[mapping.rank()] = mapping;
+                    }
+                }
+
+                for(auto& rank_and_mapping : mappings_by_rank) {
                     // Put in all the mappings. Ignore the rank since thay're already marked with and sorted by rank.
                     *path.add_mapping() = rank_and_mapping.second;
                 }
