@@ -98,7 +98,9 @@ int64_t distance(VG* graph, pos_t pos1, pos_t pos2){
         int64_t offset1 = get_offset(pos1);
         int64_t offset2 = get_offset(pos2);
 
-        shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
+        if (offset1 <= offset2) {
+            shortestDistance = offset2-offset1+1; //+1 to be consistent
+        }
 
     }
 
