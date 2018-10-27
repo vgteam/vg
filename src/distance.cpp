@@ -2431,12 +2431,12 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
     int_vector<> minRev(maxNodeID - minNodeID + 1, 0);
 
     /////// DFS to get connected componpents that are in cycles
-    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0);
+    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0, true);
 
     //Find connected components of nodes not in cycles
 
     findComponents(nodeToComponent, max, minFd, minRev, 
-                                            numCycles);
+                                            numCycles, false);
 
     maxDistances = max;
     
@@ -2500,7 +2500,7 @@ int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
 uint64_t DistanceIndex::MaxDistanceIndex::findComponents( 
         int_vector<>& nodeToComponent, int_vector<>& maxDists, 
         int_vector<>& minDistsFd, int_vector<>& minDistsRev, 
-        uint64_t currComponent                                ){
+        uint64_t currComponent, bool onlyCycles                       ){
 
     /*Assign nodes to a component
      *If onlyCycles, assign all nodes to a component of connected cycles 
@@ -2510,7 +2510,6 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
       Returns the maximum component number, the number of connected components
     */
 
-    bool onlyCycles = currComponent == 0; //if currComp = 0 then only look at cyclic components
     int64_t minNodeID = distIndex->minNodeID;
     HandleGraph* graph = distIndex->graph;
     int64_t maxNodeID = distIndex->maxNodeID;
