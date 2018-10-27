@@ -2525,7 +2525,7 @@ bool TargetValueSearch::tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, i
 vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
 
 //TODO: Doesn't work for cyclic graphs since max dist returns cap, not infinity
-    bool exact_min = false;//TODO: Put this somewhere else. True if the min heuristic is exact
+    bool exact_min = true;//TODO: Put this somewhere else. True if the min heuristic is exact
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
     DistanceHeuristic& max_distance = *upper_bound_heuristic;
     int64_t offset_1 = offset(pos_1);
