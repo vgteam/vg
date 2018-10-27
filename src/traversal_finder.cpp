@@ -21,7 +21,7 @@ vector<SnarlTraversal> PathBasedTraversalFinder::find_traversals(const Snarl& si
     vector<SnarlTraversal> ret;
 
     // If the snarl is not an ultrabubble, just return an empty set of traversals.
-    if (!site.type() == ULTRABUBBLE){
+    if (site.type() != ULTRABUBBLE){
         return ret;
     }
    
@@ -994,9 +994,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         Node* visited_node = augmented.graph.get_node(found_visit.node_id());
         
         const Snarl* child = snarl_manager.into_which_snarl(found_visit);
-        if (child != nullptr && child != managed_site
-            && snarl_manager.into_which_snarl(reverse(found_visit)) != managed_site) {
-            // If the node in this orientation enters a child
+        if (child != nullptr && child != managed_site &&
+            snarl_manager.into_which_snarl(reverse(found_visit)) != managed_site &&
+            !(eat_trivial_children && snarl_manager.is_trivial(child, augmented.graph))) {
+            // If the node in this orientation enters a child, and it's not a
+            // trivial child we are taking care of ourselves
         
             // Visit the child
             Visit child_visit;
@@ -1394,6 +1396,11 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
 
     for (const Snarl* child : children) {
         // Go through all the child snarls
+
+        if (eat_trivial_children && snarl_manager.is_trivial(child, augmented.graph)) {
+            // Skip trivial children
+            continue;
+        }
         
 #ifdef debug
         cerr << "Base path on " << *child << endl;
