@@ -2764,27 +2764,39 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
     ///////// Phase 2
     //If there is no perfect path, look for ones still within tolerance
+    auto cmp = [] (pair<pair<pair<id_t, bool>, int64_t>, int64_t> x,
+                          pair<pair<pair<id_t, bool>, int64_t>, int64_t> y) {
+        //Comparison function for priority queue
+        return (x.second > y.second);
+    };
+    priority_queue<pair<pair<pair<id_t, bool>, int64_t>, int64_t>,
+                  vector<pair<pair<pair<id_t, bool>, int64_t>, int64_t>>,
+                  decltype(cmp)> reachable(cmp);
 
     for (auto it : node_to_target_shorter) {
        pair<id_t, bool> node = it.first;
        int64_t bound = it.second;
-       next_nodes.emplace_back(node, bound);
+       pos_t pos = make_pos_t(node.first, node.second, 0);
+       int64_t diff = bound - max_distance(pos, pos_2) ; 
+       reachable.push(make_pair(make_pair(node, bound), diff));
 
     }
     for (auto it : node_to_target_longer) {
        pair<id_t, bool> node = it.first;
        int64_t bound = it.second;
-       next_nodes.emplace_back(node, bound);
+       pos_t pos = make_pos_t(node.first, node.second, 0);
+       int64_t diff = min_distance(pos, pos_2) - bound; 
+       reachable.push(make_pair(make_pair(node, bound), diff));
 
     } 
 
-    while (next_nodes.size() != 0) {
+    while (reachable.size() != 0) {
         //Continue A* search of nodes that cannot reach pos_2 with target length
 
-        pair<pair<id_t, bool>, int64_t> next = next_nodes.front();
-        next_nodes.pop_front();
-        pair<id_t, bool> curr_node = next.first;
-        int64_t curr_target = next.second;
+        pair<pair<pair<id_t, bool>, int64_t>,int64_t> next = reachable.top();
+        reachable.pop();
+        pair<id_t, bool> curr_node = next.first.first;
+        int64_t curr_target = next.first.second;
 
         handle_t curr_handle = handle_graph.get_handle(curr_node.first, curr_node.second);
         pair<pair<id_t, bool>, int64_t> prev_node (curr_node, curr_target);
@@ -2826,7 +2838,9 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
                                                                    new_target);
                         node_to_path[make_pair(make_pair(id, rev), 
                                                       new_target)] = prev_node;
-                        next_nodes.emplace_back(make_pair(id, rev), new_target);
+                        int64_t diff = min_dist - new_target;
+                        reachable.push(make_pair(make_pair(make_pair(id, rev),
+                                            new_target), diff));
                     }
                      
                 } else if (max_dist <= new_target){
@@ -2840,7 +2854,9 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
                                                                     new_target);
                         node_to_path[make_pair(make_pair(id, rev), 
                                                        new_target)] = prev_node;
-                        next_nodes.emplace_back(make_pair(id, rev), new_target);
+                        int64_t diff = new_target - max_dist;
+                        reachable.push(make_pair(make_pair(make_pair(id, rev),
+                                            new_target), diff));
                     }
                 }
             }
