@@ -428,7 +428,7 @@ TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverte
   REQUIRE(found_trav_2);
 }
 
-TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") {
+TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]") {
 
   SECTION("Directed cycle does not count as ultrabubble") {
     
@@ -746,6 +746,25 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals of simple inversions",
     
     // There should be inverted and normal traversals
     REQUIRE(traversals.size() == 2);
+    
+    bool found_inverted = false;
+    bool found_normal = false;
+    
+    for (auto& trav : traversals) {
+        REQUIRE(trav.visit_size() == 3);
+        REQUIRE(trav.visit(0).node_id() == 1);
+        REQUIRE(trav.visit(1).node_id() == 2);
+        REQUIRE(trav.visit(2).node_id() == 3);
+        
+        if (trav.visit(1).backward()) {
+            found_inverted = true;
+        } else {
+            found_normal = true;
+        }
+    }
+    
+    REQUIRE(found_inverted);
+    REQUIRE(found_normal);
 }
 
 }
