@@ -5,7 +5,7 @@
 
 #include "cluster.hpp"
 
-#define debug_mem_clusterer
+//#define debug_mem_clusterer
 
 using namespace std;
 using namespace structures;
@@ -391,6 +391,84 @@ bool ShuffledPairs::iterator::operator!=(const iterator& other) const {
     return !(*this == other);
 }
     
+int32_t MEMClusterer::estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2,
+                                          int64_t graph_dist, BaseAligner* aligner) const {
+    
+    // the length of the sequence in between the MEMs (can be negative if they overlap)
+    int64_t between_length = mem_2->begin - mem_1->end;
+    
+    if (between_length < 0) {
+        // the MEMs overlap, but this can occur in some insertions and deletions
+        // because the SMEM algorithm is "greedy" in taking up as much of the read
+        // as possible
+        // we can check if this happened directly, but it's expensive
+        // so for now we just give it the benefit of the doubt but adjust the edge
+        // score so that the matches don't get double counted
+        
+        int64_t extra_dist = abs(graph_dist - between_length);
+        
+        return aligner->match * between_length
+               - (extra_dist ? (extra_dist - 1) * aligner->gap_extension + aligner->gap_open : 0);
+    }
+    else {
+        int64_t gap_length = abs(between_length - graph_dist);
+        // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
+        return gap_length ? -((gap_length - 1) * aligner->gap_extension + aligner->gap_open) : 0;
+    }
+}
+
+void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                             int64_t optimal_separation) {
+    
+    // sort so that pairs with same clusters are adjacent
+    sort(cluster_pairs.begin(), cluster_pairs.end());
+    
+#ifdef debug_mem_clusterer
+    cerr << "pairs before deduplicating:" << endl;
+    for (const auto& pair_record : cluster_pairs) {
+        cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
+    }
+    cerr << "target separation " << optimal_separation << endl;
+#endif
+    
+    size_t removed_so_far = 0;
+    
+    for (size_t i = 0; i < cluster_pairs.size();) {
+        // find the range of values that have the same pair of indices
+        size_t range_end = i + 1;
+        while (range_end < cluster_pairs.size() ? cluster_pairs[i].first == cluster_pairs[range_end].first : false) {
+            range_end++;
+        }
+        
+        // find the pair that is closest to the middle of the target interval
+        int64_t best_separation = cluster_pairs[i].second;
+        size_t best_idx = i;
+        for (size_t j = i + 1; j < range_end; j++) {
+            if (abs(cluster_pairs[j].second - optimal_separation) < abs(best_separation - optimal_separation)) {
+                best_separation = cluster_pairs[j].second;
+                best_idx = j;
+            }
+        }
+        
+        // move the best pair with these indices into the part of the vector we will keep
+        cluster_pairs[i - removed_so_far] = cluster_pairs[best_idx];
+        
+        // we remove the entire interval except for one
+        removed_so_far += range_end - i - 1;
+        i = range_end;
+    }
+    
+    // trim off the end of the vector, which now contains arbitrary values
+    cluster_pairs.resize(cluster_pairs.size() - removed_so_far);
+    
+#ifdef debug_mem_clusterer
+    cerr << "pairs after deduplicating:" << endl;
+    for (const auto& pair_record : cluster_pairs) {
+        cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
+    }
+#endif
+}
+    
 MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
                                  size_t min_mem_length) {
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
@@ -430,32 +508,6 @@ MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Al
 void MEMClusterer::HitGraph::add_edge(size_t from, size_t to, int32_t weight, int64_t distance) {
     nodes[from].edges_from.emplace_back(to, weight, distance);
     nodes[to].edges_to.emplace_back(from, weight, distance);
-}
-    
-int32_t MEMClusterer::estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2,
-                                          int64_t graph_dist, BaseAligner* aligner) const {
-    
-    // the length of the sequence in between the MEMs (can be negative if they overlap)
-    int64_t between_length = mem_2->begin - mem_1->end;
-    
-    if (between_length < 0) {
-        // the MEMs overlap, but this can occur in some insertions and deletions
-        // because the SMEM algorithm is "greedy" in taking up as much of the read
-        // as possible
-        // we can check if this happened directly, but it's expensive
-        // so for now we just give it the benefit of the doubt but adjust the edge
-        // score so that the matches don't get double counted
-        
-        int64_t extra_dist = abs(graph_dist - between_length);
-        
-        return aligner->match * between_length
-               - (extra_dist ? (extra_dist - 1) * aligner->gap_extension + aligner->gap_open : 0);
-    }
-    else {
-        int64_t gap_length = abs(between_length - graph_dist);
-        // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
-        return gap_length ? -((gap_length - 1) * aligner->gap_extension + aligner->gap_open) : 0;
-    }
 }
     
 void MEMClusterer::HitGraph::connected_components(vector<vector<size_t>>& components_out) const {
@@ -2443,54 +2495,8 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     }
     
     if (!left_alt_cluster_anchors.empty() || !right_alt_cluster_anchors.empty()) {
-        
-        // sort so that pairs with same clusters are adjacent
-        sort(to_return.begin(), to_return.end());
-        
-#ifdef debug_mem_clusterer
-        cerr << "pairs before deduplicating:" << endl;
-        for (const auto& pair_record : to_return) {
-            cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
-        }
-        cerr << "target separation " << optimal_separation << endl;
-#endif
-        
-        size_t removed_so_far = 0;
-        
-        for (size_t i = 0; i < to_return.size();) {
-            // find the range of values that have the same pair of indices
-            size_t range_end = i + 1;
-            while (range_end < to_return.size() ? to_return[i].first == to_return[range_end].first : false) {
-                range_end++;
-            }
-            
-            // find the pair that is closest to the middle of the target interval
-            int64_t best_separation = to_return[i].second;
-            size_t best_idx = i;
-            for (size_t j = i + 1; j < range_end; j++) {
-                if (abs(to_return[j].second - optimal_separation) < abs(best_separation - optimal_separation)) {
-                    best_separation = to_return[j].second;
-                    best_idx = j;
-                }
-            }
-            
-            // move the best pair with these indices into the part of the vector we will keep
-            to_return[i - removed_so_far] = to_return[best_idx];
-            
-            // we remove the entire interval except for one
-            removed_so_far += range_end - i - 1;
-            i = range_end;
-        }
-        
-        // trim off the end of the vector, which now contains arbitrary values
-        to_return.resize(to_return.size() - removed_so_far);
-        
-#ifdef debug_mem_clusterer
-        cerr << "pairs after deduplicating:" << endl;
-        for (const auto& pair_record : to_return) {
-            cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
-        }
-#endif
+        // get rid of extra copies of pairs due to alternate anchor positions
+        deduplicate_cluster_pairs(to_return, optimal_separation);
     }
     
     return to_return;
@@ -2820,7 +2826,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     }
     
     
-    if (next_best.first <= tolerance) {
+    if (next_best.first != -1 && next_best.first <= tolerance) {
         
         //Backtrack to get path
         list<handle_t> result;
@@ -2935,6 +2941,85 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
     }
     
     return hit_graph;
+}
+    
+vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                        const Alignment& alignment_2,
+                                                                        const vector<cluster_t*>& left_clusters,
+                                                                        const vector<cluster_t*>& right_clusters,
+                                                                        const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                        const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                        int64_t optimal_separation,
+                                                                        int64_t max_deviation) {
+    
+#ifdef debug_mem_clusterer
+    cerr << "clustering pairs of clusters" << endl;
+#endif
+    
+    vector<pair<pair<size_t, size_t>, int64_t>> to_return;
+    
+    for (size_t i = 0, i_end = left_clusters.size() + left_alt_cluster_anchors.size(); i < i_end; i++) {
+        
+        // choose the appropriate left cluster and assign it a position
+        size_t left_clust_idx;
+        hit_t left_clust_hit;
+        if (i < left_clusters.size()) {
+            left_clust_idx = i;
+            left_clust_hit = left_clusters[i]->front();
+        }
+        else {
+            auto& alt_anchor = left_alt_cluster_anchors[i - left_clusters.size()];
+            left_clust_idx = alt_anchor.first;
+            left_clust_hit = left_clusters[left_clust_idx]->at(alt_anchor.second);
+        }
+        
+        for (size_t j = 0, j_end  = right_clusters.size() + right_alt_cluster_anchors.size(); j < j_end; j++) {
+            
+            // choose the appropriate right cluster and assign it a position
+            size_t right_clust_idx;
+            hit_t right_clust_hit;
+            if (j < right_clusters.size()) {
+                right_clust_idx = j;
+                right_clust_hit = right_clusters[j]->front();
+            }
+            else {
+                auto& alt_anchor = right_alt_cluster_anchors[j - right_clusters.size()];
+                right_clust_idx = alt_anchor.first;
+                right_clust_hit = right_clusters[right_clust_idx]->at(alt_anchor.second);
+            }
+            
+            // adjust the target value by how far away we are from the ends of the fragment
+            int64_t left_clip = left_clust_hit.first->begin - alignment_1.sequence().begin();
+            int64_t right_clip = alignment_2.sequence().end() - right_clust_hit.first->begin;
+            int64_t target_separation = optimal_separation - left_clip - right_clip;
+            
+#ifdef debug_mem_clusterer
+            cerr << "measuring distance between cluster " << left_clust_idx << " (" << left_clust_hit.second << ") and " << right_clust_idx << " (" << right_clust_hit.second << ") with target of " << target_separation << " and max deviation " << max_deviation << endl;
+#endif
+            
+            // find the closest distance to this in the path
+            int64_t tv_dist = tvs.tv_path_length(left_clust_hit.second, right_clust_hit.second,
+                                                 target_separation, max_deviation);
+            
+#ifdef debug_mem_clusterer
+            cerr << "estimate distance at " << tv_dist << endl;
+#endif
+            
+            if (tv_dist != numeric_limits<int64_t>::max()) {
+                // we found a suitable path, add it to the return vector
+                to_return.emplace_back(make_pair(left_clust_idx, right_clust_idx),
+                                       tv_dist + left_clip + right_clip);
+                
+            }
+        }
+    }
+    
+    if (!left_alt_cluster_anchors.empty() || !right_alt_cluster_anchors.empty()) {
+        // get rid of extra copies of pairs due to alternate anchor positions
+        deduplicate_cluster_pairs(to_return, optimal_separation);
+    }
+    
+    return to_return;
 }
 
 // collect node starts to build out graph

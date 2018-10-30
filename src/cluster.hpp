@@ -177,6 +177,25 @@ public:
                                size_t min_median_mem_coverage_for_split = 0,
                                double suboptimal_edge_pruning_factor = .75);
     
+    /**
+     * Given two vectors of clusters, an xg index, and bounds on the distance between clusters,
+     * returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated
+     * distance.
+     *
+     * Clusters are assumed to be located at the position of the first MEM hit they contain. Optionally,
+     * additional MEMs may be identied as possible anchors for the cluster. Additional anchors are
+     * provided as pairs of (cluster index, MEM index within cluster). Only one result will be returned
+     * per pair of clusters regardless of how many alternate anchors are given.
+     */
+    virtual vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
+                                                                      const Alignment& alignment_2,
+                                                                      const vector<cluster_t*>& left_clusters,
+                                                                      const vector<cluster_t*>& right_clusters,
+                                                                      const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                      const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                      int64_t optimal_separation,
+                                                                      int64_t max_deviation) = 0;
+    
 protected:
     class HitNode;
     class HitEdge;
@@ -192,6 +211,10 @@ protected:
     /// connecting them
     int32_t estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2, int64_t graph_dist,
                                 BaseAligner* aligner) const;
+    
+    /// Sorts cluster pairs and removes copies of the same cluster pair, choosing only the one whose distance
+    /// is closest to the optimal separation
+    void deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs, int64_t optimal_separation);
 };
     
 class MEMClusterer::HitGraph {
@@ -403,11 +426,7 @@ public:
                               bool unstranded,
                               size_t max_expected_dist_approx_error = 8);
     
-    /**
-     * Given two vectors of clusters, an xg index, an bounds on the distance between clusters,
-     * returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated
-     * distance
-     */
+    /// Concrete implementation of virtual method from MEMClusterer
     vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
                                                               const Alignment& alignment_2,
                                                               const vector<cluster_t*>& left_clusters,
@@ -501,7 +520,7 @@ private:
     vector<pair<size_t, size_t>> compute_tail_mem_coverage(const Alignment& alignment,
                                                            const vector<MaximalExactMatch>& mems);
     
-    
+    /// Concrete implementation of virtual method from MEMClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
                             size_t min_mem_length);
     
@@ -590,7 +609,19 @@ public:
     TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index);
     ~TVSClusterer() = default;
     
+    /// Concrete implementation of virtual method from MEMClusterer
+    vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
+                                                              const Alignment& alignment_2,
+                                                              const vector<cluster_t*>& left_clusters,
+                                                              const vector<cluster_t*>& right_clusters,
+                                                              const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                              const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                              int64_t optimal_separation,
+                                                              int64_t max_deviation);
+    
 private:
+    
+    /// Concrete implementation of virtual method from MEMClusterer
     HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
                             size_t min_mem_length);
     

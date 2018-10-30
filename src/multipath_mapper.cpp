@@ -4,7 +4,7 @@
 //
 //
 
-#define debug_multipath_mapper
+//#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -164,50 +164,54 @@ namespace vg {
                                                                                    vector<clustergraph_t>& cluster_graphs1,
                                                                                    vector<clustergraph_t>& cluster_graphs2,
                                                                                    OrientedDistanceMeasurer* distance_measurer) {
+        // make vectors of cluster pointers to shim into the cluster pairing function
+        vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
+        for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+            cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
+        }
+        for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+            cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
+        }
+        
+        // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
+        vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
+        for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+            auto& mem_cluster = *cluster_mems_1[i];
+            for (size_t j = 1; j < mem_cluster.size(); j++) {
+                if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                    alt_anchors_1.emplace_back(i, j);
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+            auto& mem_cluster = *cluster_mems_2[i];
+            for (size_t j = 1; j < mem_cluster.size(); j++) {
+                if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                    alt_anchors_2.emplace_back(i, j);
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        
+        // Compute the pairs of cluster graphs and their approximate distances from each other
         if (use_tvs_clusterer) {
-            return vector<pair<pair<size_t, size_t>, int64_t>>();
+            TVSClusterer clusterer(xindex, distance_index);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(10.0 * fragment_length_distr.stdev()));
         }
         else {
-            // make vectors of cluster pointers to shim into the cluster pairing function
-            vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
-            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-                cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
-            }
-            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-                cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
-            }
-            
-            // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
-            vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
-            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-                auto& mem_cluster = *cluster_mems_1[i];
-                for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
-                        alt_anchors_1.emplace_back(i, j);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-                auto& mem_cluster = *cluster_mems_2[i];
-                for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
-                        alt_anchors_2.emplace_back(i, j);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            
-            // Compute the pairs of cluster graphs and their approximate distances from each other
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
             return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
                                            alt_anchors_1, alt_anchors_2,
                                            fragment_length_distr.mean(),
-                                           ceil(fragment_length_distr.stdev()));
+                                           ceil(10.0 * fragment_length_distr.stdev()));
         }
     }
     
@@ -1299,11 +1303,6 @@ namespace vg {
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
         
-        if (use_tvs_clusterer) {
-            cerr << "[error] Paired mapping is not yet implemented for TVS clusterer" << endl;
-            exit(1);
-        }
-        
         // empty the output vector (just for safety)
         multipath_aln_pairs_out.clear();
         
@@ -1473,7 +1472,6 @@ namespace vg {
         if (multipath_aln_pairs_out.empty()) {
             // we haven't already obtained a paired mapping by rescuing into a repeat, so we should try to get one
             // by cluster pairing
-            
             
             cluster_pairs = get_cluster_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, &(*distance_measurer));
             
