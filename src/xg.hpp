@@ -155,9 +155,6 @@ public:
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
 
-    int64_t get_min_id() const { return min_id; }
-    int64_t get_max_id() const { return max_id; }
-
     ////////////////////////////////////////////////////////////////////////////
     // Here is the old low-level API that needs to be restated in terms of the 
     // locally traversable graph API and then removed.
@@ -236,11 +233,21 @@ public:
     using HandleGraph::for_each_handle;
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
+    /// Get the minimum node ID used in the graph, if any are used
+    virtual id_t min_node_id() const;
+    /// Get the maximum node ID used in the graph, if any are used
+    virtual id_t max_node_id() const;
+    
+    // TODO: There's currently no really good efficient way to implement
+    // get_degree; we have to decode each edge to work out what node side it is
+    // on. So we use the default implementation.
     
     ////////////////////////
     // Path handle graph API
     ////////////////////////
-    
+   
+    /// Determine if a path with a given name exists
+    virtual bool has_path(const string& path_name) const;
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
     /// Look up the name of a path from a handle to it
@@ -658,10 +665,6 @@ private:
     const static int G_EDGE_OFFSET_OFFSET = 0;
     const static int G_EDGE_TYPE_OFFSET = 1;
     const static int G_EDGE_LENGTH = 2;
-    
-    // And some masks
-    const static size_t HIGH_BIT = (size_t)1 << 63;
-    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
     
     /// This is a utility function for the edge exploration. It says whether we
     /// want to visit an edge depending on its type, whether we're the to or

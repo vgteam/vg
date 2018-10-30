@@ -206,11 +206,6 @@ int main_augment(int argc, char** argv) {
         }
     });
 
-    if (argc <= 3) {
-        help_augment(argv, parser);
-        return 1;
-    }
-    
     // Parse the command line options, updating optind.
     parser.parse(argc, argv);
 
@@ -220,14 +215,15 @@ int main_augment(int argc, char** argv) {
     }
     thread_count = get_thread_count();
 
-    // Parse the arguments
-    if (optind >= argc) {
+    // Parse the two positional arguments
+    if (optind + 2 > argc) {
+        cerr << "[vg augment] error: too few arguments" << endl;
         help_augment(argv, parser);
         return 1;
     }
 
-    string graph_file_name = argv[optind++];
-    gam_in_file_name = argv[optind++];
+    string graph_file_name = get_input_file_name(optind, argc, argv);
+    gam_in_file_name = get_input_file_name(optind, argc, argv);
 
     if (gam_in_file_name == "-" && graph_file_name == "-") {
         cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;

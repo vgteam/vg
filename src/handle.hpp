@@ -25,8 +25,13 @@ using namespace std;
 /// Two handles are equal iff they refer to the same orientation of the same node.
 /// Only handles in the same graph may be compared.
 /// Handles have no ordering, but can be hashed.
-struct handle_t {
-    char data[sizeof(id_t)];
+/// Bit usage should be right-justified in machine endian order (i.e. a graph
+/// implementation must use the lowest bits of the lowest byte first, and must
+/// only use other bits of other bytes when the number of nodes/handles is
+/// sufficiently large as to require itin the chosen representation).
+/// This allows for overlays that can wrap their backing graphs' handles without using any more space.
+/// TODO: Note that this precludes us using pointers as handles unless we make them wider.
+struct handle_t { char data[sizeof(id_t)];
 };
 
 typedef pair<handle_t, handle_t> edge_t;
@@ -36,22 +41,22 @@ typedef pair<handle_t, handle_t> edge_t;
 // Other implementations can store other things (or maybe int indexes into tables)
 
 /// View a handle as an integer
-inline int64_t& as_integer(handle_t& handle) {
-    return reinterpret_cast<int64_t&>(handle);
+inline uint64_t& as_integer(handle_t& handle) {
+    return reinterpret_cast<uint64_t&>(handle);
 }
 
 /// View a const handle as a const integer
-inline const int64_t& as_integer(const handle_t& handle) {
-    return reinterpret_cast<const int64_t&>(handle);
+inline const uint64_t& as_integer(const handle_t& handle) {
+    return reinterpret_cast<const uint64_t&>(handle);
 }
 
 /// View an integer as a handle
-inline handle_t& as_handle(int64_t& value) {
+inline handle_t& as_handle(uint64_t& value) {
     return reinterpret_cast<handle_t&>(value);
 }
 
 /// View a const integer as a const handle
-inline const handle_t& as_handle(const int64_t& value) {
+inline const handle_t& as_handle(const uint64_t& value) {
     return reinterpret_cast<const handle_t&>(value);
 }
 
@@ -65,6 +70,36 @@ inline bool operator!=(const handle_t& a, const handle_t& b) {
     return as_integer(a) != as_integer(b);
 }
 
+/// Define a way to pack an integer and an orientation bit into a handle_t. XG
+/// and VG both ought to use these functions instead of doing fiddly bit
+/// packing themselves.
+struct EasyHandlePacking {
+
+    /// Extract the packed integer
+    inline static uint64_t unpack_number(const handle_t& handle) {
+        return as_integer(handle) >> 1;
+    }
+    
+    /// Extract the packed bit
+    inline static bool unpack_bit(const handle_t& handle) {
+        return as_integer(handle) & 1;
+    }
+    
+    /// Pack up an integer and a bit into a handle
+    inline static handle_t pack(const uint64_t& number, const bool& bit) {
+        // Make sure the number doesn't use all the bits
+        assert(number < (0x1ULL << 63));
+        
+        return as_handle((number << 1) | (bit ? 1 : 0));
+    }
+    
+    /// Toggle the packed bit and return a new handle
+    inline static handle_t toggle_bit(const handle_t& handle) {
+        return as_handle(as_integer(handle) ^ 1);
+    }
+
+};
+
 /**
  * Define hashes for handles.
  */
@@ -74,7 +109,8 @@ struct wang_hash<handle_t> {
         return wang_hash<std::int64_t>()(as_integer(handle));
     }
 };
-    
+
+/// A path handle is an opaque reference to a named path in a graph.
 struct path_handle_t {
     char data[sizeof(int64_t)];
 };
@@ -109,6 +145,8 @@ inline bool operator!=(const path_handle_t& a, const path_handle_t& b) {
     return as_integer(a) != as_integer(b);
 }
 
+/// An occurrence handle is an opaque reference to an occurrence of an oriented
+/// node along a path in a graph
 struct occurrence_handle_t {
     char data[2 * sizeof(int64_t)];
 };
@@ -175,7 +213,9 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
-    
+   
+    // TODO: Method to check if a node exists by ID?
+   
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
     
@@ -201,12 +241,23 @@ public:
     virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const = 0;
     
     /// Loop over all the nodes in the graph in their local forward
-    /// orientations, in their internal stored order. Stop if the iteratee returns false.
+    /// orientations, in their internal stored order. Stop if the iteratee
+    /// returns false. Can be told to run in parallel, in which case stopping
+    /// after a false return value is on a best-effort basis and iteration
+    /// order is not defined.
     virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const = 0;
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
     virtual size_t node_size() const = 0;
+    
+    /// Return the smallest ID in the graph, or some smaller number if the
+    /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
+    virtual id_t min_node_id() const = 0;
+    
+    /// Return the largest ID in the graph, or some larger number if the
+    /// largest ID is unavailable. Return value is unspecified if the graph is empty.
+    virtual id_t max_node_id() const = 0;
     
     ////////////////////////////////////////////////////////////////////////////
     // Interface that needs to be using'd
@@ -214,6 +265,7 @@ public:
     
     /// Loop over all the handles to next/previous (right/left) nodes. Works
     /// with a callback that just takes all the handles and returns void.
+    /// Has to be a template because we can't overload on the types of std::function arguments otherwise.
     /// MUST be pulled into implementing classes with `using` in order to work!
     template <typename T>
     auto follow_edges(const handle_t& handle, bool go_left, T&& iteratee) const
@@ -262,13 +314,23 @@ public:
         for_each_handle(lambda, parallel);
     }
     
-    ////////////////////////////////////////////////////////////////////////////
-    // Concrete utility methods
-    ////////////////////////////////////////////////////////////////////////////
-    
     /// Get a handle from a Visit Protobuf object.
     /// Must be using'd to avoid shadowing.
     handle_t get_handle(const Visit& visit) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Additional optional interface with a default implementation
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Get the number of edges on the right (go_left = false) or left (go_left
+    /// = true) side of the given handle. The default implementation is O(n) in
+    /// the number of edges returned, but graph implementations that track this
+    /// information more efficiently can override this method.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Concrete utility methods
+    ////////////////////////////////////////////////////////////////////////////
     
     /// Get a Protobuf Visit from a handle.
     Visit to_visit(const handle_t& handle) const;
@@ -295,7 +357,11 @@ public:
     // Path handle interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
     
-    /// Look up the path handle for the given path name
+    /// Determine if a path name exists and is legal to get a path handle for.
+    virtual bool has_path(const string& path_name) const = 0;
+    
+    /// Look up the path handle for the given path name.
+    /// The path with that name must exist.
     virtual path_handle_t get_path_handle(const string& path_name) const = 0;
     
     /// Look up the name of a path from a handle to it
@@ -303,20 +369,23 @@ public:
     
     /// Returns the number of node occurrences in the path
     virtual size_t get_occurrence_count(const path_handle_t& path_handle) const = 0;
-    
+
     /// Returns the number of paths stored in the graph
     virtual size_t get_path_count() const = 0;
     
     /// Execute a function on each path in the graph
+    // TODO: allow stopping early?
     virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const = 0;
     
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
     virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
     
-    /// Get a handle to the first occurrence in a path
+    /// Get a handle to the first occurrence in a path.
+    /// The path MUST be nonempty.
     virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const = 0;
     
     /// Get a handle to the last occurrence in a path
+    /// The path MUST be nonempty.
     virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const = 0;
     
     /// Returns true if the occurrence is not the last occurence on the path, else false
@@ -336,6 +405,20 @@ public:
     
     /// Returns the 0-based ordinal rank of a occurrence on a path
     virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Additional optional interface with a default implementation
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Returns true if the given path is empty, and false otherwise
+    virtual bool is_empty(const path_handle_t& path_handle) const;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Concrete utility methods
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Loop over all the occurrences along a path, from first through last
+    void for_each_occurrence_in_path(const path_handle_t& path, const function<void(const occurrence_handle_t&)>& iteratee) const;
 };
 
 /**
@@ -355,6 +438,10 @@ public:
     
     /// Remove the node belonging to the given handle and all of its edges.
     /// Does not update any stored paths.
+    /// Invalidates the destroyed handle.
+    /// May be called during serial for_each_handle iteration **ONLY** on the node being iterated.
+    /// May **NOT** be called during parallel for_each_handle iteration.
+    /// May **NOT** be called on the node from which edges are being followed during follow_edges.
     virtual void destroy_handle(const handle_t& handle) = 0;
     
     /// Create an edge connecting the given handles in the given order and orientations.
@@ -412,7 +499,45 @@ public:
         auto parts = divide_handle(handle, vector<size_t>{offset});
         return make_pair(parts.front(), parts.back());
     }
-}; 
+};
+
+/**
+ * This is the interface for a handle graph with embedded paths where the paths can be modified.
+ * Note that if the *graph* can also be modified, the implementation will also
+ * need to inherit from MutableHandleGraph, via the combination
+ * MutablePathMutableHandleGraph interface.
+ * TODO: This is a very limited interface at the moment. It will probably need to be extended.
+ */
+class MutablePathHandleGraph : virtual public PathHandleGraph {
+public:
+    
+    /**
+     * Destroy the given path. Invalidates handles to the path and its node occurrences.
+     */
+    virtual void destroy_path(const path_handle_t& path) = 0;
+
+    /**
+     * Create a path with the given name. The caller must ensure that no path
+     * with the given name exists already, or the behavior is undefined.
+     * Returns a handle to the created empty path. Handles to other paths must
+     * remain valid.
+     */
+    virtual path_handle_t create_path_handle(const string& name) = 0;
+    
+    /**
+     * Append a visit to a node to the given path. Returns a handle to the new
+     * final occurrence on the path which is appended. Handles to prior
+     * occurrences on the path, and to other paths, must remain valid.
+     */
+    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append) = 0;
+};
+
+/**
+ * This is the interface for a graph which is mutable and which has paths which are also mutable.
+ */
+class MutablePathMutableHandleGraph : virtual public MutablePathHandleGraph, virtual public MutableHandleGraph {
+    // No extra methods!
+};
 
 }
 

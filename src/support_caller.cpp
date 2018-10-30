@@ -224,6 +224,16 @@ SupportCaller::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const 
         // No empty reference paths allowed
         throw runtime_error("Reference path cannot be empty");
     }
+    
+    if (index.by_id.size() != index.by_start.size()) {
+        // Catch as soon as possible the case where the path being called against is cyclic.
+        // We don't know how to deal with that so we abort.
+        cerr << "error[SupportCaller::PrimaryPath]: Some nodes occur more than once along the path "
+            << ref_path_name << " being called against. Calling against a syclic path is not well-defined. "
+            << "Calling will now be aborted. "
+            << "See https://github.com/vgteam/vg/issues/1946 for more information and potential workarounds." << endl;\
+        exit(1);
+    }
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
@@ -618,9 +628,9 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
 
-    // We need to be an ultrabubble for the traversal finder to work right.
-    // TODO: generalize it
-    assert(site.type() == ULTRABUBBLE);
+    // We need to be a-directed-cyclic and start-end-reachable for the traversal finder to work right.
+    assert(site.start_end_reachable());
+    assert(site.directed_acyclic_net_graph());
 
 
 #ifdef debug
@@ -1200,13 +1210,17 @@ void SupportCaller::call(
             }
         }
         
+        // What have to be true about the site for us to find traversals of it.
+        // We can handle some things that aren't ultrabubbles, but we can't yet handle general snarls.
+        bool site_traversable = site->start_end_reachable() && site->directed_acyclic_net_graph();
         
-        if (site->type() == ULTRABUBBLE && primary_path != nullptr) {
+        
+        if (site_traversable && primary_path != nullptr) {
             // This site is an ultrabubble on a primary path
         
             // Throw it in the final vector of sites we're going to process.
             sites.push_back(site);
-        } else if (site->type() == ULTRABUBBLE && !convert_to_vcf) {
+        } else if (site_traversable && !convert_to_vcf) {
             // This site is an ultrabubble and we can handle things off the
             // primary path.
             
