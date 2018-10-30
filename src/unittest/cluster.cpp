@@ -5,6 +5,7 @@
 #include <set>
 #include "json2pb.h"
 #include "vg.hpp"
+#include "xg.hpp"
 #include "catch.hpp"
 #include "snarls.hpp"
 #include "cluster.hpp"
