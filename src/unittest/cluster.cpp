@@ -226,7 +226,7 @@ namespace unittest {
 
     TEST_CASE( "TVS for random graph",
                    "[tvs]" ) {
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i  < 0; i++) {
             VG graph = randomGraph(1000, 20, 100);
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();

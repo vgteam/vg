@@ -2836,18 +2836,18 @@ vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& p
 
     for (auto it : node_to_target_shorter) {
        pair<id_t, bool> node = it.first;
-       int64_t bound = it.second;
+       int64_t target = it.second;
        pos_t pos = make_pos_t(node.first, node.second, 0);
-       int64_t diff = bound - max_distance(pos, pos_2) ; 
-       reachable.push(make_pair(make_pair(node, bound), diff));
+       int64_t diff = target - max_distance(pos, pos_2) ; 
+       reachable.push(make_pair(make_pair(node, target), diff));
 
     }
     for (auto it : node_to_target_longer) {
        pair<id_t, bool> node = it.first;
-       int64_t bound = it.second;
+       int64_t target = it.second;
        pos_t pos = make_pos_t(node.first, node.second, 0);
-       int64_t diff = min_distance(pos, pos_2) - bound; 
-       reachable.push(make_pair(make_pair(node, bound), diff));
+       int64_t diff = min_distance(pos, pos_2) - target; 
+       reachable.push(make_pair(make_pair(node, target), diff));
 
     } 
 
@@ -2869,64 +2869,78 @@ vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& p
                 next_best.first = diff;
                 next_best.second = prev_node;
             }
-        }
+        } else {
 
-        //If this is any other node
+            //If this is any other node
+            //TODO: Should be able to traverse the start node twice if this is a cyclic graph
             
-        int64_t new_target = curr_target -handle_graph.get_length(curr_handle);
-        auto add_next = [&](const handle_t& h)-> bool {
-            id_t id = handle_graph.get_id(h);
-            bool rev = handle_graph.get_is_reverse(h);
-            pos_t new_pos = make_pos_t(id, rev, 0);
+            int64_t new_target = curr_target -
+                                          handle_graph.get_length(curr_handle);
+            auto add_next = [&](const handle_t& h)-> bool {
+                id_t id = handle_graph.get_id(h);
+                bool rev = handle_graph.get_is_reverse(h);
+                pos_t new_pos = make_pos_t(id, rev, 0);
 
 
-            int64_t min_dist = min_distance(new_pos, pos_2); 
-            int64_t max_dist = max_distance(new_pos, pos_2); 
+                int64_t min_dist = min_distance(new_pos, pos_2); 
+                int64_t max_dist = max_distance(new_pos, pos_2); 
 
-            if (min_dist != -1) {
-                auto prev_max_target = node_to_target_shorter.find(
+                if (min_dist != -1) {
+                    auto prev_max_target = node_to_target_shorter.find(
                                                            make_pair(id, rev));
-                auto prev_min_target = node_to_target_longer.find(
+                    auto prev_min_target = node_to_target_longer.find(
                                                            make_pair(id, rev));
-                if (min_dist >= new_target) {
+                    if (min_dist >= new_target) {
                     //If paths are too long
-                    if ( min_dist <= curr_target + tolerance && 
+                        if ( min_dist <= new_target + tolerance && 
                              (prev_min_target == node_to_target_longer.end() ||
                                      new_target < prev_min_target->second)) {
-                        //If this target is better than last one
-                        node_to_target_longer.erase(make_pair(id, rev));
-                        node_to_target_longer.emplace(make_pair(id, rev),
+                            //If this target is better than last one
+                            node_to_target_longer.erase(make_pair(id, rev));
+                            node_to_target_longer.emplace(make_pair(id, rev),
                                                                    new_target);
-                        node_to_path[make_pair(make_pair(id, rev), 
+                            node_to_path[make_pair(make_pair(id, rev), 
                                                       new_target)] = prev_node;
-                        int64_t diff = min_dist - new_target;
-                        reachable.push(make_pair(make_pair(make_pair(id, rev),
-                                            new_target), diff));
-                    }
+                            int64_t diff = min_dist - new_target;
+                            reachable.push(make_pair(make_pair(
+                                       make_pair(id, rev), new_target), diff));
+                        }
                      
-                } else if (max_dist <= new_target){
-                    //All paths too short
-                    if ( max_dist >= curr_target - tolerance && 
+                    } else if (max_dist <= new_target){
+                        //All paths too short
+                        if ( max_dist >= new_target - tolerance && 
                             (prev_max_target == node_to_target_shorter.end() ||
-                             new_target > prev_max_target->second)){
+                                 new_target > prev_max_target->second)){
 
-                        node_to_target_shorter.erase(make_pair(id, rev));
-                        node_to_target_shorter.emplace(make_pair(id, rev), 
+                            node_to_target_shorter.erase(make_pair(id, rev));
+                            node_to_target_shorter.emplace(make_pair(id, rev), 
                                                                     new_target);
-                        node_to_path[make_pair(make_pair(id, rev), 
+                            node_to_path[make_pair(make_pair(id, rev), 
                                                        new_target)] = prev_node;
-                        int64_t diff = new_target - max_dist;
-                        reachable.push(make_pair(make_pair(make_pair(id, rev),
-                                            new_target), diff));
+                            int64_t diff = new_target - max_dist;
+                            reachable.push(make_pair(make_pair(make_pair(
+                                                   id, rev),new_target), diff));
+                        }
+                    } else {
+                        //Target is within bounds again
+                        //TODO: Maybe keep track of whether the path is too long or too short
+                        auto prev = node_to_path.find(make_pair(make_pair(
+                                                         id, rev), new_target));
+                        if (prev == node_to_path.end()) {
+                            //If this node hasn't been seen before 
+                            node_to_path[make_pair(make_pair(id, rev), 
+                                                       new_target)]= prev_node;
+                            reachable.push(make_pair(make_pair(make_pair(
+                                                    id, rev),  new_target), 0));
+                        } 
                     }
                 }
-            }
 
-            return true;
-        };
-        handle_graph.follow_edges(curr_handle, false, add_next);
+                return true;
+            };
+            handle_graph.follow_edges(curr_handle, false, add_next);
+        }
     }
-    
     
     if (best_long.first != -1 && best_long.first <= tolerance &&
                 (next_best.first == -1 || 
