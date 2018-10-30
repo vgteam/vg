@@ -2533,6 +2533,7 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
                 nextNodes.push_back(make_pair(make_pair(i, true), true));
                 nextNodes.push_back(make_pair(make_pair(i, false), false));
                 unordered_set<pair<id_t, bool>> sinkNodes;//Sink nodes of DAG
+                unordered_set<pair<id_t, bool>> sourceNodes;//Source
                 pair<id_t, bool> currNode; 
 
     
@@ -2608,14 +2609,22 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
                         if (!added && forward) {
                             //If there were no outgoing edges and this was a sink
                             sinkNodes.insert(currNode);
+                        } else if (!added && !forward) {
+                            //If there were no outgoing edges and this was a sink
+                            sourceNodes.insert(currNode);
                         }
                      
                     }
                 }
                 //Found all nodes in current component 
                 if (!onlyCycles) {
-                    calculateMaxDistances(sinkNodes, nodeToComponent, maxDists, 
-                                            minDistsFd, minDistsRev);
+                    if (sinkNodes.size() == 0) {
+                        calculateMaxDistances(sourceNodes, nodeToComponent, 
+                                             maxDists, minDistsFd, minDistsRev);
+                    } else {
+                        calculateMaxDistances(sinkNodes, nodeToComponent, 
+                                             maxDists, minDistsFd, minDistsRev);
+                    }
                 }
             }
         }
