@@ -296,11 +296,40 @@ void PathIndex::update_mapping_positions(VG& vg, const string& path_name) {
     }
 }
 
-bool PathIndex::path_contains_node(int64_t node_id){
+bool PathIndex::path_contains_node(int64_t node_id) const {
     if (by_id.find(node_id) != by_id.end()){
         return true;
     }
     return false;
+}
+
+bool PathIndex::path_contains_node_in_orientation(int64_t node_id, bool is_reverse) const {
+    return find_in_orientation(node_id, is_reverse) != end();
+}
+
+PathIndex::iterator PathIndex::find_in_orientation(int64_t node_id, bool is_reverse) const {
+    auto found_occurrences = node_occurrences.find(node_id);
+    
+    if (found_occurrences == node_occurrences.end()) {
+        // There are no occurrences
+        return end();
+    }
+    
+    for (auto& occ : found_occurrences->second) {
+        // Do a linear scan for the correct orientation.
+        // TODO: index by orientation
+        if (occ->second.is_end == is_reverse) {
+            // We found an occurrence in the requested orientation.
+            return occ;
+        }
+    }
+    
+    return end();
+}
+
+pair<bool, bool> PathIndex::get_contained_orientations(int64_t node_id) const {
+    // TODO: Do scans manually to be twice as fast!
+    return make_pair(path_contains_node_in_orientation(node_id, false), path_contains_node_in_orientation(node_id, true));
 }
 
 NodeSide PathIndex::at_position(size_t position) const {
