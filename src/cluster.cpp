@@ -2553,7 +2553,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
              node_to_path; 
     
     //reachable node 
-    list<pair<pair<id_t, bool>, int64_t>> next_nodes; //node and target
+    vector<pair<pair<id_t, bool>, int64_t>> next_nodes; //node and target
     next_nodes.push_back(make_pair(make_pair(id(pos_1), is_rev(pos_1)),
                                         target_value + offset_1));
 
@@ -2631,8 +2631,8 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     while (next_nodes.size() != 0) {
         //A*-like traversal
 
-        pair<pair<id_t, bool>, int64_t> next = next_nodes.front();
-        next_nodes.pop_front();
+        pair<pair<id_t, bool>, int64_t> next = next_nodes.back();
+        next_nodes.pop_back();
         pair<id_t, bool> curr_node = next.first;
         int64_t curr_target = next.second;
 
@@ -2759,9 +2759,70 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
         }
         
     }
+    return tv_phase2(pos_1, pos_2, target_value, tolerance, node_to_target_shorter, node_to_target_longer, best_long, next_best, node_to_path);
+}
  
+vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance,  hash_map<pair<id_t, bool>, int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t>node_to_target_longer,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long,  pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path) {
 //TODO: Any path that has been found is probably still pretty good, could return it here 
 
+    DistanceHeuristic& min_distance = *lower_bound_heuristic;
+    DistanceHeuristic& max_distance = *upper_bound_heuristic;
+    int64_t offset_1 = offset(pos_1);
+    int64_t offset_2 = offset(pos_2);
+    auto get_min_path = [&](pair<pair<id_t, bool>, int64_t> node) 
+       -> vector<handle_t> {
+        /* Assuming that the path from node to pos_2 is the best path,
+         * find the path from pos_1 to pos_2 that passes through node with the
+         * given target value
+         */ 
+
+        //Get the path from pos_1 to node
+        list<handle_t> result;
+        auto prev = node_to_path.find(node);
+        handle_t curr_handle = handle_graph.get_handle(node.first.first, 
+                                                  node.first.second);
+        result.push_front(curr_handle);
+        while (prev != node_to_path.end()) {
+            pair<pair<id_t, bool>, int64_t> prev_n = prev->second;
+            curr_handle = handle_graph.get_handle(
+                                 prev_n.first.first, prev_n.first.second);
+            result.push_front(curr_handle);
+            prev = node_to_path.find(prev_n);
+            
+        }
+
+        vector<handle_t> path (result.begin(), result.end());
+        //Path contains handles from pos_1 to node 
+
+        //Get the path from node to pos_2
+        pos_t curr_pos = make_pos_t(node.first.first, node.first.second, 0);
+        int64_t dist = min_distance(curr_pos, pos_2);
+        while (id(curr_pos) != id(pos_2) || is_rev(curr_pos) != is_rev(pos_2)){
+
+            handle_t handle = handle_graph.get_handle(id(curr_pos), 
+                                                       is_rev(curr_pos));
+            auto try_next = [&](const handle_t& h)-> bool {
+                curr_pos = make_pos_t(handle_graph.get_id(h), 
+                                      handle_graph.get_is_reverse(h), 0);
+
+                int64_t node_len = handle_graph.get_length(handle); 
+                if (min_distance(curr_pos, pos_2) + node_len == dist) {
+                    //If this node is on a minimum path
+                    dist = dist - node_len; 
+                    path.push_back(h);
+                    return false;
+                } else {
+                    return true;
+                } 
+
+            };
+            
+            handle_graph.follow_edges(handle, false, try_next);
+
+        }   
+        return path;
+         
+    };
     ///////// Phase 2
     //If there is no perfect path, look for ones still within tolerance
     auto cmp = [] (pair<pair<pair<id_t, bool>, int64_t>, int64_t> x,
