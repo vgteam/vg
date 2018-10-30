@@ -678,5 +678,31 @@ TEST_CASE("Path component memoization produces expected results", "[xg]") {
     }
 }
 
+TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
+
+    string graph_json = R"(
+    {"node":[{"id":1,"sequence":"GATT"},
+    {"id":2,"sequence":"ACA"}],
+    "edge":[{"to":2,"from":1}]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Build the xg index
+    xg::XG xg_index(proto_graph);
+
+    size_t count = 0;
+
+    xg_index.for_each_handle([&](const handle_t& got) {
+        #pragma omp critical
+        count++;
+    }, true);
+    
+    REQUIRE(count == 2);
+
+}
+
 }
 }

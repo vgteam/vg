@@ -275,7 +275,7 @@ protected:
      * Get the length of a path through nodes, in base pairs.
      */
     size_t bp_length(const list<Visit>& path);
-    
+
 public:
 
     /**
@@ -296,6 +296,9 @@ public:
     
     /// Should we emit verbose debugging info?
     bool verbose = false;
+
+    /// Should trivial child snarls have their traversals glommed into ours?
+    bool eat_trivial_children = false;
     
     virtual ~RepresentativeTraversalFinder() = default;
     

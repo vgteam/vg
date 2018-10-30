@@ -19,6 +19,7 @@
 #include "../region.hpp"
 #include "../snarls.hpp"
 #include "../distance.hpp"
+#include "../source_sink_overlay.hpp"
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
@@ -38,10 +39,11 @@ void help_index(char** argv) {
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s)" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of the graph(s), or read for GCSA indexing" << endl
          << "    -F, --thread-db FILE   read thread database from FILE (may repeat)" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
+         << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
          << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
@@ -58,7 +60,7 @@ void help_index(char** argv) {
          << "    -I, --region C:S-E     operate on only the given 1-based region of the given VCF contig (may repeat)" << endl
          << "    -E, --exclude SAMPLE   exclude any samples with the given name from haplotype indexing" << endl
          << "gcsa options:" << endl
-         << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -g, --gcsa-out FILE    output a GCSA2 index to the given file" << endl
          << "    -i, --dbg-in FILE      use kmers from FILE instead of input VG (may repeat)" << endl
          << "    -f, --mapping FILE     use this node mapping in GCSA2 construction" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph (default " << gcsa::Key::MAX_LENGTH << ")" << endl
@@ -106,6 +108,11 @@ gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
 
     vg::id_t first_node = path.mapping(0).position().node_id();
     bool is_reverse = path.mapping(0).position().is_reverse();
+    
+#ifdef debug
+    cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
+#endif
+    
     auto pred_edges = (is_reverse ? xg_index.edges_on_end(first_node) : xg_index.edges_on_start(first_node));
     for (auto& edge : pred_edges) {
         if (edge.from() == edge.to()) {
@@ -150,6 +157,7 @@ int main_index(int argc, char** argv) {
     bool show_progress = false;
 
     // GBWT
+    bool warn_on_missing_variants = true;
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     bool parse_only = false;
     vector<string> gam_file_names;
@@ -196,6 +204,7 @@ int main_index(int argc, char** argv) {
 
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
+            {"ignore-missing", no_argument, 0, 'W'},
             {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
             {"store-gam", required_argument, 0, 'M'},
@@ -240,7 +249,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:h",
+        c = getopt_long (argc, argv, "b:t:px:F:v:We:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -274,6 +283,9 @@ int main_index(int argc, char** argv) {
             index_haplotypes = true;
             build_xg = true;
             vcf_name = optarg;
+            break;
+        case 'W':
+            warn_on_missing_variants = false;
             break;
         case 'e':
             parse_only = true;
@@ -478,6 +490,12 @@ int main_index(int argc, char** argv) {
         cerr << "error: [vg index] cannot use multiple thread database files with -G or -H" << endl;
         return 1;
     }
+    
+    if (build_xg && build_gcsa && file_names.empty()) {
+        // Really we want to build a GCSA by *reading* and XG
+        build_xg = false;
+        // We'll continue in the build_gcsa section
+    }
 
     // Build XG
     xg::XG* xg_index = new xg::XG();
@@ -496,6 +514,13 @@ int main_index(int argc, char** argv) {
         }
     }
 
+#ifdef debug
+    cerr << "Alt paths:" << endl;
+    for (auto& kv : alt_paths) {
+        cerr << kv.first << ": " << kv.second.mapping_size() << " entries" << endl;
+    }
+#endif
+
     // Generate threads
     if (index_haplotypes || index_paths || index_gam) {
 
@@ -510,7 +535,7 @@ int main_index(int argc, char** argv) {
         // if we already made the xg index we can determine the
         size_t id_width;
         if (!index_gam) {
-            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->get_max_id(), true));
+            id_width = gbwt::bit_length(gbwt::Node::encode(xg_index->max_node_id(), true));
         } else { // indexing a GAM
             if (show_progress) {
                 cerr << "Finding maximum node id in GAM..." << endl;
@@ -724,7 +749,8 @@ int main_index(int argc, char** argv) {
                                  << var.sequenceName << ":" << var.position << endl;
                             continue;
                         }
-                    } else { // Try using alt paths instead.
+                    } else {
+                        // Try using alt paths instead.
                         bool found = false;
                         for (size_t alt_index = 1; alt_index < var.alleles.size(); alt_index++) {
                             std::string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
@@ -736,6 +762,10 @@ int main_index(int argc, char** argv) {
                                 for (auto node : pred_nodes) {
                                     size_t pred_pos = variants.firstOccurrence(node);
                                     if (pred_pos != variants.invalid_position()) {
+#ifdef debug
+                                        cerr << "Found predecessor node " << gbwt::Node::id(node) << " " << gbwt::Node::is_reverse(node)
+                                            << " occurring at valid pos " << pred_pos << endl;
+#endif
                                         candidate_pos = std::max(candidate_pos, pred_pos + 1);
                                         candidate_found = true;
                                         found = true;
@@ -750,9 +780,16 @@ int main_index(int argc, char** argv) {
                             }
                         }
                         if (!found) {
-                            cerr << "warning: [vg index] Alt and ref paths for " << var_name
-                                 << " at " << var.sequenceName << ":" << var.position
-                                 << " missing/empty! Was the variant skipped during construction?" << endl;
+                            // This variant from the VCF is just not in the graph
+
+                            if (warn_on_missing_variants) {
+                                // The user might not know it. Warn them in case they mixed up their VCFs.
+                                cerr << "warning: [vg index] Alt and ref paths for " << var_name
+                                     << " at " << var.sequenceName << ":" << var.position
+                                     << " missing/empty! Was the variant skipped during construction?" << endl;
+                            }
+
+                            // Skip this variant and move on to the next as if it never appeared.
                             continue;
                         }
                     }
@@ -876,7 +913,7 @@ int main_index(int argc, char** argv) {
     } // End of thread indexing.
 
     // Save XG
-    if (!xg_name.empty()) {
+    if (build_xg && !xg_name.empty()) {
         if (!thread_db_names.empty()) {
             vector<string> thread_names;
             size_t haplotype_count = 0;
@@ -918,12 +955,43 @@ int main_index(int argc, char** argv) {
             if (show_progress) {
                 cerr << "Generating kmer files..." << endl;
             }
-            VGset graphs(file_names);
-            graphs.show_progress = show_progress;
-            size_t kmer_bytes = params.getLimitBytes();
-            dbg_names = graphs.write_gcsa_kmers_binary(kmer_size, kmer_bytes);
-            params.reduceLimit(kmer_bytes);
-            delete_kmer_files = true;
+            
+            if (!file_names.empty()) {
+                // Get the kmers from a VGset.
+                VGset graphs(file_names);
+                graphs.show_progress = show_progress;
+                size_t kmer_bytes = params.getLimitBytes();
+                dbg_names = graphs.write_gcsa_kmers_binary(kmer_size, kmer_bytes);
+                params.reduceLimit(kmer_bytes);
+                delete_kmer_files = true;
+            } else if (!xg_name.empty()) {
+                // Get the kmers from an XG
+                
+                get_input_file(xg_name, [&](istream& xg_stream) {
+                    // Load the XG
+                    xg::XG xg(xg_stream);
+                
+                    // Make an overlay on it to add source and sink nodes
+                    // TODO: Don't use this directly; unify this code with VGset's code.
+                    SourceSinkOverlay overlay(&xg, kmer_size);
+                    
+                    // Get the size limit
+                    size_t kmer_bytes = params.getLimitBytes();
+                    
+                    // Write just the one kmer temp file
+                    dbg_names.push_back(write_gcsa_kmers_to_tmpfile(overlay, kmer_size, kmer_bytes,
+                        overlay.get_id(overlay.get_source_handle()),
+                        overlay.get_id(overlay.get_sink_handle())));
+                        
+                    // Feed back into the size limit
+                    params.reduceLimit(kmer_bytes);
+                    delete_kmer_files = true;
+                
+                });
+            } else {
+                cerr << "error[vg index]: Can't generate GCSA index without either a vg or an xg" << endl;
+                exit(1);
+            }
         }
 
         // Build the index

@@ -2147,6 +2147,68 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 }
 
+TEST_CASE( "SV inversions with smart quotes and a lower-case reference parse correctly" , "[constructor]") {
+
+    // Note the smart quotes
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##INFO=<ID=END,Number=1,Type=Integer,Description=“End position of the variant described in this record”>
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description=“Type of structural variant”>
+##ALT=<ID=IV,Description=“Inversion”>
+#CHROM  POS     ID      REF ALT QUAL    FILTER  INFO
+x	10	SRR026655.22810753-B	N	<INV>	.	.	END=41;SVTYPE=INV)";
+
+    auto fasta_data = R"(>x
+caaataaggcttggaaattttctggagttctattatattccaactctctg
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+    // Inversions are like substitutions, so the POS base is included and inverted.
+
+    SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+        expected.insert({2, "TTGGAAATTT"});
+        expected.insert({3, "TCTGGAGTTC"});
+        expected.insert({4, "TATTATATTC"});
+        expected.insert({5, "C"});
+        expected.insert({6, "AACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(1, false, 5, true);
+        edges_wanted.emplace(2, true, 6, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
 
 TEST_CASE( "A shorter SV inversion is represented properly" , "[constructor]") {
 

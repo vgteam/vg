@@ -78,7 +78,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutableHandleGraph, public PathHandleGraph {
+class VG : public Progressive, public MutablePathMutableHandleGraph {
 
 public:
 
@@ -126,9 +126,21 @@ public:
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
     
+    /// Get the minimum node ID used in the graph, if any are used
+    virtual id_t min_node_id() const;
+    /// Get the maximum node ID used in the graph, if any are used
+    virtual id_t max_node_id() const;
+    
+    /// Efficiently get the number of edges attached to one side of a handle.
+    /// Uses the VG graph's internal degree index.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
+    
+    /// Determine if a path name exists and is legal to get a path handle for.
+    virtual bool has_path(const string& path_name) const;
     
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
@@ -214,11 +226,19 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Mutable path handle interface
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Destroy the given path. Invalidates handles to the path and its node occurrences.
+    virtual void destroy_path(const path_handle_t& path);
+
+    /// Create a path with the given name.
+    virtual path_handle_t create_path_handle(const string& name);
     
-private:
-    // We have some masks for cramming things into handles
-    const static size_t HIGH_BIT = (size_t)1 << 63;
-    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
+    /// Append a visit to a node to the given path
+    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
     
 public:
     
@@ -375,6 +395,8 @@ public:
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
     /// and translating the edges in the component to flow through the copies in one direction.
+    /// Assumes that all nodes in the graph are articulated on one consistent strand.
+    /// Tolerates doubly-reversing edges in the input graph.
     VG dagify(uint32_t expand_scc_steps,
               unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
@@ -510,10 +532,6 @@ public:
     // can we handle this with merge?
     //void concatenate(VG& g);
 
-    /// Get the maximum node ID in the graph.
-    id_t max_node_id(void);
-    /// Get the minimum node ID in the graph.
-    id_t min_node_id(void);
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
     /// Add the given value to all node IDs. Preserves the paths.
