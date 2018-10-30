@@ -229,7 +229,7 @@ SupportCaller::PrimaryPath::PrimaryPath(SupportAugmentedGraph& augmented, const 
         // Catch as soon as possible the case where the path being called against is cyclic.
         // We don't know how to deal with that so we abort.
         cerr << "error[SupportCaller::PrimaryPath]: Some nodes occur more than once along the path "
-            << ref_path_name << " being called against. Calling against a syclic path is not well-defined. "
+            << ref_path_name << " being called against. Calling against a cyclic path is not well-defined. "
             << "Calling will now be aborted. "
             << "See https://github.com/vgteam/vg/issues/1946 for more information and potential workarounds." << endl;\
         exit(1);
