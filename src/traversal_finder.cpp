@@ -1653,12 +1653,20 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
                                 const list<list<Visit>>& rightList) -> pair<Support, vector<Visit>> {
                                 
                                 
-        // Find a combination of two paths which gets us to the reference in a
-        // consistent orientation (meaning that when you look at the ending nodes'
-        // Mappings in the reference path, the ones with minimal ranks have the same
-        // orientations) and which doesn't use the same nodes on both sides.
-        // Track support of up to max_bubble_paths combinations, and return the
-        // highest
+        // Find a combination of two paths which gets us to the reference and
+        // which doesn't use the same nodes on both sides. Track support of up
+        // to max_bubble_paths combinations, and return the highest. Always
+        // returns the combined path in a valid reference-relative-forward
+        // orientation.
+        
+        // Because we do our own identification of the anchoring reverence
+        // occurrences, we may produce a reference-relative-forward path from
+        // what was supposed to be a reference-relative-backward pair of
+        // partial paths.
+        
+        // TODO: Fix that by making the BFS code pass along the particular
+        // anchoring occurrences it finds
+        
         pair<Support, vector<Visit> > bestBubblePath;
         int bubbleCount = 0;
         
@@ -1671,7 +1679,6 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         // node visit, if only to the snarl's start or end.
 
         for(auto leftPath : leftList) {
-            // Figure out the relative orientation for the leftmost node.
 #ifdef debug        
             cerr << "Left path: " << endl;
             for(auto visit : leftPath ) {
@@ -1692,6 +1699,13 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
             // were traversing the anchoring node backwards, xor if it is backwards
             // in the reference path.
             bool leftRelativeOrientation = leftOrientation != leftRefPos.second;
+            
+            // TODO: We're using the first occurrence, because that's what
+            // we'll encounter as we scan along the reference path and what
+            // we'll use to try and build the final traversal. This may NOT be
+            // the occurence that got this partial path into the collection for
+            // this particular relative orientation. So we still need to check
+            // on orientation consistency.
             
             // Make a set of all the nodes in the left path
             set<int64_t> leftPathNodes;
@@ -1790,6 +1804,10 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
                     if(leftRelativeOrientation) {
                         // Turns out our anchored path is backwards.
                         
+#ifdef debug
+                        cerr << "Anchored to ref path backward! Reverse combination!" << endl;
+#endif
+                        
                         // Reorder everything the other way
                         reverse(fullPath.begin(), fullPath.end());
                         
@@ -1845,7 +1863,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
     for (auto& visit : best_forward.second) {
         cerr << "\t" << visit << endl;
     }
-    cerr << "Best reverse path:" << endl;
+    cerr << "Best reverse path (in forward orientation):" << endl;
     for (auto& visit : best_reverse.second) {
         cerr << "\t" << visit << endl;
     }
@@ -1856,16 +1874,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         return best_forward;
     } else {
         // The reverse orientation wins.
-        
-        // Flip its vector and visits around to make it relative to the forward
-        // orientation of the target path.
-        vector<Visit> flipped;
-        for (auto it = best_reverse.second.rbegin(); it != best_reverse.second.rend(); ++it) {
-            flipped.push_back(reverse(*it));
-        }
-        
-        best_reverse.second = move(flipped);
-        
+        // testCombinations already made it be reference-forward.
         return best_reverse;
     }
 }
