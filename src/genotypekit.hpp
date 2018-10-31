@@ -378,6 +378,11 @@ Support support_min(const Support& a, const Support& b);
 Support support_max(const Support& a, const Support& b);
 
 /**
+ * Flip the orientations of a Support.
+ */
+Support flip(const Support& to_flip);
+
+/**
  * Add two Support values together, accounting for strand.
  */
 Support operator+(const Support& one, const Support& other);

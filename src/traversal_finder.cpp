@@ -901,6 +901,7 @@ Path RepresentativeTraversalFinder::find_backbone(const Snarl& site) {
     
 }
 
+#define debug
 vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snarl& site) {
     
     // We can only do snarls with start-to-end traversals.
@@ -1167,9 +1168,15 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         };
         
 #ifdef debug
+        cerr << "Ref path length: " << ref_path_for_site.size() << " visits" << endl;
+        cerr << "Path to be anchored: " << path.size() << " visits" << endl;
         cerr << "Looking for " << frontier_visit(path.at(bubble_path_index), true)
             << " or " << frontier_visit(path.at(bubble_path_index), false) << " exiting an anchoring snarl" << endl;
+
+        cerr << "Check pos " << ref_path_index << " on ref path and " << bubble_path_index << " on path to be anchored" << endl;
 #endif
+        
+        
         
         while(frontier_visit(ref_path_for_site.at(ref_path_index), false) != frontier_visit(path.at(bubble_path_index), true) &&
               !(path.at(bubble_path_index).node_id() == 0 &&
@@ -1184,18 +1191,29 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             cerr << "Before path: " << pb2json(ref_path_for_site.at(ref_path_index)) << endl;
 #endif
             extended_path.push_back(ref_path_for_site.at(ref_path_index++));
+            
+#ifdef debug
+            cerr << "Check pos " << ref_path_index << " on ref path and " << bubble_path_index << " on path to be anchored" << endl;
+#endif
+            if (ref_path_index >= ref_path_for_site.size()) {
+                // We hit the end of the reference path. If the path we are
+                // trying to anchor actually starts and ends along the
+                // reference in the right orientation, this should never
+                // happen.
+                throw runtime_error("Ran out of reference path when looking for start of path to be anchored");
+            }
         }
         
-        if (ref_path_for_site[ref_path_index].node_id() == 0) {
+        if (ref_path_for_site.at(ref_path_index).node_id() == 0) {
             // The last Visit we traversed from the ref was a Snarl, so it already
             // includes the first node of the path as one of its boundaries. We need
             // to add the ref visit and exclude the bubble visit unless it is also of
             // a child Snarl and that Snarl is different from the ref path
             
 #ifdef debug
-            cerr << "Adding final ref child visit " << pb2json(ref_path_for_site[ref_path_index]) << endl;
+            cerr << "Adding final ref child visit " << pb2json(ref_path_for_site.at(ref_path_index)) << endl;
 #endif
-            extended_path.push_back(ref_path_for_site[ref_path_index]);
+            extended_path.push_back(ref_path_for_site.at(ref_path_index));
             
             if (path.front().node_id() != 0 || (path.front().snarl().start() == extended_path.back().snarl().start()
                                                 && path.front().snarl().end() == extended_path.back().snarl().end())) {
@@ -1235,7 +1253,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             // Otherwise this ref visit isn't the right one to match up with our
             // bubble's traversal.
 #ifdef debug
-            cerr << "Skip ref: " << pb2json(ref_path_for_site[ref_path_index]) << endl;
+            cerr << "Skip ref: " << pb2json(ref_path_for_site.at(ref_path_index)) << endl;
             cerr << "\tWant: " << pb2json(path.back()) << endl;
 #endif
             ref_path_index++;
@@ -1263,31 +1281,31 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             }
         }
         
-        if (ref_path_for_site[ref_path_index].node_id() == 0) {
+        if (ref_path_for_site.at(ref_path_index).node_id() == 0) {
             // The next Visit on the ref path is to a Snarl, so the final Visit we added
             // from the bubble will be redundant with its boundary nodes unless that Visit
             // was also to a Snarl
             if (extended_path.back().node_id() != 0 ||
-                (ref_path_for_site[ref_path_index].snarl().start() == extended_path.back().snarl().start()
-                 && ref_path_for_site[ref_path_index].snarl().end() == extended_path.back().snarl().end())) {
+                (ref_path_for_site.at(ref_path_index).snarl().start() == extended_path.back().snarl().start()
+                 && ref_path_for_site.at(ref_path_index).snarl().end() == extended_path.back().snarl().end())) {
 #ifdef debug
                 cerr << "Removing bubble visit " << pb2json(extended_path.back()) << endl;
 #endif
                 extended_path.pop_back();
             }
 #ifdef debug
-            cerr << "Adding adjacent ref child visit" << pb2json(ref_path_for_site[ref_path_index]) << endl;
+            cerr << "Adding adjacent ref child visit" << pb2json(ref_path_for_site.at(ref_path_index)) << endl;
 #endif
-            extended_path.push_back(ref_path_for_site[ref_path_index]);
+            extended_path.push_back(ref_path_for_site.at(ref_path_index));
         }
         // Skip the matching NodeTraversal
         ref_path_index++;
         while(ref_path_index < ref_path_for_site.size()) {
             // Then take the entier rest of the ref path
 #ifdef debug
-            cerr << "After path: " << pb2json(ref_path_for_site[ref_path_index]) << endl;
+            cerr << "After path: " << pb2json(ref_path_for_site.at(ref_path_index)) << endl;
 #endif
-            extended_path.push_back(ref_path_for_site[ref_path_index++]);
+            extended_path.push_back(ref_path_for_site.at(ref_path_index++));
         }
         
 #ifdef debug
@@ -1592,8 +1610,8 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
     auto rightPaths = bfs_right(right_visit, index, false, managed_site, other_orientation_timeout);
     
     // Sort out the paths not just by whether they are left or right from here,
-    // but also by whether they hit the reference in forward or reverse
-    // orientation.
+    // but also by whether they hit the reference path in forward or reverse
+    // ref-path-relative orientation.
     // TODO: give ImmutableList a .back() so we can avoid converting to real lists here.
     list<list<Visit>> left_forward;
     list<list<Visit>> right_forward;
@@ -1813,7 +1831,13 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
     };
     
     // Find the best valid combination, if any, in each orientation
+#ifdef debug
+    cerr << "Combine forward paths" << endl;
+#endif
     pair<Support, vector<Visit> > best_forward = testCombinations(left_forward, right_forward);
+#ifdef debug
+    cerr << "Combine reverse paths" << endl;
+#endif
     pair<Support, vector<Visit> > best_reverse = testCombinations(left_reverse, right_reverse);
     
 #ifdef debug
@@ -1845,6 +1869,7 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         return best_reverse;
     }
 }
+#undef debug
 
 Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& path) {
     
@@ -1867,6 +1892,10 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
     if (cur->node_id() != 0) {
         // We're at a node visit, so we have a support to start with
         minSupport = augmented.get_support(augmented.graph.get_node(cur->node_id()));
+        if (cur->backward()) {
+            // Put the support in the path forward direction
+            minSupport = flip(minSupport);
+        }
         supportFound = true;
     }
     
@@ -1876,6 +1905,11 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
         if (next->node_id() != 0) {
             // The next visit is to a node, so get its support
             Support nextSupport = augmented.get_support(augmented.graph.get_node(next->node_id()));
+            
+            if (next->backward()) {
+                // This occurs backward on the path, so flip its support
+                nextSupport = flip(nextSupport);
+            }
             
             if (supportFound) {
                 // Min it against existing support
@@ -1896,6 +1930,11 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
             // The edge exists (because we aren't back-to-back child snarls)
             Support edgeSupport = augmented.get_support(edge);
             
+            if (cur->node_id() > next->node_id() || (cur->node_id() == next->node_id() && cur->backward())) {
+                // We are taking the edge backward, so flip its support
+                edgeSupport = flip(edgeSupport);
+            }
+            
             if (supportFound) {
                 // Min it against existing support
                 minSupport = support_min(minSupport, edgeSupport);
@@ -1911,6 +1950,7 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
     return minSupport;
 }
 
+#define debug
 set<tuple<size_t, bool, structures::ImmutableList<Visit>>>
 RepresentativeTraversalFinder::bfs_left(Visit visit,
                                         PathIndex& index, bool stop_if_visited, const Snarl* in_snarl,
@@ -1946,7 +1986,7 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
     size_t searchTicks = 0;
     
 #ifdef debug
-    cerr << "Start BFS" << endl;
+    cerr << "Start BFS left from " << visit << endl;
 #endif
 
     // Track how many options we have because size may be O(n).
@@ -2208,6 +2248,7 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
     
     return toReturn;
 }
+#undef debug
 
 set<tuple<size_t, bool, structures::ImmutableList<Visit>>>
 RepresentativeTraversalFinder::bfs_right(Visit visit, PathIndex& index, bool stop_if_visited,

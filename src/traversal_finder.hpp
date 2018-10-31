@@ -253,7 +253,7 @@ protected:
                                              const Snarl& site);
         
     /**
-     * Get the minimum support of all nodes and edges in path
+     * Get the minimum support of all nodes and edges in path, in the path's forward orientation.
      */
     Support min_support_in_path(const list<Visit>& path);
         

@@ -461,13 +461,6 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
     // And the bp size of each visit
     vector<size_t> visit_sizes(record_count, 0);
     
-    // Exchange the strands of a Support
-    auto flip_support = [](Support& to_flip) {
-        auto temp = to_flip.forward();
-        to_flip.set_forward(to_flip.reverse());
-        to_flip.set_reverse(temp);
-    };
-    
     // Don't count nodes shared between child snarls more than once.
     set<Node*> coverage_counted;
     
@@ -481,7 +474,7 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
         
         if (is_reverse) {
             // Put the support relative to the traversal's strand
-            flip_support(got_support);
+            got_support = flip(got_support);
         }
         
 #ifdef debug
@@ -509,7 +502,7 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
             // We follow the edge backward, from high ID to low ID, or backward around a normal self loop.
             // TODO: Make sure this check agrees on which orientation is which after augmentation re-numbers things!
             // Put the support relative to the traversal's strand
-            flip_support(got_support);
+            got_support = flip(got_support);
         }
         
 #ifdef debug

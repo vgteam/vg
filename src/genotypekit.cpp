@@ -575,6 +575,13 @@ Support support_max(const Support& a, const Support& b) {
     return to_return;
 }
 
+Support flip(const Support& to_flip) {
+    Support flipped = to_flip;
+    flipped.set_forward(to_flip.reverse());
+    flipped.set_reverse(to_flip.forward());
+    return flipped;
+}
+
 Support operator+(const Support& one, const Support& other) {
     Support sum;
     sum.set_forward(one.forward() + other.forward());
