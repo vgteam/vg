@@ -901,7 +901,6 @@ Path RepresentativeTraversalFinder::find_backbone(const Snarl& site) {
     
 }
 
-#define debug
 vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snarl& site) {
     
     // We can only do snarls with start-to-end traversals.
@@ -1878,7 +1877,6 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         return best_reverse;
     }
 }
-#undef debug
 
 Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& path) {
     
@@ -1959,7 +1957,6 @@ Support RepresentativeTraversalFinder::min_support_in_path(const list<Visit>& pa
     return minSupport;
 }
 
-#define debug
 set<tuple<size_t, bool, structures::ImmutableList<Visit>>>
 RepresentativeTraversalFinder::bfs_left(Visit visit,
                                         PathIndex& index, bool stop_if_visited, const Snarl* in_snarl,
@@ -2257,7 +2254,6 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
     
     return toReturn;
 }
-#undef debug
 
 set<tuple<size_t, bool, structures::ImmutableList<Visit>>>
 RepresentativeTraversalFinder::bfs_right(Visit visit, PathIndex& index, bool stop_if_visited,
