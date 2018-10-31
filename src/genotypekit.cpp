@@ -311,9 +311,14 @@ Support SupportAugmentedGraph::get_support(Edge* edge) {
 }
 
 void SupportAugmentedGraph::load_supports(istream& in_file) {
+    // This loads LocationSupport objects. We use them instead of pileups.
+    // TODO: We need a way to view them with vg view
     node_supports.clear();
     edge_supports.clear();
     function<void(LocationSupport&)> lambda = [&](LocationSupport& location_support) {
+#ifdef debug
+        cerr << pb2json(location_support) << endl;
+#endif
         if (location_support.oneof_location_case() == LocationSupport::kNodeId) {
             node_supports[graph.get_node(location_support.node_id())] = location_support.support();
         } else {

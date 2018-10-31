@@ -56,14 +56,14 @@ vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.g
 vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
 vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a > miniFasta.gam
 vg map -G miniFasta.gam -g miniFastaGraph.gcsa -x miniFastaGraph.xg > miniFastaGraph.gam
-vg augment -a pileup -Z mappedminitest.trans -S mappedminitest.support miniFastaGraph.vg miniFastaGraph.gam > mappedminitest.aug.vg
+vg augment -a pileup -Z mappedminitest.trans -S mappedminitest.support --pileup mappedminitest.pileup miniFastaGraph.vg miniFastaGraph.gam > mappedminitest.aug.vg
 vg call -z mappedminitest.trans -s mappedminitest.support -b miniFastaGraph.vg mappedminitest.aug.vg > calledminitest.vcf
 
 
 L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
 is "${L_COUNT}" "1" "Called microinversion"
  
-rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam mappedminitest.aug.vg calledminitest.vcf mappedminitest.trans mappedminitest.support miniFastaGraph.xg miniFastaGraph.gcsa
+rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam mappedminitest.aug.vg calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa
 
 
 

@@ -367,8 +367,8 @@ map<string, SupportCaller::PrimaryPath>::iterator SupportCaller::find_path(const
  * Trace out the given traversal, handling nodes, child snarls, and edges
  * associated with particular visit numbers.
  */
-void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t)> handle_node,
-    function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl)> handle_child) {
+void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t,bool)> handle_node,
+    function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl,bool)> handle_child) {
 
     // Must at least have start and end
     assert(traversal.visit_size() >= 2);
@@ -384,10 +384,10 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
             // This is a visit to a node
             
             // Find the node
-            handle_node(i - 1, visit.node_id());
+            handle_node(i - 1, visit.node_id(), visit.backward());
         } else {
             // This is a snarl
-            handle_child(i - 1, visit.snarl());
+            handle_child(i - 1, visit.snarl(), visit.backward());
         }
         
         auto& next_visit = traversal.visit(i + 1);
@@ -439,11 +439,11 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
     set<Edge*> shared_edges;
     if (already_used != nullptr) {
         // Mark all the nodes and edges that the other traverasl uses.
-        trace_traversal(*already_used, site, [&](size_t i, id_t node) {
+        trace_traversal(*already_used, site, [&](size_t i, id_t node, bool is_reverse) {
             shared_nodes.insert(node);
         }, [&](size_t i, NodeSide end1, NodeSide end2) {
             shared_edges.insert(augmented.graph.get_edge(end1, end2));
-        }, [&](size_t i, Snarl child) {
+        }, [&](size_t i, Snarl child, bool is_reverse) {
             shared_children.insert(child);
         });
     }
@@ -453,22 +453,43 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
     // number.
     size_t record_count = max(1, traversal.visit_size() - 2);
     // What's the min support observed at every visit (inclusing edges)?
+    // Support is on the forward and reverse strand relative to the visits.
     vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
     // And the total support (ignoring edges)?
+    // Support is on the forward and reverse strand relative to the visits.
     vector<Support> total_supports(record_count, Support());
     // And the bp size of each visit
     vector<size_t> visit_sizes(record_count, 0);
     
+    // Exchange the strands of a Support
+    auto flip_support = [](Support& to_flip) {
+        auto temp = to_flip.forward();
+        to_flip.set_forward(to_flip.reverse());
+        to_flip.set_reverse(temp);
+    };
+    
     // Don't count nodes shared between child snarls more than once.
     set<Node*> coverage_counted;
     
-    trace_traversal(traversal, site, [&](size_t i, id_t node_id) {
+    trace_traversal(traversal, site, [&](size_t i, id_t node_id, bool is_reverse) {
         // Find the node
         Node* node = augmented.graph.get_node(node_id);
     
         // Grab this node's total support along its length
         // Make sure to only use half the support if the node is shared
-        total_supports[i] += augmented.get_support(node) * node->sequence().size() * (shared_nodes.count(node_id) ? 0.5 : 1.0);
+        auto got_support = augmented.get_support(node) * node->sequence().size() * (shared_nodes.count(node_id) ? 0.5 : 1.0);
+        
+        if (is_reverse) {
+            // Put the support relative to the traversal's strand
+            flip_support(got_support);
+        }
+        
+#ifdef debug
+        cerr << "From node " << node->id() << " get " << got_support << endl;
+#endif
+
+        total_supports[i] += got_support;
+        
         // And its size
         visit_sizes[i] += node->sequence().size();
         
@@ -482,12 +503,27 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
         
         // Count as 1 base worth for the total/average support
         // Make sure to only use half the support if the edge is shared
-        total_supports[i] += augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
+        auto got_support = augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
+        
+        if (end1.node > end2.node || (end1.node == end2.node && !end1.is_end)) {
+            // We follow the edge backward, from high ID to low ID, or backward around a normal self loop.
+            // TODO: Make sure this check agrees on which orientation is which after augmentation re-numbers things!
+            // Put the support relative to the traversal's strand
+            flip_support(got_support);
+        }
+        
+#ifdef debug
+        cerr << "From edge " << edge->from() << " " << edge->from_start() << " to "
+            << edge->to() << " " << edge->to_end() << " get " << got_support << endl;
+#endif
+
+        total_supports[i] += got_support;
+        
         visit_sizes[i] += 1;
         
         // Min in its support
         min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));
-    }, [&](size_t i, Snarl child) {
+    }, [&](size_t i, Snarl child, bool is_reverse) {
         // This is a child snarl, so get its max support.
         
         Support child_max;
@@ -503,6 +539,15 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
             // Claim this node for this child.
             coverage_counted.insert(node);
             
+            Support child_support = augmented.get_support(node);
+            
+            // TODO: We can't tell which strand of a child snarl's contained
+            // nodes corresponds to which strand of the child snarl. Just
+            // average across strands.
+            double average_support = total(child_support) / 2;
+            child_support.set_forward(average_support);
+            child_support.set_reverse(average_support);
+            
             // How many distinct reads must use the child, given the distinct reads on this node?
             child_max = support_max(child_max, augmented.get_support(node));
             
@@ -511,7 +556,7 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
             
 #ifdef debug
             cerr << "From child snarl node " << node->id() << " get "
-                << augmented.get_support(node) << " for distinct " << child_max << endl;
+                << child_support << " for distinct " << child_max << endl;
 #endif
         }
         
