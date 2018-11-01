@@ -275,7 +275,7 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'H':
                 gbwt_name = optarg;
-                if (distance_index_name.empty()) {
+                if (gbwt_name.empty()) {
                     cerr << "error:[vg mpmap] Must provide GBWT index file with -H" << endl;
                     exit(1);
                 }
@@ -900,7 +900,7 @@ int main_mpmap(int argc, char** argv) {
         distance_index = new DistanceIndex(&xg_index, snarl_manager, distance_index_stream);
     }
     
-    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, haplo_score_provider, snarl_manager, distance_index);
+    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, haplo_score_provider, snarl_manager, `distance_index);
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
