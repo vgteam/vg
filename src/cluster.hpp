@@ -594,6 +594,7 @@ public:
     /// Returns a path from pos_1 to pos_2 with length closest to the target value. If there is no such
     /// path within the tolerance of the target value, returns an empty vector.
     vector<handle_t> tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
+    vector<handle_t> tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, hash_map<pair<id_t, bool>,int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t> node_to_target_longer, pair<int64_t, pair<pair<id_t, bool>,int64_t>> best_lng, pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path);
     
 private:
     const HandleGraph& handle_graph;

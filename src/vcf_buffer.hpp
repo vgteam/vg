@@ -22,16 +22,13 @@ using namespace std;
  * construction functions peek and see if they want the next variant, or lets
  * them ignore it for the next construction function for a different contig to
  * handle. Ought not to be copied.
- *
- * Handles conversion from 1-based vcflib coordinates to 0-based vg coordinates.
  */
 class VcfBuffer {
 
 public:
     /**
      * Return a pointer to the buffered variant, or null if no variant is
-     * buffered. Pointer is invalidated when the buffer is handled. The variant
-     * will have a 0-based start coordinate.
+     * buffered. Pointer is invalidated when the buffer is handled.
      *
      * Although the variant is not const, it may not be moved out of or modified
      * in ways that confuse vcflib.

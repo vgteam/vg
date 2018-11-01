@@ -668,6 +668,22 @@ bool SnarlManager::is_leaf(const Snarl* snarl) const {
 bool SnarlManager::is_root(const Snarl* snarl) const {
     return parent_of(snarl) == nullptr;
 }
+
+bool SnarlManager::is_trivial(const Snarl* snarl, VG& graph) const {
+    // If it's an ultrabubble with no children and no contained nodes, it is a trivial snarl.
+    return snarl->type() == ULTRABUBBLE &&
+        is_leaf(snarl)
+        && shallow_contents(snarl, graph, false).first.size() == 0;
+}
+
+bool SnarlManager::all_children_trivial(const Snarl* snarl, VG& graph) const {
+    for (auto& child : children_of(snarl)) {
+        if (!is_trivial(child, graph)) {
+            return false;
+        }
+    }
+    return true;
+}
     
 const vector<const Snarl*>& SnarlManager::top_level_snarls() const {
     return roots;
