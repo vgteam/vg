@@ -3002,7 +3002,7 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
             if (hit_node_2.mem->begin <= hit_node_1.mem->begin
                 && hit_node_2.mem->end <= hit_node_1.mem->end) {
                 // this node is at the same place or earlier in the read, so they can't be colinear
-                continue
+                continue;
             }
             
             // how far apart do we expect them to be based on the read?
