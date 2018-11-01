@@ -23,6 +23,7 @@
 #include "algorithms/apply_bulk_modifications.hpp"
 #include "algorithms/count_walks.hpp"
 #include "algorithms/strongly_connected_components.hpp"
+#include "algorithms/a_star.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
 
@@ -4541,5 +4542,178 @@ namespace vg {
         
         }
         
+        TEST_CASE("A* search can detect minimum and maximum length paths", "[algorithms][a-star]") {
+        
+            // a heuristic that can be manually provided using a map
+            struct TestDistHeuristic {
+            public:
+                TestDistHeuristic(const HandleGraph* graph, const unordered_map<handle_t, int64_t>& heuristic_values) :
+                    heuristic_values(heuristic_values), graph(graph) { }
+                
+                unordered_map<handle_t, int64_t> heuristic_values;
+                const HandleGraph* graph;
+                
+                int64_t operator()(const pos_t& pos_1, const pos_t& pos_2) const {
+                    return heuristic_values.at(graph->get_handle(id(pos_1), is_rev(pos_1))) - offset(pos_1) + offset(pos_2);
+                }
+            };
+            
+            SECTION("A* runs on a simple linear graph") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                
+                graph.create_edge(n1, n2);
+                
+                pos_t pos_1 = make_pos_t(graph.get_id(n1), false, 0);
+                pos_t pos_2 = make_pos_t(graph.get_id(n2), false, 4);
+                
+                unordered_map<handle_t, int64_t> heuristic_values{
+                    {n1, 3},
+                    {n2, 0}
+                };
+                TestDistHeuristic heuristic(&graph, heuristic_values);
+                
+                vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic);
+                
+                REQUIRE(path.size() == 2);
+                REQUIRE(path[0] == n1);
+                REQUIRE(path[1] == n2);
+            }
+            
+            SECTION("A* finds a minimum distance path in a DAG") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                
+                pos_t pos_1 = make_pos_t(graph.get_id(n1), false, 2);
+                pos_t pos_2 = make_pos_t(graph.get_id(n6), false, 1);
+                
+                unordered_map<handle_t, int64_t> heuristic_values{
+                    {n1, 5},
+                    {n2, 6},
+                    {n3, 2},
+                    {n4, 2},
+                    {n5, 1},
+                    {n6, 0}
+                };
+                TestDistHeuristic heuristic(&graph, heuristic_values);
+                
+                vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic);
+                
+                REQUIRE(path.size() == 4);
+                REQUIRE(path[0] == n1);
+                REQUIRE(path[1] == n3);
+                REQUIRE(path[2] == n5);
+                REQUIRE(path[3] == n6);
+            }
+            
+            SECTION("A* finds a minimum distance path in a DAG with an uninformative heuristic") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                
+                pos_t pos_1 = make_pos_t(graph.get_id(n1), false, 2);
+                pos_t pos_2 = make_pos_t(graph.get_id(n6), false, 1);
+                
+                unordered_map<handle_t, int64_t> heuristic_values{
+                    {n1, 0},
+                    {n2, 0},
+                    {n3, 0},
+                    {n4, 0},
+                    {n5, 0},
+                    {n6, 0}
+                };
+                TestDistHeuristic heuristic(&graph, heuristic_values);
+                
+                vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic);
+                
+                REQUIRE(path.size() == 4);
+                REQUIRE(path[0] == n1);
+                REQUIRE(path[1] == n3);
+                REQUIRE(path[2] == n5);
+                REQUIRE(path[3] == n6);
+            }
+            
+            SECTION("A* finds a minimum distance path in a cyclic graph") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n2);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, graph.flip(n1));
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                graph.create_edge(n5, graph.flip(n6));
+                
+                pos_t pos_1 = make_pos_t(graph.get_id(n1), false, 2);
+                pos_t pos_2 = make_pos_t(graph.get_id(n1), true, 1);
+                
+                unordered_map<handle_t, int64_t> heuristic_values{
+                    {n1, 3},
+                    {n2, 5},
+                    {n3, 0},
+                    {n4, 0},
+                    {n5, 0},
+                    {n6, 0}
+                    {graph.flip(n1), 0},
+                    {graph.flip(n2), 0},
+                    {graph.flip(n3), 0},
+                    {graph.flip(n4), 0},
+                    {graph.flip(n5), 0},
+                    {graph.flip(n6), 0}
+                };
+                TestDistHeuristic heuristic(&graph, heuristic_values);
+                
+                vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic);
+                
+                REQUIRE(path.size() == 4);
+                REQUIRE(path[0] == n1);
+                REQUIRE(path[1] == n3);
+                REQUIRE(path[2] == n5);
+                REQUIRE(path[3] == n6);
+            }
+        }
     }
 }
