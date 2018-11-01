@@ -299,7 +299,7 @@ rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp ins_and_del.vg ins_and_del.vg.xg
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg snarls -t x.vg > snarls.pb
 
-vg index -c x.vg -s snarls.pb -j distIndex
+vg index -s snarls.pb -j distIndex -w 100 x.vg
 is $? 0 "building a distance index of a graph"
 
 rm -f x.vg distIndex snarls.pb
