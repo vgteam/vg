@@ -981,6 +981,13 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         // Recurse on each child, giving a copy number budget according to the
         // usage count call at this site. This produces fully realized
         // traversals with no Visits to Snarls.
+        
+        // But make sure the child is going to be traversable first. We could
+        // just skip difficult children but then we'd be weirdly biased away
+        // from the paths they are on.
+        assert(child->start_end_reachable());
+        assert(child->directed_acyclic_net_graph());
+        
         // Holds ref traversal, best, and optional second best for each child.
         child_traversals[child] = find_best_traversals(augmented, snarl_manager,
             finder, *child, baseline_support, child_usage_counts[child], emit_locus);
@@ -1248,19 +1255,43 @@ void SupportCaller::call(
             }
         }
         
-        // What have to be true about the site for us to find traversals of it.
-        // We can handle some things that aren't ultrabubbles, but we can't yet handle general snarls.
-        bool site_traversable = site->start_end_reachable() && site->directed_acyclic_net_graph();
+        // What have to be true about the site for us to find traversals of it?
+        // We can handle some things that aren't ultrabubbles, but we can't yet
+        // handle general snarls.
+        auto is_traversable = [](const Snarl* s) {
+            return s->start_end_reachable() && s->directed_acyclic_net_graph();
+        };
+        
+        // We don't just need to check the top snarl; we also need to enforce
+        // this on all child snarls, since when genotyping we need to recurse
+        // on the children to avoid being biased away from the paths they lie
+        // on when calling the parents. We can only skip parents and replace
+        // them with their children.
+        function<bool(const Snarl*)> recursively_traversable = [&](const Snarl* s) -> bool {
+            if (!is_traversable(s)) {
+                return false;
+            }
+            
+            for (const Snarl* child : site_manager.children_of(s)) {
+                if (!recursively_traversable(child)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        };
+        
+        bool site_traversable = recursively_traversable(site);
         
         
         if (site_traversable && primary_path != nullptr) {
-            // This site is an ultrabubble on a primary path
+            // This site is traversable through and is on a primary path
         
             // Throw it in the final vector of sites we're going to process.
             sites.push_back(site);
         } else if (site_traversable && !convert_to_vcf) {
-            // This site is an ultrabubble and we can handle things off the
-            // primary path.
+            // This site is traversable through and we can handle things off
+            // the primary path.
             
             // Throw it in the final vector of sites we're going to process.
             sites.push_back(site);
