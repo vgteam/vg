@@ -1099,7 +1099,9 @@ int64_t DistanceIndex::minDistance(const Snarl* snarl1, const Snarl* snarl2,
         int64_t offset1 = get_offset(pos1);
         int64_t offset2 = get_offset(pos2);
 
-        shortestDistance = abs(offset1-offset2)+1; //+1 to be consistent
+        if (offset1 <= offset2) {
+            shortestDistance = offset2-offset1+1; //+1 to be consistent
+        }
 
     }
 
@@ -2431,12 +2433,12 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
     int_vector<> minRev(maxNodeID - minNodeID + 1, 0);
 
     /////// DFS to get connected componpents that are in cycles
-    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0);
+    numCycles= findComponents(nodeToComponent, max, minFd, minRev, 0, true);
 
     //Find connected components of nodes not in cycles
 
     findComponents(nodeToComponent, max, minFd, minRev, 
-                                            numCycles);
+                                            numCycles, false);
 
     maxDistances = max;
     
@@ -2500,7 +2502,7 @@ int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
 uint64_t DistanceIndex::MaxDistanceIndex::findComponents( 
         int_vector<>& nodeToComponent, int_vector<>& maxDists, 
         int_vector<>& minDistsFd, int_vector<>& minDistsRev, 
-        uint64_t currComponent                                ){
+        uint64_t currComponent, bool onlyCycles                       ){
 
     /*Assign nodes to a component
      *If onlyCycles, assign all nodes to a component of connected cycles 
@@ -2510,7 +2512,6 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
       Returns the maximum component number, the number of connected components
     */
 
-    bool onlyCycles = currComponent == 0; //if currComp = 0 then only look at cyclic components
     int64_t minNodeID = distIndex->minNodeID;
     HandleGraph* graph = distIndex->graph;
     int64_t maxNodeID = distIndex->maxNodeID;
@@ -2534,6 +2535,7 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
                 nextNodes.push_back(make_pair(make_pair(i, true), true));
                 nextNodes.push_back(make_pair(make_pair(i, false), false));
                 unordered_set<pair<id_t, bool>> sinkNodes;//Sink nodes of DAG
+                unordered_set<pair<id_t, bool>> sourceNodes;//Source
                 pair<id_t, bool> currNode; 
 
     
@@ -2609,14 +2611,22 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
                         if (!added && forward) {
                             //If there were no outgoing edges and this was a sink
                             sinkNodes.insert(currNode);
+                        } else if (!added && !forward) {
+                            //If there were no outgoing edges and this was a sink
+                            sourceNodes.insert(currNode);
                         }
                      
                     }
                 }
                 //Found all nodes in current component 
                 if (!onlyCycles) {
-                    calculateMaxDistances(sinkNodes, nodeToComponent, maxDists, 
-                                            minDistsFd, minDistsRev);
+                    if (sinkNodes.size() == 0) {
+                        calculateMaxDistances(sourceNodes, nodeToComponent, 
+                                             maxDists, minDistsFd, minDistsRev);
+                    } else {
+                        calculateMaxDistances(sinkNodes, nodeToComponent, 
+                                             maxDists, minDistsFd, minDistsRev);
+                    }
                 }
             }
         }
@@ -2658,7 +2668,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
                                                          sink.second));
         returnNodes.push_back(sink);
         returnNodeVals[sink] = make_pair(0, len+1);
-        //If a path leaves curr component, min dist will never be a minimum
+        //If a path leaves curr component, new min dist will never be a minimum
      }
 
 
@@ -2680,6 +2690,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
             currNode = returnNodes.front();
             returnNodes.pop_front(); 
             pair<uint64_t, uint64_t> vals = returnNodeVals[currNode]; 
+            returnNodeVals.erase(currNode);
             minDist = vals.first;
             maxDist = vals.second;
             
