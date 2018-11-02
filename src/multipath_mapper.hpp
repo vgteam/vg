@@ -128,6 +128,7 @@ namespace vg {
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;
         bool delay_population_scoring = false;
+        bool use_tvs_clusterer = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -224,9 +225,18 @@ namespace vg {
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
         
-        /// Use the oriented distance clusterer to cluster MEMs
+        /// Use the oriented distance clusterer or the TVS clusterer to cluster MEMs depending on parameters.
+        /// If using oriented distance cluster, must alo provide an oriented distance measurer.
         vector<memcluster_t> get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                          OrientedDistanceMeasurer& distance_measurer) const;
+                                          OrientedDistanceMeasurer* distance_measurer = nullptr) const;
+        
+        /// Use the oriented distance clusterer or the TVS clusterer to cluster pairs of clusters. Assumes that
+        /// the fragment length distribution has been estimated and fixed.
+        vector<pair<pair<size_t, size_t>, int64_t>> get_cluster_pairs(const Alignment& alignment1,
+                                                                      const Alignment& alignment2,
+                                                                      vector<clustergraph_t>& cluster_graphs1,
+                                                                      vector<clustergraph_t>& cluster_graphs2,
+                                                                      OrientedDistanceMeasurer* distance_measurer = nullptr);
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
