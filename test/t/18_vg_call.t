@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 4
+plan tests 5
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -51,6 +51,19 @@ N_COUNT=$(vg view -j test.aug.vg | grep "N" | wc -l)
 is "${N_COUNT}" "0" "N bases are not augmented into the graph"
 
 rm -rf reads.txt test.vg test.xg test.gcsa test.gcsa.lcp test.gam  test.aug.vg test.trans test.support empty.gam test.vgpu
+
+vg construct -r inverting/miniFasta.fa -v inverting/miniFasta_VCFinversion.vcf.gz -S > miniFastaGraph.vg
+vg index -x miniFastaGraph.xg -g miniFastaGraph.gcsa miniFastaGraph.vg
+vg sim -x miniFastaGraph.xg -n 1000 -l 30 -a > miniFasta.gam
+vg map -G miniFasta.gam -g miniFastaGraph.gcsa -x miniFastaGraph.xg > miniFastaGraph.gam
+vg augment -a pileup -Z mappedminitest.trans -S mappedminitest.support --pileup mappedminitest.pileup miniFastaGraph.vg miniFastaGraph.gam > mappedminitest.aug.vg
+vg call -z mappedminitest.trans -s mappedminitest.support -b miniFastaGraph.vg mappedminitest.aug.vg > calledminitest.vcf
+
+
+L_COUNT=$(cat calledminitest.vcf | grep "#" -v | wc -l)
+is "${L_COUNT}" "1" "Called microinversion"
+ 
+rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam mappedminitest.aug.vg calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa
 
 
 
