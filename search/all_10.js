@@ -10,7 +10,7 @@ var searchData=
   ['packer_2ehpp',['packer.hpp',['../packer_8hpp.html',1,'']]],
   ['packers',['Packers',['../classvg_1_1Packers.html',1,'vg']]],
   ['packs',['packs',['../classvg_1_1Viz.html#a350ea478ececb5f19170b16cf1539726',1,'vg::Viz']]],
-  ['pair_5fclusters',['pair_clusters',['../classvg_1_1OrientedDistanceClusterer.html#a64fc16304bbe979775dda279258c4757',1,'vg::OrientedDistanceClusterer']]],
+  ['pair_5fclusters',['pair_clusters',['../classvg_1_1MEMClusterer.html#a4e84dd599bb8dc4341cbed2fd1de1ed0',1,'vg::MEMClusterer::pair_clusters()'],['../classvg_1_1OrientedDistanceClusterer.html#a41e57b46abd69532d53855499d5042eb',1,'vg::OrientedDistanceClusterer::pair_clusters()'],['../classvg_1_1TVSClusterer.html#a1477ce3367e036c0ecc101e1518b49b9',1,'vg::TVSClusterer::pair_clusters()']]],
   ['pair_5fconsistent',['pair_consistent',['../classvg_1_1Mapper.html#ad3a62e0a91818c4e20508ab2a0f47fa5',1,'vg::Mapper']]],
   ['pair_5ffrom_5fedge',['pair_from_edge',['../classvg_1_1NodeSide.html#ad48cc3d977ad0f6ffc5ce1034cbbae65',1,'vg::NodeSide::pair_from_edge(Edge *e)'],['../classvg_1_1NodeSide.html#a97eed27ab7b77be54b68062b780a9f36',1,'vg::NodeSide::pair_from_edge(const Edge &amp;e)']]],
   ['pair_5ffrom_5fend_5fedge',['pair_from_end_edge',['../classvg_1_1NodeSide.html#a23f18cf5f9ae9c7fc8475800d967275c',1,'vg::NodeSide']]],
