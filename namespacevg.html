@@ -920,6 +920,8 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="separator:a3c2ae4c37201ebbc6f6d4faaf27fe4de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3787b0a7fc02bbfe45dc5eb082d5779"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac3787b0a7fc02bbfe45dc5eb082d5779">support_max</a> (const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;a, const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;b)</td></tr>
 <tr class="separator:ac3787b0a7fc02bbfe45dc5eb082d5779"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad8a651561299e3236ec62af61d509112"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad8a651561299e3236ec62af61d509112">flip</a> (const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;to_flip)</td></tr>
+<tr class="separator:ad8a651561299e3236ec62af61d509112"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a27dd5c8f7c6d984a396665cbab5eba01"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a27dd5c8f7c6d984a396665cbab5eba01">operator+</a> (const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;one, const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;other)</td></tr>
 <tr class="separator:a27dd5c8f7c6d984a396665cbab5eba01"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4f550213560bfa3c3ad8446478be24d8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Support.html">Support</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4f550213560bfa3c3ad8446478be24d8">operator+=</a> (<a class="el" href="structvg_1_1Support.html">Support</a> &amp;one, const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;other)</td></tr>
@@ -1500,8 +1502,8 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:aa7c96d053af80e78f785ea1ba4232a10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aad98d082285cd6dcc92302924095d666"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aad98d082285cd6dcc92302924095d666">get_pileup_line</a> (const map&lt; int64_t, <a class="el" href="structvg_1_1NodePileup.html">NodePileup</a> &gt; &amp;node_pileups, const set&lt; pair&lt; int64_t, size_t &gt;&gt; &amp;refCrossreferences, const set&lt; pair&lt; int64_t, size_t &gt;&gt; &amp;altCrossreferences)</td></tr>
 <tr class="separator:aad98d082285cd6dcc92302924095d666"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a57ce306796a424630fe7999106b2d66c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a57ce306796a424630fe7999106b2d66c">trace_traversal</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, function&lt; void(size_t, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>)&gt; handle_node, function&lt; void(size_t, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>)&gt; handle_edge, function&lt; void(size_t, <a class="el" href="structvg_1_1Snarl.html">Snarl</a>)&gt; handle_child)</td></tr>
-<tr class="separator:a57ce306796a424630fe7999106b2d66c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a41a22f4c38561e62e9c752b5dbb9ee12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a41a22f4c38561e62e9c752b5dbb9ee12">trace_traversal</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, function&lt; void(size_t, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool)&gt; handle_node, function&lt; void(size_t, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>)&gt; handle_edge, function&lt; void(size_t, <a class="el" href="structvg_1_1Snarl.html">Snarl</a>, bool)&gt; handle_child)</td></tr>
+<tr class="separator:a41a22f4c38561e62e9c752b5dbb9ee12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a75b6437e6aec966fbcd92fbaa48f98da"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1Support.html">Support</a>, <a class="el" href="structvg_1_1Support.html">Support</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a75b6437e6aec966fbcd92fbaa48f98da">get_traversal_support</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> *already_used=nullptr)</td></tr>
 <tr class="separator:a75b6437e6aec966fbcd92fbaa48f98da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52292dfd3869a811170f7c5c0d9da564"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a52292dfd3869a811170f7c5c0d9da564">is_match</a> (const <a class="el" href="structvg_1_1Translation.html">Translation</a> &amp;translation)</td></tr>
@@ -5367,6 +5369,23 @@ template&lt;class RandomIt &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ad8a651561299e3236ec62af61d509112"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Support.html">Support</a> vg::flip </td>
+          <td>(</td>
+          <td class="paramtype">const Support &amp;&#160;</td>
+          <td class="paramname"><em>to_flip</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Flip the orientations of a <a class="el" href="structvg_1_1Support.html" title="Aggregates information about the reads supporting an allele. ">Support</a>. </p>
 
 </div>
 </div>
@@ -13673,7 +13692,7 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a57ce306796a424630fe7999106b2d66c"></a>
+<a class="anchor" id="a41a22f4c38561e62e9c752b5dbb9ee12"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -13692,7 +13711,7 @@ template&lt;typename T &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">function&lt; void(size_t, id_t)&gt;&#160;</td>
+          <td class="paramtype">function&lt; void(size_t, id_t, bool)&gt;&#160;</td>
           <td class="paramname"><em>handle_node</em>, </td>
         </tr>
         <tr>
@@ -13704,7 +13723,7 @@ template&lt;typename T &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">function&lt; void(size_t, Snarl)&gt;&#160;</td>
+          <td class="paramtype">function&lt; void(size_t, Snarl, bool)&gt;&#160;</td>
           <td class="paramname"><em>handle_child</em>&#160;</td>
         </tr>
         <tr>

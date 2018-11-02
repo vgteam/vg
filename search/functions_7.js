@@ -43,6 +43,7 @@ var searchData=
   ['get_5fcodename',['get_codename',['../classvg_1_1Version.html#a0bab20984ed75b2df12c3ef4a409f922',1,'vg::Version']]],
   ['get_5fconnected_5fcomponents',['get_connected_components',['../classvg_1_1MultipathAlignmentGraph.html#a2ee71caddf247187f1a756a36f99381f',1,'vg::MultipathAlignmentGraph']]],
   ['get_5fconnected_5fnodes',['get_connected_nodes',['../classvg_1_1Index.html#a7f616c9c191bd1dfd925991cc301e644',1,'vg::Index::get_connected_nodes()'],['../classxg_1_1XG.html#aca02cad7859b608ebabddf56fa3ddbba',1,'xg::XG::get_connected_nodes()']]],
+  ['get_5fcontained_5forientations',['get_contained_orientations',['../structvg_1_1PathIndex.html#a7d8a8f31ede0598cbd99ccdd7c55b50d',1,'vg::PathIndex']]],
   ['get_5fcontext',['get_context',['../classvg_1_1Index.html#a0ccabfc885a10a46ff16ab0a8d43373e',1,'vg::Index']]],
   ['get_5fcount',['get_count',['../classvg_1_1NoAlignmentInBandException.html#a4b5f7f90a2be571131fb12484a9b4c18',1,'vg::NoAlignmentInBandException']]],
   ['get_5fcreate_5fbase_5fpileup',['get_create_base_pileup',['../classvg_1_1Pileups.html#af9ea0eb777b7c9976598d4a13fb67d49',1,'vg::Pileups']]],

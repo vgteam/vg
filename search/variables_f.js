@@ -13,6 +13,7 @@ var searchData=
   ['orig_5fid',['orig_id',['../structvg_1_1PileupAugmenter_1_1InsertionRecord.html#a5781af0ef841677114b0d3ba4c73662d',1,'vg::PileupAugmenter::InsertionRecord']]],
   ['orig_5foffset',['orig_offset',['../structvg_1_1PileupAugmenter_1_1InsertionRecord.html#aac64cd4c11ed5e0097f52038d969bdda',1,'vg::PileupAugmenter::InsertionRecord']]],
   ['os',['OS',['../classvg_1_1Version.html#a60cb5fa1efa9969bcdfa529484ea4280',1,'vg::Version']]],
+  ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
   ['out',['out',['../structhaplo_1_1haplo__DP__edge__memo.html#a5b237e3bd675f8f4c58dd21e3e704f95',1,'haplo::haplo_DP_edge_memo']]],
   ['outbase',['outbase',['../classvg_1_1ReadFilter.html#a5e3358d7278a3d929a44b4fd670f861b',1,'vg::ReadFilter']]],

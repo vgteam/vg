@@ -130,8 +130,17 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a783b7aafb86a509a3434c10b5ae9355f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7674d9985195932003f2062ab7f02ce8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html#a7674d9985195932003f2062ab7f02ce8">at_position</a> (size_t position) const </td></tr>
 <tr class="separator:a7674d9985195932003f2062ab7f02ce8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1bdc360e0f4c273605e71a07bcd4839f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html#a1bdc360e0f4c273605e71a07bcd4839f">path_contains_node</a> (int64_t node_id)</td></tr>
-<tr class="separator:a1bdc360e0f4c273605e71a07bcd4839f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9dadffd64f673a54a765a010a5fcc32b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html#a9dadffd64f673a54a765a010a5fcc32b">path_contains_node</a> (int64_t node_id) const </td></tr>
+<tr class="memdesc:a9dadffd64f673a54a765a010a5fcc32b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether a node is on the reference path.  <a href="#a9dadffd64f673a54a765a010a5fcc32b">More...</a><br/></td></tr>
+<tr class="separator:a9dadffd64f673a54a765a010a5fcc32b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a15dfc4ec48a6a9de1b07fbbe8c9f983c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html#a15dfc4ec48a6a9de1b07fbbe8c9f983c">path_contains_node_in_orientation</a> (int64_t node_id, bool is_reverse) const </td></tr>
+<tr class="memdesc:a15dfc4ec48a6a9de1b07fbbe8c9f983c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Check whether a node is on the reference path in a given path-relative orientation.  <a href="#a15dfc4ec48a6a9de1b07fbbe8c9f983c">More...</a><br/></td></tr>
+<tr class="separator:a15dfc4ec48a6a9de1b07fbbe8c9f983c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7d8a8f31ede0598cbd99ccdd7c55b50d"><td class="memItemLeft" align="right" valign="top">pair&lt; bool, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html#a7d8a8f31ede0598cbd99ccdd7c55b50d">get_contained_orientations</a> (int64_t node_id) const </td></tr>
+<tr class="separator:a7d8a8f31ede0598cbd99ccdd7c55b50d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a370381104e7ea9d891dddaf9ae76d06f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html#a370381104e7ea9d891dddaf9ae76d06f">find_in_orientation</a> (int64_t node_id, bool is_reverse) const </td></tr>
+<tr class="memdesc:a370381104e7ea9d891dddaf9ae76d06f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Find the first occurrence of the given node in the given orientation.  <a href="#a370381104e7ea9d891dddaf9ae76d06f">More...</a><br/></td></tr>
+<tr class="separator:a370381104e7ea9d891dddaf9ae76d06f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3173ffd480558984066b3103d3b871f5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">iterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html#a3173ffd480558984066b3103d3b871f5">begin</a> () const </td></tr>
 <tr class="memdesc:a3173ffd480558984066b3103d3b871f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the iterator to the first node occurrence on the indexed path.  <a href="#a3173ffd480558984066b3103d3b871f5">More...</a><br/></td></tr>
 <tr class="separator:a3173ffd480558984066b3103d3b871f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -439,6 +448,34 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a370381104e7ea9d891dddaf9ae76d06f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> vg::PathIndex::find_in_orientation </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>node_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_reverse</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Find the first occurrence of the given node in the given orientation. </p>
+
+</div>
+</div>
 <a class="anchor" id="a667b5c7837718a9fe7b0904868148478"></a>
 <div class="memitem">
 <div class="memproto">
@@ -453,6 +490,23 @@ Protected Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Find the iterator at the given position along the ref path. The position must not be greater than the path length. </p>
+
+</div>
+</div>
+<a class="anchor" id="a7d8a8f31ede0598cbd99ccdd7c55b50d"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; bool, bool &gt; vg::PathIndex::get_contained_orientations </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>node_id</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return two flags for if the path contains the given node in forward and reverse orientation. </p>
 
 </div>
 </div>
@@ -498,7 +552,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a1bdc360e0f4c273605e71a07bcd4839f"></a>
+<a class="anchor" id="a9dadffd64f673a54a765a010a5fcc32b"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -507,10 +561,40 @@ Protected Attributes</h2></td></tr>
           <td>(</td>
           <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>node_id</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Check whether a node is on the reference path. </p>
+
+</div>
+</div>
+<a class="anchor" id="a15dfc4ec48a6a9de1b07fbbe8c9f983c"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::PathIndex::path_contains_node_in_orientation </td>
+          <td>(</td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>node_id</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_reverse</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Check whether a node is on the reference path in a given path-relative orientation. </p>
 
 </div>
 </div>
