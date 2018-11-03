@@ -56,7 +56,7 @@ var searchData=
   ['write_5ftranslations',['write_translations',['../structvg_1_1AugmentedGraph.html#a70ffd6eb24e80cfa265ae48cdde15a45',1,'vg::AugmentedGraph']]],
   ['write_5ftrivial_5fcalls',['write_trivial_calls',['../classvg_1_1SupportCaller.html#a216ee27f03698399b7ded8342d846ba1',1,'vg::SupportCaller']]],
   ['write_5fvariant',['write_variant',['../classvg_1_1Genotyper.html#af5b580b6db4e727934f964d00b058038',1,'vg::Genotyper']]],
-  ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#afa512272f40eb16c4ebccf70b2bf1f00',1,'vg::write_vcf_header()']]],
+  ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#a84ce0743c9a27e8b8ed32de37e4064fd',1,'vg::write_vcf_header()']]],
   ['writealiasedraw',['WriteAliasedRaw',['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#ae773a258d6a13f7db22a372cc96857e9',1,'vg::stream::BlockedGzipOutputStream']]],
   ['wrong_5fname',['wrong_name',['../structvg_1_1ReadFilter_1_1Counts.html#a666b42b9303430c83a61deef92fc7bbc',1,'vg::ReadFilter::Counts']]],
   ['wrong_5frefpos',['wrong_refpos',['../structvg_1_1ReadFilter_1_1Counts.html#a442a70801675072979e8e09f5f87cb92',1,'vg::ReadFilter::Counts']]]
