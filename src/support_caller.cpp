@@ -102,11 +102,14 @@ string char_to_string(const char& letter) {
 void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     const vector<string>& contig_names, const vector<size_t>& contig_sizes,
     int min_mad_for_filter, int max_dp_for_filter, double max_dp_multiple_for_filter,
-    double max_local_dp_multiple_for_filter, double min_ad_log_likelihood_for_filter) {
+    double max_local_dp_multiple_for_filter, double min_ad_log_likelihood_for_filter,
+    bool xref_enabled) {
     
     stream << "##fileformat=VCFv4.2" << endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << endl;
-    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
+    if (xref_enabled) {
+        stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << endl;
+    }
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
     stream << "##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
@@ -1212,7 +1215,7 @@ void SupportCaller::call(
         stringstream header_stream;
         write_vcf_header(header_stream, {sample_name}, contig_names, contig_lengths,
             min_mad_for_filter, max_dp_for_filter, max_dp_multiple_for_filter, max_local_dp_multiple_for_filter,
-            min_ad_log_likelihood_for_filter);
+            min_ad_log_likelihood_for_filter, augmented.has_base_graph());
         
         // Load the headers into a the VCF file object
         string header_string = header_stream.str();
@@ -1469,7 +1472,9 @@ void SupportCaller::call(
 #endif
                 id_lists.push_back(id_stream.str());
                 // And whether they're reference or not
-                is_ref.push_back(is_reference(path, augmented));
+                if (augmented.has_base_graph()) {
+                    is_ref.push_back(is_reference(path, augmented));
+                }
             }
             
             // Start off declaring the variable part to start at the start of
@@ -1660,8 +1665,9 @@ void SupportCaller::call(
             
             // Now fill in all the other variant info/format stuff
 
-            if((best_allele != 0 && is_ref.at(best_allele)) || 
-                (second_best_allele != 0 && second_best_allele != -1 && is_ref.at(second_best_allele))) {
+            if(augmented.has_base_graph() &&
+               ((best_allele != 0 && is_ref.at(best_allele)) || 
+                (second_best_allele != 0 && second_best_allele != -1 && is_ref.at(second_best_allele)))) {
                 // Flag the variant as reference if either of its two best alleles
                 // is known but not the primary path. Don't put in a false entry if
                 // it isn't known, because vcflib will spit out the flag anyway...

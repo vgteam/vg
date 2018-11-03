@@ -182,6 +182,11 @@ struct AugmentedGraph {
         auto be_ret = base_edge(augmented_edge);
         return be_ret.first == NULL && be_ret.second == false;
     }
+
+    // Do we have a base graph in order to run the above methods?
+    bool has_base_graph() const {
+        return base_graph != nullptr;
+    }
     
     /// Get the alignments, if any, embedded in the graph that touch the given
     /// node ID.
