@@ -31,7 +31,8 @@ using namespace std;
                             const pos_t& pos_1, const pos_t& pos_2,
                             const DistHeuristic& dist_heuristic,
                             bool find_min = true,
-                            int64_t extremal_distance = numeric_limits<int64_t>::max());
+                            int64_t extremal_distance = numeric_limits<int64_t>::max(),
+                            bool monotonic_heuristic = true);
     
     
     
@@ -48,62 +49,104 @@ using namespace std;
                             const pos_t& pos_1, const pos_t& pos_2,
                             const DistHeuristic& dist_heuristic,
                             bool find_min,
-                            int64_t extremal_distance) {
+                            int64_t extremal_distance,
+                            bool monotonic_heuristic) {
         
+#ifdef debug_a_star
+        cerr << "doing A* search from " << pos_1 << " to " << pos_2 << " looking for " << (find_min ? "min" : "max") << " distance path with breakout distance " << extremal_distance << endl;
+#endif
+        
+        /*
+         * The last node in a search path, pointing back to the previous node for traceback purposes
+         */
         struct AStarPathEnd {
-            AStarPathEnd(handle_t handle, int64_t distance, int64_t heuristic_estimate,
-                         handle_t predecessor, bool find_min)
-            : handle(handle), distance(distance), heuristic_estimate(heuristic_estimate), predecessor(predecessor), find_min(find_min) {
-            }
+            AStarPathEnd(handle_t handle, int64_t predecessor_idx)
+                : handle(handle), predecessor_idx(predecessor_idx) { }
             
             handle_t handle;            // current node
+            int64_t predecessor_idx;    // the index of the predecessor node in the search history or -1 if none
+        };
+        
+        /*
+         * A step in the search, including the node, the traveled distance, and the heuristic estimate of
+         * the length of the whole path
+         */
+        struct AStarSearchRecord {
+            
+            AStarSearchRecord(const AStarPathEnd& path_end, int64_t distance, int64_t heuristic_estimate)
+                : path_end(path_end), distance(distance), heuristic_estimate(heuristic_estimate) { }
+            
+            AStarPathEnd path_end;      // the end of the current path
             int64_t distance;           // distance up to this point in traversed path
             int64_t heuristic_estimate; // estimate of the total distance to the target
-            handle_t predecessor;       // the node we came from (for backtracking)
-            // TODO: there must be a design where I don't need to copy this in every struct
-            bool find_min;
+        };
+        
+        /*
+         * A stateful comparator that prioritizes search steps based on their heuristic distance
+         */
+        struct AStarCompare {
+            AStarCompare(bool do_min) : do_min(do_min) { }
             
             // reverse the ordering for a min to match the behavior of a priority queue (which selects
             // the max value)
-            inline bool operator<(const AStarPathEnd& other) const {
-                return ((find_min && heuristic_estimate > other.heuristic_estimate)
-                        || (!find_min && other.heuristic_estimate < heuristic_estimate));
+            inline bool operator()(const AStarSearchRecord& a, const AStarSearchRecord& b) const {
+                return ((do_min && a.heuristic_estimate > b.heuristic_estimate)
+                        || (!do_min && a.heuristic_estimate < b.heuristic_estimate));
             }
+            
+            bool do_min;
         };
+        
         
         // TODO: this function won't handle cycles as written
         // it needs to be able to move past the end node and circle back around to the start
         // node without breaking the predecessor (i.e. have multiple predecessors)
         
-        // TODO: handle the same-node unreachable case
-        
         // TODO: handle a sentinel for being unreachable
         
-        // when we traverse a node,
-        unordered_map<handle_t, handle_t> best_predecessor;
+        // handle the same node reachable case as an edge case
+        if (id(pos_1) == id(pos_2) && is_rev(pos_1) == is_rev(pos_2) && offset(pos_1) <= offset(pos_2)) {
+            return vector<handle_t>(1, graph->get_handle(id(pos_1), is_rev(pos_1)));
+            
+        }
         
+        // the paths we've walked so far
+        vector<AStarPathEnd> path_search_history;
+        
+        // the nodes we've decided we don't need to revisit
+        unordered_set<handle_t> closed_nodes;
         
         handle_t start = graph->get_handle(id(pos_1), is_rev(pos_1));
         handle_t end = graph->get_handle(id(pos_2), is_rev(pos_2));
         
-        priority_queue<AStarPathEnd> queue;
+        // init the priority queue, ordered by either min or max
+        AStarCompare compare(find_min);
+        priority_queue<AStarSearchRecord, vector<AStarSearchRecord>, AStarCompare> queue(compare);
+        
         // set negative distance so the search starts from the beginning of the node
-        queue.emplace(start,
+        queue.emplace(AStarPathEnd(start, -1),
                       -offset(pos_1),
-                      dist_heuristic(make_pos_t(id(pos_1), is_rev(pos_1), 0), pos_2),
-                      as_handle(int64_t(0)), // dummy handle, no real predecessor
-                      find_min);
+                      dist_heuristic(make_pos_t(id(pos_1), is_rev(pos_1), 0), pos_2));
         
         while (!queue.empty()) {
-            auto path_end = queue.top();
+            auto search_record = queue.top();
             queue.pop();
             
+            // have we marked this node as one we don't need to traverse again?
+            if (closed_nodes.count(search_record.path_end.handle)) {
+                continue;
+            }
+            
+            // create a record of this search step in our history
+            int64_t current_idx = path_search_history.size();
+            path_search_history.emplace_back(search_record.path_end);
+            
 #ifdef debug_a_star
-            cerr << "at node " << graph->get_id(path_end.handle) << (graph->get_is_reverse(path_end.handle) ? "-" : "+") << " with heuristic distance " << path_end.heuristic_estimate << " and prefix distance " << path_end.distance << " from predecessor " << graph->get_id(path_end.predecessor) << (graph->get_is_reverse(path_end.predecessor) ? "-" : "+") << endl;
+            cerr << "at node " << graph->get_id(search_record.path_end.handle) << (graph->get_is_reverse(search_record.path_end.handle) ? "-" : "+") << " with heuristic distance " << search_record.heuristic_estimate << " and prefix distance " << search_record.distance << " from predecessor " << graph->get_id(path_search_history[search_record.path_end.predecessor_idx].handle) << (graph->get_is_reverse(path_search_history[search_record.path_end.predecessor_idx].handle) ? "-" : "+") << endl;
 #endif
             
-            if ((find_min && path_end.distance + int64_t(offset(pos_2)) > extremal_distance)
-                || (!find_min && path_end.distance + int64_t(offset(pos_2)) < extremal_distance)) {
+            if ((find_min && search_record.distance + int64_t(offset(pos_2)) > extremal_distance)
+                || (!find_min && search_record.distance + int64_t(offset(pos_2)) < extremal_distance)) {
                 // we've crossed over the distance beyond which we're not interested
                 
 #ifdef debug_a_star
@@ -112,26 +155,29 @@ using namespace std;
                 break;
             }
             
-            if (best_predecessor.count(path_end.handle)) {
-                continue;
-            }
-            if (path_end.handle != start) {
-                // TODO: prohibits cycles involving start node
-                best_predecessor[path_end.handle] = path_end.predecessor;
+            // we never need to return here if we're using a monotonic heuristic
+            if (monotonic_heuristic) {
+                closed_nodes.insert(search_record.path_end.handle);
             }
             
-            if (path_end.handle == end) {
+            if (path_search_history.size() > 1 && // in first step, we only got to this loop if offsets are unreachable
+                search_record.path_end.handle == end) {
                 // we've found the end, reconstruct the path and return it
-                vector<handle_t> path(1, path_end.handle);
-                while (best_predecessor.count(path.back())) {
-                    path.emplace_back(best_predecessor[path.back()]);
+                
+                vector<handle_t> path;
+                // walk the path backwards through the searh history
+                int64_t idx = path_search_history.size() - 1;
+                while (idx >= 0) {
+                    auto& path_step = path_search_history[idx];
+                    path.emplace_back(path_step.handle);
+                    idx = path_step.predecessor_idx;
                 }
                 // put the path in forward order
                 reverse(path.begin(), path.end());
                 return path;
             }
             
-            int64_t distance = graph->get_length(path_end.handle) + path_end.distance;
+            int64_t distance = graph->get_length(search_record.path_end.handle) + search_record.distance;
             
 #ifdef debug_a_star
             cerr << "\tdistance through node is " << distance << endl;
@@ -145,11 +191,11 @@ using namespace std;
                 cerr << "\ttraversing to " << graph->get_id(next) << (graph->get_is_reverse(next) ? "-" : "+") << " with guess for remaining distance at " << remaining << endl;
 #endif
                 
-                queue.emplace(next, distance, distance + remaining, path_end.handle, find_min);
+                queue.emplace(AStarPathEnd(next, current_idx), distance, distance + remaining);
             };
             
             // enqueue walking forward
-            graph->follow_edges(path_end.handle, false, enqueue_next);
+            graph->follow_edges(search_record.path_end.handle, false, enqueue_next);
         }
         
         // we made it through the loop without finding a path
