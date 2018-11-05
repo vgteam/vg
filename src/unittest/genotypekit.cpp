@@ -354,6 +354,8 @@ TEST_CASE("TrivialTraversalFinder can find traversals", "[genotype]") {
   site.mutable_start()->set_node_id(2);
   site.mutable_end()->set_node_id(5);
   site.set_type(ULTRABUBBLE);
+  site.set_start_end_reachable(true);
+  site.set_directed_acyclic_net_graph(true);
     
   // Make the TraversalFinder
   TraversalFinder* finder = new TrivialTraversalFinder(graph);
@@ -426,7 +428,7 @@ TEST_CASE("ExhaustiveTraversalFinder finds all paths on a bubble with an inverte
   REQUIRE(found_trav_2);
 }
 
-TEST_CASE("SiteFinder can differntiate ultrabubbles from snarls", "[genotype]") {
+TEST_CASE("SnarlFinder can differntiate ultrabubbles from snarls", "[genotype]") {
 
   SECTION("Directed cycle does not count as ultrabubble") {
     
@@ -689,6 +691,80 @@ TEST_CASE("RepresentativeTraversalFinder finds traversals correctly", "[genotype
     }
   }
 
+}
+
+TEST_CASE("RepresentativeTraversalFinder finds traversals of simple inversions", "[genotype][representativetraversalfinder]") {
+
+
+    // Build a toy graph
+    // Should be a substitution (3 or 4 between 2 and 5) nested inside a 1 to 6 deletion
+    const string graph_json = R"(
+    {
+    "node": [
+        {"id": 1, "sequence": "G"},
+        {"id": 2, "sequence": "ATTA"},
+        {"id": 3, "sequence": "CA"},
+    ],
+    "edge": [
+        {"from": 1, "to": 2},
+        {"from": 2, "to": 3},
+        {"from": 1, "to": 2, "to_end": true},
+        {"from": 2, "from_start": true, "to": 3}
+    ]
+    }
+    )";
+
+    // Make an actual graph
+    VG graph;
+    Graph chunk;
+    json2pb(chunk, graph_json.c_str(), graph_json.size());
+    graph.merge(chunk);
+
+    // Find the snarls
+    CactusSnarlFinder cubs(graph);
+    SnarlManager snarl_manager = cubs.find_snarls();
+    const vector<const Snarl*>& snarl_roots = snarl_manager.top_level_snarls();
+
+    // We should have a single root snarl that is the inversion
+    REQUIRE(snarl_roots.size() == 1);
+    const Snarl* root = snarl_roots[0];
+        
+    // It should *not* be an ultrabubble
+    REQUIRE(root->type() != ULTRABUBBLE);
+    // But it should be connected through
+    REQUIRE(root->start_end_reachable());
+
+    // We need an AugmentedGraph wraping the graph to use the
+    // RepresentativeTraversalFinder
+    SupportAugmentedGraph augmented;
+    augmented.graph = graph;
+        
+    // Make a RepresentativeTraversalFinder
+    RepresentativeTraversalFinder finder(augmented, snarl_manager, 100, 100, 1000);
+        
+    vector<SnarlTraversal> traversals = finder.find_traversals(*root);
+    
+    // There should be inverted and normal traversals
+    REQUIRE(traversals.size() == 2);
+    
+    bool found_inverted = false;
+    bool found_normal = false;
+    
+    for (auto& trav : traversals) {
+        REQUIRE(trav.visit_size() == 3);
+        REQUIRE(trav.visit(0).node_id() == 1);
+        REQUIRE(trav.visit(1).node_id() == 2);
+        REQUIRE(trav.visit(2).node_id() == 3);
+        
+        if (trav.visit(1).backward()) {
+            found_inverted = true;
+        } else {
+            found_normal = true;
+        }
+    }
+    
+    REQUIRE(found_inverted);
+    REQUIRE(found_normal);
 }
 
 }

@@ -5,7 +5,7 @@
 
 #include "cluster.hpp"
 
-//#define debug_od_clusterer
+//#define debug_mem_clusterer
 
 using namespace std;
 using namespace structures;
@@ -391,47 +391,6 @@ bool ShuffledPairs::iterator::operator!=(const iterator& other) const {
     return !(*this == other);
 }
     
-MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
-                                 size_t min_mem_length) {
-    // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
-    nodes.reserve(mems.size());
-    
-    for (const MaximalExactMatch& mem : mems) {
-        
-        //#pragma omp atomic
-        //        MEM_TOTAL += mem.nodes.size();
-        
-        if (mem.length() < min_mem_length) {
-#ifdef debug_od_clusterer
-            cerr << "skipping short MEM " << mem << endl;
-#endif
-            
-            //#pragma omp atomic
-            //            MEM_FILTER_COUNTER += mem.nodes.size();
-            continue;
-        }
-        
-        int32_t mem_score = aligner->score_exact_match(mem.begin, mem.end,
-                                                       alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
-
-        
-#ifdef debug_od_clusterer
-        cerr << "adding nodes for MEM " << mem << endl;
-#endif
-        for (gcsa::node_type mem_hit : mem.nodes) {
-            nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
-#ifdef debug_od_clusterer
-            cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
-#endif
-        }
-    }
-}
-
-void MEMClusterer::HitGraph::add_edge(size_t from, size_t to, int32_t weight, int64_t distance) {
-    nodes[from].edges_from.emplace_back(to, weight, distance);
-    nodes[to].edges_to.emplace_back(from, weight, distance);
-}
-    
 int32_t MEMClusterer::estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2,
                                           int64_t graph_dist, BaseAligner* aligner) const {
     
@@ -456,6 +415,99 @@ int32_t MEMClusterer::estimate_edge_score(const MaximalExactMatch* mem_1, const 
         // the read length in between the MEMs is the same as the distance, suggesting a pure mismatch
         return gap_length ? -((gap_length - 1) * aligner->gap_extension + aligner->gap_open) : 0;
     }
+}
+
+void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                             int64_t optimal_separation) {
+    
+    // sort so that pairs with same clusters are adjacent
+    sort(cluster_pairs.begin(), cluster_pairs.end());
+    
+#ifdef debug_mem_clusterer
+    cerr << "pairs before deduplicating:" << endl;
+    for (const auto& pair_record : cluster_pairs) {
+        cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
+    }
+    cerr << "target separation " << optimal_separation << endl;
+#endif
+    
+    size_t removed_so_far = 0;
+    
+    for (size_t i = 0; i < cluster_pairs.size();) {
+        // find the range of values that have the same pair of indices
+        size_t range_end = i + 1;
+        while (range_end < cluster_pairs.size() ? cluster_pairs[i].first == cluster_pairs[range_end].first : false) {
+            range_end++;
+        }
+        
+        // find the pair that is closest to the middle of the target interval
+        int64_t best_separation = cluster_pairs[i].second;
+        size_t best_idx = i;
+        for (size_t j = i + 1; j < range_end; j++) {
+            if (abs(cluster_pairs[j].second - optimal_separation) < abs(best_separation - optimal_separation)) {
+                best_separation = cluster_pairs[j].second;
+                best_idx = j;
+            }
+        }
+        
+        // move the best pair with these indices into the part of the vector we will keep
+        cluster_pairs[i - removed_so_far] = cluster_pairs[best_idx];
+        
+        // we remove the entire interval except for one
+        removed_so_far += range_end - i - 1;
+        i = range_end;
+    }
+    
+    // trim off the end of the vector, which now contains arbitrary values
+    cluster_pairs.resize(cluster_pairs.size() - removed_so_far);
+    
+#ifdef debug_mem_clusterer
+    cerr << "pairs after deduplicating:" << endl;
+    for (const auto& pair_record : cluster_pairs) {
+        cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
+    }
+#endif
+}
+    
+MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
+                                 size_t min_mem_length) {
+    // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
+    nodes.reserve(mems.size());
+    
+    for (const MaximalExactMatch& mem : mems) {
+        
+        //#pragma omp atomic
+        //        MEM_TOTAL += mem.nodes.size();
+        
+        if (mem.length() < min_mem_length) {
+#ifdef debug_mem_clusterer
+            cerr << "skipping short MEM " << mem << endl;
+#endif
+            
+            //#pragma omp atomic
+            //            MEM_FILTER_COUNTER += mem.nodes.size();
+            continue;
+        }
+        
+        int32_t mem_score = aligner->score_exact_match(mem.begin, mem.end,
+                                                       alignment.quality().begin() + (mem.begin - alignment.sequence().begin()));
+
+        
+#ifdef debug_mem_clusterer
+        cerr << "adding nodes for MEM " << mem << endl;
+#endif
+        for (gcsa::node_type mem_hit : mem.nodes) {
+            nodes.emplace_back(mem, make_pos_t(mem_hit), mem_score);
+#ifdef debug_mem_clusterer
+            cerr << "\t" << nodes.size() - 1 << ": " << make_pos_t(mem_hit) << endl;
+#endif
+        }
+    }
+}
+
+void MEMClusterer::HitGraph::add_edge(size_t from, size_t to, int32_t weight, int64_t distance) {
+    nodes[from].edges_from.emplace_back(to, weight, distance);
+    nodes[to].edges_to.emplace_back(from, weight, distance);
 }
     
 void MEMClusterer::HitGraph::connected_components(vector<vector<size_t>>& components_out) const {
@@ -511,7 +563,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
     vector<size_t> component_order;
     component_topological_order(component, component_order);
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "doing backwards DP" << endl;
 #endif
     
@@ -535,7 +587,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
         }
     }
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "backwards dp scores:" << endl;
     for (size_t i = 0; i < component.size(); i++) {
         cerr << "\t" << component[i] << ": " << backwards_dp_score[i] << endl;
@@ -545,7 +597,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
     // the minimum score we will require each edge to be a part of
     int32_t min_score = *max_element(backwards_dp_score.begin(), backwards_dp_score.end()) * score_factor;
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "looking for edges with max score less than " << min_score << endl;
 #endif
     
@@ -559,7 +611,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
             // their parent so that they can be removed later)
             if (abs((edge.distance + (node.mem->end - node.mem->begin))
                     - (nodes[edge.to_idx].mem->begin - node.mem->begin)) <= 1) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "preserving edge because distance looks good" << endl;
 #endif
                 j++;
@@ -572,7 +624,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
             // is the max score across this edge too low?
             if (edge_score < min_score) {
                 
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "removing edge " << node_idx << "->" << edge.to_idx << " with weight " << edge.weight << " and max score " << edge_score << endl;
 #endif
                 
@@ -580,7 +632,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
                 HitNode& dest_node = nodes[edge.to_idx];
                 for (size_t k = 0; k < dest_node.edges_to.size(); k++) {
                     if (dest_node.edges_to[k].to_idx == node_idx) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                         cerr << "removing bwd edge " << edge.to_idx << "->" << dest_node.edges_to[k].to_idx << " with weight " << dest_node.edges_to[k].weight << " and max score " << edge_score << endl;
 #endif
                         dest_node.edges_to[k] = dest_node.edges_to.back();
@@ -599,7 +651,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
         }
     }
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "reidentifying connected components" << endl;
 #endif
     
@@ -640,7 +692,7 @@ void MEMClusterer::HitGraph::prune_low_scoring_edges(vector<vector<size_t>>& com
     
     // did we break this connected component into multiple connected components?
     if (new_components.size() > 1) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         stringstream strm;
         strm << "splitting cluster:" << endl;
         for (auto& comp : new_components) {
@@ -831,7 +883,7 @@ void MEMClusterer::HitGraph::perform_dp() {
         node.dp_score = node.score;
     }
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "computing topological order for clustering DP" << endl;
 #endif
     
@@ -840,7 +892,7 @@ void MEMClusterer::HitGraph::perform_dp() {
     
     for (size_t i : order) {
         HitNode& node = nodes[i];
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "at node " << i << " with DP score " << node.dp_score << " and node score " << node.score << endl;
 #endif
         // for each edge out of this node
@@ -850,7 +902,7 @@ void MEMClusterer::HitGraph::perform_dp() {
             HitNode& target_node = nodes[edge.to_idx];
             int32_t extend_score = node.dp_score + edge.weight + target_node.score;
             if (extend_score > target_node.dp_score) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "extending DP to node " << edge.to_idx << " with score " << extend_score << endl;
 #endif
                 target_node.dp_score = extend_score;
@@ -975,19 +1027,19 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
         return to_return;
     }
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "performing approximate DP across MEMs" << endl;
 #endif
     perform_dp();
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "finding top tracebacks within connected components" << endl;
 #endif
     // find the weakly connected components, which should correspond to mappings
     vector<vector<size_t>> components;
     connected_components(components);
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "traceback returns the following components: " << endl;
     for (size_t i = 0; i < components.size(); i++)  {
         vector<size_t>& component = components[i];
@@ -1003,19 +1055,19 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
 #endif
     
     if (min_median_mem_coverage_for_split) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "looking for high coverage clusters to split" << endl;
 #endif
         size_t num_original_components = components.size();
         for (size_t i = 0; i < num_original_components; i++) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "component " << i << " has median coverage " << median_mem_coverage(components[i], alignment) << endl;
 #endif
             size_t curr_num_components = components.size();
             if (median_mem_coverage(components[i], alignment) >= min_median_mem_coverage_for_split) {
                 //#pragma omp atomic
                 //                SPLIT_ATTEMPT_COUNTER++;
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "attempting to prune and split cluster" << endl;
 #endif
                 
@@ -1027,7 +1079,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
                 }
             }
         }
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         vector<vector<size_t>> current_components;
         connected_components(current_components);
         cerr << "after splitting, from " << num_original_components << " to " << current_components.size() << " connected components" << endl;
@@ -1079,13 +1131,13 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
         // get the index of the node
         vector<size_t>& trace_stack = traceback_end.second;
         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "checking traceback of component starting at " << traceback_end.second.front() << endl;
 #endif
         // if this cluster does not look like it even affect the mapping quality of the top scoring
         // cluster, don't bother forming it
         if (traceback_end.first < suboptimal_score_cutoff) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "skipping rest of components on account of low score of " << traceback_end.first << " compared to max score " << top_score << " and cutoff " << suboptimal_score_cutoff << endl;
 #endif
             
@@ -1102,19 +1154,19 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
         while (!trace_stack.empty()) {
             size_t trace_idx = trace_stack.back();
             trace_stack.pop_back();
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "\ttracing back from " << trace_idx << " with DP score " << nodes[trace_idx].dp_score << " and node score " << nodes[trace_idx].score << endl;
 #endif
             
             int32_t target_source_score = nodes[trace_idx].dp_score - nodes[trace_idx].score;
             for (HitEdge& edge : nodes[trace_idx].edges_to) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "\t\ttrace from " << edge.to_idx << " would have score " << nodes[edge.to_idx].dp_score + edge.weight + nodes[trace_idx].score << endl;
 #endif
                 if (nodes[edge.to_idx].dp_score + edge.weight == target_source_score && !stacked.count(edge.to_idx)) {
                     trace_stack.push_back(edge.to_idx);
                     stacked.insert(edge.to_idx);
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                     cerr << "\t\tidentifying this as a proper traceback that we have not yet traced" << endl;
 #endif
                 }
@@ -1173,7 +1225,7 @@ int64_t PathOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, cons
 }
     
 vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<pos_t(size_t)>& get_position, size_t num_items) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "using paths to bucket distance comparisons" << endl;
 #endif
     
@@ -1249,7 +1301,7 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
         // enter which paths occur on the nodes of each hit into the memo
         for (size_t i = 0; i < num_items; i++) {
             pos_t pos = get_position(i);
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "adding position " << pos << " to memo" << endl;
 #endif
             if (!paths_of_node_memo.count(id(pos))) {
@@ -1259,7 +1311,7 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
             for (size_t path : paths_of_node_memo[id(pos)]) {
                 if (!oriented_occurences_memo.count(make_pair(id(pos), path))) {
                     oriented_occurences_memo[make_pair(id(pos), path)] = xgindex->oriented_occurrences_on_path(id(pos), path);
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                     cerr << "node " << id(pos) << " has occurrences on path " << path << ":" << endl;
                     for (auto occurrence : oriented_occurences_memo[make_pair(id(pos), path)]) {
                         cerr << "\t" << occurrence.first << " " << (occurrence.second ? "rev" : "fwd") << endl;
@@ -1269,7 +1321,7 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
             }
         }
         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "reversing node to strand memo" << endl;
 #endif
         
@@ -1287,7 +1339,7 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
             else {
                 for (size_t path : paths) {
                     for (pair<size_t, bool> oriented_occurrence : oriented_occurences_memo[make_pair(id(pos), path)]) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                         cerr << "position " << pos << " is on strand " << path << (oriented_occurrence.second != is_rev(pos) ? "-" : "+") << endl;
 #endif
                         auto key = make_pair(path, oriented_occurrence.second != is_rev(pos));
@@ -1318,7 +1370,7 @@ vector<vector<size_t>> PathOrientedDistanceMeasurer::get_buckets(const function<
                     auto& neighbor_paths = paths_of_node_memo.at(neighbor_id);
                     for (size_t path : neighbor_paths) {
                         for (pair<size_t, bool>& node_occurence : xgindex->memoized_oriented_occurrences_on_path(neighbor_id, path, &oriented_occurences_memo)) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                             cerr << "position " << pos << " has neighbor " << neighbor_id << " on strand " << path  << (node_occurence.second != neighbor_rev ? "-" : "+") << endl;
 #endif
                             auto key = make_pair(path, node_occurence.second != neighbor_rev);
@@ -1347,7 +1399,7 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
                                                                           const function<pos_t(size_t)>& get_position){
     
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "using path component index to exclude strand merges" << endl;
 #endif
     
@@ -1356,7 +1408,7 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
     // TODO: I wonder if there's a way to do this without the quadratic loop (although it's quadratic in number of connected
     // components, so probably not all that bad)
 
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "groups: " << endl;
     for (auto& group : current_groups) {
         for (size_t idx : group) {
@@ -1446,7 +1498,7 @@ SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(DistanceIndex* dist
 
 int64_t SnarlOrientedDistanceMeasurer::oriented_distance(const pos_t& pos_1, const pos_t& pos_2) {
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "measuring distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
     
@@ -1497,13 +1549,12 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
                                                                                                      },
                                                                                                      [&](size_t node_number) {
                                                                                                          return 0;
-                                                                                                     },
-                                                                                                     distance_measurer);
+                                                                                                     });
     
     // Flatten the trees to maps of relative position by node ID.
     vector<unordered_map<size_t, int64_t>> strand_relative_position = flatten_distance_tree(hit_graph.nodes.size(), recorded_finite_dists);
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     for (const auto& strand : strand_relative_position) {
         cerr << "strand reconstruction: "  << endl;
         vector<size_t> order;
@@ -1586,7 +1637,7 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
                 }
             }
             
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "checking for possible edges from " << sorted_pos[i].second << " to MEMs between " << sorted_pos[low].first << "(" << sorted_pos[low].second << ") and " << sorted_pos[hi].first << "(" << sorted_pos[hi].second << "), which is inside the interval (" << target_low_pos << ", " << target_hi_pos << ")" << endl;
 #endif
             
@@ -1634,7 +1685,7 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
                 int32_t edge_score = estimate_edge_score(pivot.mem, next.mem, graph_dist, aligner);
                 hit_graph.add_edge(pivot_idx, next_idx, edge_score, graph_dist);
                 
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "adding edge to MEM " << sorted_pos[j].first << "(" << sorted_pos[j].second << ") with weight " << edge_score << endl;
 #endif
             }
@@ -1653,8 +1704,7 @@ OrientedDistanceClusterer::OrientedDistanceClusterer(OrientedDistanceMeasurer& d
 
 unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_strand_distance_tree(size_t num_items,
                                                                                                     const function<pos_t(size_t)>& get_position,
-                                                                                                    const function<int64_t(size_t)>& get_offset,
-                                                                                                    OrientedDistanceMeasurer& distance_measurer) {
+                                                                                                    const function<int64_t(size_t)>& get_offset) {
     
     // for recording the distance of any pair that we check with a finite distance
     unordered_map<pair<size_t, size_t>, int64_t> recorded_finite_dists;
@@ -1671,25 +1721,24 @@ unordered_map<pair<size_t, size_t>, int64_t> OrientedDistanceClusterer::get_on_s
     int64_t max_failed_distance_probes = 2;
     
     // an initial pass that only looks at easily identifiable buckets
-    extend_dist_tree_by_buckets(get_position, get_offset, num_items, distance_measurer,
-                                recorded_finite_dists, component_union_find, num_possible_merges_remaining);
+    extend_dist_tree_by_buckets(get_position, get_offset, num_items, recorded_finite_dists,
+                                component_union_find, num_possible_merges_remaining);
     
     // another initial pass that tries to identify groups that cannot be merged
-    exclude_dist_tree_merges(get_position, distance_measurer, num_infinite_dists, component_union_find,
+    exclude_dist_tree_merges(get_position, num_infinite_dists, component_union_find,
                              num_possible_merges_remaining, max_failed_distance_probes);
     
     // TODO: permutations that try to assign singletons
     
     // a second pass that measures distances between randomly selected pairs
     size_t nlogn = ceil(num_items * log(num_items));
-    extend_dist_tree_by_permutations(get_position, get_offset, num_items, distance_measurer, max_failed_distance_probes,
-                                     nlogn, recorded_finite_dists, num_infinite_dists, component_union_find, num_possible_merges_remaining);
+    extend_dist_tree_by_permutations(get_position, get_offset, num_items, max_failed_distance_probes, nlogn,
+                                     recorded_finite_dists, num_infinite_dists, component_union_find, num_possible_merges_remaining);
     
     return recorded_finite_dists;
 }
     
 void OrientedDistanceClusterer::exclude_dist_tree_merges(const function<pos_t(size_t)>& get_position,
-                                                         OrientedDistanceMeasurer& distance_measurer,
                                                          map<pair<size_t, size_t>, size_t>& num_infinite_dists,
                                                          UnionFind& component_union_find,
                                                          size_t& num_possible_merges_remaining,
@@ -1716,7 +1765,6 @@ void OrientedDistanceClusterer::exclude_dist_tree_merges(const function<pos_t(si
 void OrientedDistanceClusterer::extend_dist_tree_by_buckets(const function<pos_t(size_t)>& get_position,
                                                             const function<int64_t(size_t)>& get_offset,
                                                             size_t num_items,
-                                                            OrientedDistanceMeasurer& distance_measurer,
                                                             unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
                                                             UnionFind& component_union_find,
                                                             size_t& num_possible_merges_remaining) {
@@ -1745,7 +1793,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_buckets(const function<pos_t
             pos_t pos_prev = get_position(prev);
             pos_t pos_here = get_position(here);
             
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "measuring distance between " << prev << " at " << pos_prev << " and " << here << " at " << pos_here << endl;
 #endif
             
@@ -1754,7 +1802,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_buckets(const function<pos_t
             
             // did we get a successful estimation?
             if (dist == numeric_limits<int64_t>::max()) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "they don't appear to be have a measurable distance, skipping" << endl;
 #endif
                 continue;
@@ -1763,7 +1811,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_buckets(const function<pos_t
             // add the fixed offset from the hit position
             dist += get_offset(here) - get_offset(prev);
             
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "recording distance at " << dist << endl;
 #endif
             
@@ -1778,7 +1826,6 @@ void OrientedDistanceClusterer::extend_dist_tree_by_buckets(const function<pos_t
 void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<pos_t(size_t)>& get_position,
                                                                  const function<int64_t(size_t)>& get_offset,
                                                                  size_t num_items,
-                                                                 OrientedDistanceMeasurer& distance_measurer,
                                                                  int64_t max_failed_distance_probes,
                                                                  size_t decrement_frequency,
                                                                  unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists,
@@ -1798,13 +1845,13 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
     while (num_possible_merges_remaining > 0 && current_pair != shuffled_pairs.end() && current_max_num_probes > 0) {
         // slowly lower the number of distances we need to check before we believe that two clusters are on
         // separate strands
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "checked " << pairs_checked << " pairs with max probes " << current_max_num_probes << ", decrement frequency " << decrement_frequency << ", merges remaining " << num_possible_merges_remaining << endl;
 #endif
         
         if (pairs_checked % decrement_frequency == 0 && pairs_checked != 0) {
             current_max_num_probes--;
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "reducing the max number of probes to " << current_max_num_probes << endl;
 #endif
             for (const pair<pair<size_t, size_t>, size_t>& inf_dist_record : num_infinite_dists) {
@@ -1814,7 +1861,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
                     size_t strand_size_1 = component_union_find.group_size(inf_dist_record.first.first);
                     size_t strand_size_2 = component_union_find.group_size(inf_dist_record.first.second);
                     num_possible_merges_remaining -= strand_size_1 * strand_size_2;
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                     cerr << "after reduction, the total number of probes between strand " << inf_dist_record.first.first << " and " << inf_dist_record.first.second <<  " is above max, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
@@ -1830,13 +1877,13 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
         size_t strand_1 = component_union_find.find_group(node_pair.first);
         size_t strand_2 = component_union_find.find_group(node_pair.second);
         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "checking MEMs " << node_pair.first << " and " << node_pair.second << " in cluster " << strand_1 << " and " << strand_2 << endl;
 #endif
         
         if (strand_1 == strand_2) {
             // these are already identified as on the same strand, don't need to do it again
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "already on same strand" << endl;
 #endif
             continue;
@@ -1847,7 +1894,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
             // we've already checked multiple distances between these strand clusters and
             // none have returned a finite distance, so we conclude that they are in fact
             // on separate clusters and decline to check any more distances
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "already have checked distance above maximum number of probes" << endl;
 #endif
             continue;
@@ -1858,7 +1905,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
         
         int64_t oriented_dist = distance_measurer.oriented_distance(pos_1, pos_2);
         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "distance between " << pos_1 << " and " << pos_2 << " estimated at " << oriented_dist << endl;
 #endif
         
@@ -1884,7 +1931,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
                 
                 num_possible_merges_remaining -= strand_size_1 * strand_size_2;
                 
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "number of probes " << num_failed_probes->second << " crossed max threshold of " << current_max_num_probes << ", reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << endl;
 #endif
             }
@@ -1908,7 +1955,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
             size_t strand_retaining = component_union_find.find_group(node_pair.first);
             size_t strand_removing = strand_retaining == strand_1 ? strand_2 : strand_1;
             
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             cerr << "probe triggered group merge, reducing possible merges by " << strand_size_1 * strand_size_2 << " to " << num_possible_merges_remaining << " and retaining strand " << strand_retaining << endl;
 #endif
             
@@ -1936,21 +1983,21 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
                     if (retaining_already_blocked && !removing_already_blocked) {
                         num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(removing_iter->first.second);
                         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                         cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                     else if (removing_already_blocked && !retaining_already_blocked) {
                         num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * component_union_find.group_size(removing_iter->first.second);
                         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                         cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * component_union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
                     else if (!retaining_already_blocked && !removing_already_blocked && retaining_iter->second >= current_max_num_probes) {
                         num_possible_merges_remaining -= (strand_size_1 + strand_size_2) * component_union_find.group_size(removing_iter->first.second);
                         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                         cerr << "after merge, the total number of probes against strand " << removing_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", reducing possible merges by " << (strand_size_1 + strand_size_2) * component_union_find.group_size(removing_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                         
@@ -1971,7 +2018,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
                     if (retaining_iter->second >= current_max_num_probes) {
                         num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second);
                         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                         cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                     }
@@ -1988,7 +2035,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
                 if (retaining_iter->second >= current_max_num_probes) {
                     num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second);
                     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                     cerr << "after merge, the total number of probes against strand " << retaining_iter->first.second << " increased to " << retaining_iter->second << ", above current max of " << current_max_num_probes << ", but the retaining strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(retaining_iter->first.second) << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
@@ -2004,7 +2051,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
                 if (unseen_comparison.second >= current_max_num_probes) {
                     num_possible_merges_remaining -= (strand_retaining == strand_1 ? strand_size_1 : strand_size_2) * component_union_find.group_size(unseen_comparison.first);
                     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                     cerr << "after merge, the total number of probes against strand " << unseen_comparison.first << " increased to " << unseen_comparison.second << ", above current max of " << current_max_num_probes << ", but the removing strand is already blocked, reducing possible merges by " << (strand_retaining == strand_1 ? strand_size_2 : strand_size_1) * component_union_find.group_size(unseen_comparison.first) << " to " << num_possible_merges_remaining << endl;
 #endif
                 }
@@ -2055,7 +2102,7 @@ void OrientedDistanceClusterer::extend_dist_tree_by_permutations(const function<
 vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distance_tree(size_t num_items,
                                                                                         const unordered_map<pair<size_t, size_t>, int64_t>& recorded_finite_dists) {
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "constructing strand distance tree from " << num_items << " distances records:" << endl;
     for (const auto& record : recorded_finite_dists) {
         cerr << "\t" << record.first.first << "->" << record.first.second << ": " << record.second << endl;
@@ -2079,7 +2126,7 @@ vector<unordered_map<size_t, int64_t>> OrientedDistanceClusterer::flatten_distan
             continue;
         }
         
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
         cerr << "beginning a distance tree traversal at item " << i << endl;
 #endif
         strand_relative_position.emplace_back();
@@ -2190,7 +2237,7 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::compute_tail_mem_coverag
         }
     }
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "reversed lexicographic ordering of intervals" << endl;
     for (auto interval : mem_intervals) {
         cerr << "\t" << interval.first << " " << interval.second << endl;
@@ -2229,7 +2276,7 @@ vector<pair<size_t, size_t>> OrientedDistanceClusterer::compute_tail_mem_coverag
         }
     }
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "computed left MEM coverage" << endl;
     for (auto pos : mem_tail_coverage) {
         cerr << pos.first << " ";
@@ -2251,13 +2298,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                                                                                      const vector<cluster_t*>& right_clusters,
                                                                                      const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
                                                                                      const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
-                                                                                     int64_t min_inter_cluster_distance,
-                                                                                     int64_t max_inter_cluster_distance,
-                                                                                     OrientedDistanceMeasurer& distance_measurer) {
+                                                                                     int64_t optimal_separation,
+                                                                                     int64_t max_deviation) {
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     cerr << "beginning clustering of MEM cluster pairs for " << left_clusters.size() << " left clusters and " << right_clusters.size() << " right clusters" << endl;
-    cerr << "looking for pairs in the distance range of " << min_inter_cluster_distance << " to " << max_inter_cluster_distance << endl;
+    cerr << "looking for pairs with separation within of " << max_deviation << " from " << optimal_separation << endl;
 #endif
     
     // We will fill this in with all sufficiently close pairs of clusters from different reads.
@@ -2312,13 +2358,12 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                  const pair<size_t, size_t>& alt_anchor = right_alt_cluster_anchors[cluster_num - total_clusters - left_alt_cluster_anchors.size()];
                  return alignment_2.sequence().end() - right_clusters[alt_anchor.first]->at(alt_anchor.second).first->begin;
              }
-         },
-         distance_measurer);
+         });
     
     // Flatten the distance tree to a set of linear spaces, one per tree.
     vector<unordered_map<size_t, int64_t>> linear_spaces = flatten_distance_tree(total_cluster_positions, distance_tree);
     
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
     for (const auto& strand : linear_spaces) {
         cerr << "strand reconstruction: "  << endl;
         for (const auto& record : strand) {
@@ -2340,6 +2385,17 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
         }
     }
 #endif
+    
+    // choose bounds based on whether we're measuring stranded or unstranded distances
+    int64_t max_inter_cluster_distance, min_inter_cluster_distance;
+    if (unstranded) {
+        max_inter_cluster_distance = abs(optimal_separation) + max_deviation;
+        min_inter_cluster_distance = -max_inter_cluster_distance;
+    }
+    else {
+        max_inter_cluster_distance = optimal_separation + max_deviation;
+        min_inter_cluster_distance = optimal_separation - max_deviation;
+    }
     
     for (const unordered_map<size_t, int64_t>& linear_space : linear_spaces) {
         // For each linear space
@@ -2380,7 +2436,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             int64_t coord_interval_start = sorted_pos[i].first + min_inter_cluster_distance;
             int64_t coord_interval_end = sorted_pos[i].first + max_inter_cluster_distance;
             
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
             if (sorted_pos[i].second < total_clusters) {
                 cerr << "looking for clusters consistent with cluster that starts with " << left_clusters[sorted_pos[i].second]->front().second << " at relative position " << sorted_pos[i].first << " in coordinate window " << coord_interval_start << ":" << coord_interval_end << endl;
             }
@@ -2393,7 +2449,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             // move the window bounds forward until it's inside the coordinate interval
             while (window_start < sorted_pos.size() ? sorted_pos[window_start].first < coord_interval_start : false) {
                 window_start++;
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 if (window_start == sorted_pos.size()) {
                     cerr << "window is beyond the end of the clusters" << endl;
                 }
@@ -2404,7 +2460,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             }
             while (window_last + 1 < sorted_pos.size() ? sorted_pos[window_last + 1].first < coord_interval_end : false) {
                 window_last++;
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "moving window end to relative position " << sorted_pos[window_last - 1].first << endl;
 #endif
             }
@@ -2413,7 +2469,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
             for (size_t j = window_start; j <= window_last; j++) {
                 if (sorted_pos[j].second < left_clusters.size()
                     || (sorted_pos[j].second >= total_clusters && sorted_pos[j].second < total_clusters + left_alt_cluster_anchors.size())) {
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                     size_t idx = sorted_pos[j].second < total_clusters ? sorted_pos[j].second : sorted_pos[j].second - total_clusters;
                     cerr << "cluster at relative position " << sorted_pos[idx].first << " is from the same end, skipping" << endl;
 #endif
@@ -2428,7 +2484,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
                     right_idx = right_alt_cluster_anchors[sorted_pos[j].second - total_clusters - left_alt_cluster_anchors.size()].first;
                 }
                 
-#ifdef debug_od_clusterer
+#ifdef debug_mem_clusterer
                 cerr << "adding pair (" << left_idx << ", " << right_idx << ") with cluster relative position " << sorted_pos[j].first << " starting with " << right_clusters[right_idx]->front().second << endl;
 #endif
                 
@@ -2439,56 +2495,8 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     }
     
     if (!left_alt_cluster_anchors.empty() || !right_alt_cluster_anchors.empty()) {
-        // We assume that we're looking for the middle of the distances
-        int64_t target_separation = (max_inter_cluster_distance + min_inter_cluster_distance) / 2;
-        
-        // sort so that pairs with same clusters are adjacent
-        sort(to_return.begin(), to_return.end());
-        
-#ifdef debug_od_clusterer
-        cerr << "pairs before deduplicating:" << endl;
-        for (const auto& pair_record : to_return) {
-            cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
-        }
-        cerr << "target separation " << target_separation << endl;
-#endif
-        
-        size_t removed_so_far = 0;
-        
-        for (size_t i = 0; i < to_return.size();) {
-            // find the range of values that have the same pair of indices
-            size_t range_end = i + 1;
-            while (range_end < to_return.size() ? to_return[i].first == to_return[range_end].first : false) {
-                range_end++;
-            }
-            
-            // find the pair that is closest to the middle of the target interval
-            int64_t best_separation = to_return[i].second;
-            size_t best_idx = i;
-            for (size_t j = i + 1; j < range_end; j++) {
-                if (abs(to_return[j].second - target_separation) < abs(best_separation - target_separation)) {
-                    best_separation = to_return[j].second;
-                    best_idx = j;
-                }
-            }
-            
-            // move the best pair with these indices into the part of the vector we will keep
-            to_return[i - removed_so_far] = to_return[best_idx];
-            
-            // we remove the entire interval except for one
-            removed_so_far += range_end - i - 1;
-            i = range_end;
-        }
-        
-        // trim off the end of the vector, which now contains arbitrary values
-        to_return.resize(to_return.size() - removed_so_far);
-        
-#ifdef debug_od_clusterer
-        cerr << "pairs after deduplicating:" << endl;
-        for (const auto& pair_record : to_return) {
-            cerr << pair_record.first.first << ", " << pair_record.first.second << ": " << pair_record.second << endl;
-        }
-#endif
+        // get rid of extra copies of pairs due to alternate anchor positions
+        deduplicate_cluster_pairs(to_return, optimal_separation);
     }
     
     return to_return;
@@ -2518,16 +2526,16 @@ TargetValueSearch::TargetValueSearch(const HandleGraph& handle_graph,
 }
 
 bool TargetValueSearch::tv_path_exists(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
-    // TODO: fill in this algorithm
-    return false;
+    return !tv_path(pos_1, pos_2, target_value, tolerance).empty();
 }
     
 vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
 
-//TODO: Doesn't work for cyclic graphs since max dist returns cap, not infinity
+    //TODO: Doesn't work for cyclic graphs since max dist returns cap, not infinity
     bool exact_min = true;//TODO: Put this somewhere else. True if the min heuristic is exact
     DistanceHeuristic& min_distance = *lower_bound_heuristic;
     DistanceHeuristic& max_distance = *upper_bound_heuristic;
+    
     int64_t offset_1 = offset(pos_1);
     int64_t offset_2 = offset(pos_2);
 
@@ -2619,13 +2627,16 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
     };
 
     int64_t min = min_distance(pos_1, pos_2);
-    int64_t max = max_distance(pos_1, pos_2);
-    if ( min == -1 || target_value + tolerance < min || 
-                      target_value - tolerance > max) {
-        //If there is no path between the positions
-
+    if (min == -1 || target_value + tolerance < min) {
+        // The positions are too far apart, or are unreachable
         return vector<handle_t>();
-    } 
+    }
+    
+    int64_t max = max_distance(pos_1, pos_2);
+    if (target_value - tolerance > max) {
+        // The positions are too close together
+        return vector<handle_t>();
+    }
 
     //////////// Phase 1 of tsv search: get target for each reachable node
     while (next_nodes.size() != 0) {
@@ -2941,7 +2952,7 @@ vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& p
             handle_graph.follow_edges(curr_handle, false, add_next);
         }
     }
-    
+
     if (best_long.first != -1 && best_long.first <= tolerance &&
                 (next_best.first == -1 || 
                   best_long.first <= next_best.first)) {
@@ -2974,8 +2985,20 @@ vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& p
 }
 
 int64_t TargetValueSearch::tv_path_length(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance) {
-    // TODO: fill in this algorithm
-    return numeric_limits<int64_t>::max();
+
+    vector<handle_t> path = tv_path(pos_1, pos_2, target_value, tolerance);
+    if (path.empty()) {
+        return numeric_limits<int64_t>::max();
+    }
+    else {
+        // TODO: we should move tv_path into an internal function that also returns length,
+        // there shouldn't be any reason to recompute it here!
+        int64_t length = offset(pos_2) - offset(pos_1);
+        for (size_t i = 0, end = path.size() - 1; i < end; i++) {
+            length += handle_graph.get_length(path[i]);
+        }
+        return length;
+    }
 }
     
 TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index) :
@@ -3002,6 +3025,10 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
             if (hit_node_2.mem->begin <= hit_node_1.mem->begin
                 && hit_node_2.mem->end <= hit_node_1.mem->end) {
                 // this node is at the same place or earlier in the read, so they can't be colinear
+                
+#ifdef debug_mem_clusterer
+                cerr << "nodes " << i << " (" << hit_node_1.start_pos << ") and " << j << " (" << hit_node_2.start_pos << ") are not read colinear" << endl;
+#endif
                 continue;
             }
             
@@ -3012,8 +3039,16 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
             size_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
                                      aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
             
+#ifdef debug_mem_clusterer
+            cerr << "estimating distance between " << i << " (pos " << hit_node_1.start_pos << ") and " << j << " (pos " << hit_node_2.start_pos << ") with target " << read_separation << " and tolerance " << longest_gap << endl;
+#endif
+            
             // how close can we get to the expected distance, restricting to detectable edits
             int64_t tv_len = tvs.tv_path_length(hit_node_1.start_pos, hit_node_2.start_pos, read_separation, longest_gap);
+            
+#ifdef debug_mem_clusterer
+            cerr << "estimate distance at " << tv_len << endl;
+#endif
             
             if (tv_len == read_separation
                 && hit_node_2.mem->begin >= hit_node_1.mem->begin
@@ -3030,13 +3065,97 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
                      && hit_node_2.mem->begin >= hit_node_1.mem->begin
                      && hit_node_2.mem->end >= hit_node_1.mem->end) {
                 // there's a path within in the limit, and these hits are read colinear
-                hit_graph.add_edge(i, j, estimate_edge_score(hit_node_1.mem, hit_node_2.mem, tv_len, aligner), tv_len);
+                
+                // the distance from the end of the first hit to the beginning of the next
+                int64_t graph_dist = tv_len - (hit_node_1.mem->end - hit_node_1.mem->begin);
+                
+                // add the corresponding edge
+                hit_graph.add_edge(i, j, estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner), graph_dist);
                 
             }
         }
     }
     
     return hit_graph;
+}
+    
+vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                        const Alignment& alignment_2,
+                                                                        const vector<cluster_t*>& left_clusters,
+                                                                        const vector<cluster_t*>& right_clusters,
+                                                                        const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                        const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                        int64_t optimal_separation,
+                                                                        int64_t max_deviation) {
+    
+#ifdef debug_mem_clusterer
+    cerr << "clustering pairs of clusters" << endl;
+#endif
+    
+    vector<pair<pair<size_t, size_t>, int64_t>> to_return;
+    
+    for (size_t i = 0, i_end = left_clusters.size() + left_alt_cluster_anchors.size(); i < i_end; i++) {
+        
+        // choose the appropriate left cluster and assign it a position
+        size_t left_clust_idx;
+        hit_t left_clust_hit;
+        if (i < left_clusters.size()) {
+            left_clust_idx = i;
+            left_clust_hit = left_clusters[i]->front();
+        }
+        else {
+            auto& alt_anchor = left_alt_cluster_anchors[i - left_clusters.size()];
+            left_clust_idx = alt_anchor.first;
+            left_clust_hit = left_clusters[left_clust_idx]->at(alt_anchor.second);
+        }
+        
+        for (size_t j = 0, j_end  = right_clusters.size() + right_alt_cluster_anchors.size(); j < j_end; j++) {
+            
+            // choose the appropriate right cluster and assign it a position
+            size_t right_clust_idx;
+            hit_t right_clust_hit;
+            if (j < right_clusters.size()) {
+                right_clust_idx = j;
+                right_clust_hit = right_clusters[j]->front();
+            }
+            else {
+                auto& alt_anchor = right_alt_cluster_anchors[j - right_clusters.size()];
+                right_clust_idx = alt_anchor.first;
+                right_clust_hit = right_clusters[right_clust_idx]->at(alt_anchor.second);
+            }
+            
+            // adjust the target value by how far away we are from the ends of the fragment
+            int64_t left_clip = left_clust_hit.first->begin - alignment_1.sequence().begin();
+            int64_t right_clip = alignment_2.sequence().end() - right_clust_hit.first->begin;
+            int64_t target_separation = optimal_separation - left_clip - right_clip;
+            
+#ifdef debug_mem_clusterer
+            cerr << "measuring distance between cluster " << left_clust_idx << " (" << left_clust_hit.second << ") and " << right_clust_idx << " (" << right_clust_hit.second << ") with target of " << target_separation << " and max deviation " << max_deviation << endl;
+#endif
+            
+            // find the closest distance to this in the path
+            int64_t tv_dist = tvs.tv_path_length(left_clust_hit.second, right_clust_hit.second,
+                                                 target_separation, max_deviation);
+            
+#ifdef debug_mem_clusterer
+            cerr << "estimate distance at " << tv_dist << endl;
+#endif
+            
+            if (tv_dist != numeric_limits<int64_t>::max()) {
+                // we found a suitable path, add it to the return vector
+                to_return.emplace_back(make_pair(left_clust_idx, right_clust_idx),
+                                       tv_dist + left_clip + right_clip);
+                
+            }
+        }
+    }
+    
+    if (!left_alt_cluster_anchors.empty() || !right_alt_cluster_anchors.empty()) {
+        // get rid of extra copies of pairs due to alternate anchor positions
+        deduplicate_cluster_pairs(to_return, optimal_separation);
+    }
+    
+    return to_return;
 }
 
 // collect node starts to build out graph

@@ -4,7 +4,6 @@
 namespace vg {
 namespace unittest {
 
-using namespace std;
 using namespace vg;
     
 /**

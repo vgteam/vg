@@ -89,6 +89,10 @@ rsync -avr "${SOURCE_DIR}" "${SCRATCH_DIR}/dest/${DEST_DIR}" --delete --exclude 
 # Go back in to make the commit
 pushd "${SCRATCH_DIR}/dest"
 
+# Disable Jeckyll processing for Github Pages since we did it already
+touch .nojekyll
+git add .nojekyll
+
 # Add all the files here (except hidden ones) and add deletions
 git add -A
 

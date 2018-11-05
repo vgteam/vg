@@ -71,11 +71,21 @@ struct PathIndex {
     /// be greater than the path length.
     NodeSide at_position(size_t position) const;
 
-    // Check whether a node is on the reference path.
-    bool path_contains_node(int64_t node_id);
+    /// Check whether a node is on the reference path.
+    bool path_contains_node(int64_t node_id) const ;
+    
+    /// Check whether a node is on the reference path in a given path-relative orientation.
+    bool path_contains_node_in_orientation(int64_t node_id, bool is_reverse) const;
+    
+    /// Return two flags for if the path contains the given node in forward and
+    /// reverse orientation.
+    pair<bool, bool> get_contained_orientations(int64_t node_id) const;
     
     /// We keep iterators to node occurrences along the ref path.
     using iterator = map<size_t, vg::NodeSide>::const_iterator;
+    
+    /// Find the first occurrence of the given node in the given orientation
+    iterator find_in_orientation(int64_t node_id, bool is_reverse) const;
     
     /// Get the iterator to the first node occurrence on the indexed path.
     iterator begin() const;
