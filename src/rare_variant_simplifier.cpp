@@ -68,8 +68,7 @@ void RareVariantSimplifier::simplify() {
             if (af_count >= ac_count && af_count >= an_count) {
                 // AF is the best tag to use
                 for (size_t i = 0; i < af_count; i++) {
-                    string af = "AF"; // clang doesn't like non-const references to lvalues
-                    frequency += variant->getInfoValueFloat(af, i);
+                    frequency += variant->getInfoValueFloat("AF", i);
                 }
             } else {
                 // We have to use AC and AN
@@ -87,10 +86,8 @@ void RareVariantSimplifier::simplify() {
                 for (size_t i = 0; i < ac_count; i++) {
                     // Sum up the AC and AN values.
                     // TODO: vcflib has no way to get an int except as a float.
-                    string ac = "AC"; // clang doesn't like non-const references to lvalues
-                    string an = "AN"; // clang doesn't like non-const references to lvalues
-                    ac_total += (size_t) variant->getInfoValueFloat(ac, i);
-                    an_total += (size_t) variant->getInfoValueFloat(an, i);
+                    ac_total += (size_t) variant->getInfoValueFloat("AC", i);
+                    an_total += (size_t) variant->getInfoValueFloat("AN", i);
                 }
 
                 if (an_total == 0) {
@@ -123,8 +120,7 @@ void RareVariantSimplifier::simplify() {
             // TODO: if using both conditions we do this loop twice!
             size_t ac_total = 0;
             for (size_t i = 0; i < ac_count; i++) {
-                string ac = "AC"; // clang doesn't like non-const references to lvalues
-                ac_total += (size_t) variant->getInfoValueFloat(ac, i);
+                ac_total += (size_t) variant->getInfoValueFloat("AC", i);
             }
 
             // Keep the variant if it has a sufficient count
