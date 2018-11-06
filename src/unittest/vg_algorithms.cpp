@@ -4715,6 +4715,145 @@ namespace vg {
                 REQUIRE(path[2] == graph.flip(n1));
             }
             
+            SECTION("A* finds a minimum distance path on the same node") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n2);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, graph.flip(n1));
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                graph.create_edge(n5, graph.flip(n6));
+                
+                pos_t pos_1 = make_pos_t(graph.get_id(n6), true, 1);
+                pos_t pos_2 = make_pos_t(graph.get_id(n6), true, 2);
+                
+                unordered_map<handle_t, int64_t> heuristic_values{
+                    {n1, 0},
+                    {n2, 0},
+                    {n3, 0},
+                    {n4, 0},
+                    {n5, 0},
+                    {n6, 0},
+                    {graph.flip(n1), 0},
+                    {graph.flip(n2), 0},
+                    {graph.flip(n3), 0},
+                    {graph.flip(n4), 0},
+                    {graph.flip(n5), 0},
+                    {graph.flip(n6), 0}
+                };
+                TestDistHeuristic heuristic(&graph, heuristic_values);
+                
+                vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic);
+                
+                REQUIRE(path.size() == 1);
+                REQUIRE(path[0] == graph.flip(n6));
+            }
+            
+            SECTION("A* will not find a minimum distance above the pruning distance") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n2);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, graph.flip(n1));
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                graph.create_edge(n5, graph.flip(n6));
+                
+                pos_t pos_1 = make_pos_t(graph.get_id(n1), false, 2);
+                pos_t pos_2 = make_pos_t(graph.get_id(n3), false, 1);
+                
+                unordered_map<handle_t, int64_t> heuristic_values{
+                    {n1, 3},
+                    {n2, 5},
+                    {n3, 0},
+                    {n4, 1000},
+                    {n5, 6},
+                    {n6, 3},
+                    {graph.flip(n1), 0},
+                    {graph.flip(n2), 1000},
+                    {graph.flip(n3), 1000},
+                    {graph.flip(n4), 2},
+                    {graph.flip(n5), 2},
+                    {graph.flip(n6), 4}
+                };
+                TestDistHeuristic heuristic(&graph, heuristic_values);
+                
+                vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic, true, 2);
+                
+                REQUIRE(path.empty());
+            }
+            
+            SECTION("A* will not find a minimum distance above the pruning distance on the same node") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n2);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, graph.flip(n1));
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                graph.create_edge(n5, graph.flip(n6));
+                
+                pos_t pos_1 = make_pos_t(graph.get_id(n4), false, 0);
+                pos_t pos_2 = make_pos_t(graph.get_id(n4), false, 3);
+                
+                unordered_map<handle_t, int64_t> heuristic_values{
+                    {n1, 3},
+                    {n2, 5},
+                    {n3, 0},
+                    {n4, 1000},
+                    {n5, 6},
+                    {n6, 3},
+                    {graph.flip(n1), 0},
+                    {graph.flip(n2), 1000},
+                    {graph.flip(n3), 1000},
+                    {graph.flip(n4), 2},
+                    {graph.flip(n5), 2},
+                    {graph.flip(n6), 4}
+                };
+                TestDistHeuristic heuristic(&graph, heuristic_values);
+                
+                vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic, true, 2);
+                
+                REQUIRE(path.empty());
+            }
+            
             SECTION("A* finds a minimum distance path in a cyclic graph and an uninformative heuristic") {
                 
                 VG graph;
@@ -5068,6 +5207,78 @@ namespace vg {
                 }
             }
             
+            SECTION("A* finds shortest path on a random graph with a non-monotonic heuristic") {
+                
+                int64_t seq_size = 100;
+                int64_t avg_struct_var_len = 6;
+                int64_t var_count = 3;
+                
+                size_t num_graphs = 10;
+                size_t num_trials_per_graph = 10;
+                
+                for (size_t graph_iter = 0; graph_iter < num_graphs; graph_iter++) {
+                    VG graph = randomGraph(seq_size, avg_struct_var_len, var_count);
+                    
+                    size_t total_seq_len = 0;
+                    vector<handle_t> all_handles;
+                    graph.for_each_handle([&](const handle_t& handle) {
+                        all_handles.push_back(handle);
+                        total_seq_len += graph.get_length(handle) * 2;
+                    });
+                    random_device rd;
+                    default_random_engine gen(rd());
+                    
+                    function<pos_t(void)> random_pos = [&](void) {
+                        handle_t h = all_handles[uniform_int_distribution<int>(0, all_handles.size() - 1)(gen)];
+                        return make_pos_t(graph.get_id(h),
+                                          uniform_int_distribution<int>(0, 1)(gen),
+                                          uniform_int_distribution<size_t>(0, graph.get_length(h) - 1)(gen));
+                    };
+                    
+                    for (size_t pos_iter = 0; pos_iter < num_trials_per_graph; pos_iter++) {
+                        
+                        pos_t pos_1 = random_pos();
+                        pos_t pos_2 = random_pos();
+                        
+                        handle_t h1 = graph.get_handle(id(pos_1), is_rev(pos_1));
+                        handle_t h2 = graph.get_handle(id(pos_2), is_rev(pos_2));
+                        
+                        unordered_map<handle_t, size_t> shortest_paths = algorithms::find_shortest_paths(&graph, h2, true);
+                        
+                        unordered_map<handle_t, int64_t> heuristic_values;
+                        for (const auto& handle : all_handles) {
+                            auto flipped = graph.flip(handle);
+                            heuristic_values[handle] = uniform_int_distribution<int64_t>(0, 100)(gen);
+                            heuristic_values[flipped] = uniform_int_distribution<int64_t>(0, 100)(gen);
+                        }
+                        TestDistHeuristic heuristic(&graph, heuristic_values);
+                        
+                        vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic, true, total_seq_len, false);
+                        size_t path_length = 0;
+                        // find_shortest_path does not include the end nodes
+                        for (size_t i = 1; i + 1 < path.size(); i++) {
+                            path_length += graph.get_length(path[i]);
+                        }
+                        
+                        if (shortest_paths.count(h1)) {
+                            if (path_length != shortest_paths[h1]) {
+                                cerr << "A* failed to find shortest path from " << pos_1 << " to " << pos_2 << " in the following graph:" << endl;
+                                cerr << pb2json(graph.graph) << endl;
+                            }
+                            
+                            REQUIRE(path_length == shortest_paths[h1]);
+                        }
+                        else {
+                            if (!path.empty()) {
+                                cerr << "A* failed to find identify unreachable path " << pos_1 << " to " << pos_2 << " in the following graph:" << endl;
+                                cerr << pb2json(graph.graph) << endl;
+                            }
+                            
+                            REQUIRE(path.empty());
+                        }
+                    }
+                }
+            }
         }
     }
 }

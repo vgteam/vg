@@ -34,7 +34,7 @@ using namespace std;
                             int64_t extremal_distance = numeric_limits<int64_t>::max(),
                             bool monotonic_heuristic = true);
     
-    
+    // TODO: non-monotonic heuristics in cyclic graphs cannot identify unreachable positions
     
     
     
@@ -105,7 +105,8 @@ using namespace std;
         // TODO: handle a sentinel for being unreachable
         
         // handle the same node reachable case as an edge case
-        if (id(pos_1) == id(pos_2) && is_rev(pos_1) == is_rev(pos_2) && offset(pos_1) <= offset(pos_2)) {
+        if (id(pos_1) == id(pos_2) && is_rev(pos_1) == is_rev(pos_2) && offset(pos_1) <= offset(pos_2)
+            && (find_min ? offset(pos_2) - offset(pos_1) <= extremal_distance : offset(pos_2) - offset(pos_1) >= extremal_distance)) {
             return vector<handle_t>(1, graph->get_handle(id(pos_1), is_rev(pos_1)));
             
         }
