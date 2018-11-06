@@ -1328,8 +1328,10 @@ void SupportCaller::call(
     }
     
     // Now start looking for traversals of the sites.
-    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth, max_search_width,
-        max_bubble_paths, [&] (const Snarl& site) -> PathIndex* {
+    RepresentativeTraversalFinder traversal_finder(augmented, site_manager, max_search_depth,
+                                                   max_search_width, max_bubble_paths,
+                                                   min_total_support_for_call, min_total_support_for_call,
+                                                   [&] (const Snarl& site) -> PathIndex* {
         
         // When the TraversalFinder needs a primary path index for a site, it can look it up with this function.
         auto found = find_path(site, primary_paths);

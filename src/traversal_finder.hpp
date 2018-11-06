@@ -224,6 +224,10 @@ protected:
     size_t max_width;
     /// How many search intermediates can we allow?
     size_t max_bubble_paths;
+    /// Minimum support for a node to consider travnersal through it
+    size_t min_node_support;
+    /// Minimum support for a edge to consider travnersal through it
+    size_t min_edge_support;
     
     /**
      * Find a Path that runs from the start of the given snarl to the end, which
@@ -310,6 +314,7 @@ public:
      */
     RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
         size_t max_depth, size_t max_width, size_t max_bubble_paths,
+        size_t min_node_support = 1, size_t min_edge_support = 1,
         function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     
     /// Should we emit verbose debugging info?

@@ -469,7 +469,7 @@ vector<SnarlTraversal> Genotyper::get_snarl_traversals(AugmentedGraph& augmented
         // Now start looking for traversals of the sites.
         auto* finder = new RepresentativeTraversalFinder(
             augmented_graph, manager, 1000, 1000,
-            100, [&] (const Snarl& site) -> PathIndex* {
+            100, 1, 1, [&] (const Snarl& site) -> PathIndex* {
                 return ref_path_index;
             });
 
