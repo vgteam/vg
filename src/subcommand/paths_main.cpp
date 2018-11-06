@@ -32,6 +32,7 @@ void help_paths(char** argv) {
          << "    -X, --extract-gam     return (as GAM alignments) the stored paths in the graph" << endl
          << "    -V, --extract-vg      return (as path-only .vg) the queried paths (requires -x -g and -q or -Q)" << endl
          << "    -L, --list            return (as a list of names, one per line) the path (or thread) names" << endl
+         << "    -E, --lengths         return list of path names (as with -L) but paired with their lengths" << endl
          << "    -T, --threads         operate on threads instead of paths (requires GBWT)" << endl
          << "    -q, --threads-by STR  operate on threads with the given prefix instead of paths (requires GBWT)" << endl
          << "    -Q, --paths-by STR    return the paths with the given prefix" << endl;
@@ -53,6 +54,7 @@ int main_paths(int argc, char** argv) {
     string thread_prefix;
     string path_prefix;
     bool extract_threads = false;
+    bool list_lengths = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -70,11 +72,12 @@ int main_paths(int argc, char** argv) {
             {"threads-by", required_argument, 0, 'q'},
             {"paths-by", required_argument, 0, 'Q'},
             {"threads", no_argument, 0, 'T'},
+            {"lengths", no_argument, 0, 'E'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:q:Q:VT",
+        c = getopt_long (argc, argv, "hLXv:x:g:q:Q:VTE",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -118,6 +121,11 @@ int main_paths(int argc, char** argv) {
 
         case 'T':
             extract_threads = true;
+            break;
+
+        case 'E':
+            list_names = true;
+            list_lengths = true;
             break;
 
         case 'h':
@@ -211,7 +219,7 @@ int main_paths(int argc, char** argv) {
             // Get its name
             auto thread_name = xg_index->thread_name(id); 
         
-            if (list_names) {
+            if (list_names && !list_lengths) {
                 // We are only interested in the name
                 cout << thread_name << endl;
                 continue;
@@ -243,6 +251,9 @@ int main_paths(int argc, char** argv) {
                 *(g.add_path()) = path;
                 graph_emitter->write(std::move(g));
             }
+            if (list_lengths) {
+                cout << path.name() << "\t" << path_to_length(path) << endl;
+            }
         }
     } else if (graph.get() != nullptr) {
         // Handle non-thread queries from vg
@@ -253,9 +264,13 @@ int main_paths(int argc, char** argv) {
         }
         
         if (list_names) {
-            graph->paths.for_each_name([&](const string& name) {
-                    cout << name << endl;
-                });
+            graph->paths.for_each([&list_lengths](const Path& path) {
+                cout << path.name();
+                if (list_lengths) {
+                    cout << "\t" << path_to_length(path);
+                }
+                cout << endl;
+            });
         } else if (extract_as_gam) {
             vector<Alignment> alns = graph->paths_as_alignments();
             stream::ProtobufEmitter<Alignment> emitter(cout);
@@ -274,7 +289,11 @@ int main_paths(int argc, char** argv) {
             // We aren't looking for threads, but we are looking for names.
             size_t max_path = xg_index->max_path_rank();
             for (size_t i = 1; i <= max_path; ++i) {
-                cout << xg_index->path_name(i) << endl;
+                cout << xg_index->path_name(i);
+                if (list_lengths) {
+                    cout << "\t" << xg_index->path_length(i);
+                }
+                cout << endl;
             }
         } else if (extract_as_gam) {
             auto alns = xg_index->paths_as_alignments();
