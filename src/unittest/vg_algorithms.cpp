@@ -5061,6 +5061,7 @@ namespace vg {
                 size_t num_trials_per_graph = 10;
                 
                 for (size_t graph_iter = 0; graph_iter < num_graphs; graph_iter++) {
+                    
                     VG graph = randomGraph(seq_size, avg_struct_var_len, var_count);
                     
                     size_t total_seq_len = 0;
@@ -5083,6 +5084,12 @@ namespace vg {
                         
                         pos_t pos_1 = random_pos();
                         pos_t pos_2 = random_pos();
+                        // shortest path calculations get complicated in the same node unreachable case, so
+                        // we just forbit it for simplicity here
+                        while (id(pos_2) == id(pos_1) && is_rev(pos_2) == is_rev(pos_1) && offset(pos_2) < offset(pos_1)) {
+                            pos_1 = random_pos();
+                            pos_2 = random_pos();
+                        }
                         
                         handle_t h1 = graph.get_handle(id(pos_1), is_rev(pos_1));
                         handle_t h2 = graph.get_handle(id(pos_2), is_rev(pos_2));
@@ -5108,6 +5115,7 @@ namespace vg {
                         TestDistHeuristic heuristic(&graph, heuristic_values);
                         
                         vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic);
+
                         size_t path_length = 0;
                         // find_shortest_path does not include the end nodes
                         for (size_t i = 1; i + 1 < path.size(); i++) {
@@ -5166,6 +5174,12 @@ namespace vg {
                         
                         pos_t pos_1 = random_pos();
                         pos_t pos_2 = random_pos();
+                        // shortest path calculations get complicated in the same node unreachable case, so
+                        // we just forbit it for simplicity here
+                        while (id(pos_2) == id(pos_1) && is_rev(pos_2) == is_rev(pos_1) && offset(pos_2) < offset(pos_1)) {
+                            pos_1 = random_pos();
+                            pos_2 = random_pos();
+                        }
                         
                         handle_t h1 = graph.get_handle(id(pos_1), is_rev(pos_1));
                         handle_t h2 = graph.get_handle(id(pos_2), is_rev(pos_2));
@@ -5181,79 +5195,7 @@ namespace vg {
                         TestDistHeuristic heuristic(&graph, heuristic_values);
                         
                         vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic);
-                        size_t path_length = 0;
-                        // find_shortest_path does not include the end nodes
-                        for (size_t i = 1; i + 1 < path.size(); i++) {
-                            path_length += graph.get_length(path[i]);
-                        }
                         
-                        if (shortest_paths.count(h1)) {
-                            if (path_length != shortest_paths[h1]) {
-                                cerr << "A* failed to find shortest path from " << pos_1 << " to " << pos_2 << " in the following graph:" << endl;
-                                cerr << pb2json(graph.graph) << endl;
-                            }
-                            
-                            REQUIRE(path_length == shortest_paths[h1]);
-                        }
-                        else {
-                            if (!path.empty()) {
-                                cerr << "A* failed to find identify unreachable path " << pos_1 << " to " << pos_2 << " in the following graph:" << endl;
-                                cerr << pb2json(graph.graph) << endl;
-                            }
-                            
-                            REQUIRE(path.empty());
-                        }
-                    }
-                }
-            }
-            
-            SECTION("A* finds shortest path on a random graph with a non-monotonic heuristic") {
-                
-                int64_t seq_size = 100;
-                int64_t avg_struct_var_len = 6;
-                int64_t var_count = 3;
-                
-                size_t num_graphs = 10;
-                size_t num_trials_per_graph = 10;
-                
-                for (size_t graph_iter = 0; graph_iter < num_graphs; graph_iter++) {
-                    VG graph = randomGraph(seq_size, avg_struct_var_len, var_count);
-                    
-                    size_t total_seq_len = 0;
-                    vector<handle_t> all_handles;
-                    graph.for_each_handle([&](const handle_t& handle) {
-                        all_handles.push_back(handle);
-                        total_seq_len += graph.get_length(handle) * 2;
-                    });
-                    random_device rd;
-                    default_random_engine gen(rd());
-                    
-                    function<pos_t(void)> random_pos = [&](void) {
-                        handle_t h = all_handles[uniform_int_distribution<int>(0, all_handles.size() - 1)(gen)];
-                        return make_pos_t(graph.get_id(h),
-                                          uniform_int_distribution<int>(0, 1)(gen),
-                                          uniform_int_distribution<size_t>(0, graph.get_length(h) - 1)(gen));
-                    };
-                    
-                    for (size_t pos_iter = 0; pos_iter < num_trials_per_graph; pos_iter++) {
-                        
-                        pos_t pos_1 = random_pos();
-                        pos_t pos_2 = random_pos();
-                        
-                        handle_t h1 = graph.get_handle(id(pos_1), is_rev(pos_1));
-                        handle_t h2 = graph.get_handle(id(pos_2), is_rev(pos_2));
-                        
-                        unordered_map<handle_t, size_t> shortest_paths = algorithms::find_shortest_paths(&graph, h2, true);
-                        
-                        unordered_map<handle_t, int64_t> heuristic_values;
-                        for (const auto& handle : all_handles) {
-                            auto flipped = graph.flip(handle);
-                            heuristic_values[handle] = uniform_int_distribution<int64_t>(0, 100)(gen);
-                            heuristic_values[flipped] = uniform_int_distribution<int64_t>(0, 100)(gen);
-                        }
-                        TestDistHeuristic heuristic(&graph, heuristic_values);
-                        
-                        vector<handle_t> path = algorithms::a_star(&graph, pos_1, pos_2, heuristic, true, total_seq_len, false);
                         size_t path_length = 0;
                         // find_shortest_path does not include the end nodes
                         for (size_t i = 1; i + 1 < path.size(); i++) {

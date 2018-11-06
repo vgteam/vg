@@ -165,6 +165,14 @@ using namespace std;
                 search_record.path_end.handle == end) {
                 // we've found the end, reconstruct the path and return it
                 
+#ifdef debug_a_star
+                cerr << "\tfound target" << endl;
+                cerr << "path search history:" << endl;
+                for (size_t i = 0; i < path_search_history.size(); i++) {
+                    cerr << "\t" << i << ": " << graph->get_id(path_search_history[i].handle) << (graph->get_is_reverse(path_search_history[i].handle) ? "-" : "+") << " -> " << path_search_history[i].predecessor_idx << endl;
+                }
+#endif
+                
                 vector<handle_t> path;
                 // walk the path backwards through the searh history
                 int64_t idx = path_search_history.size() - 1;
