@@ -10,6 +10,7 @@
 
 #include "../multipath_mapper.hpp"
 #include "../path.hpp"
+#include "../watchdog.hpp"
 
 //#define record_read_run_times
 
@@ -979,6 +980,9 @@ int main_mpmap(int argc, char** argv) {
     int thread_count = get_thread_count();
     multipath_mapper.set_alignment_threads(thread_count);
     
+    // Establish a watchdog to find reads that take too long to map
+    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::minutes(20)));
+    
     // are we doing paired ends?
     if (interleaved_input || !fastq_name_2.empty()) {
         // make sure buffer size is even (ensures that output will be interleaved)
@@ -1173,6 +1177,11 @@ int main_mpmap(int argc, char** argv) {
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
+
+        if (watchdog) {
+            watchdog->check_in(omp_get_thread_num(), alignment.name());
+        }
+
         vector<MultipathAlignment> mp_alns;
         multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
         if (single_path_alignment_mode) {
@@ -1181,6 +1190,11 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_alignments(mp_alns);
         }
+        
+        if (watchdog) {
+            watchdog->check_out(omp_get_thread_num());
+        }
+        
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
@@ -1192,9 +1206,19 @@ int main_mpmap(int argc, char** argv) {
     function<void(Alignment&, Alignment&)> do_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
         // get reads on the same strand so that oriented distance estimation works correctly
         // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
+
+        // Hack to find out which reads are slow
+        #pragma omp critical (cerr)
+        cerr << omp_get_thread_num() << "\t" << alignment_1.name() << endl;
+        
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
+
+        if (watchdog) {
+            watchdog->check_in(omp_get_thread_num(), alignment_1.name());
+        }
+        
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
@@ -1209,6 +1233,11 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_paired_alignments(mp_aln_pairs);
         }
+        
+        if (watchdog) {
+            watchdog->check_out(omp_get_thread_num());
+        }
+        
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
@@ -1220,9 +1249,19 @@ int main_mpmap(int argc, char** argv) {
     function<void(Alignment&, Alignment&)> do_independent_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
         // get reads on the same strand so that oriented distance estimation works correctly
         // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
+
+        // Hack to find out which reads are slow
+        #pragma omp critical (cerr)
+        cerr << omp_get_thread_num() << "\t" << alignment_1.name() << endl;
+
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
+
+        if (watchdog) {
+            watchdog->check_in(omp_get_thread_num(), alignment_1.name());
+        }
+
         if (!same_strand) {
             // TODO: the output functions undo this transformation, so we have to do it here.
         
@@ -1250,6 +1289,11 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_paired_alignments(mp_aln_pairs);
         }
+        
+        if (watchdog) {
+            watchdog->check_out(omp_get_thread_num());
+        }
+        
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
