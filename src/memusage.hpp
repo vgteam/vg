@@ -1,10 +1,10 @@
-#ifndef VG_STATUS_HPP_INCLUDED
-#define VG_STATUS_HPP_INCLUDED
+#ifndef VG_MEMUSAGE_HPP_INCLUDED
+#define VG_MEMUSAGE_HPP_INCLUDED
 
 #include <string>
 
 /**
- * \file status.hpp
+ * \file memusage.hpp
  * Defines an interface to /proc/self/status and other status interfaces for debugging.
  */
 

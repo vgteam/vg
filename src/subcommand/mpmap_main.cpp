@@ -980,7 +980,8 @@ int main_mpmap(int argc, char** argv) {
     int thread_count = get_thread_count();
     multipath_mapper.set_alignment_threads(thread_count);
     
-    // Establish a watchdog to find reads that take too long to map
+    // Establish a watchdog to find reads that take too long to map.
+    // If we see any, we will issue a warning.
     unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::minutes(20)));
     
     // are we doing paired ends?
@@ -1178,8 +1179,10 @@ int main_mpmap(int argc, char** argv) {
         clock_t start = clock();
 #endif
 
+        auto thread_num = omp_get_thread_num();
+
         if (watchdog) {
-            watchdog->check_in(omp_get_thread_num(), alignment.name());
+            watchdog->check_in(thread_num, alignment.name());
         }
 
         vector<MultipathAlignment> mp_alns;
@@ -1192,7 +1195,7 @@ int main_mpmap(int argc, char** argv) {
         }
         
         if (watchdog) {
-            watchdog->check_out(omp_get_thread_num());
+            watchdog->check_out(thread_num);
         }
         
 #ifdef record_read_run_times
@@ -1207,16 +1210,14 @@ int main_mpmap(int argc, char** argv) {
         // get reads on the same strand so that oriented distance estimation works correctly
         // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
 
-        // Hack to find out which reads are slow
-        #pragma omp critical (cerr)
-        cerr << omp_get_thread_num() << "\t" << alignment_1.name() << endl;
-        
+        auto thread_num = omp_get_thread_num();
+
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
 
         if (watchdog) {
-            watchdog->check_in(omp_get_thread_num(), alignment_1.name());
+            watchdog->check_in(thread_num, alignment_1.name());
         }
         
         if (!same_strand) {
@@ -1235,7 +1236,7 @@ int main_mpmap(int argc, char** argv) {
         }
         
         if (watchdog) {
-            watchdog->check_out(omp_get_thread_num());
+            watchdog->check_out(thread_num);
         }
         
 #ifdef record_read_run_times
@@ -1250,16 +1251,14 @@ int main_mpmap(int argc, char** argv) {
         // get reads on the same strand so that oriented distance estimation works correctly
         // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
 
-        // Hack to find out which reads are slow
-        #pragma omp critical (cerr)
-        cerr << omp_get_thread_num() << "\t" << alignment_1.name() << endl;
+        auto thread_num = omp_get_thread_num();
 
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
 
         if (watchdog) {
-            watchdog->check_in(omp_get_thread_num(), alignment_1.name());
+            watchdog->check_in(thread_num, alignment_1.name());
         }
 
         if (!same_strand) {
@@ -1291,7 +1290,7 @@ int main_mpmap(int argc, char** argv) {
         }
         
         if (watchdog) {
-            watchdog->check_out(omp_get_thread_num());
+            watchdog->check_out(thread_num);
         }
         
 #ifdef record_read_run_times

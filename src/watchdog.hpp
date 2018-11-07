@@ -72,20 +72,37 @@ protected:
     /// Have we been asked to stop the watcher thread?
     atomic<bool> stop_watcher;
 
-    /// Each thread we track has a mutex to control access to its data between it and the watcher thread
-    vector<mutex> thread_locks;
+    // We can't use any vector<bool> data structures protected by these mutexes
+    // because they are not guaranteed to allow concurrent access to different
+    // elements because of the packing. 
     
-    /// Is each thread checked in (true) or not?
-    vector<bool> is_checked_in;
-    /// When did each thread last check in?
-    vector<chrono::steady_clock::time_point> last_checkin;
-    /// What task did each thread last check into?
-    vector<string> task_name;
-    /// Have we reported a watchdog timeout since the last checkin for each thread?
-    vector<bool> timed_out;
+    /// Wrap all the per-thread state in a struct to avoid vectors of bools and
+    /// simplify things.
+    struct thread_state_t {
+        /// Lock this before reading or writing any fields.
+        /// Regulates access between the thread itself and the watcher thread.
+        mutex access_mutex;
+        /// Is the thread checked in (true) or not?
+        bool is_checked_in = false;
+        /// Have we reported a watchdog timeout since the last checkin for the thread?
+        bool timed_out = false;
+        /// When did the thread last check in?
+        chrono::steady_clock::time_point last_checkin;
+        /// what was our memory high water mark at last checkin?
+        size_t checkin_high_water_kb;
+        /// What task did the thread last check into?
+        string task_name;
+    };
+    
+    /// Holds the state of each thread, along with its mutex.
+    vector<thread_state_t> state;
     
     /// How long should we give a task to be checked in before complaining?
     duration timeout;
+    
+    /// What's the most recent process memory high water mark estimate?
+    /// We report on this when tasks take a long time in case they also are using a lot of memory.
+    atomic<size_t> memory_high_water_kb;
     
     /// We have a thread that does our watchdogging
     thread watcher;
@@ -93,9 +110,6 @@ protected:
     /// Function run in the watcher thread.
     void watcher_loop();
     
-    
-   
-
 };
 
 }
