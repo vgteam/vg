@@ -111,8 +111,7 @@ void Watchdog::watcher_loop() {
                         
                         #pragma omp critical (cerr)
                         cerr << "warning[vg::Watchdog]: Thread " << i << " has been checked in for "
-                            << checked_in_seconds.count() << " seconds with " << high_water_increase_kb
-                            << " memory growth processing: " << t.task_name << endl;
+                            << checked_in_seconds.count() << " seconds processing: " << t.task_name << endl;
                             
                         // Only report once per task
                         t.timed_out = true;
