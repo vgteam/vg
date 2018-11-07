@@ -871,9 +871,16 @@ vector<SnarlTraversal> TrivialTraversalFinder::find_traversals(const Snarl& site
 
 
 RepresentativeTraversalFinder::RepresentativeTraversalFinder(AugmentedGraph& augmented,
-                                                             SnarlManager& snarl_manager, size_t max_depth, size_t max_width, size_t max_bubble_paths,
-                                                             function<PathIndex*(const Snarl&)> get_index) : augmented(augmented), snarl_manager(snarl_manager),
-                                                                                                             max_depth(max_depth), max_width(max_width), max_bubble_paths(max_bubble_paths), get_index(get_index) {
+                                                             SnarlManager& snarl_manager,
+                                                             size_t max_depth,
+                                                             size_t max_width,
+                                                             size_t max_bubble_paths,
+                                                             size_t min_node_support,
+                                                             size_t min_edge_support,
+                                                             function<PathIndex*(const Snarl&)> get_index) :
+  augmented(augmented), snarl_manager(snarl_manager), max_depth(max_depth), max_width(max_width),
+  max_bubble_paths(max_bubble_paths), min_node_support(min_node_support), min_edge_support(min_edge_support),
+  get_index(get_index) {
     
     // Nothing to do!
 
@@ -1331,7 +1338,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
             continue;
         }
         
-        if (augmented.has_supports() && total(augmented.get_support(node)) == 0) {
+        if (augmented.has_supports() && total(augmented.get_support(node)) < min_node_support) {
             // Don't bother with unsupported nodes
             continue;
         }
@@ -1375,7 +1382,7 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
     for(Edge* edge : contents.second) {
         // Go through all the edges
         
-        if(augmented.has_supports() && total(augmented.get_support(edge)) == 0) {
+        if(augmented.has_supports() && total(augmented.get_support(edge)) < min_edge_support) {
             // Don't bother with unsupported edges
 #ifdef debug
             cerr << "Skip unsupported edge " << edge->from() << " -> " << edge->to() << endl;
@@ -2170,7 +2177,8 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
                     Node* prevNode = augmented.graph.get_node(prevVisit.node_id());
                     
                     if (augmented.has_supports() && 
-                        (total(augmented.get_support(prevNode)) == 0 || total(augmented.get_support(edge)) == 0)) {
+                        (total(augmented.get_support(prevNode)) < min_node_support ||
+                         total(augmented.get_support(edge)) < min_edge_support)) {
                         // We have no support at all for visiting this node by this
                         // edge (but we do have some read support data)
                         
@@ -2187,7 +2195,7 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
                     // That node can't be shared with a snarl we are already at.
                     Node* prevNode = augmented.graph.get_node(to_left_side(prevVisit).node);
                     
-                    if (augmented.has_supports() && total(augmented.get_support(prevNode)) == 0) {
+                    if (augmented.has_supports() && total(augmented.get_support(prevNode)) < min_node_support) {
                         // We have no support at all for visiting the far node of this snarl
                         
 #ifdef debug
