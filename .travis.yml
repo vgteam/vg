@@ -37,11 +37,12 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p deps; touch deps/gcc6; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" ]]; then mkdir -p deps; touch deps/clang; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="$(pwd)/bin:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
-  - gcc --version && g++ --version
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then gcc-6 --version; g++-6 --version; fi
+  - which gcc && gcc --version && which g++ && g++ --version
   - python ./configure.py
   - source ./source_me.sh
 install:
