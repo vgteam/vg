@@ -41,8 +41,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then gcc-6 --version; g++-6 --version; fi
-  - which gcc && gcc --version && which g++ && g++ --version
+  - which gcc && gcc --version && which g++ && g++ --version && which cc && cc --vercion && which c++ && c++ --version
   - python ./configure.py
   - source ./source_me.sh
 install:
@@ -50,6 +49,7 @@ install:
 script:
   - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && echo Testing && make test && make static -j4; fi
   - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" ]]; then timeout 1800 make deps -j4 && make -j4 && echo Testing && make test; fi
+  - if [[ -z "$BUILD_DOCS_ONLY" && "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then cat deps/vowpal_wabbit/config.log; fi
   - if [[ ! -z "$BUILD_DOCS_ONLY" ]]; then doc/publish-docs.sh; fi
 # Cache all our dependency directories, and our lib and include
 cache:
