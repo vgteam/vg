@@ -26,7 +26,6 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle; fi # TODO: Check back after addon has been fixed.
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew install gcc6 || true; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew link --overwrite gcc@6; fi
@@ -64,7 +63,6 @@ before_cache:
 
 addons:
   homebrew:
-    # We should be able to list packages here, but it isn't quite working, so let's try a Brewfile
     brewfile: true 
   apt:
     sources:
