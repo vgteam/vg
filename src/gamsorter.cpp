@@ -2,7 +2,7 @@
 #include "utility.hpp"
 #include "json2pb.h"
 #include "position.hpp"
-#include "gam_index.hpp"
+#include "stream_index.hpp"
 
 #include <sys/time.h>
 #include <sys/resource.h>

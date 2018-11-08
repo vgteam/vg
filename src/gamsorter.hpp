@@ -5,6 +5,7 @@
 #include "stream.hpp"
 #include "types.hpp"
 #include "progressive.hpp"
+#include "stream_index.hpp"
 #include <string>
 #include <queue>
 #include <sstream>
@@ -22,11 +23,6 @@
  */
 using namespace std;
 namespace vg {
-
-
-// We need to know about the GAMIndex, but we don't actually need to hold one.
-// So pre-declare it here.
-class GAMIndex;
 
 /// Provides the ability to sort a GAM, either "dumbly" (in memory), or
 /// "streaming" into temporary files. Paired alignments are not necessarily

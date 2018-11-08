@@ -16,7 +16,7 @@
 #include "../stream.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
-#include "../gam_index.hpp"
+#include "../stream_index.hpp"
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"

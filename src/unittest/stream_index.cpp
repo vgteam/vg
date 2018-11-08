@@ -1,12 +1,12 @@
 ///
-///  \file genome_state.cpp
+///  \file stream_index.cpp
 ///
 ///  Unit tests for the GAMIndex which indexes seekable GAM files by node ID
 ///
 
 #include <iostream>
 #include "catch.hpp"
-#include "../gam_index.hpp"
+#include "../stream_index.hpp"
 #include "../utility.hpp"
 
 

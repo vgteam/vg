@@ -1,6 +1,6 @@
 #include "../gamsorter.hpp"
-#include "../gam_index.hpp"
 #include "../stream.hpp"
+#include "../stream_index.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
 #include "../index.hpp"
