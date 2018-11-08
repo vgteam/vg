@@ -69,6 +69,8 @@ void help_index(char** argv) {
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "gam indexing options:" << endl
          << "    -l, --index-sorted-gam input is sorted .gam format alignments, store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
+         << "vg in-place indexing options:" << endl
+         << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "rocksdb options:" << endl
          << "    -d, --db-name  <X>     store the RocksDB index in <X>" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
@@ -142,6 +144,8 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
+    #define OPT_BUILD_VGI_INDEX 1000
+
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
@@ -176,7 +180,10 @@ int main_index(int argc, char** argv) {
     bool verify_gcsa = false;
     
     // Gam index (GAI)
-    bool build_gam_index = false;
+    bool build_gai_index = false;
+    
+    // VG in-place index (VGI)
+    bool build_vgi_index = false;
 
     // RocksDB
     bool dump_index = false;
@@ -234,6 +241,9 @@ int main_index(int argc, char** argv) {
             
             // GAM index (GAI)
             {"index-sorted-gam", no_argument, 0, 'l'},
+            
+            // VG in-place index (VGI)
+            {"index-sorted-vg", no_argument, 0, OPT_BUILD_VGI_INDEX},
 
             // RocksDB
             {"db-name", required_argument, 0, 'd'},
@@ -401,7 +411,12 @@ int main_index(int argc, char** argv) {
             
         // Gam index (GAI)
         case 'l':
-            build_gam_index = true;
+            build_gai_index = true;
+            break;
+            
+        // VGI index
+        case OPT_BUILD_VGI_INDEX:
+            build_vgi_index = true;
             break;
 
         // RocksDB
@@ -459,7 +474,8 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index && dist_name.empty() ) {
+    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() &&
+        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty() ) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -479,10 +495,16 @@ int main_index(int argc, char** argv) {
         //return 1;
     }
     
-    if (file_names.size() != 1 && build_gam_index) {
+    if (file_names.size() != 1 && build_gai_index) {
         cerr << "error: [vg index] can only index exactly one sorted GAM file at a time" << endl;
         return 1;
     }
+    
+    if (file_names.size() != 1 && build_vgi_index) {
+        cerr << "error: [vg index] can only index exactly one sorted VG file at a time" << endl;
+        return 1;
+    }
+    
     if (file_names.size() != 1 && build_dist) {
         cerr << "error: [vg index] can only create one distance index at a time" << endl;
         return 1;
@@ -1041,16 +1063,15 @@ int main_index(int argc, char** argv) {
         }
     }
     
-    if (build_gam_index) {
+    if (build_gai_index) {
         // Index a sorted GAM file.
-        GAMIndex index;
         
         get_input_file(file_names.at(0), [&](istream& in) {
             // Grab the input GAM stream and wrap it in a cursor
             stream::ProtobufIterator<Alignment> cursor(in);
             
             // Index the file
-            GAMIndex index;
+            StreamIndex<Alignment> index;
             index.index(cursor);
  
             // Save the GAM index in the appropriate place.
@@ -1058,6 +1079,27 @@ int main_index(int argc, char** argv) {
             ofstream index_out(file_names.at(0) + ".gai");
             if (!index_out.good()) {
                 cerr << "error: [vg index] could not open " << file_names.at(0) << ".gai" << endl;
+                exit(1);
+            }
+            index.save(index_out);
+        });
+    }
+    
+    if (build_vgi_index) {
+        // Index an ID-sorted VG file.
+        get_input_file(file_names.at(0), [&](istream& in) {
+            // Grab the input VG stream and wrap it in a cursor
+            stream::ProtobufIterator<Graph> cursor(in);
+            
+            // Index the file
+            StreamIndex<Graph> index;
+            index.index(cursor);
+ 
+            // Save the index in the appropriate place.
+            // TODO: Do we really like this enforced naming convention just beacuse samtools does it?
+            ofstream index_out(file_names.at(0) + ".vgi");
+            if (!index_out.good()) {
+                cerr << "error: [vg index] could not open " << file_names.at(0) << ".vgi" << endl;
                 exit(1);
             }
             index.save(index_out);
