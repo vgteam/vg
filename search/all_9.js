@@ -106,6 +106,7 @@ var searchData=
   ['is_5falt_5fpath',['is_alt_path',['../namespacevg.html#a4e701675f6d1b67522349bf5b7651bb0',1,'vg']]],
   ['is_5fancestor_5fnext',['is_ancestor_next',['../classvg_1_1VG.html#a65e98e20589f3f63de75f4dc63526562',1,'vg::VG::is_ancestor_next(id_t node_id, id_t candidate_id)'],['../classvg_1_1VG.html#a837620e82b388581d91300a53c099574',1,'vg::VG::is_ancestor_next(id_t node_id, id_t candidate_id, set&lt; id_t &gt; &amp;seen, size_t steps=64)']]],
   ['is_5fancestor_5fprev',['is_ancestor_prev',['../classvg_1_1VG.html#a7237af28b6fd3159ce048ec66679935c',1,'vg::VG::is_ancestor_prev(id_t node_id, id_t candidate_id)'],['../classvg_1_1VG.html#aec9353f02748091b04439a26fda57f9b',1,'vg::VG::is_ancestor_prev(id_t node_id, id_t candidate_id, set&lt; id_t &gt; &amp;seen, size_t steps=64)']]],
+  ['is_5fchecked_5fin',['is_checked_in',['../structvg_1_1Watchdog_1_1thread__state__t.html#aae7887d9b7548a028a6b7271aabd44eb',1,'vg::Watchdog::thread_state_t']]],
   ['is_5fchild',['is_child',['../classvg_1_1NetGraph.html#ad858ed0c4db60816f113ecdc5ce4ed89',1,'vg::NetGraph']]],
   ['is_5fcircular',['is_circular',['../structvg_1_1Path.html#ad04d3a1745f479f32b4a4358bec17c8f',1,'vg::Path::is_circular()'],['../classxg_1_1XGPath.html#a4cc65b6cfdbd12f6220dde5a716fd345',1,'xg::XGPath::is_circular()']]],
   ['is_5fcompacted',['is_compacted',['../classvg_1_1Packer.html#aa7f90bbde45e8487029a424392b653ad',1,'vg::Packer']]],
@@ -147,6 +148,6 @@ var searchData=
   ['item_5fvo',['item_vo',['../classvg_1_1stream_1_1ProtobufIterator.html#ab0549ac199aa9111f05f562f4ce67673',1,'vg::stream::ProtobufIterator']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]],
   ['iterator',['iterator',['../structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482',1,'vg::PathIndex::iterator()'],['../classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096',1,'vg::ShuffledPairs::iterator::iterator(const iterator &amp;other)=default'],['../classvg_1_1ShuffledPairs_1_1iterator.html#a3b52dd39c46e409ef1bfd67ab8ee76e4',1,'vg::ShuffledPairs::iterator::iterator(const ShuffledPairs &amp;iteratee, size_t start_at)'],['../classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441',1,'vg::PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode *haplo_node)'],['../classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf',1,'vg::PhasedGenome::iterator::iterator()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a03bdcb94d8ed8b6e895ff003412185e4',1,'vg::PhasedGenome::iterator::iterator(const iterator &amp;other)']]],
-  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]],
-  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]]
+  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]],
+  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]]
 ];

@@ -18,6 +18,7 @@ var searchData=
   ['chainstartid',['chainStartID',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#ab9ced0ef0ba2379e85dd21fc7a98a338',1,'vg::DistanceIndex::ChainIndex']]],
   ['char_5fcount',['char_count',['../classvg_1_1Pictographs.html#ad19f958ce6ab190b47a0c2761923d013',1,'vg::Pictographs']]],
   ['chars',['chars',['../classvg_1_1Pictographs.html#a322a2d02ca384f0c182944bf8eebcb09',1,'vg::Pictographs']]],
+  ['checkin_5fhigh_5fwater_5fkb',['checkin_high_water_kb',['../structvg_1_1Watchdog_1_1thread__state__t.html#a5f8bf15e6a488344b99f4bad238ac8c3',1,'vg::Watchdog::thread_state_t']]],
   ['child_5fchains',['child_chains',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33',1,'vg::SnarlManager::SnarlRecord']]],
   ['children',['children',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a0bfacb041ef897faedba2cf2585c9fb0',1,'vg::SnarlManager::SnarlRecord::children()'],['../structvg_1_1TreeNode.html#a5a5645da982fa8a9acb280ef031960d2',1,'vg::TreeNode::children()']]],
   ['circular',['circular',['../classvg_1_1Paths.html#ad8af70b16e2280fba6e46418842229fa',1,'vg::Paths']]],

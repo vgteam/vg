@@ -47,6 +47,8 @@ var searchData=
   ['chains_5fof',['chains_of',['../classvg_1_1SnarlManager.html#a6d6584dc551c3f87d5d85a786789f3b9',1,'vg::SnarlManager']]],
   ['char_5fto_5fstring',['char_to_string',['../namespacevg.html#ab4c908e97c97825b3025f8aefc59f025',1,'vg']]],
   ['check_5falignment',['check_alignment',['../classvg_1_1Mapper.html#a0750e1ca5a4eff47c148b176081c5333',1,'vg::Mapper']]],
+  ['check_5fin',['check_in',['../classvg_1_1Watchdog.html#a73fff63eede4aaf60f04ca41f2373cdc',1,'vg::Watchdog']]],
+  ['check_5fout',['check_out',['../classvg_1_1Watchdog.html#abef59fb95cd3cb40a103d6e73e4c8031',1,'vg::Watchdog']]],
   ['checkchaindist',['checkChainDist',['../classvg_1_1DistanceIndex.html#a06a9282b0ac3f37d39a0380c28aaaf9a',1,'vg::DistanceIndex']]],
   ['checkchainloopfd',['checkChainLoopFd',['../classvg_1_1DistanceIndex.html#a464743b4091720b02405c52cab18c50b',1,'vg::DistanceIndex']]],
   ['checkchainlooprev',['checkChainLoopRev',['../classvg_1_1DistanceIndex.html#abf411182dbd4c5f0809d97547b6c0e91',1,'vg::DistanceIndex']]],

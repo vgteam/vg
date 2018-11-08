@@ -84,6 +84,7 @@ var searchData=
   ['mem_5fcoverage_5fmin_5fratio',['mem_coverage_min_ratio',['../classvg_1_1MultipathMapper.html#ae977e7bbf30ca7634e7422aa76c16e71',1,'vg::MultipathMapper']]],
   ['mem_5freseed_5flength',['mem_reseed_length',['../classvg_1_1BaseMapper.html#abaea877646c1be5aea6200201d28c4cf',1,'vg::BaseMapper']]],
   ['memo',['memo',['../classhaplo_1_1hDP__graph__accessor.html#a4d5efa70b9c919fa007dbf62a21f2859',1,'haplo::hDP_graph_accessor::memo()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a382739dd7136e759c6a01725ddebd301',1,'haplo::hDP_gbwt_graph_accessor::memo()']]],
+  ['memory_5fhigh_5fwater_5fkb',['memory_high_water_kb',['../classvg_1_1Watchdog.html#aa759f3d73ebe15aeb95a13a8c86a0b59',1,'vg::Watchdog']]],
   ['message',['message',['../classvg_1_1NoAlignmentInBandException.html#a3cc1fd5899066709228ecea9e5a25956',1,'vg::NoAlignmentInBandException::message()'],['../classvg_1_1indexOpenException.html#ad2e9c28b9dd893378b1cd5af79ec2efb',1,'vg::indexOpenException::message()']]],
   ['min_5fad_5flog_5flikelihood_5ffor_5ffilter',['min_ad_log_likelihood_for_filter',['../classvg_1_1SupportCaller.html#aca2588765531eceb32bfc8a487d6503d',1,'vg::SupportCaller']]],
   ['min_5favg_5fqual',['min_avg_qual',['../classvg_1_1Filter.html#aa2f91d1daf04d2fdd6eb75183994d834',1,'vg::Filter']]],

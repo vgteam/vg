@@ -1,6 +1,7 @@
 var searchData=
 [
   ['target_5fprotobuf_5fsize',['TARGET_PROTOBUF_SIZE',['../namespacevg_1_1stream.html#a1c251c853915079cc6a23af49619db75',1,'vg::stream']]],
+  ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
   ['telomeres',['telomeres',['../classvg_1_1GenomeState.html#a2e1564254538fec6438c931a5263ab8a',1,'vg::GenomeState']]],
   ['temp_5fdir',['temp_dir',['../namespacevg_1_1temp__file.html#a67738993d4bd500b48df3e75ceed7ba7',1,'vg::temp_file']]],
@@ -11,6 +12,8 @@ var searchData=
   ['thread_5fextension',['thread_extension',['../classvg_1_1Mapper.html#ad2f2408aba30a38eda90a10c28cbf410',1,'vg::Mapper']]],
   ['threads',['threads',['../classvg_1_1Index.html#afa3ca566571f082a5a1528d2da20b018',1,'vg::Index::threads()'],['../classvg_1_1ReadFilter.html#a22e4ebb26cce954d20deb7b0d7a31641',1,'vg::ReadFilter::threads()']]],
   ['time_5fused',['time_used',['../structvg_1_1Alignment.html#a0c8b04a220715a894a19dcc70ed581c0',1,'vg::Alignment']]],
+  ['timed_5fout',['timed_out',['../structvg_1_1Watchdog_1_1thread__state__t.html#a0a1e9d9760eaa0803da68a1ef3a0cdb0',1,'vg::Watchdog::thread_state_t']]],
+  ['timeout',['timeout',['../classvg_1_1Watchdog.html#aff48af7cbc77f123d30fefd9aa005181',1,'vg::Watchdog']]],
   ['tin_5fciv',['tin_civ',['../classxg_1_1XG.html#ab06894dcdcf0914d0aff013308f6800c',1,'xg::XG']]],
   ['tio_5fciv',['tio_civ',['../classxg_1_1XG.html#a4aae31251038aa6ac46ed29baafd60be',1,'xg::XG']]],
   ['tmpfstreams',['tmpfstreams',['../classvg_1_1Packer.html#a12c9d820a3b4ba6fdec28b9f05677f64',1,'vg::Packer']]],

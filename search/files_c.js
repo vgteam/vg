@@ -6,6 +6,8 @@ var searchData=
   ['mapper_2ehpp',['mapper.hpp',['../mapper_8hpp.html',1,'']]],
   ['mem_2ecpp',['mem.cpp',['../mem_8cpp.html',1,'']]],
   ['mem_2ehpp',['mem.hpp',['../mem_8hpp.html',1,'']]],
+  ['memusage_2ecpp',['memusage.cpp',['../memusage_8cpp.html',1,'']]],
+  ['memusage_2ehpp',['memusage.hpp',['../memusage_8hpp.html',1,'']]],
   ['mod_5fmain_2ecpp',['mod_main.cpp',['../mod__main_8cpp.html',1,'']]],
   ['mpmap_5fmain_2ecpp',['mpmap_main.cpp',['../mpmap__main_8cpp.html',1,'']]],
   ['msa_5fconverter_2ecpp',['msa_converter.cpp',['../msa__converter_8cpp.html',1,'']]],

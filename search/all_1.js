@@ -2,6 +2,7 @@ var searchData=
 [
   ['a',['a',['../classvg_1_1uniform__real__distribution.html#a2655894c8aac704d8642938b9d804a17',1,'vg::uniform_real_distribution::a()'],['../classvg_1_1uniform__int__distribution.html#a9270691789469c5d5b2a98cc92a20152',1,'vg::uniform_int_distribution::a()']]],
   ['accept_5frecord',['accept_record',['../classvg_1_1VcfRecordFilter.html#a2e39d3d4cb41426f965959c30b0de2d2',1,'vg::VcfRecordFilter']]],
+  ['access_5fmutex',['access_mutex',['../structvg_1_1Watchdog_1_1thread__state__t.html#adcceae4d1421b6f28cf9bcf395f523cb',1,'vg::Watchdog::thread_state_t']]],
   ['adaptive',['Adaptive',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4ab530b2114d4cd7f36bb3a41c01928995',1,'vg::Genotyper::Adaptive()'],['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39a0f1da9e8a7bb929e940b4fa8be187340',1,'vg::Adaptive()']]],
   ['adaptive_5fdiff_5fexponent',['adaptive_diff_exponent',['../classvg_1_1BaseMapper.html#a653e029302e4442dbabd06a70ec4bbec',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5fdiff',['adaptive_reseed_diff',['../classvg_1_1BaseMapper.html#acf7556c347ea7596624700482dc58c8c',1,'vg::BaseMapper']]],
