@@ -438,33 +438,28 @@ auto StreamIndex<Message>::find(cursor_t& cursor, const vector<pair<id_t, id_t>>
                 const auto& message = *cursor;
                 bool message_match = false;
                 
-                if (message.path().mapping_size() == 0) {
-                    // This read is unmapped, so count it as node 0.
-                    group_min_id = min(group_min_id, (id_t)0);
-                    if (is_in_range(ranges, 0)) {
-                        // We want unmapped reads.
+                for_each_id(message, [&](const id_t& found) {
+                    // For each ID touched by the message
+                    
+                    // Min it in, keeping 0 as the sentinel for no nodes touched.
+                    group_min_id = min(group_min_id, found);
+                    if (is_in_range(ranges, found)) {
+                        // We want this node (or unplaced messages like this one).
                         message_match = true;
-                    }
-                } else {
-                    // The read has mappings
-                    for (const auto& mapping : message.path().mapping()) {
-                        // Look at each node that is visited
-                        auto visited = mapping.position().node_id();
-                        group_min_id = min(group_min_id, visited);
-                        if (is_in_range(ranges, visited)) {
-                            // We want this node.
-                            message_match = true;
-                            if (!only_fully_contained) {
-                                // All we care about is that any of the nodes match
-                                break;
-                            }
-                        } else if (only_fully_contained) {
-                            // We need *all* of the nodes to match, and this one didn't.
-                            message_match = false;
-                            break;
+                        if (!only_fully_contained) {
+                            // All we care about is that any of the nodes match.
+                            // we know enough to keep this message.
+                            return false;
                         }
+                    } else if (only_fully_contained) {
+                        // We need *all* of the nodes to match, and this one didn't.
+                        message_match = false;
+                        // We know enough to discard this message.
+                        return false;
                     }
-                }
+                    // Keep looking
+                    return true;
+                });
                 
                 if (message_match) {
                     // This message is one that matches the query. Yield it.
@@ -549,20 +544,20 @@ auto StreamIndex<Message>::add_group(const vector<Message>& msgs, int64_t virtua
     id_t min_id = numeric_limits<id_t>::max();
     id_t max_id = numeric_limits<id_t>::min();
     
+    
+    
     for (auto& msg : msgs) {
         // For each message
-        if (msg.path().mapping_size() == 0) {
-            // The read is unmapped, so it belongs to node ID 0
-            min_id = min(min_id, (id_t)0);
-            max_id = max(max_id, (id_t)0);
-        } else {
-            for (auto& mapping : msg.path().mapping()) {
-                // For each mapping in it, min/max in the ID
-                auto id = mapping.position().node_id();
-                min_id = min(min_id, id);
-                max_id = max(max_id, id);
-            }
-        }
+        for_each_id(msg, [&](const id_t& found) {
+            // For each ID touched by the message
+            
+            // Min and max in the ID, keeping 0 to represent no mappings.
+            min_id = min(min_id, found);
+            max_id = max(max_id, found);
+            
+            // Don't stop early
+            return true;
+        });
     }
     
     add_group(min_id, max_id, virtual_start, virtual_past_end);

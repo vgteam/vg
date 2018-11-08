@@ -502,4 +502,80 @@ auto StreamIndex<Alignment>::for_each_id(const Alignment& msg, const function<bo
     }
 }
 
+template<>
+auto StreamIndex<Graph>::for_each_id(const Graph& msg, const function<bool(const id_t&)> iteratee) const -> void {
+    
+    // We use this to deduplicate our output.
+    // TODO: We assume that node IDs are unique in the graph's nodes as an optimization.
+    unordered_set<id_t> touched;
+    
+    for (auto& node : msg.node()) {
+        // Show the iteratee all the nodes
+        if (!iteratee(node.id())) {
+            return;
+        }
+        
+        // Make sure to count them as touched
+        touched.insert(node.id());
+    }
+    
+    for (auto& edge : msg.edge()) {
+        // Show the iteratee the endpoints of all the edges
+        
+        if (!touched.count(edge.from())) {
+            // The start isn't yet announced
+            
+            if (!iteratee(edge.from())) {
+                // Stop early if asked
+                return;
+            }
+            
+            touched.insert(edge.from());
+            
+        }
+        
+        if (!touched.count(edge.to())) {
+            // The end isn't yet announced
+            
+            if (!iteratee(edge.to())) {
+                // Stop early if asked
+                return;
+            }
+            
+            touched.insert(edge.to());
+        }
+    }
+    
+    for (auto& path : msg.path()) {
+        for (auto& mapping : path.mapping()) {
+            // Show the iteratee all the nodes visited by paths
+            const auto& id = mapping.position().node_id();
+            
+            if (id == 0) {
+                // Skip magically unplaced mappings
+                continue;
+            }
+            
+            if (touched.count(id)) {
+                // Skip things we already announced
+                continue;
+            }
+            
+            if (!iteratee(id)) {
+                // Stop early if asked
+                return;
+            }
+            
+            touched.insert(id);
+        }
+        
+    }
+    
+    if (touched.empty()) {
+        // We didn't announce any nodes. Announce the unplaced sentinel.
+        iteratee(0);
+    }
+    
+}
+
 }
