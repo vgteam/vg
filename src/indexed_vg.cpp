@@ -10,6 +10,40 @@ namespace vg {
 
 using namespace std;
 
+IndexedVG::IndexedVG(string graph_filename) : vg_filename(graph_filename), index() {
+    
+    // Decide where the index ought to be stored
+    string index_filename = vg_filename + ".vgi";
+    
+    ifstream index_in_stream(index_filename);
+    if (index_in_stream.good()) {
+        // We found the idnex, load it
+        index.load(index_in_stream);
+    } else {
+        // We need to build the index
+        
+        // Get the file to write the index to
+        ofstream index_out_stream(vg_filename);
+        if (!index_out_stream.good()) {
+            // We couldn't load the index and we can't save it
+            throw runtime_error("Could not open index file " + vg_filename + " for reading or writing");
+        }
+        
+        // TODO: Show progress as we do this?
+        with_cursor([&](cursor_t& cursor) {
+            // Get a cursor to the start of the file
+            assert(cursor.seek_group(0));
+            
+            // Compute the index
+            index.index(cursor);
+            
+            // Save the index
+            index.save(index_out_stream);
+        });
+    }
+    
+}
+
 // TODO: We ought to use some kind of handle packing that relates to file offsets for graph chunks contasining nodes.
 // For now we just use the EasyHandlePacking and hit the index every time.
 
