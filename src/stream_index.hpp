@@ -121,7 +121,7 @@ public:
     /// linear index, or the past-the-end of the previous run scanned.
     void find(id_t node_id, const function<bool(int64_t, int64_t)> scan_callback) const;
     
-    // Find all the ranges of run virtual offsets to check for reads visiting
+    /// Find all the ranges of run virtual offsets to check for reads visiting
     /// the given inclusive node ID range. Relies on a scanning callback, which
     /// will be called repeatedly with the start and past-the-end virtual
     /// offsets of runs which may contain groups touching the given node ID.
@@ -131,6 +131,15 @@ public:
     /// order, and truncated on the left to either the appropriate lower bound
     /// from the linear index, or the past-the-end of the previous run scanned.
     void find(id_t min_node, id_t max_node, const function<bool(int64_t, int64_t)> scan_callback) const;
+    
+    /// Iterate over ranges of virtual offsets from the end of the file to the
+    /// start. The ranges to *not* necessarily correspond to runs. The ending
+    /// VO of the first range iterated may be numeric_limits<int64_t>::max().
+    /// The start VO of each range is guaranteed to be a valid VO of a group.
+    /// The past-end VO may be the start of the previously iterated range.
+    /// We have no scan_forward because you can just do that with a cursor.
+    /// Stops when the callback returns false.
+    void scan_backward(const function<bool(int64_t, int64_t)> scan_callback) const;
     
     /// Add a group into the index, based on its minimum and maximum
     /// (inclusive) used node IDs. Must be called for all groups in virtual
@@ -176,7 +185,7 @@ protected:
     map<window_t, int64_t> window_to_start;
     
     /// What was the minimum node ID of the last group added?
-    /// If this isn't strictly increasing, we're trying to idnex data that is not sorted.
+    /// If this isn't strictly increasing, we're trying to index data that is not sorted.
     id_t last_group_min_id = numeric_limits<id_t>::min();
     
     /// Return true if the given ID is in any of the sorted, coalesced, inclusive ranges in the vector, and false otherwise.

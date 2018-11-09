@@ -266,6 +266,25 @@ auto StreamIndexBase::find(id_t min_node, id_t max_node, const function<bool(int
     }
 }
 
+auto StreamIndexBase::scan_backward(const function<bool(int64_t, int64_t)> scan_callback) const -> void {
+    // Remember the previous range's start VO, to be the next range's past-end VO.
+    int64_t prev_vo = numeric_limits<int64_t>::max();
+    
+    for(auto rit = window_to_start.rbegin(); rit != window_to_start.rend(); ++rit) {
+        
+        // Go over the window offsets we have stored in reverse order.
+        // We can use them as handy valid pointers to groups that are easy to go over in reverse order.
+        
+        if (!scan_callback(rit->second, prev_vo)) {
+            // The iteratee is done
+            return;
+        }
+        
+        // Remember the start VO to be the next end
+        prev_vo = rit->second;
+    }
+}
+
 /// Return true if the given ID is in any of the sorted, coalesced, inclusive ranges in the vector, and false otherwise.
 /// TODO: Is repeated binary search on the ranges going to be better than an unordered_set of all the individual IDs?
 auto StreamIndexBase::is_in_range(const vector<pair<id_t, id_t>>& ranges, id_t id) -> bool {
