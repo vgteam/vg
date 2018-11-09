@@ -106,9 +106,6 @@ int main_benchmark(int argc, char** argv) {
     
     const VG vg(vg_mut);
     
-    // And a test XG of it
-    const xg::XG xg_index(vg_mut.graph);
-    
     vector<BenchmarkResult> results;
     
     results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
@@ -141,30 +138,6 @@ int main_benchmark(int argc, char** argv) {
                 vg_mut.get_node(i);
             }
         }
-    }));
-    
-    results.push_back(run_benchmark("algorithms::extract_connecting_graph on xg", 1000, [&]() {
-        pos_t pos_1 = make_pos_t(55, false, 0);
-        pos_t pos_2 = make_pos_t(32, false, 0);
-        
-        int64_t max_len = 500;
-        
-        VG extractor;
-        
-        auto trans = algorithms::extract_connecting_graph(&xg_index, &extractor, max_len, pos_1, pos_2, true, true);
-    
-    }));
-    
-    results.push_back(run_benchmark("algorithms::extract_connecting_graph on vg", 1000, [&]() {
-        pos_t pos_1 = make_pos_t(55, false, 0);
-        pos_t pos_2 = make_pos_t(32, false, 0);
-        
-        int64_t max_len = 500;
-        
-        VG extractor;
-        
-        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true, true);
-    
     }));
     
     // Do the control against itself
