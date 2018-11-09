@@ -634,7 +634,7 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     init();
     add_nodes(nodes);
     add_edges(edges);
-    algorithms::sort(this);
+    algorithms::topological_sort(this);
 }
 
 
@@ -3631,7 +3631,7 @@ int VG::node_rank(id_t id) {
 
 vector<Edge> VG::break_cycles(void) {
     // ensure we are sorted
-    algorithms::sort(this);
+    algorithms::topological_sort(this);
     // remove any edge whose from has a higher index than its to
     vector<Edge*> to_remove;
     for_each_edge([&](Edge* e) {
@@ -3646,7 +3646,7 @@ vector<Edge> VG::break_cycles(void) {
         removed.push_back(*edge);
         destroy_edge(edge);
     }
-    algorithms::sort(this);
+    algorithms::topological_sort(this);
     return removed;
 }
     
@@ -4786,7 +4786,7 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
         });
 
     // execute a semi partial order sort on the nodes
-    algorithms::sort(this);
+    algorithms::topological_sort(this);
 
     // make the translation
     return make_translation(node_translation, added_nodes, orig_node_sizes);
@@ -6815,7 +6815,7 @@ Alignment VG::align(const Alignment& alignment,
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
-        algorithms::sort(&dag);
+        algorithms::topological_sort(&dag);
         
         // run the alignment with id translation table
         do_align(dag.graph);
@@ -8166,7 +8166,7 @@ VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
                 stable = true;
             }
             // sort the graph
-            algorithms::sort(&dag);
+            algorithms::topological_sort(&dag);
         } while (!stable);
     }
 

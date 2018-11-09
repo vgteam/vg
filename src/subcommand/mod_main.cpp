@@ -699,7 +699,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (sort_graph) {
-        algorithms::sort(graph);
+        algorithms::topological_sort(graph);
     }
 
     if (break_cycles) {
@@ -800,7 +800,7 @@ int main_mod(int argc, char** argv) {
 
     // and optionally compact ids
     if (compact_ids) {
-        algorithms::sort(graph);
+        algorithms::topological_sort(graph);
         graph->compact_ids();
     }
 
@@ -851,7 +851,7 @@ int main_mod(int argc, char** argv) {
 
     if (cactus) {
         // ensure we're sorted
-        algorithms::sort(graph);
+        algorithms::topological_sort(graph);
         *graph = cactusify(*graph);
         // no paths survive, make sure they are erased
         graph->paths = Paths();

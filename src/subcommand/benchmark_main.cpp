@@ -116,10 +116,10 @@ int main_benchmark(int argc, char** argv) {
         assert(order.size() == vg.node_size());
     }));
     
-    results.push_back(run_benchmark("vg::algorithms sort", 1000, [&]() {
+    results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
         vg_mut = vg;
     }, [&]() {
-        algorithms::sort(&vg_mut);
+        algorithms::topological_sort(&vg_mut);
     }));
     
     results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {

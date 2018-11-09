@@ -15,7 +15,7 @@ namespace vg {
 CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
     graph(graph) {
     // Make sure the graph is sorted.
-    algorithms::sort(&graph);
+    algorithms::topological_sort(&graph);
 }
 
 CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
