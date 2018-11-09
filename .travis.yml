@@ -27,7 +27,6 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle; fi # We need this to get Bison 3
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew install gcc6 || true; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew link --overwrite gcc@6; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p ./bin; fi
@@ -35,7 +34,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p deps; touch deps/gcc6; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" ]]; then mkdir -p deps; touch deps/clang; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/bison/bin:$PATH"; fi # Homebrew no longer links Bison even if we try to force it
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="$(pwd)/bin:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
