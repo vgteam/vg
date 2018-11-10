@@ -44,6 +44,8 @@ public:
     // We are moveable
     IndexedVG(IndexedVG&& other) = default;
     IndexedVG& operator=(IndexedVG&& other) = default;
+    
+    void print_report() const;
 
 private:
     // We are not copyable
@@ -103,6 +105,8 @@ public:
     using HandleGraph::for_each_handle;
     using HandleGraph::get_handle;
     
+    
+    
 protected:
     /// We store the graph filename, so we can have cursors to it created on demand.
     /// This is necessary to have e.g. random accesses to bits of the graph while looping over the graph as a whole.
@@ -125,14 +129,6 @@ protected:
     /// Access is protected by this mutex
     mutable mutex cursor_pool_mutex;
     
-    /// Wrapper around the index's find, with cacheing. Supports stopping
-    /// early, but doesn't do internal filtering of chunks/runs where the node
-    /// being queried is in a hole. Runs the iteratee on Grapsh which, when
-    /// unioned together, have the requested node, all of its edges, and all of
-    /// its path visits, alogn with optionally other material. Each iterated
-    /// graph is node ID sorted and they are iterated in node ID order.
-    void find(id_t id, const function<bool(const Graph&)>& iteratee) const;
-
     /// Represents an entry in the cache for a parsed run of graphs.
     /// Has its own indexes and the virtual offset of the next group.
     struct CacheEntry {
@@ -160,13 +156,24 @@ protected:
         /// This is the virtual offset of the next group
         int64_t next_group;
     };
-
+    
+    /// Wrapper around the index's find, with cacheing. Supports stopping
+    /// early, but doesn't do internal filtering of chunks/runs where the node
+    /// being queried is in a hole. Runs the iteratee on CacheEntry objects for
+    /// the runs that might have info on the requested node, in order.
+    void find(id_t id, const function<bool(const CacheEntry&)>& iteratee) const;
+    
     /// Cache that stores deserialized and indexed Graph object lists by group
     /// virtual offset. Also stores the virtual offset for the next group, or
     /// the max value for EOF, so we can do groups not in here.
-    mutable map<int64_t, CacheEntry> graph_cache;
+    mutable unordered_map<int64_t, CacheEntry> graph_cache;
+    /// This maps from node ID to the group it lives in in the graph cache
+    mutable unordered_map<id_t, int64_t> node_group_cache;
     /// The cache is protected with this mutex
     mutable mutex cache_mutex;
+    
+    mutable size_t cache_hits;
+    mutable size_t cache_misses;
 };
 
 }

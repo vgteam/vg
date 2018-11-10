@@ -44,6 +44,12 @@ IndexedVG::IndexedVG(string graph_filename) : vg_filename(graph_filename), index
     
 }
 
+void IndexedVG::print_report() const {
+    cerr << cursor_streams.size() << " cursors outstanding, " << cursor_pool.size() << " cursors free" << endl;
+    cerr << graph_cache.size() << " cache entries" << endl;
+    cerr << cache_hits << " cache hits, " << cache_misses << " cache misses" << endl;
+}
+
 // TODO: We ought to use some kind of handle packing that relates to file offsets for graph chunks contasining nodes.
 // For now we just use the EasyHandlePacking and hit the index every time.
 
@@ -76,56 +82,18 @@ string IndexedVG::get_sequence(const handle_t& handle) const {
     // We will pull the sequence out into this string.
     string found_sequence;
         
-    find(id, [&](const Graph& graph) -> bool {
-        // For each relevant Graph (which may just have some edges to the node we are looking for)
-        if (graph.node_size() > 0) {
-            // We only care if it actually has nodes
-            
-            if (graph.node(0).id() > id) {
-                // This graph is out of range (too late).
-                // Stop the scan
-                return false;
-            }
-            
-            if (graph.node(graph.node_size() - 1).id() < id) {
-                // This graph is out of range (too early).
-                // Try the enxt graph
-                return true;
-            }
-            
-            // Otherwise binary search for the actual node
-            size_t min_index = 0;
-            size_t past_max_index = graph.node_size();
-            
-            while(true) {
-                size_t middle_index = (past_max_index + min_index) / 2;
-                
-                if (middle_index >= graph.node_size()) {
-                    // Node was not found
-                    throw runtime_error("Node " + to_string(id) + " not found in expected graph chunk! Is graph sorted correctly?");
-                }
-                
-                // Grab the actual node
-                auto& middle_node = graph.node(middle_index);
-                
-                if (middle_node.id() == id) {
-                    // We found it
-                    found_sequence = middle_node.sequence();
-                    // Stop scanning
-                    return false;
-                } else if (middle_node.id() > id) {
-                    // Only look left of here
-                    past_max_index = middle_index;
-                } else {
-                    // We must have found a node with too small an ID
-                    // Only look right of here
-                    min_index = middle_index + 1;
-                }
-                
-            }
+    find(id, [&](const CacheEntry& entry) -> bool {
+        // For each relevant entry (which may just have some edges to the node we are looking for)
+        auto found = entry.id_to_node_index.find(id);
+        if (found != entry.id_to_node_index.end()) {
+            // We found the node!
+            // Copy out its sequence
+            found_sequence = entry.merged_group.node(found->second).sequence();
+            // Stop
+            return false;
         }
         
-        // If we don't want to stop, keep going
+        // Otherwise we don't have the node we want
         return true;
     });
     
@@ -335,7 +303,16 @@ void IndexedVG::with_cursor(function<void(cursor_t&)> callback) const {
     // TODO: Does this moving unique_ptrs make sense or should we copy around indexes or real pointers
 }
 
-void IndexedVG::find(id_t id, const function<bool(const Graph&)>& iteratee) const {
+void IndexedVG::find(id_t id, const function<bool(const CacheEntry&)>& iteratee) const {
+    
+    auto group_found = node_group_cache.find(id);
+    if (group_found != node_group_cache.end()) {
+        // There's just the one entry for this node.
+        // TODO: edges
+        iteratee(graph_cache.at(group_found->second));
+        return;
+    }
+
     index.find(id, [&](int64_t run_start_vo, int64_t run_past_end_vo) -> bool {
         // Loop over the index and get all the VO run ranges
         
@@ -358,8 +335,10 @@ void IndexedVG::find(id_t id, const function<bool(const Graph&)>& iteratee) cons
                 // If we have a cached group for this VO, use it
                 // TODO: support the cached group being removed from the cache
                 
+                cache_hits++;
+                
                 // Iterate over the subgraph for the node from the cached run
-                keep_going &= iteratee(found->second.query(id));
+                keep_going &= iteratee(found->second);
                 
                 if (!keep_going) {
                     break;
@@ -369,6 +348,8 @@ void IndexedVG::find(id_t id, const function<bool(const Graph&)>& iteratee) cons
                 scan_vo = found->second.next_group;
             } else {
                 // Otherwise, we need to actually access the file
+                
+                cache_misses++;
                 
                 int64_t cache_line_vo = scan_vo;
                 
@@ -385,10 +366,14 @@ void IndexedVG::find(id_t id, const function<bool(const Graph&)>& iteratee) cons
                 });
                 
                 // Iterate over the subgraph for the node from the cached run
-                keep_going &= iteratee(cache_line->query(id));
+                keep_going &= iteratee(*cache_line);
                 
                 // Remember where to look for the next group
                 scan_vo = cache_line->next_group;
+                
+                for (auto& node : cache_line->merged_group.node()) {
+                    node_group_cache[node.id()] = cache_line_vo;
+                }
                 
                 // Save back to the cache
                 {
