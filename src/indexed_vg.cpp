@@ -75,57 +75,58 @@ string IndexedVG::get_sequence(const handle_t& handle) const {
     
     // We will pull the sequence out into this string.
     string found_sequence;
-    
-    with_cursor([&](cursor_t& cursor) {
-        // Get ahold of the vg file cursor
         
-        index.find(cursor, id, [&](const Graph& graph) {
-            // For each relevant Graph (which may just have some edges to the node we are looking for)
-            if (graph.node_size() > 0) {
-                // We only care if it actually has nodes
+    find(id, [&](const Graph& graph) -> bool {
+        // For each relevant Graph (which may just have some edges to the node we are looking for)
+        if (graph.node_size() > 0) {
+            // We only care if it actually has nodes
+            
+            if (graph.node(0).id() > id) {
+                // This graph is out of range (too late).
+                // Stop the scan
+                return false;
+            }
+            
+            if (graph.node(graph.node_size() - 1).id() < id) {
+                // This graph is out of range (too early).
+                // Try the enxt graph
+                return true;
+            }
+            
+            // Otherwise binary search for the actual node
+            size_t min_index = 0;
+            size_t past_max_index = graph.node_size();
+            
+            while(true) {
+                size_t middle_index = (past_max_index + min_index) / 2;
                 
-                if (graph.node(0).id() > id) {
-                    // This graph is out of range (too late)
-                    return;
+                if (middle_index >= graph.node_size()) {
+                    // Node was not found
+                    throw runtime_error("Node " + to_string(id) + " not found in expected graph chunk! Is graph sorted correctly?");
                 }
                 
-                if (graph.node(graph.node_size() - 1).id() < id) {
-                    // This graph is out of range (too early)
-                    return;
-                }
+                // Grab the actual node
+                auto& middle_node = graph.node(middle_index);
                 
-                // Otherwise binary search for the actual node
-                size_t min_index = 0;
-                size_t past_max_index = graph.node_size();
-                
-                while(true) {
-                    size_t middle_index = (past_max_index + min_index) / 2;
-                    
-                    if (middle_index >= graph.node_size()) {
-                        // Node was not found
-                        throw runtime_error("Node " + to_string(id) + " not found in expected graph chunk! Is graph sorted correctly?");
-                    }
-                    
-                    // Grab the actual node
-                    auto& middle_node = graph.node(middle_index);
-                    
-                    if (middle_node.id() == id) {
-                        // We found it
-                        found_sequence = middle_node.sequence();
-                        break;
-                    } else if (middle_node.id() > id) {
-                        // Only look left of here
-                        past_max_index = middle_index;
-                    } else {
-                        // We must have found a node with too small an ID
-                        // Only look right of here
-                        min_index = middle_index + 1;
-                    }
-                    
+                if (middle_node.id() == id) {
+                    // We found it
+                    found_sequence = middle_node.sequence();
+                    // Stop scanning
+                    return false;
+                } else if (middle_node.id() > id) {
+                    // Only look left of here
+                    past_max_index = middle_index;
+                } else {
+                    // We must have found a node with too small an ID
+                    // Only look right of here
+                    min_index = middle_index + 1;
                 }
                 
             }
-        });
+        }
+        
+        // If we don't want to stop, keep going
+        return true;
     });
     
     if (get_is_reverse(handle)) {
@@ -300,18 +301,168 @@ id_t IndexedVG::max_node_id() const {
     return max_observed;
 }
 
-auto IndexedVG::with_cursor(function<void(cursor_t&)> callback) const -> void {
-    // TODO: Use a cursor pool
-    
-    // Open the file
-    ifstream vg_stream(vg_filename);
-    assert(vg_stream.good());
-    
-    // Set up the cursor
-    cursor_t cursor(vg_stream);
+void IndexedVG::with_cursor(function<void(cursor_t&)> callback) const {
+    // We'll fill this in with a cursor from the pool if we can get one, and a new one otherwise
+    unique_ptr<cursor_t> obtained_cursor;
+    {
+        // Get ahold of the pool
+        lock_guard<mutex> lock(cursor_pool_mutex);
+        if (!cursor_pool.empty()) {
+            // Grab a cursor from the pool
+            obtained_cursor = move(cursor_pool.front());
+            cursor_pool.pop_front();
+        } else {
+            // Open a new file stream
+            cursor_streams.emplace_back(vg_filename);
+            assert(cursor_streams.back().good());
+            
+            // Make a cursor around it
+            obtained_cursor = unique_ptr<cursor_t>(new cursor_t(cursor_streams.back()));
+        }
+    }
     
     // Let the callback use it
-    callback(cursor);
+    callback(*obtained_cursor.get());
+    
+    {
+        // Get ahold of the pool
+        lock_guard<mutex> lock(cursor_pool_mutex);
+        
+        // Put the cursor back in the pool
+        cursor_pool.emplace_back(move(obtained_cursor));
+    }
+    
+    // TODO: Does this moving unique_ptrs make sense or should we copy around indexes or real pointers
+}
+
+void IndexedVG::find(id_t id, const function<bool(const Graph&)>& iteratee) const {
+    index.find(id, [&](int64_t run_start_vo, int64_t run_past_end_vo) -> bool {
+        // Loop over the index and get all the VO run ranges
+        
+        // We will set this to false if the iteratee says to stop
+        bool keep_going = true;
+        
+        // Scan through each run
+        // Start at the run's start
+        int64_t scan_vo = run_start_vo;
+        
+        while(keep_going && scan_vo < run_past_end_vo)  {
+            // Get the cache entry for this run
+            decltype(graph_cache)::const_iterator found;
+            {
+                lock_guard<mutex> lock(cache_mutex);
+                found = graph_cache.find(scan_vo);
+            }
+            
+            if (found != graph_cache.end()) {
+                // If we have a cached group for this VO, use it
+                // TODO: support the cached group being removed from the cache
+                
+                // Iterate over the subgraph for the node from the cached run
+                keep_going &= iteratee(found->second.query(id));
+                
+                if (!keep_going) {
+                    break;
+                }
+                
+                // Advance to the next group
+                scan_vo = found->second.next_group;
+            } else {
+                // Otherwise, we need to actually access the file
+                
+                int64_t cache_line_vo = scan_vo;
+                
+                // We're going to have a cache entry
+                CacheEntry* cache_line = nullptr;
+                 
+                with_cursor([&](cursor_t& cursor) {
+                    // Does nothing if we are already in the right place.
+                    assert(cursor.seek_group(scan_vo));
+                    
+                    // Read the group into the cache
+                    cache_line = new CacheEntry(cursor);
+                    
+                });
+                
+                // Iterate over the subgraph for the node from the cached run
+                keep_going &= iteratee(cache_line->query(id));
+                
+                // Remember where to look for the next group
+                scan_vo = cache_line->next_group;
+                
+                // Save back to the cache
+                {
+                    lock_guard<mutex> lock(cache_mutex);
+                    graph_cache.emplace(cache_line_vo, move(*cache_line));
+                }
+                
+                delete cache_line;
+                
+                if (!keep_going) {
+                    break;
+                }
+            }
+            
+            // When scan_vo hits or passes the past-end for the range, we will be done with it
+        }
+        
+        // Keep looking if the iteratee wants to
+        return keep_going;
+    });
+}
+
+IndexedVG::CacheEntry::CacheEntry(cursor_t& cursor) {
+    
+    int64_t group_vo = cursor.tell_group();
+    
+    while (cursor.has_next() && cursor.tell_group() == group_vo) {
+        // Merge the whole group together
+        merged_group.MergeFrom(cursor.take());
+    }
+
+    if (!cursor.has_next()) {
+        // We hit EOF
+        next_group = numeric_limits<int64_t>::max();
+    } else {
+        // We found another group.
+        // TODO: Can we avoid deserializing its first chunk?
+        next_group = cursor.tell_group();
+    }
+    
+    // Compute the indexes
+    for (size_t i = 0; i < merged_group.node_size(); i++) {
+        // Record the index of every node
+        id_to_node_index[merged_group.node(i).id()] = i;
+    }
+    
+    for (size_t i = 0; i < merged_group.edge_size(); i++) {
+        // And of every edge by end node IDs
+        auto& edge = merged_group.edge(i);
+        id_to_edge_indices[edge.from()].push_back(i);
+        id_to_edge_indices[edge.to()].push_back(i);
+    }
+}
+
+Graph IndexedVG::CacheEntry::query(const id_t& id) const {
+    Graph to_return;
+    
+    auto node_found = id_to_node_index.find(id);
+    if (node_found != id_to_node_index.end()) {
+        // We have the node in question, so send it
+        *to_return.add_node() = merged_group.node(node_found->second);
+    }
+    
+    auto edges_found = id_to_edge_indices.find(id);
+    if (edges_found != id_to_edge_indices.end()) {
+        // We have edges on it, so send them
+        for (auto& edge_index : edges_found->second) {
+            *to_return.add_edge() = merged_group.edge(edge_index);
+        }
+    }
+    
+    // TODO: Path visits
+    
+    return to_return;
 }
 
     

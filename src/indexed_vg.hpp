@@ -6,7 +6,8 @@
  * Contains an implementation of a HandleGraph backed by a sorted, indexed .vg file
  */
  
-#include <string> 
+#include <string>
+#include <mutex>
 
 #include "stream_index.hpp"
 #include "handle.hpp"
@@ -116,7 +117,56 @@ protected:
     
     /// Get temporary ownership of a cursor to the backing vg file.
     void with_cursor(function<void(cursor_t&)> callback) const;
+    
+    /// Input streams referenced by cursors live in this list that grows forever
+    mutable list<ifstream> cursor_streams;
+    /// Cursors live in this free pool
+    mutable list<unique_ptr<cursor_t>> cursor_pool;
+    /// Access is protected by this mutex
+    mutable mutex cursor_pool_mutex;
+    
+    /// Wrapper around the index's find, with cacheing. Supports stopping
+    /// early, but doesn't do internal filtering of chunks/runs where the node
+    /// being queried is in a hole. Runs the iteratee on Grapsh which, when
+    /// unioned together, have the requested node, all of its edges, and all of
+    /// its path visits, alogn with optionally other material. Each iterated
+    /// graph is node ID sorted and they are iterated in node ID order.
+    void find(id_t id, const function<bool(const Graph&)>& iteratee) const;
 
+    /// Represents an entry in the cache for a parsed run of graphs.
+    /// Has its own indexes and the virtual offset of the next group.
+    struct CacheEntry {
+        /// Make a cache entry for a group by reading a cursor at that group's start
+        CacheEntry(cursor_t& to_read);
+    
+        // Can be moved
+        CacheEntry(CacheEntry&& other) = default;
+        CacheEntry& operator=(CacheEntry&& other) = default;
+        
+        /// Pull out the subgraph for the given node
+        Graph query(const id_t& id) const;
+    
+        /// All the graphs get merged into this one
+        Graph merged_group;
+        
+        /// This maps from node ID to index in the merged graph.
+        unordered_map<id_t, size_t> id_to_node_index;
+        
+        /// This maps from node ID to indexes of touched edges in the merged graph.
+        unordered_map<id_t, vector<size_t>> id_to_edge_indices;
+        
+        // TODO: Path visits
+        
+        /// This is the virtual offset of the next group
+        int64_t next_group;
+    };
+
+    /// Cache that stores deserialized and indexed Graph object lists by group
+    /// virtual offset. Also stores the virtual offset for the next group, or
+    /// the max value for EOF, so we can do groups not in here.
+    mutable map<int64_t, CacheEntry> graph_cache;
+    /// The cache is protected with this mutex
+    mutable mutex cache_mutex;
 };
 
 }

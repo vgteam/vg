@@ -121,7 +121,7 @@ int main_benchmark(int argc, char** argv) {
         vg_mut.serialize_to_file(filename, 10);
         const IndexedVG indexed_vg(filename);
         
-        results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
+        /*results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
             vector<handle_t> order = algorithms::topological_order(&vg);
             assert(order.size() == vg.node_size());
         }));
@@ -142,32 +142,26 @@ int main_benchmark(int argc, char** argv) {
             auto components = algorithms::weakly_connected_components(&vg);
             assert(components.size() == 1);
             assert(components.front().size() == vg.node_size());
-        }));
+        }));*/
         
-        results.push_back(run_benchmark("VG::get_sequence", 1, [&]() {
-            for (size_t rep = 0; rep < 1; rep++) {
-                for (size_t i = 1; i < 101; i++) {
-                    handle_t handle = vg.get_handle(i);
-                    string sequence = vg.get_sequence(handle);
-                }
+        results.push_back(run_benchmark("VG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = vg.get_handle(i);
+                string sequence = vg.get_sequence(handle);
             }
         }));
         
-        results.push_back(run_benchmark("XG::get_sequence", 1, [&]() {
-            for (size_t rep = 0; rep < 1; rep++) {
-                for (size_t i = 1; i < 101; i++) {
-                    handle_t handle = xg_index.get_handle(i);
-                    string sequence = xg_index.get_sequence(handle);
-                }
+        results.push_back(run_benchmark("XG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = xg_index.get_handle(i);
+                string sequence = xg_index.get_sequence(handle);
             }
         }));
         
-        results.push_back(run_benchmark("IndexedVG::get_sequence", 1, [&]() {
-            for (size_t rep = 0; rep < 1; rep++) {
-                for (size_t i = 1; i < 101; i++) {
-                    handle_t handle = indexed_vg.get_handle(i);
-                    string sequence = indexed_vg.get_sequence(handle);
-                }
+        results.push_back(run_benchmark("IndexedVG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = indexed_vg.get_handle(i);
+                string sequence = indexed_vg.get_sequence(handle);
             }
         }));
     }
