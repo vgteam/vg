@@ -164,6 +164,15 @@ int main_benchmark(int argc, char** argv) {
         }
     }));
     
+    results.push_back(run_benchmark("StreamIndexBase::bins_of_range vector return", 1000, [&]() {
+        size_t bin_sum = 0;
+        for (size_t i = 1; i < 101; i++) {
+            for (auto& bin : StreamIndexBase::bins_of_range(i, i)) {
+                bin_sum += bin;
+            }
+        }
+    }));
+    
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
 
