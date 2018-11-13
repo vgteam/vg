@@ -220,18 +220,24 @@ auto StreamIndexBase::find(id_t min_node, id_t max_node, const function<bool(int
         return;
     }
     
-    // Find the bins that any of the nodes in the range can be in
-    auto bin_numbers = bins_of_range(min_node, max_node);
-    
-    // Filter down to bins that actually have vectors in the index
+    // This will hold bins that actually have vectors in the index, as
+    // iterators to them in the index.
     vector<decltype(bin_to_ranges)::const_iterator> used_bins;
-    for (auto& bin_number : bin_numbers) {
+    
+    // Loop over the bins we have to deal with
+    bins_of_range(min_node, max_node, [&](bin_t bin_number) -> bool {
+        // See if the bin has any entries
         auto found = bin_to_ranges.find(bin_number);
-        
         if (found != bin_to_ranges.end()) {
+            // If it does, keep it
             used_bins.push_back(found);
         }
-    }
+        
+        // TODO: Is there a way we can just process all the bins one at a time,
+        // instead of merging across them?
+        
+        return true;
+    });
     
     // Set up a cursor in each bin
     // TODO: Could we do one cursor per specificity level instead? This way might be introducing some n^2 stuff in the range length.
