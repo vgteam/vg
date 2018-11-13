@@ -57,6 +57,42 @@ auto StreamIndexBase::bins_of_range(id_t min_id, id_t max_id) -> vector<bin_t> {
     return to_return;
     
 }
+
+auto StreamIndexBase::bins_of_range(id_t min_id, id_t max_id, const function<bool(bin_t)>& iteratee) -> bool {
+
+    // Set this to false if the iteratee asks to stop
+    bool keep_going = true;
+
+    // How many bits are in the number? We get a bin per bit.
+    auto number_bits = CHAR_BIT * sizeof(bin_t);
+    
+    // We need to keep in mind that shifting *all* the bits out of a number in
+    // one go is undefined behavior.
+    
+    // Bin number consists of an index which is a prefix of the number
+    bin_t min_bin_index = ((bin_t)min_id) >> 1;
+    bin_t max_bin_index = ((bin_t)max_id) >> 1;
+    // And an offset to keep from colliding with other bins.
+    bin_t bin_offset = ((bin_t)~0) >> 1;
+    
+    for (int i = 0; keep_going && i < number_bits; i++) {
+        // For each level
+        
+        for (bin_t bin_index = min_bin_index; keep_going && bin_index <= max_bin_index; bin_index++) {
+            // For each bin in the range of bins at this level
+            
+            // Compute its actual offset bin number and feed it to the iteratee
+            keep_going &= iteratee(bin_index + bin_offset);
+        }
+        
+        // Ascend a level
+        min_bin_index = min_bin_index >> 1;
+        max_bin_index = max_bin_index >> 1;
+        bin_offset = bin_offset >> 1;
+    }
+    
+    return keep_going;
+}
     
 auto StreamIndexBase::common_bin(id_t a, id_t b) -> bin_t {
     // Convert to unsigned numbers

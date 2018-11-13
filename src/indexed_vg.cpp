@@ -305,13 +305,13 @@ void IndexedVG::with_cursor(function<void(cursor_t&)> callback) const {
 
 void IndexedVG::find(id_t id, const function<bool(const CacheEntry&)>& iteratee) const {
     
-    auto group_found = node_group_cache.find(id);
+    /*auto group_found = node_group_cache.find(id);
     if (group_found != node_group_cache.end()) {
         // There's just the one entry for this node.
         // TODO: edges
         iteratee(graph_cache.at(group_found->second));
         return;
-    }
+    }*/
 
     index.find(id, [&](int64_t run_start_vo, int64_t run_past_end_vo) -> bool {
         // Loop over the index and get all the VO run ranges
@@ -371,9 +371,9 @@ void IndexedVG::find(id_t id, const function<bool(const CacheEntry&)>& iteratee)
                 // Remember where to look for the next group
                 scan_vo = cache_line->next_group;
                 
-                for (auto& node : cache_line->merged_group.node()) {
+                /*for (auto& node : cache_line->merged_group.node()) {
                     node_group_cache[node.id()] = cache_line_vo;
-                }
+                }*/
                 
                 // Save back to the cache
                 {
