@@ -37,6 +37,12 @@ int main_benchmark(int argc, char** argv) {
 
     bool show_progress = false;
     
+    // Which experiments should we run?
+    bool sort_and_order_experiment = false;
+    bool bin_experiment = false;
+    bool get_sequence_experiment = true;
+    
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -120,68 +126,80 @@ int main_benchmark(int argc, char** argv) {
     vg_mut.serialize_to_file(filename, 10);
     const IndexedVG indexed_vg(filename);
     
-    results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
-        vector<handle_t> order = algorithms::topological_order(&vg);
-        assert(order.size() == vg.node_size());
-    }));
+    if (sort_and_order_experiment) {
     
-    results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        algorithms::topological_sort(&vg_mut);
-    }));
+        results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
+            vector<handle_t> order = algorithms::topological_order(&vg);
+            assert(order.size() == vg.node_size());
+        }));
+        
+        results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
+            vg_mut = vg;
+        }, [&]() {
+            algorithms::topological_sort(&vg_mut);
+        }));
+        
+        results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
+            vg_mut = vg;
+        }, [&]() {
+            algorithms::orient_nodes_forward(&vg_mut);
+        }));
+        
+        results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
+            auto components = algorithms::weakly_connected_components(&vg);
+            assert(components.size() == 1);
+            assert(components.front().size() == vg.node_size());
+        }));
+        
+    }
     
-    results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        algorithms::orient_nodes_forward(&vg_mut);
-    }));
+    if (bin_experiment) {
     
-    results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
-        auto components = algorithms::weakly_connected_components(&vg);
-        assert(components.size() == 1);
-        assert(components.front().size() == vg.node_size());
-    }));
-    
-    results.push_back(run_benchmark("VG::get_sequence", 1000, [&]() {
-        for (size_t i = 1; i < 101; i++) {
-            handle_t handle = vg.get_handle(i);
-            string sequence = vg.get_sequence(handle);
-        }
-    }));
-    
-    results.push_back(run_benchmark("XG::get_sequence", 1000, [&]() {
-        for (size_t i = 1; i < 101; i++) {
-            handle_t handle = xg_index.get_handle(i);
-            string sequence = xg_index.get_sequence(handle);
-        }
-    }));
-    
-    results.push_back(run_benchmark("IndexedVG::get_sequence", 1000, [&]() {
-        for (size_t i = 1; i < 101; i++) {
-            handle_t handle = indexed_vg.get_handle(i);
-            string sequence = indexed_vg.get_sequence(handle);
-        }
-    }));
-    
-    results.push_back(run_benchmark("StreamIndexBase::bins_of_range vector return", 1000, [&]() {
-        size_t bin_sum = 0;
-        for (size_t i = 1; i < 101; i++) {
-            for (auto& bin : StreamIndexBase::bins_of_range(i, i)) {
-                bin_sum += bin;
+        results.push_back(run_benchmark("StreamIndexBase::bins_of_range vector return", 1000, [&]() {
+            size_t bin_sum = 0;
+            for (size_t i = 1; i < 101; i++) {
+                for (auto& bin : StreamIndexBase::bins_of_range(i, i)) {
+                    bin_sum += bin;
+                }
             }
-        }
-    }));
+        }));
+        
+        results.push_back(run_benchmark("StreamIndexBase::bins_of_range iteratee", 1000, [&]() {
+            size_t bin_sum = 0;
+            for (size_t i = 1; i < 101; i++) {
+                StreamIndexBase::bins_of_range(i, i, [&](StreamIndexBase::bin_t bin) -> bool {
+                    bin_sum += bin;
+                    return true;
+                });
+            }
+        }));
+        
+    }
     
-    results.push_back(run_benchmark("StreamIndexBase::bins_of_range iteratee", 1000, [&]() {
-        size_t bin_sum = 0;
-        for (size_t i = 1; i < 101; i++) {
-            StreamIndexBase::bins_of_range(i, i, [&](StreamIndexBase::bin_t bin) -> bool {
-                bin_sum += bin;
-                return true;
-            });
-        }
-    }));
+    if (get_sequence_experiment) {
+    
+        results.push_back(run_benchmark("VG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = vg.get_handle(i);
+                string sequence = vg.get_sequence(handle);
+            }
+        }));
+        
+        results.push_back(run_benchmark("XG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = xg_index.get_handle(i);
+                string sequence = xg_index.get_sequence(handle);
+            }
+        }));
+        
+        results.push_back(run_benchmark("IndexedVG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = indexed_vg.get_handle(i);
+                string sequence = indexed_vg.get_sequence(handle);
+            }
+        }));
+        
+    }
     
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));

@@ -1,6 +1,7 @@
 #include "stream_index.hpp"
 
 #include <iostream>
+#include <queue>
 
 namespace vg {
 
@@ -200,7 +201,7 @@ auto StreamIndexBase::find(id_t min_node, id_t max_node, const function<bool(int
 #endif
     
     // Find the minimum virtual offset we need to consider
-    int64_t min_vo;
+    int64_t min_vo = 0;
     // It will be for the first occupied window at or after the min window but not greater than the max window.
     auto found = window_to_start.lower_bound(min_window);
     if (found != window_to_start.end() && found->first <= max_window) {
@@ -239,63 +240,65 @@ auto StreamIndexBase::find(id_t min_node, id_t max_node, const function<bool(int
         return true;
     });
     
+    // Define a cursor type within a bin.
+    // A cursor has an iterator to a pair of start and past-end VOs that occur in a bin.
+    // But we also need to be able to look at the cursor and know if it is done
+    // So we also keep the index in used_bins that it belongs to
+    using bin_cursor_t = pair<vector<pair<int64_t, int64_t>>::const_iterator, size_t>;
+    
+    // As we iterate we will be interested in the smallest cursor (i.e. the cursor to the earliest-starting run not already iterated.)
+    // Define a way to get that
+    // Since the queue puts the "greatest" element at the top, our "less" is really a "greater" to turn it around.
+    auto greater_for_cursors = [&](const bin_cursor_t& a, const bin_cursor_t& b) {
+        return a.first->first > b.first->first;
+    };
+    
+    // We want a priority queue of cursors, so we can easily find the next one to use
+    priority_queue<bin_cursor_t, vector<bin_cursor_t>, decltype(greater_for_cursors)> cursor_queue(greater_for_cursors);
+    
     // Set up a cursor in each bin
-    // TODO: Could we do one cursor per specificity level instead? This way might be introducing some n^2 stuff in the range length.
-    vector<vector<pair<int64_t, int64_t>>::const_iterator> cursors;
-    for (auto& bin : used_bins) {
-        cursors.push_back(bin->second.begin());
+    // TODO: Could we do one cursor per specificity level instead? That would be faster.
+    for (size_t i = 0; i < used_bins.size(); i++) {
+        // Look at the start of the bin
+        bin_cursor_t cursor = make_pair(used_bins[i]->second.begin(), i);
+        
+        while(cursor.first != used_bins[cursor.second]->second.end() && cursor.first->second < min_vo) {
+            // Skip any runs that end before the window VO
+            cursor.first++;
+        }
+        
+        if (cursor.first != used_bins[cursor.second]->second.end()) {
+            // If there are still runs in the bin, use them.
+            cursor_queue.push(cursor);
+        }
+        
 #ifdef debug
-        cerr << "Bin " << bin->first << " overlaps the query and is nonempty" << endl;
+        cerr << "Bin " << used_bins[i]->first << " overlaps the query and has runs after the window min VO" << endl;
 #endif
     }
     
-    while (true) {
+    bool keep_going = true;
+    
+    while (keep_going && !cursor_queue.empty()) {
         // Loop until the user asks us to stop or we run out of things to give them.
     
 #ifdef debug
-        cerr << "Find earliest-starting run in any bin ending after " << min_vo << endl;
+        cerr << "Find earliest-starting run we haven't used yet in any bin" << endl;
 #endif
-    
-        // This tracks which of the cursors points to the run that starts earliest, or the max value if no candidate runs exist.
-        size_t starts_earliest = numeric_limits<size_t>::max();
-        
-        for(size_t i = 0; i < used_bins.size(); i++) {
-            // Advance each cursor to the earliest-starting window that ends after the min_vo, by linear scan
-            auto& bin_ranges = used_bins[i]->second;
-            auto& cursor = cursors[i];
             
-            while (cursor != bin_ranges.end() && cursor->second <= min_vo) {
-                // This run ends too early, so keep advancing.
-                ++cursor;
-            }
-            
-            if (cursor != bin_ranges.end()) {
-                // We actually have a candidate run
-                if (starts_earliest == numeric_limits<size_t>::max() || cursor->first < cursors[starts_earliest]->first) {
-                    // This candidate run starts earlier than the earliest candidate run from other bins.
-                    
-                    // Rememebr it.
-                    starts_earliest = i;
-                }
-                
-            }
-        }
+        // Pull off the top element
+        bin_cursor_t top = cursor_queue.top();
+        cursor_queue.pop();
         
-        if (starts_earliest == numeric_limits<size_t>::max()) {
-            // We are all out of runs in any of the bins. We are done!
-#ifdef debug
-            cerr << "Out of runs in bins" << endl;
-#endif
-            return;
-        }
+        // The bin windows are proper runs, so they can't overlap.
+        // So after we deal with this run, we won't have to adjust any other bin cursors.
         
 #ifdef debug
-        cerr << "Found run " << cursors[starts_earliest]->first << "-" << cursors[starts_earliest]->second
-            << " from bin " << used_bins[starts_earliest]->first << endl;
+        cerr << "Found run " << top.first->first << "-" << top.first->second << endl;
 #endif
         
-        // Call the callback with the range max(min_vo, that run's start) to that run's end.
-        bool keep_going = scan_callback(max(min_vo, cursors[starts_earliest]->first), cursors[starts_earliest]->second);
+        // Call the callback with the range max(min_vo from the window, that run's start) to that run's end.
+        keep_going &= scan_callback(max(min_vo, top.first->first), top.first->second);
         
         if (!keep_going) {
             // The user is done with runs. They must have found a group that has an out-of-range minimum node ID.
@@ -303,8 +306,20 @@ auto StreamIndexBase::find(id_t min_node, id_t max_node, const function<bool(int
             return;
         }
         
-        // Look for the next run continuing after here.
-        min_vo = cursors[starts_earliest]->second;
+        // Move up the min VO to the past the end of the run we just did.
+        // TODO: We shouldn't need to do this since the runs can't overlap
+        min_vo = top.first->second;
+        
+        // Advance what was the top iterator
+        top.first++;
+        if (top.first != used_bins[top.second]->second.end()) {
+            // We haven't yet hit the end of this bin, so the cursor is eligible to be used again
+            cursor_queue.push(top);
+        } else {
+#ifdef debug
+            cerr << "Found bin index " << top.second << " is exhausted" << endl;
+#endif
+        }
     }
 }
 
