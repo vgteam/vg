@@ -256,7 +256,8 @@ public:
     /// next run, or false if it encountered a group with an out-of-range start
     /// and wants to stop iteration. Runs will be emitted in order, and
     /// truncated on the left to either the appropriate lower bound from the
-    /// linear index, or the past-the-end of the previous run scanned.
+    /// linear index, or the past-the-end of the previous run scanned (which
+    /// should be moot, because runs should not overlap in the index).
     void find(id_t node_id, const function<bool(int64_t, int64_t)> scan_callback) const;
     
     /// Find all the ranges of run virtual offsets to check for reads visiting
@@ -291,6 +292,9 @@ public:
     /// Get the ID prefix bits corresponding to a bin
     static BitString bin_to_prefix(bin_t bin);
     
+    /// Get the given ID as a bit string
+    static BitString id_to_prefix(id_t id);
+    
     /// Compute the bins, from most to least specific, that a node ID occurs in.
     static vector<bin_t> bins_of_id(id_t id);
     
@@ -304,10 +308,12 @@ public:
     static vector<bin_t> bins_of_range(id_t min_id, id_t max_id);
     
     /// Iterate over the bins, from most to least specific, that any of the
-    /// node IDs in the given inclusive range occur in. There may be multiple
-    /// bins at a given level of specificity; they will appear in numerical
-    /// order. Returns false if asked to stop.
-    static bool bins_of_range(id_t min_id, id_t max_id, const function<bool(bin_t)>& iteratee);
+    /// node IDs in the given inclusive range occur in, and that are actually
+    /// populated in the index. There may be multiple bins at a given level of
+    /// specificity; they will appear in numerical order. Returns false if
+    /// asked to stop.
+    static bool bins_of_range(id_t min_id, id_t max_id, const
+    function<bool(bin_t)>& iteratee);
     
     /// Get the most specific bin that contains both of the given node IDs.
     static bin_t common_bin(id_t a, id_t b);
@@ -316,6 +322,11 @@ public:
     /// range for a group is its min nodes' window through its max node's
     /// window.
     static window_t window_of_id(id_t id);
+    
+    /// Iterate over the *populated* bins in the index, in in-order bin tree
+    /// traversal order, that any of the node IDs in the given inclusive range
+    /// occur in. Returns false if asked to stop.
+    bool used_bins_of_range(id_t min_id, id_t max_id, const function<bool(bin_t)>& iteratee) const;
     
     
 protected:
@@ -327,10 +338,9 @@ protected:
     unordered_map<bin_t, vector<pair<int64_t, int64_t>>> bin_to_ranges;
     
     /// Maps from the bit string representing the prefix of node IDs that a bin
-    /// matches to the bin's vector as owned by bin_to_ranges. Only contains
-    /// entries for nonempty bins.
-    /// TODO: If this just mapped to bin_t, or was a set, we could be copyable.
-    BitStringTree<vector<pair<int64_t, int64_t>>*> bins_by_id_prefix;
+    /// matches to the bin's bin number. Only contains entries for nonempty
+    /// bins.
+    BitStringTree<bin_t> bins_by_id_prefix;
     
     /// Maps from linear index window to the virtual offset of the first group
     /// that overlaps that window (taking the group as a min-to-max node
@@ -434,9 +444,17 @@ bool BitStringTree<Item>::traverse_in_order(const BitString& low, const BitStrin
 
 template<typename Item>
 void BitStringTree<Item>::TreeNode::insert(const BitString& key, const Item& value) {
+
+#ifdef debug
+    cerr << "Inserting key " << key << " under " << this << " with value " << value << endl;
+#endif
+    
     if (key.empty()) {
         // It goes here.
         // We can only take one item
+#ifdef debug
+        cerr << "Item belongs here" << endl;
+#endif
         assert(!has_content);
         content = value;
         has_content = true;
@@ -451,19 +469,37 @@ void BitStringTree<Item>::TreeNode::insert(const BitString& key, const Item& val
             children[lead_bit]->prefix = key;
             children[lead_bit]->content = value;
             children[lead_bit]->has_content = true;
+#ifdef debug
+            cerr << "Item belongs in new child " << children[lead_bit].get() << " with lead bit "
+                << lead_bit << " and prefix " << children[lead_bit]->prefix << endl;
+#endif
         } else {
             // We already have a child in this direction.
+            
+#ifdef debug
+            cerr << "Item belongs on branch with existing child " << children[lead_bit].get() << " with lead bit "
+                << lead_bit << " and prefix " << children[lead_bit]->prefix << endl;
+#endif
             
             // See where the key diverges from our child's key
             auto breakpoint = children[lead_bit]->prefix.common_prefix_length(key);
             
             if (breakpoint >= children[lead_bit]->prefix.length()) {
                 // This key belongs inside the child node we have
+                
+#ifdef debug
+                cerr << "Key " << key << " is a prefix of " << children[lead_bit]->prefix << " so item lives at or under child" << endl;
+#endif
+                
                 // Insert recursively
                 children[lead_bit]->insert(key.drop_prefix(breakpoint), value);
             } else {
                 // The item to be added diverges somewhere along the branch to the child.
                 // And it isn't at the 0th bit because we organized our children by bit 0.
+                
+#ifdef debug
+                cerr << "Key " << key << " matches " << children[lead_bit]->prefix << " up through " << breakpoint << endl;
+#endif
                 
                 // Break up the child's key
                 auto prefix_parts = children[lead_bit]->prefix.split(breakpoint);
@@ -474,6 +510,11 @@ void BitStringTree<Item>::TreeNode::insert(const BitString& key, const Item& val
                 children[lead_bit]->prefix = prefix_parts.second;
                 new_child->children[prefix_parts.second.peek()] = move(children[lead_bit]);
                 children[lead_bit] = move(new_child);
+                
+#ifdef debug
+                cerr << "Added new node " << children[lead_bit].get() << " with shared prefix " << children[lead_bit]->prefix
+                    << " and make its " << prefix_parts.second.peek() << " child the old child with prefix " << prefix_parts.second << endl;
+#endif
                 
                 // Recursively insert either at the breakpoint node or under it in the other child slot
                 children[lead_bit]->insert(key.drop_prefix(breakpoint), value);

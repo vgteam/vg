@@ -126,6 +126,7 @@ auto BitString::empty() const -> bool {
 
 auto operator<<(ostream& out, const BitString& bs) -> ostream& {
     BitString temp = bs;
+    out << bs.length() << ":";
     while(!temp.empty()) {
         // Pop off and print each bit
         out << (temp.peek() ? '1' : '0');
@@ -138,6 +139,10 @@ auto operator<<(ostream& out, const BitString& bs) -> ostream& {
 const string StreamIndexBase::MAGIC_BYTES = "GAI!";
 
 auto StreamIndexBase::bin_to_prefix(bin_t bin) -> BitString {
+
+#ifdef debug
+    cerr << "Looking for ID prefix for bin " << bin << endl;
+#endif
 
     // The bin is an offset with the low n bits set, plus an n-bit index.
     // We have to figure out the value of the all-1s offset.
@@ -152,12 +157,22 @@ auto StreamIndexBase::bin_to_prefix(bin_t bin) -> BitString {
     // Count the leading 0 bits
     size_t leading_zeros = __builtin_clzll(bin);
     
+#ifdef debug
+    cerr << "The bin number has " << leading_zeros << " leading zeros" << endl;
+#endif
+    
     if (leading_zeros == numeric_limits<bin_t>::digits) {
         // All zero bin is the root and gets the empty prefix
         // Don't even bother with the rest of the logic
+#ifdef debug
+        cerr << "The bin is bin 0 so the answer is " << BitString() << endl;
+#endif
         return BitString();
     } else if (leading_zeros == numeric_limits<bin_t>::digits - 1) {
         // It must be bin 1, which has a 1-bit offset
+#ifdef debug
+        cerr << "The bin is all zeros but one bit, so it is bin 1" << endl;
+#endif
         bin_offset = 1;
         used_bits = 1;
     } else {
@@ -175,9 +190,24 @@ auto StreamIndexBase::bin_to_prefix(bin_t bin) -> BitString {
         }
     }
     
+#ifdef debug
+    cerr << "The bin offset value is " << bin_offset << " and the bin index uses " << used_bits << " bits" << endl;
+    cerr << "The bin index is " << bin - bin_offset << endl;
+#endif
+    
     /// Subtract out the offset to get the bin index, and use it as a prefix
     /// with the appropriate number of bits based on what the offset was.
-    return BitString(bin - bin_offset, used_bits);
+    BitString result(bin - bin_offset, used_bits);
+#ifdef debug
+    cerr << "It is " << result << endl;
+#endif
+    return result;
+}
+
+auto StreamIndexBase::id_to_prefix(id_t id) -> BitString {
+    // ID is signed and has only 63 "digits".
+    // The trees work on 64 bit strings.
+    return BitString(id, numeric_limits<uint64_t>::digits);
 }
 
 auto StreamIndexBase::bins_of_id(id_t id) -> vector<bin_t> {
@@ -265,6 +295,11 @@ auto StreamIndexBase::bins_of_range(id_t min_id, id_t max_id, const function<boo
     
     return keep_going;
 }
+
+auto StreamIndexBase::used_bins_of_range(id_t min_id, id_t max_id, const function<bool(bin_t)>& iteratee) const -> bool {
+    // The iteratee types are the same so we can just pass that along.
+    return bins_by_id_prefix.traverse_in_order(id_to_prefix(min_id), id_to_prefix(max_id), iteratee);
+}
     
 auto StreamIndexBase::common_bin(id_t a, id_t b) -> bin_t {
     // Convert to unsigned numbers
@@ -313,7 +348,7 @@ auto StreamIndexBase::add_group(id_t min_id, id_t max_id, int64_t virtual_start,
     
     if (ranges.empty()) {
         // We just made a new vector of bin ranges. Remember it.
-        bins_by_id_prefix.insert(bin_to_prefix(bin), &ranges);
+        bins_by_id_prefix.insert(bin_to_prefix(bin), bin);
     }
     
     if (!ranges.empty() && ranges.back().second == virtual_start) {
@@ -402,17 +437,13 @@ auto StreamIndexBase::find(id_t min_node, id_t max_node, const function<bool(int
     vector<decltype(bin_to_ranges)::const_iterator> used_bins;
     
     // Loop over the bins we have to deal with
-    bins_of_range(min_node, max_node, [&](bin_t bin_number) -> bool {
-        // See if the bin has any entries
+    used_bins_of_range(min_node, max_node, [&](bin_t bin_number) -> bool {
+        // All bins we get should be nonempty
         auto found = bin_to_ranges.find(bin_number);
-        if (found != bin_to_ranges.end()) {
-            // If it does, keep it
-            used_bins.push_back(found);
-        }
-        
+        assert(found != bin_to_ranges.end());
+        used_bins.push_back(found);
         // TODO: Is there a way we can just process all the bins one at a time,
         // instead of merging across them?
-        
         return true;
     });
     
@@ -689,7 +720,7 @@ auto StreamIndexBase::load(istream& from) -> void {
             auto& runs = bin_to_ranges[bin_number];
             
             // Remember it in the bins by ID prefix index
-            bins_by_id_prefix.insert(bin_to_prefix(bin_number), &runs);
+            bins_by_id_prefix.insert(bin_to_prefix(bin_number), bin_number);
             
             for (size_t j = 0; j < run_count; j++) {
                 // Load each run
