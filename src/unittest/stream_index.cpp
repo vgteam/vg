@@ -146,53 +146,11 @@ TEST_CASE("StreamIndexBase binning works large numbers", "[gam][gamindex]") {
 
     for (id_t to_bin : {0ULL, 1ULL, 10ULL, 0xFFFFFFFFFFFFFFFFULL, 0xFACEDEADCAFEBEEFULL}) {
 
-        auto bins = StreamIndexBase::bins_of_id(to_bin);
+        auto bin = StreamIndexBase::common_bin(to_bin, to_bin);
 
-        // We need one bin per bit for all bits but the last one, plus one top-level 0 bin for everything.
-        REQUIRE(bins.size() == CHAR_BIT * sizeof(id_t));
-
-        // The bins should end with the least specific bin (0)
-        REQUIRE(bins.back() == 0);
-        
         // Bin levels go from 0 to bits-1.
-        // The first bin should be 2^(bits - 1) - 1 + id >> 1
-        REQUIRE(bins.front() == ((StreamIndexBase::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 1)) - 1 + ((StreamIndexBase::bin_t)to_bin >> 1));
-        
-        // The first bin is the most specific bin, which is the bin of the number and itself.
-        REQUIRE(bins.front() == StreamIndexBase::common_bin(to_bin, to_bin));
-    }
-    
-}
-
-TEST_CASE("StreamIndexBase binning works with the iteratee interface", "[gam][gamindex]") {
-
-    for (id_t to_bin : {0ULL, 1ULL, 10ULL, 0xFFFFFFFFFFFFFFFFULL, 0xFACEDEADCAFEBEEFULL}) {
-
-        size_t total_bins = 0;
-        StreamIndexBase::bin_t last_bin = 1234;
-        StreamIndexBase::bin_t first_bin = 0;
-        
-        auto bins = StreamIndexBase::bins_of_range(to_bin, to_bin, [&](StreamIndexBase::bin_t bin) -> bool {
-            total_bins++;
-            last_bin = bin;
-            if (first_bin == 0) {
-                first_bin = bin;
-            }
-            return true;
-        });
-
-        // We need one bin per bit for all bits but the last one, plus one top-level 0 bin for everything.
-        REQUIRE(total_bins == CHAR_BIT * sizeof(id_t));
-
-        // The bins should end with the least specific bin (0)
-        REQUIRE(last_bin == 0);
-        
-        // Bin levels go from 0 to bits-1.
-        // The first bin should be 2^(bits - 1) - 1 + id >> 1
-        REQUIRE(first_bin == ((StreamIndexBase::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 1)) - 1 + ((StreamIndexBase::bin_t)to_bin >> 1));
-        
-        // The first bin is the most specific bin, which is the bin of the number and itself.
-        REQUIRE(first_bin == StreamIndexBase::common_bin(to_bin, to_bin));
+        // The common bin should be 2^(bits - 1) - 1 + id >> 1
+        REQUIRE(bin == ((StreamIndexBase::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 1)) - 1 + ((StreamIndexBase::bin_t)to_bin >> 1));
     }
     
 }

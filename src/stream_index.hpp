@@ -295,26 +295,6 @@ public:
     /// Get the given ID as a bit string
     static BitString id_to_prefix(id_t id);
     
-    /// Compute the bins, from most to least specific, that a node ID occurs in.
-    static vector<bin_t> bins_of_id(id_t id);
-    
-    /// Iterate over the bins, from most to least specific, that a node ID occurs in.
-    /// Returns false if asked to stop.
-    static bool bins_of_id(id_t id, const function<bool(bin_t)>& iteratee);
-    
-    /// Compute the bins, from most to least specific, that any of the node IDs
-    /// in the given inclusive range occur in. There may be multiple bins at a
-    /// given level of specificity; they will appear in numerical order.
-    static vector<bin_t> bins_of_range(id_t min_id, id_t max_id);
-    
-    /// Iterate over the bins, from most to least specific, that any of the
-    /// node IDs in the given inclusive range occur in, and that are actually
-    /// populated in the index. There may be multiple bins at a given level of
-    /// specificity; they will appear in numerical order. Returns false if
-    /// asked to stop.
-    static bool bins_of_range(id_t min_id, id_t max_id, const
-    function<bool(bin_t)>& iteratee);
-    
     /// Get the most specific bin that contains both of the given node IDs.
     static bin_t common_bin(id_t a, id_t b);
     

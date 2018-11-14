@@ -39,9 +39,7 @@ int main_benchmark(int argc, char** argv) {
     
     // Which experiments should we run?
     bool sort_and_order_experiment = false;
-    bool bin_experiment = false;
     bool get_sequence_experiment = true;
-    
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -149,29 +147,6 @@ int main_benchmark(int argc, char** argv) {
             auto components = algorithms::weakly_connected_components(&vg);
             assert(components.size() == 1);
             assert(components.front().size() == vg.node_size());
-        }));
-        
-    }
-    
-    if (bin_experiment) {
-    
-        results.push_back(run_benchmark("StreamIndexBase::bins_of_range vector return", 1000, [&]() {
-            size_t bin_sum = 0;
-            for (size_t i = 1; i < 101; i++) {
-                for (auto& bin : StreamIndexBase::bins_of_range(i, i)) {
-                    bin_sum += bin;
-                }
-            }
-        }));
-        
-        results.push_back(run_benchmark("StreamIndexBase::bins_of_range iteratee", 1000, [&]() {
-            size_t bin_sum = 0;
-            for (size_t i = 1; i < 101; i++) {
-                StreamIndexBase::bins_of_range(i, i, [&](StreamIndexBase::bin_t bin) -> bool {
-                    bin_sum += bin;
-                    return true;
-                });
-            }
         }));
         
     }
