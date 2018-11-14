@@ -48,7 +48,8 @@ public:
     /// Convert the BitString back to a number
     uint64_t to_number() const;
     
-    /// Get a suffix of a BitString by dropping the specified number of bits
+    /// Get a suffix of a BitString by dropping the specified number of bits.
+    /// If we drop all the bits or more, get an empty BitString.
     BitString drop_prefix(size_t prefix_length) const;
     
     /// Split into a prefix of the given length and a suffix of the rest
@@ -63,6 +64,12 @@ public:
     /// Get the length of the longest common prefix (index of the first
     /// mismatching bit) between this BitString and another.
     size_t common_prefix_length(const BitString& other) const;
+    
+    /// Return true if one BitString is a prefix of the other, or if this BitString has the 0 at the first differing bit.
+    bool at_or_before(const BitString& other) const;
+    
+    /// Return true if one BitString is a prefix of the other, or if the other BitString has the 0 at the first differing bit.
+    bool at_or_after(const BitString& other) const;
     
     /// Peek at the top bit and see if it is a 1 (true) or 0 (false).
     /// Empty bit strings get false.
@@ -87,6 +94,9 @@ protected:
     const static size_t TOTAL_BITS = numeric_limits<uint64_t>::digits;
 };
 
+/// Allow BitStrings to be printed for debugging
+ostream& operator<<(ostream& out, const BitString& bs);
+
 /**
  * Represents a radix tree keyed by/internally using BitStrings.
  * Each item has a BitString as a key, and items are stored in a trie/prefix tree.
@@ -102,7 +112,13 @@ public:
     void insert(const BitString& key, const Item& value);
     
     /// Enumerate items whose keys match prefixes of the given key, in order from most specific to least specific.
-    void traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const;
+    /// Returns false if stopped early.
+    bool traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const;
+    
+    /// Enumerate items which have the given low and high bit strings as a
+    /// prefix, or which fall between them, as an in-order traversal of the
+    /// tree. Returns false if stopped early.
+    bool traverse_in_order(const BitString& low, const BitString& high, const function<bool(const Item&)>& iteratee) const;
 
 protected:
     struct TreeNode {
@@ -114,7 +130,7 @@ protected:
         /// Each TreeNode also may hold an item record
         Item content;
         /// This is set if we actually have one
-        bool has_item = false;
+        bool has_content = false;
         
         /// Insert the given item at or under this node.
         /// Its key must have had our prefix already removed from it.
@@ -127,6 +143,11 @@ protected:
         /// stop, and false otherwise. The key will have already had this
         /// node's prefix removed.
         bool traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const;
+        
+        /// Iterate over elements in the tree with an in-order traversal
+        /// between the two given keys, inclusive. Low and high have already
+        /// had this node's prefix removed.
+        bool traverse_in_order(const BitString& low, const BitString& high, const function<bool(const Item&)>& iteratee) const;
         
         // Note that depth is bounded so we don't need recursion-breaking in our destructor
         
@@ -402,8 +423,13 @@ void BitStringTree<Item>::insert(const BitString& key, const Item& value) {
 }
 
 template<typename Item>
-void BitStringTree<Item>::traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const {
-    root.traverse_up(key, iteratee);
+bool BitStringTree<Item>::traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const {
+    return root.traverse_up(key, iteratee);
+}
+
+template<typename Item>
+bool BitStringTree<Item>::traverse_in_order(const BitString& low, const BitString& high, const function<bool(const Item&)>& iteratee) const {
+    return root.traverse_in_order(low, high, iteratee);
 }
 
 template<typename Item>
@@ -411,9 +437,9 @@ void BitStringTree<Item>::TreeNode::insert(const BitString& key, const Item& val
     if (key.empty()) {
         // It goes here.
         // We can only take one item
-        assert(!has_item);
+        assert(!has_content);
         content = value;
-        has_item = true;
+        has_content = true;
     } else {
         // Get the first bit of its prefix
         bool lead_bit = key.peek();
@@ -424,7 +450,7 @@ void BitStringTree<Item>::TreeNode::insert(const BitString& key, const Item& val
             // Populate it
             children[lead_bit]->prefix = key;
             children[lead_bit]->content = value;
-            children[lead_bit]->has_item = true;
+            children[lead_bit]->has_content = true;
         } else {
             // We already have a child in this direction.
             
@@ -460,7 +486,7 @@ template<typename Item>
 bool BitStringTree<Item>::TreeNode::traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const {
     if (key.empty()) {
         // We are the item being sought
-        if (has_item) {
+        if (has_content) {
             // We actually have an item, so send it
             return iteratee(content);
         } else {
@@ -483,7 +509,7 @@ bool BitStringTree<Item>::TreeNode::traverse_up(const BitString& key, const func
                 // Search recursively
                 if (children[lead_bit]->traverse_up(key.drop_prefix(breakpoint), iteratee)) {
                     // The child returned true
-                    if (has_item) {
+                    if (has_content) {
                         // We also have an item, so send it
                         return iteratee(content);
                     } else {
@@ -497,7 +523,7 @@ bool BitStringTree<Item>::TreeNode::traverse_up(const BitString& key, const func
             } else {
                 // The key branches off before the child.
                 // So we have to process ourselves as the bottom node
-                if (has_item) {
+                if (has_content) {
                     // We actually have an item, so send it
                     return iteratee(content);
                 } else {
@@ -508,7 +534,7 @@ bool BitStringTree<Item>::TreeNode::traverse_up(const BitString& key, const func
         } else {
             // No child exists that is responsible for the key.
             // We have no results under us, so just do us.
-            if (has_item) {
+            if (has_content) {
                 // We have an item, so send it
                 return iteratee(content);
             } else {
@@ -517,6 +543,52 @@ bool BitStringTree<Item>::TreeNode::traverse_up(const BitString& key, const func
             }
         }
     }
+}
+
+template<typename Item>
+bool BitStringTree<Item>::TreeNode::traverse_in_order(const BitString& low, const BitString& high,
+    const function<bool(const Item&)>& iteratee) const {
+    
+    // This is actually pretty easy. We know we're in the range. We just need
+    // to figure out if our children are in the range, and if so, call them.
+    
+    // We use special bit string comparison, so our bounded range is all the
+    // stuff that we don't have bits showing it comes before the low or after
+    // the high.
+    
+    cerr << "Arrived at node " << this << " with range " << low << " - " << high << endl;
+    
+    /// Define a function to process each child.
+    /// Returns false if we stop early
+    auto do_child = [&](bool child_index) -> bool {
+        // Grab a reference to the child's unique_ptr
+        auto& child = children[child_index];
+        
+        if (child) {
+            // The child exists. Grab its prefix
+            auto& child_prefix = child->prefix;
+            
+            cerr << "Child " << child.get() << " has prefix " << child_prefix << endl; 
+            
+            if (low.at_or_before(child_prefix) && high.at_or_after(child_prefix)) {
+                // The child is in the range.
+                
+                // But we need to work out which of the range bounds are
+                // outside the region which the child is responsible for and
+                // not pass them on.
+                BitString child_low = child_prefix.at_or_before(low) ? low.drop_prefix(child_prefix.length()) : BitString();
+                BitString child_high = child_prefix.at_or_after(high) ? high.drop_prefix(child_prefix.length()) : BitString();
+                
+                return child->traverse_in_order(child_low, child_high, iteratee);
+            }
+        }
+        
+        // If we get here we didn't need to visit the child at all.
+        return true;
+    };
+   
+    // Do the left child, then us if we have an item, then the right child.
+    return do_child(false) && ((has_content && iteratee(content)) || !has_content) && do_child(true);
 }
 
 template<typename Message>

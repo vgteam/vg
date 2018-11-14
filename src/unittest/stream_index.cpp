@@ -36,6 +36,21 @@ TEST_CASE("BitString operations work correctly", "[bits][gamindex]") {
     REQUIRE(some_bits.common_prefix_length(split.first) == 16);
     
     REQUIRE(some_bits.drop_prefix(16) == split.second);
+    
+    // Check comparison of prefixes and suffixes
+    REQUIRE(split.first.at_or_after(some_bits));
+    REQUIRE(split.first.at_or_before(some_bits));
+    REQUIRE(some_bits.at_or_after(split.first));
+    REQUIRE(some_bits.at_or_before(split.first));
+    REQUIRE(some_bits.at_or_after(some_bits));
+    REQUIRE(some_bits.at_or_before(some_bits));
+    
+    // Check comparison of different values
+    REQUIRE(BitString(5, 16).at_or_before(BitString(10, 16)));
+    REQUIRE(!BitString(5, 16).at_or_after(BitString(10, 16)));
+    
+    REQUIRE(!BitString(10, 16).at_or_before(BitString(5, 16)));
+    REQUIRE(BitString(10, 16).at_or_after(BitString(5, 16)));
 }
 
 TEST_CASE("BitStringTree works correctly", "[bits][gamindex]") {
@@ -100,6 +115,22 @@ TEST_CASE("BitStringTree works correctly", "[bits][gamindex]") {
         REQUIRE(found_long);
         REQUIRE(!found_short);
         REQUIRE(count == 1);
+    }
+    
+    SECTION("In-order traversal is possible") {
+        vector<string> observed;
+        
+        // Try to get all but the last element
+        tree.traverse_in_order(BitString(0xDEAD, 16), BitString(0xF00D0, 20), [&](const string& value) -> bool {
+            observed.push_back(value);
+            return true;
+        });
+        
+        REQUIRE(observed.size() == 4);
+        REQUIRE(observed[0] == "Dead");
+        REQUIRE(observed[1] == "Dead Beef");
+        REQUIRE(observed[2] == "DEET");
+        REQUIRE(observed[3] == "Food");
     }
 }
 

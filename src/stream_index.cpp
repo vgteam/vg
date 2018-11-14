@@ -37,10 +37,7 @@ auto BitString::to_number() const -> uint64_t {
 }
 
 auto BitString::drop_prefix(size_t prefix_length) const -> BitString {
-    // Don't let it be too long
-    assert(prefix_length <= bit_length);
-    
-    if (prefix_length == bit_length) {
+    if (prefix_length >= bit_length) {
         // We are losing all our bits
         return BitString();
     }
@@ -54,6 +51,8 @@ auto BitString::drop_prefix(size_t prefix_length) const -> BitString {
 }
 
 auto BitString::split(size_t prefix_length) const -> pair<BitString, BitString> {
+    assert(prefix_length <= bit_length);
+    
     // Make the prefix
     auto non_prefix_bits = TOTAL_BITS - prefix_length;
     BitString prefix;
@@ -86,6 +85,28 @@ auto BitString::common_prefix_length(const BitString& other) const -> size_t {
    return min(min(identical_bits, (size_t) bit_length), (size_t) other.bit_length);
 }
 
+auto BitString::at_or_before(const BitString& other) const -> bool {
+    auto first_diff = common_prefix_length(other);
+    if (first_diff >= length() || first_diff >= other.length()) {
+        // No differences spotted, so we can't conclusively place ourselves second
+        return true;
+    }
+    
+    // Otherwise, there's a difference. If we have the zero, we aren't second.
+    return !drop_prefix(first_diff).peek();
+}
+
+auto BitString::at_or_after(const BitString& other) const -> bool {
+    auto first_diff = common_prefix_length(other);
+    if (first_diff >= length() || first_diff >= other.length()) {
+        // No differences spotted, so we can't conclusively place ourselves first
+        return true;
+    }
+    
+    // Otherwise, there's a difference. If we have the one, we aren't first.
+    return drop_prefix(first_diff).peek();
+}
+
 auto BitString::peek() const -> bool {
     if (bit_length == 0) {
         return false;
@@ -101,6 +122,17 @@ auto BitString::length() const -> size_t {
 
 auto BitString::empty() const -> bool {
     return bit_length == 0;
+}
+
+auto operator<<(ostream& out, const BitString& bs) -> ostream& {
+    BitString temp = bs;
+    while(!temp.empty()) {
+        // Pop off and print each bit
+        out << (temp.peek() ? '1' : '0');
+        temp = temp.drop_prefix(1);
+    }
+    
+    return out;
 }
 
 const string StreamIndexBase::MAGIC_BYTES = "GAI!";
