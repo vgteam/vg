@@ -5,19 +5,21 @@
  * \file indexed_vg.hpp
  * Contains an implementation of a HandleGraph backed by a sorted, indexed .vg file
  */
- 
+
+#include <lru_cache.h>
+
 #include <string>
 #include <mutex>
 
 #include "stream_index.hpp"
 #include "handle.hpp"
 
+
 namespace vg {
 
 using namespace std;
 
-/**
- * Use a .vg file on disk with a .vgi index to provide random access to the
+/** Use a .vg file on disk with a .vgi index to provide random access to the
  * graph data without loading the entire graph into memory. Sort of a
  * compromise between an XG and a VG, except unlike either we don't need the
  * whole graph in memory.
@@ -32,6 +34,15 @@ using namespace std;
  * All operations are thread-safe to call. Internally we can't be seeking a
  * cursor off to another location in the middle of looping over a run of
  * matchung chunks, but we handle that ourselves.
+ *
+ * Internally, we keep a pool of cursors into the backing graph file, and each
+ * time we need to actually access the backing graph file we grab a cursor or
+ * make one if we don't have a free one.
+ *
+ * Internally we also keep a least-recently-used cache of indexed
+ * merged-together graph groups. The cache is keyed by group start VO. The
+ * cache holds shared pointers to cache entries, so that one thread can be
+ * evicting something from the cache while another is still working with it.
  */
 class IndexedVG : public HandleGraph {
 
@@ -48,8 +59,7 @@ public:
     void print_report() const;
 
 private:
-    // We are not copyable
-    // TODO: Make us copyable or add a cursor pool to justify non-copyability
+    // We are not copyable because we keep a pool of open files
     IndexedVG(const IndexedVG& other) = delete;
     IndexedVG& operator=(const IndexedVG& other) = delete;
     
@@ -116,7 +126,7 @@ protected:
     /// Index data about the vg file
     StreamIndex<Graph> index;
     
-    /// Defien the type we use for cursors into the backing file.
+    /// Define the type we use for cursors into the backing file.
     using cursor_t = StreamIndex<Graph>::cursor_t;
     
     /// Get temporary ownership of a cursor to the backing vg file.
@@ -129,7 +139,7 @@ protected:
     /// Access is protected by this mutex
     mutable mutex cursor_pool_mutex;
     
-    /// Represents an entry in the cache for a parsed run of graphs.
+    /// Represents an entry in the cache for a parsed group of graphs.
     /// Has its own indexes and the virtual offset of the next group.
     struct CacheEntry {
         /// Make a cache entry for a group by reading a cursor at that group's start
@@ -161,19 +171,25 @@ protected:
     /// early, but doesn't do internal filtering of chunks/runs where the node
     /// being queried is in a hole. Runs the iteratee on CacheEntry objects for
     /// the runs that might have info on the requested node, in order.
+    /// Internally holds shared_ptr copies to the cache entries it is handing
+    /// out references to. Users must do all everything they need the
+    /// CacheEntry for within the callback as the reference may not be valid
+    /// afterwards.
     void find(id_t id, const function<bool(const CacheEntry&)>& iteratee) const;
     
-    /// Cache that stores deserialized and indexed Graph object lists by group
-    /// virtual offset. Also stores the virtual offset for the next group, or
-    /// the max value for EOF, so we can do groups not in here.
-    mutable unordered_map<int64_t, CacheEntry> graph_cache;
-    /// This maps from node ID to the group it lives in in the graph cache
-    mutable unordered_map<id_t, int64_t> node_group_cache;
+    /// Load or use the cached version of the CacheEntry for the given group
+    /// start VO. If no group starts at the given VO (for example, it is at or
+    /// past the end of the file), the callback is not called and false is returned.
+    /// Handles locking the cache for updates and keeping the CacheEntry
+    /// reference live while the callback is running.
+    bool with_cache_entry(int64_t group_vo, const function<void(const CacheEntry&)>& callback) const;
+    
+    /// This is the cache that holds CacheEntries for groups we have already parsed and indexed.
+    /// We can only access the cache from one thread at a time, but the shared pointers let us
+    /// be working with the actual data in ther threads.
+    mutable LRUCache<int64_t, shared_ptr<CacheEntry>> group_cache;
     /// The cache is protected with this mutex
     mutable mutex cache_mutex;
-    
-    mutable size_t cache_hits;
-    mutable size_t cache_misses;
 };
 
 }

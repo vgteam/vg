@@ -5,19 +5,21 @@
 
 #include "indexed_vg.hpp"
 #include "utility.hpp"
+#include "json2pb.h"
 
 namespace vg {
 
 using namespace std;
 
-IndexedVG::IndexedVG(string graph_filename) : vg_filename(graph_filename), index() {
+IndexedVG::IndexedVG(string graph_filename) : vg_filename(graph_filename), index(),
+    cursor_streams(), cursor_pool(), cursor_pool_mutex(), group_cache(100), cache_mutex() {
     
     // Decide where the index ought to be stored
     string index_filename = vg_filename + ".vgi";
     
     ifstream index_in_stream(index_filename);
     if (index_in_stream.good()) {
-        // We found the idnex, load it
+        // We found the index, load it
         index.load(index_in_stream);
     } else {
         // We need to build the index
@@ -46,8 +48,8 @@ IndexedVG::IndexedVG(string graph_filename) : vg_filename(graph_filename), index
 
 void IndexedVG::print_report() const {
     cerr << cursor_streams.size() << " cursors outstanding, " << cursor_pool.size() << " cursors free" << endl;
-    cerr << graph_cache.size() << " cache entries" << endl;
-    cerr << cache_hits << " cache hits, " << cache_misses << " cache misses" << endl;
+    cerr << group_cache.size() << " cache entries" << endl;
+    cerr << group_cache.hit_count() << " cache hits, " << group_cache.miss_count() << " cache misses" << endl;
 }
 
 // TODO: We ought to use some kind of handle packing that relates to file offsets for graph chunks contasining nodes.
@@ -108,6 +110,10 @@ string IndexedVG::get_sequence(const handle_t& handle) const {
 bool IndexedVG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // TODO: implement stopping early in the backing index!
     
+#ifdef debug
+    cerr << "Following edges " << (go_left ? "left" : "right") << " from " << get_id(handle) << " orientation " << get_is_reverse(handle) << endl;
+#endif
+    
     if (go_left) {
         // Go right from our reverse version, and return flipped results
         return follow_edges(flip(handle), false, [&](const handle_t& other) -> bool {
@@ -118,50 +124,83 @@ bool IndexedVG::follow_edges(const handle_t& handle, bool go_left, const functio
     // Now we only have to handle the going right case
     
     // If this is false, don't call the iteratee any more.
-    // TODO: Pass the early stop on to the index scan.
     bool keep_going = true;
+
+    // Get the ID of the node we are looking for
+    id_t id = get_id(handle);
+    bool is_reverse = get_is_reverse(handle);
     
-    with_cursor([&](cursor_t& cursor) {
-        // Get ahold of the vg file cursor
+    find(id, [&](const CacheEntry& entry) -> bool {
+        // For each CacheEntry that describes a graph group that may have edges touching the ID we are looking for
         
-        // Get the ID of the node we are looking for
-        id_t id = get_id(handle);
-        bool is_reverse = get_is_reverse(handle);
+#ifdef debug
+        cerr << "Relevant cache entry: " << &entry << endl;
+#endif
         
-        index.find(cursor, id, [&](const Graph& graph) {
+        // Find the list of edge indices that touch this node ID
+        auto found = entry.id_to_edge_indices.find(id);
+        
+        if (found == entry.id_to_edge_indices.end()) {
+            // No relevant edges in this cache entry. Get the next potentially relevant one.
+            return true;
+        }
+        
+#ifdef debug
+        cerr << "Entry has " << found->second.size() << " edge indices that touch node " << id << endl;
+#endif
+        
+        for (auto edge_index : found->second) {
+            // Look up each relevant edge in the graph
+            auto& edge = entry.merged_group.edge(edge_index);
+            
+#ifdef debug
+            cerr << "Consider edge #" << edge_index << " in cache entry graph" << endl;
+#endif
+            
+            if (edge.from() == id) {
+                // This edge touches us on its from end
+                if (
+                    (!edge.from_start() && !is_reverse) || // Normal down an edge case
+                    (edge.from_start() && is_reverse) // We also end up going down the edge the same way from the edge's point of view
+                ) {
+#ifdef debug
+                    cerr << "Follow edge " << pb2json(edge) << " from from end" << endl;
+#endif
+                    keep_going &= iteratee(get_handle(edge.to(), edge.to_end()));
+                }
+            }
+            
             if (!keep_going) {
-                return;
+                return false;
             }
-            for (auto& edge : graph.edge()) {
-                if (edge.from() == id) {
-                    if (
-                        (!edge.from_start() && !is_reverse) || // Normal down an edge case
-                        (edge.from_start() && is_reverse) // We also end up going down the edge the same way from the edge's point of view
-                    ) {
-                        keep_going &= iteratee(get_handle(edge.to(), edge.to_end()));
-                    }
-                }
-                
-                if (!keep_going) {
-                    return;
-                }
-                
-                if (edge.to() == id) {
-                    if (
-                        (edge.to_end() && !is_reverse) || // We read up this edge
-                        (!edge.to_end() && is_reverse) // We also read up this edge
-                    ) {
-                        keep_going &= iteratee(get_handle(edge.from(), !edge.from_start()));
-                    }
-                }
-                
-                if (!keep_going) {
-                    return;
+            
+            if (edge.to() == id) {
+                // This edge touches us on its to end
+                if (
+                    (edge.to_end() && !is_reverse) || // We read up this edge
+                    (!edge.to_end() && is_reverse) // We also read up this edge
+                ) {
+#ifdef debug
+                    cerr << "Follow edge " << pb2json(edge) << " from to end" << endl;
+#endif
+                    keep_going &= iteratee(get_handle(edge.from(), !edge.from_start()));
                 }
             }
-        });
+            
+            if (!keep_going) {
+                return false;
+            }
+        }
+        
+        return keep_going;
     });
     
+    if (!keep_going) {
+#ifdef debug
+        cerr << "Stopped early!" << endl;
+#endif
+    }
+        
     return keep_going;
 }
 
@@ -304,100 +343,99 @@ void IndexedVG::with_cursor(function<void(cursor_t&)> callback) const {
 }
 
 void IndexedVG::find(id_t id, const function<bool(const CacheEntry&)>& iteratee) const {
+    // We will set this to false if the iteratee says to stop
+    bool keep_going = true;
     
-    /*auto group_found = node_group_cache.find(id);
-    if (group_found != node_group_cache.end()) {
-        // There's just the one entry for this node.
-        // TODO: edges
-        iteratee(graph_cache.at(group_found->second));
-        return;
-    }*/
-
     index.find(id, [&](int64_t run_start_vo, int64_t run_past_end_vo) -> bool {
-        // Loop over the index and get all the VO run ranges
-        
-        // We will set this to false if the iteratee says to stop
-        bool keep_going = true;
+        // Loop over the index and get all the VO run ranges relevant to the given ID.
         
         // Scan through each run
         // Start at the run's start
         int64_t scan_vo = run_start_vo;
         
         while(keep_going && scan_vo < run_past_end_vo)  {
-            // Get the cache entry for this run
-            decltype(graph_cache)::const_iterator found;
-            {
-                lock_guard<mutex> lock(cache_mutex);
-                found = graph_cache.find(scan_vo);
-            }
             
-            if (found != graph_cache.end()) {
-                // If we have a cached group for this VO, use it
-                // TODO: support the cached group being removed from the cache
-                
-                cache_hits++;
-                
-                // Iterate over the subgraph for the node from the cached run
-                keep_going &= iteratee(found->second);
-                
-                if (!keep_going) {
-                    break;
-                }
+            // We are working on the group that starts at scan_vo
+            
+            // Go get it, unless scan_vo is at EOF
+            bool still_in_file = with_cache_entry(scan_vo, [&](const CacheEntry& entry) {
+                // Now we have a cache entry for the group we were looking for.
+                // Show it to the iteratee.
+                keep_going &= iteratee(entry);
                 
                 // Advance to the next group
-                scan_vo = found->second.next_group;
-            } else {
-                // Otherwise, we need to actually access the file
-                
-                cache_misses++;
-                
-                int64_t cache_line_vo = scan_vo;
-                
-                // We're going to have a cache entry
-                CacheEntry* cache_line = nullptr;
-                 
-                with_cursor([&](cursor_t& cursor) {
-                    // Does nothing if we are already in the right place.
-                    assert(cursor.seek_group(scan_vo));
-                    
-                    // Read the group into the cache
-                    cache_line = new CacheEntry(cursor);
-                    
-                });
-                
-                // Iterate over the subgraph for the node from the cached run
-                keep_going &= iteratee(*cache_line);
-                
-                // Remember where to look for the next group
-                scan_vo = cache_line->next_group;
-                
-                /*for (auto& node : cache_line->merged_group.node()) {
-                    node_group_cache[node.id()] = cache_line_vo;
-                }*/
-                
-                // Save back to the cache
-                {
-                    lock_guard<mutex> lock(cache_mutex);
-                    graph_cache.emplace(cache_line_vo, move(*cache_line));
-                }
-                
-                delete cache_line;
-                
-                if (!keep_going) {
-                    break;
-                }
-            }
+                scan_vo = entry.next_group;
+            });
+            
+            // We should never hit EOF when operating on ranges from the index.
+            // If we do, the index is invalid.
+            assert(still_in_file);
             
             // When scan_vo hits or passes the past-end for the range, we will be done with it
         }
         
-        // Keep looking if the iteratee wants to
+        // Keep looking if the iteratee wants to, and get a new range.
         return keep_going;
     });
 }
 
+bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const CacheEntry&)>& callback) const {
+
+    // This will point to the cache entry for the group when we find or make it.
+    shared_ptr<CacheEntry> cache_entry;
+    
+    {
+        lock_guard<mutex> lock(cache_mutex);
+        // See if it is cached. Gets a pair of the item (if found) and a flag for whether it was found
+        auto cache_pair = group_cache.retrieve(group_vo);
+        if (cache_pair.second) {
+            // We found it
+            cache_entry = move(cache_pair.first);
+        }
+    }
+
+    if (!cache_entry) {
+        // If it wasn't found, load it up. We could synchronize to do
+        // this with the cache lock held, to stop all threads banging
+        // on the disk until one of them caches it. But we probably
+        // want to allow simultaneous reads from disk overall.
+        
+        with_cursor([&](cursor_t& cursor) {
+            // Does nothing if we are already in the right place.
+            assert(cursor.seek_group(group_vo));
+            
+            if (cursor.has_next()) {
+                // We seeked to a real thing and not EOF
+            
+                // Read the group into a cache entry
+                cache_entry = shared_ptr<CacheEntry>(new CacheEntry(cursor));
+            }
+        });
+        
+        if (cache_entry) {
+            // We actually found a valid group.
+            
+            lock_guard<mutex> lock(cache_mutex);
+            // Save a copy of the shared pointer into the cache
+            group_cache.put(group_vo, cache_entry);
+        }
+        
+    }
+    
+    if (cache_entry) {
+        // We aren't at EOF or anything, so call the callback
+        callback(*cache_entry);
+        return true;
+    }
+    
+    // We didn't find it in the file.
+    return false;
+    
+}
+
 IndexedVG::CacheEntry::CacheEntry(cursor_t& cursor) {
     
+    // We want to cache the group we are pointed at
     int64_t group_vo = cursor.tell_group();
     
     while (cursor.has_next() && cursor.tell_group() == group_vo) {
@@ -424,7 +462,10 @@ IndexedVG::CacheEntry::CacheEntry(cursor_t& cursor) {
         // And of every edge by end node IDs
         auto& edge = merged_group.edge(i);
         id_to_edge_indices[edge.from()].push_back(i);
-        id_to_edge_indices[edge.to()].push_back(i);
+        if (edge.to() != edge.from()) {
+            // If it's not a self loop we need to point to it from both ends
+            id_to_edge_indices[edge.to()].push_back(i);
+        }
     }
 }
 
