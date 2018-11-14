@@ -20,6 +20,123 @@ namespace vg {
 
 using namespace std;
 
+// For efficiently storing the bins that are populated in the relatively sparse
+// bin space that the index uses, we use a compact prefix trie (radix tree) on
+// the node ID bit string prefixes that correspond to the bins.
+
+// To make that work we in turn need a bit string type that is easily
+// convertible to/from 64-bit numbers.
+
+/**
+ * Represents a string of up to 64 bits.
+ */
+class BitString {
+public:
+    
+    /// Make a new BitString representing the low length bits of the given number
+    BitString(uint64_t bits, size_t length);
+    
+    /// Make an empty BitString
+    BitString();
+    
+    // Copyable and movable
+    BitString& operator=(const BitString& other) = default;
+    BitString& operator=(BitString&& other) = default;
+    BitString(const BitString& other) = default;
+    BitString(BitString&& other) = default;
+    
+    /// Convert the BitString back to a number
+    uint64_t to_number() const;
+    
+    /// Get a suffix of a BitString by dropping the specified number of bits
+    BitString drop_prefix(size_t prefix_length) const;
+    
+    /// Split into a prefix of the given length and a suffix of the rest
+    pair<BitString, BitString> split(size_t prefix_length) const;
+    
+    /// Determine if two BitStrings are equal
+    bool operator==(const BitString& other) const;
+    
+    /// Determine if two BitStrings are unequal
+    bool operator!=(const BitString& other) const;
+    
+    /// Get the length of the longest common prefix (index of the first
+    /// mismatching bit) between this BitString and another.
+    size_t common_prefix_length(const BitString& other) const;
+    
+    /// Peek at the top bit and see if it is a 1 (true) or 0 (false).
+    /// Empty bit strings get false.
+    bool peek() const;
+    
+    /// Get the length of the BitString
+    size_t length() const;
+    
+    /// Return true if the bit string is empty
+    bool empty() const;
+    
+protected:
+    /// Holds the actual bits of the bit string.
+    /// We store the bits aligned to the left to make finding the first mismatch easier.
+    /// All bits below the last used bit are 0.
+    uint64_t bits;
+    
+    /// Holds the number of bits that are used.
+    uint8_t bit_length;
+    
+    /// How many total bits are possible?
+    const static size_t TOTAL_BITS = numeric_limits<uint64_t>::digits;
+};
+
+/**
+ * Represents a radix tree keyed by/internally using BitStrings.
+ * Each item has a BitString as a key, and items are stored in a trie/prefix tree.
+ * Each node has at most one item and at most two children.
+ * Movable but not copyable.
+ * TODO: Implement copy.
+ */
+template<typename Item>
+class BitStringTree {
+public:
+
+    /// Insert the given item under the given key
+    void insert(const BitString& key, const Item& value);
+    
+    /// Enumerate items whose keys match prefixes of the given key, in order from most specific to least specific.
+    void traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const;
+
+protected:
+    struct TreeNode {
+        /// Each TreeNode represents a prefix over its parent
+        BitString prefix;
+        /// Each TreeNode holds a 0 child and a 1 child, at most
+        /// Their prefixes say what full prefixes they actually correspond to
+        unique_ptr<TreeNode> children[2];
+        /// Each TreeNode also may hold an item record
+        Item content;
+        /// This is set if we actually have one
+        bool has_item = false;
+        
+        /// Insert the given item at or under this node.
+        /// Its key must have had our prefix already removed from it.
+        void insert(const BitString& key, const Item& value);
+        
+        /// Search down to the node that corresponds to the given key, or where
+        /// it would be. Call the iteratee for that node and every parent, from
+        /// bottom to top, until the iteratee returns false. If not found, do
+        /// not call the iteratee. Retruns true if the iteratee did not ask to
+        /// stop, and false otherwise. The key will have already had this
+        /// node's prefix removed.
+        bool traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const;
+        
+        // Note that depth is bounded so we don't need recursion-breaking in our destructor
+        
+    };
+    
+    /// The root node has an empty prefix
+    TreeNode root;
+    
+};
+
 /**
  * An index for a node-ID-sorted stream.hpp-formatted file, such as GAM or VG.
  *
@@ -47,7 +164,7 @@ using namespace std;
  * The bin structure is that we partition all of node ID space into bins of
  * power-of-2 size, starting with size 2 nodes. We number the bins such that 0
  * is the whole-ID-space bin, divided into 1 and 2, then into 3, 4, 5, and 6,
- * and so on.
+ * then into 7, 8, 9, 10, 11, 12, 13, and 14, and so on.
  *
  * The tiling windows are just the node IDs down-shifted by a few bits.
  *
@@ -150,6 +267,9 @@ public:
     // Lowest-level functions for thinking about bins and windows.
     ///////////////////
     
+    /// Get the ID prefix bits corresponding to a bin
+    static BitString bin_to_prefix(bin_t bin);
+    
     /// Compute the bins, from most to least specific, that a node ID occurs in.
     static vector<bin_t> bins_of_id(id_t id);
     
@@ -178,13 +298,18 @@ public:
     
     
 protected:
-    
     // How many bits of a node ID do we truncate to get its linear index window?
     const static size_t WINDOW_SHIFT = 8;
     
     /// Maps from bin number to all the ranges of virtual offsets, in order, for runs that land in the given bin.
     /// A run lands in a bin if that bin is the most specific bin that includes both its lowest and highest nodes it uses.
     unordered_map<bin_t, vector<pair<int64_t, int64_t>>> bin_to_ranges;
+    
+    /// Maps from the bit string representing the prefix of node IDs that a bin
+    /// matches to the bin's vector as owned by bin_to_ranges. Only contains
+    /// entries for nonempty bins.
+    /// TODO: If this just mapped to bin_t, or was a set, we could be copyable.
+    BitStringTree<vector<pair<int64_t, int64_t>>*> bins_by_id_prefix;
     
     /// Maps from linear index window to the virtual offset of the first group
     /// that overlaps that window (taking the group as a min-to-max node
@@ -201,6 +326,11 @@ protected:
     /// Return true if the given ID is in any of the sorted, coalesced, inclusive ranges in the vector, and false otherwise.
     /// TODO: Is repeated binary search on the ranges going to be better than an unordered_set of all the individual IDs?
     static bool is_in_range(const vector<pair<id_t, id_t>>& ranges, id_t id);
+    
+private:
+    // Not copyable because we contain pointers.
+    StreamIndexBase(const StreamIndexBase& other) = delete;
+    StreamIndexBase& operator=(const StreamIndexBase& other) = delete;
 
 };
 
@@ -265,6 +395,129 @@ using GAMIndex = StreamIndex<Alignment>;
 ////////////
 // Template Implementations
 ////////////
+
+template<typename Item>
+void BitStringTree<Item>::insert(const BitString& key, const Item& value) {
+    root.insert(key, value);
+}
+
+template<typename Item>
+void BitStringTree<Item>::traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const {
+    root.traverse_up(key, iteratee);
+}
+
+template<typename Item>
+void BitStringTree<Item>::TreeNode::insert(const BitString& key, const Item& value) {
+    if (key.empty()) {
+        // It goes here.
+        // We can only take one item
+        assert(!has_item);
+        content = value;
+        has_item = true;
+    } else {
+        // Get the first bit of its prefix
+        bool lead_bit = key.peek();
+        
+        if (!children[lead_bit]) {
+            // We need to make a new child to hold this item
+            children[lead_bit] = unique_ptr<TreeNode>(new TreeNode());
+            // Populate it
+            children[lead_bit]->prefix = key;
+            children[lead_bit]->content = value;
+            children[lead_bit]->has_item = true;
+        } else {
+            // We already have a child in this direction.
+            
+            // See where the key diverges from our child's key
+            auto breakpoint = children[lead_bit]->prefix.common_prefix_length(key);
+            
+            if (breakpoint >= children[lead_bit]->prefix.length()) {
+                // This key belongs inside the child node we have
+                // Insert recursively
+                children[lead_bit]->insert(key.drop_prefix(breakpoint), value);
+            } else {
+                // The item to be added diverges somewhere along the branch to the child.
+                // And it isn't at the 0th bit because we organized our children by bit 0.
+                
+                // Break up the child's key
+                auto prefix_parts = children[lead_bit]->prefix.split(breakpoint);
+                
+                // Create a new node to sit at the split point and wire it in
+                unique_ptr<TreeNode> new_child(new TreeNode());
+                new_child->prefix = prefix_parts.first;
+                children[lead_bit]->prefix = prefix_parts.second;
+                new_child->children[prefix_parts.second.peek()] = move(children[lead_bit]);
+                children[lead_bit] = move(new_child);
+                
+                // Recursively insert either at the breakpoint node or under it in the other child slot
+                children[lead_bit]->insert(key.drop_prefix(breakpoint), value);
+            }
+        }
+    }
+}
+
+template<typename Item>
+bool BitStringTree<Item>::TreeNode::traverse_up(const BitString& key, const function<bool(const Item&)>& iteratee) const {
+    if (key.empty()) {
+        // We are the item being sought
+        if (has_item) {
+            // We actually have an item, so send it
+            return iteratee(content);
+        } else {
+            // No item so it can't ask to stop
+            return true;
+        }
+    } else {
+        // The item must belong to a child slot
+        // Get the first bit of its prefix
+        bool lead_bit = key.peek();
+        
+        if (children[lead_bit]) {
+            // We have a child that would be responsible for the key
+            
+            // But how long is the match
+            auto breakpoint = children[lead_bit]->prefix.common_prefix_length(key);
+            
+            if (breakpoint >= children[lead_bit]->prefix.length()) {
+                // This key belongs inside the child.
+                // Search recursively
+                if (children[lead_bit]->traverse_up(key.drop_prefix(breakpoint), iteratee)) {
+                    // The child returned true
+                    if (has_item) {
+                        // We also have an item, so send it
+                        return iteratee(content);
+                    } else {
+                        // We have no item, so just pass up the true
+                        return true;
+                    }
+                } else {
+                    // The iteratee has already stopped.
+                    return false;
+                }
+            } else {
+                // The key branches off before the child.
+                // So we have to process ourselves as the bottom node
+                if (has_item) {
+                    // We actually have an item, so send it
+                    return iteratee(content);
+                } else {
+                    // No item so it can't ask to stop
+                    return true;
+                }
+            }
+        } else {
+            // No child exists that is responsible for the key.
+            // We have no results under us, so just do us.
+            if (has_item) {
+                // We have an item, so send it
+                return iteratee(content);
+            } else {
+                // We have no item, so just pass up the true
+                return true;
+            }
+        }
+    }
+}
 
 template<typename Message>
 auto StreamIndex<Message>::find(cursor_t& cursor, id_t min_node, id_t max_node,

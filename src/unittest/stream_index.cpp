@@ -15,6 +15,94 @@ namespace unittest {
 
 using namespace std;
 
+TEST_CASE("BitString operations work correctly", "[bits][gamindex]") {
+    BitString some_bits(0xDEADBEEF, 32);
+    
+    REQUIRE(some_bits.to_number() == 0xDEADBEEF);
+    REQUIRE(some_bits.peek() == true);
+    REQUIRE(!some_bits.empty());
+    REQUIRE(some_bits.length() == 32);
+    REQUIRE(some_bits == some_bits);
+    REQUIRE(!(some_bits != some_bits));
+    auto split = some_bits.split(16);
+    REQUIRE(split.first != split.second);
+    REQUIRE(split.first.to_number() == 0xDEAD);
+    REQUIRE(split.second.to_number() == 0xBEEF);
+    
+    BitString more_bits(0xBEE7, 16);
+    
+    REQUIRE(more_bits.common_prefix_length(split.second) == 12);
+    REQUIRE(split.first.common_prefix_length(some_bits) == 16);
+    REQUIRE(some_bits.common_prefix_length(split.first) == 16);
+    
+    REQUIRE(some_bits.drop_prefix(16) == split.second);
+}
+
+TEST_CASE("BitStringTree works correctly", "[bits][gamindex]") {
+    BitStringTree<string> tree;
+    
+    tree.insert(BitString(0xDEADBEEF, 32), "Dead Beef");
+    tree.insert(BitString(0xDEAD, 16), "Dead");
+    tree.insert(BitString(0xDEE7, 16), "DEET");
+    tree.insert(BitString(0xF00D, 16), "Food");
+    tree.insert(BitString(0xF00DEA7, 28), "Food Eat");
+    
+    size_t count = 0;
+    bool found_long = false;
+    bool found_short = false;
+    
+    SECTION("Matches to the exact key and prefixes are found") {
+        tree.traverse_up(BitString(0xDEADBEEF, 32), [&](const string& value) -> bool {
+            count++;
+            if (value == "Dead Beef") {
+                found_long = true;
+            }
+            if (value == "Dead") {
+                found_short = true;
+            }
+            return true;
+        });
+        
+        REQUIRE(found_long);
+        REQUIRE(found_short);
+        REQUIRE(count == 2);
+    }
+    
+    SECTION("Matches to suffixes are not found") {
+        tree.traverse_up(BitString(0xDEADB, 20), [&](const string& value) -> bool {
+            count++;
+            if (value == "Dead Beef") {
+                found_long = true;
+            }
+            if (value == "Dead") {
+                found_short = true;
+            }
+            return true;
+        });
+        
+        REQUIRE(!found_long);
+        REQUIRE(found_short);
+        REQUIRE(count == 1);
+    }
+    
+    SECTION("Matches come out in reverse order of specificity and can stop early") {
+        tree.traverse_up(BitString(0xF00DEA7ED, 36), [&](const string& value) -> bool {
+            count++;
+            if (value == "Food Eat") {
+                found_long = true;
+            }
+            if (value == "Food") {
+                found_short = true;
+            }
+            return false;
+        });
+        
+        REQUIRE(found_long);
+        REQUIRE(!found_short);
+        REQUIRE(count == 1);
+    }
+}
+
 TEST_CASE("StreamIndexBase windowing works correctly", "[gam][gamindex]") {
 
     for (size_t i = 0; i < 10000000; i += 83373) {

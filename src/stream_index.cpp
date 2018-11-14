@@ -7,7 +7,146 @@ namespace vg {
 
 using namespace std;
 
+BitString::BitString(uint64_t bits, size_t length) : bits(bits), bit_length(length) {
+    // Make sure we didn't overflow
+    assert(length <= numeric_limits<uint8_t>::max());
+    
+    if (bit_length == 0) {
+        // Just remove all the bits
+        this->bits = 0;
+    } else {
+        // We won't shift out all the bits so it is safe to shift
+        this->bits = this->bits << (TOTAL_BITS - bit_length);
+    }
+}
+
+BitString::BitString() : BitString(0, 0) {
+    // Nothing to do
+}
+
+auto BitString::to_number() const -> uint64_t {
+    auto total_bits = CHAR_BIT * sizeof(decltype(this->bits));
+    
+    if (bit_length == 0) {
+        // We have no used bits
+        return 0;
+    } else {
+        // We won't shift out all the bits so it is safe to shift
+        return bits >> (TOTAL_BITS - bit_length);
+    }
+}
+
+auto BitString::drop_prefix(size_t prefix_length) const -> BitString {
+    // Don't let it be too long
+    assert(prefix_length <= bit_length);
+    
+    if (prefix_length == bit_length) {
+        // We are losing all our bits
+        return BitString();
+    }
+    
+    // Otherwise shift off the dropped bits and return that
+    BitString other;
+    other.bits = bits << prefix_length;
+    other.bit_length = bit_length - prefix_length;
+    
+    return other;
+}
+
+auto BitString::split(size_t prefix_length) const -> pair<BitString, BitString> {
+    // Make the prefix
+    auto non_prefix_bits = TOTAL_BITS - prefix_length;
+    BitString prefix;
+    if (non_prefix_bits < TOTAL_BITS) {
+        // The prefix will be nonempty
+        prefix.bits = (bits >> non_prefix_bits) << non_prefix_bits;
+        prefix.bit_length = prefix_length;
+    }
+    
+    // Return the prefix and the rest
+    return make_pair(prefix, drop_prefix(prefix_length));
+}
+
+auto BitString::operator==(const BitString& other) const -> bool {
+    // There's nothing fancy here because we demand all unused bits in the storage are 0.
+    return (bits == other.bits && bit_length == other.bit_length);
+}
+
+auto BitString::operator!=(const BitString& other) const -> bool {
+    // There's nothing fancy here because we demand all unused bits in the storage are 0.
+    return (bits != other.bits || bit_length != other.bit_length);
+}
+
+auto BitString::common_prefix_length(const BitString& other) const -> size_t {
+   // Make a mask where identical bits are 0
+   auto mask = bits ^ other.bits;
+   // Count the identical bits (count unset leading bits) with a compiler builtin
+   size_t identical_bits = __builtin_clzll(mask);
+   // Return the number of matching bits before the first mismatch, or the length of the shorter BitString
+   return min(min(identical_bits, (size_t) bit_length), (size_t) other.bit_length);
+}
+
+auto BitString::peek() const -> bool {
+    if (bit_length == 0) {
+        return false;
+    }
+    
+    // If we aren't empty, get the high bit
+    return ((uint64_t)1 << 63) & bits;
+}
+
+auto BitString::length() const -> size_t {
+    return bit_length;
+}
+
+auto BitString::empty() const -> bool {
+    return bit_length == 0;
+}
+
 const string StreamIndexBase::MAGIC_BYTES = "GAI!";
+
+auto StreamIndexBase::bin_to_prefix(bin_t bin) -> BitString {
+
+    // The bin is an offset with the low n bits set, plus an n-bit index.
+    // We have to figure out the value of the all-1s offset.
+    bin_t bin_offset;
+    // And how many bits are used (n)
+    size_t used_bits;
+    
+    // The offset will have as many 1s as the used bits in the number if the
+    // number is all 1s after some leading 0s. Otherwise the offset will have 1
+    // fewer bits than the number.
+    
+    // Count the leading 0 bits
+    size_t leading_zeros = __builtin_clzll(bin);
+    
+    if (leading_zeros == numeric_limits<bin_t>::digits) {
+        // All zero bin is the root and gets the empty prefix
+        // Don't even bother with the rest of the logic
+        return BitString();
+    } else if (leading_zeros == numeric_limits<bin_t>::digits - 1) {
+        // It must be bin 1, which has a 1-bit offset
+        bin_offset = 1;
+        used_bits = 1;
+    } else {
+        // Make an all-1s value as wide as our bin number
+        bin_offset = ((bin_t)~0) >> leading_zeros;
+        
+        // Estimate the used bits; the bits that aren't 0s are 1s in the offset.
+        used_bits = numeric_limits<bin_t>::digits - leading_zeros;
+        
+        if (bin_offset > bin) {
+            // We need 1 fewer bits for the offset.
+            bin_offset = bin_offset >> 1;
+            // Correct the used bits in the bin index
+            used_bits--;
+        }
+    }
+    
+    /// Subtract out the offset to get the bin index, and use it as a prefix
+    /// with the appropriate number of bits based on what the offset was.
+    return BitString(bin - bin_offset, used_bits);
+}
 
 auto StreamIndexBase::bins_of_id(id_t id) -> vector<bin_t> {
     vector<bin_t> to_return;
@@ -139,6 +278,11 @@ auto StreamIndexBase::add_group(id_t min_id, id_t max_id, int64_t virtual_start,
     // Find the existing ranges in the bin.
     // We know the previous one, if present, must end at or before this one's start.
     auto& ranges = bin_to_ranges[bin];
+    
+    if (ranges.empty()) {
+        // We just made a new vector of bin ranges. Remember it.
+        bins_by_id_prefix.insert(bin_to_prefix(bin), &ranges);
+    }
     
     if (!ranges.empty() && ranges.back().second == virtual_start) {
         // We fit right after the last range.
@@ -511,6 +655,9 @@ auto StreamIndexBase::load(istream& from) -> void {
             
             // Create the empty bin
             auto& runs = bin_to_ranges[bin_number];
+            
+            // Remember it in the bins by ID prefix index
+            bins_by_id_prefix.insert(bin_to_prefix(bin_number), &runs);
             
             for (size_t j = 0; j < run_count; j++) {
                 // Load each run
