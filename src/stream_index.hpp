@@ -556,7 +556,9 @@ bool BitStringTree<Item>::TreeNode::traverse_in_order(const BitString& low, cons
     // stuff that we don't have bits showing it comes before the low or after
     // the high.
     
+#ifdef debug
     cerr << "Arrived at node " << this << " with range " << low << " - " << high << endl;
+#endif
     
     /// Define a function to process each child.
     /// Returns false if we stop early
@@ -568,7 +570,9 @@ bool BitStringTree<Item>::TreeNode::traverse_in_order(const BitString& low, cons
             // The child exists. Grab its prefix
             auto& child_prefix = child->prefix;
             
+#ifdef debug
             cerr << "Child " << child.get() << " has prefix " << child_prefix << endl; 
+#endif
             
             if (low.at_or_before(child_prefix) && high.at_or_after(child_prefix)) {
                 // The child is in the range.
