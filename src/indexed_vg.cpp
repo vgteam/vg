@@ -284,21 +284,26 @@ id_t IndexedVG::min_node_id() const {
     // This holds the first real node ID we find
     id_t min_node_id = numeric_limits<id_t>::max();
     
-    with_cursor([&](cursor_t& cursor) {
-        // Get a cursor to the beginning
-        assert(cursor.seek_group(0));
+    // This is the virtual offset of the serialized graph group we are considering
+    int64_t group_vo = 0;
     
-        while (min_node_id == numeric_limits<id_t>::max() && cursor.has_next()) {
-            // Loop over each graph chunk until we find a real node
-            Graph graph = move(cursor.take());
-            
-            for (auto& node : graph.node()) {
-                // Remember the first node we come across
-                min_node_id = node.id();
-                break;
+    while (min_node_id == numeric_limits<id_t>::max()) {
+        // Get graph groups in order
+        bool still_in_file = with_cache_entry(group_vo, [&](const CacheEntry& entry) {
+            if (entry.merged_group.node_size() > 0) {
+                // This graph has a first node
+                min_node_id = entry.merged_group.node(0).id();
             }
+            
+            // Move on to the next cache entry for the next group
+            group_vo = entry.next_group;
+        });
+        
+        if (!still_in_file) {
+            // We hit EOF
+            break;
         }
-    });
+    }
     
     return min_node_id;
 }
@@ -307,35 +312,35 @@ id_t IndexedVG::max_node_id() const {
 
     // This is the max node ID observed
     id_t max_observed = 0;
-    
-    with_cursor([&](cursor_t& cursor) {
-        // Grab a cursor
+   
+    // Scan locally-forward but globally-backward through the vg file
+    index.scan_backward([&](int64_t start_vo, int64_t past_end_vo) -> bool {
         
-        // Scan locally-forward but globally-backward through the vg file
-        index.scan_backward([&](int64_t start_vo, int64_t past_end_vo) -> bool {
-            // For each start point in backward order, seek to it
-            assert(cursor.seek_group(start_vo));
-            
-            while(cursor.has_next() && cursor.tell_group() < past_end_vo) {
-                // For each graph forward from there
-                Graph graph = move(cursor.take());
-                
-                if (graph.node_size() > 0) {
+        int64_t group_vo = start_vo;
+        
+        while (group_vo < past_end_vo) {
+            bool still_in_file = with_cache_entry(group_vo, [&](const CacheEntry& entry) {
+                if (entry.merged_group.node_size() > 0) {
                     // We have nodes. The last one will have the highest ID.
-                    max_observed = graph.node(graph.node_size() - 1).id();
+                    max_observed = entry.merged_group.node(entry.merged_group.node_size() - 1).id();
                 }
-                
-                // We have to scan until the end of each group we visit
-            }
+                // Move on to the next cache entry for the next group
+                group_vo = entry.next_group;
+            });
             
-            if (max_observed != 0) {
-                // We found something. Stop going back towards the beginning.
-                return false;
-            } else {
-                // We haven't seen any nodes yet. Keep searching
-                return true;
+            if (!still_in_file) {
+                // We hit EOF
+                break;
             }
-        });
+        }
+        
+        if (max_observed != 0) {
+            // We found something. Stop going back towards the beginning.
+            return false;
+        } else {
+            // We haven't seen any nodes yet. Keep searching
+            return true;
+        }
     });
     
     return max_observed;
