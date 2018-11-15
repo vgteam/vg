@@ -845,7 +845,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
             third_best_allele > 0 &&
             is_indel_ma_3 &&
             max_indel_ma_bias * bias_multiple * support_val(third_best_support) >= support_val(best_support) &&
-            total(second_best_support) >= min_total_support_for_call &&
+            total(second_best_support) >= max((size_t)min_total_support_for_call, 1UL) &&
             total(third_best_support) >= min_total_support_for_call) {
             // There's a second best allele and third best allele, and it's not too biased to call,
             // and both alleles exceed the minimum to call them present, and the
@@ -868,7 +868,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         else if (copy_budget >= 2 &&
             second_best_allele != -1 &&
             bias_limit * bias_multiple * support_val(second_best_support) >= support_val(best_support) &&
-            total(best_support) >= min_total_support_for_call &&
+            total(best_support) >= max((size_t)min_total_support_for_call, 1UL) &&
             total(second_best_support) >= min_total_support_for_call) {
             // There's a second best allele, and it's not too biased to call,
             // and both alleles exceed the minimum to call them present, and the
@@ -889,7 +889,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
             // Make the call
             *locus.add_genotype() = genotype;
             
-        } else if (copy_budget >= 2 && total(best_support) >= min_total_support_for_call) {
+        } else if (copy_budget >= 2 && total(best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
             // The second best allele isn't present or isn't good enough,
             // but the best allele has enough coverage that we can just call
             // two of it.
@@ -908,7 +908,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
             // Make the call
             *locus.add_genotype() = genotype;
 
-        } else if (copy_budget >= 1 && total(best_support) >= min_total_support_for_call) {
+        } else if (copy_budget >= 1 && total(best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
             // We're only supposed to have one copy, and the best allele is good enough to call
             
 #ifdef debug
