@@ -185,8 +185,6 @@ int main_benchmark(int argc, char** argv) {
         cout << result << endl;
     }
     
-    indexed_vg.print_report();
-
     return 0;
 }
 

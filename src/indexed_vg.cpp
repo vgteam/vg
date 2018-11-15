@@ -51,7 +51,9 @@ IndexedVG::IndexedVG(string graph_filename) : vg_filename(graph_filename), index
 void IndexedVG::print_report() const {
     cerr << cursor_streams.size() << " cursors outstanding, " << cursor_pool.size() << " cursors free" << endl;
     cerr << group_cache.size() << " cache entries" << endl;
-    cerr << group_cache.hit_count() << " cache hits, " << group_cache.miss_count() << " cache misses" << endl;
+    // TODO: Cache hit/miss counts from the LRUcache do not appear to be
+    // correct (hits seem to be counted as misses). So we don't report them
+    // here.
 }
 
 // TODO: We ought to use some kind of handle packing that relates to file offsets for graph chunks contasining nodes.
