@@ -215,6 +215,7 @@ int main_construct(int argc, char** argv) {
         // We need a callback to handle pieces of graph as they are produced.
         auto callback = [&](Graph& big_chunk) {
             // Sort the nodes by ID so that the serialized chunks come out in sorted order
+            // TODO: We still interleave chunks from different threads working on different contigs
             std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), [](const Node& a, const Node& b) -> bool {
                 // Return true if a comes before b
                 return a.id() < b.id();

@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../stream_index.hpp"
 #include "../gfa.hpp"
 #include "../flow_sort.hpp"
 #include "../algorithms/topological_sort.hpp"
@@ -30,6 +31,7 @@ void help_sort(char** argv){
          << "    -g, --gfa              input in GFA format" << endl
          << "    -r, --ref              reference name, for eades and max-flow algorithms; makes -a default to max-flow" << endl
          << "    -w, --without-grooming no grooming mode for eades" << endl
+         << "    -I, --index-to FILE    produce an index of an id-sorted vg file to the given filename" << endl
          << endl;
 }
 
@@ -43,6 +45,7 @@ int main_sort(int argc, char *argv[]) {
     
     string reference_name;
     bool without_grooming = false;
+    string sorted_index_filename;
     
     int c;
     while (true) {
@@ -52,11 +55,12 @@ int main_sort(int argc, char *argv[]) {
                 {"gfa", no_argument, 0, 'g'},
                 {"ref", required_argument, 0, 'r'},
                 {"without-grooming", no_argument, 0, 'w'},
+                {"index-to", no_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "a:gr:w",
+        c = getopt_long (argc, argv, "a:gr:wI:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -79,6 +83,9 @@ int main_sort(int argc, char *argv[]) {
             break;
         case 'w':
             without_grooming = true;
+            break;
+        case 'I':
+            sorted_index_filename = optarg;
             break;
         case 'h':
         case '?':
@@ -113,6 +120,10 @@ int main_sort(int argc, char *argv[]) {
         }
     } else {
         cerr << "error[vg sort]: Unrecognized sort algorithm " << algorithm << endl;
+        exit(1);
+    }
+    if (!sorted_index_filename.empty() && algorithm != "id") {
+        cerr << "error[vg sort]: Sorted VG index can only be produced when sorting by ID" << endl;
         exit(1);
     }
     
@@ -155,9 +166,36 @@ int main_sort(int argc, char *argv[]) {
         } else {
             throw runtime_error("Unimplemented sort algorithm: " + algorithm);
         }
+        
+        // We have an optional index, which will outlive our emitter
+        unique_ptr<StreamIndex<Graph>> index;
+        if (!sorted_index_filename.empty()) {
+            // Make an index we can use later for graph random access
+            index = unique_ptr<StreamIndex<Graph>>(new StreamIndex<Graph>());
+        }
+        
+        {
+        
+            // Make our own emitter for serialization
+            stream::ProtobufEmitter<Graph> emitter(std::cout);
             
-        // Save the sorted graph.
-        graph->serialize_to_ostream(std::cout);
+            if (index) {
+                // Hook up the index to the emitter. This is legal because the index lives longer.
+                emitter.on_group([&](const vector<Graph>& group, int64_t start_vo, int64_t past_end_vo) {
+                    
+                    index->add_group(group, start_vo, past_end_vo);
+                });
+            }
+            
+            // Save the sorted graph to the emitter
+            graph->serialize_to_emitter(emitter);
+        }
+        
+        if (index) {
+            // Now save out the index
+            ofstream index_out(sorted_index_filename);
+            index->save(index_out);
+        }
         
     });
     
