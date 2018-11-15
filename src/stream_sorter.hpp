@@ -76,17 +76,11 @@ public:
     /// Determine the minimum position visited by a Path, as for a Message.
     Position get_min_position(const Path& path) const;
 
-    /// Return True if the given Position values are equal, and false otherwise.
-    bool equal_to(const Position& a, const Position& b) const;
-
     /// Return True if position A is less than position B in our sort, and false otherwise.
     /// Position order is defined first by node ID, then by strand (forward first), and then by offset within the strand.
     /// We can't sort by actual base on the forward strand, because we need to be able to sort without knowing the graph's node lengths.
     bool less_than(const Position& a, const Position& b) const;
     
-    /// Return True if position A is greater than position B in our sort, and false otherwise.
-    bool greater_than(const Position& a, const Position& b) const;
-
   private:
     /// What's the maximum size of reads in serialized, uncompressed bytes to
     /// load into memory for a single temp file chunk, during the streaming
@@ -495,13 +489,6 @@ Position StreamSorter<Message>::get_min_position(const Path& path) const {
 }
 
 template<typename Message>
-bool StreamSorter<Message>::equal_to(const Position& a, const Position& b) const {
-    return (a.node_id() == b.node_id() &&
-            a.is_reverse() == b.is_reverse() &&
-            a.offset() == b.offset());
-}
-
-template<typename Message>
 bool StreamSorter<Message>::less_than(const Position& a, const Position& b) const {
     if (a.node_id() < b.node_id()) {
         return true;
@@ -521,32 +508,6 @@ bool StreamSorter<Message>::less_than(const Position& a, const Position& b) cons
     
     return false;
 }
-
-template<typename Message>
-bool StreamSorter<Message>::greater_than(const Position& a, const Position& b) const {
-    if (a.node_id() > b.node_id()) {
-        return true;
-    } else if (a.node_id() < b.node_id()) {
-        return false;
-    }
-    
-    if (a.is_reverse() > b.is_reverse()) {
-        return true;
-    } else if (a.is_reverse() < b.is_reverse()) {
-        return false;
-    }
-
-    if (a.offset() > b.offset()) {
-        return true;
-    }
-    
-    return false;
-}
-
-
-
-
-
 
 
 }
