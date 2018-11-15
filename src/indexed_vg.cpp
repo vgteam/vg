@@ -7,6 +7,8 @@
 #include "utility.hpp"
 #include "json2pb.h"
 
+#include <atomic>
+
 namespace vg {
 
 using namespace std;
@@ -206,32 +208,63 @@ bool IndexedVG::follow_edges(const handle_t& handle, bool go_left, const functio
 
 void IndexedVG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // We have to scan the whole graph for this
-    // TODO: This ought to populate a cache for when we actually want to get at the nodes we find
-    // TODO: Implement parallel mode
     
-    // No need to query the index; we can start at the beginning
+    int64_t group_vo = 0;
+    atomic<bool> keep_going(true);
     
-    // This holds if we should keep going or not
-    bool keep_going = true;
-    
-    with_cursor([&](cursor_t& cursor) {
-        // Get a cursor to the beginning
-        assert(cursor.seek_group(0));
-        
-        while (keep_going && cursor.has_next()) {
-            // Loop over each graph chunk
-            Graph graph = move(cursor.take());
+    while(keep_going) {
+        // Look up the cache entry here
+        bool still_in_file = with_cache_entry(group_vo, [&](const CacheEntry& entry) {
             
-            for (auto& node : graph.node()) {
-                // Loop over all the nodes in each chunk 
-                if (!iteratee(get_handle(node.id(), false))) {
-                    // After the iteratee looks at it, if it didn't like it, stop
-                    keep_going = false;
-                    break;
+            if (parallel) {
+                // Handle each node in the cache entry in a task
+                #pragma omp parallel shared(keep_going)
+                {
+                    # pragma omp single
+                    {
+                        for (auto& node : entry.merged_group.node()) {
+                            // Show a handle for every node to the iteratee
+                            #pragma omp task
+                            {
+                                if (!iteratee(get_handle(node.id(), false))) {
+                                    keep_going = false;
+                                }
+                            }
+                            
+                            if (!keep_going) {
+                                // If it is done, stop.
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // All the tasks must finish before we release our hold on the cache entry
+                    #pragma omp taskwait
+                }
+            } else {
+                // Do it single threaded
+                for (auto& node : entry.merged_group.node()) {
+                    // Show a handle for every node to the iteratee
+                    if (!iteratee(get_handle(node.id(), false))) {
+                        keep_going = false;
+                    }
+                    
+                    if (!keep_going) {
+                        // If it is done, stop.
+                        break;
+                    }
                 }
             }
+            
+            // Move on to the next cache entry for the next group
+            group_vo = entry.next_group;
+        });
+        
+        if (!still_in_file) {
+            // We hit EOF
+            break;
         }
-    });
+    }
 }
 
 size_t IndexedVG::node_size() const {
