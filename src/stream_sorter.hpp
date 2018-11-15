@@ -87,7 +87,7 @@ public:
     bool less_than(const Position& a, const Position& b) const;
     
   private:
-    /// What's the maximum size of reads in serialized, uncompressed bytes to
+    /// What's the maximum size of messages in serialized, uncompressed bytes to
     /// load into memory for a single temp file chunk, during the streaming
     /// sort?
     /// For reference, a whole-genome GAM file is about 500 GB of uncompressed data
@@ -103,17 +103,17 @@ public:
     /// We use lists because none of these should be allowed to move after creation.
     void open_all(const vector<string>& filenames, list<ifstream>& streams, list<cursor_t>& cursors);
     
-    /// Merge all the reads from the given list of cursors into the given emitter.
-    /// The total expected number of reads can be passed for progress bar purposes.
-    void streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_reads = 0);
+    /// Merge all the messages from the given list of cursors into the given emitter.
+    /// The total expected number of messages can be passed for progress bar purposes.
+    void streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_messages = 0);
     
     /// Merge all the given temp input files into one or more temp output
     /// files, opening no more than max_fan_in input files at a time. The input
     /// files, which must be from temp_file::create(), will be deleted.
     ///
-    /// If reads_per_file is specified, it will be used to show progress bars,
+    /// If messages_per_file is specified, it will be used to show progress bars,
     /// and will be updated for newly-created files.
-    vector<string> streaming_merge(const vector<string>& temp_names_in, unordered_map<string, size_t>* reads_per_file = nullptr);
+    vector<string> streaming_merge(const vector<string>& temp_names_in, unordered_map<string, size_t>* messages_per_file = nullptr);
 };
 
 using GAMSorter = StreamSorter<Alignment>;
@@ -239,15 +239,15 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
     // Eventually we put sorted chunks of data in temp files and put their names here
     vector<string> outstanding_temp_files;
     
-    // This tracks the number of reads in each file, by file name
-    unordered_map<string, size_t> reads_per_file;
-    // This tracks the total reads observed on input
-    size_t total_reads_read = 0;
+    // This tracks the number of messages in each file, by file name
+    unordered_map<string, size_t> messages_per_file;
+    // This tracks the total messages observed on input
+    size_t total_messages_read = 0;
     
     // This cursor will read in the input file.
     cursor_t input_cursor(stream_in);
     
-    #pragma omp parallel shared(stream_in, input_cursor, outstanding_temp_files, reads_per_file, total_reads_read)
+    #pragma omp parallel shared(stream_in, input_cursor, outstanding_temp_files, messages_per_file, total_messages_read)
     {
     
         while(true) {
@@ -256,7 +256,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
         
             #pragma omp critical (input_cursor)
             {
-                // Each thread fights for the file and the winner reads some data
+                // Each thread fights for the file and the winner messages some data
                 size_t buffered_message_bytes = 0;
                 while (input_cursor.has_next() && buffered_message_bytes < max_buf_size) {
                     // Until we run out of input alignments or space, buffer each, recording its size.
@@ -287,21 +287,21 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
             {
                 // Remember the temp file name
                 outstanding_temp_files.push_back(temp_name);
-                // Remember the reads in the file, for progress purposes
-                reads_per_file[temp_name] = thread_buffer.size();
-                // Remember how many reads we found in the total
-                total_reads_read += thread_buffer.size();
+                // Remember the messages in the file, for progress purposes
+                messages_per_file[temp_name] = thread_buffer.size();
+                // Remember how many messages we found in the total
+                total_messages_read += thread_buffer.size();
             }
         }
     }
     
-    // Now we know the reader threads have taken care of the input, and all the data is in temp files.
+    // Now we know the reader thmessages have taken care of the input, and all the data is in temp files.
     
     destroy_progress();
     
     while (outstanding_temp_files.size() > max_fan_in) {
         // We can't merge them all at once, so merge subsets of them.
-        outstanding_temp_files = streaming_merge(outstanding_temp_files, &reads_per_file);
+        outstanding_temp_files = streaming_merge(outstanding_temp_files, &messages_per_file);
     }
     
     // Now we can merge (and maybe index) the final layer of the tree.
@@ -323,7 +323,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
     }
     
     // Merge the cursors into the emitter
-    streaming_merge(temp_cursors, emitter, total_reads_read);
+    streaming_merge(temp_cursors, emitter, total_messages_read);
     
     // Clean up
     temp_cursors.clear();
@@ -355,11 +355,11 @@ void StreamSorter<Message>::open_all(const vector<string>& filenames, list<ifstr
 }
 
 template<typename Message>
-void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_reads) {
+void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_messages) {
 
-    create_progress("merge " + to_string(cursors.size()) + " files", expected_reads == 0 ? 1 : expected_reads);
-    // Count the reads we actually see
-    size_t observed_reads = 0;
+    create_progress("merge " + to_string(cursors.size()) + " files", expected_messages == 0 ? 1 : expected_messages);
+    // Count the messages we actually see
+    size_t observed_messages = 0;
 
     // Put all the files in a priority queue based on which has an alignment that comes first.
     // We work with pointers to cursors because we don't want to be copying the actual cursors around the heap.
@@ -397,21 +397,21 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
         }
         // TODO: Maybe keep it off the heap for the next loop somehow if it still wins
         
-        observed_reads++;
-        if (expected_reads != 0) {
-            update_progress(observed_reads);
+        observed_messages++;
+        if (expected_messages != 0) {
+            update_progress(observed_messages);
         }
     }
     
     // We finished the files, so say we're done.
-    // TODO: Should we warn/fail if we expected the wrong number of reads?
-    update_progress(expected_reads == 0 ? 1 : expected_reads);
+    // TODO: Should we warn/fail if we expected the wrong number of messages?
+    update_progress(expected_messages == 0 ? 1 : expected_messages);
     destroy_progress();
 
 }
 
 template<typename Message>
-vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp_files_in, unordered_map<string, size_t>* reads_per_file) {
+vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp_files_in, unordered_map<string, size_t>* messages_per_file) {
     
     // What are the names of the merged files we create?
     vector<string> temp_files_out;
@@ -426,11 +426,11 @@ vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp
         list<cursor_t> temp_cursors;
         open_all(vector<string>(&temp_files_out[start_file], &temp_files_out[start_file + file_count]), temp_ifstreams, temp_cursors);
         
-        // Work out how many reads to expect
-        size_t expected_reads = 0;
-        if (reads_per_file != nullptr) {
+        // Work out how many messages to expect
+        size_t expected_messages = 0;
+        if (messages_per_file != nullptr) {
             for (size_t i = start_file; i < start_file + file_count; i++) {
-                expected_reads += reads_per_file->at(temp_files_in.at(i));
+                expected_messages += messages_per_file->at(temp_files_in.at(i));
             }
         }
         
@@ -443,7 +443,7 @@ vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp
         emitter_t emitter(out_stream);
         
         // Merge the cursors into the emitter
-        streaming_merge(temp_cursors, emitter, expected_reads);
+        streaming_merge(temp_cursors, emitter, expected_messages);
         
         // The output file will be flushed and finished automatically when the emitter goes away.
         
@@ -454,9 +454,9 @@ vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp
             temp_file::remove(temp_files_in.at(i));
         }
         
-        if (reads_per_file != nullptr) {
-            // Save the total reads that should be in the created file, in case we need to do another pass
-            (*reads_per_file)[out_file_name] = expected_reads;
+        if (messages_per_file != nullptr) {
+            // Save the total messages that should be in the created file, in case we need to do another pass
+            (*messages_per_file)[out_file_name] = expected_messages;
         }
     }
     
