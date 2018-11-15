@@ -29,6 +29,14 @@
 using namespace std;
 namespace vg {
 
+/**
+ * We define a PositionScanner that scans any VG Protobuf message that has
+ * Positions or node IDs in it and emits the Positions as is and the node IDs
+ * wrapped in Positions. This lets us use one sorting implementation on
+ * Positions even with things like Graphs where non-Position node IDs are
+ * important.
+ */
+
 /// Provides the ability to sort a stream of Protobuf Messages, either "dumbly"
 /// (in memory), or streaming into temporary files. For Alignments, paired
 /// Alignments are not necessarily going to end up next to each other, so if
@@ -67,14 +75,11 @@ public:
     bool less_than(const Message& a, const Message& b) const;
     
     /// Determine the minumum Position visited by an Message. The minumum
-    /// Position is the lowest node ID visited by the alignment, with the
+    /// Position is the lowest node ID visited by the message, with the
     /// lowest offset visited on that node ID as the offset, and the
     /// orientation set to false if the forward strand is visited, and true if
     /// only the reverse strand is visited.
     Position get_min_position(const Message& msg) const;
-
-    /// Determine the minimum position visited by a Path, as for a Message.
-    Position get_min_position(const Path& path) const;
 
     /// Return True if position A is less than position B in our sort, and false otherwise.
     /// Position order is defined first by node ID, then by strand (forward first), and then by offset within the strand.
@@ -466,26 +471,25 @@ bool StreamSorter<Message>::less_than(const Message &a, const Message &b) const 
 
 template<typename Message>
 Position StreamSorter<Message>::get_min_position(const Message& msg) const {
-    return get_min_position(msg.path());
-}
-
-template<typename Message>
-Position StreamSorter<Message>::get_min_position(const Path& path) const {
-    if (path.mapping_size() == 0) {
-        // This path lives at a default Position
-        return Position();
-    }
+    // This holds the min Position we get
+    Position min_pos;
+    // We set this to true when we fill in the min
+    bool have_min = false;
     
-    Position min = path.mapping(0).position();
-    for(size_t i = 1; i < path.mapping_size(); i++) {
-        const Position& other = path.mapping(i).position();
-        if (less_than(other, min)) {
-            // We found a smaller position
-            min = other;
+    WrappingPositionScanner<Message>::scan(msg, [&](const Position& observed) -> bool {
+        if (!have_min || less_than(observed, min_pos)) {
+            // We have a new min position
+            min_pos = observed;
+            have_min = true;
         }
-    }
+        
+        // Keep scanning
+        return true;
+    });
     
-    return min;
+    // If we don't have a min, we should return the empty position (which we already have).
+    // Otherwise we should return the min position.
+    return min_pos;
 }
 
 template<typename Message>
