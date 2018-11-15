@@ -8,7 +8,6 @@
 #include "stream_index.hpp"
 #include "utility.hpp"
 #include "json2pb.h"
-#include "position.hpp"
 #include <string>
 #include <queue>
 #include <sstream>
@@ -57,12 +56,6 @@ public:
     /// into the given index.
     void easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
     
-    /// Sort a seekable input stream by doing one pass to load all the
-    /// positions, sorting all the positions in memory, and doing another pass
-    /// of jumping around to re-order all the messages. Optionally index the
-    /// sorted file into the given index.
-    void benedict_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
-    
     //////////////////
     // Supporting API
     //////////////////
@@ -91,9 +84,6 @@ public:
     /// We can't sort by actual base on the forward strand, because we need to be able to sort without knowing the graph's node lengths.
     bool less_than(const Position& a, const Position& b) const;
     
-    /// Return true if out of pos_t items a and b, a must come before b, and false otherwise.
-    bool less_than(const pos_t& a, const pos_t& b) const;
-
     /// Return True if position A is greater than position B in our sort, and false otherwise.
     bool greater_than(const Position& a, const Position& b) const;
 
@@ -476,87 +466,6 @@ vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp
 }
 
 template<typename Message>
-void StreamSorter<Message>::benedict_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to) {
-    // Go to the end of the file
-    stream_in.seekg(0, stream_in.end);
-    // Get its position
-    auto file_end = stream_in.tellg();
-    // Go to the start
-    stream_in.seekg(0);
-    
-    // This will have all the item VOs and let us sort them by position
-    vector<pair<pos_t, int64_t>> pos_to_vo;
-    
-    stream::ProtobufIterator<Message> cursor(stream_in);
-    
-    if (cursor.tell_raw() == -1) {
-        // This will catch non-blocked gzip files, as well as streaming streams.
-        cerr << "error:[vg streamsort]: Cannot sort an unseekable GAM" << endl;
-        exit(1);
-    }
-    
-    // Make a progress bar
-    create_progress("load positions", file_end);
-    
-    // Count reads seen so we can only update our progress bar sometimes
-    size_t seen = 0;
-    
-    while(cursor.has_next()) {
-        // Get the min position of each alignment
-        pos_t min_pos = make_pos_t(get_min_position(*cursor));
-        
-        // Save it with the alignment-s virtual offset
-        pos_to_vo.emplace_back(min_pos, cursor.tell_item());
-        
-        cursor.get_next();
-        
-        if (seen % 1000 == 0) {
-            update_progress(stream_in.tellg());
-        }
-        seen++;
-    }
-    
-    update_progress(stream_in.tellg());
-    destroy_progress();
-    create_progress("sort positions", 1);
-    
-    // Sort everything by pos_t key
-    std::sort(pos_to_vo.begin(), pos_to_vo.end(), [&](const pair<pos_t, int64_t>& a, const pair<pos_t, int64_t>& b) {
-        return this->less_than(a.first, b.first);
-    });
-    
-    update_progress(1);
-    destroy_progress();
-    create_progress("reorder reads", pos_to_vo.size());
-    
-    // Make an output emitter
-    stream::ProtobufEmitter<Message> emitter(stream_out);
-    
-    if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Message>& group, int64_t start_vo, int64_t past_end_vo) {
-            // Whenever it emits a group, index it.
-            // Make sure to only capture things that will outlive the emitter
-            index_to->add_group(group, start_vo, past_end_vo);
-        });
-    }
-    
-    // Actually do the shuffle
-    for (auto& pos_and_vo : pos_to_vo) {
-        // For each item in sorted order
-        
-        // Load it
-        cursor.seek_item_and_stop(pos_and_vo.second);
-        
-        // Send it out
-        emitter.write(std::move(cursor.take()));
-        
-        increment_progress();
-    }
-    
-    destroy_progress();
-}
-
-template<typename Message>
 bool StreamSorter<Message>::less_than(const Message &a, const Message &b) const {
     return less_than(get_min_position(a), get_min_position(b));
 }
@@ -607,27 +516,6 @@ bool StreamSorter<Message>::less_than(const Position& a, const Position& b) cons
     }
 
     if (a.offset() < b.offset()) {
-        return true;
-    }
-    
-    return false;
-}
-
-template<typename Message>
-bool StreamSorter<Message>::less_than(const pos_t& a, const pos_t& b) const {
-    if (id(a) < id(b)) {
-        return true;
-    } else if (id(a) > id(b)) {
-        return false;
-    }
-    
-    if (is_rev(a) < is_rev(b)) {
-        return true;
-    } else if (is_rev(a) > is_rev(b)) {
-        return false;
-    }
-
-    if (offset(a) < offset(b)) {
         return true;
     }
     
