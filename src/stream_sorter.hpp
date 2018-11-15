@@ -361,9 +361,9 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
     // Count the messages we actually see
     size_t observed_messages = 0;
 
-    // Put all the files in a priority queue based on which has an message that comes first.
+    // Put all the files in a priority queue based on which has a message that comes first.
     // We work with pointers to cursors because we don't want to be copying the actual cursors around the heap.
-    // We also *reverse* the order, because priority queues put the "greatest" element forts
+    // We also *reverse* the order, because priority queues put the "greatest" element first
     auto cursor_order = [&](cursor_t*& a, cursor_t*& b) {
         if (b->has_next()) {
             if(!a->has_next()) {
