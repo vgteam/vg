@@ -534,12 +534,7 @@ void VG::sync_paths(void) {
     paths.rebuild_mapping_aux();
 }
 
-void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
-    serialize_to_ostream_as_part(out, chunk_size);
-    stream::finish(out);
-}
-
-void VG::serialize_to_ostream_as_part(ostream& out, id_t chunk_size) {
+void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
 
     // This makes sure mapping ranks are updated to reflect their actual
     // positions along their paths.
@@ -547,13 +542,18 @@ void VG::serialize_to_ostream_as_part(ostream& out, id_t chunk_size) {
     
     create_progress("saving graph", graph.node_size());
     
-    // Have a function to grab the chunk for the given range of nodes
-    function<Graph(size_t, size_t)> lambda = [this](size_t element_start, size_t element_length) -> Graph {
-    
+    for (size_t element_start = 0; element_start < graph.node_size(); element_start += chunk_size) {
+        // For each chunk we should emit
+        
+        // TODO: We don't do adaptive chunk sizing like we used to, but small
+        // chunks aren't a problem if we use the emitter because we keep the
+        // same compressor.
+        
+        // Make another VG that will just have this chunk
         VG g;
         map<string, map<size_t, mapping_t*> > sorted_paths;
         for (size_t j = element_start;
-             j < element_start + element_length && j < graph.node_size();
+             j < element_start + chunk_size && j < graph.node_size();
              ++j) {
             Node* node = graph.mutable_node(j);
             // Grab the node and only the edges where it has the lower ID.
@@ -583,7 +583,7 @@ void VG::serialize_to_ostream_as_part(ostream& out, id_t chunk_size) {
 
         if (element_start == 0) {
             // The first chunk will always include all the 0-length paths.
-            // TODO: if there are too many, this chunk may grow too large!
+            // TODO: if there are too many, this chunk may grow very large!
             paths.for_each_name([&](const string& name) {
                 // For every path
                 if (paths.get_path(name).empty()) {
@@ -600,15 +600,18 @@ void VG::serialize_to_ostream_as_part(ostream& out, id_t chunk_size) {
         g.paths.to_graph(g.graph);
 
         update_progress(element_start);
-        return g.graph;
+        
+        // Now the VG we made has a proper Graph; emit it.
+        emitter.write_copy(g.graph);
+    }
     
-    };
-
-    // Write all the dynamically sized chunks, starting with our selected chunk
-    // size as a guess.
-    stream::write(out, graph.node_size(), chunk_size, lambda);
-
+    // Now we are done
     destroy_progress();
+}
+
+void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
+    stream::ProtobufEmitter<Graph> emitter(out);
+    serialize_to_emitter(emitter, chunk_size);
 }
 
 void VG::serialize_to_file(const string& file_name, id_t chunk_size) {

@@ -582,7 +582,7 @@ void for_each_parallel(std::istream& in,
  * Class that wraps an output stream and allows emitting groups of Protobuf
  * objects to it, with internal buffering. Handles finishing the file on its
  * own, and allows tracking of BGZF virtual offsets within a non-seekable
- * stream (as long as the entire stream is controleld by one instance). Cannot
+ * stream (as long as the entire stream is controlled by one instance). Cannot
  * be copied, but can be moved.
  *
  * Can call callbacks with the groups emitted and their virtual offsets, for
