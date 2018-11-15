@@ -15,6 +15,7 @@
 #include "types.hpp"
 #include "vg.pb.h"
 #include "stream.hpp"
+#include "scanner.hpp"
 
 namespace vg {
 
@@ -345,8 +346,7 @@ private:
 
 };
 
-/**
- * An index that provides a higher-level API in terms of the actual messages
+/** An index that provides a higher-level API in terms of the actual messages
  * being indexed. This is the main entry point for users in most cases.
  *
  * All find operations are thread-safe with respect to each other. Simultaneous
@@ -392,9 +392,9 @@ public:
 protected:
     
     /// Call the given iteratee for each node ID relevant to the given message.
+    /// IDs may repeat.
     /// If the iteratee returns false, stop iteration.
-    /// Calls the iteratee with 0 if and only if there are no node IDs relevant to the message.
-    /// Must be specialized and implemented for any message type for which the StreamIndex is to be instantiated.
+    /// Calls the iteratee with 0 only if there are no relevant node IDs *or* the message is relevant to queries for unplaced content.
     void for_each_id(const Message& msg, const function<bool(const id_t&)> iteratee) const;
     
 };
@@ -930,6 +930,14 @@ auto StreamIndex<Message>::add_group(const vector<Message>& msgs, int64_t virtua
     }
     
     add_group(min_id, max_id, virtual_start, virtual_past_end);
+}
+
+template<typename Message>
+auto StreamIndex<Message>::for_each_id(const Message& msg, const function<bool(const id_t&)> iteratee) const -> void {
+    // Visit all the IDs.
+    // Zeros will come out if the message is empty (unplaced) or has an unplaced child message.
+    // Duplicates will come out but that is fine.
+    IDScanner<Message>::scan(msg, iteratee);
 }
 
 }
