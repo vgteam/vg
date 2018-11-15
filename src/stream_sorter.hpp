@@ -1,22 +1,140 @@
-#include "gamsorter.hpp"
+#ifndef VG_STREAM_SORTER_HPP_INCLUDED
+#define VG_STREAM_SORTER_HPP_INCLUDED
+
+#include "vg.pb.h"
+#include "stream.hpp"
+#include "types.hpp"
+#include "progressive.hpp"
+#include "stream_index.hpp"
 #include "utility.hpp"
 #include "json2pb.h"
 #include "position.hpp"
-#include "stream_index.hpp"
+#include <string>
+#include <queue>
+#include <sstream>
+#include <functional>
+#include <algorithm>
+#include <iostream>
+#include <set>
+#include <vector>
+#include <unordered_map>
+#include <tuple>
 
 #include <sys/time.h>
 #include <sys/resource.h>
 
 /**
- * \file gamsorter.cpp
- * GAMSorter: sort a gam by position and offset.
- * Store unmapped reads at node 0.
+ * \file stream_sorter.hpp
+ * stream.hpp-format file sorting tools.
  */
-
 using namespace std;
-using namespace vg;
+namespace vg {
 
-GAMSorter::GAMSorter(bool show_progress) {
+/// Provides the ability to sort a stream of Protobuf Messages, either "dumbly"
+/// (in memory), or streaming into temporary files. For Alignments, paired
+/// Alignments are not necessarily going to end up next to each other, so if
+/// sorting by position make sure to set the position cross-references first if
+/// you want to be able to find them.
+template<typename Message>
+class StreamSorter : public Progressive {
+public:
+
+    //////////////////
+    // Main entry points
+    //////////////////
+    
+    /// Create a stream sorter, showing sort progress on standard error if
+    /// show_progress is true.
+    StreamSorter(bool show_progress = false);
+    
+    /// Sort a stream of stream.hpp-format data, using temporary files,
+    /// limiting the number of simultaneously open input files and the size of
+    /// in-memory data. Optionally index the sorted file into the given index.
+    void stream_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
+    
+    /// Sort a stream of stream.hpp-format data, loading it all into memory and
+    /// doing a single giant sort operation. Optionally index the sorted file
+    /// into the given index.
+    void easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
+    
+    /// Sort a seekable input stream by doing one pass to load all the
+    /// positions, sorting all the positions in memory, and doing another pass
+    /// of jumping around to re-order all the messages. Optionally index the
+    /// sorted file into the given index.
+    void benedict_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
+    
+    //////////////////
+    // Supporting API
+    //////////////////
+
+    /// Sort a vector of messages, in place.
+    void sort(vector<Message>& msgs) const;
+
+    /// Return true if out of Messages a and b, a must come before b, and false otherwise.
+    bool less_than(const Message& a, const Message& b) const;
+    
+    /// Determine the minumum Position visited by an Message. The minumum
+    /// Position is the lowest node ID visited by the alignment, with the
+    /// lowest offset visited on that node ID as the offset, and the
+    /// orientation set to false if the forward strand is visited, and true if
+    /// only the reverse strand is visited.
+    Position get_min_position(const Message& msg) const;
+
+    /// Determine the minimum position visited by a Path, as for a Message.
+    Position get_min_position(const Path& path) const;
+
+    /// Return True if the given Position values are equal, and false otherwise.
+    bool equal_to(const Position& a, const Position& b) const;
+
+    /// Return True if position A is less than position B in our sort, and false otherwise.
+    /// Position order is defined first by node ID, then by strand (forward first), and then by offset within the strand.
+    /// We can't sort by actual base on the forward strand, because we need to be able to sort without knowing the graph's node lengths.
+    bool less_than(const Position& a, const Position& b) const;
+    
+    /// Return true if out of pos_t items a and b, a must come before b, and false otherwise.
+    bool less_than(const pos_t& a, const pos_t& b) const;
+
+    /// Return True if position A is greater than position B in our sort, and false otherwise.
+    bool greater_than(const Position& a, const Position& b) const;
+
+  private:
+    /// What's the maximum size of reads in serialized, uncompressed bytes to
+    /// load into memory for a single temp file chunk, during the streaming
+    /// sort?
+    /// For reference, a whole-genome GAM file is about 500 GB of uncompressed data
+    size_t max_buf_size = (512 * 1024 * 1024);
+    /// What's the max fan-in when combining temp files, during the streaming sort?
+    /// This will be computed based on the max file descriptor limit from the OS.
+    size_t max_fan_in;
+    
+    using cursor_t = stream::ProtobufIterator<Message>;
+    using emitter_t = stream::ProtobufEmitter<Message>;
+    
+    /// Open all the given input files, keeping the streams and cursors in the given lists.
+    /// We use lists because none of these should be allowed to move after creation.
+    void open_all(const vector<string>& filenames, list<ifstream>& streams, list<cursor_t>& cursors);
+    
+    /// Merge all the reads from the given list of cursors into the given emitter.
+    /// The total expected number of reads can be passed for progress bar purposes.
+    void streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_reads = 0);
+    
+    /// Merge all the given temp input files into one or more temp output
+    /// files, opening no more than max_fan_in input files at a time. The input
+    /// files, which must be from temp_file::create(), will be deleted.
+    ///
+    /// If reads_per_file is specified, it will be used to show progress bars,
+    /// and will be updated for newly-created files.
+    vector<string> streaming_merge(const vector<string>& temp_names_in, unordered_map<string, size_t>* reads_per_file = nullptr);
+};
+
+using GAMSorter = StreamSorter<Alignment>;
+
+//////////////
+// Template Implementations
+//////////////
+
+template<typename Message>
+StreamSorter<Message>::StreamSorter(bool show_progress) {
     this->show_progress = show_progress;
     
     // We would like this many FDs max, if not limited below that.
@@ -32,7 +150,8 @@ GAMSorter::GAMSorter(bool show_progress) {
     if (getrlimit(RLIMIT_NOFILE, &fd_limit) != 0) {
         // We don't know; choose a conservative default.
         max_fan_in = min_fan_in;
-        cerr << "warning:[vg gamsort]: Cannot determine file descriptor limits; using " << max_fan_in << " temp file fan-in" << endl;
+        cerr << "warning:[vg::StreamSorter]: Cannot determine file descriptor limits; using "
+            << max_fan_in << " temp file fan-in" << endl;
     } else {
         // We read the limit
         if (fd_limit.rlim_cur != RLIM_INFINITY && fd_limit.rlim_cur < max_fan_in + extra_fds) {
@@ -50,7 +169,8 @@ GAMSorter::GAMSorter(bool show_progress) {
             // We need to limit ourselves to under the max FD limit
             if (fd_limit.rlim_cur < extra_fds + min_fan_in) {
                 // If we can't at least do a fan-in of 10 we have a big problem.
-                cerr << "error:[vg gamsort]: Open file limit very low (" << fd_limit.rlim_cur << "); we need " << (extra_fds + min_fan_in) << endl;
+                cerr << "error:[vg::StreamSorter]: Open file limit very low (" << fd_limit.rlim_cur << "); we need "
+                    << (extra_fds + min_fan_in) << endl;
                 exit(1);
             }
             
@@ -60,65 +180,66 @@ GAMSorter::GAMSorter(bool show_progress) {
     }
 }
 
-void GAMSorter::sort(vector<Alignment>& alns) const {
-    std::sort(alns.begin(), alns.end(), [&](const Alignment& a, const Alignment& b) {
+template<typename Message>
+void StreamSorter<Message>::sort(vector<Message>& msgs) const {
+    std::sort(msgs.begin(), msgs.end(), [&](const Message& a, const Message& b) {
         return this->less_than(a, b);
     });
 }
 
-void GAMSorter::dumb_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
-    std::vector<Alignment> sort_buffer;
+template<typename Message>
+void StreamSorter<Message>::easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to) {
+    std::vector<Message> sort_buffer;
 
-    stream::for_each<Alignment>(gam_in, [&](Alignment &aln) {
-        sort_buffer.push_back(aln);
+    stream::for_each<Message>(stream_in, [&](Message &msg) {
+        sort_buffer.push_back(msg);
     });
 
     this->sort(sort_buffer);
     
     // Write the output in non-enormous chunks, so indexing is actually useful
-    vector<Alignment> out_buffer;
+    vector<Message> out_buffer;
     
     // Make an output emitter
-    stream::ProtobufEmitter<Alignment> emitter(gam_out);
+    stream::ProtobufEmitter<Message> emitter(stream_out);
     
     if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+        emitter.on_group([&index_to](const vector<Message>& group, int64_t start_vo, int64_t past_end_vo) {
             // Whenever it emits a group, index it.
             // Make sure to only capture things that will outlive the emitter
             index_to->add_group(group, start_vo, past_end_vo);
         });
     }
     
-    for (auto& aln : sort_buffer) {
+    for (auto& msg : sort_buffer) {
         // Feed in all the sorted alignments
-        emitter.write(std::move(aln));
+        emitter.write(std::move(msg));
     }
     
     // Emitter destruction will terminate the file with an EOF marker
 }
 
-
-
-void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
+template<typename Message>
+void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to) {
 
     // We want to work out the file size, if we can.
     size_t file_size = 0;
     {
         // Save our position
-        auto here = gam_in.tellg();
+        auto here = stream_in.tellg();
         // Go to the end
-        gam_in.seekg(0, gam_in.end);
+        stream_in.seekg(0, stream_in.end);
         // Get its position
-        auto there = gam_in.tellg();
+        auto there = stream_in.tellg();
         // Go back to where we were
-        gam_in.seekg(here);
+        stream_in.seekg(here);
             
-        if (gam_in.good()) {
+        if (stream_in.good()) {
             // We can seek in this stream. So how far until the end?
             file_size = there - here;
         } else {
             // It's entirely possible that none of that worked. So clear the error flags and leave the size at 0.
-            gam_in.clear();
+            stream_in.clear();
         }
     }
     
@@ -135,14 +256,14 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
     size_t total_reads_read = 0;
     
     // This cursor will read in the input file.
-    cursor_t input_cursor(gam_in);
+    cursor_t input_cursor(stream_in);
     
-    #pragma omp parallel shared(gam_in, input_cursor, outstanding_temp_files, reads_per_file, total_reads_read)
+    #pragma omp parallel shared(stream_in, input_cursor, outstanding_temp_files, reads_per_file, total_reads_read)
     {
     
         while(true) {
     
-            vector<Alignment> thread_buffer;
+            vector<Message> thread_buffer;
         
             #pragma omp critical (input_cursor)
             {
@@ -155,7 +276,7 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
                 }
             
                 // Update the progress bar
-                update_progress(gam_in.tellg());
+                update_progress(stream_in.tellg());
             }
             
             if (thread_buffer.empty()) {
@@ -202,10 +323,10 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
     open_all(outstanding_temp_files, temp_ifstreams, temp_cursors);
     
     // Make an output emitter
-    emitter_t emitter(gam_out);
+    emitter_t emitter(stream_out);
     
     if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+        emitter.on_group([&index_to](const vector<Message>& group, int64_t start_vo, int64_t past_end_vo) {
             // Whenever it emits a group, index it.
             // Make sure to only capture things that will outlive the emitter
             index_to->add_group(group, start_vo, past_end_vo);
@@ -224,7 +345,8 @@ void GAMSorter::stream_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_t
             
 }
 
-void GAMSorter::open_all(const vector<string>& filenames, list<ifstream>& streams, list<cursor_t>& cursors) {
+template<typename Message>
+void StreamSorter<Message>::open_all(const vector<string>& filenames, list<ifstream>& streams, list<cursor_t>& cursors) {
     // The open files need to live in a collection; the cursors don't own them.
     // They also can't be allowed to move since we reference them.
     // The cursors also need to live in a collection, because we don't want to be
@@ -243,7 +365,8 @@ void GAMSorter::open_all(const vector<string>& filenames, list<ifstream>& stream
 
 }
 
-void GAMSorter::streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_reads) {
+template<typename Message>
+void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, size_t expected_reads) {
 
     create_progress("merge " + to_string(cursors.size()) + " files", expected_reads == 0 ? 1 : expected_reads);
     // Count the reads we actually see
@@ -298,7 +421,8 @@ void GAMSorter::streaming_merge(list<cursor_t>& cursors, emitter_t& emitter, siz
 
 }
 
-vector<string> GAMSorter::streaming_merge(const vector<string>& temp_files_in, unordered_map<string, size_t>* reads_per_file) {
+template<typename Message>
+vector<string> StreamSorter<Message>::streaming_merge(const vector<string>& temp_files_in, unordered_map<string, size_t>* reads_per_file) {
     
     // What are the names of the merged files we create?
     vector<string> temp_files_out;
@@ -351,22 +475,23 @@ vector<string> GAMSorter::streaming_merge(const vector<string>& temp_files_in, u
         
 }
 
-void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index_to) {
+template<typename Message>
+void StreamSorter<Message>::benedict_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to) {
     // Go to the end of the file
-    gam_in.seekg(0, gam_in.end);
+    stream_in.seekg(0, stream_in.end);
     // Get its position
-    auto file_end = gam_in.tellg();
+    auto file_end = stream_in.tellg();
     // Go to the start
-    gam_in.seekg(0);
+    stream_in.seekg(0);
     
     // This will have all the item VOs and let us sort them by position
     vector<pair<pos_t, int64_t>> pos_to_vo;
     
-    stream::ProtobufIterator<Alignment> cursor(gam_in);
+    stream::ProtobufIterator<Message> cursor(stream_in);
     
     if (cursor.tell_raw() == -1) {
         // This will catch non-blocked gzip files, as well as streaming streams.
-        cerr << "error:[vg gamsort]: Cannot sort an unseekable GAM" << endl;
+        cerr << "error:[vg streamsort]: Cannot sort an unseekable GAM" << endl;
         exit(1);
     }
     
@@ -386,12 +511,12 @@ void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index
         cursor.get_next();
         
         if (seen % 1000 == 0) {
-            update_progress(gam_in.tellg());
+            update_progress(stream_in.tellg());
         }
         seen++;
     }
     
-    update_progress(gam_in.tellg());
+    update_progress(stream_in.tellg());
     destroy_progress();
     create_progress("sort positions", 1);
     
@@ -405,10 +530,10 @@ void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index
     create_progress("reorder reads", pos_to_vo.size());
     
     // Make an output emitter
-    stream::ProtobufEmitter<Alignment> emitter(gam_out);
+    stream::ProtobufEmitter<Message> emitter(stream_out);
     
     if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
+        emitter.on_group([&index_to](const vector<Message>& group, int64_t start_vo, int64_t past_end_vo) {
             // Whenever it emits a group, index it.
             // Make sure to only capture things that will outlive the emitter
             index_to->add_group(group, start_vo, past_end_vo);
@@ -431,16 +556,18 @@ void GAMSorter::benedict_sort(istream& gam_in, ostream& gam_out, GAMIndex* index
     destroy_progress();
 }
 
-
-bool GAMSorter::less_than(const Alignment &a, const Alignment &b) const {
+template<typename Message>
+bool StreamSorter<Message>::less_than(const Message &a, const Message &b) const {
     return less_than(get_min_position(a), get_min_position(b));
 }
 
-Position GAMSorter::get_min_position(const Alignment& aln) const {
-    return get_min_position(aln.path());
+template<typename Message>
+Position StreamSorter<Message>::get_min_position(const Message& msg) const {
+    return get_min_position(msg.path());
 }
 
-Position GAMSorter::get_min_position(const Path& path) const {
+template<typename Message>
+Position StreamSorter<Message>::get_min_position(const Path& path) const {
     if (path.mapping_size() == 0) {
         // This path lives at a default Position
         return Position();
@@ -458,13 +585,15 @@ Position GAMSorter::get_min_position(const Path& path) const {
     return min;
 }
 
-bool GAMSorter::equal_to(const Position& a, const Position& b) const {
+template<typename Message>
+bool StreamSorter<Message>::equal_to(const Position& a, const Position& b) const {
     return (a.node_id() == b.node_id() &&
             a.is_reverse() == b.is_reverse() &&
             a.offset() == b.offset());
 }
 
-bool GAMSorter::less_than(const Position& a, const Position& b) const {
+template<typename Message>
+bool StreamSorter<Message>::less_than(const Position& a, const Position& b) const {
     if (a.node_id() < b.node_id()) {
         return true;
     } else if (a.node_id() > b.node_id()) {
@@ -484,7 +613,8 @@ bool GAMSorter::less_than(const Position& a, const Position& b) const {
     return false;
 }
 
-bool GAMSorter::less_than(const pos_t& a, const pos_t& b) const {
+template<typename Message>
+bool StreamSorter<Message>::less_than(const pos_t& a, const pos_t& b) const {
     if (id(a) < id(b)) {
         return true;
     } else if (id(a) > id(b)) {
@@ -504,7 +634,8 @@ bool GAMSorter::less_than(const pos_t& a, const pos_t& b) const {
     return false;
 }
 
-bool GAMSorter::greater_than(const Position& a, const Position& b) const {
+template<typename Message>
+bool StreamSorter<Message>::greater_than(const Position& a, const Position& b) const {
     if (a.node_id() > b.node_id()) {
         return true;
     } else if (a.node_id() < b.node_id()) {
@@ -523,3 +654,12 @@ bool GAMSorter::greater_than(const Position& a, const Position& b) const {
     
     return false;
 }
+
+
+
+
+
+
+
+}
+#endif
