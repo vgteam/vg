@@ -441,8 +441,16 @@ bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const Cac
         // want to allow simultaneous reads from disk overall.
         
         with_cursor([&](cursor_t& cursor) {
-            // Does nothing if we are already in the right place.
-            assert(cursor.seek_group(group_vo));
+            // Try to get to the VO we are supposed to go to
+            auto pre_seek_group = cursor.tell_group();
+            auto pre_seek_pos = cursor.tell_raw();
+            if (!cursor.seek_group(group_vo)) {
+                cerr << "error[vg::IndexedVG]: Could not seek from group pos " << pre_seek_group
+                    << " and raw pos " << pre_seek_pos << " to group pos " << group_vo << endl;
+                cerr << "Current position: group " << cursor.tell_group() << " raw " << cursor.tell_raw()
+                    << " has_next: " << cursor.has_next() << endl;
+                assert(false);
+            }
             
             if (cursor.has_next()) {
                 // We seeked to a real thing and not EOF
