@@ -408,6 +408,11 @@ void IndexedVG::find(id_t id, const function<bool(const CacheEntry&)>& iteratee)
 
 bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const CacheEntry&)>& callback) const {
 
+    if (group_vo == numeric_limits<int64_t>::max()) {
+        // We got the EOF sentinel. We can't seek there.
+        return false;
+    }
+
     // This will point to the cache entry for the group when we find or make it.
     shared_ptr<CacheEntry> cache_entry;
     

@@ -163,7 +163,8 @@ protected:
         
         // TODO: Path visits
         
-        /// This is the virtual offset of the next group
+        /// This is the virtual offset of the next group in the file.
+        /// If this was the last group in the file, this is numeric_limits<int64_t>::max().
         int64_t next_group;
     };
     
@@ -178,10 +179,12 @@ protected:
     void find(id_t id, const function<bool(const CacheEntry&)>& iteratee) const;
     
     /// Load or use the cached version of the CacheEntry for the given group
-    /// start VO. If no group starts at the given VO (for example, it is at or
-    /// past the end of the file), the callback is not called and false is returned.
-    /// Handles locking the cache for updates and keeping the CacheEntry
-    /// reference live while the callback is running.
+    /// start VO. If the EOF sentinel numeric_limits<int64_t>::max() is passed,
+    /// the callback is not called and false is returned. (This is to enable
+    /// easy looping to scan over CacheEntries.) Passing any other past-the-end
+    /// VO is prohibited, and may produce an error. Handles locking the cache
+    /// for updates and keeping the CacheEntry reference live while the
+    /// callback is running.
     bool with_cache_entry(int64_t group_vo, const function<void(const CacheEntry&)>& callback) const;
     
     /// This is the cache that holds CacheEntries for groups we have already parsed and indexed.
