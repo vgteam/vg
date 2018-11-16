@@ -1924,6 +1924,8 @@ namespace vg {
                 PathNode& start_node = path_nodes[start];
                 unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
                 
+                // TODO: would it be better to combine these into one queue?
+                
                 // pairs of (dist, index)
                 priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> start_queue;
                 priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> end_queue;
