@@ -48,6 +48,7 @@ int main_sort(int argc, char *argv[]) {
     string sorted_index_filename;
     
     int c;
+    optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
