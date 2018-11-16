@@ -220,28 +220,15 @@ void IndexedVG::for_each_handle(const function<bool(const handle_t&)>& iteratee,
             
             if (parallel) {
                 // Handle each node in the cache entry in a task
-                #pragma omp parallel shared(keep_going)
-                {
-                    # pragma omp single
-                    {
-                        for (size_t i = 0; i < entry.merged_group.node_size(); i++) {
-                            // Show a handle for every node to the iteratee
-                            #pragma omp task firstprivate(i)
-                            {
-                                if (!iteratee(get_handle(entry.merged_group.node(i).id(), false))) {
-                                    keep_going = false;
-                                }
-                            }
-                            
-                            if (!keep_going) {
-                                // If it is done, stop.
-                                break;
-                            }
+                #pragma omp parallel for
+                for (size_t i = 0; i < entry.merged_group.node_size(); i++) {
+                    // Show a handle for every node to the iteratee
+                    // stopping is best effort in multithreaded mode; we don't try very hard.
+                    if (keep_going) {
+                        if (!iteratee(get_handle(entry.merged_group.node(i).id(), false))) {
+                            keep_going = false;
                         }
                     }
-                    
-                    // All the tasks must finish before we release our hold on the cache entry
-                    #pragma omp taskwait
                 }
             } else {
                 // Do it single threaded
