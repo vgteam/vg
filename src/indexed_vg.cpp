@@ -224,11 +224,11 @@ void IndexedVG::for_each_handle(const function<bool(const handle_t&)>& iteratee,
                 {
                     # pragma omp single
                     {
-                        for (auto& node : entry.merged_group.node()) {
+                        for (size_t i = 0; i < entry.merged_group.node_size(); i++) {
                             // Show a handle for every node to the iteratee
-                            #pragma omp task
+                            #pragma omp task firstprivate(i)
                             {
-                                if (!iteratee(get_handle(node.id(), false))) {
+                                if (!iteratee(get_handle(entry.merged_group.node(i).id(), false))) {
                                     keep_going = false;
                                 }
                             }
