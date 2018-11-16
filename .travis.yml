@@ -118,6 +118,7 @@ compiler:
 env:
   global:
     - DOCS_KEY_ENCRYPTION_LABEL=125272388526
+    - VG_FULL_TRACEBACK=1
   matrix:
     - INSTALL_GCC=1
     - INSTALL_GCC=0
