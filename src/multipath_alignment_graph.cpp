@@ -1926,43 +1926,36 @@ namespace vg {
                 
                 // TODO: would it be better to combine these into one queue?
                 
-                // pairs of (dist, index)
-                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> start_queue;
-                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> end_queue;
-                
-                unordered_set<size_t> traversed_start;
-                unordered_set<size_t> traversed_end;
+                // initialize queues for the next start and next end, prioritized by shortest distance
+                structures::RankPairingHeap<size_t, size_t, std::greater<size_t>> start_queue, end_queue;
                 
                 // we begin at the start we're searching backward from
-                start_queue.emplace(0, start);
+                start_queue.push_or_reprioritize(start, 0);
                 
                 while (!start_queue.empty() || !end_queue.empty()) {
                     // is the next item on the queues a start or an end?
-                    if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().first < end_queue.top().first)) {
+                    if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
                         
                         // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
                         
                         pair<size_t, size_t> start_here = start_queue.top();
                         start_queue.pop();
-                        if (traversed_start.count(start_here.second)) {
-                            continue;
-                        }
-                        traversed_start.insert(start_here.second);
+                        
 #ifdef debug_multipath_alignment
-                        cerr << "traversing start " << start_here.second << " at distance " << start_here.first << endl;
+                        cerr << "traversing start " << start_here.first << " at distance " << start_here.second << endl;
 #endif
                         
                         // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
                         // between them and the distance already traversed
-                        for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
-                            end_queue.emplace(start_here.first + end.second, end.first);
+                        for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.first]) {
+                            end_queue.push_or_reprioritize(end.first, start_here.second + end.second);
 #ifdef debug_multipath_alignment
-                            cerr << "found reachable end " << end.first << " at distance " << start_here.first + end.second << endl;
+                            cerr << "found reachable end " << end.first << " at distance " << start_here.second + end.second << endl;
 #endif
                         }
                         
                         for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
-                            start_queue.emplace(start_here.first + start_next.second, start_next.first);
+                            start_queue.push_or_reprioritize(start_next.first, start_here.second + start_next.second);
                         }
                     }
                     else {
@@ -1970,17 +1963,13 @@ namespace vg {
                         // the next closest endpoint is an end, so we check if we can make a connection to the start
                         // that we're searching backward from
                         
-                        size_t candidate_end = end_queue.top().second;
-                        size_t candidate_dist = end_queue.top().first;
+                        size_t candidate_end = end_queue.top().first;
+                        size_t candidate_dist = end_queue.top().second;
                         end_queue.pop();
                         
-                        if (traversed_end.count(candidate_end)) {
-                            continue;
-                        }
 #ifdef debug_multipath_alignment
                         cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
 #endif
-                        traversed_end.insert(candidate_end);
                         
                         PathNode& candidate_end_node = path_nodes[candidate_end];
                         
@@ -2001,7 +1990,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
                                 cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second + candidate_dist << " from noncolinear shell" << endl;
 #endif
-                                end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
+                                end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
                             }
                         }
                         else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
@@ -2018,7 +2007,7 @@ namespace vg {
                             
                             // add any ends directly reachable from the end
                             for (const pair<size_t, size_t>& exposed_end : reachable_ends_from_end[candidate_end]) {
-                                end_queue.emplace(candidate_dist + exposed_end.second, exposed_end.first);
+                                end_queue.push_or_reprioritize(exposed_end.first, candidate_dist + exposed_end.second);
 #ifdef debug_multipath_alignment
                                 cerr << "found reachable exposed end " << exposed_end.first << " at distance " << candidate_dist + exposed_end.second << endl;
 #endif
@@ -2029,7 +2018,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
                                 cerr << "adding exposed start traversal with " << exposed_start.first << " at distance " << candidate_dist + exposed_start.second << endl;
 #endif
-                                start_queue.emplace(candidate_dist + exposed_start.second, exposed_start.first);
+                                start_queue.push_or_reprioritize(exposed_start.first, candidate_dist + exposed_start.second);
                             }
                             
                             // also skip to the predecessor's noncolinear shell, whose connections might not be blocked by
@@ -2038,7 +2027,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
                                 cerr << "enqueueing " << shell_pred.first << " at dist " << candidate_dist + shell_pred.second << " from noncolinear shell" << endl;
 #endif
-                                end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
+                                end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
                             }
                         }
                         else {
@@ -2060,7 +2049,7 @@ namespace vg {
                             
                             // find the ends that can reach it directly
                             for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
-                                end_queue.emplace(candidate_dist + pred_end.second, pred_end.first);
+                                end_queue.push_or_reprioritize(pred_end.first, candidate_dist + pred_end.second);
 #ifdef debug_multipath_alignment
                                 cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
 #endif
@@ -2068,7 +2057,7 @@ namespace vg {
                             
                             // set the start queue up with the immediate start neighbors
                             for (const pair<size_t, size_t>& pred_start : reachable_starts_from_end[candidate_end]) {
-                                start_queue.emplace(candidate_dist + pred_start.second, pred_start.first);
+                                start_queue.push_or_reprioritize(pred_start.first, candidate_dist + pred_start.second);
                             }
                         }
                     }
