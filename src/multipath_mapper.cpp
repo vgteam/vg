@@ -3197,9 +3197,16 @@ namespace vg {
             base_scores[i] = alignments[0].score();
             
             if (query_population) {
+            
+                // Work out the population size. Try the score provider and then fall back to the xg.
+                auto haplotype_count = haplo_score_provider->get_haplotype_count();
+                if (haplotype_count == -1) {
+                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+                    haplotype_count = xindex->get_haplotype_count();
+                }
                 
                 // Make sure to grab the memo
-                auto& memo = get_rr_memo(recombination_penalty, xindex->get_haplotype_count());
+                auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
                 
                 // Now compute population scores for all the top paths
                 vector<double> alignment_pop_scores(alignments.size(), 0.0);
@@ -3432,8 +3439,15 @@ namespace vg {
             if (query_population) {
                 // We also want to select the optimal population-scored alignment on each side and compute a pop-adjusted score.
                 
+                // Work out the population size. Try the score provider and then fall back to the xg.
+                auto haplotype_count = haplo_score_provider->get_haplotype_count();
+                if (haplotype_count == -1) {
+                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+                    haplotype_count = xindex->get_haplotype_count();
+                }
+                
                 // Make sure to grab the memo
-                auto& memo = get_rr_memo(recombination_penalty, xindex->get_haplotype_count());
+                auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
                 
                 // What's the base + population score for each alignment?
                 // We need to consider them together because there's a trade off between recombinations and mismatches.
