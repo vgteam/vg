@@ -4108,7 +4108,7 @@ namespace vg {
             }
         }
 
-        TEST_CASE("lazy_sort() and lazier_sort() should put a DAG in topological order", "[algorithms][sort]") {
+        TEST_CASE("lazy_topological_sort() and lazier_topological_sort() should put a DAG in topological order", "[algorithms][sort]") {
             
             auto is_in_topological_order = [](const Graph& graph) {
                 
@@ -4167,7 +4167,7 @@ namespace vg {
                 return return_val;
             };
             
-            SECTION("laz[y/ier]_sort() works on a simple graph that's already in topological order") {
+            SECTION("laz[y/ier]_topological_sort() works on a simple graph that's already in topological order") {
                 
                 VG vg1;
                 
@@ -4180,14 +4180,14 @@ namespace vg {
                 // make the second graph have some locally stored nodes in the reverse orientation
                 vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-                algorithms::lazier_sort(&vg1);
-                algorithms::lazy_sort(&vg2);
+                algorithms::lazier_topological_sort(&vg1);
+                algorithms::lazy_topological_sort(&vg2);
                 
                 REQUIRE(is_in_topological_order(vg1.graph));
                 REQUIRE(is_in_topological_order(vg2.graph));
             }
             
-            SECTION("laz[y/ier]_sort() works on a simple graph that's not already in topological order") {
+            SECTION("laz[y/ier]_topological_sort() works on a simple graph that's not already in topological order") {
                 
                 VG vg1;
                 
@@ -4200,15 +4200,15 @@ namespace vg {
                 // make the second graph have some locally stored nodes in the reverse orientation
                 vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-                algorithms::lazier_sort(&vg1);
-                algorithms::lazy_sort(&vg2);
+                algorithms::lazier_topological_sort(&vg1);
+                algorithms::lazy_topological_sort(&vg2);
                 
                 REQUIRE(is_in_topological_order(vg1.graph));
                 REQUIRE(is_in_topological_order(vg2.graph));
 
             }
             
-            SECTION("laz[y/ier]_sort() works on a more complex graph that's not already in topological order") {
+            SECTION("laz[y/ier]_topological_sort() works on a more complex graph that's not already in topological order") {
                 
                 VG vg1;
                 
@@ -4243,8 +4243,8 @@ namespace vg {
                 vg2.apply_orientation(vg2.get_handle(n8->id(), true));
                 vg2.apply_orientation(vg2.get_handle(n6->id(), true));
                 
-                algorithms::lazier_sort(&vg1);
-                algorithms::lazy_sort(&vg2);
+                algorithms::lazier_topological_sort(&vg1);
+                algorithms::lazy_topological_sort(&vg2);
                 
                 REQUIRE(is_in_topological_order(vg1.graph));
                 REQUIRE(is_in_topological_order(vg2.graph));

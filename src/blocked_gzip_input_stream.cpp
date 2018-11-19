@@ -237,9 +237,19 @@ bool BlockedGzipInputStream::Seek(int64_t virtual_offset) {
         return false;
     }
     
-    // Do the seek, and return whether it worked.
+    // Do the seek.
     // This will set handle->block_length to 0, so we know we need to read the block when we read next.
-    return bgzf_seek(handle, virtual_offset, SEEK_SET) == 0;
+    if(bgzf_seek(handle, virtual_offset, SEEK_SET) == 0) {
+        // The seek succeeded
+        return true;
+    } else {
+        // The seek failed
+        // Error info is in handle->errcode and handle->fp->has_errno
+        // Log the error
+        cerr << "error[vg::BlockedGzipInputStream]: BGZF seek error: errcode: "
+            << handle->errcode << " errno: " << handle->fp->has_errno << endl;
+        return false;
+    }
     
     // We won't find out if there's actually data there until we try to read...
 }

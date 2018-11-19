@@ -468,7 +468,7 @@ namespace vg {
         // in case we're realigning a GAM, get rid of the path
         aln.clear_path();
         
-        algorithms::lazier_sort(&align_graph);
+        algorithms::lazier_topological_sort(&align_graph);
         
         get_aligner()->align(aln, align_graph.graph, true, false);
         
@@ -2932,7 +2932,7 @@ namespace vg {
         }
         
         // put the internal graph in topological order for the MultipathAlignmentGraph algorithm
-        algorithms::lazier_sort(&align_graph);
+        algorithms::lazier_topological_sort(&align_graph);
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "making multipath alignment MEM graph" << endl;

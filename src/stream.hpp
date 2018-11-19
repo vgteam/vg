@@ -582,7 +582,7 @@ void for_each_parallel(std::istream& in,
  * Class that wraps an output stream and allows emitting groups of Protobuf
  * objects to it, with internal buffering. Handles finishing the file on its
  * own, and allows tracking of BGZF virtual offsets within a non-seekable
- * stream (as long as the entire stream is controleld by one instance). Cannot
+ * stream (as long as the entire stream is controlled by one instance). Cannot
  * be copied, but can be moved.
  *
  * Can call callbacks with the groups emitted and their virtual offsets, for
@@ -888,11 +888,17 @@ public:
     
     /// Seek to the given virtual offset and start reading the group that is there.
     /// The next value produced will be the first value in that group.
+    /// If already at the start of the group at the given virtual offset, does nothing.
     /// Return false if seeking is unsupported or the seek fails.
     inline bool seek_group(int64_t virtual_offset) {
         if (virtual_offset < 0) {
             // That's not allowed
             return false;
+        }
+        
+        if (group_idx == 0 && group_vo == virtual_offset && !end_next) {
+            // We are there already
+            return true;
         }
         
         // Try and do the seek

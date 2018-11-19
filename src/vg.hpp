@@ -27,6 +27,7 @@
 #include "mem.hpp"
 
 #include "vg.pb.h"
+#include "stream.hpp"
 #include "hash_map.hpp"
 
 #include "progressive.hpp"
@@ -87,7 +88,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     
     // Copy over the visit version which would otherwise be shadowed.
     using HandleGraph::get_handle;
@@ -517,16 +518,16 @@ public:
     void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
     void prune_short_subgraphs(size_t min_size);
 
+    /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
+    /// Use when combining multiple VG objects in a stream.
+    /// Graph will be serialized in internal storage order.
+    void serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
     /// Write to a stream in chunked graphs. Adds an EOF marker.
     /// Use when this VG will be the only thing in the stream.
+    /// Graph will be serialized in internal storage order.
     void serialize_to_ostream(ostream& out, id_t chunk_size = 1000);
-    /// Write to a stream in chunked graphs. Does not add an EOF marker, so
-    /// serializing multiple graphs to a stream won't produce spurious EOF
-    /// markers. Caller must call stream::finish(out) on the stream when done
-    /// writing to it.
-    /// Use when combining multiple VG objects in a stream/
-    void serialize_to_ostream_as_part(ostream& out, id_t chunk_size = 1000);
     /// Write the graph to a file, with an EOF marker.
+    /// Graph will be serialized in internal storage order.
     void serialize_to_file(const string& file_name, id_t chunk_size = 1000);
 
     // can we handle this with merge?

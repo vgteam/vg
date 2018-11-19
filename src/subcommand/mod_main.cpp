@@ -33,7 +33,6 @@ void help_mod(char** argv) {
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
          << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
-         << "    -z, --sort              sort the graph using an approximate topological sort" << endl
          << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
          << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
@@ -107,7 +106,6 @@ int main_mod(int argc, char** argv) {
     bool simplify_graph = false;
     bool unchop = false;
     bool normalize_graph = false;
-    bool sort_graph = false;
     bool remove_non_path = false;
     bool remove_path = false;
     bool compact_ranks = false;
@@ -162,7 +160,6 @@ int main_mod(int argc, char** argv) {
             {"unchop", no_argument, 0, 'u'},
             {"normalize", no_argument, 0, 'n'},
             {"until-normal", required_argument, 0, 'U'},
-            {"sort", no_argument, 0, 'z'},
             {"remove-non-path", no_argument, 0, 'N'},
             {"remove-path", no_argument, 0, 'A'},
             {"orient-forward", no_argument, 0, 'O'},
@@ -335,10 +332,6 @@ int main_mod(int argc, char** argv) {
 
         case 'B':
             bluntify = true;
-            break;
-
-        case 'z':
-            sort_graph = true;
             break;
 
         case 'b':
@@ -698,10 +691,6 @@ int main_mod(int argc, char** argv) {
         graph->remove_null_nodes_forwarding_edges();
     }
 
-    if (sort_graph) {
-        algorithms::sort(graph);
-    }
-
     if (break_cycles) {
         graph->break_cycles();
     }
@@ -800,7 +789,7 @@ int main_mod(int argc, char** argv) {
 
     // and optionally compact ids
     if (compact_ids) {
-        algorithms::sort(graph);
+        algorithms::topological_sort(graph);
         graph->compact_ids();
     }
 
@@ -851,7 +840,7 @@ int main_mod(int argc, char** argv) {
 
     if (cactus) {
         // ensure we're sorted
-        algorithms::sort(graph);
+        algorithms::topological_sort(graph);
         *graph = cactusify(*graph);
         // no paths survive, make sure they are erased
         graph->paths = Paths();
