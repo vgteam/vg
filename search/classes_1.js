@@ -16,6 +16,9 @@ var searchData=
   ['baseoption_3c_20vector_3c_20string_20_3e_2c_20optionvalueparser_3c_20vector_3c_20string_20_3e_20_3e_20_3e',['BaseOption&lt; vector&lt; string &gt;, OptionValueParser&lt; vector&lt; string &gt; &gt; &gt;',['../classvg_1_1BaseOption.html',1,'vg']]],
   ['basepileup',['BasePileup',['../structvg_1_1BasePileup.html',1,'vg']]],
   ['benchmarkresult',['BenchmarkResult',['../structvg_1_1BenchmarkResult.html',1,'vg']]],
+  ['bitstring',['BitString',['../classvg_1_1BitString.html',1,'vg']]],
+  ['bitstringtree',['BitStringTree',['../classvg_1_1BitStringTree.html',1,'vg']]],
+  ['bitstringtree_3c_20bin_5ft_20_3e',['BitStringTree&lt; bin_t &gt;',['../classvg_1_1BitStringTree.html',1,'vg']]],
   ['blockedgzipinputstream',['BlockedGzipInputStream',['../classvg_1_1stream_1_1BlockedGzipInputStream.html',1,'vg::stream']]],
   ['blockedgzipoutputstream',['BlockedGzipOutputStream',['../classvg_1_1stream_1_1BlockedGzipOutputStream.html',1,'vg::stream']]],
   ['breakpoint',['BREAKPOINT',['../structvg_1_1BREAKPOINT.html',1,'vg']]]

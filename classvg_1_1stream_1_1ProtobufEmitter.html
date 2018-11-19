@@ -146,7 +146,7 @@ Private Attributes</h2></td></tr>
 <div class="textblock"><h3>template&lt;typename T&gt;<br/>
 class vg::stream::ProtobufEmitter&lt; T &gt;</h3>
 
-<p>Class that wraps an output stream and allows emitting groups of Protobuf objects to it, with internal buffering. Handles finishing the file on its own, and allows tracking of BGZF virtual offsets within a non-seekable stream (as long as the entire stream is controleld by one instance). Cannot be copied, but can be moved.</p>
+<p>Class that wraps an output stream and allows emitting groups of Protobuf objects to it, with internal buffering. Handles finishing the file on its own, and allows tracking of BGZF virtual offsets within a non-seekable stream (as long as the entire stream is controlled by one instance). Cannot be copied, but can be moved.</p>
 <p>Can call callbacks with the groups emitted and their virtual offsets, for indexing purposes.</p>
 <p>Note that the callbacks may be called by the <a class="el" href="classvg_1_1stream_1_1ProtobufEmitter.html">ProtobufEmitter</a>'s destructor, so anything they reference needs to outlive the <a class="el" href="classvg_1_1stream_1_1ProtobufEmitter.html">ProtobufEmitter</a>.</p>
 <p>Not thread-safe. May be more efficient than repeated write/write_buffered calls because a single BGZF stream can be used. </p>

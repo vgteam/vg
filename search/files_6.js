@@ -1,11 +1,7 @@
 var searchData=
 [
-  ['gam_5findex_2ecpp',['gam_index.cpp',['../gam__index_8cpp.html',1,'']]],
-  ['gam_5findex_2ehpp',['gam_index.hpp',['../gam__index_8hpp.html',1,'']]],
   ['gamcompare_5fmain_2ecpp',['gamcompare_main.cpp',['../gamcompare__main_8cpp.html',1,'']]],
   ['gamsort_5fmain_2ecpp',['gamsort_main.cpp',['../gamsort__main_8cpp.html',1,'']]],
-  ['gamsorter_2ecpp',['gamsorter.cpp',['../gamsorter_8cpp.html',1,'']]],
-  ['gamsorter_2ehpp',['gamsorter.hpp',['../gamsorter_8hpp.html',1,'']]],
   ['gbwt_5fmain_2ecpp',['gbwt_main.cpp',['../gbwt__main_8cpp.html',1,'']]],
   ['genome_5fstate_2ecpp',['genome_state.cpp',['../genome__state_8cpp.html',1,'']]],
   ['genome_5fstate_2ehpp',['genome_state.hpp',['../genome__state_8hpp.html',1,'']]],

@@ -54,6 +54,7 @@ var searchData=
   ['use_5fsupport_5fcount',['use_support_count',['../classvg_1_1SupportCaller.html#a626d85743ce833b7745afe9c1ab66cb6',1,'vg::SupportCaller']]],
   ['use_5ftvs_5fclusterer',['use_tvs_clusterer',['../classvg_1_1MultipathMapper.html#afaa33d747ce1393304aa96bc5245a4f8',1,'vg::MultipathMapper']]],
   ['used',['used',['../classvg_1_1PinchToVGTranslator.html#a4ba24f45298b6e67662245b22d0bef3f',1,'vg::PinchToVGTranslator::used()'],['../structvg_1_1IntervalBitfield.html#a4ce87a0c028df95b777075fb8b378c25',1,'vg::IntervalBitfield::used()']]],
+  ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a5fe0982b8a0927205b3e57d65d642aa3',1,'vg::StreamIndexBase']]],
   ['utility_2ecpp',['utility.cpp',['../utility_8cpp.html',1,'']]],
   ['utility_2ehpp',['utility.hpp',['../utility_8hpp.html',1,'']]]
 ];

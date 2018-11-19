@@ -1,8 +1,10 @@
 var searchData=
 [
   ['id',['id',['../structvg_1_1Node.html#af886497fd0ba196f651b5d8f9678b52d',1,'vg::Node']]],
+  ['id_5fto_5fedge_5findices',['id_to_edge_indices',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a75ad6266609d35ec42e64abb2a29c7c8',1,'vg::IndexedVG::CacheEntry']]],
   ['id_5fto_5findex',['id_to_index',['../classvg_1_1XdropAligner.html#a5f85612e0c2b4ce232f8459ab106da74',1,'vg::XdropAligner']]],
   ['id_5fto_5fname',['id_to_name',['../classvg_1_1Paths.html#a75a67b0c836eb9a21ae0eee3a213d62c',1,'vg::Paths']]],
+  ['id_5fto_5fnode_5findex',['id_to_node_index',['../structvg_1_1IndexedVG_1_1CacheEntry.html#aa83d17938b7e420d9c592707721eed35',1,'vg::IndexedVG::CacheEntry']]],
   ['identity',['identity',['../structvg_1_1Alignment.html#a06341663199b9893a9f2b288a768cfe3',1,'vg::Alignment']]],
   ['identity_5fweight',['identity_weight',['../classvg_1_1Mapper.html#aabc9f9048a56b9b52fdf8d5271f7f60d',1,'vg::Mapper']]],
   ['ids',['ids',['../classxg_1_1XGPath.html#a7c86133b8eb84da1f402cea99e8990ad',1,'xg::XGPath']]],
@@ -15,7 +17,7 @@ var searchData=
   ['include_5freversing_5ftraversals',['include_reversing_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a1904edecc299fc004b02ce44ea9301f8',1,'vg::ExhaustiveTraversalFinder']]],
   ['indel_5ferror_5fprop',['indel_error_prop',['../classvg_1_1NGSSimulator.html#ae16494345e539020ebd09b0998500559',1,'vg::NGSSimulator']]],
   ['indel_5fpoly_5frate',['indel_poly_rate',['../classvg_1_1NGSSimulator.html#af84310145f8991c92d48684a0664ba8e',1,'vg::NGSSimulator']]],
-  ['index',['index',['../structhaplo_1_1linear__haplo__structure.html#a79e51544898895192d319f95e95cf2f1',1,'haplo::linear_haplo_structure::index()'],['../classhaplo_1_1XGScoreProvider.html#a5a81cf1839423fe9fcd722744f008128',1,'haplo::XGScoreProvider::index()'],['../classhaplo_1_1GBWTScoreProvider.html#ae24f0ba2be7fdc64cb0d0a33123e41ad',1,'haplo::GBWTScoreProvider::index()'],['../classhaplo_1_1LinearScoreProvider.html#a1ceb289752fb8e83c13e52e82bea393b',1,'haplo::LinearScoreProvider::index()'],['../structvg_1_1NodeDivider.html#a1a120cc1562bb894e4bac9afa5a1068e',1,'vg::NodeDivider::index()'],['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a0c77feb16ec0b9629880f154e58cf5e1',1,'vg::SupportCaller::PrimaryPath::index()']]],
+  ['index',['index',['../structhaplo_1_1linear__haplo__structure.html#a79e51544898895192d319f95e95cf2f1',1,'haplo::linear_haplo_structure::index()'],['../classhaplo_1_1XGScoreProvider.html#a5a81cf1839423fe9fcd722744f008128',1,'haplo::XGScoreProvider::index()'],['../classhaplo_1_1GBWTScoreProvider.html#ae24f0ba2be7fdc64cb0d0a33123e41ad',1,'haplo::GBWTScoreProvider::index()'],['../classhaplo_1_1LinearScoreProvider.html#a1ceb289752fb8e83c13e52e82bea393b',1,'haplo::LinearScoreProvider::index()'],['../classvg_1_1IndexedVG.html#a4f618ecb46d596aa053450a4de13e990',1,'vg::IndexedVG::index()'],['../structvg_1_1NodeDivider.html#a1a120cc1562bb894e4bac9afa5a1068e',1,'vg::NodeDivider::index()'],['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a0c77feb16ec0b9629880f154e58cf5e1',1,'vg::SupportCaller::PrimaryPath::index()']]],
   ['index_5fedges',['index_edges',['../classvg_1_1XdropAligner.html#ad9d341e5789910c47a7cfd32ae355de4',1,'vg::XdropAligner']]],
   ['index_5fedges_5fhead',['index_edges_head',['../classvg_1_1XdropAligner.html#a1c2e62b98c5a0dce8b82722891267a17',1,'vg::XdropAligner']]],
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],

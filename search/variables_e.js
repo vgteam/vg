@@ -13,6 +13,7 @@ var searchData=
   ['next_5fchar',['next_char',['../structvg_1_1kmer__t.html#a844852956a93c48eadc3557a0da7ab66',1,'vg::kmer_t']]],
   ['next_5fchars',['next_chars',['../structvg_1_1KmerPosition.html#ae56be5485cffba06cdab7c949487ea3f',1,'vg::KmerPosition']]],
   ['next_5fcost',['next_cost',['../classvg_1_1MEMChainModelVertex.html#af972fee5a48a5eb92466395cdffe38c4',1,'vg::MEMChainModelVertex::next_cost()'],['../classvg_1_1AlignmentChainModelVertex.html#ab4300ed3dcbce1f434b6db7d28aa6a0f',1,'vg::AlignmentChainModelVertex::next_cost()']]],
+  ['next_5fgroup',['next_group',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a5dee6816359ccf56409120cff36a759b',1,'vg::IndexedVG::CacheEntry']]],
   ['next_5fnonce',['next_nonce',['../classvg_1_1Index.html#a0d4784cdc6b6e5302114bcfa06ae0420',1,'vg::Index']]],
   ['next_5fpos',['next_pos',['../structvg_1_1kmer__t.html#a4af3ee75920ba66867f991ec823b2bf4',1,'vg::kmer_t']]],
   ['next_5fpositions',['next_positions',['../structvg_1_1KmerPosition.html#ad6a841261ad5205e4dc10503f5ec8ba7',1,'vg::KmerPosition']]],

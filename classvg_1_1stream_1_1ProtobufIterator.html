@@ -379,7 +379,7 @@ template&lt;typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Seek to the given virtual offset and start reading the group that is there. The next value produced will be the first value in that group. Return false if seeking is unsupported or the seek fails. </p>
+<p>Seek to the given virtual offset and start reading the group that is there. The next value produced will be the first value in that group. If already at the start of the group at the given virtual offset, does nothing. Return false if seeking is unsupported or the seek fails. </p>
 
 </div>
 </div>

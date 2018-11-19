@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['cache_5fmutex',['cache_mutex',['../classvg_1_1IndexedVG.html#aa347c0557a522623570dd02e7dee39e0',1,'vg::IndexedVG']]],
   ['cached_5ffragment_5fdirection',['cached_fragment_direction',['../classvg_1_1FragmentLengthStatistics.html#a98af439ae4d8612054a965bd7b9a5420',1,'vg::FragmentLengthStatistics']]],
   ['cached_5ffragment_5flength_5fmean',['cached_fragment_length_mean',['../classvg_1_1FragmentLengthStatistics.html#a837fe6834481ce1b4981c8838a88c9c2',1,'vg::FragmentLengthStatistics']]],
   ['cached_5ffragment_5flength_5fstdev',['cached_fragment_length_stdev',['../classvg_1_1FragmentLengthStatistics.html#ab1e6c7664c21e3ab33a68fd3e37e48d0',1,'vg::FragmentLengthStatistics']]],
@@ -20,7 +21,7 @@ var searchData=
   ['chars',['chars',['../classvg_1_1Pictographs.html#a322a2d02ca384f0c182944bf8eebcb09',1,'vg::Pictographs']]],
   ['checkin_5fhigh_5fwater_5fkb',['checkin_high_water_kb',['../structvg_1_1Watchdog_1_1thread__state__t.html#a5f8bf15e6a488344b99f4bad238ac8c3',1,'vg::Watchdog::thread_state_t']]],
   ['child_5fchains',['child_chains',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33',1,'vg::SnarlManager::SnarlRecord']]],
-  ['children',['children',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a0bfacb041ef897faedba2cf2585c9fb0',1,'vg::SnarlManager::SnarlRecord::children()'],['../structvg_1_1TreeNode.html#a5a5645da982fa8a9acb280ef031960d2',1,'vg::TreeNode::children()']]],
+  ['children',['children',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a0bfacb041ef897faedba2cf2585c9fb0',1,'vg::SnarlManager::SnarlRecord::children()'],['../structvg_1_1BitStringTree_1_1TreeNode.html#aec0e7ef56323148869869a0b02560aa5',1,'vg::BitStringTree::TreeNode::children()'],['../structvg_1_1TreeNode.html#a5a5645da982fa8a9acb280ef031960d2',1,'vg::TreeNode::children()']]],
   ['circular',['circular',['../classvg_1_1Paths.html#ad8af70b16e2280fba6e46418842229fa',1,'vg::Paths']]],
   ['codenames',['codenames',['../classvg_1_1Version.html#afa3c976df333371eaad42c698bf4a5a9',1,'vg::Version']]],
   ['codes_5fby_5foption',['codes_by_option',['../classvg_1_1ConfigurableParser.html#aea0db01f1fd00b96a309053cb66881c4',1,'vg::ConfigurableParser']]],
@@ -38,6 +39,7 @@ var searchData=
   ['configurables',['configurables',['../classvg_1_1ConfigurableParser.html#a022f098012e68510e490a407261bf01e',1,'vg::ConfigurableParser']]],
   ['connectivity',['connectivity',['../classvg_1_1NetGraph.html#aa1014dccd8e1bfa54a434a6caf0c4d40',1,'vg::NetGraph']]],
   ['consistent',['consistent',['../structvg_1_1Genotyper_1_1Affinity.html#af58e963c9680682966f810d4f922cb5f',1,'vg::Genotyper::Affinity']]],
+  ['content',['content',['../structvg_1_1BitStringTree_1_1TreeNode.html#a654e2ccb451511ff925aa9d66e290fbe',1,'vg::BitStringTree::TreeNode']]],
   ['context_5fbases',['context_bases',['../classvg_1_1GraphSynchronizer_1_1Lock.html#ae4a5790fef0070239e02d0f14bab68c3',1,'vg::GraphSynchronizer::Lock']]],
   ['context_5fsize',['context_size',['../classvg_1_1ReadFilter.html#a5452d3494b272196ab5436109db6023c',1,'vg::ReadFilter']]],
   ['contig',['contig',['../structvg_1_1BREAKPOINT.html#a8daffa4f64b5d59660eb3b3b00de7d0a',1,'vg::BREAKPOINT']]],
@@ -57,5 +59,8 @@ var searchData=
   ['current',['current',['../structvg_1_1IncrementIter.html#a63f121c026a4681a4bf61ad56198542b',1,'vg::IncrementIter::current()'],['../classvg_1_1WindowedVcfBuffer.html#a9e4eeb593eee805717734190d9940f79',1,'vg::WindowedVcfBuffer::current()']]],
   ['current_5fid',['current_id',['../classvg_1_1VG.html#a93f069b1a683a86ff2981a7f340ac009',1,'vg::VG']]],
   ['current_5fnode',['current_node',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a8527312fe6aaf27eab4d30a78f3f45aa',1,'vg::BandedGlobalAligner::BABuilder']]],
-  ['current_5fside',['current_side',['../structxg_1_1XG_1_1ThreadSearchState.html#a9ffdbda9077ed83cd8f3d4efd06b6737',1,'xg::XG::ThreadSearchState']]]
+  ['current_5fside',['current_side',['../structxg_1_1XG_1_1ThreadSearchState.html#a9ffdbda9077ed83cd8f3d4efd06b6737',1,'xg::XG::ThreadSearchState']]],
+  ['cursor_5fpool',['cursor_pool',['../classvg_1_1IndexedVG.html#a62d27a5ec1f917733604d724ab413f7f',1,'vg::IndexedVG']]],
+  ['cursor_5fpool_5fmutex',['cursor_pool_mutex',['../classvg_1_1IndexedVG.html#a0e1a3526d6d76ea816b5cc579ae39227',1,'vg::IndexedVG']]],
+  ['cursor_5fstreams',['cursor_streams',['../classvg_1_1IndexedVG.html#a73bae46f21d980ec8b4f198396c8060a',1,'vg::IndexedVG']]]
 ];

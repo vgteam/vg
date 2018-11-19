@@ -26,5 +26,6 @@ var searchData=
   ['update_5fpath_5findexes',['update_path_indexes',['../classvg_1_1GraphSynchronizer.html#a056cd54145b467de24d6ce128749af27',1,'vg::GraphSynchronizer']]],
   ['update_5fprogress',['update_progress',['../classvg_1_1Progressive.html#a0d64e6aa69bc094c163f4827602a302c',1,'vg::Progressive']]],
   ['update_5fscore_5fvector',['update_score_vector',['../structhaplo_1_1haplo__DP__column.html#a40859e4ede0d3829b5e7dca9a89af660',1,'haplo::haplo_DP_column']]],
-  ['update_5fstate',['update_state',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a3dd6bf628d5130f4b4b41d2c640cd6e9',1,'vg::BandedGlobalAligner::BABuilder']]]
+  ['update_5fstate',['update_state',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a3dd6bf628d5130f4b4b41d2c640cd6e9',1,'vg::BandedGlobalAligner::BABuilder']]],
+  ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a5fe0982b8a0927205b3e57d65d642aa3',1,'vg::StreamIndexBase']]]
 ];

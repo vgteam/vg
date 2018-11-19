@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['cacheentry',['CacheEntry',['../structvg_1_1IndexedVG_1_1CacheEntry.html#aab15096460395eb73cf757068bd33b11',1,'vg::IndexedVG::CacheEntry::CacheEntry(cursor_t &amp;to_read)'],['../structvg_1_1IndexedVG_1_1CacheEntry.html#ad0d6214f5d1f91aee27e67788f203e97',1,'vg::IndexedVG::CacheEntry::CacheEntry(CacheEntry &amp;&amp;other)=default']]],
   ['cactus_5fto_5fvg',['cactus_to_vg',['../namespacevg.html#adf53e86632a6d1d4b54370e6d948d08c',1,'vg']]],
   ['cactusify',['cactusify',['../namespacevg.html#aa4d05bc207717708d48e1da09f83eec6',1,'vg']]],
   ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html#afdff5dc31b6ba5bc49fdc19e09972d0c',1,'vg::CactusSnarlFinder::CactusSnarlFinder(VG &amp;graph)'],['../classvg_1_1CactusSnarlFinder.html#aac21eac2923f69cc29bc4687725156d6',1,'vg::CactusSnarlFinder::CactusSnarlFinder(VG &amp;graph, const string &amp;hint_path)']]],
@@ -95,7 +96,8 @@ var searchData=
   ['combined_5fquality',['combined_quality',['../classvg_1_1Pileups.html#a76919489d61f4642269bb78b75f3043d',1,'vg::Pileups']]],
   ['common_5fancestor_5fnext',['common_ancestor_next',['../classvg_1_1VG.html#a95d087adcf01ebfa68541bc6f487278e',1,'vg::VG']]],
   ['common_5fancestor_5fprev',['common_ancestor_prev',['../classvg_1_1VG.html#a156ee8c5d3650f08ab4d806980d6926a',1,'vg::VG']]],
-  ['common_5fbin',['common_bin',['../classvg_1_1GAMIndex.html#aeec4eec592cbb00fdae97db597fa832e',1,'vg::GAMIndex']]],
+  ['common_5fbin',['common_bin',['../classvg_1_1StreamIndexBase.html#a8486253e2bf627ef07fbb2eec5614bd3',1,'vg::StreamIndexBase']]],
+  ['common_5fprefix_5flength',['common_prefix_length',['../classvg_1_1BitString.html#a2a67ae209cbd617642e3a16ef387539a',1,'vg::BitString']]],
   ['compact',['compact',['../classvg_1_1Index.html#a335bd7a4bbdc75659366ed84acae422e',1,'vg::Index']]],
   ['compact_5fids',['compact_ids',['../classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d',1,'vg::VG']]],
   ['compact_5franks',['compact_ranks',['../classvg_1_1Paths.html#aaf065b12a8a942c96f6d88a2c6db7c8e',1,'vg::Paths']]],

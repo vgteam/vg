@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['gamindex',['GAMIndex',['../classvg_1_1GAMIndex.html',1,'vg']]],
-  ['gamsorter',['GAMSorter',['../classvg_1_1GAMSorter.html',1,'vg']]],
   ['gbwt_5fthread_5ft',['gbwt_thread_t',['../structhaplo_1_1gbwt__thread__t.html',1,'haplo']]],
   ['gbwtscoreprovider',['GBWTScoreProvider',['../classhaplo_1_1GBWTScoreProvider.html',1,'haplo']]],
   ['genomestate',['GenomeState',['../classvg_1_1GenomeState.html',1,'vg']]],

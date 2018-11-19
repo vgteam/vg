@@ -49,6 +49,7 @@ var searchData=
   ['positions',['positions',['../classvg_1_1MEMChainModel.html#a3ddb4f8ff55ce2210632537416c70180',1,'vg::MEMChainModel::positions()'],['../classvg_1_1AlignmentChainModelVertex.html#ad68e19d3726b04a9581ce2a0a733f4c6',1,'vg::AlignmentChainModelVertex::positions()'],['../classvg_1_1AlignmentChainModel.html#a0dc27f153cdc149f37a1bf35848d4c2c',1,'vg::AlignmentChainModel::positions()'],['../classvg_1_1MaximalExactMatch.html#a50b1fc178e44572e264ecb7c0142e57c',1,'vg::MaximalExactMatch::positions()'],['../classxg_1_1XGPath.html#ab9be7e4f0577d0faaaa919e6d9f89c31',1,'xg::XGPath::positions()']]],
   ['precollapse_5forder_5flength_5fhits',['precollapse_order_length_hits',['../classvg_1_1BaseMapper.html#aaf81156cb8c76c2e961b767a782dda59',1,'vg::BaseMapper']]],
   ['prefilter_5fredundant_5fhits',['prefilter_redundant_hits',['../classvg_1_1BaseMapper.html#afa408c8d202885a288f14ff6e2dc60e0',1,'vg::BaseMapper']]],
+  ['prefix',['prefix',['../structvg_1_1BitStringTree_1_1TreeNode.html#ae400b0d9c4fecf6b90fd0d708258df1e',1,'vg::BitStringTree::TreeNode']]],
   ['prefix_5flength',['prefix_length',['../structvg_1_1MultipathProblem.html#a5fdfec89c00fe647e234e84fa72879ed',1,'vg::MultipathProblem']]],
   ['prefix_5fscore',['prefix_score',['../structvg_1_1MultipathProblem.html#a5e3610b3438d69baba7e3be6a6cfdcc0',1,'vg::MultipathProblem']]],
   ['prefixes',['prefixes',['../classvg_1_1PhaseUnfolder.html#a64f18b1c10e5d2104bd04df2013f5a0f',1,'vg::PhaseUnfolder']]],

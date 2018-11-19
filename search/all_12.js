@@ -161,7 +161,7 @@ var searchData=
   ['right_5ftelomere_5fnode',['right_telomere_node',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a3d771a24b8889ea668939eac31276ea3',1,'vg::PhasedGenome::Haplotype']]],
   ['rng',['rng',['../classvg_1_1Colors.html#a79a79da7cbc2bef7eea8c3ff1e229b7c',1,'vg::Colors::rng()'],['../classvg_1_1Pictographs.html#ac7600f845d01a084a15cff9aacc6bc3e',1,'vg::Pictographs::rng()'],['../classvg_1_1Sampler.html#ad26ea071330c6a4b580af84bec064453',1,'vg::Sampler::rng()']]],
   ['robust_5festimation_5ffraction',['robust_estimation_fraction',['../classvg_1_1FragmentLengthDistribution.html#aa5a2f20742b369464d132a751f52aaf3',1,'vg::FragmentLengthDistribution']]],
-  ['root',['root',['../structvg_1_1Tree.html#a730cd8796e579d01c66bea46217047d7',1,'vg::Tree']]],
+  ['root',['root',['../classvg_1_1BitStringTree.html#a69741fde7d47ad2f46dd952eb6bd2d66',1,'vg::BitStringTree::root()'],['../structvg_1_1Tree.html#a730cd8796e579d01c66bea46217047d7',1,'vg::Tree::root()']]],
   ['root_5fchains',['root_chains',['../classvg_1_1SnarlManager.html#a2d9758d889f875b1260f49985cf3ef35',1,'vg::SnarlManager']]],
   ['roots',['roots',['../classvg_1_1SnarlManager.html#ab13a661f6abe1feaf2c4ca4471a85a90',1,'vg::SnarlManager']]],
   ['round_5foutward',['round_outward',['../structvg_1_1PathIndex.html#aea2128617c520a5435fa46e488d2fd88',1,'vg::PathIndex']]],

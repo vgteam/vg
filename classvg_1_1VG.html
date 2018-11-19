@@ -124,9 +124,9 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5b684588ef00d61259da0117cf8f8a46"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5b684588ef00d61259da0117cf8f8a46">get_handle</a> (const <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &amp;node_id, bool is_reverse) const </td></tr>
-<tr class="memdesc:a5b684588ef00d61259da0117cf8f8a46"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#a5b684588ef00d61259da0117cf8f8a46">More...</a><br/></td></tr>
-<tr class="separator:a5b684588ef00d61259da0117cf8f8a46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a26a218b188035e086a5625170cfcf23c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a26a218b188035e086a5625170cfcf23c">get_handle</a> (const <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &amp;node_id, bool is_reverse=false) const </td></tr>
+<tr class="memdesc:a26a218b188035e086a5625170cfcf23c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#a26a218b188035e086a5625170cfcf23c">More...</a><br/></td></tr>
+<tr class="separator:a26a218b188035e086a5625170cfcf23c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a275f9a67d357980049ff3a6cb475a0a6"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a275f9a67d357980049ff3a6cb475a0a6">get_id</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:a275f9a67d357980049ff3a6cb475a0a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the ID from a handle.  <a href="#a275f9a67d357980049ff3a6cb475a0a6">More...</a><br/></td></tr>
 <tr class="separator:a275f9a67d357980049ff3a6cb475a0a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -417,12 +417,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4ea2fe244a857ff24d0176449bedd4ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a590703c2954a2a15d735995c2007a879"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a590703c2954a2a15d735995c2007a879">prune_short_subgraphs</a> (size_t min_size)</td></tr>
 <tr class="separator:a590703c2954a2a15d735995c2007a879"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a722dcb12f09e01f43d3257bda35201b1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a722dcb12f09e01f43d3257bda35201b1">serialize_to_emitter</a> (<a class="el" href="classvg_1_1stream_1_1ProtobufEmitter.html">stream::ProtobufEmitter</a>&lt; <a class="el" href="structvg_1_1Graph.html">Graph</a> &gt; &amp;emitter, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> chunk_size=1000)</td></tr>
+<tr class="separator:a722dcb12f09e01f43d3257bda35201b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab217740a8290f9706c260172f19ef221"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ab217740a8290f9706c260172f19ef221">serialize_to_ostream</a> (ostream &amp;out, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> chunk_size=1000)</td></tr>
 <tr class="separator:ab217740a8290f9706c260172f19ef221"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8c30661f19184255768cad5f1ff80fd3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a8c30661f19184255768cad5f1ff80fd3">serialize_to_ostream_as_part</a> (ostream &amp;out, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> chunk_size=1000)</td></tr>
-<tr class="separator:a8c30661f19184255768cad5f1ff80fd3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8841bfa5a6c888820e6a29c8010e72fc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a8841bfa5a6c888820e6a29c8010e72fc">serialize_to_file</a> (const string &amp;file_name, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> chunk_size=1000)</td></tr>
-<tr class="memdesc:a8841bfa5a6c888820e6a29c8010e72fc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write the graph to a file, with an EOF marker.  <a href="#a8841bfa5a6c888820e6a29c8010e72fc">More...</a><br/></td></tr>
 <tr class="separator:a8841bfa5a6c888820e6a29c8010e72fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a161ef56bd0eeee937602f60b8617f24d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d">compact_ids</a> (void)</td></tr>
 <tr class="memdesc:a161ef56bd0eeee937602f60b8617f24d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Squish the node IDs down into as small a space as possible. Fixes up paths itself.  <a href="#a161ef56bd0eeee937602f60b8617f24d">More...</a><br/></td></tr>
@@ -5413,7 +5412,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a5b684588ef00d61259da0117cf8f8a46"></a>
+<a class="anchor" id="a26a218b188035e086a5625170cfcf23c"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -5430,7 +5429,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>is_reverse</em>&#160;</td>
+          <td class="paramname"><em>is_reverse</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -8213,6 +8212,33 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a class="anchor" id="a722dcb12f09e01f43d3257bda35201b1"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::serialize_to_emitter </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1stream_1_1ProtobufEmitter.html">stream::ProtobufEmitter</a>&lt; <a class="el" href="structvg_1_1Graph.html">Graph</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>emitter</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td>
+          <td class="paramname"><em>chunk_size</em> = <code>1000</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write chunked graphs to a ProtobufEmitter that will write them to a stream. Use when combining multiple <a class="el" href="classvg_1_1VG.html">VG</a> objects in a stream. <a class="el" href="structvg_1_1Graph.html">Graph</a> will be serialized in internal storage order. </p>
+
+</div>
+</div>
 <a class="anchor" id="a8841bfa5a6c888820e6a29c8010e72fc"></a>
 <div class="memitem">
 <div class="memproto">
@@ -8236,8 +8262,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Write the graph to a file, with an EOF marker. </p>
+<p>Write the graph to a file, with an EOF marker. <a class="el" href="structvg_1_1Graph.html">Graph</a> will be serialized in internal storage order. </p>
 
 </div>
 </div>
@@ -8264,34 +8289,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Write to a stream in chunked graphs. Adds an EOF marker. Use when this <a class="el" href="classvg_1_1VG.html">VG</a> will be the only thing in the stream. </p>
-
-</div>
-</div>
-<a class="anchor" id="a8c30661f19184255768cad5f1ff80fd3"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VG::serialize_to_ostream_as_part </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td>
-          <td class="paramname"><em>chunk_size</em> = <code>1000</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Write to a stream in chunked graphs. Does not add an EOF marker, so serializing multiple graphs to a stream won't produce spurious EOF markers. Caller must call stream::finish(out) on the stream when done writing to it. Use when combining multiple <a class="el" href="classvg_1_1VG.html">VG</a> objects in a stream/ </p>
+<p>Write to a stream in chunked graphs. Adds an EOF marker. Use when this <a class="el" href="classvg_1_1VG.html">VG</a> will be the only thing in the stream. <a class="el" href="structvg_1_1Graph.html">Graph</a> will be serialized in internal storage order. </p>
 
 </div>
 </div>

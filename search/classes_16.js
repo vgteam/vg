@@ -11,5 +11,6 @@ var searchData=
   ['watchdog',['Watchdog',['../classvg_1_1Watchdog.html',1,'vg']]],
   ['weightedgraph',['WeightedGraph',['../structvg_1_1FlowSort_1_1WeightedGraph.html',1,'vg::FlowSort']]],
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html',1,'vg']]],
-  ['windowedvcfbuffer',['WindowedVcfBuffer',['../classvg_1_1WindowedVcfBuffer.html',1,'vg']]]
+  ['windowedvcfbuffer',['WindowedVcfBuffer',['../classvg_1_1WindowedVcfBuffer.html',1,'vg']]],
+  ['wrappingpositionscanner',['WrappingPositionScanner',['../structvg_1_1WrappingPositionScanner.html',1,'vg']]]
 ];

@@ -45,7 +45,7 @@ var searchData=
   ['dpscorecomparator',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#aac5cf15234c5137ca426604d910340c8',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator()=delete'],['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a1c6be54ddf88de294dd910d8f39427aa',1,'vg::MEMClusterer::DPScoreComparator::DPScoreComparator(const vector&lt; HitNode &gt; &amp;nodes)']]],
   ['draw',['draw',['../classvg_1_1Viz.html#aed21697f1ddd4fb1b9c5ea2fcaa831b3',1,'vg::Viz']]],
   ['draw_5fgraph',['draw_graph',['../classvg_1_1Viz.html#ad8b787e3208a261c77e12d8cd70e0d08',1,'vg::Viz']]],
-  ['dumb_5fsort',['dumb_sort',['../classvg_1_1GAMSorter.html#a89bc0b8ea44ebe646ecf78201fa41b9a',1,'vg::GAMSorter']]],
+  ['drop_5fprefix',['drop_prefix',['../classvg_1_1BitString.html#a84c752f44db9a7329aeb7c7451a98171',1,'vg::BitString']]],
   ['dump',['dump',['../classvg_1_1SnarlState.html#ae67cfa52583343bc2899a8ee7fbe05f3',1,'vg::SnarlState::dump()'],['../classvg_1_1GenomeState.html#a378038862fa2d4de988bd880c5c434c6',1,'vg::GenomeState::dump()'],['../classvg_1_1Index.html#a6c76fd1ff1c569c4ed9aae364be14d84',1,'vg::Index::dump()']]],
   ['duplication_5ffilter',['duplication_filter',['../classvg_1_1Filter.html#a55d17dd60e541900c814c3fe5cef9338',1,'vg::Filter']]]
 ];

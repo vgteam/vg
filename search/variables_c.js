@@ -5,7 +5,7 @@ var searchData=
   ['larger_5fprime',['larger_prime',['../classvg_1_1ShuffledPairs.html#a20b31eca7b0fc0185246c560fd8e266d',1,'vg::ShuffledPairs']]],
   ['last',['last',['../structvg_1_1FeatureSet_1_1Feature.html#a9fb23b0b9affcc51a2610bb287b2082b',1,'vg::FeatureSet::Feature']]],
   ['last_5fcheckin',['last_checkin',['../structvg_1_1Watchdog_1_1thread__state__t.html#ad54ba05d09be7a40b4e9504b8d020ea6',1,'vg::Watchdog::thread_state_t']]],
-  ['last_5fgroup_5fmin_5fid',['last_group_min_id',['../classvg_1_1GAMIndex.html#abbb915dddfae7d8ef81afd16d814dfc8',1,'vg::GAMIndex']]],
+  ['last_5fgroup_5fmin_5fid',['last_group_min_id',['../classvg_1_1StreamIndexBase.html#aef3a7bd46aeb49185a8cd6a9a261e883',1,'vg::StreamIndexBase']]],
   ['last_5fnode_5flength',['last_node_length',['../structvg_1_1PathIndex.html#ac64a3532df12093eeccf3201184ea4d9',1,'vg::PathIndex']]],
   ['last_5fprogress',['last_progress',['../classvg_1_1Progressive.html#a4984481e2b887e5fb78ea40728f1b97f',1,'vg::Progressive']]],
   ['lcp',['lcp',['../classvg_1_1BaseMapper.html#a4046b98185c00ff397089435d5b2b8d8',1,'vg::BaseMapper']]],

@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['cacheentry',['CacheEntry',['../structvg_1_1IndexedVG_1_1CacheEntry.html',1,'vg::IndexedVG']]],
   ['cactusside',['CactusSide',['../structvg_1_1CactusSide.html',1,'vg']]],
   ['cactussnarlfinder',['CactusSnarlFinder',['../classvg_1_1CactusSnarlFinder.html',1,'vg']]],
   ['chainindex',['ChainIndex',['../classvg_1_1DistanceIndex_1_1ChainIndex.html',1,'vg::DistanceIndex']]],
