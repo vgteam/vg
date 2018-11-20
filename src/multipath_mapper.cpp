@@ -3205,6 +3205,11 @@ namespace vg {
                     haplotype_count = xindex->get_haplotype_count();
                 }
                 
+                if (haplotype_count == 0 || haplotype_count == -1) {
+                    // We really should have a haplotype count
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                }
+                
                 // Make sure to grab the memo
                 auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
                 
@@ -3444,6 +3449,11 @@ namespace vg {
                 if (haplotype_count == -1) {
                     // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
                     haplotype_count = xindex->get_haplotype_count();
+                }
+                
+                if (haplotype_count == 0 || haplotype_count == -1) {
+                    // We really should have a haplotype count
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
                 }
                 
                 // Make sure to grab the memo
