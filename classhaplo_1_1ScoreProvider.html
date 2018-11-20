@@ -111,7 +111,10 @@ Inheritance diagram for haplo::ScoreProvider:</div>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a4dd1edd0db2c92780af0fce9e62e8a1f"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; double, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1ScoreProvider.html#a4dd1edd0db2c92780af0fce9e62e8a1f">score</a> (const <a class="el" href="structvg_1_1Path.html">vg::Path</a> &amp;, <a class="el" href="structhaplo_1_1haploMath_1_1RRMemo.html">haploMath::RRMemo</a> &amp;memo)=0</td></tr>
+<tr class="memdesc:a4dd1edd0db2c92780af0fce9e62e8a1f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Score the given path usign the given memo.  <a href="#a4dd1edd0db2c92780af0fce9e62e8a1f">More...</a><br/></td></tr>
 <tr class="separator:a4dd1edd0db2c92780af0fce9e62e8a1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0a996828a43c37de27cd982578e84ae7"><td class="memItemLeft" align="right" valign="top">virtual int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1ScoreProvider.html#a0a996828a43c37de27cd982578e84ae7">get_haplotype_count</a> () const </td></tr>
+<tr class="separator:a0a996828a43c37de27cd982578e84ae7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adc52c96c8d122268f57187010a3eef7f"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1ScoreProvider.html#adc52c96c8d122268f57187010a3eef7f">~ScoreProvider</a> ()=default</td></tr>
 <tr class="separator:adc52c96c8d122268f57187010a3eef7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -142,6 +145,32 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a class="anchor" id="a0a996828a43c37de27cd982578e84ae7"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t haplo::ScoreProvider::get_haplotype_count </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the haplotype count (number of expected haplotypes that agree with a path that is fixed in the population) that should be used to construct the memo to pass to score, or -1 if the indexes backing the <a class="el" href="classhaplo_1_1ScoreProvider.html">ScoreProvider</a> do not make this information available. </p>
+
+<p>Reimplemented in <a class="el" href="classhaplo_1_1GBWTScoreProvider.html#a8fbe79ad429d09fd75e6041e8ba3daca">haplo::GBWTScoreProvider&lt; GBWTType &gt;</a>, and <a class="el" href="classhaplo_1_1XGScoreProvider.html#a37e033d500c5377b7946a9a33e235f0a">haplo::XGScoreProvider</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a4dd1edd0db2c92780af0fce9e62e8a1f"></a>
 <div class="memitem">
 <div class="memproto">
@@ -174,12 +203,15 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p>Score the given path usign the given memo. </p>
+
 <p>Implemented in <a class="el" href="classhaplo_1_1LinearScoreProvider.html#a0d95fe4eff2760404bce49d3aa50e2f0">haplo::LinearScoreProvider</a>, <a class="el" href="classhaplo_1_1GBWTScoreProvider.html#a9970037ed1e272daa0e0bfdf358c9bce">haplo::GBWTScoreProvider&lt; GBWTType &gt;</a>, and <a class="el" href="classhaplo_1_1XGScoreProvider.html#a06545c51c8c6c4f6f5bf917347020f71">haplo::XGScoreProvider</a>.</p>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following file:<ul>
+<hr/>The documentation for this class was generated from the following files:<ul>
 <li>src/<a class="el" href="haplotypes_8hpp.html">haplotypes.hpp</a></li>
+<li>src/<a class="el" href="haplotypes_8cpp.html">haplotypes.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

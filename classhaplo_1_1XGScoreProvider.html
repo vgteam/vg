@@ -115,7 +115,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af309042e4bbb20c8faf320a152a76245"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1XGScoreProvider.html#af309042e4bbb20c8faf320a152a76245">XGScoreProvider</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;<a class="el" href="classhaplo_1_1XGScoreProvider.html#a5a81cf1839423fe9fcd722744f008128">index</a>)</td></tr>
 <tr class="separator:af309042e4bbb20c8faf320a152a76245"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a06545c51c8c6c4f6f5bf917347020f71"><td class="memItemLeft" align="right" valign="top">pair&lt; double, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1XGScoreProvider.html#a06545c51c8c6c4f6f5bf917347020f71">score</a> (const <a class="el" href="structvg_1_1Path.html">vg::Path</a> &amp;, <a class="el" href="structhaplo_1_1haploMath_1_1RRMemo.html">haploMath::RRMemo</a> &amp;memo)</td></tr>
+<tr class="memdesc:a06545c51c8c6c4f6f5bf917347020f71"><td class="mdescLeft">&#160;</td><td class="mdescRight">Score the given path usign the given memo.  <a href="#a06545c51c8c6c4f6f5bf917347020f71">More...</a><br/></td></tr>
 <tr class="separator:a06545c51c8c6c4f6f5bf917347020f71"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a37e033d500c5377b7946a9a33e235f0a"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1XGScoreProvider.html#a37e033d500c5377b7946a9a33e235f0a">get_haplotype_count</a> () const </td></tr>
+<tr class="separator:a37e033d500c5377b7946a9a33e235f0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhaplo_1_1ScoreProvider"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhaplo_1_1ScoreProvider')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a></td></tr>
 <tr class="memitem:adc52c96c8d122268f57187010a3eef7f inherit pub_methods_classhaplo_1_1ScoreProvider"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1ScoreProvider.html#adc52c96c8d122268f57187010a3eef7f">~ScoreProvider</a> ()=default</td></tr>
 <tr class="separator:adc52c96c8d122268f57187010a3eef7f inherit pub_methods_classhaplo_1_1ScoreProvider"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -145,6 +148,32 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a class="anchor" id="a37e033d500c5377b7946a9a33e235f0a"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int64_t haplo::XGScoreProvider::get_haplotype_count </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the haplotype count (number of expected haplotypes that agree with a path that is fixed in the population) that should be used to construct the memo to pass to score, or -1 if the indexes backing the <a class="el" href="classhaplo_1_1ScoreProvider.html">ScoreProvider</a> do not make this information available. </p>
+
+<p>Reimplemented from <a class="el" href="classhaplo_1_1ScoreProvider.html#a0a996828a43c37de27cd982578e84ae7">haplo::ScoreProvider</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a06545c51c8c6c4f6f5bf917347020f71"></a>
 <div class="memitem">
 <div class="memproto">
@@ -156,7 +185,7 @@ Private Attributes</h2></td></tr>
           <td class="memname">pair&lt; double, bool &gt; haplo::XGScoreProvider::score </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">vg::Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em>, </td>
+          <td class="paramname">, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -176,6 +205,8 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>Score the given path usign the given memo. </p>
 
 <p>Implements <a class="el" href="classhaplo_1_1ScoreProvider.html#a4dd1edd0db2c92780af0fce9e62e8a1f">haplo::ScoreProvider</a>.</p>
 
