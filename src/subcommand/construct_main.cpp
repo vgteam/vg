@@ -340,9 +340,8 @@ int main_construct(int argc, char** argv) {
         constructor.construct_graph(fasta_pointers, vcf_pointers,
                                     ins_pointers, callback);
                                     
-        // Now all the graph chunks are written out.
-        // Add an EOF marker
-        stream::finish(cout);
+        // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
+        // Don't add an extra EOF marker or anything.
         
         // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
         // this would free all the memory used by protobuf:
