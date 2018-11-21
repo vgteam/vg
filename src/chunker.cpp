@@ -73,15 +73,47 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     }
     assert(chunk_start_pos >= 0);
 
+    // detect discontinuous reference path in expanded graph (can happen from partially covered deletion)
+    list<mapping_t>& mappings = subgraph.paths.get_path(region.seq);
+    size_t mappings_size = mappings.size();
+    size_t cur_pos = chunk_start_pos;
+    size_t out_path_len = mappings.begin()->length;
+    auto first_it = mappings.begin();
+    auto last_it = mappings.end();
+    auto cur_it = mappings.begin();
+    ++cur_it;
+    for (auto prev_it = mappings.begin(); cur_it != mappings.end(); ++prev_it, ++cur_it) {
+        if (prev_it->rank > 0 && cur_it->rank > 0 && prev_it->rank + 1 != cur_it->rank) {
+            if (cur_pos < region.start) {
+                first_it = cur_it;
+                chunk_start_pos = cur_pos;
+                out_path_len = 0;
+            }  else if (cur_pos > region.end) {
+                last_it = prev_it;
+                break;
+            } else {
+                cerr << "Warning: attempting to chunk path " << region.seq << "with discontinuous ranks: "
+                     << pb2json(prev_it->to_mapping()) << " -> " << pb2json(cur_it->to_mapping()) << endl;
+            }
+        }
+        cur_pos += prev_it->length;
+        out_path_len += cur_it->length;
+    }
+    // cut out nodes before and after discontinuity
+    mappings.erase(mappings.begin(), first_it);
+    mappings.erase(last_it, mappings.end());
+
+    // save the paths back to the graph if we changed anything
+    if (mappings.size() != mappings_size) {
+        subgraph.paths.rebuild_node_mapping();
+        subgraph.paths.rebuild_mapping_aux();
+        subgraph.graph.clear_path();
+        subgraph.paths.to_graph(subgraph.graph);
+    }
+        
     out_region.seq = region.seq;
     out_region.start = chunk_start_pos;
-    out_region.end = out_region.start - 1;
-    // Is there a better way to get path length? 
-    Path output_path = subgraph.paths.path(out_region.seq);
-    for (size_t j = 0; j < output_path.mapping_size(); ++j) {
-      int64_t op_node = output_path.mapping(j).position().node_id();
-      out_region.end += subgraph.get_node(op_node)->sequence().length();
-    }
+    out_region.end = chunk_start_pos + out_path_len - 1;
 }
 
 void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, int length,
