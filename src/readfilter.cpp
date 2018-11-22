@@ -347,24 +347,34 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // OK we know the first mapping to drop. We need to work out the to_size,
     // including all softclips, from there to the end, so we know how much to
     // trim off of the sequence and quality.
-    size_t to_length = 0;
+    size_t to_length_to_remove = 0;
     for(size_t i = first_mapping_to_drop; i < alignment.path().mapping_size(); i++) {
         // Go through all the mappings
         auto& mapping = alignment.path().mapping(i);
         for(size_t j = 0; j < mapping.edit_size(); j++) {
             // Add up the to_length of all the edits
-            to_length += mapping.edit(j).to_length();
+            to_length_to_remove += mapping.edit(j).to_length();
         }
     }
     
+#ifdef debug
+    cerr << "Want to trim " << alignment.sequence().size() << " bp sequence and " << alignment.quality().size()
+        << " quality values to remove " << to_length_to_remove << endl;
+#endif
+        
+    // Make sure we have at least enough to trim.
+    // Note that we allow the entire alignment to be trimmed away!
+    assert(alignment.sequence().size() >= to_length_to_remove);
+    assert(alignment.quality().empty() || alignment.quality().size() >= to_length_to_remove);
+    // And that we made sence before trimming
+    assert(alignment.quality().empty() || alignment.quality().size() == alignment.sequence().size());
+   
     // Trim sequence
-    alignment.set_sequence(alignment.sequence().substr(0, alignment.sequence().size() - to_length));
+    alignment.set_sequence(alignment.sequence().substr(0, alignment.sequence().size() - to_length_to_remove));
     
     // Trim quality
     if(!alignment.quality().empty()) {
-        // If we have a quality, it always ought to have been the same length as the sequence.
-        assert(alignment.quality().size() > to_length);
-        alignment.set_quality(alignment.quality().substr(0, alignment.quality().size() - to_length));
+        alignment.set_quality(alignment.quality().substr(0, alignment.quality().size() - to_length_to_remove));
     }
     
     // Now we can discard the extra mappings
@@ -569,7 +579,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     }
 
     // index chunk regions
-    IntervalTree<int, int64_t> region_map(interval_list);
+    IntervalTree<int, int64_t> region_map(std::move(interval_list));
 
     // which chunk(s) does a gam belong to?
     function<void(Alignment&, vector<int>&)> get_chunks = [&region_map, &regions](Alignment& aln, vector<int>& chunks) {
@@ -584,8 +594,7 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 min_aln_id = min(min_aln_id, (int64_t)mapping.position().node_id());
                 max_aln_id = max(max_aln_id, (int64_t)mapping.position().node_id());
             }
-            vector<Interval<int, int64_t> > found_ranges;
-            region_map.findOverlapping(min_aln_id, max_aln_id, found_ranges);
+            vector<Interval<int, int64_t> > found_ranges = region_map.findOverlapping(min_aln_id, max_aln_id);
             for (auto& interval : found_ranges) {
                 chunks.push_back(interval.value);
             }
@@ -647,6 +656,11 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
+#ifdef debug
+        cerr << "Encountered read named \"" << aln.name() << "\" with " << aln.sequence().size()
+            << " bp sequence and " << aln.quality().size() << " quality values" << endl;
+#endif
+    
         int tid = omp_get_thread_num();        
         Counts& counts = counts_vec[tid];
         double score = (double)aln.score();
@@ -793,6 +807,11 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
             ++counts.defray[co];
             // We keep these, because the alignments get modified.
+            // Unless the *entire* read gets trimmed
+            if (aln.sequence().size() == 0) {
+                keep = false;
+                ++counts.defray_all[co];
+            }
         }
         if ((keep || verbose) && downsample_probability != 1.0 && !sample_read(aln)) {
             ++counts.random[co];
@@ -842,6 +861,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << "Split Read Filter (secondary):     " << counts.split[1] << endl
              << "Repeat Ends Filter (primary):      " << counts.repeat[0] << endl
              << "Repeat Ends Filter (secondary):    " << counts.repeat[1] << endl
+             << "All Defrayed Filter (primary):     " << counts.defray_all[0] << endl
+             << "All Defrayed Filter (secondary):   " << counts.defray_all[1] << endl
              << "Min Quality Filter (primary):      " << counts.min_mapq[0] << endl
              << "Min Quality Filter (secondary):    " << counts.min_mapq[1] << endl
              << "Random Filter (primary):           " << counts.random[0] << endl

@@ -13,16 +13,26 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
     map<size_t, id_t> indexToNode;
                   //Index of original sequence to node that starts at that index
 
-    string seq(seqSize, 'A');//TODO: The graph is all As
+    random_device seed_source;
+    default_random_engine generator(seed_source());
+    
+    uniform_int_distribution<int> baseDistribution(0, 3);
+    poisson_distribution<size_t> lengthDistribution(variantLen);
+    uniform_int_distribution<int> variantDistribution(0, 4);
+    uniform_int_distribution<int> indexDistribution(0, seqSize-1);
+    
+    // Init the string with placeholder bases
+    string seq(seqSize, 'A');
+    // Set the string to random bases
+    string alphabet = "ACGT";
+    for (size_t i = 0; i < seq.size(); i++) {
+        seq[i] = alphabet[baseDistribution(generator)];
+    }
+    
     Node* n = graph.create_node(seq);
     indexToNode.insert(make_pair(0, n->id()));
 
     //Get random number generator for lengths and variation types
-    poisson_distribution<size_t> lengthDistribution(variantLen);
-    uniform_int_distribution<int> variantDistribution(0, 4);
-    uniform_int_distribution<int> indexDistribution(0, seqSize-1);
-    random_device seed_source;
-    default_random_engine generator(seed_source());
 
     auto splitNode = [&] (size_t index) -> pair<Node, Node> {
         //Split graph at index. Split the node with the original sequence into
@@ -86,7 +96,7 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
 
                 pair<Node, Node> endNodes = splitNode(startIndex+1);
                 Node end = endNodes.second;
-                Node* newNode = graph.create_node("G");//TODO: snp are all Gs
+                Node* newNode = graph.create_node(string(1, alphabet[baseDistribution(generator)]));
                 graph.create_edge(newNode, &end);
 
             } else if (startIndex < seqSize-2) {
@@ -96,7 +106,7 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
 
                 Node start = startNodes.first;
                 Node end = endNodes.second;
-                Node* newNode = graph.create_node("G");
+                Node* newNode = graph.create_node(string(1, alphabet[baseDistribution(generator)]));
                 graph.create_edge(&start, newNode);
                 graph.create_edge(newNode, &end);
 
@@ -105,7 +115,7 @@ VG randomGraph(int64_t seqSize, int64_t variantLen,
                 pair<Node, Node> startNodes = splitNode(startIndex);
 
                 Node start = startNodes.first;
-                Node* newNode = graph.create_node("G");
+                Node* newNode = graph.create_node(string(1, alphabet[baseDistribution(generator)]));
                 graph.create_edge(&start, newNode);
 
             }

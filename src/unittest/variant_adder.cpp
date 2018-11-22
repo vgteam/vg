@@ -381,9 +381,9 @@ TEST_CASE( "The smart aligner should use mapping offsets on huge deletions", "[v
 
     string graph_json = R"({
         "node": [
-            {"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+            {"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAA"},
             {"id": 2, "sequence": "<10kAs>"},
-            {"id": 3, "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCGC"}],
+            {"id": 3, "sequence": "AAAAAAAAAAAAAAAAAAAAGCGC"}],
         "edge": [
             {"from": 1, "to": 2},
             {"from": 1, "to": 3},
@@ -466,9 +466,9 @@ TEST_CASE( "The smart aligner should find existing huge deletions", "[variantadd
 
     string graph_json = R"({
         "node": [
-            {"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+            {"id": 1, "sequence": "GCGCAAAAAAAAAAAAAAAAAAAA"},
             {"id": 2, "sequence": "<10kAs>"},
-            {"id": 3, "sequence": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCGC"}],
+            {"id": 3, "sequence": "AAAAAAAAAAAAAAAAAAAAGCGC"}],
         "edge": [
             {"from": 1, "to": 2},
             {"from": 1, "to": 3},
@@ -581,32 +581,48 @@ TEST_CASE( "The smart aligner should use deletion edits on medium deletions", "[
         REQUIRE(aligned.sequence() == deleted);
     }
     
-    SECTION("the resulting alignment should have one mapping") {
-        REQUIRE(aligned.path().mapping_size() == 1);
+    SECTION("the resulting alignment should have one or more mappings") {
         
-        auto& m = aligned.path().mapping(0);
+        REQUIRE(aligned.path().mapping_size() >= 1);
         
-        SECTION("that mapping should have 3 edits") {
-            REQUIRE(m.edit_size() == 3);
+        auto& mFirst = aligned.path().mapping(0);
+        auto& mLast = aligned.path().mapping(aligned.path().mapping_size() - 1);
+        
+        vector<Edit> middles;
+        for (size_t i = 0; i < aligned.path().mapping_size(); i++) {
+            for(size_t j = 0; j < aligned.path().mapping(i).edit_size(); j++) {
+                if ((i != 0 || j != 0) && (i != aligned.path().mapping_size() - 1 || j != aligned.path().mapping(i).edit_size() - 1)) {
+                    // Collect all the non-end mappings
+                    middles.push_back(aligned.path().mapping(i).edit(j));
+                }
+            }
+        }
+        
+        SECTION("the mappings should ahve leading and trailing match edits and itnernal deletions") {
+            REQUIRE(mFirst.edit_size() >= 1);
+            REQUIRE(mLast.edit_size() >= 1);
             
-            auto& match1 = m.edit(0);
-            auto& del = m.edit(1);
-            auto& match2 = m.edit(2);
+            auto& match1 = mFirst.edit(0);
+            auto& match2 = mLast.edit(mLast.edit_size() - 1);
             
             SECTION("the first edit should be a match of the leading ref part") {
                 REQUIRE(edit_is_match(match1));
             }
             
-            SECTION("the second edit should be a deletion of the deleted sequence") {
-                REQUIRE(edit_is_deletion(del));
-                REQUIRE(del.from_length() == 100 - 21);
+            SECTION("the middle edits should be a deletion of the deleted sequence") {
+                size_t total_deleted = 0;
+                for (auto& del : middles) {
+                    REQUIRE(edit_is_deletion(del));
+                    total_deleted += del.from_length();
+                }
+                REQUIRE(total_deleted == 100 - 21);
             }
             
-            SECTION("the third edit should be a match of the trailing ref part") {
+            SECTION("the last edit should be a match of the trailing ref part") {
                 REQUIRE(edit_is_match(match2));
             }
             
-            SECTION("the first and third edits together should add up to the aligned sequence's length") {
+            SECTION("the first and last edits together should add up to the aligned sequence's length") {
                 REQUIRE(match1.from_length() + match2.from_length() == deleted.size());
             }
         }

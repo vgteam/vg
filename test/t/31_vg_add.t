@@ -35,7 +35,7 @@ is "$?" "0" "vg add can create a slightly larger graph"
 
 is "$(vg view -c x.vg | jq -c '.path[].mapping[] | select(.rank | not)' | wc -l)" "0" "ranks are calculated for emitted paths"
 
-is "$(vg view -Jv add/backward.json | vg add -v add/benedict.vcf - | vg stats -N -)" "5" "graphs with backward nodes can be added to"
+is "$(vg view -Jv add/backward.json | vg add -v add/benedict.vcf - | vg mod --unchop - | vg stats -N -)" "5" "graphs with backward nodes can be added to"
 
 is "$(vg view -Jv add/backward_and_forward.json | vg add -v add/benedict.vcf - | vg mod --unchop - | vg stats -N -)" "5" "graphs with backward and forward nodes can be added to"
 

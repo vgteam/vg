@@ -1,12 +1,12 @@
 ///
-///  \file genome_state.cpp
+///  \file stream_index.cpp
 ///
 ///  Unit tests for the GAMIndex which indexes seekable GAM files by node ID
 ///
 
 #include <iostream>
 #include "catch.hpp"
-#include "../gam_index.hpp"
+#include "../stream_index.hpp"
 #include "../utility.hpp"
 
 
@@ -15,48 +15,158 @@ namespace unittest {
 
 using namespace std;
 
-TEST_CASE("GAMindex windowing works correctly", "[gam][gamindex]") {
+TEST_CASE("BitString operations work correctly", "[bits][gamindex]") {
+    BitString some_bits(0xDEADBEEF, 32);
+    
+    REQUIRE(some_bits.to_number() == 0xDEADBEEF);
+    REQUIRE(some_bits.peek() == true);
+    REQUIRE(!some_bits.empty());
+    REQUIRE(some_bits.length() == 32);
+    REQUIRE(some_bits == some_bits);
+    REQUIRE(!(some_bits != some_bits));
+    auto split = some_bits.split(16);
+    REQUIRE(split.first != split.second);
+    REQUIRE(split.first.to_number() == 0xDEAD);
+    REQUIRE(split.second.to_number() == 0xBEEF);
+    
+    BitString more_bits(0xBEE7, 16);
+    
+    REQUIRE(more_bits.common_prefix_length(split.second) == 12);
+    REQUIRE(split.first.common_prefix_length(some_bits) == 16);
+    REQUIRE(some_bits.common_prefix_length(split.first) == 16);
+    
+    REQUIRE(some_bits.drop_prefix(16) == split.second);
+    
+    // Check comparison of prefixes and suffixes
+    REQUIRE(split.first.at_or_after(some_bits));
+    REQUIRE(split.first.at_or_before(some_bits));
+    REQUIRE(some_bits.at_or_after(split.first));
+    REQUIRE(some_bits.at_or_before(split.first));
+    REQUIRE(some_bits.at_or_after(some_bits));
+    REQUIRE(some_bits.at_or_before(some_bits));
+    
+    // Check comparison of different values
+    REQUIRE(BitString(5, 16).at_or_before(BitString(10, 16)));
+    REQUIRE(!BitString(5, 16).at_or_after(BitString(10, 16)));
+    
+    REQUIRE(!BitString(10, 16).at_or_before(BitString(5, 16)));
+    REQUIRE(BitString(10, 16).at_or_after(BitString(5, 16)));
+}
+
+TEST_CASE("BitStringTree works correctly", "[bits][gamindex]") {
+    BitStringTree<string> tree;
+    
+    tree.insert(BitString(0xDEADBEEF, 32), "Dead Beef");
+    tree.insert(BitString(0xDEAD, 16), "Dead");
+    tree.insert(BitString(0xDEE7, 16), "DEET");
+    tree.insert(BitString(0xF00D, 16), "Food");
+    tree.insert(BitString(0xF00DEA7, 28), "Food Eat");
+    
+    size_t count = 0;
+    bool found_long = false;
+    bool found_short = false;
+    
+    SECTION("Matches to the exact key and prefixes are found") {
+        tree.traverse_up(BitString(0xDEADBEEF, 32), [&](const string& value) -> bool {
+            count++;
+            if (value == "Dead Beef") {
+                found_long = true;
+            }
+            if (value == "Dead") {
+                found_short = true;
+            }
+            return true;
+        });
+        
+        REQUIRE(found_long);
+        REQUIRE(found_short);
+        REQUIRE(count == 2);
+    }
+    
+    SECTION("Matches to suffixes are not found") {
+        tree.traverse_up(BitString(0xDEADB, 20), [&](const string& value) -> bool {
+            count++;
+            if (value == "Dead Beef") {
+                found_long = true;
+            }
+            if (value == "Dead") {
+                found_short = true;
+            }
+            return true;
+        });
+        
+        REQUIRE(!found_long);
+        REQUIRE(found_short);
+        REQUIRE(count == 1);
+    }
+    
+    SECTION("Matches come out in reverse order of specificity and can stop early") {
+        tree.traverse_up(BitString(0xF00DEA7ED, 36), [&](const string& value) -> bool {
+            count++;
+            if (value == "Food Eat") {
+                found_long = true;
+            }
+            if (value == "Food") {
+                found_short = true;
+            }
+            return false;
+        });
+        
+        REQUIRE(found_long);
+        REQUIRE(!found_short);
+        REQUIRE(count == 1);
+    }
+    
+    SECTION("In-order traversal is possible") {
+        vector<string> observed;
+        
+        // Try to get all but the last element
+        tree.traverse_in_order(BitString(0xDEAD, 16), BitString(0xF00D0, 20), [&](const string& value) -> bool {
+            observed.push_back(value);
+            return true;
+        });
+        
+        REQUIRE(observed.size() == 4);
+        REQUIRE(observed[0] == "Dead");
+        REQUIRE(observed[1] == "Dead Beef");
+        REQUIRE(observed[2] == "DEET");
+        REQUIRE(observed[3] == "Food");
+    }
+}
+
+TEST_CASE("StreamIndexBase windowing works correctly", "[gam][gamindex]") {
 
     for (size_t i = 0; i < 10000000; i += 83373) {
-        REQUIRE(GAMIndex::window_of_id(i) == i / 256);
+        REQUIRE(StreamIndexBase::window_of_id(i) == i / 256);
     }
 
 }
 
-TEST_CASE("GAMindex binning works on a large number", "[gam][gamindex]") {
+TEST_CASE("StreamIndexBase binning works large numbers", "[gam][gamindex]") {
 
     for (id_t to_bin : {0ULL, 1ULL, 10ULL, 0xFFFFFFFFFFFFFFFFULL, 0xFACEDEADCAFEBEEFULL}) {
 
-        auto bins = GAMIndex::bins_of_id(to_bin);
+        auto bin = StreamIndexBase::common_bin(to_bin, to_bin);
 
-        // We need one bin per bit for all bits but the last one, plus one top-level 0 bin for everything.
-        REQUIRE(bins.size() == CHAR_BIT * sizeof(id_t));
-
-        // The bins should end with the least specific bin (0)
-        REQUIRE(bins.back() == 0);
-        
         // Bin levels go from 0 to bits-1.
-        // The first bin should be 2^(bits - 1) - 1 + id >> 1
-        REQUIRE(bins.front() == ((GAMIndex::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 1)) - 1 + ((GAMIndex::bin_t)to_bin >> 1));
-        
-        // The first bin is the most specific bin, which is the bin of the number and itself.
-        REQUIRE(bins.front() == GAMIndex::common_bin(to_bin, to_bin));
+        // The common bin should be 2^(bits - 1) - 1 + id >> 1
+        REQUIRE(bin == ((StreamIndexBase::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 1)) - 1 + ((StreamIndexBase::bin_t)to_bin >> 1));
     }
     
 }
 
-TEST_CASE("GAMindex binning works on adjacent numbers", "[gam][gamindex]") {
+TEST_CASE("StreamIndexBase binning works on adjacent numbers", "[gam][gamindex]") {
     
     // The common bin of an even and the next odd number should be the two numbers right shifted by one, pulss an offset.
     // For an odd and the next even, it should be them shifted by 2, pluss a smaller offset.
     
     // what offsets do we expect for bins based on their size?
-    auto SIZE_2_OFFSET = ((GAMIndex::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 1)) - 1;
-    auto SIZE_4_OFFSET = ((GAMIndex::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 2)) - 1;
+    auto SIZE_2_OFFSET = ((StreamIndexBase::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 1)) - 1;
+    auto SIZE_4_OFFSET = ((StreamIndexBase::bin_t)0x1 << (CHAR_BIT * sizeof(id_t) - 2)) - 1;
     
     for (size_t i = -10; i < 10000; i++) {
-        auto bin_found = GAMIndex::common_bin(i, i + 1);
-        auto bin_found2 = GAMIndex::common_bin(i + 1, i);
+        auto bin_found = StreamIndexBase::common_bin(i, i + 1);
+        auto bin_found2 = StreamIndexBase::common_bin(i + 1, i);
         
         // Should work in any order
         REQUIRE(bin_found == bin_found2);
@@ -68,10 +178,10 @@ TEST_CASE("GAMindex binning works on adjacent numbers", "[gam][gamindex]") {
         } else {
             if (i % 2 == 0) {
                 // Even number and next odd
-                REQUIRE(bin_found == SIZE_2_OFFSET + ((GAMIndex::bin_t)i >> 1));
+                REQUIRE(bin_found == SIZE_2_OFFSET + ((StreamIndexBase::bin_t)i >> 1));
             } else {
                 // Odd number and next even
-                REQUIRE(bin_found == SIZE_4_OFFSET + ((GAMIndex::bin_t)i >> 2));
+                REQUIRE(bin_found == SIZE_4_OFFSET + ((StreamIndexBase::bin_t)i >> 2));
             }
         }
     }
@@ -79,9 +189,9 @@ TEST_CASE("GAMindex binning works on adjacent numbers", "[gam][gamindex]") {
 
 }
 
-TEST_CASE("GAMindex can look up inserted ranges", "[gam][gamindex]") {
+TEST_CASE("StreamIndexBase can look up inserted ranges", "[gam][gamindex]") {
     // Make an empty index
-    GAMIndex index;
+    StreamIndexBase index;
 
     // Add some ID-sorted groups
     index.add_group(1, 5, 0, 100);

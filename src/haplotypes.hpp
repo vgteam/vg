@@ -23,12 +23,13 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 // 
 // A. Construct the following shared objects
-//    1. an index, either a
+//    1. An index, either a
 //        i.   xg::XG index
 //        ii.  gbwt::GBWT
 //        iii. gbwt::DynamicGBWT
 //    2. An appropriate ScoreProvider implementation that will use the index.
-//    3. a memo for shared values used in calculations; a
+//       It is also responsible for determining the population size from its index, if able.
+//    3. A memo for shared values used in calculations; a
 //             haplo::haploMath::RRMemo, which takes the parameters
 //                    i.    double -log(recombination probability)
 //                    ii.   size_t population size
@@ -379,7 +380,13 @@ public:
 /// TODO: Const-ify the indexes used
 class ScoreProvider {
 public:
+  /// Score the given path usign the given memo
   virtual pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo) = 0;
+  /// Return the haplotype count (number of expected haplotypes that agree with
+  /// a path that is fixed in the population) that should be used to construct
+  /// the memo to pass to score, or -1 if the indexes backing the ScoreProvider
+  /// do not make this information available.
+  virtual int64_t get_haplotype_count() const;
   virtual ~ScoreProvider() = default;
 };
 
@@ -388,6 +395,7 @@ class XGScoreProvider : public ScoreProvider {
 public:
   XGScoreProvider(xg::XG& index);
   pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
+  int64_t get_haplotype_count() const;
 private:
   xg::XG& index;
 };
@@ -398,6 +406,7 @@ class GBWTScoreProvider : public ScoreProvider {
 public:
   GBWTScoreProvider(GBWTType& index);
   pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
+  int64_t get_haplotype_count() const;
 private:
   GBWTType& index;
 };
@@ -629,6 +638,17 @@ pair<double, bool> GBWTScoreProvider<GBWTType>::score(const vg::Path& path, hapl
   return haplo_DP::score(path, index, memo);
 }
 
+template<class GBWTType>
+int64_t GBWTScoreProvider<GBWTType>::get_haplotype_count() const {
+  if (!index.hasMetadata()) {
+    // No metadata available
+    return -1;
+  }
+  
+  // TODO: Does this haplotype count have the same expected-count-for-fixed-path semantics that we want?
+  // Or does it count fragments of haplotypes?
+  return index.metadata.haplotype_count;
+}
 
 } // namespace haplo
 

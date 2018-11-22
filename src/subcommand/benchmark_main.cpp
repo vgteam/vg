@@ -16,6 +16,7 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
+#include "../indexed_vg.hpp"
 #include "../algorithms/extract_connecting_graph.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/weakly_connected_components.hpp"
@@ -35,6 +36,10 @@ void help_benchmark(char** argv) {
 int main_benchmark(int argc, char** argv) {
 
     bool show_progress = false;
+    
+    // Which experiments should we run?
+    bool sort_and_order_experiment = false;
+    bool get_sequence_experiment = true;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -86,10 +91,14 @@ int main_benchmark(int argc, char** argv) {
     // Turn on nested parallelism, so we can parallelize over VCFs and over alignment bands
     omp_set_nested(1);
     
+    
+    
+    vector<BenchmarkResult> results;
+    
     // Generate a test graph
     VG vg_mut;
     for (size_t i = 1; i < 101; i++) {
-        // It will have 100 nodes
+        // It will have 100 nodes in ID order
         vg_mut.create_node("ACGTACGT", i);
     }
     size_t bits = 1;
@@ -104,68 +113,68 @@ int main_benchmark(int argc, char** argv) {
         }
     }
     
+    // Save a constant copy to reset it with
     const VG vg(vg_mut);
     
-    // And a test XG of it
+    // Get an XG for it
     const xg::XG xg_index(vg_mut.graph);
     
-    vector<BenchmarkResult> results;
+    // And an IndexedVG
+    auto filename = temp_file::create();
+    vg_mut.serialize_to_file(filename, 10);
+    const IndexedVG indexed_vg(filename);
     
-    results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
-        vector<handle_t> order = algorithms::topological_order(&vg);
-        assert(order.size() == vg.node_size());
-    }));
+    if (sort_and_order_experiment) {
     
-    results.push_back(run_benchmark("vg::algorithms sort", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        algorithms::sort(&vg_mut);
-    }));
+        results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
+            vector<handle_t> order = algorithms::topological_order(&vg);
+            assert(order.size() == vg.node_size());
+        }));
+        
+        results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
+            vg_mut = vg;
+        }, [&]() {
+            algorithms::topological_sort(&vg_mut);
+        }));
+        
+        results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
+            vg_mut = vg;
+        }, [&]() {
+            algorithms::orient_nodes_forward(&vg_mut);
+        }));
+        
+        results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
+            auto components = algorithms::weakly_connected_components(&vg);
+            assert(components.size() == 1);
+            assert(components.front().size() == vg.node_size());
+        }));
+        
+    }
     
-    results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
-        vg_mut = vg;
-    }, [&]() {
-        algorithms::orient_nodes_forward(&vg_mut);
-    }));
+    if (get_sequence_experiment) {
     
-    
-    results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
-        auto components = algorithms::weakly_connected_components(&vg);
-        assert(components.size() == 1);
-        assert(components.front().size() == vg.node_size());
-    }));
-    
-    results.push_back(run_benchmark("VG::get_node", 1000, [&]() {
-        for (size_t rep = 0; rep < 100; rep++) {
+        results.push_back(run_benchmark("VG::get_sequence", 1000, [&]() {
             for (size_t i = 1; i < 101; i++) {
-                vg_mut.get_node(i);
+                handle_t handle = vg.get_handle(i);
+                string sequence = vg.get_sequence(handle);
             }
-        }
-    }));
-    
-    results.push_back(run_benchmark("algorithms::extract_connecting_graph on xg", 1000, [&]() {
-        pos_t pos_1 = make_pos_t(55, false, 0);
-        pos_t pos_2 = make_pos_t(32, false, 0);
+        }));
         
-        int64_t max_len = 500;
+        results.push_back(run_benchmark("XG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = xg_index.get_handle(i);
+                string sequence = xg_index.get_sequence(handle);
+            }
+        }));
         
-        VG extractor;
+        results.push_back(run_benchmark("IndexedVG::get_sequence", 1000, [&]() {
+            for (size_t i = 1; i < 101; i++) {
+                handle_t handle = indexed_vg.get_handle(i);
+                string sequence = indexed_vg.get_sequence(handle);
+            }
+        }));
         
-        auto trans = algorithms::extract_connecting_graph(&xg_index, &extractor, max_len, pos_1, pos_2, true, true);
-    
-    }));
-    
-    results.push_back(run_benchmark("algorithms::extract_connecting_graph on vg", 1000, [&]() {
-        pos_t pos_1 = make_pos_t(55, false, 0);
-        pos_t pos_2 = make_pos_t(32, false, 0);
-        
-        int64_t max_len = 500;
-        
-        VG extractor;
-        
-        auto trans = algorithms::extract_connecting_graph(&vg, &extractor, max_len, pos_1, pos_2, true, true);
-    
-    }));
+    }
     
     // Do the control against itself
     results.push_back(run_benchmark("control", 1000, benchmark_control));
@@ -175,7 +184,7 @@ int main_benchmark(int argc, char** argv) {
     for (auto& result : results) {
         cout << result << endl;
     }
-
+    
     return 0;
 }
 

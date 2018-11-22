@@ -209,8 +209,18 @@ int main_construct(int argc, char** argv) {
         // Actually use the Constructor.
         // TODO: If we aren't always going to use the Constructor, refactor the subcommand to not always create and configure it.
 
+        // Make an emitter that serializes the actual Graph objects, with buffering.
+        stream::ProtobufEmitter<Graph> emitter(cout);
+
         // We need a callback to handle pieces of graph as they are produced.
         auto callback = [&](Graph& big_chunk) {
+            // Sort the nodes by ID so that the serialized chunks come out in sorted order
+            // TODO: We still interleave chunks from different threads working on different contigs
+            std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), [](const Node& a, const Node& b) -> bool {
+                // Return true if a comes before b
+                return a.id() < b.id();
+            });
+        
             // Wrap the chunk in a vg object that can properly divide it into
             // reasonably sized serialized chunks.
             VG* g = new VG(big_chunk, false, true);
@@ -218,8 +228,9 @@ int main_construct(int argc, char** argv) {
             // Check our work. Never output an invalid graph.
             // But allow for edges where one node isn't there, because we need those to connect segments.
             assert(g->is_valid(true, false, true, true));
-#pragma omp critical (cout)
-            g->serialize_to_ostream_as_part(cout);
+            // One thread at a time can write to the emitter and the output stream
+#pragma omp critical (emitter)
+            g->serialize_to_emitter(emitter);
         };
         
         // Copy shared parameters into the constructor

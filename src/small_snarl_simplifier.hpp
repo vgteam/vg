@@ -1,5 +1,5 @@
-#ifndef VG_SIMPLIFIER_HPP_INCLUDED
-#define VG_SIMPLIFIER_HPP_INCLUDED
+#ifndef VG_SMALL_SNARL_SIMPLIFIER_HPP_INCLUDED
+#define VG_SMALL_SNARL_SIMPLIFIER_HPP_INCLUDED
 
 
 #include "progressive.hpp"
@@ -26,11 +26,11 @@ using namespace std;
  * like features up to date. TODO: doesn't handle path start and end positions
  * within nodes.
  */
-class Simplifier : public Progressive {
+class SmallSnarlSimplifier : public Progressive {
 
 public:
     /// Make a simplifier that simplifies the given graph in place.
-    Simplifier(VG& graph);
+    SmallSnarlSimplifier(VG& graph);
     
     /// Simplify the graph by one step. Returns the number of nodes deleted and
     /// the number of edges deleted. Can be passed an iteration for its progress
@@ -53,9 +53,11 @@ public:
     /// bubbles unsimplified?
     bool drop_hairpin_paths = false;
     
-    /// Stores the features in the graph, and gets updated as simplification
-    /// proceeds. The user should load the features in and pull them out.
-    FeatureSet features;
+    /// If the user points this to a FeatureSet, that FeatureSet will get its
+    /// features updated with changes to the graph as simplification proceeds.
+    /// The user should load the features in and pull them out.
+    /// TODO: Replace this with an on_path_edit event on this object that can be listened on.
+    FeatureSet* features = nullptr;
     
 protected:
 

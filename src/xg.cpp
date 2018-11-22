@@ -1623,30 +1623,29 @@ Graph XG::graph_context_g(const pos_t& g_pos, int64_t length) const {
 }
 
 handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
-    // Handles will be g vector index with is_reverse in the high bit
+    // Handles will be g vector index with is_reverse in the low bit
     
     // Where in the g vector do we need to be
-    size_t handle = g_bv_select(id_to_rank(node_id));
+    uint64_t g = g_bv_select(id_to_rank(node_id));
     // And set the high bit if it's reverse
-    if (is_reverse) handle |= HIGH_BIT;
-    return as_handle(handle);
+    return EasyHandlePacking::pack(g, is_reverse);
 }
 
 id_t XG::get_id(const handle_t& handle) const {
     // Go get the g offset and then look up the noder ID
-    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_ID_OFFSET];
+    return g_iv[EasyHandlePacking::unpack_number(handle) + G_NODE_ID_OFFSET];
 }
 
 bool XG::get_is_reverse(const handle_t& handle) const {
-    return as_integer(handle) & HIGH_BIT;
+    return EasyHandlePacking::unpack_bit(handle);
 }
 
 handle_t XG::flip(const handle_t& handle) const {
-    return as_handle(as_integer(handle) ^ HIGH_BIT);
+    return EasyHandlePacking::toggle_bit(handle);
 }
 
 size_t XG::get_length(const handle_t& handle) const {
-    return g_iv[(as_integer(handle) & LOW_BITS) + G_NODE_LENGTH_OFFSET];
+    return g_iv[EasyHandlePacking::unpack_number(handle) + G_NODE_LENGTH_OFFSET];
 }
 
 string XG::get_sequence(const handle_t& handle) const {
@@ -1656,7 +1655,7 @@ string XG::get_sequence(const handle_t& handle) const {
     // Allocate the sequence string
     string sequence(sequence_size, '\0');
     // Extract the node record start
-    size_t g = as_integer(handle) & LOW_BITS;
+    size_t g = EasyHandlePacking::unpack_number(handle);
     // Figure out where the sequence starts
     size_t sequence_start = g_iv[g + G_NODE_SEQ_START_OFFSET];
     for (int64_t i = 0; i < sequence_size; i++) {
@@ -1664,7 +1663,7 @@ string XG::get_sequence(const handle_t& handle) const {
         sequence[i] = revdna3bit(s_iv[sequence_start + i]);
     }
     
-    if (as_integer(handle) & HIGH_BIT) {
+    if (EasyHandlePacking::unpack_bit(handle)) {
         return reverse_complement(sequence);
     } else {
         return sequence;
@@ -1721,7 +1720,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             bool new_reverse = is_reverse != (type == 2 || type == 3);
             
             // Compose the handle for where we are going
-            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
+            handle_t next_handle = EasyHandlePacking::pack(g + offset, new_reverse);
             
             // We want this edge
             
@@ -1734,7 +1733,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             // TODO: delete this after using it to debug
             int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
             bool new_reverse = is_reverse != (type == 2 || type == 3);
-            handle_t next_handle = as_handle((g + offset) | (new_reverse ? HIGH_BIT : 0));
+            handle_t next_handle = EasyHandlePacking::pack(g + offset, new_reverse);
         }
     }
     // Iteratee didn't stop us.
@@ -1744,8 +1743,8 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
 bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
 
     // Unpack the handle
-    size_t g = as_integer(handle) & LOW_BITS;
-    bool is_reverse = get_is_reverse(handle);
+    size_t g = EasyHandlePacking::unpack_number(handle);
+    bool is_reverse = EasyHandlePacking::unpack_bit(handle);
 
     // How many edges are there of each type?
     size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
@@ -1765,49 +1764,64 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
 }
 
 void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
-    // How big is the g vector entry size we are on?
-    size_t entry_size = 0;
-    // The lambda function will let us know if we're bailing early.
+    // This shared flag lets us bail early even when running in parallel
     bool stop_early = false;
-    auto lambda = [&](size_t g) {
-        // Make the handle
-        // We need to make sure our index won't set the orientation bit.
-        assert((g & (~LOW_BITS)) == 0);
-        
-        // Just make it into a handle; we're always forward.
-        handle_t handle = as_handle(g);
-        
-        // Run the iteratee
-        if (!iteratee(handle)) {
-            // The iteratee is bored and wants to stop.
-#pragma omp atomic write
-            stop_early = true;
-            return;
-        }
-        
-        // How many edges are there of each type on this record?
-        size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
-        size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
-        
-        // This record is the header plus all the edge records it contains
-        entry_size = G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
-        
-    };
     if (parallel) {
-#pragma omp parallel for schedule(dynamic,1)
-        for (size_t g = 0; g < g_iv.size(); g += entry_size) {
-            lambda(g);
-            
-            // This is hack-y, but it achieves a 'break' statement while keeping OpenMP happy.
-            if (stop_early) {
-                entry_size = g_iv.size() - g;
+        #pragma omp parallel
+        {
+            #pragma omp single 
+            {
+                // We need to do a serial scan of the g vector because each entry is variable size.
+                for (size_t g = 0; g < g_iv.size() && !stop_early;) {
+                    // Make it into a handle, packing it as the node ID and using 0 for orientation
+                    handle_t handle = EasyHandlePacking::pack(g, false);
+                
+                    #pragma omp task firstprivate(handle)
+                    {
+                        // Run the iteratee
+                        if (!iteratee(handle)) {
+                            // The iteratee is bored and wants to stop.
+                            #pragma omp atomic write
+                            stop_early = true;
+                        }
+                    }
+                    
+                    // How many edges are there of each type on this record?
+                    size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
+                    size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
+                    
+                    // This record is the header plus all the edge records it contains.
+                    // Decode the entry size in the same thread doing the iteration.
+                    g += G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
+                }
             }
+            
+            // The end of the single block waits for all the tasks 
         }
     } else {
-        for (size_t g = 0; g < g_iv.size() && !stop_early; g += entry_size) {
-            lambda(g);
+        for (size_t g = 0; g < g_iv.size() && !stop_early;) {
+            // Make it into a handle, packing it as the node ID and using 0 for orientation
+            handle_t handle = EasyHandlePacking::pack(g, false);
+            
+            // Run the iteratee in-line
+            if (!iteratee(handle)) {
+                // The iteratee is bored and wants to stop.
+                stop_early = true;
+            }
+            
+            // How many edges are there of each type on this record?
+            size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
+            size_t edges_from_count = g_iv[g + G_NODE_FROM_COUNT_OFFSET];
+            
+            // This record is the header plus all the edge records it contains.
+            // Decode the entry size in the same thread doing the iteration.
+            g += G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
         }
     }
+}
+
+bool XG::has_path(const string& path_name) const {
+    return path_rank(path_name) != 0;
 }
 
 path_handle_t XG::get_path_handle(const string& path_name) const {
@@ -1892,6 +1906,14 @@ size_t XG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_
 
 size_t XG::node_size() const {
     return this->node_count;
+}
+
+id_t XG::min_node_id() const {
+    return min_id;
+}
+    
+id_t XG::max_node_id() const {
+    return max_id;
 }
 
 vector<Edge> XG::edges_of(int64_t id) const {

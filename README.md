@@ -43,7 +43,9 @@ Other libraries may be required. Please report any build difficulties.
 
 Note that a 64-bit OS is required. Ubuntu 16.04 should work. You will also need a CPU that supports SSE 4.2 to run VG; you can check this with `cat /proc/cpuinfo | grep sse4_2`.
 
-When you are ready, build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
+When you are ready, build with `. ./source_me.sh && make`, and run with `./bin/vg`.
+
+You can also produce a static binary with `make static`, assuming you have static versions of all the dependencies installed on your system.
 
 ### Building on MacOS
 
@@ -77,6 +79,8 @@ Homebrew provides another package management solution for OSX, and may be prefer
 
     # Force use of new version of bison
     brew link bison --force
+    # NOTE! If brew says that it is refusing to link Bison, follow its suggested
+    # instructions to put Bison on your PATH instead.
 
     # Use glibtool/ize
     export LIBTOOL=glibtool
@@ -173,17 +177,17 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 # note that the graph file is not opened, but x.vg.index is assumed
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa > read.gam
 
-# simulate a bunch of 150bp reads from the graph and map them
-vg sim -n 1000 -l 150 -x x.xg > x.sim.vg
+# simulate a bunch of 150bp reads from the graph, one per line
+vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
 # now map these reads against the graph to get a GAM
-vg map -T x.sim.vg -x x.xg -g x.gcsa > aln.gam
+vg map -T x.sim.txt -x x.xg -g x.gcsa > aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
 vg surject -x x.xg -b aln.gam > aln.bam
 
 # or alternatively, surject them to BAM in the call to map
-vg sim -n 1000 -l 150 -x x.xg > x.sim.vg
-vg map -T x.sim.vg -x x.xg -g x.gcsa --surject-to bam > aln.bam
+vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
+vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 ```
 ### Variant Calling
 

@@ -27,6 +27,7 @@
 #include "mem.hpp"
 
 #include "vg.pb.h"
+#include "stream.hpp"
 #include "hash_map.hpp"
 
 #include "progressive.hpp"
@@ -78,7 +79,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutableHandleGraph, public PathHandleGraph {
+class VG : public Progressive, public MutablePathMutableHandleGraph {
 
 public:
 
@@ -87,7 +88,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     
     // Copy over the visit version which would otherwise be shadowed.
     using HandleGraph::get_handle;
@@ -126,9 +127,21 @@ public:
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
     
+    /// Get the minimum node ID used in the graph, if any are used
+    virtual id_t min_node_id() const;
+    /// Get the maximum node ID used in the graph, if any are used
+    virtual id_t max_node_id() const;
+    
+    /// Efficiently get the number of edges attached to one side of a handle.
+    /// Uses the VG graph's internal degree index.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
+    
+    /// Determine if a path name exists and is legal to get a path handle for.
+    virtual bool has_path(const string& path_name) const;
     
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
@@ -214,11 +227,19 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Mutable path handle interface
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Destroy the given path. Invalidates handles to the path and its node occurrences.
+    virtual void destroy_path(const path_handle_t& path);
+
+    /// Create a path with the given name.
+    virtual path_handle_t create_path_handle(const string& name);
     
-private:
-    // We have some masks for cramming things into handles
-    const static size_t HIGH_BIT = (size_t)1 << 63;
-    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
+    /// Append a visit to a node to the given path
+    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
     
 public:
     
@@ -375,6 +396,8 @@ public:
     void bluntify(void);
     /// Turn the graph into a dag by copying strongly connected components expand_scc_steps times
     /// and translating the edges in the component to flow through the copies in one direction.
+    /// Assumes that all nodes in the graph are articulated on one consistent strand.
+    /// Tolerates doubly-reversing edges in the input graph.
     VG dagify(uint32_t expand_scc_steps,
               unordered_map<id_t, pair<id_t, bool> >& node_translation,
               size_t target_min_walk_length = 0,
@@ -495,25 +518,21 @@ public:
     void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
     void prune_short_subgraphs(size_t min_size);
 
+    /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
+    /// Use when combining multiple VG objects in a stream.
+    /// Graph will be serialized in internal storage order.
+    void serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
     /// Write to a stream in chunked graphs. Adds an EOF marker.
     /// Use when this VG will be the only thing in the stream.
+    /// Graph will be serialized in internal storage order.
     void serialize_to_ostream(ostream& out, id_t chunk_size = 1000);
-    /// Write to a stream in chunked graphs. Does not add an EOF marker, so
-    /// serializing multiple graphs to a stream won't produce spurious EOF
-    /// markers. Caller must call stream::finish(out) on the stream when done
-    /// writing to it.
-    /// Use when combining multiple VG objects in a stream/
-    void serialize_to_ostream_as_part(ostream& out, id_t chunk_size = 1000);
     /// Write the graph to a file, with an EOF marker.
+    /// Graph will be serialized in internal storage order.
     void serialize_to_file(const string& file_name, id_t chunk_size = 1000);
 
     // can we handle this with merge?
     //void concatenate(VG& g);
 
-    /// Get the maximum node ID in the graph.
-    id_t max_node_id(void);
-    /// Get the minimum node ID in the graph.
-    id_t min_node_id(void);
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
     /// Add the given value to all node IDs. Preserves the paths.
@@ -585,7 +604,7 @@ public:
     /// edits that hit the end of a node to be attached to what comes
     /// before/after the node by the caller, as this function doesn't handle
     /// that.
-    vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling);
+    vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size = 1024);
 
     /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
     /// them to the given map by node ID of sets of bases in the node that will need

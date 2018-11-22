@@ -89,7 +89,7 @@ using namespace std;
             VG split_path_graph;
             unordered_map<id_t, pair<id_t, bool>> split_trans = algorithms::split_strands(&path_graph, &split_path_graph);
             
-            algorithms::lazier_sort(&split_path_graph);
+            algorithms::lazier_topological_sort(&split_path_graph);
             
             auto node_trans = split_path_graph.overlay_node_translations(split_trans, path_trans);
             
