@@ -305,7 +305,7 @@ endif
 $(INC_DIR)/gbwt/dynamic_gbwt.h: $(LIB_DIR)/libgbwt.a
 $(LIB_DIR)/libgbwt.a: $(LIB_DIR)/libsdsl.a $(wildcard $(GBWT_DIR)/*.cpp) $(wildcard $(GBWT_DIR)/include/gbwt/*.h)
 ifeq ($(shell uname -s),Darwin)
-	+. ./source_me.sh && cd $(GBWT_DIR) && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) libgbwt.a build_gbwt $(FILTER) && mv libgbwt.a $(CWD)/$(LIB_DIR) && cp -r include/gbwt $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && cd $(GBWT_DIR) && AS_INTEGRATED_ASSEMBLER=1 $(MAKE) $(FILTER) && mv libgbwt.a $(CWD)/$(LIB_DIR) && cp -r include/gbwt $(CWD)/$(INC_DIR)/
 else
 	+. ./source_me.sh && cd $(GBWT_DIR) && $(MAKE) libgbwt.a build_gbwt $(FILTER) && mv libgbwt.a $(CWD)/$(LIB_DIR) && cp -r include/gbwt $(CWD)/$(INC_DIR)/
 endif
