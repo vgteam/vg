@@ -62,6 +62,10 @@ static ssize_t cppstream_read(hFILE *fpv, void *buffer, size_t nbytes) {
 /// Write data. Return the number of bytes actually written. Return a negative
 /// value and set errno on error.
 static ssize_t cppstream_write(hFILE *fpv, const void *buffer, size_t nbytes) {
+#ifdef debug
+    cerr << "cppstream_write(" << fpv << ", " << buffer << ", " << nbytes << ")" << endl;
+#endif
+    
     // Cast the hFILE to the derived class
     hFILE_cppstream* fp = (hFILE_cppstream*) fpv;
     
@@ -73,6 +77,7 @@ static ssize_t cppstream_write(hFILE *fpv, const void *buffer, size_t nbytes) {
     
     // Write the data and record how much we put
     fp->output->clear();
+    // Note that the stream always takes all the bytes
     fp->output->write((char*) buffer, nbytes);
     
     if (!fp->output->good()) {
@@ -80,6 +85,10 @@ static ssize_t cppstream_write(hFILE *fpv, const void *buffer, size_t nbytes) {
         errno = EIO;
         return -1;
     }
+    
+#ifdef debug
+    cerr << "Successfully wrote " << nbytes << " bytes" << endl;
+#endif
     
     // Otherwise the write worked, and we wrote all the bytes
     return nbytes;
@@ -175,6 +184,10 @@ static off_t cppstream_seek(hFILE *fpv, off_t offset, int whence) {
 /// Flush the output stream, if we are doing output. Return 0 for success, or a
 /// negative number and set errno on error.
 static int cppstream_flush(hFILE *fpv) {
+#ifdef debug
+    cerr << "cppstream_flush(" << fpv << ")" << endl;
+#endif
+
     // Cast the hFILE to the derived class
     hFILE_cppstream* fp = (hFILE_cppstream*) fpv;
 
@@ -197,6 +210,10 @@ static int cppstream_flush(hFILE *fpv) {
 /// failure.
 static int cppstream_close(hFILE *fpv) {
     // This is tricky because we don't own the stream. We also can't close generic istreams and ostreams.
+    
+#ifdef debug
+    cerr << "cppstream_close(" << fpv << ")" << endl;
+#endif
     
     // Cast the hFILE to the derived class
     hFILE_cppstream* fp = (hFILE_cppstream*) fpv;

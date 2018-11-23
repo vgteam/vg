@@ -210,7 +210,8 @@ int main_construct(int argc, char** argv) {
         // TODO: If we aren't always going to use the Constructor, refactor the subcommand to not always create and configure it.
 
         // Make an emitter that serializes the actual Graph objects, with buffering.
-        stream::ProtobufEmitter<Graph> emitter(cout);
+        // But just serialize one graph at a time in each group.
+        stream::ProtobufEmitter<Graph> emitter(cout, 1);
 
         // We need a callback to handle pieces of graph as they are produced.
         auto callback = [&](Graph& big_chunk) {
@@ -340,9 +341,8 @@ int main_construct(int argc, char** argv) {
         constructor.construct_graph(fasta_pointers, vcf_pointers,
                                     ins_pointers, callback);
                                     
-        // Now all the graph chunks are written out.
-        // Add an EOF marker
-        stream::finish(cout);
+        // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
+        // Don't add an extra EOF marker or anything.
         
         // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
         // this would free all the memory used by protobuf:
