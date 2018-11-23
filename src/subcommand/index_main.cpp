@@ -919,10 +919,9 @@ int main_index(int argc, char** argv) {
                 gbwt_builder->index.metadata.setSamples(sample_count);
                 gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
                 gbwt_builder->index.metadata.setContigs(contig_count);
-                if (show_progress)
-                {
-                  cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
-                  cerr << "Saving GBWT to disk..." << endl;
+                if (show_progress) {
+                    cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
+                    cerr << "Saving GBWT to disk..." << endl;
                 }
                 sdsl::store_to_file(gbwt_builder->index, gbwt_name);
                 delete gbwt_builder; gbwt_builder = nullptr;
