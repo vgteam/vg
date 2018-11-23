@@ -38,7 +38,9 @@ vg gbwt -f -o xy2.gbwt x.gbwt y.gbwt
 is $? 0 "GBWT indexes can be merged with the fast algorithm"
 is $(vg gbwt -c xy2.gbwt) 4 "there are 4 threads in the merged index"
 
-# Compare the merged indexes
+# Remove metadata from the merged indexes and compare them
+../deps/gbwt/metadata -r xy > /dev/null
+../deps/gbwt/metadata -r xy2 > /dev/null
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
