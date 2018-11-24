@@ -315,8 +315,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa44d179fe024d5a2d4cec22528206a81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7ed9434d6aff7039337d0912c9d09de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#af7ed9434d6aff7039337d0912c9d09de">neighborhood</a> (int64_t id, size_t dist, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, bool use_steps=true) const </td></tr>
 <tr class="separator:af7ed9434d6aff7039337d0912c9d09de"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5fb56d084dfbc766d649f73978a2d5b6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a5fb56d084dfbc766d649f73978a2d5b6">for_path_range</a> (const string &amp;name, int64_t start, int64_t stop, function&lt; void(int64_t node_id)&gt; lambda, bool is_rev=false) const </td></tr>
-<tr class="separator:a5fb56d084dfbc766d649f73978a2d5b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1bd23f7a047b25dcf14a4516efbba3b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a1bd23f7a047b25dcf14a4516efbba3b3">for_path_range</a> (const string &amp;name, int64_t start, int64_t stop, function&lt; void(int64_t node_id, bool rev)&gt; lambda, bool is_rev=false) const </td></tr>
+<tr class="separator:a1bd23f7a047b25dcf14a4516efbba3b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2959d9ff580f39ee6cc66326ba6c179b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a2959d9ff580f39ee6cc66326ba6c179b">get_path_range</a> (const string &amp;name, int64_t start, int64_t stop, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, bool is_rev=false) const </td></tr>
 <tr class="separator:a2959d9ff580f39ee6cc66326ba6c179b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0711c4ef6d84e77c553c46a68202fda9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a0711c4ef6d84e77c553c46a68202fda9">expand_context</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, size_t dist, bool add_paths=true, bool use_steps=true, bool expand_forward=true, bool expand_backward=true, int64_t until_node=0) const </td></tr>
@@ -2239,7 +2239,7 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a5fb56d084dfbc766d649f73978a2d5b6"></a>
+<a class="anchor" id="a1bd23f7a047b25dcf14a4516efbba3b3"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -2264,7 +2264,7 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">function&lt; void(int64_t node_id)&gt;&#160;</td>
+          <td class="paramtype">function&lt; void(int64_t node_id, bool rev)&gt;&#160;</td>
           <td class="paramname"><em>lambda</em>, </td>
         </tr>
         <tr>
