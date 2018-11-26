@@ -24,6 +24,7 @@
 #include "algorithms/count_walks.hpp"
 #include "algorithms/strongly_connected_components.hpp"
 #include "algorithms/a_star.hpp"
+#include "algorithms/eades_algorithm.hpp"
 #include "unittest/random_graph.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
@@ -5220,6 +5221,95 @@ namespace vg {
                         }
                     }
                 }
+            }
+        }
+        
+        TEST_CASE("Eades algorithm finds layouts with small feedback arc sets","[eades][algorithms]") {
+            
+            auto count_feedback_arcs = [](const HandleGraph* graph, const vector<handle_t>& layout) {
+                
+                unordered_map<handle_t, int64_t> idx_of;
+                for (int64_t i = 0; i < layout.size(); i++) {
+                    idx_of[layout[i]] = i;
+                }
+                
+                unordered_set<edge_t> seen;
+                
+                int64_t num_feedback_arcs = 0;
+                for (const handle_t& handle : layout) {
+                    graph->follow_edges(handle, true, [&](const handle_t& prev) {
+                        auto edge = graph->edge_handle(prev, handle);
+                        if (!seen.count(edge)) {
+                            seen.insert(edge);
+                            if (idx_of[prev] >= idx_of[handle]) {
+                                num_feedback_arcs++;
+                            }
+                        }
+                    });
+                    graph->follow_edges(handle, false, [&](const handle_t& next) {
+                        auto edge = graph->edge_handle(handle, next);
+                        if (!seen.count(edge)) {
+                            seen.insert(edge);
+                            if (idx_of[handle] >= idx_of[next]) {
+                                num_feedback_arcs++;
+                            }
+                        }
+                    });
+                }
+                return num_feedback_arcs;
+            };
+            
+            SECTION("Eades algorithm finds a topological ordering on a DAG") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                
+                vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+                
+                REQUIRE(count_feedback_arcs(&graph, layout) == 0);
+            }
+            
+            SECTION("Eades algorithm finds a feedback arc set with only one feedback arc") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                graph.create_edge(n7, n3);
+                
+                vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+                
+                REQUIRE(count_feedback_arcs(&graph, layout) == 1);
             }
         }
     }
