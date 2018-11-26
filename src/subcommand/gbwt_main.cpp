@@ -34,7 +34,7 @@ void help_gbwt(char** argv) {
          << "threads:" << endl
          << "    -c, --count-threads    print the number of threads" << endl
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
-         << "metadata:" << endl
+         << "metadata (use deps/gbwt/metadata to modify):" << endl
          << "    -M, --metadata         print all metadata" << endl
          << "    -C, --contigs          print the number of contigs" << endl
          << "    -H, --haplotypes       print the number of haplotypes" << endl
@@ -234,7 +234,7 @@ int main_gbwt(int argc, char** argv)
     // Non-merge options.
     if (load_index) {
         if (optind + 1 != argc) {
-            cerr << "[vg gbwt] error: options -c, -e, -C, -H, and -S require one input file" << endl;
+            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
             return 1;
         }
         gbwt::GBWT index;
