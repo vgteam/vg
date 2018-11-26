@@ -35,6 +35,7 @@ void help_gbwt(char** argv) {
          << "    -c, --count-threads    print the number of threads" << endl
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
          << "metadata:" << endl
+         << "    -M, --metadata         print all metadata" << endl
          << "    -C, --contigs          print the number of contigs" << endl
          << "    -H, --haplotypes       print the number of haplotypes" << endl
          << "    -S, --samples          print the number of samples" << endl
@@ -52,7 +53,7 @@ int main_gbwt(int argc, char** argv)
     bool fast_merging = false;
     bool show_progress = false;
     bool count_threads = false;
-    bool contigs = false, haplotypes = false, samples = false;
+    bool metadata = false, contigs = false, haplotypes = false, samples = false;
     bool load_index = false;
     string gbwt_output, thread_output;
 
@@ -72,6 +73,7 @@ int main_gbwt(int argc, char** argv)
                 {"extract", required_argument, 0, 'e'},
 
                 // Metadata
+                {"metadata", no_argument, 0, 'M'},
                 {"contigs", no_argument, 0, 'C'},
                 {"haplotypes", no_argument, 0, 'H'},
                 {"samples", no_argument, 0, 'S'},
@@ -81,7 +83,7 @@ int main_gbwt(int argc, char** argv)
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "mo:fpce:CHSh?", long_options, &option_index);
+        c = getopt_long(argc, argv, "mo:fpce:MCHSh?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -104,6 +106,7 @@ int main_gbwt(int argc, char** argv)
             show_progress = true;
             break;
 
+        // Threads
         case 'c':
             count_threads = true;
             load_index = true;
@@ -113,6 +116,11 @@ int main_gbwt(int argc, char** argv)
             load_index = true;
             break;
 
+        // Metadata
+        case 'M':
+            metadata = true;
+            load_index = true;
+            break;
         case 'C':
             contigs = true;
             load_index = true;
@@ -249,6 +257,12 @@ int main_gbwt(int argc, char** argv)
         // There are two sequences for each thread.
         if (count_threads) {
             cout << (index.sequences() / 2) << endl;
+        }
+
+        if (metadata) {
+            if (index.hasMetadata()) {
+                gbwt::operator<<(cout, index.metadata) << endl;
+            }
         }
 
         if (contigs) {
