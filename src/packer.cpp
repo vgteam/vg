@@ -278,12 +278,12 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             }
         }
 
-        Edge e = edge_from_mappings(mapping, prev_mapping);
-        if (e.from() != -1){
-            e = xgidx->canonicalize(e);
-            size_t edge_idx = xgidx->edge_graph_idx(e);
-            edge_coverage_dynamic.increment(edge_idx);
-        }
+        // Edge e = edge_from_mappings(mapping, prev_mapping);
+        // if (e.from() != -1){
+        //    e = xgidx->canonicalize(e);
+        //    size_t edge_idx = xgidx->edge_graph_idx(e);
+        //    edge_coverage_dynamic.increment(edge_idx);
+        //}
 
         prev_mapping = mapping;
     }
