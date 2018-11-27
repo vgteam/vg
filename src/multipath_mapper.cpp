@@ -3204,9 +3204,14 @@ namespace vg {
             
             if (query_population) {
             
-                // Work out the population size. Try the score provider and then fall back to the xg.
-                auto haplotype_count = haplo_score_provider->get_haplotype_count();
-                if (haplotype_count == -1) {
+                // Work out the population size. Use the override, then try the score provider, and then fall back to the xg.
+                auto haplotype_count = force_haplotype_count;
+                
+                if (haplotype_count == 0) {
+                    haplotype_count = haplo_score_provider->get_haplotype_count();
+                }
+                
+                if (haplotype_count == 0 || haplotype_count == -1) {
                     // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
                     haplotype_count = xindex->get_haplotype_count();
                 }
@@ -3462,9 +3467,14 @@ namespace vg {
             if (query_population) {
                 // We also want to select the optimal population-scored alignment on each side and compute a pop-adjusted score.
                 
-                // Work out the population size. Try the score provider and then fall back to the xg.
-                auto haplotype_count = haplo_score_provider->get_haplotype_count();
-                if (haplotype_count == -1) {
+                // Work out the population size. Use the override, then try the score provider, and then fall back to the xg.
+                auto haplotype_count = force_haplotype_count;
+                
+                if (haplotype_count == 0) {
+                    haplotype_count = haplo_score_provider->get_haplotype_count();
+                }
+                
+                if (haplotype_count == 0 || haplotype_count == -1) {
                     // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
                     haplotype_count = xindex->get_haplotype_count();
                 }

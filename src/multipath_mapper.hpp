@@ -111,6 +111,11 @@ namespace vg {
         double mapq_scaling_factor = 1.0 / 4.0;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
+        // If this is nonzero, it takes precedence over any haplotype count
+        // available from the score provider or the XG index. If neither of
+        // those has a haplotype count, this must be set for haplotype scoring
+        // to work.
+        size_t force_haplotype_count = 0;
         // If this is set, use_population_mapqs must be set, and we will always
         // try to compute population scores, even if there is nothing to
         // disambiguate. This lets us get an accurate count of scorable reads.
