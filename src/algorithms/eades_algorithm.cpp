@@ -135,23 +135,23 @@ using namespace std;
         while (next_left_idx <= next_right_idx) {
             
             if (!sources.empty()) {
-                // add it to the layout
+                // add a source to the layout
                 handle_t source = sources.back();
                 sources.pop_back();
                 layout[next_left_idx] = source;
                 next_left_idx++;
                 
-                // remove a source from the graph
+                // remove it from the graph
                 graph->follow_edges(source, false, remove_inward_edge);
             }
             else if (!sinks.empty()) {
-                // add it to the layout
+                // add a sink to the layout
                 handle_t sink = sinks.back();
                 sinks.pop_back();
                 layout[next_right_idx] = sink;
                 next_right_idx--;
                 
-                // remove a sink from the graph
+                // remove it from the graph
                 graph->follow_edges(sink, true, remove_outward_edge);
             }
             else {
@@ -169,7 +169,7 @@ using namespace std;
                 graph->follow_edges(next, true, remove_outward_edge);
             }
             
-            // move the max bucket to the left if it has been emptied
+            // move the max bucket lower if it has been emptied
             while (max_delta_bucket >= 0) {
                 if (!delta_buckets[max_delta_bucket].empty()) {
                     break;
