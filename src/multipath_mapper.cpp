@@ -3150,7 +3150,8 @@ namespace vg {
         // Only do the population MAPQ if it might disambiguate two paths (since it's not
         // as cheap as just using the score), or if we set the setting to always do it.
         bool include_population_component = (use_population_mapqs && (multipath_alns.size() > 1 || always_check_population));
-        // records whether all of the pathsenumerated across all multipath alignments followed the edges in the index
+        // Records whether all of the paths enumerated across all multipath alignments followed the edges in the index.
+        // We count totally unmapped reads as pop consistent, as all 0 edges they cross are pop consistent.
         bool all_paths_pop_consistent = true;
         
         double log_base = get_aligner()->log_base;
@@ -3182,7 +3183,6 @@ namespace vg {
             // scoring.
             auto wanted_alignments = query_population ? population_max_paths : 1;
             auto alignments = optimal_alignments(multipath_alns[i], wanted_alignments);
-            assert(!alignments.empty());
             
 #ifdef debug_multipath_mapper
             cerr << "Got " << alignments.size() << " / " << wanted_alignments << " tracebacks for multipath " << i << endl;
@@ -3191,10 +3191,16 @@ namespace vg {
             cerr << pb2json(multipath_alns[i]) << endl;
 #endif
            
+            // Now, we may have been fed a MultipathAlignment where the best
+            // single path alignment is to leave it unmapped alltogether. Maybe
+            // we cut out a really terrible bit of the alignment graph somehow.
+            // We used to fail an assert in that case, but we can handle it as
+            // just an unmapped read with score 0.
+            
             // Collect the score of the optimal alignment, to use if population
             // scoring fails for a multipath alignment. Put it in the optimal
             // base score.
-            base_scores[i] = alignments[0].score();
+            base_scores[i] = alignments.empty() ? 0 : alignments[0].score();
             
             if (query_population) {
                 
@@ -3244,8 +3250,8 @@ namespace vg {
                 // Otherwise, we have population scores.
                 
                 // Pick the best adjusted score and its difference from the best unadjusted score
-                pop_adjusted_scores[i] = numeric_limits<double>::min();
-                double adjustment;
+                pop_adjusted_scores[i] = alignments.empty() ? 0.0 : numeric_limits<double>::min();
+                double adjustment = 0;
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Compute the adjusted score for each alignment
                     auto adjusted_score = alignments[j].score() + alignment_pop_scores[j];
@@ -3386,7 +3392,9 @@ namespace vg {
         bool include_population_component = (use_population_mapqs &&
                                              allow_population_component &&
                                              (multipath_aln_pairs.size() > 1 || always_check_population));
-        // records whether of the paths followed the edges in the index
+        // Records whether of the paths followed the edges in the index. We
+        // treat empty alignment paths for unmapped reads as having followed
+        // only edges in the index, as they follow no edges.
         bool all_paths_pop_consistent = true;
         
         double log_base = get_aligner()->log_base;
@@ -3416,14 +3424,24 @@ namespace vg {
             // alignments for population scoring.
             auto alignments1 = optimal_alignments(multipath_aln_pair.first, query_population ? population_max_paths : 1);
             auto alignments2 = optimal_alignments(multipath_aln_pair.second, query_population ? population_max_paths : 1);
-            assert(!alignments1.empty());
-            assert(!alignments2.empty());
+            
+            // We used to fail an assert if either list of optimal alignments
+            // was empty, but now we handle it as if that side is an unmapped
+            // read with score 0.
             
             // Compute the optimal alignment score ignoring population
-            int32_t alignment_score = alignments1[0].score() + alignments2[0].score();
+            int32_t alignment_score = (alignments1.empty() ? 0 : alignments1[0].score()) +
+                (alignments2.empty() ? 0 : alignments2[0].score());
             
-            // compute the fragment distribution's contribution to the score
-            double frag_score = fragment_length_log_likelihood(cluster_pairs[i].second) / log_base;
+            // This is the contribution to the alignment's score from the fragment length distribution
+            double frag_score;
+            if (alignments1.empty() || alignments2.empty()) {
+                // Actually there should be no fragment score, because one or both ends are unmapped
+                frag_score = 0;
+            } else {
+                // compute the fragment distribution's contribution to the score
+                frag_score = fragment_length_log_likelihood(cluster_pairs[i].second) / log_base;
+            }
             min_frag_score = min(frag_score, min_frag_score);
             
             // Record the base score, including fragment contribution
@@ -3475,19 +3493,22 @@ namespace vg {
                     continue;
                 }
                 
-                // Pick the best alignment on each side
+                // Pick the best alignment on each side.
+                // Either or both may be be an end iterator.
                 auto best_index1 = max_element(base_pop_scores1.begin(), base_pop_scores1.end()) - base_pop_scores1.begin();
                 auto best_index2 = max_element(base_pop_scores2.begin(), base_pop_scores2.end()) - base_pop_scores2.begin();
+                double best_pop_score1 = base_pop_scores1.empty() ? 0.0 : base_pop_scores1[best_index1];
+                double best_pop_score2 = base_pop_scores2.empty() ? 0.0 : base_pop_scores2[best_index2];
                 
                 // Compute the total pop adjusted score for this MultipathAlignment
-                pop_adjusted_scores[i] = base_pop_scores1[best_index1] + base_pop_scores2[best_index2] + frag_score;
+                pop_adjusted_scores[i] = best_pop_score1 + best_pop_score2 + frag_score;
                 
                 // Save the pop scores to the multipath alignments
-                set_annotation(multipath_aln_pair.first, "haplotype_score", base_pop_scores1[best_index1]);
-                set_annotation(multipath_aln_pair.second, "haplotype_score", base_pop_scores2[best_index2]);
+                set_annotation(multipath_aln_pair.first, "haplotype_score", best_pop_score1);
+                set_annotation(multipath_aln_pair.second, "haplotype_score", best_pop_score2);
                 
-                assert(!std::isnan(base_pop_scores1[best_index1]));
-                assert(!std::isnan(base_pop_scores2[best_index2]));
+                assert(!std::isnan(best_pop_score1));
+                assert(!std::isnan(best_pop_score2));
                 assert(!std::isnan(frag_score));
                 assert(!std::isnan(pop_adjusted_scores[i]));
                 
