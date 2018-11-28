@@ -1947,7 +1947,10 @@ namespace vg {
 #endif
 
                 // Also the FASTA reference that has that sequence
-                assert(reference_for.count(fasta_name));
+                if (!reference_for.count(fasta_name)) {
+                    cerr << "[vg::Constructor] Error: \"" << fasta_name << "\" not found in fasta file" <<endl;
+                    exit(1);
+                }
                 FastaReference* reference = reference_for[fasta_name];
 
                 // We'll set this to true if we actually find the VCF that contains
