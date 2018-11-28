@@ -61,6 +61,8 @@ is $? 0 "storing a VCF parse for a graph with haplotypes"
 ../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parse"
 
+# Add the metadata manually and compare the indexes
+../deps/gbwt/metadata -c 1 -h 2 -s 1 parse_x > /dev/null
 cmp parse_x.gbwt x.gbwt
 is $? 0 "the indexes are identical"
 
@@ -131,6 +133,8 @@ is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
 ../deps/gbwt/build_gbwt -p -r -o parse_xy parse_x parse_y > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parses"
 
+# Add the metadata manually and compare the indexes
+../deps/gbwt/metadata -c 2 -h 2 -s 1 parse_xy > /dev/null
 cmp parse_xy.gbwt xy.gbwt
 is $? 0 "the indexes are identical"
 

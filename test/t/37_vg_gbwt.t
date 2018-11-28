@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 27
 
 
 # Build vg graphs for two chromosomes
@@ -16,7 +16,10 @@ vg ids -j x.vg y.vg
 
 # Chromosome X
 vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
-is $(vg gbwt -c x.gbwt) 2 "there are 2 threads for chromosome x"
+is $(vg gbwt -c x.gbwt) 2 "chromosome x: 2 threads"
+is $(vg gbwt -C x.gbwt) 1 "chromosome x: 1 contig"
+is $(vg gbwt -H x.gbwt) 2 "chromosome x: 2 haplotypes"
+is $(vg gbwt -S x.gbwt) 1 "chromosome x: 1 sample"
 
 # Full extraction of threads
 is $(vg paths -x x.xg -g x.gbwt -X -T | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
@@ -26,21 +29,37 @@ is $(vg paths -x x.xg -g x.gbwt -X -Q _thread_1_x_0 | vg view -a -  | wc -l) 1 "
 
 # Chromosome Y
 vg index -G y.gbwt -v small/xy2.vcf.gz y.vg
-is $(vg gbwt -c y.gbwt) 2 "there are 2 threads for chromosome y"
+is $(vg gbwt -c y.gbwt) 2 "chromosome y: 2 threads"
+is $(vg gbwt -C y.gbwt) 1 "chromosome y: 1 contig"
+is $(vg gbwt -H y.gbwt) 2 "chromosome y: 2 haplotypes"
+is $(vg gbwt -S y.gbwt) 1 "chromosome y: 1 sample"
 
 # Normal merging
 vg gbwt -m -o xy.gbwt x.gbwt y.gbwt
 is $? 0 "GBWT indexes can be merged"
-is $(vg gbwt -c xy.gbwt) 4 "there are 4 threads in the merged index"
+is $(vg gbwt -c xy.gbwt) 4 "merge: 4 threads"
+is $(vg gbwt -C xy.gbwt) 1 "merge: 1 contig"
+is $(vg gbwt -H xy.gbwt) 4 "merge: 4 haplotypes"
+is $(vg gbwt -S xy.gbwt) 2 "merge: 2 samples"
 
 # Fast merging
 vg gbwt -f -o xy2.gbwt x.gbwt y.gbwt
 is $? 0 "GBWT indexes can be merged with the fast algorithm"
-is $(vg gbwt -c xy2.gbwt) 4 "there are 4 threads in the merged index"
+is $(vg gbwt -c xy2.gbwt) 4 "fast merge: 4 threads"
+is $(vg gbwt -C xy2.gbwt) 2 "fast merge: 2 contigs"
+is $(vg gbwt -H xy2.gbwt) 2 "fast merge: 2 haplotypes"
+is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 
-# Compare the merged indexes
+# Remove metadata from the merged indexes and compare them
+../deps/gbwt/metadata -r xy > /dev/null
+../deps/gbwt/metadata -r xy2 > /dev/null
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
+
+# Remove threads from a GBWT
+vg gbwt -r 1 -r 2 xy.gbwt
+is $? 0 "threads can be removed from a GBWT index"
+is $(vg gbwt -c xy.gbwt) 2 "remove: 2 threads"
 
 rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
 

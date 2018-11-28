@@ -588,9 +588,10 @@ int main_index(int argc, char** argv) {
             cerr << "Node id width: " << id_width << endl;
         }
 
+        // GBWT metadata.
         vector<string> thread_names;                // Store thread names in insertion order.
         vector<xg::XG::thread_t> all_phase_threads; // Store all threads if building gPBWT.
-        size_t haplotype_count = 0;
+        size_t sample_count = 0, haplotype_count = 0, contig_count = 0;
 
         // Do we build GBWT?
         gbwt::GBWTBuilder* gbwt_builder = 0;
@@ -691,6 +692,7 @@ int main_index(int argc, char** argv) {
 
             // Determine the range of samples.
             sample_range.second = std::min(sample_range.second, num_samples);
+            sample_count += sample_range.second - sample_range.first;
             haplotype_count += 2 * (sample_range.second - sample_range.first);  // Assuming a diploid genome
             if (show_progress) {
                 cerr << "Haplotype generation parameters:" << endl;
@@ -713,6 +715,7 @@ int main_index(int argc, char** argv) {
                     cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
                 }
                 string parse_file = parse_name + '_' + vcf_contig_name;
+                contig_count++;
 
                 // Structures to parse the VCF file into.
                 const xg::XGPath& path = xg_index->get_path(path_name);
@@ -912,7 +915,14 @@ int main_index(int argc, char** argv) {
         if (!parse_only) {
             if (build_gbwt) {
                 gbwt_builder->finish();
-                if (show_progress) { cerr << "Saving GBWT to disk..." << endl; }
+                gbwt_builder->index.addMetadata();
+                gbwt_builder->index.metadata.setSamples(sample_count);
+                gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
+                gbwt_builder->index.metadata.setContigs(contig_count);
+                if (show_progress) {
+                    cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
+                    cerr << "Saving GBWT to disk..." << endl;
+                }
                 sdsl::store_to_file(gbwt_builder->index, gbwt_name);
                 delete gbwt_builder; gbwt_builder = nullptr;
             }

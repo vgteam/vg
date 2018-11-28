@@ -7128,7 +7128,15 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     Node* tail_node = NULL;
     id_t head_id = 0, tail_id = 0;
     add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
-    prune_complex(path_length, edge_max, head_node, tail_node);
+
+    // Duplicate code from prune_complex(). If pruning leaves many loose nodes
+    // (that will usually be deleted in the next step), attaching them to the
+    // head/tail nodes is unnecessary and potentially expensive.
+    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    for (auto& e : to_destroy) {
+        destroy_edge(e.first, e.second);
+    }
+
     destroy_node(head_node);
     destroy_node(tail_node);
 }
