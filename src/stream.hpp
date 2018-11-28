@@ -603,6 +603,9 @@ public:
         max_group_size(max_group_size),
         bgzip_out(new BlockedGzipOutputStream(out))
     {
+#ifdef debug
+        cerr << "Creating ProtobufEmitter" << endl;
+#endif
         if (bgzip_out->Tell() == -1) {
             // Say we are starting at the beginnign of the stream, if we don't know where we are.
             bgzip_out->StartFile();
@@ -611,12 +614,28 @@ public:
     
     /// Destructor that finishes the file
     ~ProtobufEmitter() {
+#ifdef debug
+        cerr << "Destroying ProtobufEmitter" << endl;
+#endif
         if (bgzip_out.get() != nullptr) {
+#ifdef debug
+            cerr << "ProtobufEmitter emitting final group" << endl;
+#endif
+        
             // Before we are destroyed, write stuff out.
             emit_group();
+            
+#ifdef debug
+            cerr << "ProtobufEmitter ending file" << endl;
+#endif
+            
             // Tell our stream to finish the file (since it hasn't been moved away)
             bgzip_out->EndFile();
         }
+        
+#ifdef debug
+        cerr << "ProtobufEmitter destroyed" << endl;
+#endif
     }
     
     // Prohibit copy
@@ -659,7 +678,6 @@ public:
     /// Doesn't actually flush the underlying streams to disk.
     /// Assumes that no more than one group's worht of items are in the buffer.
     void emit_group() {
-        
         if (group.empty()) {
             // Nothing to do
             return;
@@ -691,9 +709,9 @@ public:
                 throw std::runtime_error("stream::ProtobufEmitter::emit_group: message too large error writing protobuf");
             }
             
-    #ifdef debug
+#ifdef debug
             cerr << "Writing message of " << s.size() << " bytes in group @ " << virtual_offset << endl;
-    #endif
+#endif
             
             // And prefix each object with its size
             coded_out.WriteVarint32(s.size());
@@ -729,7 +747,7 @@ private:
     vector<listener_t> group_handlers;
 
 };
-    
+
 /**
  * Refactored stream::for_each function that follows the unidirectional iterator interface.
  * Also supports seeking and telling at the group level in bgzip files.

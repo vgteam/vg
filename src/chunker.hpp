@@ -36,7 +36,7 @@ public:
      * cut nodes) are written to out_region.  If forward_only set, context
      * is only expanded in the forward direction
      *
-     * NOTE: we follow convention of Region coordinates being 1-based 
+     * NOTE: we follow convention of Region coordinates being 0-based 
      * inclusive. 
      * */
     void extract_subgraph(const Region& region, int context, int length, bool forward_only,

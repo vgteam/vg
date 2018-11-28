@@ -121,7 +121,6 @@ protected:
     
     /// Flag for whether we are supposed to close out the BGZF file.
     bool end_file;
-    
 };
 
 }
