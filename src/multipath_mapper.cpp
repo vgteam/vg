@@ -691,13 +691,24 @@ namespace vg {
     int64_t MultipathMapper::distance_between(const MultipathAlignment& multipath_aln_1,
                                               const MultipathAlignment& multipath_aln_2,
                                               bool full_fragment, bool forward_strand) const {
+                                              
+        if (multipath_aln_1.subpath_size() == 0 || multipath_aln_2.subpath_size() == 0) {
+            // Something is an unmapped alignment
+            return numeric_limits<int64_t>::max();
+        }
+        
         Alignment aln_1;
         optimal_alignment(multipath_aln_1, aln_1);
+        // We already threw out unmapped things
+        assert(aln_1.path().mapping_size() != 0);
         pos_t pos_1 = initial_position(aln_1.path());
+        assert(id(pos_1) != 0);
         
         Alignment aln_2;
         optimal_alignment(multipath_aln_2, aln_2);
+        assert(aln_2.path().mapping_size() != 0);
         pos_t pos_2 = full_fragment ? final_position(aln_2.path()) : initial_position(aln_2.path());
+        assert(id(pos_2) != 0);
 #ifdef debug_multipath_mapper
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif

@@ -255,13 +255,15 @@ namespace vg {
                                                     const vector<memcluster_t>& clusters);
         
         /// If there are any MultipathAlignments with multiple connected components, split them
-        /// up and add them to the return vector
+        /// up and add them to the return vector.
+        /// Properly handles MultipathAlignments that are unmapped.
         void split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out,
                                              vector<size_t>* cluster_idxs = nullptr) const;
         
         /// If there are any MultipathAlignments with multiple connected components, split them
         /// up and add them to the return vector, also measure the distance between them and add
-        /// a record to the cluster pairs vector
+        /// a record to the cluster pairs vector.
+        /// Properly handles MultipathAlignments that are unmapped.
         void split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
         
@@ -341,6 +343,7 @@ namespace vg {
         double random_match_p_value(size_t match_length, size_t read_length);
         
         /// Compute the approximate distance between two multipath alignments
+        /// If either is unmapped, or the distance cannot be obtained, returns numeric_limits<int64_t>::max()
         int64_t distance_between(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2,
                                  bool full_fragment = false, bool forward_strand = false) const;
         
