@@ -15,7 +15,7 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | 
 
 is $(vg mod -o graphs/orphans.vg | vg view - | wc -l) 8 "orphan edge removal works"
 
-vg construct -r tiny/tiny.fa >t.vg
+vg construct -m 1000 -r tiny/tiny.fa >t.vg
 vg index -k 11 -g t.idx.gcsa -x t.idx.xg t.vg
 
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg mod -i - t.vg | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment is a perfect match"
@@ -30,7 +30,7 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg 
 rm t.vg
 rm -rf t.idx.xg t.idx.gcsa
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg stats -E - ) 285 "graph complexity reduction works as expected"
+is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg stats -E - ) 285 "graph complexity reduction works as expected"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg stats -l - | cut -f 2) 983 "short subgraph pruning works"
 
@@ -114,14 +114,14 @@ is $(cat c.vg | vg mod -w 100 - | vg stats -N -) 4 "dagify correctly calculates 
 is $(cat c.vg | vg mod -w 100 - | vg stats -l - | cut -f 2) 200 "dagify produces a graph of the correct size"
 rm -f c.vg
 
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg map -x x.xg -g x.gcsa -G small/x-s1337-n100-e0.01-i0.005.gam -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
 is $(vg view -Z x.trans | wc -l) 1288 "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
 
-vg construct -r tiny/tiny.fa >flat.vg
+vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
 vg index -x 2snp.xg 2snp.vg
 vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim

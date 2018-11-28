@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 10
 
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
 vg sim -x x.xg -l 100 -n 5000 -e 0.01 -i 0.001 -a > x.gam
 

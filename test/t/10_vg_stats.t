@@ -36,7 +36,7 @@ vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 is $(vg stats -n 13 -d t.vg | cut -f 2) 38 "distance to head is correct"
 is $(vg stats -n 13 -t t.vg | cut -f 2) 11 "distance to tail is correct"
 
-vg construct -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg map -x x.xg -g x.gcsa -T small/x-s1337-n100.reads >x.gam
 is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_stats/15.txt | cut -f 1 -d\ )" "aligned read stats are computed correctly"

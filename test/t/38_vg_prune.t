@@ -9,7 +9,7 @@ plan tests 15
 
 
 # Build a graph with one path and two threads
-vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
+vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 
 # Basic pruning: 5 components, 31 nodes, 31 edges
@@ -44,8 +44,8 @@ rm -f x.vg x.gbwt
 
 
 # Build vg graphs for two chromosomes
-vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
-vg construct -r small/xy.fa -v small/xy2.vcf.gz -R y -C -a > y.vg 2> /dev/null
+vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
+vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R y -C -a > y.vg 2> /dev/null
 vg ids -j -m xy.mapping x.vg y.vg
 vg index -G x.gbwt -v small/xy2.vcf.gz x.vg
 vg index -G y.gbwt -v small/xy2.vcf.gz y.vg

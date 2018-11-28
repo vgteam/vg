@@ -10,7 +10,7 @@ plan tests 13
 
 # Exercise the GBWT
 # Index a couple of nearly identical contigs
-vg construct -a -r small/xy.fa -v small/xy2.vcf.gz >xy2.vg
+vg construct -m 1000 -a -r small/xy.fa -v small/xy2.vcf.gz >xy2.vg
 vg index -x xy2.xg -g xy2.gcsa -v small/xy2.vcf.gz --gbwt-name xy2.gbwt -k 16 xy2.vg
 
 # We turn off the background model calibration with -B and ignore it with -P 1
