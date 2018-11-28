@@ -3159,7 +3159,7 @@ namespace vg {
         // The score of the optimal Alignment for each MultipathAlignment, not adjusted for population
         vector<double> base_scores(multipath_alns.size(), 0.0);
         // The scores of the best Alignment for each MultipathAlignment, adjusted for population.
-        // These can be negativem but will be bumped up to all be positive later.
+        // These can be negative but will be bumped up to all be positive later.
         vector<double> pop_adjusted_scores;
         if (include_population_component) {
             pop_adjusted_scores.resize(multipath_alns.size());
@@ -3268,7 +3268,10 @@ namespace vg {
                 
                 // Pick the best adjusted score and its difference from the best unadjusted score
                 pop_adjusted_scores[i] = alignments.empty() ? 0.0 : numeric_limits<double>::min();
+                // And the adjustment between those two
                 double adjustment = 0;
+                // And the pop score of the winning alignment
+                double winning_alignment_pop_score = 0;
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Compute the adjusted score for each alignment
                     auto adjusted_score = alignments[j].score() + alignment_pop_scores[j];
@@ -3278,17 +3281,16 @@ namespace vg {
                         // TODO: somehow know we want this Alignment when collapsing the MultipathAlignment later.
                         pop_adjusted_scores[i] = adjusted_score;
                         adjustment = pop_adjusted_scores[i] - base_scores[i];
+                        winning_alignment_pop_score = alignment_pop_scores[j];
                     }
                 }
                 
-                // Save the population score from the best total score read,
+                // Save the population score from the best total score Alignment,
                 // even if population scoring doesn't get used. TODO: When
                 // flattening the multipath alignment back to single path, we
                 // should replace this score or make sure to use this winning
                 // single path alignment.
-                auto max_scoring_it = std::max_element(pop_adjusted_scores.begin(), pop_adjusted_scores.end());
-                auto max_scoring_index = max_scoring_it - pop_adjusted_scores.begin();
-                set_annotation(multipath_alns[i], "haplotype_score", alignment_pop_scores[max_scoring_index]); 
+                set_annotation(multipath_alns[i], "haplotype_score", winning_alignment_pop_score); 
                 
                 // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
                 min_adjustment = min(min_adjustment, adjustment);
@@ -3531,18 +3533,23 @@ namespace vg {
                 // Either or both may be be an end iterator.
                 auto best_index1 = max_element(base_pop_scores1.begin(), base_pop_scores1.end()) - base_pop_scores1.begin();
                 auto best_index2 = max_element(base_pop_scores2.begin(), base_pop_scores2.end()) - base_pop_scores2.begin();
-                double best_pop_score1 = base_pop_scores1.empty() ? 0.0 : base_pop_scores1[best_index1];
-                double best_pop_score2 = base_pop_scores2.empty() ? 0.0 : base_pop_scores2[best_index2];
+                // Get those best total scores
+                auto best_total_score1 = base_pop_scores1.empty() ? 0.0 : base_pop_scores1[best_index1];
+                auto best_total_score2 = base_pop_scores2.empty() ? 0.0 : base_pop_scores2[best_index2];
                 
                 // Compute the total pop adjusted score for this MultipathAlignment
-                pop_adjusted_scores[i] = best_pop_score1 + best_pop_score2 + frag_score;
+                pop_adjusted_scores[i] = best_total_score1 + best_total_score2 + frag_score;
                 
-                // Save the pop scores to the multipath alignments
+                // Get the pop scores alone for those best alignments.
+                double best_pop_score1 = base_pop_scores1.empty() ? 0.0 : (best_total_score1 - alignments1[best_index1].score());
+                double best_pop_score2 = base_pop_scores2.empty() ? 0.0 : (best_total_score2 - alignments2[best_index2].score());
+                
+                // Save the pop scores without the base scores to the multipath alignments
                 set_annotation(multipath_aln_pair.first, "haplotype_score", best_pop_score1);
                 set_annotation(multipath_aln_pair.second, "haplotype_score", best_pop_score2);
                 
-                assert(!std::isnan(best_pop_score1));
-                assert(!std::isnan(best_pop_score2));
+                assert(!std::isnan(best_total_score1));
+                assert(!std::isnan(best_total_score2));
                 assert(!std::isnan(frag_score));
                 assert(!std::isnan(pop_adjusted_scores[i]));
                 
