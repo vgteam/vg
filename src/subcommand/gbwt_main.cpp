@@ -245,9 +245,11 @@ int main_gbwt(int argc, char** argv)
         }
         gbwt::DynamicGBWT index;
         sdsl::load_from_file(index, argv[optind]);
-        index.remove(to_remove);
-        std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
-        sdsl::store_to_file(index, output);
+        gbwt::size_type total_length = index.remove(to_remove);
+        if (total_length > 0) {
+            std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
+            sdsl::store_to_file(index, output);
+        }
     }
 
     // Other non-merge options.
