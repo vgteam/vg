@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 27
 
 
 # Build vg graphs for two chromosomes
@@ -55,6 +55,11 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 ../deps/gbwt/metadata -r xy2 > /dev/null
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
+
+# Remove threads from a GBWT
+vg gbwt -r 1 -r 2 xy.gbwt
+is $? 0 "threads can be removed from a GBWT index"
+is $(vg gbwt -c xy.gbwt) 2 "remove: 2 threads"
 
 rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
 

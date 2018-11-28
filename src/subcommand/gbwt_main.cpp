@@ -34,6 +34,7 @@ void help_gbwt(char** argv) {
          << "threads:" << endl
          << "    -c, --count-threads    print the number of threads" << endl
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
+         << "    -r, --remove-thread N  remove the thread with identifier N (may repeat; use -o to change output)" << endl
          << "metadata (use deps/gbwt/metadata to modify):" << endl
          << "    -M, --metadata         print all metadata" << endl
          << "    -C, --contigs          print the number of contigs" << endl
@@ -56,6 +57,7 @@ int main_gbwt(int argc, char** argv)
     bool metadata = false, contigs = false, haplotypes = false, samples = false;
     bool load_index = false;
     string gbwt_output, thread_output;
+    std::vector<gbwt::size_type> to_remove;
 
     int c;
     optind = 2; // force optind past command positional argument    
@@ -71,6 +73,7 @@ int main_gbwt(int argc, char** argv)
                 // Threads
                 {"count-threads", no_argument, 0, 'c'},
                 {"extract", required_argument, 0, 'e'},
+                {"remove-thread", required_argument, 0, 'r'},
 
                 // Metadata
                 {"metadata", no_argument, 0, 'M'},
@@ -83,7 +86,7 @@ int main_gbwt(int argc, char** argv)
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "mo:fpce:MCHSh?", long_options, &option_index);
+        c = getopt_long(argc, argv, "mo:fpce:r:MCHSh?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -114,6 +117,9 @@ int main_gbwt(int argc, char** argv)
         case 'e':
             thread_output = optarg;
             load_index = true;
+            break;
+        case 'r':
+            to_remove.push_back(parse<size_t>(optarg));
             break;
 
         // Metadata
@@ -231,7 +237,20 @@ int main_gbwt(int argc, char** argv)
         cout.rdbuf(cout_buf);
     }
 
-    // Non-merge options.
+    // Remove threads before extracting or counting them.
+    if (!to_remove.empty()) {
+        if (optind + 1 != argc) {
+            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
+            return 1;
+        }
+        gbwt::DynamicGBWT index;
+        sdsl::load_from_file(index, argv[optind]);
+        index.remove(to_remove);
+        std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
+        sdsl::store_to_file(index, output);
+    }
+
+    // Other non-merge options.
     if (load_index) {
         if (optind + 1 != argc) {
             cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
