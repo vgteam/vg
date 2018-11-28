@@ -345,7 +345,7 @@ vector<handle_t> lazy_topological_order(const HandleGraph* g) {
 vector<handle_t> lazier_topological_order(const HandleGraph* g) {
     return lazy_topological_order_internal(g, true);
 }
-void sort(MutableHandleGraph* g) {
+void topological_sort(MutableHandleGraph* g) {
     if (g->node_size() <= 1) {
         // A graph with <2 nodes has only one sort.
         return;
@@ -357,11 +357,11 @@ void sort(MutableHandleGraph* g) {
     apply_ordering(g, topological_order(g));
 }
     
-void lazy_sort(MutableHandleGraph* g) {
+void lazy_topological_sort(MutableHandleGraph* g) {
     apply_ordering(g, lazy_topological_order(g));
 }
 
-void lazier_sort(MutableHandleGraph* g) {
+void lazier_topological_sort(MutableHandleGraph* g) {
     apply_ordering(g, lazier_topological_order(g));
 }
     

@@ -810,6 +810,15 @@ haplo_score_type linear_haplo_structure::score(const vg::Path& path) const {
 }
 
 /*******************************************************************************
+ScoreProvider
+*******************************************************************************/
+
+int64_t ScoreProvider::get_haplotype_count() const {
+  // By default, say that we don't know the haplotype count.
+  return -1;
+}
+
+/*******************************************************************************
 XGScoreProvider
 *******************************************************************************/
 
@@ -819,6 +828,12 @@ XGScoreProvider::XGScoreProvider(xg::XG& index) : index(index) {
 
 pair<double, bool> XGScoreProvider::score(const vg::Path& path, haploMath::RRMemo& memo) {
   return haplo_DP::score(path, index, memo);
+}
+
+int64_t XGScoreProvider::get_haplotype_count() const {
+  // XG indexes track a haplotype count still.
+  // TODO: This should be removed!
+  return index.get_haplotype_count();
 }
 
 /*******************************************************************************

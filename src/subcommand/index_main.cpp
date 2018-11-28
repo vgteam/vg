@@ -12,8 +12,8 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
-#include "../gam_index.hpp"
 #include "../stream.hpp"
+#include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
 #include "../region.hpp"
@@ -43,6 +43,7 @@ void help_index(char** argv) {
          << "    -F, --thread-db FILE   read thread database from FILE (may repeat)" << endl
          << "gbwt options:" << endl
          << "    -v, --vcf-phasing FILE generate threads from the haplotypes in the VCF file FILE" << endl
+         << "    -W, --ignore-missing   don't warn when variants in the VCF are missing from the graph; silently skip them" << endl
          << "    -e, --parse-only FILE  store the VCF parsing with prefix FILE without generating threads" << endl
          << "    -T, --store-threads    generate threads from the embedded paths" << endl
          << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
@@ -68,6 +69,8 @@ void help_index(char** argv) {
          << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "gam indexing options:" << endl
          << "    -l, --index-sorted-gam input is sorted .gam format alignments, store a GAI index of the sorted GAM in INPUT.gam.gai" << endl
+         << "vg in-place indexing options:" << endl
+         << "    --index-sorted-vg      input is ID-sorted .vg format graph chunks, store a VGI index of the sorted vg in INPUT.vg.vgi" << endl
          << "rocksdb options:" << endl
          << "    -d, --db-name  <X>     store the RocksDB index in <X>" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
@@ -78,9 +81,9 @@ void help_index(char** argv) {
          << "    -D, --dump             print the contents of the db to stdout" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "snarl distance index options" << endl
-         << "    -c  --dist-graph FILE  generate snarl distane index from VG in FILE" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE" << endl
-         << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl;
+         << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
+         << "    -w  --max_dist N   cap beyond which the maximum distance is no longer accurate" << endl;
 }
 
 // Convert gbwt::node_type to ThreadMapping.
@@ -107,6 +110,11 @@ gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
 
     vg::id_t first_node = path.mapping(0).position().node_id();
     bool is_reverse = path.mapping(0).position().is_reverse();
+    
+#ifdef debug
+    cerr << "Look for predecessors of node " << first_node << " " << is_reverse << " which is first in alt path" << endl;
+#endif
+    
     auto pred_edges = (is_reverse ? xg_index.edges_on_end(first_node) : xg_index.edges_on_start(first_node));
     for (auto& edge : pred_edges) {
         if (edge.from() == edge.to()) {
@@ -136,11 +144,13 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
+    #define OPT_BUILD_VGI_INDEX 1000
+
     // Which indexes to build.
     bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
     // Files we should read.
-    string vcf_name, mapping_name, dist_graph;
+    string vcf_name, mapping_name;
     vector<string> thread_db_names;
     vector<string> dbg_names;
 
@@ -151,6 +161,7 @@ int main_index(int argc, char** argv) {
     bool show_progress = false;
 
     // GBWT
+    bool warn_on_missing_variants = true;
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     bool parse_only = false;
     vector<string> gam_file_names;
@@ -169,7 +180,10 @@ int main_index(int argc, char** argv) {
     bool verify_gcsa = false;
     
     // Gam index (GAI)
-    bool build_gam_index = false;
+    bool build_gai_index = false;
+    
+    // VG in-place index (VGI)
+    bool build_vgi_index = false;
 
     // RocksDB
     bool dump_index = false;
@@ -177,6 +191,9 @@ int main_index(int argc, char** argv) {
     bool store_node_alignments = false;
     bool store_mappings = false;
     bool dump_alignments = false;
+
+    //Distance index
+    int cap = -1;
 
     // Unused?
     bool compact = false;
@@ -197,6 +214,7 @@ int main_index(int argc, char** argv) {
 
             // GBWT
             {"vcf-phasing", required_argument, 0, 'v'},
+            {"ignore-missing", no_argument, 0, 'W'},
             {"parse-only", required_argument, 0, 'e'},
             {"store-threads", no_argument, 0, 'T'},
             {"store-gam", required_argument, 0, 'M'},
@@ -223,6 +241,9 @@ int main_index(int argc, char** argv) {
             
             // GAM index (GAI)
             {"index-sorted-gam", no_argument, 0, 'l'},
+            
+            // VG in-place index (VGI)
+            {"index-sorted-vg", no_argument, 0, OPT_BUILD_VGI_INDEX},
 
             // RocksDB
             {"db-name", required_argument, 0, 'd'},
@@ -234,14 +255,14 @@ int main_index(int argc, char** argv) {
             {"compact", no_argument, 0, 'C'},
 
             //Snarl distance index
-            {"dist-graph", required_argument, 0, 'c'},
             {"snarl-name", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'j'},
+            {"max-dist", required_argument, 0, 'w'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:F:v:e:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCc:s:j:h",
+        c = getopt_long (argc, argv, "b:t:px:F:v:We:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -275,6 +296,9 @@ int main_index(int argc, char** argv) {
             index_haplotypes = true;
             build_xg = true;
             vcf_name = optarg;
+            break;
+        case 'W':
+            warn_on_missing_variants = false;
             break;
         case 'e':
             parse_only = true;
@@ -387,7 +411,12 @@ int main_index(int argc, char** argv) {
             
         // Gam index (GAI)
         case 'l':
-            build_gam_index = true;
+            build_gai_index = true;
+            break;
+            
+        // VGI index
+        case OPT_BUILD_VGI_INDEX:
+            build_vgi_index = true;
             break;
 
         // RocksDB
@@ -416,10 +445,6 @@ int main_index(int argc, char** argv) {
             break;
 
         //Snarl distance index
-        case 'c':
-            build_dist = true;
-            dist_graph = optarg;
-            break;
         case 's':
             build_dist = true;
             snarl_name = optarg;
@@ -427,6 +452,10 @@ int main_index(int argc, char** argv) {
         case 'j':
             build_dist = true;
             dist_name = optarg;
+            break;
+        case 'w':
+            build_dist = true;
+            cap = parse<int>(optarg);
             break;
 
         case 'h':
@@ -445,7 +474,8 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() && gcsa_name.empty() && rocksdb_name.empty() && !build_gam_index && dist_graph.empty() ) {
+    if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() &&
+        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty() ) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -465,8 +495,18 @@ int main_index(int argc, char** argv) {
         //return 1;
     }
     
-    if (file_names.size() != 1 && build_gam_index) {
+    if (file_names.size() != 1 && build_gai_index) {
         cerr << "error: [vg index] can only index exactly one sorted GAM file at a time" << endl;
+        return 1;
+    }
+    
+    if (file_names.size() != 1 && build_vgi_index) {
+        cerr << "error: [vg index] can only index exactly one sorted VG file at a time" << endl;
+        return 1;
+    }
+    
+    if (file_names.size() != 1 && build_dist) {
+        cerr << "error: [vg index] can only create one distance index at a time" << endl;
         return 1;
     }
     
@@ -502,6 +542,13 @@ int main_index(int argc, char** argv) {
             cerr << "Built base XG index" << endl;
         }
     }
+
+#ifdef debug
+    cerr << "Alt paths:" << endl;
+    for (auto& kv : alt_paths) {
+        cerr << kv.first << ": " << kv.second.mapping_size() << " entries" << endl;
+    }
+#endif
 
     // Generate threads
     if (index_haplotypes || index_paths || index_gam) {
@@ -731,7 +778,8 @@ int main_index(int argc, char** argv) {
                                  << var.sequenceName << ":" << var.position << endl;
                             continue;
                         }
-                    } else { // Try using alt paths instead.
+                    } else {
+                        // Try using alt paths instead.
                         bool found = false;
                         for (size_t alt_index = 1; alt_index < var.alleles.size(); alt_index++) {
                             std::string alt_path_name = "_alt_" + var_name + "_" + to_string(alt_index);
@@ -743,6 +791,10 @@ int main_index(int argc, char** argv) {
                                 for (auto node : pred_nodes) {
                                     size_t pred_pos = variants.firstOccurrence(node);
                                     if (pred_pos != variants.invalid_position()) {
+#ifdef debug
+                                        cerr << "Found predecessor node " << gbwt::Node::id(node) << " " << gbwt::Node::is_reverse(node)
+                                            << " occurring at valid pos " << pred_pos << endl;
+#endif
                                         candidate_pos = std::max(candidate_pos, pred_pos + 1);
                                         candidate_found = true;
                                         found = true;
@@ -757,9 +809,16 @@ int main_index(int argc, char** argv) {
                             }
                         }
                         if (!found) {
-                            cerr << "warning: [vg index] Alt and ref paths for " << var_name
-                                 << " at " << var.sequenceName << ":" << var.position
-                                 << " missing/empty! Was the variant skipped during construction?" << endl;
+                            // This variant from the VCF is just not in the graph
+
+                            if (warn_on_missing_variants) {
+                                // The user might not know it. Warn them in case they mixed up their VCFs.
+                                cerr << "warning: [vg index] Alt and ref paths for " << var_name
+                                     << " at " << var.sequenceName << ":" << var.position
+                                     << " missing/empty! Was the variant skipped during construction?" << endl;
+                            }
+
+                            // Skip this variant and move on to the next as if it never appeared.
                             continue;
                         }
                     }
@@ -1004,16 +1063,15 @@ int main_index(int argc, char** argv) {
         }
     }
     
-    if (build_gam_index) {
+    if (build_gai_index) {
         // Index a sorted GAM file.
-        GAMIndex index;
         
         get_input_file(file_names.at(0), [&](istream& in) {
             // Grab the input GAM stream and wrap it in a cursor
             stream::ProtobufIterator<Alignment> cursor(in);
             
             // Index the file
-            GAMIndex index;
+            StreamIndex<Alignment> index;
             index.index(cursor);
  
             // Save the GAM index in the appropriate place.
@@ -1021,6 +1079,27 @@ int main_index(int argc, char** argv) {
             ofstream index_out(file_names.at(0) + ".gai");
             if (!index_out.good()) {
                 cerr << "error: [vg index] could not open " << file_names.at(0) << ".gai" << endl;
+                exit(1);
+            }
+            index.save(index_out);
+        });
+    }
+    
+    if (build_vgi_index) {
+        // Index an ID-sorted VG file.
+        get_input_file(file_names.at(0), [&](istream& in) {
+            // Grab the input VG stream and wrap it in a cursor
+            stream::ProtobufIterator<Graph> cursor(in);
+            
+            // Index the file
+            StreamIndex<Graph> index;
+            index.index(cursor);
+ 
+            // Save the index in the appropriate place.
+            // TODO: Do we really like this enforced naming convention just beacuse samtools does it?
+            ofstream index_out(file_names.at(0) + ".vgi");
+            if (!index_out.good()) {
+                cerr << "error: [vg index] could not open " << file_names.at(0) << ".vgi" << endl;
                 exit(1);
             }
             index.save(index_out);
@@ -1107,8 +1186,8 @@ int main_index(int argc, char** argv) {
 
     //Build snarl distance index
     if (build_dist) {
-        if (dist_graph.empty()) {
-            cerr << "error: [vg index] distance index requires a vg file" << endl;
+        if (file_names.empty()) {
+            cerr << "error: [vg index] one graph is required to build a distance index" << endl;
             return 1;
         } else if (dist_name.empty()) {
             cerr << "error: [vg index] distance index requires an output file" << endl;
@@ -1117,8 +1196,12 @@ int main_index(int argc, char** argv) {
             cerr << "error: [vg index] distance index requires a snarl file" << endl;
             return 1;
             
+        } else if (cap < 0) {
+            cerr << "error: [vg index] distance index requires a positive cap value" << endl;
+            return 1;
+            
         } else {
-            ifstream vg_stream(dist_graph);
+            ifstream vg_stream(file_names.at(0));
             if (!vg_stream) {
                 cerr << "error: [vg index] cannot open VG file" << endl;
                 exit(1);
@@ -1134,7 +1217,6 @@ int main_index(int argc, char** argv) {
             SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
             snarl_stream.close();
 
-            int64_t cap = 20; //TODO: Take this as an argument or something
             DistanceIndex di (&vg, snarl_manager, cap);
             
 

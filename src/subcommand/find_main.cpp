@@ -4,7 +4,7 @@
 #include "../mapper.hpp"
 #include "../stream.hpp"
 #include "../region.hpp"
-#include "../gam_index.hpp"
+#include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
 
 #include <unistd.h>

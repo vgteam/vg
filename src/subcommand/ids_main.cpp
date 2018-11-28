@@ -117,7 +117,7 @@ int main_ids(int argc, char** argv) {
 
         if (sort) {
             // Set up the nodes so we go through them in topological order
-            algorithms::sort(graph);
+            algorithms::topological_sort(graph);
         }
 
         if (compact || sort) {

@@ -26,8 +26,6 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew bundle; fi # TODO: Check back after addon has been fixed.
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo softwareupdate -i "Command Line Tools (macOS High Sierra version 10.13) for Xcode-9.4"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew install gcc6 || true; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then brew link --overwrite gcc@6; fi
@@ -36,12 +34,13 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then ln -sf `which gcc-6` ./bin/gcc; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "1" ]]; then mkdir -p deps; touch deps/gcc6; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" && "$INSTALL_GCC" == "0" ]]; then mkdir -p deps; touch deps/clang; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link bison --force; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/bison/bin:$PATH"; fi # Homebrew no longer links Bison even if we try to force it
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="$(pwd)/bin:/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
-  - gcc --version && g++ --version
+  - which gcc && gcc --version && which g++ && g++ --version
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cc && cc --version && which c++ && c++ --version; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
@@ -59,12 +58,11 @@ cache:
     - bin
 before_cache:
   - rm -f lib/libvg.*
-  - rm -f include/vg.pb.h include/vg_git_version.hpp
+  - rm -f include/vg_git_version.hpp
   - rm -f bin/vg /bin/vg* bin/g++ bin/gcc
 
 addons:
   homebrew:
-    # We should be able to list packages here, but it isn't quite working, so let's try a Brewfile
     brewfile: true 
   apt:
     sources:
@@ -108,11 +106,13 @@ addons:
 os:
   - linux
   - osx
+osx_image: xcode10.1
 compiler:
   - gcc
 env:
   global:
     - DOCS_KEY_ENCRYPTION_LABEL=125272388526
+    - VG_FULL_TRACEBACK=1
   matrix:
     - INSTALL_GCC=1
     - INSTALL_GCC=0

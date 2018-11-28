@@ -1,6 +1,6 @@
-#include "../gamsorter.hpp"
-#include "../gam_index.hpp"
+#include "../stream_sorter.hpp"
 #include "../stream.hpp"
+#include "../stream_index.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
 #include "../index.hpp"
@@ -31,7 +31,7 @@ int main_gamsort(int argc, char **argv)
 {
     string index_filename;
     string rocksdb_filename;
-    bool dumb_sort = false;
+    bool easy_sort = false;
     bool is_sorted = false;
     bool do_aln_index = false;
     bool show_progress = false;
@@ -68,7 +68,7 @@ int main_gamsort(int argc, char **argv)
             index_filename = optarg;
             break;
         case 'd':
-            dumb_sort = true;
+            easy_sort = true;
             break;
         case 's':
             is_sorted = true;
@@ -159,9 +159,9 @@ int main_gamsort(int argc, char **argv)
                 index = unique_ptr<GAMIndex>(new GAMIndex());
             }
             
-            if (dumb_sort) {
+            if (easy_sort) {
                 // Sort in a single pass in memory
-                gs.dumb_sort(gam_in, cout, index.get());
+                gs.easy_sort(gam_in, cout, index.get());
             } else {
                 // Sort using fan-in-limited temp file merging 
                 gs.stream_sort(gam_in, cout, index.get());

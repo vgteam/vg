@@ -224,6 +224,11 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             auto& m2 = path.mapping(rank2_idx);
             // only count edges bookended by matches
             size_t m1eds = m1.edit_size();
+
+#ifdef debug
+            cerr << "Alignment crosses edge " << pb2json(m1) << "->" << pb2json(m2) << endl;
+#endif
+            
             if ((m1eds == 0 || m1.edit(m1eds - 1).from_length() == m1.edit(m1eds - 1).to_length()) &&
                 (m2.edit_size() == 0 || m2.edit(0).from_length() == m2.edit(0).to_length())) {
                 auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
@@ -236,12 +241,41 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
                     edge_qual = combined_quality(min(from_qual, to_qual), alignment.mapping_quality());
                 }
                 if (edge_qual >= _min_quality) {
+#ifdef debug
+                    cerr << "\tMeets quality threshold" << endl;
+#endif
                     EdgePileup* edge_pileup = get_create_edge_pileup(pair<NodeSide, NodeSide>(s1, s2));
                     if (edge_pileup->num_reads() < _max_depth) {
                         edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
-                        if (!m1.position().is_reverse()) {
+                        
+                        if (m1.position().node_id() < m2.position().node_id()) {
+                            // We are going along the forward strand of the edge, from low ID to high ID
+                            // TODO: What do we do if augmentation renumbers the nodes differently?
+#ifdef debug
+                            cerr << "\tTreat as a forward strand edge support between different nodes" << endl;
+#endif
                             edge_pileup->set_num_forward_reads(edge_pileup->num_forward_reads() + 1);
+                        } else if (m1.position().node_id() == m2.position().node_id() && !m1.position().is_reverse()) {
+                            // This is a self loop and we are reading forward
+                            // into it. For self loops around we call it the
+                            // forward strand. For reversing self loops, on the
+                            // end they are always the forward strand, and on
+                            // the start they are never the forward strand.
+                            // TODO: what if augmentation dvides a node that had a self loop and changes our numbering?
+#ifdef debug
+                             cerr << "\tTreat as a forward strand edge support on a self loop" << endl;
+#endif
+                            edge_pileup->set_num_forward_reads(edge_pileup->num_forward_reads() + 1);
+                        } else {
+#ifdef debug
+                            cerr << "\tTreat as a reverse strand edge support" << endl;
+#endif
                         }
+                        
+                        // TODO: Should we determine forward/reverse based on
+                        // if we agree with the from/to of the edge as written
+                        // in the graph instead?
+                        
                         if (!alignment.quality().empty()) {
                             *edge_pileup->mutable_qualities() += edge_qual;
                         }

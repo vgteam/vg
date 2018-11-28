@@ -182,6 +182,11 @@ struct AugmentedGraph {
         auto be_ret = base_edge(augmented_edge);
         return be_ret.first == NULL && be_ret.second == false;
     }
+
+    // Do we have a base graph in order to run the above methods?
+    bool has_base_graph() const {
+        return base_graph != nullptr;
+    }
     
     /// Get the alignments, if any, embedded in the graph that touch the given
     /// node ID.
@@ -376,6 +381,11 @@ Support support_min(const Support& a, const Support& b);
  * orientation.
  */
 Support support_max(const Support& a, const Support& b);
+
+/**
+ * Flip the orientations of a Support.
+ */
+Support flip(const Support& to_flip);
 
 /**
  * Add two Support values together, accounting for strand.

@@ -10,6 +10,7 @@
 
 #include "../multipath_mapper.hpp"
 #include "../path.hpp"
+#include "../watchdog.hpp"
 
 //#define record_read_run_times
 
@@ -52,6 +53,7 @@ void help_mpmap(char** argv) {
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
+    << "  -v, --tvs-clusterer           use the target value search based clusterer (requies a distance index from -d)" << endl
     << "  -X, --snarl-max-cut INT       do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
     << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
     << "  -n, --unstranded              use lazy strand consistency when clustering MEMs" << endl
@@ -60,7 +62,6 @@ void help_mpmap(char** argv) {
     << "  -D, --frag-stddev             standard deviation for fixed fragment length distribution" << endl
     << "  -B, --no-calibrate            do not auto-calibrate mismapping dectection" << endl
     << "  -P, --max-p-val FLOAT         background model p value must be less than this to avoid mismapping detection [0.00001]" << endl
-    << "  -v, --mq-method OPT           mapping quality method: 0 - none, 1 - fast approximation, 2 - adaptive, 3 - exact [2]" << endl
     << "  -Q, --mq-max INT              cap mapping quality estimates at this much [60]" << endl
     << "  -p, --padding-mult FLOAT      pad dynamic programming bands in inter-MEM alignment FLOAT * sqrt(read length) [1.0]" << endl
     << "  -u, --map-attempts INT        perform (up to) this many mappings per read (0 for no limit) [24 paired / 64 unpaired]" << endl
@@ -68,13 +69,11 @@ void help_mpmap(char** argv) {
     << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
-    << "  -k, --min-mem-length INT      minimum MEM length to anchor multipath alignments [1]" << endl
     << "  -K, --clust-length INT        minimum MEM length form clusters [automatic]" << endl
     << "  -c, --hit-max INT             use at most this many hits for any MEM (0 for no limit) [1024]" << endl
-    << "  -F, --max-dist-error INT      maximum typical deviation between distance on a reference path and distance in graph [8]" << endl
     << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
     << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
-    << "  --always-check-population     always try o population-score reads, even if there is only a single mapping" << endl
+    << "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
     << "  --delay-population            do not apply population scoring at intermediate stages of the mapping algorithm" << endl
     << "  -C, --drop-subgraph FLOAT     drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     << "  -U, --prune-exp FLOAT         prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
@@ -140,6 +139,7 @@ int main_mpmap(int argc, char** argv) {
     double reseed_exp = 0.065;
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
+    bool use_tvs_clusterer = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
@@ -209,6 +209,7 @@ int main_mpmap(int argc, char** argv) {
             {"same-strand", no_argument, 0, 'e'},
             {"single-path-mode", no_argument, 0, 'S'},
             {"snarls", required_argument, 0, 's'},
+            {"tvs-clusterer", no_argument, 0, 'v'},
             {"snarl-max-cut", required_argument, 0, 'X'},
             {"alt-paths", required_argument, 0, 'a'},
             {"unstranded", no_argument, 0, 'n'},
@@ -217,7 +218,6 @@ int main_mpmap(int argc, char** argv) {
             {"frag-stddev", required_argument, 0, 'D'},
             {"no-calibrate", no_argument, 0, 'B'},
             {"max-p-val", required_argument, 0, 'P'},
-            {"mq-method", required_argument, 0, 'v'},
             {"mq-max", required_argument, 0, 'Q'},
             {"padding-mult", required_argument, 0, 'p'},
             {"map-attempts", required_argument, 0, 'u'},
@@ -225,10 +225,8 @@ int main_mpmap(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"reseed-length", required_argument, 0, 'r'},
             {"reseed-diff", required_argument, 0, 'W'},
-            {"min-mem-length", required_argument, 0, 'k'},
             {"clustlength", required_argument, 0, 'K'},
             {"hit-max", required_argument, 0, 'c'},
-            {"max-dist-error", required_argument, 0, 'F'},
             {"approx-exp", required_argument, 0, 'w'},
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
@@ -250,7 +248,7 @@ int main_mpmap(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:u:O:a:nb:I:D:BP:v:Q:p:M:r:W:k:K:c:F:w:C:R:Eq:z:o:y:L:mAt:Z:",
+        c = getopt_long (argc, argv, "hx:g:H:d:f:G:N:R:ieSs:vX:u:O:a:nb:I:D:BP:Q:p:M:r:W:K:c:w:C:R:Eq:z:o:y:L:mAt:Z:",
                          long_options, &option_index);
 
 
@@ -278,10 +276,18 @@ int main_mpmap(int argc, char** argv) {
                 
             case 'H':
                 gbwt_name = optarg;
+                if (gbwt_name.empty()) {
+                    cerr << "error:[vg mpmap] Must provide GBWT index file with -H" << endl;
+                    exit(1);
+                }
                 break;
                 
             case 'd':
                 distance_index_name = optarg;
+                if (distance_index_name.empty()) {
+                    cerr << "error:[vg mpmap] Must provide distance index file with -d" << endl;
+                    exit(1);
+                }
                 break;
                 
             case 1: // --linear-index
@@ -324,7 +330,7 @@ int main_mpmap(int argc, char** argv) {
             case 'N':
                 sample_name = optarg;
                 if (sample_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide sample name file with -N." << endl;
+                    cerr << "error:[vg mpmap] Must provide sample name with -N." << endl;
                     exit(1);
                 }
                 break;
@@ -355,6 +361,10 @@ int main_mpmap(int argc, char** argv) {
                     cerr << "error:[vg mpmap] Must provide snarl file with -s." << endl;
                     exit(1);
                 }
+                break;
+                
+            case 'v':
+                use_tvs_clusterer = true;
                 break;
                 
             case 'X':
@@ -389,28 +399,6 @@ int main_mpmap(int argc, char** argv) {
                 max_mapping_p_value = parse<double>(optarg);
                 break;
                 
-            case 'v':
-            {
-                int mapq_arg = parse<int>(optarg);
-                if (mapq_arg == 0) {
-                    mapq_method = None;
-                }
-                else if (mapq_arg == 1) {
-                    mapq_method = Approx;
-                }
-                else if (mapq_arg == 2) {
-                    mapq_method = Adaptive;
-                }
-                else if (mapq_arg == 3) {
-                    mapq_method = Exact;
-                }
-                else {
-                    cerr << "error:[vg mpmap] Unrecognized mapping quality (-v) option: " << mapq_arg << ". Choose from {0, 1, 2, 3}." << endl;
-                    exit(1);
-                }
-            }
-                break;
-                
             case 'Q':
                 max_mapq = parse<int>(optarg);
                 break;
@@ -443,20 +431,12 @@ int main_mpmap(int argc, char** argv) {
                 reseed_diff = parse<double>(optarg);
                 break;
                 
-            case 'k':
-                min_mem_length = parse<int>(optarg);
-                break;
-                
             case 'K':
                 min_clustering_mem_length = parse<int>(optarg);
                 break;
                 
             case 'c':
                 hit_max = parse<int>(optarg);
-                break;
-                
-            case 'F':
-                max_dist_error = parse<int>(optarg);
                 break;
                 
             case 'w':
@@ -570,7 +550,7 @@ int main_mpmap(int argc, char** argv) {
     }
     
     if (!distance_index_name.empty() && snarls_name.empty()) {
-        cerr << "error:[vg mpmap] Snarl distance index (-d) requires a snarl file (-s) to also be provided." << endl;
+        cerr << "error:[vg mpmap] Snarl distance index (-d) requires a matching snarl file (-s) to also be provided." << endl;
         exit(1);
     }
     
@@ -593,6 +573,15 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (unstranded_clustering && use_tvs_clusterer) {
+        cerr << "warning:[vg mpmap] Target value search clustering (-v) does not have an unstranded option (-n), ignoring unstranded option" << endl;
+        unstranded_clustering = false;
+    }
+    else if (unstranded_clustering && !distance_index_name.empty()) {
+        cerr << "warning:[vg mpmap] Snarl distance index-based clustering (-d) does not have an unstranded option (-n), ignoring unstranded option" << endl;
+        unstranded_clustering = false;
+    }
+    
     if (frag_length_sample_size <= 0) {
         cerr << "error:[vg mpmap] Fragment length distribution sample size (-b) set to " << frag_length_sample_size << ", must set to a positive integer." << endl;
         exit(1);
@@ -600,6 +589,11 @@ int main_mpmap(int argc, char** argv) {
     
     if (snarl_cut_size < 0) {
         cerr << "error:[vg mpmap] Max snarl cut size (-U) set to " << snarl_cut_size << ", must set to a positive integer or 0 for no maximum." << endl;
+        exit(1);
+    }
+    
+    if (max_mapping_p_value <= 0.0) {
+        cerr << "error:[vg mpmap] Max mapping p-value (-P) set to " << max_mapping_p_value << ", must set to a positive number." << endl;
         exit(1);
     }
     
@@ -686,11 +680,6 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (max_dist_error < 0) {
-        cerr << "error:[vg mpmap] Maximum distance approximation error (-F) set to " << max_dist_error << ", must set to a nonnegative integer." << endl;
-        exit(1);
-    }
-    
     if (likelihood_approx_exp < 1.0) {
         cerr << "error:[vg mpmap] Likelihood approximation exponent (-w) set to " << likelihood_approx_exp << ", must set to at least 1.0." << endl;
         exit(1);
@@ -701,13 +690,13 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (suboptimal_path_exponent < 1.0) {
-        cerr << "error:[vg mpmap] Suboptimal path likelihood root (-R) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
+    if (use_tvs_clusterer && distance_index_name.empty()) {
+        cerr << "error:[vg mpmap] The Target Value Search clusterer (-v) requires a distance index (-d)." << endl;
         exit(1);
     }
     
-    if (min_mem_length <= 0) {
-        cerr << "error:[vg mpmap] Minimum MEM length (-k) set to " << min_mem_length << ", must set to a positive integer." << endl;
+    if (suboptimal_path_exponent < 1.0) {
+        cerr << "error:[vg mpmap] Suboptimal path likelihood root (-R) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
         exit(1);
     }
     
@@ -956,6 +945,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.delay_population_scoring = delay_population_scoring;
     
     // set pruning and clustering parameters
+    multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
@@ -963,6 +953,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.unstranded_clustering = unstranded_clustering;
     multipath_mapper.min_median_mem_coverage_for_split = min_median_mem_coverage_for_split;
     multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
+    multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
@@ -988,6 +979,10 @@ int main_mpmap(int argc, char** argv) {
     // set computational paramters
     int thread_count = get_thread_count();
     multipath_mapper.set_alignment_threads(thread_count);
+    
+    // Establish a watchdog to find reads that take too long to map.
+    // If we see any, we will issue a warning.
+    unique_ptr<Watchdog> watchdog(new Watchdog(thread_count, chrono::minutes(20)));
     
     // are we doing paired ends?
     if (interleaved_input || !fastq_name_2.empty()) {
@@ -1183,6 +1178,13 @@ int main_mpmap(int argc, char** argv) {
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
+
+        auto thread_num = omp_get_thread_num();
+
+        if (watchdog) {
+            watchdog->check_in(thread_num, alignment.name());
+        }
+
         vector<MultipathAlignment> mp_alns;
         multipath_mapper.multipath_map(alignment, mp_alns, max_num_mappings);
         if (single_path_alignment_mode) {
@@ -1191,6 +1193,11 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_alignments(mp_alns);
         }
+        
+        if (watchdog) {
+            watchdog->check_out(thread_num);
+        }
+        
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
@@ -1202,9 +1209,17 @@ int main_mpmap(int argc, char** argv) {
     function<void(Alignment&, Alignment&)> do_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
         // get reads on the same strand so that oriented distance estimation works correctly
         // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
+
+        auto thread_num = omp_get_thread_num();
+
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
+
+        if (watchdog) {
+            watchdog->check_in(thread_num, alignment_1.name());
+        }
+        
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
@@ -1219,6 +1234,11 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_paired_alignments(mp_aln_pairs);
         }
+        
+        if (watchdog) {
+            watchdog->check_out(thread_num);
+        }
+        
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical
@@ -1230,9 +1250,17 @@ int main_mpmap(int argc, char** argv) {
     function<void(Alignment&, Alignment&)> do_independent_paired_alignments = [&](Alignment& alignment_1, Alignment& alignment_2) {
         // get reads on the same strand so that oriented distance estimation works correctly
         // but if we're clearing the ambiguous buffer we already RC'd these on the first pass
+
+        auto thread_num = omp_get_thread_num();
+
 #ifdef record_read_run_times
         clock_t start = clock();
 #endif
+
+        if (watchdog) {
+            watchdog->check_in(thread_num, alignment_1.name());
+        }
+
         if (!same_strand) {
             // TODO: the output functions undo this transformation, so we have to do it here.
         
@@ -1260,6 +1288,11 @@ int main_mpmap(int argc, char** argv) {
         else {
             output_multipath_paired_alignments(mp_aln_pairs);
         }
+        
+        if (watchdog) {
+            watchdog->check_out(thread_num);
+        }
+        
 #ifdef record_read_run_times
         clock_t finish = clock();
 #pragma omp critical

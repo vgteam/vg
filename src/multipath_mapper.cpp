@@ -71,7 +71,7 @@ namespace vg {
         
         // cluster the MEMs
         unique_ptr<OrientedDistanceMeasurer> distance_measurer = create_distance_measurer();
-        vector<memcluster_t> clusters = get_clusters(alignment, mems, *distance_measurer);
+        vector<memcluster_t> clusters = get_clusters(alignment, mems, &(*distance_measurer));
         
 #ifdef debug_multipath_mapper
         cerr << "obtained clusters:" << endl;
@@ -145,11 +145,74 @@ namespace vg {
     }
     
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                        OrientedDistanceMeasurer& distance_measurer) const {
+                                                                        OrientedDistanceMeasurer* distance_measurer) const {
         
-        OrientedDistanceClusterer clusterer(distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
-        return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                  log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        if (use_tvs_clusterer) {
+            TVSClusterer clusterer(xindex, distance_index);
+            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        }
+        else {
+            OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
+            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        }
+    }
+    
+    vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
+                                                                                   const Alignment& alignment2,
+                                                                                   vector<clustergraph_t>& cluster_graphs1,
+                                                                                   vector<clustergraph_t>& cluster_graphs2,
+                                                                                   OrientedDistanceMeasurer* distance_measurer) {
+        // make vectors of cluster pointers to shim into the cluster pairing function
+        vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
+        for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+            cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
+        }
+        for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+            cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
+        }
+        
+        // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
+        vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
+        for (size_t i = 0; i < cluster_mems_1.size(); i++) {
+            auto& mem_cluster = *cluster_mems_1[i];
+            for (size_t j = 1; j < mem_cluster.size(); j++) {
+                if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                    alt_anchors_1.emplace_back(i, j);
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        for (size_t i = 0; i < cluster_mems_2.size(); i++) {
+            auto& mem_cluster = *cluster_mems_2[i];
+            for (size_t j = 1; j < mem_cluster.size(); j++) {
+                if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
+                    alt_anchors_2.emplace_back(i, j);
+                }
+                else {
+                    break;
+                }
+            }
+        }
+        
+        // Compute the pairs of cluster graphs and their approximate distances from each other
+        if (use_tvs_clusterer) {
+            TVSClusterer clusterer(xindex, distance_index);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(10.0 * fragment_length_distr.stdev()));
+        }
+        else {
+            OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(10.0 * fragment_length_distr.stdev()));
+        }
     }
     
     void MultipathMapper::align_to_cluster_graphs(const Alignment& alignment,
@@ -405,7 +468,7 @@ namespace vg {
         // in case we're realigning a GAM, get rid of the path
         aln.clear_path();
         
-        algorithms::lazier_sort(&align_graph);
+        algorithms::lazier_topological_sort(&align_graph);
         
         get_aligner()->align(aln, align_graph.graph, true, false);
         
@@ -1235,7 +1298,7 @@ namespace vg {
                                                vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                vector<pair<Alignment, Alignment>>& ambiguous_pair_buffer,
                                                size_t max_alt_mappings) {
-        
+                
 #ifdef debug_multipath_mapper
         cerr << "multipath mapping paired reads " << pb2json(alignment1) << " and " << pb2json(alignment2) << endl;
 #endif
@@ -1338,7 +1401,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters2 = get_clusters(alignment2, mems2, *distance_measurer);
+                clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer));
                 cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
             }
             
@@ -1357,7 +1420,7 @@ namespace vg {
                 }
                 
                 // do the clustering
-                clusters1 = get_clusters(alignment1, mems1, *distance_measurer);
+                clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer));
                 cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
             }
         }
@@ -1380,8 +1443,8 @@ namespace vg {
             }
             
             // do the clustering
-            clusters1 = get_clusters(alignment1, mems1, *distance_measurer);
-            clusters2 = get_clusters(alignment2, mems2, *distance_measurer);
+            clusters1 = get_clusters(alignment1, mems1, &(*distance_measurer));
+            clusters2 = get_clusters(alignment2, mems2, &(*distance_measurer));
             
             // extract graphs around the clusters and get the assignments of MEMs to these graphs
             cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -1410,59 +1473,7 @@ namespace vg {
             // we haven't already obtained a paired mapping by rescuing into a repeat, so we should try to get one
             // by cluster pairing
             
-            // make vectors of cluster pointers to shim into the cluster pairing function
-            vector<memcluster_t*> cluster_mems_1(cluster_graphs1.size()), cluster_mems_2(cluster_graphs2.size());
-            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-                cluster_mems_1[i] = &(get<1>(cluster_graphs1[i]));
-            }
-            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-                cluster_mems_2[i] = &(get<1>(cluster_graphs2[i]));
-            }
-            
-            // Chebyshev bound for 99% of all fragments regardless of distribution
-            // TODO: I don't love having this internal aspect of the stranded/unstranded clustering outside the clusterer...
-            int64_t max_separation, min_separation;
-            if (unstranded_clustering) {
-                max_separation = (int64_t) ceil(abs(fragment_length_distr.mean()) + 10.0 * fragment_length_distr.stdev());
-                min_separation = -max_separation;
-            }
-            else {
-                max_separation = (int64_t) ceil(fragment_length_distr.mean() + 10.0 * fragment_length_distr.stdev());
-                min_separation = (int64_t) fragment_length_distr.mean() - 10.0 * fragment_length_distr.stdev();
-            }
-            
-            // Find the clusters that have a tie for the longest MEM, and create alternate anchor points for those clusters
-            vector<pair<size_t, size_t>> alt_anchors_1, alt_anchors_2;
-            for (size_t i = 0; i < cluster_mems_1.size(); i++) {
-                auto& mem_cluster = *cluster_mems_1[i];
-                for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
-                        alt_anchors_1.emplace_back(i, j);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            for (size_t i = 0; i < cluster_mems_2.size(); i++) {
-                auto& mem_cluster = *cluster_mems_2[i];
-                for (size_t j = 1; j < mem_cluster.size(); j++) {
-                    if (mem_cluster[j].first->length() + alt_anchor_max_length_diff >= mem_cluster.front().first->length()) {
-                        alt_anchors_2.emplace_back(i, j);
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-            
-            // Compute the pairs of cluster graphs and their approximate distances from each other
-            cluster_pairs = OrientedDistanceClusterer::pair_clusters(alignment1, alignment2,
-                                                                     cluster_mems_1, cluster_mems_2,
-                                                                     alt_anchors_1, alt_anchors_2,
-                                                                     min_separation, max_separation,
-                                                                     *distance_measurer);
-            
+            cluster_pairs = get_cluster_pairs(alignment1, alignment2, cluster_graphs1, cluster_graphs2, &(*distance_measurer));
             
 #ifdef debug_multipath_mapper
             cerr << "obtained cluster pairs:" << endl;
@@ -1836,7 +1847,7 @@ namespace vg {
 #endif
             
             // get the clusters for the non repeat
-            clusters1 = get_clusters(alignment1, mems1, distance_measurer);
+            clusters1 = get_clusters(alignment1, mems1, &distance_measurer);
             
             // extract the graphs around the clusters
             cluster_graphs1 = query_cluster_graphs(alignment1, mems1, clusters1);
@@ -1871,7 +1882,7 @@ namespace vg {
 #endif
             
             // get the clusters for the non repeat
-            clusters2 = get_clusters(alignment2, mems2, distance_measurer);
+            clusters2 = get_clusters(alignment2, mems2, &distance_measurer);
             
             // extract the graphs around the clusters
             cluster_graphs2 = query_cluster_graphs(alignment2, mems2, clusters2);
@@ -2921,7 +2932,7 @@ namespace vg {
         }
         
         // put the internal graph in topological order for the MultipathAlignmentGraph algorithm
-        algorithms::lazier_sort(&align_graph);
+        algorithms::lazier_topological_sort(&align_graph);
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "making multipath alignment MEM graph" << endl;
@@ -3186,9 +3197,21 @@ namespace vg {
             base_scores[i] = alignments[0].score();
             
             if (query_population) {
+            
+                // Work out the population size. Try the score provider and then fall back to the xg.
+                auto haplotype_count = haplo_score_provider->get_haplotype_count();
+                if (haplotype_count == -1) {
+                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+                    haplotype_count = xindex->get_haplotype_count();
+                }
+                
+                if (haplotype_count == 0 || haplotype_count == -1) {
+                    // We really should have a haplotype count
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                }
                 
                 // Make sure to grab the memo
-                auto& memo = get_rr_memo(recombination_penalty, xindex->get_haplotype_count());
+                auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
                 
                 // Now compute population scores for all the top paths
                 vector<double> alignment_pop_scores(alignments.size(), 0.0);
@@ -3421,8 +3444,20 @@ namespace vg {
             if (query_population) {
                 // We also want to select the optimal population-scored alignment on each side and compute a pop-adjusted score.
                 
+                // Work out the population size. Try the score provider and then fall back to the xg.
+                auto haplotype_count = haplo_score_provider->get_haplotype_count();
+                if (haplotype_count == -1) {
+                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+                    haplotype_count = xindex->get_haplotype_count();
+                }
+                
+                if (haplotype_count == 0 || haplotype_count == -1) {
+                    // We really should have a haplotype count
+                    throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
+                }
+                
                 // Make sure to grab the memo
-                auto& memo = get_rr_memo(recombination_penalty, xindex->get_haplotype_count());
+                auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
                 
                 // What's the base + population score for each alignment?
                 // We need to consider them together because there's a trade off between recombinations and mismatches.

@@ -16,7 +16,7 @@
 #include "../stream.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
-#include "../gam_index.hpp"
+#include "../stream_index.hpp"
 #include "../region.hpp"
 #include "../haplotype_extracter.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
@@ -407,7 +407,7 @@ int main_chunk(int argc, char** argv) {
             }
             region.start = max((int64_t)0, region.start);
             if (region.end == -1) {    
-                region.end = xindex.path_length(rank);
+                region.end = xindex.path_length(rank) - 1;
             } else if (!id_range) {
                 if (region.start < 0 || region.end >= xindex.path_length(rank)) {
                     cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end

@@ -27,6 +27,7 @@
 #include "mem.hpp"
 
 #include "vg.pb.h"
+#include "stream.hpp"
 #include "hash_map.hpp"
 
 #include "progressive.hpp"
@@ -78,7 +79,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutableHandleGraph, public PathHandleGraph {
+class VG : public Progressive, public MutablePathMutableHandleGraph {
 
 public:
 
@@ -87,7 +88,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     
     // Copy over the visit version which would otherwise be shadowed.
     using HandleGraph::get_handle;
@@ -138,6 +139,9 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
+    
+    /// Determine if a path name exists and is legal to get a path handle for.
+    virtual bool has_path(const string& path_name) const;
     
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
@@ -223,6 +227,19 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Mutable path handle interface
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Destroy the given path. Invalidates handles to the path and its node occurrences.
+    virtual void destroy_path(const path_handle_t& path);
+
+    /// Create a path with the given name.
+    virtual path_handle_t create_path_handle(const string& name);
+    
+    /// Append a visit to a node to the given path
+    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
     
 public:
     
@@ -501,16 +518,16 @@ public:
     void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
     void prune_short_subgraphs(size_t min_size);
 
+    /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
+    /// Use when combining multiple VG objects in a stream.
+    /// Graph will be serialized in internal storage order.
+    void serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
     /// Write to a stream in chunked graphs. Adds an EOF marker.
     /// Use when this VG will be the only thing in the stream.
+    /// Graph will be serialized in internal storage order.
     void serialize_to_ostream(ostream& out, id_t chunk_size = 1000);
-    /// Write to a stream in chunked graphs. Does not add an EOF marker, so
-    /// serializing multiple graphs to a stream won't produce spurious EOF
-    /// markers. Caller must call stream::finish(out) on the stream when done
-    /// writing to it.
-    /// Use when combining multiple VG objects in a stream/
-    void serialize_to_ostream_as_part(ostream& out, id_t chunk_size = 1000);
     /// Write the graph to a file, with an EOF marker.
+    /// Graph will be serialized in internal storage order.
     void serialize_to_file(const string& file_name, id_t chunk_size = 1000);
 
     // can we handle this with merge?

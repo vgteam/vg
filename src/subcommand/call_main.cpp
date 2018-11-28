@@ -132,11 +132,6 @@ int main_call(int argc, char** argv) {
         return 1;
     }
     
-    if (base_graph_file_name.empty()) {
-        cerr << "[vg call]: Base graph file must be specified with -b" << endl;
-        return 1;
-    }
-
     // read the graph
     if (show_progress) {
         cerr << "Reading input graph" << endl;
@@ -148,9 +143,11 @@ int main_call(int argc, char** argv) {
 
     // and the base graph
     VG* base_graph = NULL;
-    get_input_file(base_graph_file_name, [&](istream& in) {
-            base_graph = new VG(in);
-    });
+    if (!base_graph_file_name.empty()) {
+        get_input_file(base_graph_file_name, [&](istream& in) {
+                base_graph = new VG(in);
+            });
+    }
 
     SupportAugmentedGraph augmented_graph;
     // Move our input graph into the augmented graph

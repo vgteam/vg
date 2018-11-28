@@ -1654,12 +1654,17 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         // It won't matter either way
         return;
     }
-    
-    size_t haplotype_count = xindex->get_haplotype_count();
-    
-    if (haplotype_count == 0) {
-        // The XG apparently has no path database information. Maybe it wasn't built with the GBWT?
-        throw runtime_error("Cannot score any haplotypes with a 0 haplotype count; does the XG contain the path database?");
+   
+    // Work out the population size. Try the score provider and then fall back to the xg.
+    auto haplotype_count = haplo_score_provider->get_haplotype_count();
+    if (haplotype_count == -1) {
+        // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+        haplotype_count = xindex->get_haplotype_count();
+    }
+   
+    if (haplotype_count == 0 || haplotype_count == -1) {
+        // We really should have a haplotype count
+        throw runtime_error("Cannot score any haplotypes with a 0 or -1 haplotype count; are haplotypes available?");
     }
     
     // We don't look at strip_bonuses here, because we need these bonuses added

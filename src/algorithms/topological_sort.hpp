@@ -82,7 +82,7 @@ vector<handle_t> lazier_topological_order(const HandleGraph* g);
  * on graphs that are not DAGs, but instead of finding a topological sort ti does a heuristic
  * sort to minimize a feedback arc set.
  */
-void sort(MutableHandleGraph* g);
+void topological_sort(MutableHandleGraph* g);
     
 /**
  * Topologically sort the given handle graph, and then apply that sort to re-
@@ -91,7 +91,7 @@ void sort(MutableHandleGraph* g);
  * in a graph that has any cycles. For safety, consider checking this property with
  * algorithms::is_acyclic().
  */
-void lazy_sort(MutableHandleGraph* g);
+void lazy_topological_sort(MutableHandleGraph* g);
 
 /**
  * Topologically sort the given handle graph, and then apply that sort to re-
@@ -101,7 +101,7 @@ void lazy_sort(MutableHandleGraph* g);
  * edges. For safety, consider checking these properties with algorithms::is_single_stranded()
  * and algorithms::is_acyclic().
  */
-void lazier_sort(MutableHandleGraph* g);
+void lazier_topological_sort(MutableHandleGraph* g);
     
 /**
  * Topologically sort the given handle graph, and then apply that sort to orient

@@ -1820,6 +1820,10 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     }
 }
 
+bool XG::has_path(const string& path_name) const {
+    return path_rank(path_name) != 0;
+}
+
 path_handle_t XG::get_path_handle(const string& path_name) const {
     return as_path_handle(path_rank(path_name));
 }
@@ -3570,7 +3574,7 @@ pair<bool, bool> XG::validate_strand_consistency(int64_t id1, size_t offset1, bo
 }
 
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,
-                        function<void(int64_t)> lambda, bool is_rev) const {
+                        function<void(int64_t, bool)> lambda, bool is_rev) const {
 
     // what is the node at the start, and at the end
     auto& path = *paths[path_rank(name)-1];
@@ -3587,9 +3591,7 @@ void XG::for_path_range(const string& name, int64_t start, int64_t stop,
 
     // Grab the IDs visited in order along the path
     for (size_t i = pr1; i <= pr2; ++i) {
-        // For all the visits along this section of path, grab the node being visited and all its edges.
-        int64_t id = path.node(i);
-        lambda(id);
+        lambda(path.node(i), path.is_reverse(i));
     }
 }
 
@@ -3598,7 +3600,7 @@ void XG::get_path_range(const string& name, int64_t start, int64_t stop, Graph& 
     set<int64_t> nodes;
     set<pair<side_t, side_t> > edges;
 
-    for_path_range(name, start, stop, [&](int64_t id) {
+    for_path_range(name, start, stop, [&](int64_t id, bool) {
             nodes.insert(id);
             for (auto& e : edges_from(id)) {
                 // For each edge where this is a from node, turn it into a pair of side_ts, each of which holds an id and an is_end flag.

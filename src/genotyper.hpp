@@ -145,6 +145,12 @@ public:
 
     // Toggle traversal finder for testing
     enum TraversalAlg { Reads, Exhaustive, Representative, Adaptive };
+    map<TraversalAlg, string> alg2name = {
+        {Reads, "Reads"},
+        {Exhaustive, "Exhaustive"},
+        {Representative, "Representative"},
+        {Adaptive, "Adaptive"}
+    };
     TraversalAlg traversal_alg = TraversalAlg::Reads;
 
     // Show progress
