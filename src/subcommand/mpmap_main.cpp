@@ -75,6 +75,7 @@ void help_mpmap(char** argv) {
     << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
     << "  --always-check-population     always try to population-score reads, even if there is only a single mapping" << endl
     << "  --delay-population            do not apply population scoring at intermediate stages of the mapping algorithm" << endl
+    << "  --force-haplotype-count INT   assume that INT haplotypes ought to run through each fixed part of the graph, if nonzero [0]" << endl
     << "  -C, --drop-subgraph FLOAT     drop alignment subgraphs whose MEMs cover this fraction less of the read than the best subgraph [0.2]" << endl
     << "  -U, --prune-exp FLOAT         prune MEM anchors if their approximate likelihood is this root less than the optimal anchors [1.25]" << endl
     << "scoring:" << endl
@@ -103,6 +104,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_RECOMBINATION_PENALTY 1001
     #define OPT_ALWAYS_CHECK_POPULATION 1002
     #define OPT_DELAY_POPULATION_SCORING 1003
+    #define OPT_FORCE_HAPLOTYPE_COUNT 1004
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -151,6 +153,7 @@ int main_mpmap(int argc, char** argv) {
     double recombination_penalty = 20.7;
     bool always_check_population = false;
     bool delay_population_scoring = false;
+    size_t force_haplotype_count = 0;
     bool single_path_alignment_mode = false;
     int max_mapq = 60;
     size_t frag_length_sample_size = 1000;
@@ -231,6 +234,7 @@ int main_mpmap(int argc, char** argv) {
             {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
             {"delay-population", no_argument, 0, OPT_DELAY_POPULATION_SCORING},
+            {"force-haplotype-count", required_argument, 0, OPT_FORCE_HAPLOTYPE_COUNT},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -455,6 +459,10 @@ int main_mpmap(int argc, char** argv) {
                 delay_population_scoring = true;
                 break;
                 
+            case OPT_FORCE_HAPLOTYPE_COUNT:
+                force_haplotype_count = parse<size_t>(optarg);
+                break;
+                
             case 'C':
                 cluster_ratio = parse<double>(optarg);
                 break;
@@ -631,6 +639,10 @@ int main_mpmap(int argc, char** argv) {
     
     if (delay_population_scoring && gbwt_name.empty() && sublinearLS_name.empty()) {
         cerr << "warning:[vg mpmap] Cannot --delay-population scoring if no population database (-H or --linear-index) is provided. Ignoring option." << endl;
+    }
+    
+    if (force_haplotype_count != 0 && gbwt_name.empty() && sublinearLS_name.empty()) {
+        cerr << "warning:[vg mpmap] Cannot --force-haplotype-count if no population database (-H or --linear-index) is provided. Ignoring option." << endl;
     }
     
     if (!sublinearLS_name.empty() && !gbwt_name.empty()) {
@@ -943,6 +955,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.recombination_penalty = recombination_penalty;
     multipath_mapper.always_check_population = always_check_population;
     multipath_mapper.delay_population_scoring = delay_population_scoring;
+    multipath_mapper.force_haplotype_count = force_haplotype_count;
     
     // set pruning and clustering parameters
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;

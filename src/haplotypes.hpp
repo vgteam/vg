@@ -507,6 +507,7 @@ void haplo_DP_rectangle::false_extend(accessorType& ga,
 template<class accessorType>
 haplo_DP_column::haplo_DP_column(accessorType& ga) {
   haplo_DP_rectangle* first_rectangle = new haplo_DP_rectangle(ga.inclusive_interval());
+  assert(first_rectangle != nullptr);
   entries.push_back(shared_ptr<haplo_DP_rectangle>(first_rectangle));
   first_rectangle->extend(ga);
   update_inner_values();
@@ -518,6 +519,7 @@ void haplo_DP_column::standard_extend(accessorType& ga) {
   previous_values = get_scores();
   previous_sizes = get_sizes();
   haplo_DP_rectangle* new_rectangle = new haplo_DP_rectangle(ga.inclusive_interval());
+  assert(new_rectangle != nullptr);
   new_rectangle->extend(ga);
   decltype(entries) new_entries;
   new_entries.push_back(shared_ptr<haplo_DP_rectangle>(new_rectangle));
@@ -557,7 +559,7 @@ void haplo_DP_column::extend(accessorType& ga) {
 //------------------------------------------------------------------------------
 
 template<class accessorType>
-haplo_DP::haplo_DP(accessorType& ga) : DP_column(haplo_DP_column(ga)) {
+haplo_DP::haplo_DP(accessorType& ga) : DP_column(ga) {
   
 }
 
@@ -568,6 +570,13 @@ haplo_score_type haplo_DP::score(const vg::Path& path, GBWTType& graph, haploMat
 
 template<class GBWTType>
 haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, haploMath::RRMemo& memo) {
+  if (thread.size() == 0) {
+    if (warn_on_score_fail) {
+      cerr << "[WARNING] Path is empty and cannot be scored" << endl;
+      cerr << "Cannot compute a meaningful haplotype likelihood score" << endl;
+    }
+    return pair<double, bool>(nan(""), false);
+  }
   if (!graph.contains(thread[0])) {
     // We start on a node that has no haplotype index entry
     if (warn_on_score_fail) {
