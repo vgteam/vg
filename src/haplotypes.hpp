@@ -650,7 +650,6 @@ pair<double, bool> GBWTScoreProvider<GBWTType>::score(const vg::Path& path, hapl
 template<class GBWTType>
 int64_t GBWTScoreProvider<GBWTType>::get_haplotype_count() const {
   if (!index.hasMetadata()) {
-    cerr << "GBWT lacks index metadata!" << endl;
     // No metadata available
     return -1;
   }
