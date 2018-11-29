@@ -130,6 +130,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a36fc199909b9c2090101a2355d51d46b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7807cb3304613f806913f334fe366269"><td class="memItemLeft" align="right" valign="top">struct <a class="el" href="structvg_1_1graph__pos__s.html">graph_pos_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a7807cb3304613f806913f334fe366269">calculate_max_position</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> const &amp;graph, struct <a class="el" href="structvg_1_1graph__pos__s.html">graph_pos_s</a> const &amp;seed_pos, size_t max_node_index, bool direction)</td></tr>
 <tr class="separator:a7807cb3304613f806913f334fe366269"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87c4d05a9d33a89a62e3f28101576513"><td class="memItemLeft" align="right" valign="top">struct <a class="el" href="structvg_1_1graph__pos__s.html">graph_pos_s</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a87c4d05a9d33a89a62e3f28101576513">scan_seed_position</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> const &amp;graph, std::string const &amp;query_seq, bool direction)</td></tr>
+<tr class="separator:a87c4d05a9d33a89a62e3f28101576513"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0fdcf4192f3f5045ed4025f2a2dbe8f6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a0fdcf4192f3f5045ed4025f2a2dbe8f6">push_edit</a> (<a class="el" href="structvg_1_1Mapping.html">Mapping</a> *mapping, uint8_t op, char const *alt, size_t len)</td></tr>
 <tr class="separator:a0fdcf4192f3f5045ed4025f2a2dbe8f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9cb5a3efa63c1136a3e28a89f4352076"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1XdropAligner.html#a9cb5a3efa63c1136a3e28a89f4352076">extend</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> const &amp;graph, vector&lt; uint64_t &gt;::const_iterator begin, vector&lt; uint64_t &gt;::const_iterator end, struct dz_query_s const *packed_query, size_t seed_node_index, uint64_t seed_offset, bool direction)</td></tr>
@@ -691,6 +693,46 @@ const &amp;, uint64_t const &amp;)&gt;<br class="typebreak"/>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>len</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a87c4d05a9d33a89a62e3f28101576513"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct <a class="el" href="structvg_1_1graph__pos__s.html">graph_pos_s</a> XdropAligner::scan_seed_position </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Graph.html">Graph</a> const &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::string const &amp;&#160;</td>
+          <td class="paramname"><em>query_seq</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>direction</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
