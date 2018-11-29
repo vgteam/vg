@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 25
 
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
 
 vg index -x x.xg x.vg 2>/dev/null
@@ -38,12 +38,12 @@ is $(vg find -n 2308 -c 10 -L -x m.xg | vg view -g - | grep S | wc -l) 10 "vg fi
 is $(vg find -n 2315 -n 183 -n 176 -c 1 -L -x m.xg | vg view -g - | grep S | wc -l) 7 "vg find -L works with more than one input node"
 rm m.xg
 
-vg construct -rmem/h.fa >h.vg
+vg construct -m 1000 -rmem/h.fa >h.vg
 vg index -g h.gcsa -k 16 h.vg
 is $(vg find -M ACCGTTAGAGTCAG -g h.gcsa) '[["ACC",["1:-32"]],["CCGTTAG",["1:5"]],["GTTAGAGT",["1:19"]],["TAGAGTCAG",["1:40"]]]' "we find the 4 canonical SMEMs from @lh3's bwa mem poster"
 rm -f h.gcsa h.gcsa.lcp h.vg
 
-vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz -m 64 >giab.vg
+vg construct -m 1000 -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz -m 64 >giab.vg
 vg index -x giab.xg -g giab.gcsa -k 11 giab.vg
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(md5sum correct/05_vg_find/28.txt | cut -f -1 -d\ ) "we can find the right MEMs for a sequence with Ns"
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(vg find -M ATTCATNNNNNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) "we find the same MEMs sequences with different lengths of Ns"
@@ -61,7 +61,7 @@ rm -f giab.vg giab.xg giab.gcsa
 #is $(vg find -M ACGTGCCGTTAGCCAGTGGGTTAG -R 10 -Z 10 -f -x s.xg -g s.gcsa) '[["ACGTGCCGTTAGCCAGTGGGTTAG",["3:11"]],["AGCCAGTGGGTTA",["1:0","2:0"]]]' "we can find the same (sufficiently long) sub-MEMs the hard de-duplication case with the fast sub-MEM option"
 #rm -rf s.vg s.xg s.gcsa*
 
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg map -x x.xg -g x.gcsa -T small/x-s1337-n100.reads >x.gam
 vg index -d x.db -N x.gam
@@ -78,7 +78,7 @@ is $(vg find -G small/x-s1337-n1.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTT
 
 rm -rf x.vg x.xg x.gcsa
 
-vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
+vg construct -m 1000 -r tiny/tiny.fa -v tiny/tiny.vcf.gz >tiny.vg
 vg index -x tiny.xg tiny.vg 
 is $(vg find -x tiny.xg -n 12 -n 13 -n 14 -n 15 | vg view - | grep ^L | wc -l) 4 "find gets connected edges between queried nodes by default"
 echo 12 13 >get.nodes
@@ -93,7 +93,7 @@ is "$(vg find -x test.xg -p ref:0 -c 10 | vg view -j - | jq '.edge | length')" "
 
 rm -f test.vg test.xg
 
-vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a 2> /dev/null | vg view -j - | sed s/_alt/alt/g | vg view -Jv - >w.vg
+vg construct -m 1000 -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a 2> /dev/null | vg view -j - | sed s/_alt/alt/g | vg view -Jv - >w.vg
 vg index -x w.xg w.vg
 is $(( cat w.vg | vg mod -D - ; vg find -x w.xg -Q alt ) | vg paths -L -v - | wc -l) 38 "pattern based path extraction works"
 rm -f w.xg w.vg

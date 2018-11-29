@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 52
 
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
 is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -j - | jq -r '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"

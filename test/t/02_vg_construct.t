@@ -9,13 +9,13 @@ export LC_ALL="C" # force a consistent sort order
 
 plan tests 24
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
+is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep edges | cut -f 2) 291 "construction produces the right number of edges"
+is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep edges | cut -f 2) 291 "construction produces the right number of edges"
 
 is $(vg construct -r small/x.fa --rename chrX=x -R chrX:1-2 | vg stats -l - | cut -f 2 ) 2 "construction obeys rename and region options"
 
-vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
+vg construct -m 1000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
 
 nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
@@ -28,7 +28,7 @@ rm -f z.vg
 
 is $(vg construct -r 1mb1kgp/z.fa | vg view -j - | jq -c '.node[] | select((.sequence | length) >= 1024)' | wc -l) 0 "node size is manageable by default"
 
-vg construct -r complex/c.fa -v complex/c.vcf.gz >c.vg
+vg construct -m 1000 -r complex/c.fa -v complex/c.vcf.gz >c.vg
 is $? 0 "construction of a very complex region succeeds"
 
 nodes=$(vg stats -z c.vg | head -1 | cut -f 2)
@@ -92,7 +92,7 @@ max_node_size=$(vg construct -r small/x.fa -v small/x.vcf.gz -m 12 | vg view -g 
 is $max_node_size 12 "nodes are correctly capped in size"
 
 ## Check the length of the longest node
-is $(vg construct -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view - | grep "^S" | awk '{ print length($3); }' | sort -n | tail -1) 241 "-R --region flag is respected" 
+is $(vg construct -m 1000 -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view - | grep "^S" | awk '{ print length($3); }' | sort -n | tail -1) 241 "-R --region flag is respected" 
 
 vg construct -r small/x.fa >/dev/null
 is $? 0 "vg construct does not require a vcf"

@@ -38,7 +38,7 @@ void help_construct(char** argv) {
          << "    -F, --msa-format       format of the MSA file (options: fasta, maf, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
-         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 1000)" << endl
+         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 32)" << endl
          << "                           nodes greater than this threshold will be divided" << endl
          << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress         show progress" << endl;
@@ -62,7 +62,7 @@ int main_construct(int argc, char** argv) {
     string region;
     bool region_is_chrom = false;
     string msa_filename;
-    int max_node_size = 1000;
+    int max_node_size = 32;
     bool keep_paths = true;
     string msa_format = "fasta";
     bool show_progress = false;

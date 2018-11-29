@@ -8,7 +8,7 @@ PATH=../bin:$PATH # for vg
 plan tests 17
 
 # Construct a graph with alt paths so we can make a gPBWT and later a GBWT
-vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz  x.vg
 vg view -a small/x-l100-n1000-s10-e0.01-i0.01.gam > x.gam.json
 
@@ -53,7 +53,7 @@ is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] 
 
 #check that n-chunking works
 # We know that it will drop _alt paths so we remake the graph without them for comparison.
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 mkdir x.chunk
 vg chunk -x x.xg -n 5 -b x.chunk/
 is $(cat x.chunk/*vg | vg view -V - 2>/dev/null | sort |  md5sum | cut -f 1 -d\ ) $(vg view x.vg | sort  | md5sum | cut -f 1 -d\ ) "n-chunking works and chunks over the full graph"
