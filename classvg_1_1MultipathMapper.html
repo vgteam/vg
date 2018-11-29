@@ -235,6 +235,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aadbb94f74824864d7bed5c63cb85687e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaaecbb0881e444042662a72907442fc1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#aaaecbb0881e444042662a72907442fc1">use_population_mapqs</a> = false</td></tr>
 <tr class="separator:aaaecbb0881e444042662a72907442fc1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4c89cc1e5c4696682c6bc9282de4b034"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a4c89cc1e5c4696682c6bc9282de4b034">force_haplotype_count</a> = 0</td></tr>
+<tr class="separator:a4c89cc1e5c4696682c6bc9282de4b034"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a135abf9221806d613a60edb087509a06"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a135abf9221806d613a60edb087509a06">always_check_population</a> = false</td></tr>
 <tr class="separator:a135abf9221806d613a60edb087509a06"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adfb100b024b23e3e94a31ea41d0b1ac8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#adfb100b024b23e3e94a31ea41d0b1ac8">population_max_paths</a> = 10</td></tr>
@@ -379,7 +381,6 @@ size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom
 <tr class="memdesc:a5e6096b620b762f5a73a528fc1088920"><td class="mdescLeft">&#160;</td><td class="mdescRight">The approximate p-value for a match length of the given size against the current graph.  <a href="#a5e6096b620b762f5a73a528fc1088920">More...</a><br/></td></tr>
 <tr class="separator:a5e6096b620b762f5a73a528fc1088920"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a936b743d3cd63fe8a07e0139f63bbf62"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a936b743d3cd63fe8a07e0139f63bbf62">distance_between</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_1, const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_2, bool full_fragment=false, bool forward_strand=false) const </td></tr>
-<tr class="memdesc:a936b743d3cd63fe8a07e0139f63bbf62"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compute the approximate distance between two multipath alignments.  <a href="#a936b743d3cd63fe8a07e0139f63bbf62">More...</a><br/></td></tr>
 <tr class="separator:a936b743d3cd63fe8a07e0139f63bbf62"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afa753672aa6739dc7169cf8ff2b7b29c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#afa753672aa6739dc7169cf8ff2b7b29c">are_consistent</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_1, const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_2) const </td></tr>
 <tr class="memdesc:afa753672aa6739dc7169cf8ff2b7b29c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Are two multipath alignments consistently placed based on the learned fragment length distribution?  <a href="#afa753672aa6739dc7169cf8ff2b7b29c">More...</a><br/></td></tr>
@@ -1358,8 +1359,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Compute the approximate distance between two multipath alignments. </p>
+<p>Compute the approximate distance between two multipath alignments If either is unmapped, or the distance cannot be obtained, returns numeric_limits&lt;int64_t&gt;::max() </p>
 
 </div>
 </div>
@@ -2209,7 +2209,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object Optionally also sorts a vector of indexes to keep track of the cluster-of-origin </p>
+<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object Optionally also sorts a vector of indexes to keep track of the cluster-of-origin Allows multipath alignments where the best single path alignment is leaving the read unmapped. </p>
 
 </div>
 </div>
@@ -2256,7 +2256,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object If there are ties between scores, breaks them by the expected distance between pairs as computed by the OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector) </p>
+<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object If there are ties between scores, breaks them by the expected distance between pairs as computed by the OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector) Allows multipath alignments where the best single path alignment is leaving the read unmapped. </p>
 
 </div>
 </div>
@@ -2291,7 +2291,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector </p>
+<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector. Properly handles MultipathAlignments that are unmapped. </p>
 
 </div>
 </div>
@@ -2326,7 +2326,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector, also measure the distance between them and add a record to the cluster pairs vector </p>
+<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector, also measure the distance between them and add a record to the cluster pairs vector. Properly handles MultipathAlignments that are unmapped. </p>
 
 </div>
 </div>
@@ -2463,6 +2463,18 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
       <table class="memname">
         <tr>
           <td class="memname">bool vg::MultipathMapper::dynamic_max_alt_alns = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a4c89cc1e5c4696682c6bc9282de4b034"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::MultipathMapper::force_haplotype_count = 0</td>
         </tr>
       </table>
 </div><div class="memdoc">

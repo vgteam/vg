@@ -16,6 +16,7 @@ var searchData=
   ['flank_5frange',['flank_range',['../classvg_1_1VariantAdder.html#a1761b88c30f6fc8e9e40a99d6f66d9dd',1,'vg::VariantAdder']]],
   ['flat',['flat',['../classvg_1_1Constructor.html#a2def54af1f72ad07cf84ff26fbbcc398',1,'vg::Constructor']]],
   ['flat_5fnode',['flat_node',['../structhaplo_1_1haplo__DP__rectangle.html#a5c211ab946bf46fc45b1815482fd790a',1,'haplo::haplo_DP_rectangle']]],
+  ['force_5fhaplotype_5fcount',['force_haplotype_count',['../classvg_1_1MultipathMapper.html#a4c89cc1e5c4696682c6bc9282de4b034',1,'vg::MultipathMapper']]],
   ['forefronts',['forefronts',['../classvg_1_1XdropAligner.html#ae3a4b6a0f8a31895f99ec6e59c2b732c',1,'vg::XdropAligner']]],
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t']]],
   ['format',['format',['../classvg_1_1SupportCaller.html#af9e9a4ecc2f56ea8fe5ac2cba6ddc42e',1,'vg::SupportCaller']]],

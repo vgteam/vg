@@ -136,6 +136,7 @@ var searchData=
   ['for_5frange',['for_range',['../classvg_1_1Index.html#a6c41050546814a9e9fbc72f39c882e0b',1,'vg::Index']]],
   ['force_5fclose',['force_close',['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#a7cc4828554f57960eb300be866126cd1',1,'vg::stream::BlockedGzipOutputStream']]],
   ['force_5ffragment_5flength_5fdistr',['force_fragment_length_distr',['../classvg_1_1BaseMapper.html#a9848806a322e4a90d0aaf6f1b0407dc8',1,'vg::BaseMapper']]],
+  ['force_5fhaplotype_5fcount',['force_haplotype_count',['../classvg_1_1MultipathMapper.html#a4c89cc1e5c4696682c6bc9282de4b034',1,'vg::MultipathMapper']]],
   ['force_5fparameters',['force_parameters',['../classvg_1_1FragmentLengthDistribution.html#a5751543486d54066f30e943ec188b279',1,'vg::FragmentLengthDistribution']]],
   ['forefronts',['forefronts',['../classvg_1_1XdropAligner.html#ae3a4b6a0f8a31895f99ec6e59c2b732c',1,'vg::XdropAligner']]],
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t']]],
