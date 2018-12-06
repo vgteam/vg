@@ -3161,9 +3161,9 @@ namespace vg {
         // Only do the population MAPQ if it might disambiguate two paths (since it's not
         // as cheap as just using the score), or if we set the setting to always do it.
         bool include_population_component = (use_population_mapqs && (multipath_alns.size() > 1 || always_check_population));
-        // Records whether all of the paths enumerated across all multipath alignments followed the edges in the index.
+        // Records whether, for each multipath alignment, at least one of the paths enumerated followed only edges in the index.
         // We count totally unmapped reads as pop consistent, as all 0 edges they cross are pop consistent.
-        bool all_paths_pop_consistent = true;
+        bool all_multipaths_pop_consistent = true;
         
         double log_base = get_aligner()->log_base;
         
@@ -3187,7 +3187,7 @@ namespace vg {
             
             // We will query the population database for this alignment if it
             // is turned on and it succeeded for the others.
-            bool query_population = include_population_component && all_paths_pop_consistent;
+            bool query_population = include_population_component && all_multipaths_pop_consistent;
             
             // Generate the top alignment, or the top population_max_paths
             // alignments if we are doing multiple alignments for population
@@ -3235,8 +3235,22 @@ namespace vg {
                 // Make sure to grab the memo
                 auto& memo = get_rr_memo(recombination_penalty, haplotype_count);
                 
-                // Now compute population scores for all the top paths
-                vector<double> alignment_pop_scores(alignments.size(), 0.0);
+                // Now we need to score the linearizations. The pop-adjusted
+                // score of the pop-scorable linearization with the best
+                // pop-adjusted score lives in pop_adjusted_scores[i].
+                double& best_linearization_total_score = pop_adjusted_scores[i];
+                // The population score for that alignment lives here.
+                double best_linearization_pop_score = 0;
+                // We set this to true if we found a best linearization.
+                bool have_best_linearization = false;
+                // The multipath's base score is the base score of the
+                // best-base-score linear alignment. This is the "adjustment"
+                // we apply to the multipath's score to make it match the
+                // pop-adjusted score of the best-pop-adjusted-score linear
+                // alignment.
+                double adjustment = 0;
+                
+                
                 for (size_t j = 0; j < alignments.size(); j++) {
                     // Score each alignment if possible
                     auto pop_score = haplo_score_provider->score(alignments[j].path(), memo);
@@ -3248,10 +3262,8 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
                     cerr << pb2json(alignments[j]) << endl;
 #endif
-                   
-                    alignment_pop_scores[j] = pop_score.first / log_base;
-                    
-                    if (std::isnan(alignment_pop_scores[j]) && pop_score.second) {
+
+                    if (std::isnan(pop_score.first) && pop_score.second) {
                         // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
                         cerr << "warning:[vg::MultipathMapper]: NAN population score obtained for read "
                             << alignments[j].name() << " with ostensibly successful query. Changing to failure." << endl;
@@ -3264,51 +3276,54 @@ namespace vg {
                             << alignments[j].name() << ". This should never happen! Bailing out on population scoring." << endl;
                         pop_score.second = false;
                     }
-
-                    all_paths_pop_consistent &= pop_score.second;
+                    
+                    if (pop_score.second) {
+                        // If the alignment was pop-score-able, mix it in as a candidate for the best linearization
+                        
+                        // Compute its pop-adjusted score
+                        double total_score = alignments[j].score() + pop_score.first;
+                        
+                        if (!have_best_linearization || total_score > best_linearization_total_score) {
+                            // This is the new best linearization
+                            
+                            best_linearization_total_score = total_score;
+                            best_linearization_pop_score = pop_score.first;
+                            have_best_linearization = true;
+                            
+                            // Compute the adjustment it requires from the multipath's base score.
+                            adjustment = best_linearization_total_score - base_scores[i];
+                        }
+                        
+                    }
+                    
+                    // Otherwise, skip it
                 }
                 
-                if (!all_paths_pop_consistent) {
-                    // If we failed, bail out on population score correction for the whole MultipathAlignment.
-                    
-                    // Go and do the next MultipathAlignment since we have the base score for this one
+                
+                if (!have_best_linearization) {
+                    // If we have no best linear pop-scored Alignment, bail out on population score correction for this read entirely.
+                    // We probably have a placement in a region not covered by the haplotype index at all.
+                    all_multipaths_pop_consistent = false;
                     continue;
                 }
                 
                 // Otherwise, we have population scores.
                 
-                // Pick the best adjusted score and its difference from the best unadjusted score
-                pop_adjusted_scores[i] = alignments.empty() ? 0.0 : numeric_limits<double>::min();
-                // And the adjustment between those two
-                double adjustment = 0;
-                // And the pop score of the winning alignment
-                double winning_alignment_pop_score = 0;
-                for (size_t j = 0; j < alignments.size(); j++) {
-                    // Compute the adjusted score for each alignment
-                    auto adjusted_score = alignments[j].score() + alignment_pop_scores[j];
-                   
-                    if (adjusted_score > pop_adjusted_scores[i]) {
-                        // It is the best, so use it.
-                        // TODO: somehow know we want this Alignment when collapsing the MultipathAlignment later.
-                        pop_adjusted_scores[i] = adjusted_score;
-                        adjustment = pop_adjusted_scores[i] - base_scores[i];
-                        winning_alignment_pop_score = alignment_pop_scores[j];
-                    }
-                }
+#ifdef debug_multipath_mapper
+                cerr << "Best population-adjusted linearization score is " << best_linearization_total_score << endl;
+#endif
                 
-                // Save the population score from the best total score Alignment,
-                // even if population scoring doesn't get used. TODO: When
-                // flattening the multipath alignment back to single path, we
-                // should replace this score or make sure to use this winning
-                // single path alignment.
-                set_annotation(multipath_alns[i], "haplotype_score", winning_alignment_pop_score); 
+                // Save the population score from the best total score Alignment.
+                // TODO: This is not the pop score of the linearization that the MultipathAlignment wants to give us by default.
+                set_annotation(multipath_alns[i], "haplotype_score", best_linearization_pop_score); 
                 
                 // See if we have a new minimum adjustment value, for the adjustment applicable to the chosen traceback.
                 min_adjustment = min(min_adjustment, adjustment);
             }
         }
         
-        if (include_population_component && all_paths_pop_consistent) {
+        if (include_population_component && all_multipaths_pop_consistent) {
+            // We will go ahead with pop scoring for this read
             for (auto& score : pop_adjusted_scores) {
                 // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
                 score -= min_adjustment;
@@ -3329,7 +3344,7 @@ namespace vg {
         // Select whether to use base or adjusted scores depending on whether
         // we did population-aware alignment and succeeded for all the
         // multipath alignments.
-        auto& scores = (include_population_component && all_paths_pop_consistent) ? pop_adjusted_scores : base_scores;
+        auto& scores = (include_population_component && all_multipaths_pop_consistent) ? pop_adjusted_scores : base_scores;
         
         // find the order of the scores
         vector<size_t> order(multipath_alns.size(), 0);
