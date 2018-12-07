@@ -458,12 +458,13 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         
         // Load up a forward-strand alignment
         string aln_json = R"(
-            {"sequence": "AAAAA", "path": {"mapping": [
+            {"sequence": "AAAA", "path": {"mapping": [
                 {"position": {"node_id": 1, "offset": 5}, "edit": [
                     {"from_length": 2, "to_length": 2}
                 ]},
                 {"position": {"node_id": 1, "offset": 7}, "edit": [
-                    {"from_length": 3, "to_length": 3}
+                    {"from_length": 1},
+                    {"from_length": 2, "to_length": 2}
                 ]}
             ]}}
         )";
@@ -488,14 +489,16 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
     
     SECTION( "Mapper can annotate multi-mapping paths on the reverse strand" ) {
         
-        // Load up a reverse-strand alignment which is the reverse complement of the forward strand one
+        // Load up a reverse-strand alignment which is not quite the reverse
+        // complement of the forward strand one. The deletion is different.
         string aln_json = R"(
-            {"sequence": "TTTTT", "path": {"mapping": [
+            {"sequence": "TTTT", "path": {"mapping": [
                 {"position": {"node_id": 1, "is_reverse": true, "offset": 63}, "edit": [
                     {"from_length": 2, "to_length": 2}
                 ]},
                 {"position": {"node_id": 1, "is_reverse": true, "offset": 65}, "edit": [
-                    {"from_length": 3, "to_length": 3}
+                    {"from_length": 1},
+                    {"from_length": 2, "to_length": 2}
                 ]}
             ]}}
         )";
