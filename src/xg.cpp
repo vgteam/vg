@@ -3706,7 +3706,7 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
             // Make sure to interpret the pos_t offset on the correct strand.
             // Normalize to a forward strand offset.
             size_t node_forward_strand_offset = is_rev(pos) ? (node_length(node_id) - offset(pos) - 1) : offset(pos);
-            // Then go forward or backward alogn the path as appropriate. If
+            // Then go forward or backward along the path as appropriate. If
             // the node is on the path in reverse we have where its end landed
             // and have to flip the forward strand offset around again.
             size_t off = path.positions[i] + (path.directions[i] ?

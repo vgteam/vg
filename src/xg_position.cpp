@@ -215,22 +215,60 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg:
 map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx) {
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
-        auto pos_offs = (nearby ?
-                         xgidx->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size())
-                         : xgidx->offsets_in_paths(make_pos_t(mapping.position())));
-        for (auto& p : pos_offs) {
-            auto& v = offsets[p.first];
-            auto& y = p.second;
-            v.reserve(v.size() + distance(y.begin(),y.end()));
-            v.insert(v.end(),y.begin(),y.end());
+    
+        // How many bases does this Mapping cover over?
+        size_t mapping_width = mapping_from_length(mapping);
+        
+        if (mapping_width == 0 && !nearby) {
+            // Just skip over this mapping; it touches no bases.
+            continue;
         }
-        //if (just_first && offsets.size()) break; // find a single node that has a path position
+    
+        // We may have to consider both the starts and ends of mappings
+        vector<bool> end = {false};
+        if (just_min && !nearby) {
+            // We want the min actually touched position along each path. It
+            // could come from the Mapping start or the Mapping end.
+            end.push_back(true);
+        }
+        
+        for (auto look_at_end : end) {
+            // For the start and the end of the Mapping, as needed
+            
+            if (mapping_width == 1 && look_at_end) {
+                // The end is the same as the start so we don't need to look it
+                // up separately.
+                continue;
+            }
+       
+            // Find the position of this end of this mapping
+            pos_t mapping_pos = make_pos_t(mapping.position());
+            if (look_at_end) {
+                // Look at the end of the mapping instead of the start
+                get_offset(mapping_pos) += mapping_width - 1;
+            }
+       
+            // Find the positions for this end of this Mapping
+            auto pos_offs = (nearby ?
+                             xgidx->nearest_offsets_in_paths(mapping_pos, aln.sequence().size())
+                             : xgidx->offsets_in_paths(mapping_pos));
+            for (auto& p : pos_offs) {
+                // For each path, splice the list of path positions for this
+                // Mapping onto the end of the list of positions we found in that
+                // path
+                auto& v = offsets[p.first];
+                auto& y = p.second;
+                v.reserve(v.size() + distance(y.begin(),y.end()));
+                v.insert(v.end(),y.begin(),y.end());
+            }
+        }
     }
-    if (!nearby && offsets.empty()) { // find the nearest if we couldn't find any before
+    if (!nearby && offsets.empty()) {
+        // find the nearest if we couldn't find any before
         return xg_alignment_path_offsets(aln, just_min, true, xgidx);
     }
     if (just_min) {
-        // take the min offset in each path
+        // We need the minimum position for each path
         for (auto& p : offsets) {
             auto& v = p.second;
             auto m = *min_element(v.begin(), v.end(),
@@ -244,9 +282,9 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignm
     return offsets;
 }
 
-void xg_annotate_with_initial_path_positions(Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx) {
+void xg_annotate_with_initial_path_positions(Alignment& aln, const xg::XG* xgidx) {
     if (!aln.refpos_size()) {
-        auto init_path_positions = xg_alignment_path_offsets(aln, just_min, nearby, xgidx);
+        auto init_path_positions = xg_alignment_path_offsets(aln, true, false, xgidx);
         for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
             for (auto& pos : pos_record.second) {
                 Position* refpos = aln.add_refpos();

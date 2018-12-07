@@ -395,6 +395,129 @@ TEST_CASE( "Mapper can annotate positions correctly on both strands", "[mapper][
         REQUIRE(aln.refpos(0).is_reverse() == true);
     }
     
+    
+    SECTION( "Mapper can annotate multi-base paths on the forward strand" ) {
+        
+        // Load up a forward-strand alignment
+        string aln_json = R"(
+            {"sequence": "AAAAA", "path": {"mapping": [
+                {"position": {"node_id": 1, "offset": 5}, "edit": [
+                    {"from_length": 5, "to_length": 5}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        mapper.annotate_with_initial_path_positions(aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == false);
+    }
+    
+    SECTION( "Mapper can annotate multi-base paths on the reverse strand" ) {
+        
+        // Load up a reverse-strand alignment which is the reverse complement of the forward strand one
+        string aln_json = R"(
+            {"sequence": "TTTTT", "path": {"mapping": [
+                {"position": {"node_id": 1, "is_reverse": true, "offset": 63}, "edit": [
+                    {"from_length": 5, "to_length": 5}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        mapper.annotate_with_initial_path_positions(aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == true);
+    }
+    
+    SECTION( "Mapper can annotate multi-mapping paths on the forward strand" ) {
+        
+        // Load up a forward-strand alignment
+        string aln_json = R"(
+            {"sequence": "AAAAA", "path": {"mapping": [
+                {"position": {"node_id": 1, "offset": 5}, "edit": [
+                    {"from_length": 2, "to_length": 2}
+                ]},
+                {"position": {"node_id": 1, "offset": 7}, "edit": [
+                    {"from_length": 3, "to_length": 3}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        mapper.annotate_with_initial_path_positions(aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == false);
+    }
+    
+    SECTION( "Mapper can annotate multi-mapping paths on the reverse strand" ) {
+        
+        // Load up a reverse-strand alignment which is the reverse complement of the forward strand one
+        string aln_json = R"(
+            {"sequence": "TTTTT", "path": {"mapping": [
+                {"position": {"node_id": 1, "is_reverse": true, "offset": 63}, "edit": [
+                    {"from_length": 2, "to_length": 2}
+                ]},
+                {"position": {"node_id": 1, "is_reverse": true, "offset": 65}, "edit": [
+                    {"from_length": 3, "to_length": 3}
+                ]}
+            ]}}
+        )";
+        Alignment aln;
+        json2pb(aln, aln_json.c_str(), aln_json.size());
+        
+        // Annotate it
+        mapper.annotate_with_initial_path_positions(aln);
+                        
+        // It should have one refpos
+        REQUIRE(aln.refpos_size() == 1);
+        
+        // It should be on the correct path
+        REQUIRE(aln.refpos(0).name() == "x");
+        
+        // It should be at the correct position
+        REQUIRE(aln.refpos(0).offset() == 5);
+        
+        // It should be on the correct strand
+        REQUIRE(aln.refpos(0).is_reverse() == true);
+    }
+    
     // Clean up the GCSA/LCP index
     delete gcsaidx;
     delete lcpidx;
