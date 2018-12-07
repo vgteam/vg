@@ -36,7 +36,16 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg:
 Node xg_node(id_t id, const xg::XG* xgidx);
 vector<Edge> xg_edges_on_start(id_t id, const xg::XG* xgidx);
 vector<Edge> xg_edges_on_end(id_t id, const xg::XG* xgidx);
+
+/// Get a map from path name to a list of positions on that path touched by or
+/// near to the given Alignment. If nearby is set, search off the part of the
+/// graph actually covered by the alignment, to try and find nearby positions
+/// along nearby paths. Otherwise, we only search off the actually touched part
+/// of the graph if we can't find any paths on it. If just_min is set,
+/// produce only one position per path. Otherwise, produces one position per
+/// occurrence on the path of the position of each Mapping in the Alignment. 
 map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx);
+
 void xg_annotate_with_initial_path_positions(Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx);
 
 }
