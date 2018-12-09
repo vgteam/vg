@@ -51,6 +51,10 @@ void RareVariantSimplifier::simplify() {
         // Default to keeping this variant
         bool keep = true;
 
+	string af_key="AF";
+	string ac_key="AC";
+	string an_key="AN";
+
         if (keep && min_frequency_to_keep != 0) {
             // A frequency condition is imposed, so we have to compute frequency
 
@@ -67,8 +71,8 @@ void RareVariantSimplifier::simplify() {
 
             if (af_count >= ac_count && af_count >= an_count) {
                 // AF is the best tag to use
-                for (size_t i = 0; i < af_count; i++) {
-                    frequency += variant->getInfoValueFloat("AF", i);
+                for (int i = 0; i < af_count; i++) {
+                    frequency += variant->getInfoValueFloat(af_key, i);
                 }
             } else {
                 // We have to use AC and AN
@@ -83,11 +87,11 @@ void RareVariantSimplifier::simplify() {
                 size_t ac_total = 0;
                 size_t an_total = 0;
 
-                for (size_t i = 0; i < ac_count; i++) {
+                for (int i = 0; i < ac_count; i++) {
                     // Sum up the AC and AN values.
                     // TODO: vcflib has no way to get an int except as a float.
-                    ac_total += (size_t) variant->getInfoValueFloat("AC", i);
-                    an_total += (size_t) variant->getInfoValueFloat("AN", i);
+                    ac_total += (size_t) variant->getInfoValueFloat(ac_key, i);
+                    an_total += (size_t) variant->getInfoValueFloat(an_key, i);
                 }
 
                 if (an_total == 0) {
@@ -119,8 +123,8 @@ void RareVariantSimplifier::simplify() {
             // Sum up the AC tags.
             // TODO: if using both conditions we do this loop twice!
             size_t ac_total = 0;
-            for (size_t i = 0; i < ac_count; i++) {
-                ac_total += (size_t) variant->getInfoValueFloat("AC", i);
+            for (int i = 0; i < ac_count; i++) {
+                ac_total += (size_t) variant->getInfoValueFloat(ac_key, i);
             }
 
             // Keep the variant if it has a sufficient count
