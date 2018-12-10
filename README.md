@@ -23,7 +23,7 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 The easiest way to get vg is to download one of our release builds for Linux. We have a 6-week release cadence, so our builds are never too far out of date.
 
-**[Download the latest vg release for Linux](https://github.com/vgteam/vg/releases/latest)**
+**[![Download Button](doc/figures/download-linux.png)Download the latest vg release for Linux](https://github.com/vgteam/vg/releases/latest)**
 
 **For MacOS**, see [Building on MacOS](#building-on-macos).
 
