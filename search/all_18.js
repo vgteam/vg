@@ -10,7 +10,7 @@ var searchData=
   ['xg_2ecpp',['xg.cpp',['../xg_8cpp.html',1,'']]],
   ['xg_2ehpp',['xg.hpp',['../xg_8hpp.html',1,'']]],
   ['xg_5falignment_5fpath_5foffsets',['xg_alignment_path_offsets',['../namespacevg.html#a273ef8a0e90e251a499e12e213b78108',1,'vg']]],
-  ['xg_5fannotate_5fwith_5finitial_5fpath_5fpositions',['xg_annotate_with_initial_path_positions',['../namespacevg.html#a7b4ac9230c525864b0a50b4e07efa21a',1,'vg']]],
+  ['xg_5fannotate_5fwith_5finitial_5fpath_5fpositions',['xg_annotate_with_initial_path_positions',['../namespacevg.html#aea8dedb8c4f2db46cfabc83a465f640a',1,'vg']]],
   ['xg_5fcached_5fdistance',['xg_cached_distance',['../namespacevg.html#a33d1e76d40f6ffb18441a58d57d34e0a',1,'vg']]],
   ['xg_5fcached_5fedges_5fof',['xg_cached_edges_of',['../namespacevg.html#a5706d56f6ae537ad6ffe60ae55a16644',1,'vg']]],
   ['xg_5fcached_5fedges_5fon_5fend',['xg_cached_edges_on_end',['../namespacevg.html#afa1fb4fd7cf939c646ca6b14325ca128',1,'vg']]],
