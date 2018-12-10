@@ -26,6 +26,9 @@ using namespace vg::subcommand;
 vector<pair<string, double>> parse_rsem_expression_file(istream& rsem_in) {
     vector<pair<string, double>> return_val;
     string line;
+    // skip the header line
+    getline(rsem_in, line);
+    line.clear();
     while (getline(rsem_in, line)) {
         vector<string> tokens;
         stringstream strm(line);
