@@ -69,7 +69,31 @@ handle_t HandleGraph::traverse_edge_handle(const edge_t& edge, const handle_t& l
             " from non-participant " + to_string(this->get_id(left)) + " " + to_string(this->get_is_reverse(left)));
     }
 }
-
+    
+void HandleGraph::for_each_edge(const function<bool(const edge_t&)>& iteratee, bool parallel) {
+    for_each_handle([&](const handle_t& handle){
+        bool keep_going = true;
+        // filter to edges where this node is lower ID or any rightward self-loops
+        follow_edges(handle, false, [&](const handle_t& next) {
+            if (get_id(handle) <= get_id(next)) {
+                    keep_going = iteratee(edge_handle(handle, next))
+                }
+            return keep_going;
+        });
+        if (keep_going) {
+            // filter to edges where this node is lower ID or leftward reversing
+            // self-loop
+            follow_edges(handle, true, [&](const handle_t& prev) {
+                if (get_id(handle) < get_id(prev) ||
+                    (get_id(handle) == get_id(prev) && !get_is_reverse(prev))) {
+                    keep_going = iteratee(edge_handle(prev, handle))
+                }
+                return keep_going;
+            });
+        }
+    }, parallel);
+}
+    
 bool PathHandleGraph::is_empty(const path_handle_t& path_handle) const {
     // By default, we can answer emptiness queries with the length query.
     // But some implementations may have an expensive length query and a cheaper emptiness one

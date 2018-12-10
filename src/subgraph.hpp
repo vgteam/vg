@@ -15,7 +15,8 @@ using namespace std;
     /**
      * A HandleGraph implementation that acts as a subgraph of some other HandleGraph
      * using a layer of indirection. Only subsets based on nodes; all edges between
-     * the nodes in the super graph are considered part of the subgraph.
+     * the nodes in the super graph are considered part of the subgraph. Subgraph
+     * handles can also be used by the super graph.
      */
     class SubHandleGraph : HandleGraph {
     public:
@@ -31,7 +32,7 @@ using namespace std;
         /// Add a node from the super graph to the subgraph. Must be a handle to the
         /// super graph. No effect if the node is already included in the subgraph.
         /// Generally invalidates the results of any previous algorithms.
-        void add_node(const handle_t& handle);
+        void add_handle(const handle_t& handle);
         
         //////////////////////////
         /// HandleGraph interface
@@ -90,11 +91,11 @@ using namespace std;
     };
 
     
-    // Templates
+    // Template constructor
     template<typename HandleIter>
     SubHandleGraph::SubHandleGraph(const HandleGraph* super, HandleIter begin, HandleIter end) : super(super) {
         for (auto iter = begin; iter != end; ++iter) {
-            add_node(*iter);
+            add_handle(*iter);
         }
     }
 }

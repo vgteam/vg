@@ -14,7 +14,7 @@ using namespace std;
         // nothing to do
     }
     
-    void SubHandleGraph::add_node(const handle_t& handle) {
+    void SubHandleGraph::add_handle(const handle_t& handle) {
         
         id_t node_id = super->get_id(handle);
         
