@@ -1,11 +1,11 @@
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](http://vg-data.s3.amazonaws.com/vg_ci/jenkins_reports/branch/master/index.html) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Latest Release](https://img.shields.io/github/release/vgteam/vg.svg)](https://github.com/vgteam/vg/releases/latest) [![Build Status](https://travis-ci.org/vgteam/vg.svg?branch=master)](https://travis-ci.org/vgteam/vg) [![Performance Report](https://img.shields.io/badge/performance-report-brightgreen.svg)](http://vg-data.s3.amazonaws.com/vg_ci/jenkins_reports/branch/master/index.html) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
 [![Doxygen API Documentation](https://img.shields.io/badge/doxygen-docs-brightgreen.svg)](https://vgteam.github.io/vg/) 
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
-![Variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/vg_logo.png)
+![Variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/vg_logo_small.png)
 
 _Variation graphs_ provide a succinct encoding of the sequences of many genomes. A variation graph (in particular as implemented in vg) is composed of:
 
@@ -17,9 +17,19 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 ![example variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/smallgraph.png)
 
-## Usage
+## Installation
+
+### Download Releases
+
+The easiest way to get vg is to download one of our release builds for Linux. We have a 6-week release cadence, so our builds are never too far out of date.
+
+**[Download the latest vg release for Linux](https://github.com/vgteam/vg/releases/latest)**
+
+**For MacOS**, see [Building on MacOS](#building-on-macos).
 
 ### Building on Linux
+
+If you don't want to or can't use a pre-built release of vg, or if you want to become a vg developer, you can build it from source instead.
 
 First, obtain the repo and its submodules:
 
@@ -122,6 +132,8 @@ With dependencies and compilers installed, VG can now be built:
 **Note that static binaries cannot yet be built for Mac.**
 
 Our team has successfully built vg on Mac with GCC versions 4.9, 5.3, 6, 7, and 7.3, as well as Clang 9.0.
+
+## Usage
 
 ### Variation graph construction
 
