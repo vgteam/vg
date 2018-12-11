@@ -10,6 +10,7 @@ var searchData=
   ['last_5fprogress',['last_progress',['../classvg_1_1Progressive.html#a4984481e2b887e5fb78ea40728f1b97f',1,'vg::Progressive']]],
   ['lcp',['lcp',['../classvg_1_1BaseMapper.html#a4046b98185c00ff397089435d5b2b8d8',1,'vg::BaseMapper']]],
   ['lcp_5find',['lcp_ind',['../classvg_1_1Filter.html#ab65e7196a6b891a266d16838e5d870d4',1,'vg::Filter']]],
+  ['leave_5fshared_5fends',['leave_shared_ends',['../classvg_1_1SupportCaller.html#a3251426f491b2efad76f0db8f28512f4',1,'vg::SupportCaller']]],
   ['left',['left',['../structvg_1_1Support.html#a31d59f62a09c71915856740c5450ecf5',1,'vg::Support']]],
   ['left_5fborder',['left_border',['../classvg_1_1Viz.html#a4c472c524f9bdfc37d9073f9257ca529',1,'vg::Viz']]],
   ['left_5fends',['left_ends',['../structvg_1_1ConstructedChunk.html#a0d6c6d4304190097a7a832d11a31bf3d',1,'vg::ConstructedChunk']]],
