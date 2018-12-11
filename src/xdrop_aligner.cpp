@@ -453,7 +453,8 @@ void XdropAligner::calculate_and_save_alignment(
 	size_t query_offset = 0;
 
 	// set score and pos
-	alignment.set_score(aln->score);
+	int64_t head_bonus = head_pos.query_offset == (direction ? 0 : query_seq.length()) ? dz->bonus : 0;
+	alignment.set_score(aln->score + head_bonus);
 	alignment.set_identity((double)aln->match_count / (double)query_seq.length());
 	alignment.set_query_position(0);		// always zero?
 
