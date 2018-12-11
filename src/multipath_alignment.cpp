@@ -831,6 +831,7 @@ namespace vg {
         rev_comp_out.set_name(multipath_aln.name());
         rev_comp_out.set_sample_name(multipath_aln.sample_name());
         rev_comp_out.set_paired_read_name(multipath_aln.paired_read_name());
+        rev_comp_out.set_mapping_quality(multipath_aln.mapping_quality());
         
         vector< vector<size_t> > reverse_edge_lists(multipath_aln.subpath_size());
         vector<size_t> reverse_starts;
