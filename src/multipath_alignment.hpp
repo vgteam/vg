@@ -12,6 +12,7 @@
 #include <list>
 #include <unordered_map>
 #include <algorithm>
+
 #include "vg.pb.h"
 #include "path.hpp"
 #include "alignment.hpp"
@@ -85,6 +86,20 @@ namespace vg {
     ///    count             maximum number of top alignments to return
     ///
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const MultipathAlignment& multipath_aln, size_t count);
+    
+    /// Finds all alignments consistent with haplotypes in the given GBWT index. This may result in an empty vector.
+    ///
+    /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
+    /// start subpaths have been identified
+    ///
+    /// GBWTType must be either gbwt::GBWT or gbwt::DynamicGBWT; we only instantiate the template for those.
+    ///
+    ///  Args:
+    ///    multipath_aln     multipath alignment to find optimal paths through
+    ///    index             GBWT index containing haplotypes
+    ///
+    template<typename GBWTType>
+    vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const GBWTType& index); 
     
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///
