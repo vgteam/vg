@@ -108,8 +108,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a01bb5660972557309d9876b3b4f18948"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a01bb5660972557309d9876b3b4f18948">NGSSimulator</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a8d685d2e67324b8a0d19f8602ee3fb24">xg_index</a>, const string &amp;ngs_fastq_file, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double insert_length_mean=1000.0, double insert_length_stdev=75.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
-<tr class="separator:a01bb5660972557309d9876b3b4f18948"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3a93736d81a0ea5676539aa5f9eb00e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#ac3a93736d81a0ea5676539aa5f9eb00e">NGSSimulator</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;<a class="el" href="classvg_1_1NGSSimulator.html#a8d685d2e67324b8a0d19f8602ee3fb24">xg_index</a>, const string &amp;ngs_fastq_file, bool interleaved_fastq=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff">source_paths</a>={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={}, double substition_polymorphism_rate=0.001, double indel_polymorphism_rate=0.0002, double indel_error_proportion=0.01, double insert_length_mean=1000.0, double insert_length_stdev=75.0, double error_multiplier=1.0, bool <a class="el" href="classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd">retry_on_Ns</a>=true, size_t <a class="el" href="classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a">seed</a>=0)</td></tr>
+<tr class="separator:ac3a93736d81a0ea5676539aa5f9eb00e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50a20af9dd3edd86233edf1de13a5cda"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NGSSimulator.html#a50a20af9dd3edd86233edf1de13a5cda">sample_read</a> ()</td></tr>
 <tr class="memdesc:a50a20af9dd3edd86233edf1de13a5cda"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sample an individual read and alignment.  <a href="#a50a20af9dd3edd86233edf1de13a5cda">More...</a><br/></td></tr>
 <tr class="separator:a50a20af9dd3edd86233edf1de13a5cda"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -265,7 +265,7 @@ Static Private Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Class that simulates reads with alignments to a graph that mimic the error profile of NGS sequencing data. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a01bb5660972557309d9876b3b4f18948"></a>
+<a class="anchor" id="ac3a93736d81a0ea5676539aa5f9eb00e"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -292,6 +292,12 @@ Static Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
           <td class="paramname"><em>source_paths</em> = <code>{}</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; pair&lt; string, double &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>transcript_expressions</em> = <code>{}</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -348,7 +354,7 @@ Static Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Initialize simulator. FASTQ file will be used to train an error distribution. Most reads in the FASTQ should be the same length. Polymorphism rates apply uniformly along a read, whereas errors are distributed as indicated by the learned distribution. The simulation can also be restricted to named paths in the graph. </p>
+<p>Initialize simulator. FASTQ file will be used to train an error distribution. Most reads in the FASTQ should be the same length. Polymorphism rates apply uniformly along a read, whereas errors are distributed as indicated by the learned distribution. The simulation can also be restricted to named paths in the graph. Alternatively, it can match an expression profile. However, it cannot be simulateously restricted to paths and to an expression profile. </p>
 
 </div>
 </div>

@@ -100,11 +100,10 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a435603f833007bb05a9f447a2d194d3e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a435603f833007bb05a9f447a2d194d3e">Sampler</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *x, int seed=0, bool <a class="el" href="classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507">forward_only</a>=false, bool allow_Ns=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1Sampler.html#aea2c52dbdae36a6729621fe3279c2d61">source_paths</a>={})</td></tr>
-<tr class="separator:a435603f833007bb05a9f447a2d194d3e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:addad17e90b2e09849e50e546e9555e56"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#addad17e90b2e09849e50e546e9555e56">set_source_paths</a> (const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1Sampler.html#aea2c52dbdae36a6729621fe3279c2d61">source_paths</a>)</td></tr>
-<tr class="memdesc:addad17e90b2e09849e50e546e9555e56"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make a path sampling distribution based on relative lengths.  <a href="#addad17e90b2e09849e50e546e9555e56">More...</a><br/></td></tr>
-<tr class="separator:addad17e90b2e09849e50e546e9555e56"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a94b3c79b739a321e5b8910bd6c8fcb7d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a94b3c79b739a321e5b8910bd6c8fcb7d">Sampler</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *x, int seed=0, bool <a class="el" href="classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507">forward_only</a>=false, bool allow_Ns=false, const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1Sampler.html#aea2c52dbdae36a6729621fe3279c2d61">source_paths</a>={}, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions={})</td></tr>
+<tr class="separator:a94b3c79b739a321e5b8910bd6c8fcb7d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab8a367dc1a8ea1c0cc87fb43f12a82a8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#ab8a367dc1a8ea1c0cc87fb43f12a82a8">set_source_paths</a> (const vector&lt; string &gt; &amp;<a class="el" href="classvg_1_1Sampler.html#aea2c52dbdae36a6729621fe3279c2d61">source_paths</a>, const vector&lt; pair&lt; string, double &gt;&gt; &amp;transcript_expressions)</td></tr>
+<tr class="separator:ab8a367dc1a8ea1c0cc87fb43f12a82a8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3d983fa5e24b8802ed2516bf0bb362bf"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a3d983fa5e24b8802ed2516bf0bb362bf">position</a> (void)</td></tr>
 <tr class="separator:a3d983fa5e24b8802ed2516bf0bb362bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a355de4870a71a88834406f3e7f297272"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Sampler.html#a355de4870a71a88834406f3e7f297272">sequence</a> (size_t length)</td></tr>
@@ -160,7 +159,7 @@ Public Attributes</h2></td></tr>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Generate Alignments (with or without mutations, and in pairs or alone) from an XG index. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a435603f833007bb05a9f447a2d194d3e"></a>
+<a class="anchor" id="a94b3c79b739a321e5b8910bd6c8fcb7d"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -195,7 +194,13 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>source_paths</em> = <code>{}</code>&#160;</td>
+          <td class="paramname"><em>source_paths</em> = <code>{}</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; pair&lt; string, double &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>transcript_expressions</em> = <code>{}</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -554,7 +559,7 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="addad17e90b2e09849e50e546e9555e56"></a>
+<a class="anchor" id="ab8a367dc1a8ea1c0cc87fb43f12a82a8"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -562,13 +567,22 @@ Public Attributes</h2></td></tr>
           <td class="memname">void vg::Sampler::set_source_paths </td>
           <td>(</td>
           <td class="paramtype">const vector&lt; string &gt; &amp;&#160;</td>
-          <td class="paramname"><em>source_paths</em></td><td>)</td>
+          <td class="paramname"><em>source_paths</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">const vector&lt; pair&lt; string, double &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>transcript_expressions</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Make a path sampling distribution based on relative lengths. </p>
+<p>Make a path sampling distribution based on relative lengths or on transcript expressions (at most one should be non-empty) </p>
 
 </div>
 </div>
