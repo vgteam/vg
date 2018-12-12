@@ -3196,20 +3196,23 @@ namespace vg {
             /// The first alignment will be optimal.
             vector<Alignment> alignments;
             
-            // If we can and should do incremental haplotype search, get the top alignment and all haplotype consistent alignments.
-            
-            // Otherwise, if we're evaluating population consistency, get some number of top-alignment-scoring alignments with no regard to haplotype consistency
-            
-            // Otherwise, just get the evry best alignment
-            
-            // Generate the top alignment, or the top population_max_paths
-            // alignments if we are doing multiple alignments for population
-            // scoring.
-            auto wanted_alignments = query_population ? population_max_paths : 1;
-            alignments = optimal_alignments(multipath_alns[i], wanted_alignments);
-            
+            if (query_population) {
+                // We want to do population scoring
+                if (haplo_score_provider->has_incremental_search()) {
+                    // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
+                    // Make sure to also always include the optimal alignment first, even if inconsistent.
+                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, true);
+                } else {
+                    // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
+                    alignments = optimal_alignments(multipath_alns[i], population_max_paths);
+                }
+            } else {
+                // Just compute a single optimal alignment
+                alignments = optimal_alignments(multipath_alns[i], 1);
+            }
+           
 #ifdef debug_multipath_mapper
-            cerr << "Got " << alignments.size() << " / " << wanted_alignments << " tracebacks for multipath " << i << endl;
+            cerr << "Got " << alignments.size() << " tracebacks for multipath " << i << endl;
 #endif
 #ifdef debug_multipath_mapper_alignment
             cerr << pb2json(multipath_alns[i]) << endl;
@@ -3481,8 +3484,24 @@ namespace vg {
             // population_max_paths alignments if we are doing multiple
             // alignments for population scoring.
             vector<vector<Alignment>> alignments(2);
-            alignments[0] = optimal_alignments(multipath_aln_pair.first, query_population ? population_max_paths : 1);
-            alignments[1] = optimal_alignments(multipath_aln_pair.second, query_population ? population_max_paths : 1);
+            
+            if (query_population) {
+                // We want to do population scoring
+                if (haplo_score_provider->has_incremental_search()) {
+                    // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
+                    // Make sure to also always include the optimal alignment first, even if inconsistent.
+                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, true);
+                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, true);
+                } else {
+                    // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
+                    alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);
+                    alignments[1] = optimal_alignments(multipath_aln_pair.second, population_max_paths);
+                }
+            } else {
+                // Just compute a single optimal alignment
+                alignments[0] = optimal_alignments(multipath_aln_pair.first, 1);
+                alignments[1] = optimal_alignments(multipath_aln_pair.second, 1);
+            }
             
             // We used to fail an assert if either list of optimal alignments
             // was empty, but now we handle it as if that side is an unmapped
