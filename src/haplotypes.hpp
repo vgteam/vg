@@ -29,6 +29,8 @@ using namespace std;
 //        iii. gbwt::DynamicGBWT
 //    2. An appropriate ScoreProvider implementation that will use the index.
 //       It is also responsible for determining the population size from its index, if able.
+//       It can also implement incremental haplotype search, because we need that
+//       functionality in places where the haplotype index is abstracted as a ScoreProvider.
 //    3. A memo for shared values used in calculations; a
 //             haplo::haploMath::RRMemo, which takes the parameters
 //                    i.    double -log(recombination probability)
@@ -375,6 +377,16 @@ public:
 };
 
 
+/// Incremental haplotype search range type used for ScoreProvider's
+/// incremental search API. Default constructed, represents an empty or
+/// un-started search. Supports an empty() and a length(). Copyable.
+/// TODO: There's some overlap with the graph accessors here, but I don't
+/// understand them enough to work out exactly what it is and eliminate it.
+/// TODO: This should become a real type (base class and implementations
+/// wrapping implementation-specific data) when we get any other
+/// implementations.
+using IncrementalSearchState = gbwt::SearchState;
+
 /// Interface abstracting over the various ways of generating haplotype scores.
 /// You probably want the implementations: XGScoreProvider, GBWTScoreProvider, LinearScoreProvider
 /// TODO: Const-ify the indexes used
@@ -387,6 +399,23 @@ public:
   /// the memo to pass to score, or -1 if the indexes backing the ScoreProvider
   /// do not make this information available.
   virtual int64_t get_haplotype_count() const;
+  
+  // We have optional support for incremental search. TODO: We need a search
+  // state abstraction that encompasses GBWT search state and other search
+  // state implementations.
+  
+  /// Return true if this ScoreProvider supports incremental search for
+  /// counting haplotypes.
+  virtual bool has_incremental_search() const;
+  
+  /// Start a new search state with the node visit described by the given
+  /// Position, if incremental search is supported.
+  virtual IncrementalSearchState incremental_find(const vg::Position& pos) const;
+  
+  /// Extend the given search state with the node visit described by the given
+  /// Position, if incremental search is supported.
+  virtual IncrementalSearchState incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const;
+  
   virtual ~ScoreProvider() = default;
 };
 
@@ -406,7 +435,12 @@ class GBWTScoreProvider : public ScoreProvider {
 public:
   GBWTScoreProvider(GBWTType& index);
   pair<double, bool> score(const vg::Path&, haploMath::RRMemo& memo);
+  
   int64_t get_haplotype_count() const;
+  
+  bool has_incremental_search() const;
+  IncrementalSearchState incremental_find(const vg::Position& pos) const;
+  IncrementalSearchState incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const;
 private:
   GBWTType& index;
 };
@@ -657,6 +691,22 @@ int64_t GBWTScoreProvider<GBWTType>::get_haplotype_count() const {
   // TODO: Does this haplotype count have the same expected-count-for-fixed-path semantics that we want?
   // Or does it count fragments of haplotypes?
   return index.metadata.haplotype_count;
+}
+
+template<class GBWTType>
+bool GBWTScoreProvider<GBWTType>::has_incremental_search() const {
+  // We are going to implement incremental search.
+  return true;
+}
+
+template<class GBWTType>
+IncrementalSearchState GBWTScoreProvider<GBWTType>::incremental_find(const vg::Position& pos) const {
+  return index.find(gbwt::Node::encode(pos.node_id(), pos.is_reverse()));
+}
+
+template<class GBWTType>
+IncrementalSearchState GBWTScoreProvider<GBWTType>::incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const {
+  return index.extend(state, gbwt::Node::encode(pos.node_id(), pos.is_reverse()));
 }
 
 } // namespace haplo

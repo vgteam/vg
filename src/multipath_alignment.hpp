@@ -1,8 +1,7 @@
-//
-//  multipath_alignment.hpp
-//
-// utility functions for the MultipathAlignment protobuf object
-//
+/// \file multipath_alignment.hpp
+///
+/// utility functions for the MultipathAlignment protobuf object
+///
 
 #ifndef multipath_alignment_hpp
 #define multipath_alignment_hpp
@@ -18,6 +17,11 @@
 #include "alignment.hpp"
 #include "utility.hpp"
 #include "handle.hpp"
+
+// Declare the haplo::ScoreProvider we use for haplotype-aware traceback generation.
+namespace haplo {
+    class ScoreProvider;
+}
 
 namespace vg {
     
@@ -87,19 +91,24 @@ namespace vg {
     ///
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const MultipathAlignment& multipath_aln, size_t count);
     
-    /// Finds all alignments consistent with haplotypes in the given GBWT index. This may result in an empty vector.
+    /// Finds all alignments consistent with haplotypes available by incremental search with the given haplotype
+    /// score provider. This may result in an empty vector.
+    ///
+    /// Output Alignments may not be unique. The input MultipathAlignment may have exponentially many ways to
+    /// spell the same Alignment, and we will look at all of them. We also may have duplicates of the optimal
+    /// alignment if we are asked to produce it unconsitionally.
     ///
     /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
     /// start subpaths have been identified
     ///
-    /// GBWTType must be either gbwt::GBWT or gbwt::DynamicGBWT; we only instantiate the template for those.
     ///
     ///  Args:
     ///    multipath_aln     multipath alignment to find optimal paths through
-    ///    index             GBWT index containing haplotypes
+    ///    score_provider    a haplo::ScoreProvider that supports incremental search over its haplotype database (such as a GBWTScoreProvider)
+    ///    optimal_first     always compute and return first the optimal alignment, even if not haplotype-consistent
     ///
-    template<typename GBWTType>
-    vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const GBWTType& index); 
+    vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
+        bool optimal_first = false); 
     
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///

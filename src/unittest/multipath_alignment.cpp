@@ -8,12 +8,14 @@
 
 #include <gbwt/dynamic_gbwt.h>
 
-#include "json2pb.h"
-#include "vg.pb.h"
-#include "vg.hpp"
-#include "multipath_alignment.hpp"
+#include "../haplotypes.hpp"
+#include "../json2pb.h"
+#include "../vg.pb.h"
+#include "../vg.hpp"
+#include "../multipath_alignment.hpp"
+#include "../utility.hpp"
+
 #include "catch.hpp"
-#include "utility.hpp"
 
 namespace vg {
     namespace unittest {
@@ -717,24 +719,43 @@ namespace vg {
                     end
                 };
                 gbwt_index.insert(hap1rev);
+                
+                // Make a ScoreProvider
+                haplo::GBWTScoreProvider<gbwt::DynamicGBWT> provider(gbwt_index);
+                
+                SECTION( "We can find the consistent suboptimal alignment" ) {
 
-                // get haplotype consistent alignments
-                auto consistent = haplotype_consistent_alignments(multipath_aln, gbwt_index);
+                    // get haplotype consistent alignments
+                    auto consistent = haplotype_consistent_alignments(multipath_aln, provider);
+                    
+                    // There should be just one alignment
+                    REQUIRE(consistent.size() == 1);
+                    
+                    // The alignment should have score 3 + 4 - 1 = 6
+                    REQUIRE(consistent[0].score() == 6);
+                    
+                    // The alignment should be nodes 1, 3, 4, all forward
+                    REQUIRE(consistent[0].path().mapping_size() == 3);
+                    REQUIRE(consistent[0].path().mapping(0).position().node_id() == 1);
+                    REQUIRE(consistent[0].path().mapping(0).position().is_reverse() == false);
+                    REQUIRE(consistent[0].path().mapping(1).position().node_id() == 3);
+                    REQUIRE(consistent[0].path().mapping(1).position().is_reverse() == false);
+                    REQUIRE(consistent[0].path().mapping(2).position().node_id() == 4);
+                    REQUIRE(consistent[0].path().mapping(2).position().is_reverse() == false);
+                    
+                }
                 
-                // There should be just one alignment
-                REQUIRE(consistent.size() == 1);
-                
-                // The alignment should have score 3 + 4 - 1 = 6
-                REQUIRE(consistent[0].score() == 6);
-                
-                // The alignment should be nodes 1, 3, 4, all forward
-                REQUIRE(consistent[0].path().mapping_size() == 3);
-                REQUIRE(consistent[0].path().mapping(0).position().node_id() == 1);
-                REQUIRE(consistent[0].path().mapping(0).position().is_reverse() == false);
-                REQUIRE(consistent[0].path().mapping(1).position().node_id() == 3);
-                REQUIRE(consistent[0].path().mapping(1).position().is_reverse() == false);
-                REQUIRE(consistent[0].path().mapping(2).position().node_id() == 4);
-                REQUIRE(consistent[0].path().mapping(2).position().is_reverse() == false);
+                SECTION( "We can find the optimal alignment when asked for it" ) {
+                    auto optimal_and_consistent = haplotype_consistent_alignments(multipath_aln, provider, true);
+                    
+                    // There should be two alignments
+                    REQUIRE(optimal_and_consistent.size() == 2);
+                    
+                    // The first should have the optimal score of 3 + 4 + 1 = 8
+                    REQUIRE(optimal_and_consistent[0].score() == 8);
+                    // The second should be the haplotype-consistent alignment with score 6.
+                    REQUIRE(optimal_and_consistent[1].score() == 6);
+                }
             }
             
             SECTION( "Multipath alignment can identify multiple haplotype consistent alignments" ) {
@@ -881,9 +902,12 @@ namespace vg {
                     end
                 };
                 gbwt_index.insert(hap3rev);
+                
+                // Make a ScoreProvider
+                haplo::GBWTScoreProvider<gbwt::DynamicGBWT> provider(gbwt_index);
 
                 // get haplotype consistent alignments
-                auto consistent = haplotype_consistent_alignments(multipath_aln, gbwt_index);
+                auto consistent = haplotype_consistent_alignments(multipath_aln, provider);
                 
                 // There should be 3 alignments
                 REQUIRE(consistent.size() == 3);

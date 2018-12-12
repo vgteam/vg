@@ -3,11 +3,9 @@
 //
 
 #include "multipath_alignment.hpp"
+#include "haplotypes.hpp"
 #include <structures/immutable_list.hpp>
 #include <structures/min_max_heap.hpp>
-
-#include <gbwt/gbwt.h>
-#include <gbwt/dynamic_gbwt.h>
 
 #include <type_traits>
 
@@ -801,12 +799,16 @@ namespace vg {
         return to_return;
         
     }
-    
-    template<typename GBWTType>
-    vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const GBWTType& index) {
+   
+    vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
+        bool optimal_first) {
+        
 #ifdef debug_multiple_tracebacks
         cerr << "Computing haplotype consistent alignments" << endl;
 #endif
+
+        // We can only work with a score provider that supports incremental search.
+        assert(score_provider.has_incremental_search());
         
         // Keep a list of what we're going to emit.
         vector<Alignment> to_return;
@@ -821,13 +823,42 @@ namespace vg {
         // And the optimal score
         int32_t& opt_score = get<2>(dp_result);
         
+        if (optimal_first) {
+            // Compute the optimal alignment and put it first.
+            // TODO: It will also appear later if it is haplotype-consistent.
+            // But we are allowed to produce duplicates so that's OK.
+            to_return.emplace_back();
+            Alignment& opt_aln = to_return.back();
+            
+            opt_aln.set_score(opt_score);
+            
+            // traceback the optimal subpaths until hitting sentinel (-1)
+            list<int64_t> opt_traceback;
+            int64_t curr = opt_subpath;
+            while (curr >= 0) {
+                opt_traceback.push_front(curr);
+                curr = problem.prev_subpath[curr];
+            }
+            
+            Path* opt_path = opt_aln.mutable_path();
+            
+            // Fill in the path in the alignment with the alignment represented
+            // by this traceback in this DP problem for this multipath
+            // alignment.
+            populate_path_from_traceback(multipath_aln, problem, opt_traceback.begin(), opt_traceback.end(), opt_path);
+            
+#ifdef debug_multiple_tracebacks
+            cerr << "Produced optimal alignment with score " << opt_aln.score() << endl;
+#endif
+        }
+        
         // Keep lists of traceback steps as multipath subpath numbers
         using step_list_t = ImmutableList<int64_t>;
         
-        // This function advances a GBWT search state with the edges along a subpath, if any.
+        // This function advances an incremental haplotype search state with the edges along a subpath, if any.
         // An empty input subpath means to start the search.
         // Note that we interpret the path IN REVERSE, because we're doing a traceback.
-        auto extend_with_subpath = [&](const gbwt::SearchState& initial, int64_t subpath) {
+        auto extend_with_subpath = [&](const haplo::IncrementalSearchState& initial, int64_t subpath) {
             // Get the Path from the subpath.
             const Path& path = multipath_aln.subpath(subpath).path();
             
@@ -835,29 +866,27 @@ namespace vg {
             assert(path.mapping_size() > 0);
             
             // Set up a search state scratch
-            gbwt::SearchState state = initial;
+            haplo::IncrementalSearchState state = initial;
             if (state.empty()) {
                 // If our input state says we need to start a new search, start with the node from the last mapping.
                 auto& pos = path.mapping(path.mapping_size() - 1).position();
                 // We require everything to have mappings to actual places, even pure inserts.
                 assert(pos.node_id() != 0);
                 // Make sure to search in the orientation we are actually going
-                state = index.find(gbwt::Node::encode(pos.node_id(), !pos.is_reverse()));
+                state = score_provider.incremental_find(make_position(pos.node_id(), !pos.is_reverse(), 0));
                 
 #ifdef debug_multiple_tracebacks
-                cerr << "New GBWT search for " << pb2json(pos) << " finds " << state.size() << " matching haplotypes" << endl;
+                cerr << "New haplotype search for " << pb2json(pos) << " finds " << state.size() << " matching haplotypes" << endl;
 #endif
             }
             
             // Otherwise we have already selected the last Mapping when we crossed the edge back into here.
             for (size_t i = path.mapping_size() - 1; i != 0; i--) {
                 // For each transition between Mappings, we assume we are going between distinct node visits because of our precondition.
-                // So encode the next node looking left to GBWT node_type, in left-going orientation
+                // So find the next position looking left
                 auto& pos = path.mapping(i - 1).position();
-                gbwt::node_type next = gbwt::Node::encode(pos.node_id(), !pos.is_reverse());
-                
-                // And search the transition.
-                state = index.extend(state, next);
+                // And search the transition to it in the reverse orientation.
+                state = score_provider.incremental_extend(state, make_position(pos.node_id(), !pos.is_reverse(), 0));
             
                 if (state.empty()) {
                     // If we ever hit an empty interval, return it immediately
@@ -870,11 +899,11 @@ namespace vg {
             return state;
         };
         
-        // This function advances a GBWT search state with the edge between two subpaths, if any.
+        // This function advances an incremental haplotype search state with the edge between two subpaths, if any.
         // An empty input subpath means to start the search.
         // Note that we interpret the path IN REVERSE, because we're doing a traceback.
         // Even though old_subpath comes before new_subpath, since we're going backward, new_subpath comes in on the left.
-        auto extend_between_subpaths = [&](const gbwt::SearchState& initial, int64_t old_subpath, int64_t new_subpath) {
+        auto extend_between_subpaths = [&](const haplo::IncrementalSearchState& initial, int64_t old_subpath, int64_t new_subpath) {
             // We can't have an empty input interval.
             assert(!initial.empty());
             
@@ -897,12 +926,13 @@ namespace vg {
             
             // Otherwise there's an edge we have to look for.
             // Make sure to flip the orientation because we're searching left.
-            return index.extend(initial, gbwt::Node::encode(new_mapping.position().node_id(), !new_mapping.position().is_reverse()));
+            return score_provider.incremental_extend(initial,
+                make_position(new_mapping.position().node_id(), !new_mapping.position().is_reverse(), 0));
         };
         
         // Keep a stack of partial, haplotype-consistent tracebacks we are
-        // working on, and their GBWT traceback states
-        list<pair<step_list_t, gbwt::SearchState>> traceback_stack;
+        // working on, and their incremental haplotype search states
+        list<pair<step_list_t, haplo::IncrementalSearchState>> traceback_stack;
         
         // Also, subpaths only keep track of their nexts, so we need to invert
         // that so we can get all valid prev subpaths.
@@ -942,7 +972,7 @@ namespace vg {
                 step_list_t starting_path{i};
                 
                 // The search state is what we get just starting with this subpath
-                gbwt::SearchState state = extend_with_subpath(gbwt::SearchState(), i);
+                haplo::IncrementalSearchState state = extend_with_subpath(haplo::IncrementalSearchState(), i);
                 
                 if (!state.empty()) {
                 
@@ -1023,12 +1053,6 @@ namespace vg {
             
         return to_return;
     }
-    
-    // Instantiate for both the GBWT implementations, to allow easy testing.
-    template
-    vector<Alignment> haplotype_consistent_alignments<gbwt::GBWT>(const MultipathAlignment& multipath_aln, const gbwt::GBWT& index);
-    template
-    vector<Alignment> haplotype_consistent_alignments<gbwt::DynamicGBWT>(const MultipathAlignment& multipath_aln, const gbwt::DynamicGBWT& index);
     
     /// Stores the reverse complement of a Subpath in another Subpath
     ///

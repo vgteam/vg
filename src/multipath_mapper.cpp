@@ -3192,11 +3192,21 @@ namespace vg {
             // is turned on and it succeeded for the others.
             bool query_population = include_population_component && all_multipaths_pop_consistent;
             
+            /// Get all the linearizations we are going to work with, possibly with duplicates.
+            /// The first alignment will be optimal.
+            vector<Alignment> alignments;
+            
+            // If we can and should do incremental haplotype search, get the top alignment and all haplotype consistent alignments.
+            
+            // Otherwise, if we're evaluating population consistency, get some number of top-alignment-scoring alignments with no regard to haplotype consistency
+            
+            // Otherwise, just get the evry best alignment
+            
             // Generate the top alignment, or the top population_max_paths
             // alignments if we are doing multiple alignments for population
             // scoring.
             auto wanted_alignments = query_population ? population_max_paths : 1;
-            auto alignments = optimal_alignments(multipath_alns[i], wanted_alignments);
+            alignments = optimal_alignments(multipath_alns[i], wanted_alignments);
             
 #ifdef debug_multipath_mapper
             cerr << "Got " << alignments.size() << " / " << wanted_alignments << " tracebacks for multipath " << i << endl;
