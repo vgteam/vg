@@ -140,9 +140,10 @@ namespace vg {
     tuple<MultipathProblem, int64_t, int32_t> run_multipath_dp(const MultipathAlignment& multipath_aln,
                                                                bool subpath_global = false) {
         
-        // Create and unpack the return value (including setting up the DP table)
+        // Create and unpack the return value (including setting up the DP table). Initialise score according
+        // to whether the alignment is local or global 
         tuple<MultipathProblem, int64_t, int32_t> to_return(MultipathProblem(multipath_aln, subpath_global),
-                                                            -1, 0);
+                                                            -1, subpath_global ? numeric_limits<int32_t>::min() : 0);
         auto& problem = get<0>(to_return);
         auto& opt_subpath = get<1>(to_return);
         auto& opt_score = get<2>(to_return);
