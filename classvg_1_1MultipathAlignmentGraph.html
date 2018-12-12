@@ -135,10 +135,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a38f57b6180fea14b5c82b63b1c7aa1ae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a38f57b6180fea14b5c82b63b1c7aa1ae">add_reachability_edges</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;vg, const unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;projection_trans, const unordered_multimap&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;injection_trans)</td></tr>
 <tr class="memdesc:a38f57b6180fea14b5c82b63b1c7aa1ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="#a38f57b6180fea14b5c82b63b1c7aa1ae">More...</a><br/></td></tr>
 <tr class="separator:a38f57b6180fea14b5c82b63b1c7aa1ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af2ecefe3d8c83d8c838388341524948e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#af2ecefe3d8c83d8c838388341524948e">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out)</td></tr>
-<tr class="separator:af2ecefe3d8c83d8c838388341524948e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a54e8a59bbb408b8aa776d12a6c870323"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a54e8a59bbb408b8aa776d12a6c870323">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out)</td></tr>
-<tr class="separator:a54e8a59bbb408b8aa776d12a6c870323"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac68f5f2417c5213243f76f6cff1052a7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac68f5f2417c5213243f76f6cff1052a7">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, const bool allow_negative_scores=false)</td></tr>
+<tr class="separator:ac68f5f2417c5213243f76f6cff1052a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58fde633ee00b803360ca39481e91642"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a58fde633ee00b803360ca39481e91642">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, const bool allow_negative_scores=false)</td></tr>
+<tr class="separator:a58fde633ee00b803360ca39481e91642"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac86882a7125cb2f6d61dd9d688eaee50"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac86882a7125cb2f6d61dd9d688eaee50">to_dot</a> (ostream &amp;out) const </td></tr>
 <tr class="memdesc:ac86882a7125cb2f6d61dd9d688eaee50"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts a <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> to a GraphViz Dot representation, output to the given ostream.  <a href="#ac86882a7125cb2f6d61dd9d688eaee50">More...</a><br/></td></tr>
 <tr class="separator:ac86882a7125cb2f6d61dd9d688eaee50"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -503,7 +503,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="af2ecefe3d8c83d8c838388341524948e"></a>
+<a class="anchor" id="ac68f5f2417c5213243f76f6cff1052a7"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -553,7 +553,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>multipath_aln_out</em>&#160;</td>
+          <td class="paramname"><em>multipath_aln_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -566,7 +572,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a54e8a59bbb408b8aa776d12a6c870323"></a>
+<a class="anchor" id="a58fde633ee00b803360ca39481e91642"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -616,7 +622,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype"><a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;&#160;</td>
-          <td class="paramname"><em>multipath_aln_out</em>&#160;</td>
+          <td class="paramname"><em>multipath_aln_out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
