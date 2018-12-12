@@ -198,19 +198,23 @@ int main_mod(int argc, char** argv) {
         {
 
         case 'i':
+            cerr << "[vg mod] warning: vg mod -i is deprecated and will soon be removed.  please switch to vg augment" << endl;
             aln_file = optarg;
             break;
 
         case 'q':
+            cerr << "[vg mod] warning: vg mod -q is deprecated and will soon be removed.  please switch to vg augment -l" << endl;
             loci_file = optarg;
             break;
 
         case 'Q':
+            cerr << "[vg mod] warning: vg mod -l is deprecated and will soon be removed.  please switch to vg augment -L" << endl;
             loci_file = optarg;
             called_genotypes_only = true;
             break;
 
         case 'Z':
+            cerr << "[vg mod] warning: vg mod -Z is deprecated and will soon be removed.  please switch to vg augment -Z" << endl;
             translation_file = optarg;
             break;
 
@@ -287,6 +291,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'P':
+            cerr << "[vg mod] warning: vg mod -P is deprecated and will soon be removed.  please switch to vg augment -B" << endl;
             label_paths = true;
             break;
 

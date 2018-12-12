@@ -202,6 +202,20 @@ vg surject -x x.xg -b aln.gam > aln.bam
 vg sim -n 1000 -l 150 -x x.xg > x.sim.txt
 vg map -T x.sim.txt -x x.xg -g x.gcsa --surject-to bam > aln.bam
 ```
+
+### Augmentation
+
+Variation from alignments can be embedded back into the graph.  This process is called augmentation and is important for variant calling, for example (see below).
+
+```sh
+# augment the graph with all variation from the GAM, saving to aug.vg.  aug.gam contains the same reads as aln.gam but mapped to aug.vg
+vg augment x.vg aln.gam -A aug.gam > aug.vg
+
+# augment the graph with all variation from the GAM, saving each mapping as a path in the graph.
+# Note, this can be much less efficient than the above example if there are many alignments in the GAM
+vg augment x.vg aln.gam -i > aug_with_paths.vg
+```
+
 ### Variant Calling
 
 The following example shows how to construct a VCF file from a read alignment and graph.  Input must be split into chunks (see vg chunk) in order to run on whole genome.
