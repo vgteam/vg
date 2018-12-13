@@ -91,7 +91,7 @@
   a owl:Class ;
   rdfs:subClassOf edam:format_2921, edam:format_2055 ;
   rdfs:label "Graph" ;
-  rdfs:comment "Nodes, Edges, Paths. Nodes have ID and sequence, Edges consist of two node sides (so the graph is bidirected), Paths are a sequence of Nodes and orientations. Paths also have names" ;
+  rdfs:comment "Consists of nodes, edges, and paths. Nodes each have a unique ID and a DNA sequence, edges consist of two node sides (so the graph is bidirected), and paths are a sequence of nodes and orientations. Paths also have names." ;
   rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
 .
 :GAM_Format
