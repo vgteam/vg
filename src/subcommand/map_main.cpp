@@ -64,6 +64,10 @@ void help_map(char** argv) {
          << "    -a, --hap-exp FLOAT           the exponent for haplotype consistency likelihood in alignment score [1]" << endl
          << "    --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
          << "    -A, --qual-adjust             perform base quality adjusted alignments (requires base quality input)" << endl
+         << "    --preset STR                  load presets for scoring parameters" << endl
+         << "                                  - illumina: Illumina single-read and paired-end reads (-q1 -z4 -o6 -y1 -L5)" << endl
+         << "                                  - pacbio, nanopore: PacBio and Nanopore long reads (-q2 -z4 -o4 -y2 -L0)" << endl
+         << "                                  - contig: contig assemblies (-q1 -z4 -o6 -y1 -L5)" << endl
          << "input:" << endl
          << "    -s, --sequence STR            align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -V, --seq-name STR            name the sequence using this value (for graph modification with new named paths)" << endl
@@ -97,6 +101,7 @@ int main_map(int argc, char** argv) {
 
     #define OPT_SCORE_MATRIX 1000
     #define OPT_RECOMBINATION_PENALTY 1001
+    #define OPT_LOAD_PRESET 1002
     string matrix_file_name;
     string seq;
     string qual;
@@ -463,6 +468,28 @@ int main_map(int argc, char** argv) {
 
         case 'y':
             gap_extend = parse<int>(optarg);
+            break;
+
+        case OPT_LOAD_PRESET:
+            if(strcmp(optarg, "illumina") == 0) {
+                match = 1;
+                mismatch = 4;
+                gap_open = 6;
+                gap_extend = 1;
+                full_length_bonus = 5;
+            } else if(strcmp(optarg, "pacbio") == 0 || strcmp(optarg, "nanopore") == 0) {
+                match = 2;
+                mismatch = 4;
+                gap_open = 4;
+                gap_extend = 2;
+                full_length_bonus = 0;
+            } else if(strcmp(optarg, "contig")) {
+                match = 1;
+                mismatch = 4;
+                gap_open = 6;
+                gap_extend = 1;
+                full_length_bonus = 5;
+            }
             break;
 
         case 'A':

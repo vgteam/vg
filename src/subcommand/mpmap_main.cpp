@@ -86,6 +86,10 @@ void help_mpmap(char** argv) {
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
     << "  -L, --full-l-bonus INT        add this score to alignments that use the full length of the read [5]" << endl
     << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl
+    << "  --preset STR                  load presets for scoring parameters" << endl
+    << "                                - illumina: Illumina single-read and paired-end reads (-q1 -z4 -o6 -y1 -L5)" << endl
+    << "                                - pacbio, nanopore: PacBio and Nanopore long reads (-q2 -z4 -o4 -y2 -L0)" << endl
+    << "                                - contig: contig assemblies (-q1 -z4 -o6 -y1 -L5)" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl
     << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [100]" << endl;
@@ -105,6 +109,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_ALWAYS_CHECK_POPULATION 1002
     #define OPT_DELAY_POPULATION_SCORING 1003
     #define OPT_FORCE_HAPLOTYPE_COUNT 1004
+    #define OPT_LOAD_PRESET 1005
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -248,6 +253,7 @@ int main_mpmap(int argc, char** argv) {
             {"no-qual-adjust", no_argument, 0, 'A'},
             {"threads", required_argument, 0, 't'},
             {"buffer-size", required_argument, 0, 'Z'},
+            {"preset", required_argument, 0, OPT_LOAD_PRESET},
             {0, 0, 0, 0}
         };
 
@@ -490,7 +496,7 @@ int main_mpmap(int argc, char** argv) {
                     exit(1);
                 }
                 break;
-                
+
             case 'o':
                 gap_open_score_arg = parse<int>(optarg);
                 break;
@@ -510,7 +516,29 @@ int main_mpmap(int argc, char** argv) {
             case 'A':
                 qual_adjusted = false;
                 break;
-                
+
+            case OPT_LOAD_PRESET:
+                if(strcmp(optarg, "illumina") == 0) {
+                    match_score_arg = 1;
+                    mismatch_score_arg = 4;
+                    gap_open_score_arg = 6;
+                    gap_extension_score_arg = 1;
+                    full_length_bonus_arg = 5;
+                } else if(strcmp(optarg, "pacbio") == 0 || strcmp(optarg, "nanopore") == 0) {
+                    match_score_arg = 2;
+                    mismatch_score_arg = 4;
+                    gap_open_score_arg = 4;
+                    gap_extension_score_arg = 2;
+                    full_length_bonus_arg = 0;
+                } else if(strcmp(optarg, "contig")) {
+                    match_score_arg = 1;
+                    mismatch_score_arg = 4;
+                    gap_open_score_arg = 6;
+                    gap_extension_score_arg = 1;
+                    full_length_bonus_arg = 5;
+                }
+                break;
+
             case 't':
             {
                 int num_threads = parse<int>(optarg);
