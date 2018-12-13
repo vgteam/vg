@@ -253,6 +253,7 @@ int main_map(int argc, char** argv) {
                 {"unpaired-cost", required_argument, 0, 'S'},
                 {"max-gap-length", required_argument, 0, 1},
                 {"xdrop-alignment", no_argument, 0, 2},
+                {"preset", required_argument, 0, OPT_LOAD_PRESET},
                 {0, 0, 0, 0}
             };
 
