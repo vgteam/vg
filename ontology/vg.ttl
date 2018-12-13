@@ -104,6 +104,7 @@
 :GAMP_Format
   a owl:Class ;
   rdfs:label "MultipathAlignment" ;
+  rdfs:comment "Contains a DAG of subalignments to different paths through the reference graph" ;
   rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
 .
 :Snarl_Format
