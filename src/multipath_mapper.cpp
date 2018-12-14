@@ -3339,6 +3339,11 @@ namespace vg {
         
         if (include_population_component && all_multipaths_pop_consistent) {
             // We will go ahead with pop scoring for this read
+            
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is being used." << endl;
+#endif
+            
             for (auto& score : pop_adjusted_scores) {
                 // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
                 score -= min_adjustment;
@@ -3350,6 +3355,11 @@ namespace vg {
             }
         } else {
             // Clean up pop score annotations and remove scores on all the reads.
+            
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is not being used." << endl;
+#endif
+            
             for (auto& mpaln : multipath_alns) {
                 clear_annotation(mpaln, "haplotype_score_used");
                 clear_annotation(mpaln, "haplotype_score");
