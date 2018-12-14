@@ -139,7 +139,7 @@ int main_view(int argc, char** argv) {
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
                 {"turtle", no_argument, 0, 't'},
-                {"rdf-base-uri", no_argument, 0, 'r'},
+                {"rdf-base-uri", required_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
