@@ -801,7 +801,7 @@ namespace vg {
     }
    
     vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
-        bool optimal_first) {
+        size_t count, bool optimal_first) {
         
 #ifdef debug_multiple_tracebacks
         cerr << "Computing haplotype consistent alignments" << endl;
@@ -855,10 +855,34 @@ namespace vg {
         // Keep lists of traceback steps as multipath subpath numbers
         using step_list_t = ImmutableList<int64_t>;
         
+        // We define our own search state, which includes a haplotype search
+        // state and a flag for whether all the edges crossed so far have been
+        // present in the GBWT. This flag can remain true, and we can keep
+        // searching, after hour haplotype search state becomes empty.
+        struct SearchState {
+            haplo::IncrementalSearchState haplo_state;
+            bool all_edges_exist = true;
+            bool started = false;
+            
+            inline bool empty() const {
+                return haplo_state.empty();
+            }
+            
+            inline size_t size() const {
+                return haplo_state.size();
+            }
+            
+            // More consistent things should be smaller, for good queueing
+            inline bool operator<(const SearchState& other) const {
+                return haplo_state.size() > other.haplo_state.size() ||
+                    (haplo_state.size() == other.haplo_state.size() && all_edges_exist && !other.all_edges_exist);
+            }
+        };
+        
         // This function advances an incremental haplotype search state with the edges along a subpath, if any.
-        // An empty input subpath means to start the search.
+        // A non-started input SearchState means to start the search.
         // Note that we interpret the path IN REVERSE, because we're doing a traceback.
-        auto extend_with_subpath = [&](const haplo::IncrementalSearchState& initial, int64_t subpath) {
+        auto extend_with_subpath = [&](const SearchState& initial, int64_t subpath) {
             // Get the Path from the subpath.
             const Path& path = multipath_aln.subpath(subpath).path();
             
@@ -866,14 +890,15 @@ namespace vg {
             assert(path.mapping_size() > 0);
             
             // Set up a search state scratch
-            haplo::IncrementalSearchState state = initial;
-            if (state.empty()) {
+            SearchState state = initial;
+            if (!state.started) {
                 // If our input state says we need to start a new search, start with the node from the last mapping.
                 auto& pos = path.mapping(path.mapping_size() - 1).position();
                 // We require everything to have mappings to actual places, even pure inserts.
                 assert(pos.node_id() != 0);
                 // Make sure to search in the orientation we are actually going
-                state = score_provider.incremental_find(make_position(pos.node_id(), !pos.is_reverse(), 0));
+                state.haplo_state = score_provider.incremental_find(make_position(pos.node_id(), !pos.is_reverse(), 0));
+                state.started = true;
                 
 #ifdef debug_multiple_tracebacks
                 cerr << "New haplotype search for " << pb2json(pos) << " finds " << state.size() << " matching haplotypes" << endl;
@@ -885,11 +910,32 @@ namespace vg {
                 // For each transition between Mappings, we assume we are going between distinct node visits because of our precondition.
                 // So find the next position looking left
                 auto& pos = path.mapping(i - 1).position();
-                // And search the transition to it in the reverse orientation.
-                state = score_provider.incremental_extend(state, make_position(pos.node_id(), !pos.is_reverse(), 0));
+                
+                if (!state.empty()) {
+                    // Search the transition to it in the reverse orientation.
+                    state.haplo_state = score_provider.incremental_extend(state.haplo_state,
+                        make_position(pos.node_id(), !pos.is_reverse(), 0));
+                }
+                
+                if (state.empty() && state.all_edges_exist) {
+                    // We have run out of haplotypes. It may be because we have traversed an edge not in the haplotype index.
+                    // Check for that.
+                    
+                    // Look up where we came from
+                    auto& prev_pos = path.mapping(i).position();
+                    auto scratch = score_provider.incremental_find(make_position(prev_pos.node_id(), !prev_pos.is_reverse(), 0));
+                    
+                    // Search where we go to
+                    scratch = score_provider.incremental_extend(scratch, make_position(pos.node_id(), !pos.is_reverse(), 0));
+                    
+                    if (scratch.empty()) {
+                        // If no haplotypes go there, mark the state as having crossed an unused edge
+                        state.all_edges_exist = false;
+                    }
+                }
             
-                if (state.empty()) {
-                    // If we ever hit an empty interval, return it immediately
+                if (state.empty() && !state.all_edges_exist) {
+                    // If we enter this state we can never imporve, so return
                     return state;
                 }
                 
@@ -903,9 +949,9 @@ namespace vg {
         // An empty input subpath means to start the search.
         // Note that we interpret the path IN REVERSE, because we're doing a traceback.
         // Even though old_subpath comes before new_subpath, since we're going backward, new_subpath comes in on the left.
-        auto extend_between_subpaths = [&](const haplo::IncrementalSearchState& initial, int64_t old_subpath, int64_t new_subpath) {
-            // We can't have an empty input interval.
-            assert(!initial.empty());
+        auto extend_between_subpaths = [&](const SearchState& initial, int64_t old_subpath, int64_t new_subpath) {
+            // We can't have an un-started input state
+            assert(initial.started);
             
             // See if the transition from the previous subpath to the next subpath is just two mappings abutting on the same node
             const Path& old_path = multipath_aln.subpath(old_subpath).path();
@@ -917,22 +963,88 @@ namespace vg {
             // And into the last mapping on the new path.
             const Mapping& new_mapping = new_path.mapping(new_path.mapping_size() - 1);
             
-            if (new_mapping.position().node_id() == old_mapping.position().node_id() &&
-                new_mapping.position().is_reverse() == old_mapping.position().is_reverse() &&
-                new_mapping.position().offset() + mapping_from_length(new_mapping) == old_mapping.position().offset()) {
+            // Look upt he positions
+            auto& new_pos = new_mapping.position();
+            auto& old_pos = old_mapping.position();
+            
+            if (new_pos.node_id() == old_pos.node_id() &&
+                new_pos.is_reverse() == old_pos.is_reverse() &&
+                new_pos.offset() + mapping_from_length(new_mapping) == old_pos.offset()) {
                 // We actually are transitioning just within a node. No more state updates to do.
                 return initial;
             }
             
             // Otherwise there's an edge we have to look for.
-            // Make sure to flip the orientation because we're searching left.
-            return score_provider.incremental_extend(initial,
-                make_position(new_mapping.position().node_id(), !new_mapping.position().is_reverse(), 0));
+            SearchState result = initial;
+            
+            if (!result.empty()) {
+                // Try searching on the contained interval
+                // Make sure to flip the orientation because we're searching left.
+                result.haplo_state = score_provider.incremental_extend(initial.haplo_state,
+                    make_position(new_mapping.position().node_id(), !new_mapping.position().is_reverse(), 0));
+            }
+            
+            if (result.empty() && result.all_edges_exist) {
+                // We need to see if we not only ran out of agreeing haplotypes but also took an unused edge
+                // Look up where we came from
+                auto scratch = score_provider.incremental_find(make_position(old_pos.node_id(), !old_pos.is_reverse(), 0));
+                
+                // Search where we go to
+                scratch = score_provider.incremental_extend(scratch, make_position(new_pos.node_id(), !new_pos.is_reverse(), 0));
+                
+                if (scratch.empty()) {
+                    // If no haplotypes go there, mark the state as having crossed an unused edge
+                    result.all_edges_exist = false;
+                }
+                
+            }
+            
+            return result;
         };
         
-        // Keep a stack of partial, haplotype-consistent tracebacks we are
-        // working on, and their incremental haplotype search states
-        list<pair<step_list_t, haplo::IncrementalSearchState>> traceback_stack;
+        // Our search is kind of complicated, because we want to enumerate all
+        // haplotype-consistent linearizations, but pad out to n merely
+        // scorable linearizations, in alignment score order.
+        
+        // So we keep our search queue in a min-max heap, where lower is a
+        // better thing to extend.
+        //
+        // We sort by search state, which we define an order on where more
+        // consistent haplotypes come before fewer, and then unscorable things
+        // come last.
+        // 
+        // And then after that we search by score penalty from optimal.
+        
+        // Put them in a size-limited priority queue by search state, and then
+        // score difference (positive) from optimal
+        MinMaxHeap<tuple<SearchState, int32_t, step_list_t>> queue;
+        
+        // We define a function to put stuff in the queue and limit its size to
+        // the (count - to_return.size()) items with lowest penalty.
+        auto try_enqueue = [&](const tuple<SearchState, int32_t, step_list_t>& item) {
+            // Work out how many things can be in the queue to compete to pad out the remaining return slots.
+            // Make sure it doesn't try to go negative.
+            size_t max_size = count - std::min(count, to_return.size());
+            
+            if (!get<0>(item).empty() || queue.size() < max_size || (!queue.empty() && item < queue.max())) {
+                // The item belongs in the queue because it fits or it beats
+                // the current worst thing if present, or it's not eligible for removal.
+                queue.push(item);
+#ifdef debug_multiple_tracebacks
+                cerr << "Allow item into queue" << endl;
+#endif
+                
+            }
+            
+            while(!queue.empty() && queue.size() > max_size && get<0>(queue.max()).empty()) {
+                // We have more possibilities than we need to consider, and
+                // some are eligible for removal. Get rid of the worst one.
+                queue.pop_max();
+#ifdef debug_multiple_tracebacks
+                cerr << "Remove item from queue" << endl;
+#endif
+            }
+        };
         
         // Also, subpaths only keep track of their nexts, so we need to invert
         // that so we can get all valid prev subpaths.
@@ -972,33 +1084,31 @@ namespace vg {
                 step_list_t starting_path{i};
                 
                 // The search state is what we get just starting with this subpath
-                haplo::IncrementalSearchState state = extend_with_subpath(haplo::IncrementalSearchState(), i);
+                SearchState state = extend_with_subpath(SearchState(), i);
                 
-                if (!state.empty()) {
+                // The score penalty for starting here is the optimal score minus the optimal score starting here
+                auto penalty = opt_score - (problem.prefix_score[i] + multipath_aln.subpath(i).score());
                 
-#ifdef debug_multiple_tracebacks
-                    cerr << "Could end at haplotype consistent subpath " << i << " with " << state.size() << " matches" << endl;
-#endif
-                
-                    traceback_stack.emplace_back(starting_path, state);
-                } else {
                 
 #ifdef debug_multiple_tracebacks
-                    cerr << "Subpath " << i << " looks like a valid end but is haplotype inconsistent by itself" << endl;
+                cerr << "Could end at subpath " << i << " with " << state.size()
+                    << " matches and scorability " << state.all_edges_exist << endl;
 #endif
                 
-                }
+                try_enqueue(make_tuple(state, penalty, starting_path)); 
+                
             }
         }
         
-        while(!traceback_stack.empty()) {
+        while(!queue.empty()) {
             // Grab a traceback to try extending
-            auto frame = traceback_stack.back();
-            traceback_stack.pop_back();
+            auto frame = queue.min();
+            queue.pop_min();
             
             // Unpack the stack frame
-            auto& basis = frame.first;
-            auto& state = frame.second;
+            auto& state = get<0>(frame);
+            auto& base_penalty = get<1>(frame);
+            auto& basis = get<2>(frame);
             
             if (problem.prev_subpath[basis.front()] == -1) {
                 // If it leads all the way to a subpath that is optimal as a start
@@ -1015,35 +1125,41 @@ namespace vg {
                 // Populate path
                 populate_path_from_traceback(multipath_aln, problem, basis.begin(), basis.end(), aln_out.mutable_path());
                 
-                // Compute the score by summing over subpaths
-                int64_t total_score = 0;
-                for (auto& subpath : basis) {
-                    total_score += multipath_aln.subpath(subpath).score();
-                }
-                aln_out.set_score(total_score);
+                // Compute the score from the penalty
+                aln_out.set_score(opt_score - base_penalty);
                 
 #ifdef debug_multiple_tracebacks
-                cerr << "Traceback reaches start at " << basis.front() << "; emit with score " << aln_out.score() << endl;
+                cerr << "Traceback reaches start at " << basis.front() << " with " << state.size()
+                    << " consistent haplotypes and scorability " << state.all_edges_exist << "; emit with score " << aln_out.score() << endl;
 #endif
             } else {
                 // We can't optimally stop the traceback here. We have to come from somewhere.
                 
                 auto& here = basis.front();
+                
+                // To compute the additional score difference, we need to know what our optimal prefix score was.
+                auto& best_prefix_score = problem.prefix_score[here];
+                
                 for (auto& prev : prev_subpaths[here]) {
                     // For each possible previous location
-                
+                    
+                    // Compute the score of the optimal alignment ending at that predecessor
+                    auto prev_opt_score = problem.prefix_score[prev] + multipath_aln.subpath(prev).score();
+                    
+                    // What's the difference we would take if we went with this predecessor?
+                    auto additional_penalty = best_prefix_score - prev_opt_score;
+                    
                     // Try extending
                     auto extended_state = extend_between_subpaths(state, here, prev);
                     
 #ifdef debug_multiple_tracebacks
                     cerr << "Extending traceback from subpath " << here << " to " << prev << " keeps "
-                        << extended_state.size() << " / " << state.size() << " haplotype matches" << endl;
+                        << extended_state.size() << " / " << state.size() << " haplotype matches, with scorability "
+                        << extended_state.all_edges_exist << " and penalty " << base_penalty + additional_penalty << endl;
 #endif
                     
-                    if (!extended_state.empty()) {
-                        // If it's haplotype-consistent, add it to a traceback copy and put it on the stack
-                        traceback_stack.emplace_back(basis.push_front(prev), extended_state);
-                    }
+                    // Save the result
+                    try_enqueue(make_tuple(extended_state, base_penalty + additional_penalty, basis.push_front(prev))); 
                 }
             }
             

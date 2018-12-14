@@ -92,7 +92,9 @@ namespace vg {
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const MultipathAlignment& multipath_aln, size_t count);
     
     /// Finds all alignments consistent with haplotypes available by incremental search with the given haplotype
-    /// score provider. This may result in an empty vector.
+    /// score provider. Pads to a certain count with haplotype-inconsistent alignments that are population-scorable
+    /// (i.e. use only edges used by some haplotype in the index), and then with unscorable alignments if scorable
+    /// ones are unavailable. This may result in an empty vector.
     ///
     /// Output Alignments may not be unique. The input MultipathAlignment may have exponentially many ways to
     /// spell the same Alignment, and we will look at all of them. We also may have duplicates of the optimal
@@ -105,10 +107,11 @@ namespace vg {
     ///  Args:
     ///    multipath_aln     multipath alignment to find optimal paths through
     ///    score_provider    a haplo::ScoreProvider that supports incremental search over its haplotype database (such as a GBWTScoreProvider)
+    ///    count             maximum number of haplotype-inconsistent alignments to pad to
     ///    optimal_first     always compute and return first the optimal alignment, even if not haplotype-consistent
     ///
     vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
-        bool optimal_first = false); 
+        size_t count, bool optimal_first = false); 
     
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///

@@ -4,7 +4,7 @@
 //
 //
 
-//#define debug_multipath_mapper
+#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -1718,7 +1718,7 @@ namespace vg {
                                                 size_t max_alt_mappings) const {
     
 #ifdef debug_multipath_mapper
-        cerr << "linearizing multipath alignment" << endl;
+        cerr << "linearizing multipath alignment to assess positional diversity" << endl;
 #endif        
         // Compute a few optimal alignments using disjoint sets of subpaths.
         // This hopefully gives us a feel for the positional diversity of the MultipathMapping.
@@ -3490,8 +3490,8 @@ namespace vg {
                 if (haplo_score_provider->has_incremental_search()) {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
-                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, true);
-                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, true);
+                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths, true);
+                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths, true);
                 } else {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);
@@ -3502,6 +3502,10 @@ namespace vg {
                 alignments[0] = optimal_alignments(multipath_aln_pair.first, 1);
                 alignments[1] = optimal_alignments(multipath_aln_pair.second, 1);
             }
+            
+#ifdef debug_multipath_mapper
+            cerr << "Got " << alignments[0].size() << " and " << alignments[1].size() << " linearizations on each end" << endl;
+#endif
             
             // We used to fail an assert if either list of optimal alignments
             // was empty, but now we handle it as if that side is an unmapped
@@ -3580,6 +3584,11 @@ namespace vg {
                                 << alignments[end][j].name() << ". This should never happen! Changing to failure." << endl;
                             pop_score.second = false;
                         }
+                        
+#ifdef debug_multipath_mapper
+                        cerr << "Linearization " << j << " on end " << end << " gets pop score " << pop_score.first
+                            << " and alignment score " << alignments[end][j].score() << endl;
+#endif
                         
                         if (pop_score.second) {
                             // If the alignment was pop-score-able, mix it in as a candidate for the best linearization
