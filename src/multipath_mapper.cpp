@@ -3490,6 +3490,7 @@ namespace vg {
                 if (haplo_score_provider->has_incremental_search()) {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
+                    // Also pad out with population_max_paths inconsistent or unscorable paths
                     alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths, true);
                     alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths, true);
                 } else {
