@@ -3201,7 +3201,8 @@ namespace vg {
                 if (haplo_score_provider->has_incremental_search()) {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
-                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, true);
+                    // And also include up to population_max_paths non-consistent but hopefully scorable paths
+                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths, true);
                 } else {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments = optimal_alignments(multipath_alns[i], population_max_paths);
