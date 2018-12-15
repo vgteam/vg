@@ -3660,6 +3660,9 @@ namespace vg {
         
         if (include_population_component && all_multipaths_pop_consistent) {
             // Record that we used the population score
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is being used." << endl;
+#endif
             for (auto& multipath_aln_pair : multipath_aln_pairs) {
                 // We have to do it on each read in each pair.
                 // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
@@ -3668,6 +3671,9 @@ namespace vg {
             }
         } else {
             // Clean up pop score annotations if present and remove scores from all the reads
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is not being used." << endl;
+#endif
             for (auto& multipath_aln_pair : multipath_aln_pairs) {
                 // We have to do it on each read in each pair.
                 clear_annotation(multipath_aln_pair.first, "haplotype_score_used");
