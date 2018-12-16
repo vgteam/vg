@@ -22,8 +22,8 @@ XdropAligner::XdropAligner(XdropAligner const &rhs)
 {
 	dz = dz_init(
 		rhs.dz->matrix,
-		(uint16_t)rhs.dz->giv[0],
-		(uint16_t)rhs.dz->gev[0],
+		(uint16_t)rhs.dz->iiv[0],
+		(uint16_t)rhs.dz->iev[0],
 		(uint16_t)rhs.dz->max_gap_len,
 		(uint16_t)rhs.dz->bonus
 	);
@@ -34,8 +34,8 @@ XdropAligner& XdropAligner::operator=(XdropAligner const &rhs)
 	if(this == &rhs) { return(*this); }
 	dz = dz_init(
 		rhs.dz->matrix,
-		(uint16_t)rhs.dz->giv[0],
-		(uint16_t)rhs.dz->gev[0],
+		(uint16_t)rhs.dz->iiv[0],
+		(uint16_t)rhs.dz->iev[0],
 		(uint16_t)rhs.dz->max_gap_len,
 		(uint16_t)rhs.dz->bonus
 	);
