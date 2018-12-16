@@ -19,6 +19,8 @@ typedef size_t off_t;
 
 /// Represents an oriented position on a Node.
 /// Position type: id, direction, offset.
+/// Offset is counted as for as prorobuf Position, from the node's first base
+/// on the forward strand, and from its last base on the reverse strand.
 typedef std::tuple<id_t, bool, off_t> pos_t;
 
 }

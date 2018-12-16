@@ -73,22 +73,32 @@ BlockedGzipOutputStream::BlockedGzipOutputStream(std::ostream& stream) : handle(
 }
 
 BlockedGzipOutputStream::~BlockedGzipOutputStream() {
+
+#ifdef debug
+    cerr << "Destroying BlockedGzipOutputStream" << endl;
+#endif
+
     // Make sure to finish writing before destructing.
     flush();
     
     if (end_file) {
         // Close the file with an EOF block.
 #ifdef debug
-        cerr << "Close normally" << endl;
+        cerr << "Close BlockedGzipOutputStream normally with EOF" << endl;
 #endif
         bgzf_close(handle);
     } else {
         // Close the BGZF *without* writing an EOF block.
 #ifdef debug
-        cerr << "Force close" << endl;
+        cerr << "Force BlockedGzipOutputStream closed" << endl;
 #endif
         force_close();
     }
+    
+#ifdef debug
+    cerr << "BlockedGzipOutputStream destroyed" << endl;
+#endif
+
 }
 
 bool BlockedGzipOutputStream::Next(void** data, int* size) {
@@ -170,6 +180,9 @@ void BlockedGzipOutputStream::StartFile() {
 }
 
 void BlockedGzipOutputStream::EndFile() {
+#ifdef debug
+    cerr << "Setting BlockedGzipOutputStream end_file flag" << endl;
+#endif
     end_file = true;
 }
 
@@ -200,6 +213,10 @@ void BlockedGzipOutputStream::flush() {
 
 void BlockedGzipOutputStream::force_close() {
     // Sneakily close the BGZF file without letting it write an EOF empty block marker.
+    
+#ifdef debug
+    cerr << "Forcing BlockedGzipOutputStream closed without EOF" << endl;
+#endif
     
     // Flush the data, which the close function won't do in the path we want it to take
     if (bgzf_flush(handle) != 0) {

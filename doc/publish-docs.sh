@@ -89,6 +89,10 @@ rsync -avr "${SOURCE_DIR}" "${SCRATCH_DIR}/dest/${DEST_DIR}" --delete --exclude 
 # Go back in to make the commit
 pushd "${SCRATCH_DIR}/dest"
 
+# Disable Jeckyll processing for Github Pages since we did it already
+touch .nojekyll
+git add .nojekyll
+
 # Add all the files here (except hidden ones) and add deletions
 git add -A
 
@@ -96,8 +100,8 @@ git add -A
 git config user.name "${COMMIT_AUTHOR_NAME}"
 git config user.email "${COMMIT_AUTHOR_EMAIL}"
 
-# Make the commit
-git commit -m "Commit new auto-generated docs"
+# Make the commit. Tolerate failure because this fails when there is nothing to commit.
+git commit -m "Commit new auto-generated docs" || true
 
 if [[ "${TRAVIS_PULL_REQUEST}" != "false" || "${TRAVIS_BRANCH}" != "master" ]]; then
     # If we're not a real master commit, we just make sure the docs build.
@@ -108,7 +112,7 @@ if [[ "${TRAVIS_PULL_REQUEST}" != "false" || "${TRAVIS_BRANCH}" != "master" ]]; 
 fi
 
 # If we are on the right branch, actually push the commit.
-# Push the commit
+# Push the commit. This does not fail if there is no commit.
 git push origin "${DEST_BRANCH}"
 
 

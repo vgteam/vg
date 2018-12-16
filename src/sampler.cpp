@@ -4,19 +4,35 @@
 
 namespace vg {
 
-/// Make a path sampling distribution based on relative lengths
-void Sampler::set_source_paths(const vector<string>& source_paths) {
-    this->source_paths = source_paths;
-    if (!source_paths.empty()) {
+
+void Sampler::set_source_paths(const vector<string>& source_paths,
+                               const vector<pair<string, double>>& transcript_expressions) {
+    if (!source_paths.empty() && !transcript_expressions.empty()) {
+        cerr << "error:[Sampler] cannot sample from list of paths and from list of transcripts simultaneously" << endl;
+        exit(1);
+    }
+    else if (!transcript_expressions.empty()) {
+        this->source_paths.clear();
+        vector<double> expression_values;
+        for (const pair<string, double>& transcript_expression : transcript_expressions) {
+            this->source_paths.push_back(transcript_expression.first);
+            expression_values.push_back(transcript_expression.second);
+        }
+        path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
+    }
+    else if (!source_paths.empty()) {
+        this->source_paths = source_paths;
         vector<size_t> path_lengths;
         for (auto& source_path : source_paths) {
             path_lengths.push_back(xgidx->path_length(source_path));
         }
         path_sampler = vg::discrete_distribution<>(path_lengths.begin(), path_lengths.end());
-    } else {
+    }
+    else {
         path_sampler = vg::discrete_distribution<>();
     }
 }
+    
 
 /// We have a helper function to convert path positions and orientations to
 /// pos_t values.
@@ -280,7 +296,7 @@ Alignment Sampler::mutate(const Alignment& aln,
     mutaln.set_sequence(alignment_seq(mutaln));
     mutaln.set_name(aln.name());
     mutaln.clear_refpos();
-    xg_annotate_with_initial_path_positions(mutaln, true, false, xgidx);
+    xg_annotate_with_initial_path_positions(mutaln, xgidx);
     return mutaln;
 }
 
@@ -405,7 +421,7 @@ Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
     // And set its identity
     aln.set_identity(identity(aln.path()));
     aln.clear_refpos();
-    xg_annotate_with_initial_path_positions(aln, true, false, xgidx);
+    xg_annotate_with_initial_path_positions(aln, xgidx);
     return aln;
 }
 
@@ -457,7 +473,7 @@ Alignment Sampler::alignment_to_graph(size_t length) {
     }
     // And set its identity
     aln.set_identity(identity(aln.path()));
-    xg_annotate_with_initial_path_positions(aln, true, false, xgidx);
+    xg_annotate_with_initial_path_positions(aln, xgidx);
     return aln;
 }
 
@@ -500,7 +516,7 @@ Alignment Sampler::alignment_with_error(size_t length,
     
     // Check the alignment to make sure we didn't mess it up
     assert(is_valid(aln));
-    xg_annotate_with_initial_path_positions(aln, true, false, xgidx);
+    xg_annotate_with_initial_path_positions(aln, xgidx);
     return aln;
 }
 
@@ -551,7 +567,8 @@ const string NGSSimulator::alphabet = "ACGT";
 NGSSimulator::NGSSimulator(xg::XG& xg_index,
                            const string& ngs_fastq_file,
                            bool interleaved_fastq,
-                           const vector<string>& source_paths,
+                           const vector<string>& source_paths_input,
+                           const vector<pair<string, double>>& transcript_expressions,
                            double substition_polymorphism_rate,
                            double indel_polymorphism_rate,
                            double indel_error_proportion,
@@ -576,18 +593,12 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     , prob_sampler(0.0, 1.0)
     , insert_sampler(insert_length_mean, insert_length_stdev)
     , seed(seed)
-    , source_paths(source_paths)
+    , source_paths(source_paths_input)
     , joint_initial_distr(seed - 1)
 {
-    if (source_paths.empty()) {
-        start_pos_samplers.emplace_back(1, xg_index.seq_length);
-    } else {
-        vector<size_t> path_sizes;
-        for (const auto& source_path : source_paths) {
-            path_sizes.push_back(xg_index.path_length(source_path));
-            start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
-        }
-        path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
+    if (!source_paths.empty() && !transcript_expressions.empty()) {
+        cerr << "error:[NGSSimulator] cannot simultaneously limit sampling to paths and match an expresssion profile" << endl;
+        exit(1);
     }
     
     if (substition_polymorphism_rate < 0.0 || substition_polymorphism_rate > 1.0
@@ -615,6 +626,27 @@ NGSSimulator::NGSSimulator(xg::XG& xg_index,
     if (insert_length_mean < 5.0 * insert_length_stdev) {
         cerr << "warning:[NGSSimulator] Recommended that insert length mean (" << insert_length_mean
             << ") > 5 * insert length standard deviation (" << insert_length_stdev << ")" << endl;
+    }
+    
+    if (source_paths.empty() && transcript_expressions.empty()) {
+        start_pos_samplers.emplace_back(1, xg_index.seq_length);
+    }
+    else if (!source_paths.empty()) {
+        vector<size_t> path_sizes;
+        for (const auto& source_path : source_paths) {
+            path_sizes.push_back(xg_index.path_length(source_path));
+            start_pos_samplers.emplace_back(0, path_sizes.back() - 1);
+        }
+        path_sampler = vg::discrete_distribution<>(path_sizes.begin(), path_sizes.end());
+    }
+    else {
+        vector<double> expression_values;
+        for (const pair<string, double>& transcript_expression : transcript_expressions) {
+            source_paths.push_back(transcript_expression.first);
+            start_pos_samplers.emplace_back(0, xg_index.path_length(transcript_expression.first) - 1);
+            expression_values.push_back(transcript_expression.second);
+        }
+        path_sampler = vg::discrete_distribution<>(expression_values.begin(), expression_values.end());
     }
     
     // memoize phred conversions
@@ -735,7 +767,7 @@ Alignment NGSSimulator::sample_read() {
     apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
     
     aln.set_name(get_read_name());
-    xg_annotate_with_initial_path_positions(aln, true, false, &xg_index);
+    xg_annotate_with_initial_path_positions(aln, &xg_index);
     return aln;
 }
 
@@ -841,8 +873,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     string name = get_read_name();
     aln_pair.first.set_name(name + "_1");
     aln_pair.second.set_name(name + "_2");
-    xg_annotate_with_initial_path_positions(aln_pair.first, true, false, &xg_index);
-    xg_annotate_with_initial_path_positions(aln_pair.second, true, false, &xg_index);
+    xg_annotate_with_initial_path_positions(aln_pair.first, &xg_index);
+    xg_annotate_with_initial_path_positions(aln_pair.second, &xg_index);
     return aln_pair;
 }
 

@@ -15,6 +15,9 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
+
+#include <structures/immutable_list.hpp>
+
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "translator.hpp"
@@ -175,9 +178,10 @@ class PathBasedTraversalFinder : public TraversalFinder{
 };
 
 /**
- * This traversal finder finds one or more traversals through leaf sites with no
- * children. It uses a depth-first search. It doesn't work on non-leaf sites,
- * and is not guaranteed to find all traversals. Only works on ultrabubbles.
+ * This traversal finder finds one or more traversals through leaf sites with
+ * no children. It uses a depth-first search. It doesn't work on non-leaf
+ * sites, and is not guaranteed to find all traversals. Only works on acyclic
+ * sites that are start-end-reachable.
  */
 class TrivialTraversalFinder : public TraversalFinder {
 
@@ -220,6 +224,10 @@ protected:
     size_t max_width;
     /// How many search intermediates can we allow?
     size_t max_bubble_paths;
+    /// Minimum support for a node to consider travnersal through it
+    size_t min_node_support;
+    /// Minimum support for a edge to consider travnersal through it
+    size_t min_edge_support;
     
     /**
      * Find a Path that runs from the start of the given snarl to the end, which
@@ -249,33 +257,47 @@ protected:
                                              const Snarl& site);
         
     /**
-     * Get the minimum support of all nodes and edges in path
+     * Get the minimum support of all nodes and edges in path, in the path's forward orientation.
      */
     Support min_support_in_path(const list<Visit>& path);
         
     /**
      * Do a breadth-first search left from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the given
-     * indexed path. Refuses to visit nodes with no support, if support data is
-     * available in the augmented graph.
+     * lengths, target-path-relative orientations, and paths starting at the
+     * given node and ending on the given indexed path. Refuses to visit nodes
+     * with no support, if support data is available in the augmented graph.
+     *
+     * If in_snarl is not null, restricts the found paths to stay within the
+     * given snarl.
+     *
+     * If both_orientations_distance is not zero, keeps searching up to that
+     * many steps after finding the target path to see if it can find a node on
+     * the target path in the opposite orientation. This is useful for
+     * inversions.
      */
-    set<pair<size_t, list<Visit>>> bfs_left(Visit visit, PathIndex& index, bool stopIfVisited = false,
-                                            const Snarl* in_snarl = nullptr);
+    set<tuple<size_t, bool, structures::ImmutableList<Visit>>> bfs_left(Visit visit, PathIndex& index,
+                                                                        bool stop_if_visited = false,
+                                                                        const Snarl* in_snarl = nullptr,
+                                                                        size_t both_orientations_distance = 0);
         
     /**
      * Do a breadth-first search right from the given node traversal, and return
-     * lengths and paths starting at the given node and ending on the given
-     * indexed path. Refuses to visit nodes with no support, if support data is
-     * available in the augmented graph.
+     * lengths, target-path-relative orientations, and paths starting at the
+     * given node and ending on the given indexed path. Refuses to visit nodes
+     * with no support, if support data is available in the augmented graph.
+     *
+     * API is similar to bfs_left().
      */
-    set<pair<size_t, list<Visit>>> bfs_right(Visit visit, PathIndex& index, bool stopIfVisited = false,
-                                             const Snarl* in_snarl = nullptr);
+    set<tuple<size_t, bool, structures::ImmutableList<Visit>>> bfs_right(Visit visit, PathIndex& index,
+                                                                         bool stop_if_visited = false,
+                                                                         const Snarl* in_snarl = nullptr,
+                                                                         size_t both_orientations_distance = 0);
         
     /**
      * Get the length of a path through nodes, in base pairs.
      */
-    size_t bp_length(const list<Visit>& path);
-    
+    size_t bp_length(const  structures::ImmutableList<Visit>& path);
+
 public:
 
     /**
@@ -292,10 +314,18 @@ public:
      */
     RepresentativeTraversalFinder(AugmentedGraph& augmented, SnarlManager& snarl_manager,
         size_t max_depth, size_t max_width, size_t max_bubble_paths,
+        size_t min_node_support = 1, size_t min_edge_support = 1,
         function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
     
     /// Should we emit verbose debugging info?
     bool verbose = false;
+
+    /// Should trivial child snarls have their traversals glommed into ours?
+    bool eat_trivial_children = false;
+    
+    /// What timeout/step limit should we use for finding other orientations of
+    /// the reference path after we find one?
+    size_t other_orientation_timeout = 10;
     
     virtual ~RepresentativeTraversalFinder() = default;
     

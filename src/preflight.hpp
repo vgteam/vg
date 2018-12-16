@@ -8,8 +8,6 @@
 
 namespace vg {
 
-using namespace std;
-
 /// Run a preflight check to make sure that the system is usable for this build of vg.
 /// Aborts with a helpful message if this is not the case.
 /// We make sure to build it for a lowest-common-denominator architecture.

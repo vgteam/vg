@@ -1,6 +1,6 @@
-#include "../gamsorter.hpp"
-#include "../gam_index.hpp"
+#include "../stream_sorter.hpp"
 #include "../stream.hpp"
+#include "../stream_index.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
 #include "../index.hpp"
@@ -17,7 +17,6 @@ void help_gamsort(char **argv)
     cerr << "gamsort: sort a GAM file, or index a sorted GAM file" << endl
          << "Usage: " << argv[1] << " [Options] gamfile" << endl
          << "Options:" << endl
-         << "  -s / --sorted           Input GAM is already sorted." << endl
          << "  -i / --index FILE       produce an index of the sorted GAM file" << endl
          << "  -d / --dumb-sort        use naive sorting algorithm (no tmp files, faster for small GAMs)" << endl
          << "  -r / --rocks DIR        Just use the old RocksDB-style indexing scheme for sorting, using the given database name." << endl
@@ -31,8 +30,7 @@ int main_gamsort(int argc, char **argv)
 {
     string index_filename;
     string rocksdb_filename;
-    bool dumb_sort = false;
-    bool is_sorted = false;
+    bool easy_sort = false;
     bool do_aln_index = false;
     bool show_progress = false;
     // We limit the max threads, and only allow thread count to be lowered, to
@@ -50,12 +48,11 @@ int main_gamsort(int argc, char **argv)
                 {"dumb-sort", no_argument, 0, 'd'},
                 {"rocks", required_argument, 0, 'r'},
                 {"aln-index", no_argument, 0, 'a'},
-                {"is-sorted", no_argument, 0, 's'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}};
         int option_index = 0;
-        c = getopt_long(argc, argv, "i:dhr:aspt:",
+        c = getopt_long(argc, argv, "i:dhr:apt:",
                         long_options, &option_index);
 
         // Detect the end of the options.
@@ -68,10 +65,7 @@ int main_gamsort(int argc, char **argv)
             index_filename = optarg;
             break;
         case 'd':
-            dumb_sort = true;
-            break;
-        case 's':
-            is_sorted = true;
+            easy_sort = true;
             break;
         case 'r':
             rocksdb_filename = optarg;
@@ -159,9 +153,9 @@ int main_gamsort(int argc, char **argv)
                 index = unique_ptr<GAMIndex>(new GAMIndex());
             }
             
-            if (dumb_sort) {
+            if (easy_sort) {
                 // Sort in a single pass in memory
-                gs.dumb_sort(gam_in, cout, index.get());
+                gs.easy_sort(gam_in, cout, index.get());
             } else {
                 // Sort using fan-in-limited temp file merging 
                 gs.stream_sort(gam_in, cout, index.get());

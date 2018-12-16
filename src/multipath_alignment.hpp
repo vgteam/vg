@@ -144,7 +144,7 @@ namespace vg {
     void merge_non_branching_subpaths(MultipathAlignment& multipath_aln);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
-    /// each connected component
+    /// each connected component. An unmapped MultipathAlignment with no subpaths produces an empty vector.
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln);
     
     /// Extract the MultipathAlignment consisting of the Subpaths with the given indexes

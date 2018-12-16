@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 59
+plan tests 61
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -22,11 +22,18 @@ vg index -x x2.xg -g x2.gcsa x.vg
 is $? 0 "building both indexes at once"
 
 cmp x.xg x2.xg && cmp x.gcsa x2.gcsa && cmp x.gcsa.lcp x2.gcsa.lcp
-is $? 0 "the indexes are identical"
+is $? 0 "the indexes are identical when built one at a time and together"
+
+vg index -x x.xg -g x3.gcsa
+is $? 0 "building GCSA from XG"
+
+cmp x.gcsa x3.gcsa && cmp x.gcsa.lcp x3.gcsa.lcp
+is $? 0 "the GCSA indexes are identical when built from vg and from xg"
 
 rm -f x.vg
 rm -f x.xg x.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gcsa x2.gcsa.lcp
+rm -f x3.gcsa x3.gcsa.lcp
 
 
 # Single graph with haplotypes
@@ -54,6 +61,8 @@ is $? 0 "storing a VCF parse for a graph with haplotypes"
 ../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parse"
 
+# Add the metadata manually and compare the indexes
+../deps/gbwt/metadata -c 1 -h 2 -s 1 parse_x > /dev/null
 cmp parse_x.gbwt x.gbwt
 is $? 0 "the indexes are identical"
 
@@ -124,6 +133,8 @@ is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
 ../deps/gbwt/build_gbwt -p -r -o parse_xy parse_x parse_y > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parses"
 
+# Add the metadata manually and compare the indexes
+../deps/gbwt/metadata -c 2 -h 2 -s 1 parse_xy > /dev/null
 cmp parse_xy.gbwt xy.gbwt
 is $? 0 "the indexes are identical"
 
@@ -158,7 +169,7 @@ rm -f x.vg x.xg sim.gam x_gam.gbwt
 
 
 # Other tests
-vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg x.vg bogus123.vg
 is $? 134 "fail with nonexistent file"
 rm -rf x.idx
@@ -221,7 +232,7 @@ is $(vg find -x xy.xg -t | vg paths -L -v - | wc -l) 4 "a thread is stored per h
 is $(vg find -x xy.xg -q _thread_1_y | vg paths -L -v - | wc -l) 2 "we have the expected number of threads per chromosome"
 rm -f xy.vg xy.xg
 
-vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz -H haps.bin x.vg
 is $(du -b haps.bin | cut -f 1) 329 "threads may be exported to binary for use in GBWT construction"
 
@@ -292,7 +303,7 @@ rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp ins_and_del.vg ins_and_del.vg.xg
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
 vg snarls -t x.vg > snarls.pb
 
-vg index -c x.vg -s snarls.pb -j distIndex
+vg index -s snarls.pb -j distIndex -w 100 x.vg
 is $? 0 "building a distance index of a graph"
 
 rm -f x.vg distIndex snarls.pb

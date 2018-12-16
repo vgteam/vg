@@ -261,6 +261,8 @@ haplo_DP_column::~haplo_DP_column() {
 
 void haplo_DP_column::update_inner_values() {
   for(size_t i = 0; i + 1 < entries.size(); i++) {
+    assert(entries[i].get() != nullptr);
+    assert(entries[i+1].get() != nullptr);
     entries[i]->calculate_I(entries[i+1]->interval_size());
   }
   if(!entries.empty()) {
@@ -285,7 +287,9 @@ void haplo_DP_column::update_inner_values() {
 // }
 
 void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
+  assert(!entries.empty());
   auto r_0 = entries.at(0);
+  assert(r_0.get() != nullptr);
   if(entries.size() == 1 && entries.at(0)->prev_idx() == -1) {
     r_0->R = -memo.log_population_size();
     sum = r_0->R + log(r_0->interval_size());
@@ -299,6 +303,7 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
     vector<double> continuing_Rs(entries.size() - offset);
     vector<int64_t> continuing_counts(entries.size() - offset);
     for(size_t i = offset; i < entries.size(); i++) {
+      assert(entries[i].get() != nullptr);
       continuing_Rs.at(i - offset) = previous_values[entries[i]->prev_idx()];
       continuing_counts.at(i - offset) = entries[i]->I();
     }
@@ -315,6 +320,7 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
     }
     if(length == 1) {
       for(i; i < entries.size(); i++) {
+        assert(entries[i].get() != nullptr);
         double logLHS = memo.logT_base +
                         previous_R(i) +
                         memo.logT(length);
@@ -322,6 +328,7 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
       }
     } else {
       for(i; i < entries.size(); i++) {
+        assert(entries[i].get() != nullptr);
         double logLHS = memo.logT_base +
                         haploMath::logsum(logS1RRD, previous_R(i) + memo.logT(length));
         entries[i]->R = haploMath::logsum(logLHS, logpS1S2RRS);
@@ -334,12 +341,14 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
 }
 
 double haplo_DP_column::previous_R(size_t i) const {
+  assert(entries.at(i).get() != nullptr);
   return previous_values[(entries.at(i))->prev_idx()];
 }
 
 vector<double> haplo_DP_column::get_scores() const {
   vector<double> to_return;
   for(size_t i = 0; i < entries.size(); i++) {
+    assert(entries[i].get() != nullptr);
     to_return.push_back(entries[i]->R);
   }
   return to_return;
@@ -348,6 +357,7 @@ vector<double> haplo_DP_column::get_scores() const {
 vector<int64_t> haplo_DP_column::get_sizes() const {
   vector<int64_t> to_return;
   for(size_t i = 0; i < entries.size(); i++) {
+    assert(entries[i].get() != nullptr);
     to_return.push_back(entries[i]->I());
   }
   return to_return;
@@ -363,6 +373,7 @@ void haplo_DP_column::print(ostream& out) const {
     for(size_t j = 0; j < get_sizes().size() - i - 1; j++) {
       out << "  ";
     }
+    assert(entries.at(i).get() != nullptr);
     out << entries.at(i)->I() << "] : " << entries.at(i)->interval_size() << endl;
   }
 }
@@ -810,6 +821,15 @@ haplo_score_type linear_haplo_structure::score(const vg::Path& path) const {
 }
 
 /*******************************************************************************
+ScoreProvider
+*******************************************************************************/
+
+int64_t ScoreProvider::get_haplotype_count() const {
+  // By default, say that we don't know the haplotype count.
+  return -1;
+}
+
+/*******************************************************************************
 XGScoreProvider
 *******************************************************************************/
 
@@ -819,6 +839,12 @@ XGScoreProvider::XGScoreProvider(xg::XG& index) : index(index) {
 
 pair<double, bool> XGScoreProvider::score(const vg::Path& path, haploMath::RRMemo& memo) {
   return haplo_DP::score(path, index, memo);
+}
+
+int64_t XGScoreProvider::get_haplotype_count() const {
+  // XG indexes track a haplotype count still.
+  // TODO: This should be removed!
+  return index.get_haplotype_count();
 }
 
 /*******************************************************************************

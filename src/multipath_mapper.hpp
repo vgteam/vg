@@ -20,6 +20,7 @@
 #include "edit.hpp"
 #include "snarls.hpp"
 #include "haplotypes.hpp"
+#include "distance.hpp"
 
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
@@ -50,7 +51,8 @@ namespace vg {
         ////////////////////////////////////////////////////////////////////////
     
         MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
-                        haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr);
+                        haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
+                        DistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
         
         /// Map read in alignment to graph and make multipath alignments.
@@ -109,6 +111,11 @@ namespace vg {
         double mapq_scaling_factor = 1.0 / 4.0;
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
+        // If this is nonzero, it takes precedence over any haplotype count
+        // available from the score provider or the XG index. If neither of
+        // those has a haplotype count, this must be set for haplotype scoring
+        // to work.
+        size_t force_haplotype_count = 0;
         // If this is set, use_population_mapqs must be set, and we will always
         // try to compute population scores, even if there is nothing to
         // disambiguate. This lets us get an accurate count of scorable reads.
@@ -125,6 +132,8 @@ namespace vg {
         size_t alt_anchor_max_length_diff = 5;
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;
+        bool delay_population_scoring = false;
+        bool use_tvs_clusterer = false;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -183,10 +192,7 @@ namespace vg {
                                           vector<clustergraph_t>& cluster_graphs2,
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                           vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
-                                          vector<pair<size_t, size_t>>& duplicate_pairs_out,
-                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
-                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
-                                          OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
+                                          vector<pair<size_t, size_t>>& duplicate_pairs_out);
         
         /// Align the read ends independently, but also try to form rescue alignments for each from
         /// the other. Return true if output obeys pair consistency and false otherwise.
@@ -216,15 +222,26 @@ namespace vg {
                                                       vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                                       vector<pair<pair<size_t, size_t>, int64_t>>& pair_distances,
                                                       size_t max_alt_mappings,
-                                                      OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
-                                                      OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
-                                                      OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
+                                                      OrientedDistanceMeasurer& distance_measurer);
         
         /// Merge the rescued mappings into the output vector and deduplicate pairs
         void merge_rescued_mappings(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
                                     vector<pair<MultipathAlignment, MultipathAlignment>>& rescued_multipath_aln_pairs,
                                     vector<pair<pair<size_t, size_t>, int64_t>>& rescued_cluster_pairs) const;
+        
+        /// Use the oriented distance clusterer or the TVS clusterer to cluster MEMs depending on parameters.
+        /// If using oriented distance cluster, must alo provide an oriented distance measurer.
+        vector<memcluster_t> get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
+                                          OrientedDistanceMeasurer* distance_measurer = nullptr) const;
+        
+        /// Use the oriented distance clusterer or the TVS clusterer to cluster pairs of clusters. Assumes that
+        /// the fragment length distribution has been estimated and fixed.
+        vector<pair<pair<size_t, size_t>, int64_t>> get_cluster_pairs(const Alignment& alignment1,
+                                                                      const Alignment& alignment2,
+                                                                      vector<clustergraph_t>& cluster_graphs1,
+                                                                      vector<clustergraph_t>& cluster_graphs2,
+                                                                      OrientedDistanceMeasurer* distance_measurer = nullptr);
         
         /// Extracts a subgraph around each cluster of MEMs that encompasses any
         /// graph position reachable (according to the Mapper's aligner) with
@@ -238,13 +255,15 @@ namespace vg {
                                                     const vector<memcluster_t>& clusters);
         
         /// If there are any MultipathAlignments with multiple connected components, split them
-        /// up and add them to the return vector
+        /// up and add them to the return vector.
+        /// Properly handles MultipathAlignments that are unmapped.
         void split_multicomponent_alignments(vector<MultipathAlignment>& multipath_alns_out,
                                              vector<size_t>* cluster_idxs = nullptr) const;
         
         /// If there are any MultipathAlignments with multiple connected components, split them
         /// up and add them to the return vector, also measure the distance between them and add
-        /// a record to the cluster pairs vector
+        /// a record to the cluster pairs vector.
+        /// Properly handles MultipathAlignments that are unmapped.
         void split_multicomponent_alignments(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs_out,
                                              vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs) const;
         
@@ -269,14 +288,17 @@ namespace vg {
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// Optionally also sorts a vector of indexes to keep track of the cluster-of-origin
+        /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         void sort_and_compute_mapping_quality(vector<MultipathAlignment>& multipath_alns, MappingQualityMethod mapq_method,
                                               vector<size_t>* cluster_idxs = nullptr) const;
         
         /// Sorts mappings by score and store mapping quality of the optimal alignment in the MultipathAlignment object
         /// If there are ties between scores, breaks them by the expected distance between pairs as computed by the
         /// OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector)
+        /// Allows multipath alignments where the best single path alignment is leaving the read unmapped.
         void sort_and_compute_mapping_quality(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
                                               vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
+                                              bool allow_population_component,
                                               vector<pair<size_t, size_t>>* duplicate_pairs_out = nullptr) const;
 
         /// Estimates the probability that the correct cluster was not chosen as a cluster to rescue from and caps the
@@ -321,6 +343,7 @@ namespace vg {
         double random_match_p_value(size_t match_length, size_t read_length);
         
         /// Compute the approximate distance between two multipath alignments
+        /// If either is unmapped, or the distance cannot be obtained, returns numeric_limits<int64_t>::max()
         int64_t distance_between(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2,
                                  bool full_fragment = false, bool forward_strand = false) const;
         
@@ -337,18 +360,19 @@ namespace vg {
         /// multipath alignments
         bool share_terminal_positions(const MultipathAlignment& multipath_aln_1, const MultipathAlignment& multipath_aln_2) const;
         
+        /// Generates a distance measurer to be used for a mapping problem
+        unique_ptr<OrientedDistanceMeasurer> create_distance_measurer();
+        
         /// Get a thread_local RRMemo with these parameters
         haploMath::RRMemo& get_rr_memo(double recombination_penalty, size_t population_size) const;;
         
         /// Detects if each pair can be assigned to a consistent strand of a path, and if not removes them. Also
         /// inverts the distances in the cluster pairs vector according to the strand
         void establish_strand_consistency(vector<pair<MultipathAlignment, MultipathAlignment>>& multipath_aln_pairs,
-                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs,
-                                          OrientedDistanceClusterer::paths_of_node_memo_t* paths_of_node_memo = nullptr,
-                                          OrientedDistanceClusterer::oriented_occurences_memo_t* oriented_occurences_memo = nullptr,
-                                          OrientedDistanceClusterer::handle_memo_t* handle_memo = nullptr);
+                                          vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
         SnarlManager* snarl_manager;
+        DistanceIndex* distance_index;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;

@@ -50,6 +50,10 @@ void mapping_t::set_is_reverse(bool is_rev) {
     traversal = abs(traversal) * (is_rev ? -1 : 1);
 }
 
+ostream& operator<<(ostream& out, mapping_t mapping) {
+    return out << mapping.node_id() << " " << (mapping.is_reverse() ? "rev" : "fwd");
+}
+
 Paths::Paths(void) {
     max_path_id = 0;
     // noop
@@ -124,7 +128,7 @@ void Paths::for_each(const function<void(const Path&)>& lambda) {
     }
 }
 
-void Paths::for_each_name(const function<void(const string&)>& lambda) {
+void Paths::for_each_name(const function<void(const string&)>& lambda) const {
     for (auto& p : _paths) {
         const string& name = p.first;
         lambda(name);
@@ -152,9 +156,10 @@ void Paths::make_linear(const string& name) {
     circular.erase(name);
 }
 
-void Paths::extend(const Path& p, bool warn_on_duplicates) {
+void Paths::extend(const Path& p, bool warn_on_duplicates, bool rebuild_indexes) {
     const string& name = p.name();
-    auto& path = get_create_path(name);
+    // Make sure we preserve empty paths
+    get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
         append_mapping(name, m, warn_on_duplicates);
@@ -162,30 +167,15 @@ void Paths::extend(const Path& p, bool warn_on_duplicates) {
     if (p.is_circular()) {
         make_circular(name);
     }
-    // re-sort?
-    sort_by_mapping_rank();
-    rebuild_mapping_aux();
+    if (rebuild_indexes) {
+        // re-sort?
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
+    }
 }
 
 // one of these should go away
-void Paths::extend(const Paths& p, bool warn_on_duplicates) {
-    for (auto& l : p._paths) {
-        const string& name = l.first;
-        auto& path = l.second;
-        // Make sure we preserve empty paths
-        get_create_path(name);
-        for (auto& m : path) {
-            append_mapping(name, m.to_mapping(), warn_on_duplicates);
-        }
-        if (p.circular.count(name)) {
-            make_circular(name);
-        }
-    }
-    sort_by_mapping_rank();
-    rebuild_mapping_aux();
-}
-
-void Paths::append(const Paths& paths, bool warn_on_duplicates) {
+void Paths::extend(const Paths& paths, bool warn_on_duplicates, bool rebuild_indexes) {
     for (auto& p : paths._paths) {
         const string& name = p.first;
         auto& path = p.second;
@@ -198,22 +188,34 @@ void Paths::append(const Paths& paths, bool warn_on_duplicates) {
             make_circular(name);
         }
     }
-    sort_by_mapping_rank();
-    rebuild_mapping_aux();
+    if (rebuild_indexes) {
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
+    }
 }
 
-void Paths::append(const Graph& g, bool warn_on_duplicates) {
+void Paths::extend(const vector<Path> & paths, bool warn_on_duplicates, bool rebuild_indexes) {
+    for (auto& p : paths) {
+        extend(p, warn_on_duplicates, false);
+    }
+    if (rebuild_indexes) {
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
+    }
+}
+
+void Paths::append(const Paths& paths, bool warn_on_duplicates, bool rebuild_indexes) {
+    extend(paths, warn_on_duplicates, rebuild_indexes);
+}
+
+void Paths::append(const Graph& g, bool warn_on_duplicates, bool rebuild_indexes) {
     for (int i = 0; i < g.path_size(); ++i) {
-        const Path& p = g.path(i);
         // Make sure we preserve empty paths
-        get_create_path(p.name());
-        for (int j = 0; j < p.mapping_size(); ++j) {
-            const Mapping& m = p.mapping(j);
-            append_mapping(p.name(), m, warn_on_duplicates);
-            if (p.is_circular()) {
-                make_circular(p.name());
-            }
-        }
+        extend(g.path(i), warn_on_duplicates, false);
+    }
+    if (rebuild_indexes) {
+        sort_by_mapping_rank();
+        rebuild_mapping_aux();
     }
 }
 
@@ -296,9 +298,11 @@ void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_
     }
 }
 
-int64_t Paths::get_path_id(const string& name) {
+int64_t Paths::get_path_id(const string& name) const {
     auto f = name_to_id.find(name);
     if (f == name_to_id.end()) {
+        // Assign an ID.
+        // These members are mutable.
         ++max_path_id;
         name_to_id[name] = max_path_id;
         id_to_name[max_path_id] = name;
@@ -306,7 +310,7 @@ int64_t Paths::get_path_id(const string& name) {
     return name_to_id[name];
 }
 
-const string& Paths::get_path_name(int64_t id) {
+const string& Paths::get_path_name(int64_t id) const {
     return id_to_name[id];
 }
 
@@ -423,7 +427,7 @@ pair<mapping_t*, mapping_t*> Paths::replace_mapping(mapping_t* m, pair<mapping_t
     }
 }
 
-bool Paths::has_path(const string& name) {
+bool Paths::has_path(const string& name) const {
     return _paths.find(name) != _paths.end();
 }
 

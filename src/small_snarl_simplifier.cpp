@@ -1,17 +1,17 @@
-#include "simplifier.hpp"
+#include "small_snarl_simplifier.hpp"
 
 namespace vg {
 
 using namespace std;
 
-Simplifier::Simplifier(VG& graph) : Progressive(), graph(graph), traversal_finder(graph) {
+SmallSnarlSimplifier::SmallSnarlSimplifier(VG& graph) : Progressive(), graph(graph), traversal_finder(graph) {
     
     // create a SnarlManager using Cactus
     CactusSnarlFinder site_finder(graph);
     site_manager = site_finder.find_snarls();
 }
 
-pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
+pair<size_t, size_t> SmallSnarlSimplifier::simplify_once(size_t iteration) {
 
     // Set up the deleted node and edge counts
     pair<size_t, size_t> to_return {0, 0};
@@ -20,7 +20,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
 
     if(!graph.is_valid(true, true, true, true)) {
         // Make sure the graph is valid and not missing nodes or edges
-        cerr << "error:[vg::Simplifier] Invalid graph on iteration " << iteration << endl;
+        cerr << "error:[vg::SmallSnarlSimplifier] Invalid graph on iteration " << iteration << endl;
         exit(1);
     }
 
@@ -142,7 +142,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
 #ifdef debug
         cerr << "Found " << total_size << " bp leaf" << endl;
         for (auto* node : nodes) {
-            cerr << "\t" << node->id() << ": " << node->sequence() << endl;
+            cerr << "\t" << node << " = " << node->id() << ": " << node->sequence() << endl;
         }
 #endif
         
@@ -159,11 +159,20 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
         // Get the traversal out of the vector
         SnarlTraversal& traversal = traversals.front();
         
+#ifdef debug
+        cerr << "Chosen traversal has: " << traversal.visit_size() << " visits" << endl;
+#endif
+
         // Determine the length of the new traversal
         size_t new_site_length = 0;
         for (size_t i = 1; i < traversal.visit_size() - 1; i++) {
             // For every non-anchoring node
             const Visit& visit = traversal.visit(i);
+
+#ifdef debug
+            cerr << "Chosen traversal has: " << visit << endl;
+#endif
+
             // Total up the lengths of all the nodes that are newly visited.
             assert(visit.node_id());
             new_site_length += graph.get_node(visit.node_id())->sequence().size();
@@ -230,7 +239,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         if (here->node_id() == leaf->start().node_id() &&
                             here->is_reverse() != (leaf->start().backward() != backward)) {
                             // We have encountered the start node with an incorrect orientation.
-                            cerr << "warning:[vg simplify] Path " << path_name
+                            cerr << "warning:[vg::SmallSnarlSimplifier] Path " << path_name
                                 << " doubles back through start of site "
                                 << to_node_traversal(leaf->start(), graph) << " - "
                                 << to_node_traversal(leaf->end(), graph) << "; skipping site!" << endl;
@@ -281,7 +290,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         if (here->node_id() == leaf->end().node_id() &&
                             here->is_reverse() != (leaf->end().backward() != backward)) {
                             // We have encountered the end node with an incorrect orientation.
-                            cerr << "warning:[vg simplify] Path " << path_name
+                            cerr << "warning:[vg::SmallSnarlSimplifier] Path " << path_name
                                 << " doubles back through end of site "
                                 << to_node_traversal(leaf->start(), graph) << " - "
                                 << to_node_traversal(leaf->end(), graph) << "; dropping site!" << endl;
@@ -301,7 +310,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             
             if (found_hairpin) {
                 // We found a hairpin, so we want to skip the site.
-                cerr << "warning:[vg simplify] Site " << to_node_traversal(leaf->start(), graph) << " - " << to_node_traversal(leaf->end(), graph) << " skipped due to hairpin path." << endl;
+                cerr << "warning:[vg::SmallSnarlSimplifier] Site " << to_node_traversal(leaf->start(), graph) << " - " << to_node_traversal(leaf->end(), graph) << " skipped due to hairpin path." << endl;
                 continue;
             }
             
@@ -344,7 +353,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 mapping_t* end_mapping = nullptr;
                 
 #ifdef debug
-                cerr << "Scanning " << path_name << " from " << pb2json(*here)
+                cerr << "Scanning " << path_name << " from " << *here
                     << " for " << to_node_traversal(leaf->end(), graph) << " orientation " << backward << endl;
 #endif
                 
@@ -352,7 +361,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     // Until we hit the start/end of the path or the mapping we want
                     
 #ifdef debug
-                    cerr << "\tat " << pb2json(*here) << endl;
+                    cerr << "\tat " << *here << endl;
 #endif
                     
                     if (here->node_id() == leaf->end().node_id() &&
@@ -376,7 +385,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     if (here->node_id() == leaf->start().node_id() &&
                         here->is_reverse() != (leaf->start().backward() != backward)) {
                         // We have encountered the start node with an incorrect orientation.
-                        cerr << "warning:[vg simplify] Path " << path_name
+                        cerr << "warning:[vg::SmallSnarlSimplifier] Path " << path_name
                             << " doubles back through start of site "
                             << to_node_traversal(leaf->start(), graph) << " - "
                             << to_node_traversal(leaf->end(), graph) << "; dropping!" << endl;
@@ -386,11 +395,16 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         break;
                     }
                     
-                    if (!nodes.count(graph.get_node(here->node_id()))) {
+                    if (here->node_id() != leaf->start().node_id() &&
+                        here->node_id() != leaf->end().node_id() && 
+                        !nodes.count(graph.get_node(here->node_id()))) {
+                        // We aren't the start, the end, or any internal contained node.
+                        // That's an error!
                         // We really should stay inside the site!
-                        cerr << "error:[vg simplify] Path " << path_name
+                        cerr << "error:[vg::SmallSnarlSimplifier] Path " << path_name
                             << " somehow escapes site " << to_node_traversal(leaf->start(), graph)
-                            << " - " << to_node_traversal(leaf->end(), graph) << endl;
+                            << " - " << to_node_traversal(leaf->end(), graph) << " and reaches non-contained node "
+                            << here->node_id() << " at address " << graph.get_node(here->node_id()) << endl;
                             
                         exit(1);
                     }
@@ -401,8 +415,12 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         existing_mappings.push_back(here);
                     }
                     
-                    // Scan left along ther path if we found the site start backwards, and right if we found it forwards.
+                    // Scan left along the path if we found the site start backwards, and right if we found it forwards.
                     mapping_t* next = backward ? graph.paths.traverse_left(here) : graph.paths.traverse_right(here);
+
+#ifdef debug
+                    cerr << "Here is " << *here << " at " << here << " and next is " << *next << " at " << next << endl;
+#endif
                     
                     if (next == nullptr) {
                         // We hit the end of the path without finding the end of the site.
@@ -421,7 +439,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     
                     // Make sure we have an edge so we can traverse this node and then the node we're going to.
                     if(graph.get_edge(here_traversal, next_traversal) == nullptr) {
-                        cerr << "error:[vg::Simplifier] No edge " << here_traversal << " to " << next_traversal << endl;
+                        cerr << "error:[vg::SmallSnarlSimplifier] No edge " << here_traversal << " to " << next_traversal << endl;
                         exit(1);
                     }
                     
@@ -490,7 +508,9 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
 #endif
 
                 // Actually update any BED features
-                features.on_path_edit(path_name, variable_start, old_site_length, new_site_length);
+                if (features != nullptr) {
+                    features->on_path_edit(path_name, variable_start, old_site_length, new_site_length);
+                }
                 
                 // Where will we insert the new site traversal into the path?
                 list<mapping_t>::iterator insert_position;
@@ -505,7 +525,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                         // mapping to the end of the site.
                         
 #ifdef debug
-                        cerr << path_name << ": Drop mapping " << pb2json(*mapping) << endl;
+                        cerr << path_name << " forward: Drop mapping " << *mapping << endl;
 #endif
                         
                         insert_position = graph.paths.remove_mapping(mapping);
@@ -524,11 +544,19 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     assert(insert_position->node_id() == leaf->end().node_id());
                 }
                 
+#ifdef debug
+                cerr << "Chosen traversal has " << traversal.visit_size() << " visits" << endl;
+#endif
+
                 // Loop through the internal visits in the canonical
                 // traversal backwards along the path we are splicing. If
                 // it's a forward path this is just right to left, but if
                 // it's a reverse path it has to be left to right.
-                for (size_t i = 0; i < traversal.visit_size(); i++) {
+                for (size_t i = 1; i + 1 < traversal.visit_size(); i++) {
+                    // Don't visit the first or last node on the traversal
+                    // because they are the snarl start and end which we didn't
+                    // remove.
+
                     // Find the visit we need next, as a function of which
                     // way we need to insert this run of visits. Normally we
                     // go through the visits right to left, but when we have
@@ -549,7 +577,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     new_mapping.length = node_seq_length;
                     
 #ifdef debug
-                    cerr << path_name << ": Add mapping " << pb2json(new_mapping) << endl;
+                    cerr << path_name << " backward: Add mapping " << new_mapping << endl;
 #endif
                     
                     // Insert the mapping in the path, moving right to left
@@ -604,7 +632,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                     if (here->node_id() == leaf->end().node_id() &&
                         here->is_reverse() != (leaf->end().backward() != backward)) {
                         // We have encountered the end node with an incorrect orientation.
-                        cerr << "warning:[vg simplify] Path " << path_name
+                        cerr << "warning:[vg::SmallSnarlSimplifier] Path " << path_name
                             << " doubles back through end of site "
                             << to_node_traversal(leaf->start(), graph) << " - "
                             << to_node_traversal(leaf->end(), graph) << "; dropping!" << endl;
@@ -651,8 +679,12 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             // For each node and the next node (which won't be the end)
             
             const Visit visit = traversal.visit(i);
-            const Visit next = traversal.visit(i);
-            
+            const Visit next = traversal.visit(i+1);
+
+#ifdef debug
+            cerr << "Follow edge from " << visit << " to " << next << endl;
+#endif
+
             // Find the edge between them
             NodeTraversal here(graph.get_node(visit.node_id()), visit.backward());
             NodeTraversal next_traversal(graph.get_node(next.node_id()), next.backward());
@@ -662,20 +694,8 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
             // Remember we need it
             blessed_edges.insert(edge);
         }
-        
-        // Also get the edges from the boundary nodes into the traversal
-        if (traversal.visit_size() > 0) {
-            NodeTraversal first_visit = to_node_traversal(traversal.visit(0), graph);
-            NodeTraversal last_visit = to_node_traversal(traversal.visit(traversal.visit_size() - 1),
-                                                         graph);
-            blessed_edges.insert(graph.get_edge(to_node_traversal(leaf->start(), graph), first_visit));
-            blessed_edges.insert(graph.get_edge(last_visit, to_node_traversal(leaf->end(), graph)));
-        }
-        else {
-            // This is a deletion traversal, so get the edge from the start to end of the site
-            blessed_edges.insert(graph.get_edge(to_node_traversal(leaf->start(), graph),
-                                                to_node_traversal(leaf->end(), graph)));
-        }
+
+        // The traversal also touches the boundary nodes, so don't do anything special for them.
         
         for (auto* edge : edges) {
             if (!blessed_edges.count(edge)) {
@@ -725,7 +745,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
                 }
                 for (auto& path : paths_to_kill) {
                     graph.paths.remove_path(path);
-                    cerr << "warning:[vg simplify] Path " << path << " removed" << endl;
+                    cerr << "warning:[vg::SmallSnarlSimplifier] Path " << path << " removed" << endl;
                 }
 
                 graph.destroy_node(node);
@@ -748,7 +768,7 @@ pair<size_t, size_t> Simplifier::simplify_once(size_t iteration) {
 
 }
 
-void Simplifier::simplify() {
+void SmallSnarlSimplifier::simplify() {
     for (size_t i = 0; i < max_iterations; i++) {
         // Try up to the max number of iterations
         auto deleted_elements = simplify_once(i);

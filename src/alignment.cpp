@@ -113,7 +113,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         string name = buffer;
         if (name[0] == '@') {
             is_fasta = false;
-        } else if (name[0] = '>') {
+        } else if (name[0] == '>') {
             is_fasta = true;
         } else {
             throw runtime_error("Found unexpected delimiter " + name.substr(0,1) + " in fastq/fasta input");

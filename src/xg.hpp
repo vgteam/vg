@@ -155,9 +155,6 @@ public:
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
 
-    int64_t get_min_id() const { return min_id; }
-    int64_t get_max_id() const { return max_id; }
-
     ////////////////////////////////////////////////////////////////////////////
     // Here is the old low-level API that needs to be restated in terms of the 
     // locally traversable graph API and then removed.
@@ -211,7 +208,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     // Copy over the visit version which would otherwise be shadowed.
     using HandleGraph::get_handle;
     /// Get the ID from a handle
@@ -236,11 +233,21 @@ public:
     using HandleGraph::for_each_handle;
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
+    /// Get the minimum node ID used in the graph, if any are used
+    virtual id_t min_node_id() const;
+    /// Get the maximum node ID used in the graph, if any are used
+    virtual id_t max_node_id() const;
+    
+    // TODO: There's currently no really good efficient way to implement
+    // get_degree; we have to decode each edge to work out what node side it is
+    // on. So we use the default implementation.
     
     ////////////////////////
     // Path handle graph API
     ////////////////////////
-    
+   
+    /// Determine if a path with a given name exists
+    virtual bool has_path(const string& path_name) const;
     /// Look up the path handle for the given path name
     virtual path_handle_t get_path_handle(const string& path_name) const;
     /// Look up the name of a path from a handle to it
@@ -279,7 +286,7 @@ public:
     
     // use_steps flag toggles whether dist refers to steps or length in base pairs
     void neighborhood(int64_t id, size_t dist, Graph& g, bool use_steps = true) const;
-    void for_path_range(const string& name, int64_t start, int64_t stop, function<void(int64_t node_id)> lambda, bool is_rev = false) const;
+    void for_path_range(const string& name, int64_t start, int64_t stop, function<void(int64_t node_id, bool rev)> lambda, bool is_rev = false) const;
     void get_path_range(const string& name, int64_t start, int64_t stop, Graph& g, bool is_rev = false) const;
     // basic method to query regions of the graph
     // add_paths flag allows turning off the (potentially costly, and thread-locking) addition of paths
@@ -345,8 +352,16 @@ public:
     vector<size_t> position_in_path(int64_t id, const string& name) const;
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
+    
+    /// Return a mapping from path name to all positions along each path at
+    /// which the given pos_t occurs.
     map<string, vector<pair<size_t, bool> > > offsets_in_paths(pos_t pos) const;
+    
+    /// Return, for the nearest position in a path to the given position,
+    /// subject to the given max search distance, a mapping from path name to
+    /// all positions on each path where that pos_t occurs.
     map<string, vector<pair<size_t, bool> > > nearest_offsets_in_paths(pos_t pos, int64_t max_search) const;
+    
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
@@ -658,10 +673,6 @@ private:
     const static int G_EDGE_OFFSET_OFFSET = 0;
     const static int G_EDGE_TYPE_OFFSET = 1;
     const static int G_EDGE_LENGTH = 2;
-    
-    // And some masks
-    const static size_t HIGH_BIT = (size_t)1 << 63;
-    const static size_t LOW_BITS = 0x7FFFFFFFFFFFFFFF;
     
     /// This is a utility function for the edge exploration. It says whether we
     /// want to visit an edge depending on its type, whether we're the to or
