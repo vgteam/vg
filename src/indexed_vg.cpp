@@ -56,6 +56,25 @@ void IndexedVG::print_report() const {
     // here.
 }
 
+bool IndexedVG::has_node(id_t node_id) const {
+    bool id_in_graph = false;
+    find(node_id, [&](const CacheEntry& entry) -> bool {
+            // For each relevant entry (which may just have some edges to the node we are looking for)
+            auto found = entry.id_to_node_index.find(node_id);
+            if (found != entry.id_to_node_index.end()) {
+                // We found the node!
+                id_in_graph = true;
+                // Stop
+                return false;
+            }
+        
+            // Otherwise we don't have the node we want
+            return true;
+        });
+
+    return id_in_graph;
+}
+
 // TODO: We ought to use some kind of handle packing that relates to file offsets for graph chunks contasining nodes.
 // For now we just use the EasyHandlePacking and hit the index every time.
 

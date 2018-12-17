@@ -85,6 +85,10 @@ handle_t SourceSinkOverlay::get_sink_handle() const {
     return sink_fwd;
 }
 
+bool SourceSinkOverlay::has_node(id_t node_id) const {
+    return backing->has_node(node_id);
+}
+
 handle_t SourceSinkOverlay::get_handle(const id_t& node_id, bool is_reverse) const {
     if (node_id == source_id) {
         // They asked for the source node
