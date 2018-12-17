@@ -915,6 +915,17 @@ namespace vg {
                     // Search the transition to it in the reverse orientation.
                     state.haplo_state = score_provider.incremental_extend(state.haplo_state,
                         make_position(pos.node_id(), !pos.is_reverse(), 0));
+#ifdef debug_multiple_tracebacks
+                    cerr << "Extend within subpath " << subpath
+                        << " by going to node " << pos.node_id()
+                        << " matches " << state.size() << " haplotypes" << endl;
+#endif
+                } else {
+#ifdef debug_multiple_tracebacks
+                    cerr << "Extend within subpath " << subpath
+                        << " by going to node " << pos.node_id()
+                        << " but haplotype match set is already empty" << endl;
+#endif
                 }
                 
                 if (state.empty() && state.all_edges_exist) {
@@ -931,6 +942,12 @@ namespace vg {
                     if (scratch.empty()) {
                         // If no haplotypes go there, mark the state as having crossed an unused edge
                         state.all_edges_exist = false;
+                        
+#ifdef debug_multiple_tracebacks
+                        cerr << "Extend within subpath " << subpath
+                            << " by going node " << prev_pos.node_id() << " -> " << pos.node_id()
+                            << " has no haplotypes crossing that edge" << endl;
+#endif
                     }
                 }
             
@@ -963,7 +980,7 @@ namespace vg {
             // And into the last mapping on the new path.
             const Mapping& new_mapping = new_path.mapping(new_path.mapping_size() - 1);
             
-            // Look upt he positions
+            // Look up the positions
             auto& new_pos = new_mapping.position();
             auto& old_pos = old_mapping.position();
             
@@ -971,6 +988,11 @@ namespace vg {
                 new_pos.is_reverse() == old_pos.is_reverse() &&
                 new_pos.offset() + mapping_from_length(new_mapping) == old_pos.offset()) {
                 // We actually are transitioning just within a node. No more state updates to do.
+                
+#ifdef debug_multiple_tracebacks
+                cerr << "Extend between subpaths " << old_subpath << " and " << new_subpath
+                    << " is just abutment on node " << new_pos.node_id() << endl;
+#endif
                 return initial;
             }
             
@@ -982,6 +1004,18 @@ namespace vg {
                 // Make sure to flip the orientation because we're searching left.
                 result.haplo_state = score_provider.incremental_extend(initial.haplo_state,
                     make_position(new_mapping.position().node_id(), !new_mapping.position().is_reverse(), 0));
+                    
+#ifdef debug_multiple_tracebacks
+                cerr << "Extend between subpaths " << old_subpath << " and " << new_subpath
+                    << " by going node " << old_pos.node_id() << " (" << initial.size() << ") -> "
+                    << new_pos.node_id() << " (" << result.size() << ")" << endl;
+#endif
+            } else {
+#ifdef debug_multiple_tracebacks
+                cerr << "Extend between subpaths " << old_subpath << " and " << new_subpath
+                    << " by going node " << old_pos.node_id() << " -> " << new_pos.node_id()
+                    << " starts from empty search" << endl;
+#endif
             }
             
             if (result.empty() && result.all_edges_exist) {
@@ -995,6 +1029,12 @@ namespace vg {
                 if (scratch.empty()) {
                     // If no haplotypes go there, mark the state as having crossed an unused edge
                     result.all_edges_exist = false;
+                    
+#ifdef debug_multiple_tracebacks
+                    cerr << "Extend between subpaths " << old_subpath << " and " << new_subpath
+                        << " by going node " << old_pos.node_id() << " -> " << new_pos.node_id()
+                        << " has no haplotypes crossing that edge" << endl;
+#endif
                 }
                 
             }
@@ -1025,13 +1065,23 @@ namespace vg {
             // Work out how many things can be in the queue to compete to pad out the remaining return slots.
             // Make sure it doesn't try to go negative.
             size_t max_size = count - std::min(count, to_return.size());
+
+#ifdef debug_multiple_tracebacks
+            if (!get<0>(item).empty()) {
+                cerr << "Item is haplotype-consistent and must be queued" << endl;
+            } else if (queue.size() < max_size) {
+                cerr << "Item fits in queue" << endl;
+            } else if (!queue.empty() && item < queue.max()) {
+                cerr << "Item beats worst thing in queue" << endl;
+            }
+#endif
             
             if (!get<0>(item).empty() || queue.size() < max_size || (!queue.empty() && item < queue.max())) {
                 // The item belongs in the queue because it fits or it beats
                 // the current worst thing if present, or it's not eligible for removal.
                 queue.push(item);
 #ifdef debug_multiple_tracebacks
-                cerr << "Allow item into queue" << endl;
+                cerr << "Allow item into queue (" << queue.size() << "/" << max_size << ")" << endl;
 #endif
                 
             }
@@ -1041,7 +1091,7 @@ namespace vg {
                 // some are eligible for removal. Get rid of the worst one.
                 queue.pop_max();
 #ifdef debug_multiple_tracebacks
-                cerr << "Remove item from queue" << endl;
+                cerr << "Remove worst from queue (" << queue.size() << "/" << max_size << ")" << endl;
 #endif
             }
         };
@@ -1072,10 +1122,6 @@ namespace vg {
                     valid_traceback_start = false;
                 }
             }
-            
-#ifdef debug_multiple_tracebacks
-            cerr << "Start traceback at " << i << "? " << (valid_traceback_start ? "Yes" : "No") << endl;
-#endif
             
             if (valid_traceback_start) {
                 // We can start a traceback here.
@@ -1130,7 +1176,13 @@ namespace vg {
                 
 #ifdef debug_multiple_tracebacks
                 cerr << "Traceback reaches start at " << basis.front() << " with " << state.size()
-                    << " consistent haplotypes and scorability " << state.all_edges_exist << "; emit with score " << aln_out.score() << endl;
+                    << " consistent haplotypes and scorability " << state.all_edges_exist << "; emit linearization "
+                    << (to_return.size() - 1) << " with score " << aln_out.score() << endl;
+                    
+                for (auto& m : aln_out.path().mapping()) {
+                    cerr << m.position().node_id() << " ";
+                }
+                cerr << endl;
 #endif
             } else {
                 // We can't optimally stop the traceback here. We have to come from somewhere.
@@ -1149,11 +1201,13 @@ namespace vg {
                     // What's the difference we would take if we went with this predecessor?
                     auto additional_penalty = best_prefix_score - prev_opt_score;
                     
-                    // Try extending
+                    // Try extending into the subpath
                     auto extended_state = extend_between_subpaths(state, here, prev);
+                    // And then with all of it
+                    extended_state = extend_with_subpath(extended_state, prev);
                     
 #ifdef debug_multiple_tracebacks
-                    cerr << "Extending traceback from subpath " << here << " to " << prev << " keeps "
+                    cerr << "Extending traceback from subpath " << here << " to and through " << prev << " keeps "
                         << extended_state.size() << " / " << state.size() << " haplotype matches, with scorability "
                         << extended_state.all_edges_exist << " and penalty " << base_penalty + additional_penalty << endl;
 #endif

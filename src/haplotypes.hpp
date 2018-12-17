@@ -658,7 +658,7 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
       hdp.DP_column.extend(ga);
     }
 #ifdef debug
-    cerr << "After entry " << i << " (" << gbwt::Node::id(thread[i]) << ") height: " << ga.new_height() << " intervals: ";
+    cerr << "After entry " << i << "/" << thread.size() << " (" << gbwt::Node::id(thread[i]) << ") height: " << ga.new_height() << " intervals: ";
     for (auto& interval : hdp.DP_column.get_sizes()) {
       cerr << interval << " ";
     }
