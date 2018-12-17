@@ -2214,25 +2214,53 @@ bool Mapper::alignments_consistent(const map<string, double>& pos1,
 
 bool Mapper::pair_consistent(Alignment& aln1,
                              Alignment& aln2,
-                             double pval) {
+                             double pval, bool ignore_length, bool ignore_orientation) {
     if (!(aln1.score() && aln2.score())) return false;
     bool length_ok = false;
     if (xindex->path_count == 0) {
         // use the approximate distance
         //cerr << "using approx distance" << endl;
-        int len = approx_fragment_length(aln1, aln2);
-        if ((frag_stats.fragment_size && len > 0 && ((pval > 0 && frag_stats.fragment_length_pval(len) > pval)
-                                                    || len < frag_stats.fragment_size))
-            || (!frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max)) {
+        if (!ignore_length) {
+            int len = approx_fragment_length(aln1, aln2);
+            if ((frag_stats.fragment_size && len > 0 && ((pval > 0 && frag_stats.fragment_length_pval(len) > pval)
+                                                        || len < frag_stats.fragment_size))
+                || (!frag_stats.fragment_size && len > 0 && len < frag_stats.fragment_max)) {
+                length_ok = true;
+            }
+        } else {
             length_ok = true;
         }
-        bool aln1_is_rev = aln1.path().mapping(0).position().is_reverse();
-        bool aln2_is_rev = aln2.path().mapping(0).position().is_reverse();
+        // Find a common node at start/end at either aln and compare it's orientation on that node
+        // NB: this is an simple way of checking which does not catch all cases
+        // There are likely other, less conservative ways of calculating the correct orientation
+        // using some route between the two alns
         bool same_orientation = frag_stats.cached_fragment_orientation_same;
+        int aln1_mapping_size = aln1.path().mapping_size();
+        int aln2_mapping_size = aln2.path().mapping_size();
+        
+        bool aln1_is_rev;
+        bool aln2_is_rev;
+        bool found_o = false;
+
+        if (!ignore_orientation) {
+            const Position* aln1_pos;
+            const Position* aln2_pos;
+            for (auto pos1 = 1; pos1 <= aln1_mapping_size && !found_o; pos1 += aln1_mapping_size) {
+                aln1_pos = &(aln1.path().mapping(pos1-1).position());
+                for (auto pos2 = 1; pos2 <= aln2_mapping_size && !found_o; pos2 += aln2_mapping_size) {
+                    aln2_pos = &(aln2.path().mapping(pos2-1).position());
+                    if (aln1_pos->node_id() == aln2_pos->node_id()) {
+                        aln1_is_rev = aln1_pos->is_reverse();
+                        aln2_is_rev = aln2_pos->is_reverse();
+                        found_o = true;
+                    }
+                }
+            }
+        }
         // XXX todo
         //bool direction_ok = frag_stats.cached_fragment_direction && 
-        bool orientation_ok = (same_orientation && aln1_is_rev == aln2_is_rev)
-            || (!same_orientation && aln1_is_rev != aln2_is_rev);
+        bool orientation_ok = ignore_orientation || (found_o && (same_orientation && aln1_is_rev == aln2_is_rev)
+            || (!same_orientation && aln1_is_rev != aln2_is_rev));
         return length_ok && orientation_ok;
     } else {
         // use the distance induced by the graph paths
@@ -2249,13 +2277,13 @@ bool Mapper::pair_consistent(Alignment& aln1,
             bool fwd2 = p2.second;
             int64_t len = pos2 - pos1;
             if (frag_stats.fragment_size) {
-                bool orientation_ok = (frag_stats.cached_fragment_orientation_same && fwd1 == fwd2) || fwd1 != fwd2;
+                bool orientation_ok = ignore_orientation || (frag_stats.cached_fragment_orientation_same && fwd1 == fwd2) || fwd1 != fwd2;
                 bool direction_ok = frag_stats.cached_fragment_direction && (!fwd1 && len >= 0 || fwd1 && len <= 0)
                     || (fwd1 && len >= 0 || !fwd1 && len <= 0);
-                bool length_ok = frag_stats.fragment_length_pval(abs(len)) > pval;//|| pval == 0 && abs(len) < frag_stats.fragment_size;
+                bool length_ok = ignore_length || frag_stats.fragment_length_pval(abs(len)) > pval;//|| pval == 0 && abs(len) < frag_stats.fragment_size;
                 return orientation_ok && direction_ok && length_ok;
             } else {
-                return abs(len) < frag_stats.fragment_max;
+                return ignore_length || (abs(len) < frag_stats.fragment_max);
             }
         };
         for (auto& path : offsets1) {
@@ -2775,8 +2803,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             auto& aln1b = p2->first;
             auto& aln2b = p2->second;
             auto cluster_ptrB = cluster_ptrs[aln_index[p2]];
-            bool consistent1a2b = aln1a.score() > mix_threshold && aln2b.score() > mix_threshold && pair_consistent(aln1a, aln2b, 1e-6);
-            bool consistent1b2a = aln1b.score() > mix_threshold && aln2a.score() > mix_threshold && pair_consistent(aln1b, aln2a, 1e-6);
+                        bool score_consistent1a2b = aln1a.score() > mix_threshold && aln2b.score() > mix_threshold;
+            bool score_consistent1b2a = aln1b.score() > mix_threshold && aln2a.score() > mix_threshold;
+            bool consistent1a2b = score_consistent1a2b && pair_consistent(aln1a, aln2b, 1e-6);
+            bool consistent1b2a = score_consistent1b2a && pair_consistent(aln1b, aln2a, 1e-6);
             if (consistent1a2b) {
                 pe_alns.emplace_back();
                 auto& p = pe_alns.back();
@@ -2790,6 +2820,24 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 p.first = aln1b;
                 p.second = aln2a;
                 pe_cluster_ptrs.push_back(make_pair(cluster_ptrB.first, cluster_ptrA.second));
+            }
+            if ((retrying || frag_stats.fragment_size) && !(consistent1a2b || consistent1b2a)) {
+                // Fall back to ignoring approx distance which may not always be accurate in large complex graphs
+                // https://github.com/vgteam/vg/issues/2017
+                if (score_consistent1a2b && pair_consistent(aln1a, aln2b, 1e-6, true)) {
+                    pe_alns.emplace_back();
+                    auto& p = pe_alns.back();
+                    p.first = aln1a;
+                    p.second = aln2b;
+                    pe_cluster_ptrs.push_back(make_pair(cluster_ptrA.first, cluster_ptrB.second));
+                }
+                if (score_consistent1b2a && pair_consistent(aln1b, aln2a, 1e-6, true)) {
+                    pe_alns.emplace_back();
+                    auto& p = pe_alns.back();
+                    p.first = aln1b;
+                    p.second = aln2a;
+                    pe_cluster_ptrs.push_back(make_pair(cluster_ptrB.first, cluster_ptrA.second));
+                }
             }
         }
     }

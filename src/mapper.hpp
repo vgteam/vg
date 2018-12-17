@@ -507,7 +507,7 @@ public:
     /// use the fragment length annotations to assess if the pair is consistent or not
     bool pair_consistent(Alignment& aln1, // may modify the alignments to store the reference positions
                          Alignment& aln2,
-                         double pval);
+                         double pval, bool ignore_length = false, bool ignore_orientation = false);
 
     /// use the fragment configuration statistics to rescue more precisely
     pair<bool, bool> pair_rescue(Alignment& mate1, Alignment& mate2, bool& tried1, bool& tried2, int match_score, int full_length_bonus, bool traceback, bool xdrop_alignment);
