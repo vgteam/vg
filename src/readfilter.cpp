@@ -744,14 +744,63 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         if (!name_prefixes.empty()) {
             // Make sure we match at least one name prefix
             
-            // TODO: We should be using a trie or something for efficient matching to one of many prefixes.
             bool found = false;
-            for (auto& prefix : name_prefixes) {
-                // For each prefix in turn
-                if (std::equal(prefix.begin(), prefix.end(), aln.name().begin())) {
-                    // If we match it, we found a match!
-                    found = true;
-                    break;
+            
+            // Do a binary search for the closest prefix and see if all of any prefix exists.
+            // We assume the prefixes are sorted.
+            size_t left_bound = 0;
+            size_t left_match = 0;
+            while (left_match < name_prefixes[left_bound].size() &&
+                left_match < aln.name().size() &&
+                name_prefixes[left_bound][left_match] == aln.name()[left_match]) {
+                // Scan all the matches at the start
+                left_match++;
+            }
+            
+            size_t right_bound = name_prefixes.size() - 1;
+            size_t right_match = 0;
+            while (right_match < name_prefixes[right_bound].size() &&
+                right_match < aln.name().size() &&
+                name_prefixes[right_bound][right_match] == aln.name()[right_match]) {
+                // Scan all the matches at the end
+                right_match++;
+            }
+            
+            if (left_match == name_prefixes[left_bound].size() || right_match == name_prefixes[right_bound].size()) {
+                // We found a match already
+                found = true;
+            } else {
+                while (left_bound + 1 < right_bound) {
+                    // Until we run out of unexamined prefixes, do binary search
+                    size_t center = (left_bound + right_bound) / 2;
+                    // No need to re-check any common prefix
+                    size_t center_match = min(left_match, right_match);
+                    
+                    while (center_match < name_prefixes[center].size() &&
+                        center_match < aln.name().size() &&
+                        name_prefixes[center][center_match] == aln.name()[center_match]) {
+                        // Scan all the matches here
+                        center_match++;
+                    }
+                    
+                    if (center_match == name_prefixes[center].size()) {
+                        // We found a hit!
+                        found = true;
+                        break;
+                    }
+                    
+                    if (center_match < name_prefixes[center].size() && center_match < aln.name().size()) {
+                        // There's a character that differs
+                        if (name_prefixes[center][center_match] < aln.name()[center_match]) {
+                            // The match, if it exists, must be after us.
+                            left_bound = center;
+                            left_match = center_match;
+                        } else {
+                            // The match, if it exists, must be before us
+                            right_bound = center;
+                            right_match = center_match;
+                        }
+                    }
                 }
             }
             

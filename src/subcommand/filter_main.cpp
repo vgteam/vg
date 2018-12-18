@@ -249,6 +249,9 @@ int main_filter(int argc, char** argv) {
     // What should our return code be?
     int error_code = 0;
     
+    // Sort the prefixes for reads we will accept, for efficient search
+    sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
+    
     get_input_file(optind, argc, argv, [&](istream& in) {
         // Open up the alignment stream
         
