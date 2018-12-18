@@ -484,7 +484,7 @@ int main_map(int argc, char** argv) {
                 gap_open = 4;
                 gap_extend = 2;
                 full_length_bonus = 0;
-            } else if(strcmp(optarg, "contig")) {
+            } else if(strcmp(optarg, "contig") == 0) {
                 match = 1;
                 mismatch = 4;
                 gap_open = 6;

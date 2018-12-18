@@ -530,7 +530,7 @@ int main_mpmap(int argc, char** argv) {
                     gap_open_score_arg = 4;
                     gap_extension_score_arg = 2;
                     full_length_bonus_arg = 0;
-                } else if(strcmp(optarg, "contig")) {
+                } else if(strcmp(optarg, "contig") == 0) {
                     match_score_arg = 1;
                     mismatch_score_arg = 4;
                     gap_open_score_arg = 6;
