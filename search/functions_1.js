@@ -66,6 +66,7 @@ var searchData=
   ['alignment_5fends',['alignment_ends',['../namespacevg.html#acdc3ca4569facd77e26c78ba583e4f0a',1,'vg']]],
   ['alignment_5fentry_5fto_5fstring',['alignment_entry_to_string',['../classvg_1_1Index.html#a8d8732d5d756013f1a50a53747f2d01c',1,'vg::Index']]],
   ['alignment_5ffrom_5flength',['alignment_from_length',['../namespacevg.html#ae4defc9906e81731eab06f8acaa28369',1,'vg']]],
+  ['alignment_5fis_5fvalid',['alignment_is_valid',['../namespacevg.html#a7b9365497bbf0bc45a9fbae2530397fe',1,'vg']]],
   ['alignment_5fmiddle',['alignment_middle',['../namespacevg.html#a15b82cc5c99cc3e8f78229ac971ec9c3',1,'vg']]],
   ['alignment_5fpair',['alignment_pair',['../classvg_1_1Sampler.html#aecbd1aa581c396a85ab850dab54b5cd1',1,'vg::Sampler']]],
   ['alignment_5fpath_5foffsets',['alignment_path_offsets',['../classvg_1_1Mapper.html#aa0d8589f8d4d63804bd1763c5ce71c62',1,'vg::Mapper']]],

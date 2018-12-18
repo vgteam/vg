@@ -119,6 +119,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a29abf89e03eedc7ac2af4682a1b5bb04"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa1e17ccb08d595123db3d8cd6e2593b2"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NetGraph.html#aa1e17ccb08d595123db3d8cd6e2593b2">NetGraph</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;<a class="el" href="classvg_1_1NetGraph.html#a2d7b0b659aae1f47312bb76aae43dda0">start</a>, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;<a class="el" href="classvg_1_1NetGraph.html#ae4610aa5b5468087cb80bcd7d3062475">end</a>, const vector&lt; vector&lt; pair&lt; <a class="el" href="structvg_1_1Snarl.html">Snarl</a>, bool &gt;&gt;&gt; &amp;child_chains, const vector&lt; <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &gt; &amp;child_unary_snarls, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1NetGraph.html#acbae58f3fb38de99ea4a0f0b16ede465">graph</a>, bool <a class="el" href="classvg_1_1NetGraph.html#a57dedbbe009595f748dc3c4deae2dc72">use_internal_connectivity</a>=false)</td></tr>
 <tr class="separator:aa1e17ccb08d595123db3d8cd6e2593b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa582a32d6303d8e70e9ad2c3196ced42"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NetGraph.html#aa582a32d6303d8e70e9ad2c3196ced42">has_node</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> node_id) const </td></tr>
+<tr class="memdesc:aa582a32d6303d8e70e9ad2c3196ced42"><td class="mdescLeft">&#160;</td><td class="mdescRight">Method to check if a node exists by ID.  <a href="#aa582a32d6303d8e70e9ad2c3196ced42">More...</a><br/></td></tr>
+<tr class="separator:aa582a32d6303d8e70e9ad2c3196ced42"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a113dda2053ec4fead5b346839977d494"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NetGraph.html#a113dda2053ec4fead5b346839977d494">get_handle</a> (const <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &amp;node_id, bool is_reverse=false) const </td></tr>
 <tr class="memdesc:a113dda2053ec4fead5b346839977d494"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#a113dda2053ec4fead5b346839977d494">More...</a><br/></td></tr>
 <tr class="separator:a113dda2053ec4fead5b346839977d494"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -816,6 +819,34 @@ template&lt;typename ChainContainer , typename SnarlContainer &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Get the inward-facing start handle for this net graph. Useful when working with traversals. </p>
+
+</div>
+</div>
+<a class="anchor" id="aa582a32d6303d8e70e9ad2c3196ced42"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::NetGraph::has_node </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td>
+          <td class="paramname"><em>node_id</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Method to check if a node exists by ID. </p>
+
+<p>Implements <a class="el" href="classvg_1_1HandleGraph.html#a96e9f5f3bcb9c68e0a2fa5981c1892b4">vg::HandleGraph</a>.</p>
 
 </div>
 </div>

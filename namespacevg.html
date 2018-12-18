@@ -742,6 +742,9 @@ Functions</h2></td></tr>
 <tr class="separator:aac05a70ed0313422bd481c7bec32f830"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acc99c5b394f220a3280d632cc8e3d528"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acc99c5b394f220a3280d632cc8e3d528">alignment_set_distance_to_correct</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const map&lt; string, vector&lt; pair&lt; size_t, bool &gt; &gt; &gt; &amp;base_offsets)</td></tr>
 <tr class="separator:acc99c5b394f220a3280d632cc8e3d528"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7b9365497bbf0bc45a9fbae2530397fe"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7b9365497bbf0bc45a9fbae2530397fe">alignment_is_valid</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> *hgraph)</td></tr>
+<tr class="memdesc:a7b9365497bbf0bc45a9fbae2530397fe"><td class="mdescLeft">&#160;</td><td class="mdescRight">check to make sure edits on the alignment's path don't assume incorrect node lengths or ids  <a href="#a7b9365497bbf0bc45a9fbae2530397fe">More...</a><br/></td></tr>
+<tr class="separator:a7b9365497bbf0bc45a9fbae2530397fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99b58aa1a0c067044f1fcbf97627e390"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a99b58aa1a0c067044f1fcbf97627e390">fastq_for_each</a> (string &amp;filename, function&lt; void(<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;)&gt; lambda)</td></tr>
 <tr class="separator:a99b58aa1a0c067044f1fcbf97627e390"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acfeff6a4607cc66108f55909e82445e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acfeff6a4607cc66108f55909e82445e2">cigar_mapping</a> (const bam1_t *b, <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;mapping, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *xgindex)</td></tr>
@@ -2243,6 +2246,34 @@ template&lt;typename Iter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a7b9365497bbf0bc45a9fbae2530397fe"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::alignment_is_valid </td>
+          <td>(</td>
+          <td class="paramtype">Alignment &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const HandleGraph *&#160;</td>
+          <td class="paramname"><em>hgraph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>check to make sure edits on the alignment's path don't assume incorrect node lengths or ids </p>
 
 </div>
 </div>
@@ -12457,33 +12488,6 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a9514446da89671007ae40e420c1297d7"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Mapping.html">Mapping</a> vg::simplify </td>
-          <td>(</td>
-          <td class="paramtype">const Mapping &amp;&#160;</td>
-          <td class="paramname"><em>m</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>trim_internal_deletions</em> = <code>true</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Merge adjacent edits of the same type, strip leading and trailing deletion edits (while updating positions if necessary), and makes sure position is actually set. </p>
-
-</div>
-</div>
 <a class="anchor" id="a486054f13a4dc43e37c0f0131f6a51ad"></a>
 <div class="memitem">
 <div class="memproto">
@@ -12508,6 +12512,33 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Simplifies the <a class="el" href="structvg_1_1Path.html">Path</a> in the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. Note that this removes deletions at the start and end of Mappings, so code that handles simplified Alignments needs to handle offsets on internal Mappings. </p>
+
+</div>
+</div>
+<a class="anchor" id="a9514446da89671007ae40e420c1297d7"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Mapping.html">Mapping</a> vg::simplify </td>
+          <td>(</td>
+          <td class="paramtype">const Mapping &amp;&#160;</td>
+          <td class="paramname"><em>m</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>trim_internal_deletions</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Merge adjacent edits of the same type, strip leading and trailing deletion edits (while updating positions if necessary), and makes sure position is actually set. </p>
 
 </div>
 </div>
