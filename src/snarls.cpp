@@ -1710,6 +1710,10 @@ void NetGraph::add_chain_child(const Chain& chain) {
         connectivity[graph->get_id(chain_start_handle)] = make_tuple(false, false, true);
     }
 }
+
+bool NetGraph::has_node(id_t node_id) const {
+    return graph->has_node(node_id);
+}
     
 handle_t NetGraph::get_handle(const id_t& node_id, bool is_reverse) const {
     // We never let anyone see any node IDs that aren't assigned to child snarls/chains or content nodes.

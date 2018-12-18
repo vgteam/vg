@@ -207,6 +207,8 @@ map<string ,vector<pair<size_t, bool> > > alignment_refpos_to_path_offsets(const
 void alignment_set_distance_to_correct(Alignment& aln, const Alignment& base);
 void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<pair<size_t, bool> > >& base_offsets);
 
+/// check to make sure edits on the alignment's path don't assume incorrect node lengths or ids
+bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph);
 }
 
 #endif
