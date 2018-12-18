@@ -50,6 +50,10 @@ void help_mpmap(char** argv) {
     << "scoring:" << endl
     << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
     << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
+    << "  --preset STR                  load presets for scoring parameters" << endl
+    << "                                - illumina: Illumina single-read and paired-end reads (-q1 -z4 -o6 -y1 -L5)" << endl
+    << "                                - pacbio, nanopore: PacBio and Nanopore long reads (-q2 -z4 -o4 -y2 -L0)" << endl
+    << "                                - contig: contig assemblies (-q1 -z4 -o6 -y1 -L5)" << endl
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
@@ -86,10 +90,6 @@ void help_mpmap(char** argv) {
     << "  -y, --gap-extend INT          use this gap extension penalty [1]" << endl
     << "  -L, --full-l-bonus INT        add this score to alignments that use the full length of the read [5]" << endl
     << "  -m, --remove-bonuses          remove full length alignment bonuses in reported scores" << endl
-    << "  --preset STR                  load presets for scoring parameters" << endl
-    << "                                - illumina: Illumina single-read and paired-end reads (-q1 -z4 -o6 -y1 -L5)" << endl
-    << "                                - pacbio, nanopore: PacBio and Nanopore long reads (-q2 -z4 -o4 -y2 -L0)" << endl
-    << "                                - contig: contig assemblies (-q1 -z4 -o6 -y1 -L5)" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl
     << "  -Z, --buffer-size INT         buffer this many alignments together (per compute thread) before outputting to stdout [100]" << endl;
