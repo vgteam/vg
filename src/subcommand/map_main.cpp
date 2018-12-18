@@ -490,6 +490,9 @@ int main_map(int argc, char** argv) {
                 gap_open = 6;
                 gap_extend = 1;
                 full_length_bonus = 5;
+            } else {
+                cerr << "error:[vg map] Unrecognized preset: " << optarg << "." << endl;
+                exit(1);
             }
             break;
 

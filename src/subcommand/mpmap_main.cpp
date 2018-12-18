@@ -536,6 +536,9 @@ int main_mpmap(int argc, char** argv) {
                     gap_open_score_arg = 6;
                     gap_extension_score_arg = 1;
                     full_length_bonus_arg = 5;
+                } else {
+                    cerr << "error:[vg mpmap] Unrecognized preset: " << optarg << "." << endl;
+                    exit(1);
                 }
                 break;
 
