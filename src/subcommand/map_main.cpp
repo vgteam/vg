@@ -64,10 +64,12 @@ void help_map(char** argv) {
          << "    -a, --hap-exp FLOAT           the exponent for haplotype consistency likelihood in alignment score [1]" << endl
          << "    --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
          << "    -A, --qual-adjust             perform base quality adjusted alignments (requires base quality input)" << endl
-         << "    --preset STR                  load presets for scoring parameters" << endl
+         << "    --preset STR                  load presets for scoring parameters (can be overridden)" << endl
          << "                                  - illumina: Illumina single-read and paired-end reads (-q1 -z4 -o6 -y1 -L5)" << endl
          << "                                  - pacbio, nanopore: PacBio and Nanopore long reads (-q2 -z4 -o4 -y2 -L0)" << endl
          << "                                  - contig: contig assemblies (-q1 -z4 -o6 -y1 -L5)" << endl
+         << "                                  - asm5, asm10, asm20: long assembly to reference mapping" << endl
+         << "                                            up to 5\% (10\% and 20\%) sequence divergence. (imported from minimap2)" << endl
          << "input:" << endl
          << "    -s, --sequence STR            align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -V, --seq-name STR            name the sequence using this value (for graph modification with new named paths)" << endl

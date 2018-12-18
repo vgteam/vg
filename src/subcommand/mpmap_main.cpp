@@ -50,10 +50,13 @@ void help_mpmap(char** argv) {
     << "scoring:" << endl
     << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
     << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
-    << "  --preset STR                  load presets for scoring parameters" << endl
+    << "  --preset STR                  load presets for scoring parameters (can be overridden)" << endl
     << "                                - illumina: Illumina single-read and paired-end reads (-q1 -z4 -o6 -y1 -L5)" << endl
     << "                                - pacbio, nanopore: PacBio and Nanopore long reads (-q2 -z4 -o4 -y2 -L0)" << endl
     << "                                - contig: contig assemblies (-q1 -z4 -o6 -y1 -L5)" << endl
+    << "                                - asm5, asm10, asm20: long assembly to reference mapping" << endl
+    << "                                          up to 5\% (10\% and 20\%) sequence divergence. (imported from minimap2)" << endl
+    << "                                - longread: equivalent to -E" << endl
     << endl
     << "advanced options:" << endl
     << "algorithm:" << endl
