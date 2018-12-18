@@ -741,10 +741,25 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         ++counts.read[co];
         bool keep = true;
         // filter (current) alignment
-        if (!name_prefix.empty() && !std::equal(name_prefix.begin(), name_prefix.end(), aln.name().begin())) {
-            // There's a prefix and a mismatch against it
-            ++counts.wrong_name[co];
-            keep = false;    
+        if (!name_prefixes.empty()) {
+            // Make sure we match at least one name prefix
+            
+            // TODO: We should be using a trie or something for efficient matching to one of many prefixes.
+            bool found = false;
+            for (auto& prefix : name_prefixes) {
+                // For each prefix in turn
+                if (std::equal(prefix.begin(), prefix.end(), aln.name().begin())) {
+                    // If we match it, we found a match!
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found) {
+                // There are prefixes and we don't match any, so drop the read.
+                ++counts.wrong_name[co];
+                keep = false;
+            }
         }
         if ((keep || verbose) && !excluded_refpos_contigs.empty() && aln.refpos_size() != 0) {
             // We have refpos exclusion filters and a refpos is set.

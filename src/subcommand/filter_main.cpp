@@ -26,6 +26,7 @@ void help_filter(char** argv) {
          << endl
          << "options:" << endl
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
+         << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
          << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
          << "    -s, --min-secondary N      minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N        minimum score to keep primary alignment [default=0]" << endl
@@ -71,6 +72,7 @@ int main_filter(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"name-prefix", required_argument, 0, 'n'},
+                {"name-prefixes", required_argument, 0, 'N'},
                 {"exclude-contig", required_argument, 0, 'X'},
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
@@ -96,7 +98,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:X:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:d:t:",
+        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:d:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -106,7 +108,20 @@ int main_filter(int argc, char** argv) {
         switch (c)
         {
         case 'n':
-            filter.name_prefix = optarg;
+            filter.name_prefixes.push_back(optarg);
+            break;
+        case 'N':
+            get_input_file(optarg, [&](istream& in) {
+                // Parse the input file right here in the option parsing.
+                for (string line; getline(in, line);) {
+                    // For each line
+                    if (line.empty()) {
+                        // No empty lines
+                        break;
+                    }
+                    filter.name_prefixes.push_back(line);
+                }
+            });
             break;
         case 'X':
             filter.excluded_refpos_contigs.push_back(parse<std::regex>(optarg));
@@ -233,7 +248,7 @@ int main_filter(int argc, char** argv) {
 
     // What should our return code be?
     int error_code = 0;
-
+    
     get_input_file(optind, argc, argv, [&](istream& in) {
         // Open up the alignment stream
         
