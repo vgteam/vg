@@ -6,6 +6,7 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix spin: <http://spinrdf.org/spin#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix edam: <http://edamontology.org/> .
 
 <http://biohackathon.org/resource/vg>
   rdf:type owl:Ontology ;
@@ -85,4 +86,55 @@
   rdfs:domain :Step ;
   rdfs:label "reverseOfNode"^^xsd:string ;
   rdfs:range :Node ;
+.
+:VG_Format
+  a owl:Class ;
+  rdfs:subClassOf edam:format_2921, edam:format_2055 ;
+  rdfs:label "Graph" ;
+  rdfs:comment "Consists of nodes, edges, and paths. Nodes each have a unique ID and a DNA sequence, edges consist of two node sides (so the graph is bidirected), and paths are a sequence of nodes and orientations. Paths also have names." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+.
+:GAM_Format
+  a owl:Class ;
+  rdfs:label "Alignment" ;
+  rdfs:subClassOf edam:format_2055 ;
+  rdfs:comment "Contains an alignment to a graph" ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+.
+:GAMP_Format
+  a owl:Class ;
+  rdfs:label "MultipathAlignment" ;
+  rdfs:comment "Contains a DAG of subalignments to different paths through the reference graph" ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+.
+:Snarl_Format
+  a owl:Class ;
+  rdfs:label "Snarl" ;
+  rdfs:comment " A series of Snarl objects, each of which contain: The boundaries of a snarl (a bubble-like motif in a graph), the snarl (if any) that contains this one, classifications of the snarl based on the reachability of the two boundary nodes from each other and the cyclic-ness of the subcomponent." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+.
+:Snarl_Traversal_Format
+  a owl:Class ;
+  rdfs:label "SnarlTraversal" ;
+  rdfs:comment " A series of SnarlTraversal objects, each of which contain: A walk in the graph through a Snarl, and optionally a name." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+.
+:XG_Format
+  a owl:Class ;
+  rdfs:label "XG" ;
+  rdfs:comment "An immutable, succinct representation of a graph. Contains the same info as the .vg." ;
+  rdfs:seeAlso :VG_Format ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+.
+:GCSA2_Format
+  a owl:Class ;
+  rdfs:label "GCSA2" ;
+  rdfs:comment "Generalized compressed suffix array 2, an exact match index published by Jouni Siren" ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
+.
+:GBWT_Format 
+  a owl:Class ;
+  rdfs:label "GBWT" ;
+  rdfs:comment "Graph Burrows-Wheeler Transform, a succinct collection of paths through a genome graph, published by Jouni Siren. Usually represents haplotypes." ;
+  rdfs:isDefinedBy <https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto> ;
 .

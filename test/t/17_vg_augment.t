@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 5
+plan tests 13
 
 vg view -J -v pileup/tiny.json > tiny.vg
 
@@ -41,4 +41,41 @@ rm -f edit.gam edit-embedded.gam augmented.vg
 
 rm -f tiny.vg
 
+# These are tests that used to be in 14_vg_mod.t
 
+vg construct -m 1000 -r tiny/tiny.fa >t.vg
+vg index -k 11 -g t.idx.gcsa -x t.idx.xg t.vg
+
+is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 1 "path inclusion does not modify the graph when alignment is a perfect match"
+
+is $(vg map -s CAAATAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 5 "path inclusion with a complex variant introduces the right number of nodes"
+
+# checks that we get a node with the id 4, which is the ref-matching dual to the deletion
+is $(vg map -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | grep 4 | grep T | wc -l) 1 "path inclusion works for deletions"
+
+is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG -d t.idx | vg augment t.vg - -i | vg view - | grep ^S | wc -l) 4 "SNPs can be included in the graph"
+
+rm t.vg
+rm -rf t.idx.xg t.idx.gcsa
+
+vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
+vg align -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
+is $(vg augment -i t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i t.vg t.gam | vg stats  -H - | awk '{ print $3}') | cut -f 3) GGGGG "a soft clip at read start becomes a new head of the graph"
+is $(vg augment -i t.vg t.gam | vg view - | grep ^S | grep $(vg augment -i t.vg t.gam | vg stats  -T - | awk '{ print $3}') | cut -f 3) AAAAAAAA "a soft clip at read end becomes a new tail of the graph"
+rm -rf t.vg t.gam
+
+vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
+vg map -x x.xg -g x.gcsa -G small/x-s1337-n100-e0.01-i0.005.gam -t 1 >x.gam
+vg augment -Z x.trans -i x.vg x.gam >x.mod.vg
+is $(vg view -Z x.trans | wc -l) 1288 "the expected graph translation is exported when the graph is edited"
+rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
+
+vg construct -m 1000 -r tiny/tiny.fa >flat.vg
+vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
+vg index -x 2snp.xg 2snp.vg
+vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim
+vg index -x flat.xg -g flat.gcsa -k 16 flat.vg
+vg map -g flat.gcsa -x flat.xg -G 2snp.sim -k 8 >2snp.gam
+is $(vg augment flat.vg 2snp.gam -i | vg mod -D - | vg mod -n - | vg view - | grep ^S | wc -l) 7 "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
+rm -f flat.vg flat.gcsa flat.xg 2snp.vg 2snp.xg 2snp.sim 2snp.gam

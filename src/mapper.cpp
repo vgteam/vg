@@ -2980,17 +2980,7 @@ void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) const
 }
 
 void Mapper::annotate_with_initial_path_positions(Alignment& aln) const {
-    if (!aln.refpos_size()) {
-        auto init_path_positions = alignment_path_offsets(aln);
-        for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
-            for (auto& pos : pos_record.second) {
-                Position* refpos = aln.add_refpos();
-                refpos->set_name(pos_record.first);
-                refpos->set_offset(pos.first);
-                refpos->set_is_reverse(pos.second);
-            }
-        }
-    }
+    xg_annotate_with_initial_path_positions(aln, xindex);
 }
 
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
