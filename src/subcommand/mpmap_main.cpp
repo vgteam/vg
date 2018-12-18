@@ -478,10 +478,6 @@ int main_mpmap(int argc, char** argv) {
                 suboptimal_path_exponent = parse<double>(optarg);
                 break;
                 
-            case 'E':
-                long_read_scoring = true;
-                break;
-                
             case 'q':
                 match_score_arg = parse<int>(optarg);
                 break;
@@ -518,29 +514,41 @@ int main_mpmap(int argc, char** argv) {
                 qual_adjusted = false;
                 break;
 
+            // -E option is merged into presets
+            case 'E':
             case OPT_LOAD_PRESET:
             {
+                char const *optarg_copy = optarg;
+
+                // -E
+                if(c == 'E') {
+                    optarg_copy = "longread";
+                    long_read_scoring = true;
+                }
+
                 struct preset {
                     char const *name;
                     int match, mismatch, gap_open, gap_ext, full_length_bonus;
+                    bool long_read_scoring;
                 } preset[] = {
-                    { "illumina",   1, 4, 6, 1, 5 },
-                    { "pacbio",     2, 4, 4, 2, 0 },
-                    { "nanopore",   2, 4, 4, 2, 0 },
-                    { "contig",     1, 4, 6, 1, 5 },
-                    { "asm5",       1, 19, 39, 3, 0 },
-                    { "asm10",      1, 9, 16, 2, 0 },
-                    { "asm20",      1, 4, 6, 2, 0 },
+                    { "illumina",   1, 4, 6, 1, 5, false },
+                    { "pacbio",     2, 4, 4, 2, 0, true },
+                    { "nanopore",   2, 4, 4, 2, 0, true },
+                    { "contig",     1, 4, 6, 1, 5, false },         // is it better to apply long_read_scoring for contig mapping?
+                    { "asm5",       1, 19, 39, 3, 0, false },
+                    { "asm10",      1, 9, 16, 2, 0, false },
+                    { "asm20",      1, 4, 6, 2, 0, false },
+                    { "longread",   1, 1, 1, 1, 0, true },          // original -E option merged
                     { NULL }
                 };
 
                 for(size_t i = 0; i < sizeof(preset) / sizeof(struct preset); i++) {
                     if(preset[i].name == NULL) {
-                        cerr << "error:[vg mpmap] Unrecognized preset: " << optarg << "." << endl;
+                        cerr << "error:[vg mpmap] Unrecognized preset: " << optarg_copy << "." << endl;
                         exit(1);
                     }
 
-                    if(strcmp(optarg, preset[i].name) == 0) {
+                    if(strcmp(optarg_copy, preset[i].name) == 0) {
                         if(match_score_arg == std::numeric_limits<int>::min()) {
                             match_score_arg = preset[i].match;
                         }
@@ -556,6 +564,9 @@ int main_mpmap(int argc, char** argv) {
                         if(full_length_bonus_arg == std::numeric_limits<int>::min()) {
                             full_length_bonus_arg = preset[i].full_length_bonus;
                         }
+
+                        // force override long_read_scoring flag, which affects min_median_mem_coverage_for_split = 2; and suppress_cluster_merging = true;
+                        long_read_scoring = preset[i].long_read_scoring;
                         break;
                     }
                 }
@@ -768,6 +779,7 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    /* handled in --preset parsing (see above)
     if (long_read_scoring) {
         // defaults for long read scoring
         match_score = 1;
@@ -776,6 +788,7 @@ int main_mpmap(int argc, char** argv) {
         gap_extension_score = 1;
         full_length_bonus = 0;
     }
+    */
     
     // if we indicated any other scores, apply those, possibly overriding
     if (match_score_arg != std::numeric_limits<int>::min()) {
@@ -1159,11 +1172,6 @@ int main_mpmap(int argc, char** argv) {
                 rev_comp_multipath_alignment(mp_aln_pair.second,
                                              [&](vg::id_t node_id) { return xg_index.node_length(node_id); },
                                              output_buf.back());
-            }
-
-            if (mp_aln_pair.second.has_annotation()) {
-                // Move over annotations
-                output_buf.back().set_allocated_annotation(mp_aln_pair.second.release_annotation());
             }
             
             // label with read group and sample name
