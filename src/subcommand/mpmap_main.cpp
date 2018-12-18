@@ -528,6 +528,9 @@ int main_mpmap(int argc, char** argv) {
                     { "pacbio",     2, 4, 4, 2, 0 },
                     { "nanopore",   2, 4, 4, 2, 0 },
                     { "contig",     1, 4, 6, 1, 5 },
+                    { "asm5",       1, 19, 39, 3, 0 },
+                    { "asm10",      1, 9, 16, 2, 0 },
+                    { "asm20",      1, 4, 6, 2, 0 },
                     { NULL }
                 };
 
