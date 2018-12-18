@@ -137,6 +137,14 @@ int main_map(int argc, char** argv) {
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
     int buffer_size = 512;
+
+    // min indicates not overridden
+    int match_score_arg = std::numeric_limits<int>::min();
+    int mismatch_score_arg = std::numeric_limits<int>::min();
+    int gap_open_score_arg = std::numeric_limits<int>::min();
+    int gap_extension_score_arg = std::numeric_limits<int>::min();
+    int full_length_bonus_arg = std::numeric_limits<int>::min();
+
     int8_t match = default_match;
     int8_t mismatch = default_mismatch;
     int8_t gap_open = default_gap_open;
@@ -312,10 +320,6 @@ int main_map(int argc, char** argv) {
             maybe_mq_threshold = parse<double>(optarg);
             break;
 
-        case 'L':
-            full_length_bonus = parse<int>(optarg);
-            break;
-
         case '2':
             strip_bonuses = true;
             break;
@@ -448,11 +452,11 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'q':
-            match = parse<int>(optarg);
+            match_score_arg = parse<int>(optarg);
             break;
 
         case 'z':
-            mismatch = parse<int>(optarg);
+            mismatch_score_arg = parse<int>(optarg);
             break;
 
         case OPT_SCORE_MATRIX:
@@ -464,37 +468,57 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'o':
-            gap_open = parse<int>(optarg);
+            gap_open_score_arg = parse<int>(optarg);
             break;
 
         case 'y':
-            gap_extend = parse<int>(optarg);
+            gap_extension_score_arg = parse<int>(optarg);
+            break;
+
+        case 'L':
+            full_length_bonus_arg = parse<int>(optarg);
             break;
 
         case OPT_LOAD_PRESET:
-            if(strcmp(optarg, "illumina") == 0) {
-                match = 1;
-                mismatch = 4;
-                gap_open = 6;
-                gap_extend = 1;
-                full_length_bonus = 5;
-            } else if(strcmp(optarg, "pacbio") == 0 || strcmp(optarg, "nanopore") == 0) {
-                match = 2;
-                mismatch = 4;
-                gap_open = 4;
-                gap_extend = 2;
-                full_length_bonus = 0;
-            } else if(strcmp(optarg, "contig") == 0) {
-                match = 1;
-                mismatch = 4;
-                gap_open = 6;
-                gap_extend = 1;
-                full_length_bonus = 5;
-            } else {
-                cerr << "error:[vg map] Unrecognized preset: " << optarg << "." << endl;
-                exit(1);
+        {
+            struct preset {
+                char const *name;
+                int match, mismatch, gap_open, gap_ext, full_length_bonus;
+            } preset[] = {
+                { "illumina",   1, 4, 6, 1, 5 },
+                { "pacbio",     2, 4, 4, 2, 0 },
+                { "nanopore",   2, 4, 4, 2, 0 },
+                { "contig",     1, 4, 6, 1, 5 },
+                { NULL }
+            };
+
+            for(size_t i = 0; i < sizeof(preset) / sizeof(struct preset); i++) {
+                if(preset[i].name == NULL) {
+                    cerr << "error:[vg mpmap] Unrecognized preset: " << optarg << "." << endl;
+                    exit(1);
+                }
+
+                if(strcmp(optarg, preset[i].name) == 0) {
+                    if(match_score_arg == std::numeric_limits<int>::min()) {
+                        match_score_arg = preset[i].match;
+                    }
+                    if(mismatch_score_arg == std::numeric_limits<int>::min()) {
+                        mismatch_score_arg = preset[i].mismatch;
+                    }
+                    if(gap_open_score_arg == std::numeric_limits<int>::min()) {
+                        gap_open_score_arg = preset[i].gap_open;
+                    }
+                    if(gap_extension_score_arg == std::numeric_limits<int>::min()) {
+                        gap_extension_score_arg = preset[i].gap_ext;
+                    }
+                    if(full_length_bonus_arg == std::numeric_limits<int>::min()) {
+                        full_length_bonus_arg = preset[i].full_length_bonus;
+                    }
+                    break;
+                }
             }
             break;
+        }
 
         case 'A':
             qual_adjust_alignments = true;
@@ -582,6 +606,24 @@ int main_map(int argc, char** argv) {
             exit(1);
         }
     }
+
+    // if we indicated any other scores, apply those, possibly overriding
+    if (match_score_arg != std::numeric_limits<int>::min()) {
+        match = match_score_arg;
+    }
+    if (mismatch_score_arg != std::numeric_limits<int>::min()) {
+        mismatch = mismatch_score_arg;
+    }
+    if (gap_open_score_arg != std::numeric_limits<int>::min()) {
+        gap_open = gap_open_score_arg;
+    }
+    if (gap_extension_score_arg != std::numeric_limits<int>::min()) {
+        gap_extend = gap_extension_score_arg;
+    }
+    if (full_length_bonus_arg != std::numeric_limits<int>::min()) {
+        full_length_bonus = full_length_bonus_arg;
+    }
+
 
     if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty() && fasta_file.empty()) {
         cerr << "error:[vg map] A sequence or read file is required when mapping." << endl;

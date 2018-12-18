@@ -266,6 +266,7 @@ int main_mpmap(int argc, char** argv) {
         if (c == -1)
             break;
 
+
         switch (c)
         {
             case 'x':
@@ -518,29 +519,45 @@ int main_mpmap(int argc, char** argv) {
                 break;
 
             case OPT_LOAD_PRESET:
-                if(strcmp(optarg, "illumina") == 0) {
-                    match_score_arg = 1;
-                    mismatch_score_arg = 4;
-                    gap_open_score_arg = 6;
-                    gap_extension_score_arg = 1;
-                    full_length_bonus_arg = 5;
-                } else if(strcmp(optarg, "pacbio") == 0 || strcmp(optarg, "nanopore") == 0) {
-                    match_score_arg = 2;
-                    mismatch_score_arg = 4;
-                    gap_open_score_arg = 4;
-                    gap_extension_score_arg = 2;
-                    full_length_bonus_arg = 0;
-                } else if(strcmp(optarg, "contig") == 0) {
-                    match_score_arg = 1;
-                    mismatch_score_arg = 4;
-                    gap_open_score_arg = 6;
-                    gap_extension_score_arg = 1;
-                    full_length_bonus_arg = 5;
-                } else {
-                    cerr << "error:[vg mpmap] Unrecognized preset: " << optarg << "." << endl;
-                    exit(1);
+            {
+                struct preset {
+                    char const *name;
+                    int match, mismatch, gap_open, gap_ext, full_length_bonus;
+                } preset[] = {
+                    { "illumina",   1, 4, 6, 1, 5 },
+                    { "pacbio",     2, 4, 4, 2, 0 },
+                    { "nanopore",   2, 4, 4, 2, 0 },
+                    { "contig",     1, 4, 6, 1, 5 },
+                    { NULL }
+                };
+
+                for(size_t i = 0; i < sizeof(preset) / sizeof(struct preset); i++) {
+                    if(preset[i].name == NULL) {
+                        cerr << "error:[vg mpmap] Unrecognized preset: " << optarg << "." << endl;
+                        exit(1);
+                    }
+
+                    if(strcmp(optarg, preset[i].name) == 0) {
+                        if(match_score_arg == std::numeric_limits<int>::min()) {
+                            match_score_arg = preset[i].match;
+                        }
+                        if(mismatch_score_arg == std::numeric_limits<int>::min()) {
+                            mismatch_score_arg = preset[i].mismatch;
+                        }
+                        if(gap_open_score_arg == std::numeric_limits<int>::min()) {
+                            gap_open_score_arg = preset[i].gap_open;
+                        }
+                        if(gap_extension_score_arg == std::numeric_limits<int>::min()) {
+                            gap_extension_score_arg = preset[i].gap_ext;
+                        }
+                        if(full_length_bonus_arg == std::numeric_limits<int>::min()) {
+                            full_length_bonus_arg = preset[i].full_length_bonus;
+                        }
+                        break;
+                    }
                 }
                 break;
+            }
 
             case 't':
             {
@@ -565,7 +582,7 @@ int main_mpmap(int argc, char** argv) {
                 break;
         }
     }
-    
+
     // check for valid parameters
     
     if (std::isnan(frag_length_mean) != std::isnan(frag_length_stddev)) {
