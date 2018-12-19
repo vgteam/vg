@@ -1176,6 +1176,11 @@ int main_mpmap(int argc, char** argv) {
                                              [&](vg::id_t node_id) { return xg_index.node_length(node_id); },
                                              output_buf.back());
             }
+
+            if (mp_aln_pair.second.has_annotation()) {
+                // Move over annotations
+                output_buf.back().set_allocated_annotation(mp_aln_pair.second.release_annotation());
+            }
             
             // label with read group and sample name
             if (!read_group.empty()) {
