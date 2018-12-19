@@ -5,8 +5,7 @@
 #include <iostream>
 #include "json2pb.h"
 #include "vg.pb.h"
-#include "../multipath_mapper.hpp"
-#include "../build_index.hpp"
+#include "../multipath_alignment_graph.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -25,7 +24,7 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
             {"from": 1, "to": 2},
             {"from": 1, "to": 3},
             {"from": 2, "to": 4},
-            {"from", 3, "to": 4}
+            {"from": 3, "to": 4}
         ]
     })";
     
@@ -55,9 +54,9 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
     
     // Make a MEM hit
-    mems.emplace_back(read.begin() + 1, read.begin() + 2, make_pair(5, 5), 1);
+    mems.emplace_back(read.begin(), ++read.begin(), make_pair(5, 5), 1);
     // Drop it on node 1 where it should sit
-    mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 1));
+    mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
     
     // Make an Aligner to use for the actual aligning and the scores
     Aligner aligner;

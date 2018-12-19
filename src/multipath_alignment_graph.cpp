@@ -23,6 +23,17 @@ namespace vg {
         return injection_trans;
     }
     
+    unordered_map<id_t, pair<id_t, bool>> MultipathAlignmentGraph::create_identity_projection_trans(const VG& vg) {
+        unordered_map<id_t, pair<id_t, bool>> to_return;
+        
+        vg.for_each_handle([&](const handle_t& handle) {
+            // Each node just projects from itself forward.
+            to_return[vg.get_id(handle)] = make_pair(vg.get_id(handle), false);
+        });
+        
+        return to_return;
+    }
+    
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                                      const Alignment& alignment,  const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
@@ -64,7 +75,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "nodes after adding and collapsing:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            PathNode& path_node = path_nodes[i];
+            PathNode& path_node = path_nodes.at(i);
             cerr << i << " " << pb2json(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
@@ -239,7 +250,7 @@ namespace vg {
         
         for (size_t i = 0; i < path_nodes.size(); i++) {
             
-            PathNode& path_node = path_nodes[i];
+            PathNode& path_node = path_nodes.at(i);
             Path& path = path_node.path;
             
             int64_t mapping_start_idx = 0;
@@ -365,7 +376,7 @@ namespace vg {
                 // the indexes of edges we've already added
                 unordered_set<size_t> added_edges;
                 
-                for (pair<size_t, size_t>& edge : path_nodes[i].edges) {
+                for (pair<size_t, size_t>& edge : path_nodes.at(i).edges) {
                     edge_queue.emplace(edge.second, edge.first);
                 }
                 
@@ -375,7 +386,7 @@ namespace vg {
                     
                     if (to_remove.count(traversed_edge.second)) {
                         // we're removing this path node, so traverse it and add connections along its edges
-                        PathNode& removing_node = path_nodes[traversed_edge.second];
+                        PathNode& removing_node = path_nodes.at(traversed_edge.second);
                         size_t through_length = traversed_edge.first + path_from_length(removing_node.path);
                         for (pair<size_t, size_t>& edge : removing_node.edges) {
                             edge_queue.emplace(through_length + edge.second, edge.first);
@@ -391,7 +402,7 @@ namespace vg {
                 }
                 
                 // replace the old edges with the new ones
-                path_nodes[i].edges = new_edges;
+                path_nodes.at(i).edges = new_edges;
             }
             
             // move the nodes we're going to keep into the prefix of the vector
@@ -405,7 +416,7 @@ namespace vg {
                     removed_so_far[i]++;;
                 }
                 else if (removed_so_far[i]) {
-                    path_nodes[i - removed_so_far[i]] = move(path_nodes[i]);
+                    path_nodes.at(i - removed_so_far[i]) = move(path_nodes.at(i));
                 }
             }
             
@@ -414,7 +425,7 @@ namespace vg {
             
             // update the indexes of the edges
             for (size_t i = 0; i < path_nodes.size(); i++) {
-                for (pair<size_t, size_t>& edge : path_nodes[i].edges) {
+                for (pair<size_t, size_t>& edge : path_nodes.at(i).edges) {
                     edge.first -= removed_so_far[edge.first];
                 }
             }
@@ -478,7 +489,7 @@ namespace vg {
 #endif
                     
                     for (int64_t j : node_matches[injected_id]) {
-                        PathNode& match_node = path_nodes[j];
+                        PathNode& match_node = path_nodes.at(j);
                         
                         if (begin < match_node.begin || end > match_node.end) {
 #ifdef debug_multipath_alignment
@@ -673,7 +684,7 @@ namespace vg {
         size_t num_order_length_mems = 0;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             
-            PathNode& match_node = path_nodes[i];
+            PathNode& match_node = path_nodes.at(i);
             
             if (match_node.end - match_node.begin < gcsa->order()) {
                 // we have passed all of the order length MEMs, bail out of loop
@@ -692,13 +703,13 @@ namespace vg {
             order[i] = i;
         }
         sort(order.begin(), order.end(), [&](size_t i, size_t j) {
-            return path_nodes[i].begin < path_nodes[j].begin || (path_nodes[i].begin == path_nodes[j].begin &&
-                                                                 path_nodes[i].end < path_nodes[j].end);
+            return path_nodes.at(i).begin < path_nodes.at(j).begin || (path_nodes.at(i).begin == path_nodes.at(j).begin &&
+                                                                      path_nodes.at(i).end < path_nodes.at(j).end);
         });
         
         for (size_t i : order) {
             
-            PathNode& match_node = path_nodes[i];
+            PathNode& match_node = path_nodes.at(i);
             
 #ifdef debug_multipath_alignment
             cerr << "## checking if MEM " << i << " can be an extension: " << endl;
@@ -718,7 +729,7 @@ namespace vg {
                 
                 // because of the sort order, the last node in this run should overlap the current MEM
                 // if any of them can
-                PathNode& last_run_node = path_nodes[merge_group[merge_group.size() - 1]];
+                PathNode& last_run_node = path_nodes.at(merge_group[merge_group.size() - 1]);
                 
 #ifdef debug_multipath_alignment
                 cerr << "checking against extending MEM " << merge_group[merge_group.size() - 1] << " in merge group " << j << ":" << endl;
@@ -855,14 +866,14 @@ namespace vg {
             for (const vector<size_t>& merge_group : merge_groups) {
                 
                 // merge the paths into the first node in the group (arbitrarily)
-                PathNode& merge_into_node = path_nodes[merge_group[0]];
+                PathNode& merge_into_node = path_nodes.at(merge_group[0]);
                 
                 for (size_t i = 1; i < merge_group.size(); i++) {
                     
                     // mark the node we're merging from for removal
                     to_remove.insert(merge_group[i]);
                     
-                    PathNode& merge_from_node = path_nodes[merge_group[i]];
+                    PathNode& merge_from_node = path_nodes.at(merge_group[i]);
                     
 #ifdef debug_multipath_alignment
                     cerr << "merging into node " << merge_group[0] << " path " << pb2json(merge_into_node.path) << endl;
@@ -945,7 +956,7 @@ namespace vg {
                     removed_so_far++;
                 }
                 else if (removed_so_far > 0) {
-                    path_nodes[i - removed_so_far] = move(path_nodes[i]);
+                    path_nodes.at(i - removed_so_far) = move(path_nodes.at(i));
 #ifdef debug_multipath_alignment
                     cerr << "moving path node " << i << " into index " << i - removed_so_far << endl;
 #endif
@@ -979,7 +990,7 @@ namespace vg {
             
             // first compute the segments we want to cut out
             
-            PathNode* path_node = &path_nodes[i];
+            PathNode* path_node = &path_nodes.at(i);
             Path* path = &path_node->path;
             
 #ifdef debug_multipath_alignment
@@ -1162,7 +1173,7 @@ namespace vg {
                     Path& cut_path = cut_node.path;
                     
                     // add a connecting edge from the last keep segment
-                    path_nodes[prev_segment_idx].edges.emplace_back(path_nodes.size() - 1, prefix_from_length - intersegment_start);
+                    path_nodes.at(prev_segment_idx).edges.emplace_back(path_nodes.size() - 1, prefix_from_length - intersegment_start);
                     
                     // transfer over the path and the read interval
                     cut_node.begin = original_begin + prefix_to_length;
@@ -1183,12 +1194,12 @@ namespace vg {
                 }
                 
                 // move the edges from the original node onto the last keep segment
-                path_nodes[prev_segment_idx].edges = move(forward_edges);
+                path_nodes.at(prev_segment_idx).edges = move(forward_edges);
                 
                 // add the length of the trimmed portion of the path to the edge length
                 size_t trimmed_suffix_length = path_from_length(original_path) - prefix_from_length;
                 if (trimmed_suffix_length) {
-                    for (pair<size_t, size_t>& edge : path_nodes[prev_segment_idx].edges) {
+                    for (pair<size_t, size_t>& edge : path_nodes.at(prev_segment_idx).edges) {
                         edge.second += trimmed_suffix_length;
                     }
                 }
@@ -1257,13 +1268,13 @@ namespace vg {
         /// Get the offset in the first visited graph node at which the given MEM starts.
         /// Does not account for orientation.
         auto start_offset = [&](size_t idx) {
-            return path_nodes[idx].path.mapping(0).position().offset();
+            return path_nodes.at(idx).path.mapping(0).position().offset();
         };
         
         /// Get the offset in the first visited graph node at which the given MEM ends (i.e. the past-the-end offset).
         /// Does not account for orientation.
         auto end_offset = [&](size_t idx) {
-            Path& path = path_nodes[idx].path;
+            Path& path = path_nodes.at(idx).path;
             const Mapping& mapping = path.mapping(path.mapping_size() - 1);
             return mapping.position().offset() + mapping_from_length(mapping);
         };
@@ -1271,13 +1282,13 @@ namespace vg {
         /// Get the ID of the first node visited in the graph along the path for a MEM.
         /// Does not account for orientation.
         auto start_node_id = [&](size_t idx) {
-            return path_nodes[idx].path.mapping(0).position().node_id();
+            return path_nodes.at(idx).path.mapping(0).position().node_id();
         };
         
         /// Get the ID of the last node visited in the graph along the path for a MEM.
         /// Does not account for orientation.
         auto end_node_id = [&](size_t idx) {
-            Path& path = path_nodes[idx].path;
+            Path& path = path_nodes.at(idx).path;
             return path.mapping(path.mapping_size() - 1).position().node_id();
         };
         
@@ -1297,7 +1308,7 @@ namespace vg {
         // Maps from node ID to the list of MEM numbers that end on that node.
         unordered_map<id_t, vector<size_t>> path_ends;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            Path& path = path_nodes[i].path;
+            Path& path = path_nodes.at(i).path;
             path_starts[path.mapping(0).position().node_id()].push_back(i);
             path_ends[path.mapping(path.mapping_size() - 1).position().node_id()].push_back(i);
         }
@@ -1920,7 +1931,7 @@ namespace vg {
                 cerr << "searching backward from start " << start << endl;
 #endif
                 
-                PathNode& start_node = path_nodes[start];
+                PathNode& start_node = path_nodes.at(start);
                 unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
                 
                 // pairs of (dist, index)
@@ -1973,7 +1984,7 @@ namespace vg {
 #endif
                     traversed_end.insert(candidate_end);
                     
-                    PathNode& candidate_end_node = path_nodes[candidate_end];
+                    PathNode& candidate_end_node = path_nodes.at(candidate_end);
                     
                     if (candidate_end_node.end <= start_node.begin) {
                         // these MEMs are read colinear and graph reachable, so connect them
@@ -2143,7 +2154,7 @@ namespace vg {
                     next_end_idx++;
                 }
                 
-                Path& path = path_nodes[start].path;
+                Path& path = path_nodes.at(start).path;
                 // the starts that are on this path
                 unordered_set<size_t> path_starts_on_path(colocated_starts.begin(), colocated_starts.end());
                 // records of (node_idx, overlap length)
@@ -2240,7 +2251,7 @@ namespace vg {
                         continue;
                     }
                     
-                    PathNode& overlap_node = path_nodes[overlap_candidate.first];
+                    PathNode& overlap_node = path_nodes.at(overlap_candidate.first);
                     
                     // how much do the paths overlap?
                     size_t overlap = overlap_candidate.second;
@@ -2303,7 +2314,7 @@ namespace vg {
 #endif
             
             
-            PathNode* onto_node = &path_nodes[get<1>(*iter)];
+            PathNode* onto_node = &path_nodes.at(get<1>(*iter));
             
 #ifdef debug_multipath_alignment
             cerr << "before splitting:" << endl;
@@ -2349,7 +2360,7 @@ namespace vg {
                 
                 while (iter != iter_range_end) {
                     for (const pair<size_t, size_t> edge : onto_node->edges) {
-                        path_nodes[get<2>(*iter)].edges.emplace_back(edge.first, edge.second + get<3>(*iter));
+                        path_nodes.at(get<2>(*iter)).edges.emplace_back(edge.first, edge.second + get<3>(*iter));
                     }
                     iter++;
                 }
@@ -2364,7 +2375,7 @@ namespace vg {
                 PathNode& suffix_node = path_nodes.back();
                 
                 // get the pointer from the onto node back in case the vector reallocated
-                onto_node = &path_nodes[get<1>(*iter)];
+                onto_node = &path_nodes.at(get<1>(*iter));
                 
                 // transfer the outgoing edges onto the new node
                 suffix_node.edges = std::move(onto_node->edges);
@@ -2469,14 +2480,14 @@ namespace vg {
 #ifdef debug_multipath_alignment
                     cerr << "adding an overlap edge from node " << splitting_idx << " at distance " << get<3>(*iter) << endl;
                     cerr << "\t";
-                    for (auto node_iter = path_nodes[splitting_idx].begin; node_iter != path_nodes[splitting_idx].end; node_iter++) {
+                    for (auto node_iter = path_nodes.at(splitting_idx).begin; node_iter != path_nodes.at(splitting_idx).end; node_iter++) {
                         cerr << *node_iter;
                     }
                     cerr << endl;
 #endif
                     
                     // get the next node that overlaps onto the other node at this index and add the overlap edge
-                    path_nodes[splitting_idx].edges.emplace_back(suffix_idx, get<3>(*iter));
+                    path_nodes.at(splitting_idx).edges.emplace_back(suffix_idx, get<3>(*iter));
                     
                     iter++;
                 }
@@ -2489,7 +2500,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "final graph after adding reachability edges:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            PathNode& path_node = path_nodes[i];
+            PathNode& path_node = path_nodes.at(i);
             cerr << i << " " << pb2json(path_node.path) << " ";
             for (auto iter = path_node.begin; iter != path_node.end; iter++) {
                 cerr << *iter;
@@ -2497,7 +2508,7 @@ namespace vg {
             cerr << endl;
             cerr << "\t";
             for (auto edge : path_node.edges) {
-                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes[edge.first].begin - path_node.end) << ") ";
+                cerr << "(to:" << edge.first << ", graph dist:" << edge.second << ", read dist: " << (path_nodes.at(edge.first).begin - path_node.end) << ") ";
             }
             cerr << endl;
         }
@@ -2547,7 +2558,7 @@ namespace vg {
             size_t src = source_queue.front();
             source_queue.pop_front();
             
-            for (const pair<size_t, size_t>& edge : path_nodes[src].edges) {
+            for (const pair<size_t, size_t>& edge : path_nodes.at(src).edges) {
                 in_degree[edge.first]--;
                 if (in_degree[edge.first] == 0) {
                     source_queue.push_back(edge.first);
@@ -2562,7 +2573,7 @@ namespace vg {
     void MultipathAlignmentGraph::reorder_adjacency_lists(const vector<size_t>& order) {
         vector<vector<pair<size_t, size_t>>> reverse_graph(path_nodes.size());
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            for (const pair<size_t, size_t>& edge : path_nodes[i].edges) {
+            for (const pair<size_t, size_t>& edge : path_nodes.at(i).edges) {
                 reverse_graph[edge.first].emplace_back(i, edge.second);
             }
         }
@@ -2573,7 +2584,7 @@ namespace vg {
         }
         for (size_t i : order) {
             for (const pair<size_t, size_t>& edge : reverse_graph[i]) {
-                path_nodes[edge.first].edges.emplace_back(i, edge.second);
+                path_nodes.at(edge.first).edges.emplace_back(i, edge.second);
             }
         }
     }
@@ -2587,7 +2598,7 @@ namespace vg {
         reorder_adjacency_lists(topological_order);
         
         for (size_t i : topological_order) {
-            vector<pair<size_t, size_t>>& edges = path_nodes[i].edges;
+            vector<pair<size_t, size_t>>& edges = path_nodes.at(i).edges;
             
             // if there is only one edge out of a node, that edge can never be transitive
             // (this optimization covers most cases)
@@ -2612,7 +2623,7 @@ namespace vg {
                 while (!stack.empty()) {
                     size_t idx = stack.back();
                     stack.pop_back();
-                    for (const pair<size_t, size_t>& edge_from : path_nodes[idx].edges) {
+                    for (const pair<size_t, size_t>& edge_from : path_nodes.at(idx).edges) {
                         if (!traversed.count(edge_from.first)) {
                             stack.push_back(edge_from.first);
                             traversed.insert(edge_from.first);
@@ -2639,12 +2650,12 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "removed transitive edges, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << pb2json(path_nodes[i].path.mapping(0).position()) << " ";
-            for (auto iter = path_nodes[i].begin; iter != path_nodes[i].end; iter++) {
+            cerr << "node " << i << ", " << pb2json(path_nodes.at(i).path.mapping(0).position()) << " ";
+            for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
             cerr << endl;
-            for (pair<size_t, size_t> edge : path_nodes[i].edges) {
+            for (pair<size_t, size_t> edge : path_nodes.at(i).edges) {
                 cerr << "\tto " << edge.first << ", dist " << edge.second << endl;
             }
         }
@@ -2673,13 +2684,13 @@ namespace vg {
         
         // compute the weight of edges and node matches
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            PathNode& from_node = path_nodes[i];
+            PathNode& from_node = path_nodes.at(i);
             node_weights[i] = aligner->match * (from_node.end - from_node.begin)
             + aligner->full_length_bonus * ((from_node.begin == alignment.sequence().begin())
                                             + (from_node.end == alignment.sequence().end()));
             
             for (const pair<size_t, size_t>& edge : from_node.edges) {
-                PathNode& to_node = path_nodes[edge.first];
+                PathNode& to_node = path_nodes.at(edge.first);
                 
                 int64_t graph_dist = edge.second;
                 int64_t read_dist = to_node.begin - from_node.end;
@@ -2712,7 +2723,7 @@ namespace vg {
         for (int64_t i = 0; i < topological_order.size(); i++) {
             size_t idx = topological_order[i];
             int32_t from_score = forward_scores[idx];
-            for (const pair<size_t, size_t>& edge : path_nodes[idx].edges) {
+            for (const pair<size_t, size_t>& edge : path_nodes.at(idx).edges) {
                 forward_scores[edge.first] = std::max(forward_scores[edge.first],
                                                       node_weights[edge.first] + from_score + edge_weights[make_pair(idx, edge.first)]);
             }
@@ -2722,7 +2733,7 @@ namespace vg {
         for (int64_t i = topological_order.size() - 1; i >= 0; i--) {
             size_t idx = topological_order[i];
             int32_t score_here = node_weights[idx];
-            for (const pair<size_t, size_t>& edge : path_nodes[idx].edges) {
+            for (const pair<size_t, size_t>& edge : path_nodes.at(idx).edges) {
                 backward_scores[idx] = std::max(backward_scores[idx],
                                                 score_here + backward_scores[edge.first] + edge_weights[make_pair(idx, edge.first)]);
             }
@@ -2738,7 +2749,7 @@ namespace vg {
         for (size_t i = 0; i < path_nodes.size(); i++) {
             if (forward_scores[i] + backward_scores[i] - node_weights[i] >= min_path_score) {
                 keep_nodes.insert(i);
-                for (const pair<size_t, size_t>& edge : path_nodes[i].edges) {
+                for (const pair<size_t, size_t>& edge : path_nodes.at(i).edges) {
                     if (forward_scores[i] + backward_scores[edge.first] + edge_weights[make_pair(i, edge.first)] >= min_path_score) {
                         keep_edges.emplace(i, edge.first);
                     }
@@ -2755,9 +2766,9 @@ namespace vg {
         for (size_t i = 0; i < path_nodes.size(); i++) {
             if (keep_nodes.count(i)) {
                 if (i != next) {
-                    path_nodes[next] = std::move(path_nodes[i]);
+                    path_nodes.at(next) = std::move(path_nodes.at(i));
                 }
-                vector<pair<size_t, size_t>>& edges = path_nodes[next].edges;
+                vector<pair<size_t, size_t>>& edges = path_nodes.at(next).edges;
                 
                 size_t new_end = edges.size();
                 for (size_t j = 0; j < new_end;) {
@@ -2781,12 +2792,12 @@ namespace vg {
 #ifdef debug_multipath_alignment
         cerr << "pruned to high scoring paths, topology is:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
-            cerr << "node " << i << ", " << pb2json(path_nodes[i].path.mapping(0).position()) << " ";
-            for (auto iter = path_nodes[i].begin; iter != path_nodes[i].end; iter++) {
+            cerr << "node " << i << ", " << pb2json(path_nodes.at(i).path.mapping(0).position()) << " ";
+            for (auto iter = path_nodes.at(i).begin; iter != path_nodes.at(i).end; iter++) {
                 cerr << *iter;
             }
             cerr << endl;
-            for (pair<size_t, size_t> edge : path_nodes[i].edges) {
+            for (pair<size_t, size_t> edge : path_nodes.at(i).edges) {
                 cerr << "\tto " << edge.first << ", dist " << edge.second << endl;
             }
         }
@@ -2821,7 +2832,7 @@ namespace vg {
         // add a subpath for each of the exact match nodes
         if (score_anchors_as_matches) {
             for (int64_t j = 0; j < path_nodes.size(); j++) {
-                PathNode& path_node = path_nodes[j];
+                PathNode& path_node = path_nodes.at(j);
                 Subpath* subpath = multipath_aln_out.add_subpath();
                 *subpath->mutable_path() = path_node.path;
                 int32_t match_score = aligner->score_exact_match(path_node.begin, path_node.end,
@@ -2834,7 +2845,7 @@ namespace vg {
         }
         else {
             for (size_t j = 0; j < path_nodes.size(); j++) {
-                PathNode& path_node = path_nodes[j];
+                PathNode& path_node = path_nodes.at(j);
                 Subpath* subpath = multipath_aln_out.add_subpath();
                 *subpath->mutable_path() = path_node.path;
                 
@@ -2849,14 +2860,14 @@ namespace vg {
         // perform alignment in the intervening sections
         for (int64_t j = 0; j < path_nodes.size(); j++) {
 #ifdef debug_multipath_alignment
-            cerr << "checking for intervening alignments from match node " << j << " with path " << pb2json(path_nodes[j].path) << " and sequence ";
-            for (auto iter = path_nodes[j].begin; iter != path_nodes[j].end; iter++) {
+            cerr << "checking for intervening alignments from match node " << j << " with path " << pb2json(path_nodes.at(j).path) << " and sequence ";
+            for (auto iter = path_nodes.at(j).begin; iter != path_nodes.at(j).end; iter++) {
                 cerr << *iter;
             }
             cerr << endl;
 #endif
             
-            PathNode& src_path_node = path_nodes[j];
+            PathNode& src_path_node = path_nodes.at(j);
             Subpath* src_subpath = multipath_aln_out.mutable_subpath(j);
             
             const Path& path = src_subpath->path();
@@ -2873,7 +2884,7 @@ namespace vg {
             unordered_set<pair<size_t, size_t>> edges_for_removal;
             
             for (const pair<size_t, size_t>& edge : src_path_node.edges) {
-                PathNode& dest_path_node = path_nodes[edge.first];
+                PathNode& dest_path_node = path_nodes.at(edge.first);
                 pos_t dest_pos = make_pos_t(multipath_aln_out.subpath(edge.first).path().mapping(0).position());
                 
 #ifdef debug_multipath_alignment
@@ -3023,7 +3034,7 @@ namespace vg {
         
         vector<bool> is_source_node(path_nodes.size(), true);
         for (size_t j = 0; j < path_nodes.size(); j++) {
-            PathNode& path_node = path_nodes[j];
+            PathNode& path_node = path_nodes.at(j);
             if (path_node.edges.empty()) {
                 if (path_node.end != alignment.sequence().end()) {
     
@@ -3088,7 +3099,7 @@ namespace vg {
                             edit->set_sequence(right_tail_sequence.sequence());
                             
                             // make it at the correct position
-                            const Path& anchoring_path = path_nodes[j].path;
+                            const Path& anchoring_path = path_nodes.at(j).path;
                             const Mapping& anchoring_mapping = anchoring_path.mapping(anchoring_path.mapping_size() - 1);
                             Position* anchoring_position = insert_mapping->mutable_position();
                             anchoring_position->set_node_id(anchoring_mapping.position().node_id());
@@ -3153,7 +3164,7 @@ namespace vg {
         
         for (size_t j = 0; j < path_nodes.size(); j++) {
             if (is_source_node[j]) {
-                PathNode& path_node = path_nodes[j];
+                PathNode& path_node = path_nodes.at(j);
                 if (path_node.begin != alignment.sequence().begin()) {
                     
                     int64_t target_length = (path_node.begin - alignment.sequence().begin()) +
@@ -3202,7 +3213,7 @@ namespace vg {
                             edit->set_sequence(left_tail_sequence.sequence());
                             
                             // make it at the correct position
-                            *insert_mapping->mutable_position() = path_nodes[j].path.mapping(0).position();
+                            *insert_mapping->mutable_position() = path_nodes.at(j).path.mapping(0).position();
 #ifdef debug_multipath_alignment
                             cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
 #endif
@@ -3366,12 +3377,12 @@ namespace vg {
         for (size_t i = 0; i < path_nodes.size(); i++) {
             // For each node, say the node itself as a mapping node, annotated with match length
             out << "m" << i << " [label=\"" << i << "\" shape=circle tooltip=\""
-                << (path_nodes[i].end - path_nodes[i].begin) << " bp\"];" << endl;
-            for (pair<size_t, size_t> edge : path_nodes[i].edges) {
+                << (path_nodes.at(i).end - path_nodes.at(i).begin) << " bp\"];" << endl;
+            for (pair<size_t, size_t> edge : path_nodes.at(i).edges) {
                 // For each edge from it, say where it goes and how far it skips
                 out << "m" << i << " -> m" << edge.first << " [label=" << edge.second << "];" << endl;
             }
-            auto& path = path_nodes[i].path;
+            auto& path = path_nodes.at(i).path;
             for (size_t j = 0; j < path.mapping_size(); j++) {
                 // For each mapping in the path, show the vg node in the graph too
                 auto node_id = path.mapping(j).position().node_id();
@@ -3408,7 +3419,7 @@ namespace vg {
         
         for (size_t i = 0; i < path_nodes.size(); i++) {
             // For each node
-            for (auto& edge : path_nodes[i].edges) {
+            for (auto& edge : path_nodes.at(i).edges) {
                 // For each outgoing edge...
                 
                 // Union both ends into the same component.
@@ -3427,7 +3438,7 @@ namespace vg {
             
             for (auto& path_node : component) {
                 // For each path in the vg graph used by the component
-                auto& path = path_nodes[path_node].path;
+                auto& path = path_nodes.at(path_node).path;
                 
                 for (auto& mapping : path.mapping()) {
                     // For each mapping in the path, remember its vg graph node

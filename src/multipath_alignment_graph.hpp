@@ -42,6 +42,10 @@ namespace vg {
         /// making it a member.
         static unordered_multimap<id_t, pair<id_t, bool>> create_injection_trans(const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
+        /// Create an identity projection translation from a DAG that did not
+        /// need to be modified during dagification.
+        static unordered_map<id_t, pair<id_t, bool>> create_identity_projection_trans(const VG& vg);
+        
         /// Construct a graph of the reachability between MEMs in a DAG-ified
         /// graph. If a GCSA is specified, use it to collapse MEMs whose
         /// lengths bump up against the GCSA's order limit on MEM length.
