@@ -39,7 +39,8 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // We need a fake read
     string read("GATTACA");
     
-    // Pack it into an Alignment
+    // Pack it into an Alignment.
+    // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
     Alignment query;
     query.set_sequence(read);
     
@@ -54,7 +55,7 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
     
     // Make a MEM hit
-    mems.emplace_back(read.begin(), ++read.begin(), make_pair(5, 5), 1);
+    mems.emplace_back(query.sequence().begin(), ++query.sequence().begin(), make_pair(5, 5), 1);
     // Drop it on node 1 where it should sit
     mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
     

@@ -116,14 +116,23 @@ namespace vg {
                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
                                     
-        /// Do intervening and tail alignments between the anchoring paths and store the result
-        /// in a MultipathAlignment. Reachability edges must be in the graph.
+        /// Do intervening and tail alignments between the anchoring paths and
+        /// store the result in a MultipathAlignment. Reachability edges must
+        /// be in the graph. The Alignment passed *must* be the same Alignment
+        /// that owns the sequence into which iterators were passed when the
+        /// MultipathAlignmentGraph was constructed! TODO: Shouldn't the class
+        /// hold a reference to the Alignment then?
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
         
-        /// Do intervening and tail alignments between the anchoring paths and store the result
-        /// in a MultipathAlignment. Reachability edges must be in the graph. Also, choose the
-        /// band padding dynamically as a function of the inter-MEM sequence and graph
+        /// Do intervening and tail alignments between the anchoring paths and
+        /// store the result in a MultipathAlignment. Reachability edges must
+        /// be in the graph. Also, choose the band padding dynamically as a
+        /// function of the inter-MEM sequence and graph. The Alignment passed
+        /// *must* be the same Alignment that owns the sequence into which
+        /// iterators were passed when the MultipathAlignmentGraph was
+        /// constructed! TODO: Shouldn't the class hold a reference to the
+        /// Alignment then?
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns,
                    function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
