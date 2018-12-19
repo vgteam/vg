@@ -3032,6 +3032,111 @@ namespace vg {
             }
         }
         
+        
+        // Now do the tails
+        
+        // We need to know what subpaths are real sources
+        unordered_set<size_t> sources;
+        
+        // Actually align the tails
+        auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, &sources);
+        
+        // Handle the right tails
+        
+        for (auto& kv : tail_alignments[true]) {
+            // For each sink subpath number
+            const size_t& j = kv.first;
+            // And the tail alignments from it
+            const vector<Alignment>& alt_alignments = kv.second;
+        
+            PathNode& path_node = path_nodes.at(j);
+            
+            Subpath* sink_subpath = multipath_aln_out.mutable_subpath(j);
+            
+            const Mapping& final_mapping = path_node.path.mapping(path_node.path.mapping_size() - 1);
+            
+            pos_t end_pos = final_position(path_node.path);
+            // want past-the-last instead of last index here
+            get_offset(end_pos)++;
+                    
+            for (const Alignment& tail_alignment : alt_alignments) {
+                
+                sink_subpath->add_next(multipath_aln_out.subpath_size());
+                
+                Subpath* tail_subpath = multipath_aln_out.add_subpath();
+                *tail_subpath->mutable_path() = tail_alignment.path();
+                tail_subpath->set_score(tail_alignment.score());
+                
+                Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
+                if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
+                    first_mapping->mutable_position()->set_offset(offset(end_pos));
+                }
+                else if (tail_alignment.path().mapping_size() == 1 && first_mapping->edit_size() == 1
+                         && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() > 0
+                         && first_mapping->position().node_id() != final_mapping.position().node_id()) {
+                    // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
+                    // of the match node to match invariants expected by other parts of the code base
+                    Position* pos = first_mapping->mutable_position();
+                    pos->set_node_id(final_mapping.position().node_id());
+                    pos->set_is_reverse(final_mapping.position().is_reverse());
+                    pos->set_offset(final_mapping.position().offset() + mapping_from_length(final_mapping));
+                }
+#ifdef debug_multipath_alignment
+                cerr << "subpath from " << j << " to right tail:" << endl;
+                cerr << pb2json(*tail_subpath) << endl;
+#endif
+            }
+        }
+        
+        // Now handle the left tails.
+        // We need to handle all sources, whether or not they got alignments
+        for (auto& j : sources) {
+            PathNode& path_node = path_nodes.at(j);
+                
+            if (path_node.begin != alignment.sequence().begin()) {
+                
+                // There should be some alignments
+                vector<Alignment>& alt_alignments = tail_alignments[false][j];
+                
+                const Mapping& first_mapping = path_node.path.mapping(0);
+                for (Alignment& tail_alignment : alt_alignments) {
+                    Subpath* tail_subpath = multipath_aln_out.add_subpath();
+                    *tail_subpath->mutable_path() = tail_alignment.path();
+                    tail_subpath->set_score(tail_alignment.score());
+                    
+                    tail_subpath->add_next(j);
+                    multipath_aln_out.add_start(multipath_aln_out.subpath_size() - 1);
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "subpath from " << j << " to left tail:" << endl;
+                    cerr << pb2json(*tail_subpath) << endl;
+#endif
+                    Mapping* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
+                    if (tail_subpath->path().mapping_size() == 1 && final_mapping->edit_size() == 1
+                        && final_mapping->edit(0).from_length() == 0 && final_mapping->edit(0).to_length() > 0
+                        && final_mapping->position().node_id() != first_mapping.position().node_id()) {
+                        // this is a pure soft clip on the end of the previous node, so we move it over to the
+                        // beginning of the match node to match invariants in rest of code base
+                        *final_mapping->mutable_position() = first_mapping.position();
+                    }
+                }
+            }
+            else {
+                multipath_aln_out.add_start(j);
+            }
+        }
+    }
+    
+    unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
+    MultipathAlignmentGraph::align_tails(const Alignment& alignment, VG& align_graph,
+                                         BaseAligner* aligner, size_t max_alt_alns,
+                                         bool dynamic_alt_alns, unordered_set<size_t>* sources) {
+        
+        // Make a structure to populate
+        unordered_map<bool, unordered_map<size_t, vector<Alignment>>> to_return;
+        auto& left_alignments = to_return[false];
+        auto& right_alignments = to_return[true];
+        
         vector<bool> is_source_node(path_nodes.size(), true);
         for (size_t j = 0; j < path_nodes.size(); j++) {
             PathNode& path_node = path_nodes.at(j);
@@ -3045,8 +3150,6 @@ namespace vg {
                     }
                     cerr << endl;
 #endif
-                    
-                    Subpath* sink_subpath = multipath_aln_out.mutable_subpath(j);
                     
                     int64_t target_length = ((alignment.sequence().end() - path_node.end) +
                                              aligner->longest_detectable_gap(alignment, path_node.end));
@@ -3065,7 +3168,6 @@ namespace vg {
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) :
                                                              max_alt_alns;
                     
-                    vector<Alignment> alt_alignments;
                     if (num_alt_alns > 0) {
                     
                         Graph& tail_graph = tail_graph_extractor.graph;
@@ -3086,6 +3188,7 @@ namespace vg {
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
 #endif
                         
+                        auto& alt_alignments = right_alignments[j];
                         if (tail_graph.node_size() == 0) {
                             // edge case for when a read keeps going past the end of a graph
                             alt_alignments.emplace_back();
@@ -3117,51 +3220,28 @@ namespace vg {
                             
                             aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                         }
+                        
+                        // Translate back into non-extracted graph
+                        for (auto& aln : alt_alignments) {
+                            translate_node_ids(*aln.mutable_path(), tail_trans);
+                        }
                     }
                     
 #ifdef debug_multipath_alignment
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
-                    
-                    const Mapping& final_mapping = path_node.path.mapping(path_node.path.mapping_size() - 1);
-                    
-                    for (Alignment& tail_alignment : alt_alignments) {
-                        
-                        sink_subpath->add_next(multipath_aln_out.subpath_size());
-                        
-                        Subpath* tail_subpath = multipath_aln_out.add_subpath();
-                        *tail_subpath->mutable_path() = tail_alignment.path();
-                        tail_subpath->set_score(tail_alignment.score());
-                        
-                        translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
-                        Mapping* first_mapping = tail_subpath->mutable_path()->mutable_mapping(0);
-                        if (first_mapping->position().node_id() == final_mapping.position().node_id()) {
-                            first_mapping->mutable_position()->set_offset(offset(end_pos));
-                        }
-                        else if (tail_alignment.path().mapping_size() == 1 && first_mapping->edit_size() == 1
-                                 && first_mapping->edit(0).from_length() == 0 && first_mapping->edit(0).to_length() > 0
-                                 && first_mapping->position().node_id() != final_mapping.position().node_id()) {
-                            // this is a pure soft-clip on the beginning of the next node, we'll move it to the end
-                            // of the match node to match invariants expected by other parts of the code base
-                            Position* pos = first_mapping->mutable_position();
-                            pos->set_node_id(final_mapping.position().node_id());
-                            pos->set_is_reverse(final_mapping.position().is_reverse());
-                            pos->set_offset(final_mapping.position().offset() + mapping_from_length(final_mapping));
-                        }
-#ifdef debug_multipath_alignment
-                        cerr << "subpath from " << j << " to right tail:" << endl;
-                        cerr << pb2json(*tail_subpath) << endl;
-#endif
-                    }
                 }
             }
             else {
+                // We go places from here.
                 for (const pair<size_t, size_t>& edge : path_node.edges) {
+                    // Makr everywhere we go as not a source
                     is_source_node[edge.first] = false;
                 }
             }
         }
         
+        // Now we know all the sources so we can do them and the left tails.
         for (size_t j = 0; j < path_nodes.size(); j++) {
             if (is_source_node[j]) {
                 PathNode& path_node = path_nodes.at(j);
@@ -3183,7 +3263,6 @@ namespace vg {
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : 
                                                              max_alt_alns;
                             
-                    vector<Alignment> alt_alignments;
                     if (num_alt_alns > 0) {
                     
                         Graph& tail_graph = tail_graph_extractor.graph;
@@ -3200,6 +3279,8 @@ namespace vg {
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
 #endif
+                        
+                        auto& alt_alignments = left_alignments[j];
                         if (tail_graph.node_size() == 0) {
                             // edge case for when a read keeps going past the end of a graph
                             alt_alignments.emplace_back();
@@ -3224,40 +3305,29 @@ namespace vg {
                         else {
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
+                        
+                        // Translate back into non-extracted graph
+                        for (auto& aln : alt_alignments) {
+                            translate_node_ids(*aln.mutable_path(), tail_trans);
+                        }
                     }
                     
 #ifdef debug_multipath_alignment
                     cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
-                    const Mapping& first_mapping = path_node.path.mapping(0);
-                    for (Alignment& tail_alignment : alt_alignments) {
-                        Subpath* tail_subpath = multipath_aln_out.add_subpath();
-                        *tail_subpath->mutable_path() = tail_alignment.path();
-                        tail_subpath->set_score(tail_alignment.score());
-                        
-                        tail_subpath->add_next(j);
-                        multipath_aln_out.add_start(multipath_aln_out.subpath_size() - 1);
-                        
-                        translate_node_ids(*tail_subpath->mutable_path(), tail_trans);
-#ifdef debug_multipath_alignment
-                        cerr << "subpath from " << j << " to left tail:" << endl;
-                        cerr << pb2json(*tail_subpath) << endl;
-#endif
-                        Mapping* final_mapping = tail_subpath->mutable_path()->mutable_mapping(tail_subpath->path().mapping_size() - 1);
-                        if (tail_subpath->path().mapping_size() == 1 && final_mapping->edit_size() == 1
-                            && final_mapping->edit(0).from_length() == 0 && final_mapping->edit(0).to_length() > 0
-                            && final_mapping->position().node_id() != first_mapping.position().node_id()) {
-                            // this is a pure soft clip on the end of the previous node, so we move it over to the
-                            // beginning of the match node to match invariants in rest of code base
-                            *final_mapping->mutable_position() = first_mapping.position();
-                        }
-                    }
                 }
                 else {
-                    multipath_aln_out.add_start(j);
+                    // This is a source subpath but we have no tail to the left.
+                    if (sources != nullptr) {
+                        // Remember it.
+                        sources->insert(j);
+                    }
                 }
             }
         }
+        
+        // Return all the alignments, organized by tail and subpath
+        return to_return;
     }
     
     void MultipathAlignmentGraph::groom_graph_for_gssw(Graph& graph) {

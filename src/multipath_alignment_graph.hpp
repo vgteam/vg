@@ -111,6 +111,19 @@ namespace vg {
         void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                       int64_t max_snarl_cut_size = 5);
         
+        
+        /// Do some exploratory alignments of the tails of the graph, outside
+        /// the outermost existing anchors, and define new anchoring paths from
+        /// them. After this, you can call resect_snarls_from_paths, in order
+        /// to get better coverage of possible combinations of snarl traversals
+        /// in parts of the alignment that didn't originally have anchors. The
+        /// Alignment passed *must* be the same Alignment that owns the
+        /// sequence into which iterators were passed when the
+        /// MultipathAlignmentGraph was constructed! TODO: Shouldn't the class
+        /// hold a reference to the Alignment then?
+        void synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
+                                     size_t max_alt_alns, bool dynamic_alt_alns);
+        
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(VG& vg,
                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
@@ -180,10 +193,21 @@ namespace vg {
         /// ordering of their target nodes
         void reorder_adjacency_lists(const vector<size_t>& order);
         
-        // Reorders the nodes of a Protobuf graph in topological order, flips doubly reversing edges,
-        // and removes empty sequence nodes (invariants required for gssw alignment)
-        // TODO: this is duplicative with VG::lazy_sort, but I don't want to construct a VG here
+        /// Reorders the nodes of a Protobuf graph in topological order, flips doubly reversing edges,
+        /// and removes empty sequence nodes (invariants required for gssw alignment)
+        /// TODO: this is duplicative with VG::lazy_sort, but I don't want to construct a VG here
         void groom_graph_for_gssw(Graph& graph);
+        
+        /// Generate alignments of the tails of the query sequence, beyond the
+        /// sources and sinks. The Alignment passed *must* be the one that owns
+        /// the sequence we are working on. Returns a map from tail
+        /// (left=false, right=true), to a map from subpath number to all the
+        /// Alignments of the tail off of that subpath. Also computes the
+        /// source subpaths and adds their numbers to the given set if not
+        /// null.
+        unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
+        align_tails(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
+                    size_t max_alt_alns, bool dynamic_alt_alns, unordered_set<size_t>* sources = nullptr);
     };
 }
 

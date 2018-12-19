@@ -18,13 +18,17 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
             {"id": 1, "sequence": "GATT"},
             {"id": 2, "sequence": "A"},
             {"id": 3, "sequence": "G"},
-            {"id": 4, "sequence": "CA"}
+            {"id": 4, "sequence": "C"},
+            {"id": 5, "sequence": "A"},
+            {"id": 6, "sequence": "G"}
         ],
         "edge": [
             {"from": 1, "to": 2},
             {"from": 1, "to": 3},
             {"from": 2, "to": 4},
-            {"from": 3, "to": 4}
+            {"from": 3, "to": 4},
+            {"from": 4, "to": 5},
+            {"from": 4, "to": 6}
         ]
     })";
     
@@ -79,6 +83,21 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // Make sure it worked at all
     REQUIRE(out.sequence() == read);
     REQUIRE(out.subpath_size() > 0);
+    
+    set<id_t> seen_nodes;
+    for (auto& s : out.subpath()) {
+        // We should have (at least) one on each node. Although we may have divided subpaths on node 1.
+        REQUIRE(s.path().mapping_size() == 1);
+        seen_nodes.insert(s.path().mapping(0).position().node_id());
+    }
+    
+    REQUIRE(seen_nodes.size() == 6);
+    REQUIRE(seen_nodes.count(1));
+    REQUIRE(seen_nodes.count(2));
+    REQUIRE(seen_nodes.count(3));
+    REQUIRE(seen_nodes.count(4));
+    REQUIRE(seen_nodes.count(5));
+    REQUIRE(seen_nodes.count(6));
 }
 
 }
