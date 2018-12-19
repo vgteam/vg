@@ -40,6 +40,10 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     VG vg;
     vg.extend(proto_graph);
     
+    // Make snarls on it
+    CactusSnarlFinder bubble_finder(vg);
+    SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+    
     // We need a fake read
     string read("GATTACA");
     
@@ -58,8 +62,8 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // Note that this is also a memcluster_t
     vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
     
-    // Make a MEM hit
-    mems.emplace_back(query.sequence().begin(), ++query.sequence().begin(), make_pair(5, 5), 1);
+    // Make a MEM hit over all of node 1's sequence
+    mems.emplace_back(query.sequence().begin(), query.sequence().begin() + 4, make_pair(5, 5), 1);
     // Drop it on node 1 where it should sit
     mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
     
@@ -75,10 +79,14 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // Make the output MultipathAlignment
     MultipathAlignment out;
     
+    // Generate fake tail anchors
+    mpg.synthesize_tail_anchors(query, vg, &aligner, 4, false);
+    
+    // Cut new anchors on snarls
+    mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
+    
     // Make it align
     mpg.align(query, vg, &aligner, true, 4, false, 5, out);
-    
-    cerr << pb2json(out) << endl;
     
     // Make sure it worked at all
     REQUIRE(out.sequence() == read);
@@ -86,9 +94,10 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     
     set<id_t> seen_nodes;
     for (auto& s : out.subpath()) {
-        // We should have (at least) one on each node. Although we may have divided subpaths on node 1.
-        REQUIRE(s.path().mapping_size() == 1);
-        seen_nodes.insert(s.path().mapping(0).position().node_id());
+        // We should have (at least) one single-node subpath on each node.
+        if (s.path().mapping_size() == 1) {
+            seen_nodes.insert(s.path().mapping(0).position().node_id());
+        }
     }
     
     REQUIRE(seen_nodes.size() == 6);

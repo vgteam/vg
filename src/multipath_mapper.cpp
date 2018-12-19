@@ -2966,9 +2966,12 @@ namespace vg {
             multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
                                                         max_suboptimal_path_score_ratio, topological_order);
         }
-                      
+        
         if (snarl_manager) {
             // We want to do snarl cutting
+            
+            // Make fake anchor paths to cut the snarls out of in the tails
+            multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), num_alt_alns, dynamic_max_alt_alns);
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
