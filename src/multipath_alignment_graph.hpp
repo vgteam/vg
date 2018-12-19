@@ -173,6 +173,13 @@ namespace vg {
         /// If this is unset and you want it set, use add_reachability_edges().
         bool has_reachability_edges = false;
         
+        /// Trim down the given PathNode of everything except softclips.
+        /// Return true if it all gets trimmed away and should be removed.
+        /// Fills in removed_start_from_length and/or removed_end_from_length
+        /// with the bases in the graph removed from the path on each end
+        /// during trimming, if set.
+        static bool trim_and_check_for_empty(const Alignment& alignment, PathNode& path_node,
+            int64_t* removed_start_from_length = nullptr, int64_t* removed_end_from_length = nullptr);
         
         /// Add the path chunks as nodes to the connectivity graph
         void create_path_chunk_nodes(VG& vg, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,

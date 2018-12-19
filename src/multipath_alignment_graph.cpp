@@ -240,7 +240,141 @@ namespace vg {
             }
         }
     }
+   
     
+    bool MultipathAlignmentGraph::trim_and_check_for_empty(const Alignment& alignment, PathNode& path_node,
+        int64_t* removed_start_from_length, int64_t* removed_end_from_length) {
+        
+        // Trim down the given PathNode of everything except softclips.
+        // Return true if it all gets trimmed away and should be removed.
+        Path& path = path_node.path;
+            
+        int64_t mapping_start_idx = 0;
+        int64_t mapping_last_idx = path.mapping_size() - 1;
+        
+        int64_t edit_start_idx = 0;
+        int64_t edit_last_idx = path.mapping(mapping_last_idx).edit_size() - 1;
+        
+        // don't cut off softclips (we assume the entire softclip is in one edit and the next edit is aligned bases)
+        bool softclip_start = (path.mapping(0).edit(0).from_length() == 0 &&
+                               path.mapping(0).edit(0).to_length() > 0 &&
+                               path_node.begin == alignment.sequence().begin());
+        
+        bool softclip_end = (path.mapping(mapping_last_idx).edit(edit_last_idx).from_length() == 0 &&
+                             path.mapping(mapping_last_idx).edit(edit_last_idx).to_length() > 0 &&
+                             path_node.end == alignment.sequence().end());
+        
+        // Track how much we trim off each end
+        int64_t removed_start_to_length = 0;
+        int64_t removed_end_to_length = 0;
+        if (removed_start_from_length != nullptr) {
+            *removed_start_from_length = 0;
+        }
+        if (removed_end_from_length != nullptr) {
+            *removed_end_from_length = 0;
+        }
+        
+        int64_t removed_start_mapping_from_length = 0;
+        
+        // find the first aligned, non-N bases from the start of the path
+        if (!softclip_start) {
+            bool found_start = false;
+            for (; mapping_start_idx < path.mapping_size(); mapping_start_idx++) {
+                const Mapping& mapping = path.mapping(mapping_start_idx);
+                removed_start_mapping_from_length = 0;
+                for (edit_start_idx = 0; edit_start_idx < mapping.edit_size(); edit_start_idx++) {
+                    const Edit& edit = mapping.edit(edit_start_idx);
+                    
+                    if (edit.from_length() > 0 && edit.to_length() > 0 &&
+                        (edit.sequence().empty() || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
+                        found_start = true;
+                        break;
+                    }
+                    removed_start_to_length += edit.to_length();
+                    removed_start_mapping_from_length += edit.from_length();
+                }
+                
+                if (removed_start_from_length != nullptr) {
+                    // Record how much we trimmed
+                    *removed_start_from_length += removed_start_mapping_from_length;
+                }
+                
+                if (found_start) {
+                    break;
+                }
+            }
+        }
+        
+        // find the first aligned bases from the end of the path
+        if (!softclip_end) {
+            bool found_last = false;
+            for (; mapping_last_idx >= 0; mapping_last_idx--) {
+                const Mapping& mapping = path.mapping(mapping_last_idx);
+                for (edit_last_idx = mapping.edit_size() - 1; edit_last_idx >= 0; edit_last_idx--) {
+                    const Edit& edit = mapping.edit(edit_last_idx);
+                    if (edit.from_length() > 0 && edit.to_length() > 0 &&
+                        (edit.sequence().empty() || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
+                        found_last = true;
+                        break;
+                    }
+                    removed_end_to_length += edit.to_length();
+                    if (removed_end_from_length != nullptr) {
+                        *removed_end_from_length += edit.to_length();
+                    }
+                }
+                if (found_last) {
+                    break;
+                }
+            }
+        }
+#ifdef debug_multipath_alignment
+        cerr << "after removing non-softclip flanking indels and N matches, path goes from (" << mapping_start_idx << ", " << edit_start_idx << ") to (" << mapping_last_idx << ", " << edit_last_idx << ")" << endl;
+#endif
+        
+        // did we find any indels?
+        if (mapping_start_idx != 0 || mapping_last_idx + 1 != path.mapping_size() ||
+            edit_start_idx != 0 || edit_last_idx + 1 != path.mapping(mapping_last_idx).edit_size()) {
+            
+            // would we need to trim the whole node?
+            if (mapping_start_idx < mapping_last_idx ||
+                (mapping_start_idx == mapping_last_idx && edit_start_idx <= edit_last_idx)) {
+                
+                // update the read interval
+                path_node.begin += removed_start_to_length;
+                path_node.end -= removed_end_to_length;
+                
+                // make a new path with the indels trimmed
+                Path trimmed_path;
+                for (int64_t j = mapping_start_idx; j <= mapping_last_idx; j++) {
+                    const Mapping& mapping = path.mapping(j);
+                    const Position& position = mapping.position();
+                    
+                    Mapping* new_mapping = trimmed_path.add_mapping();
+                    Position* new_position = new_mapping->mutable_position();
+                    
+                    new_position->set_node_id(position.node_id());
+                    new_position->set_is_reverse(position.is_reverse());
+                    new_position->set_offset(position.offset() + (j == mapping_start_idx ? removed_start_mapping_from_length : 0));
+                    
+                    size_t k_start = (j == mapping_start_idx ? edit_start_idx : 0);
+                    size_t k_end = (j == mapping_last_idx ? edit_last_idx + 1 : mapping.edit_size());
+                    for (size_t k = k_start; k < k_end; k++) {
+                        *new_mapping->add_edit() = mapping.edit(k);
+                    }
+                }
+                
+                path_node.path = move(trimmed_path);
+            }
+            else {
+                // We do need to remove the whole node; now it is empty.
+                return true;
+            }
+        }
+        
+        // The node itself can stay
+        return false;
+    }
+   
     void MultipathAlignmentGraph::trim_hanging_indels(const Alignment& alignment) {
         
         // if the path begins or ends with any gaps we have to remove them to make the score
@@ -251,111 +385,10 @@ namespace vg {
         for (size_t i = 0; i < path_nodes.size(); i++) {
             
             PathNode& path_node = path_nodes.at(i);
-            Path& path = path_node.path;
             
-            int64_t mapping_start_idx = 0;
-            int64_t mapping_last_idx = path.mapping_size() - 1;
-            
-            int64_t edit_start_idx = 0;
-            int64_t edit_last_idx = path.mapping(mapping_last_idx).edit_size() - 1;
-            
-            // don't cut off softclips (we assume the entire softclip is in one edit and the next edit is aligned bases)
-            bool softclip_start = (path.mapping(0).edit(0).from_length() == 0 &&
-                                   path.mapping(0).edit(0).to_length() > 0 &&
-                                   path_node.begin == alignment.sequence().begin());
-            
-            bool softclip_end = (path.mapping(mapping_last_idx).edit(edit_last_idx).from_length() == 0 &&
-                                 path.mapping(mapping_last_idx).edit(edit_last_idx).to_length() > 0 &&
-                                 path_node.end == alignment.sequence().end());
-            
-            int64_t removed_start_to_length = 0;
-            int64_t removed_end_to_length = 0;
-            
-            int64_t removed_start_mapping_from_length = 0;
-            
-            // find the first aligned, non-N bases from the start of the path
-            if (!softclip_start) {
-                bool found_start = false;
-                for (; mapping_start_idx < path.mapping_size(); mapping_start_idx++) {
-                    const Mapping& mapping = path.mapping(mapping_start_idx);
-                    removed_start_mapping_from_length = 0;
-                    for (edit_start_idx = 0; edit_start_idx < mapping.edit_size(); edit_start_idx++) {
-                        const Edit& edit = mapping.edit(edit_start_idx);
-                        
-                        if (edit.from_length() > 0 && edit.to_length() > 0 &&
-                            (edit.sequence().empty() || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
-                            found_start = true;
-                            break;
-                        }
-                        removed_start_to_length += edit.to_length();
-                        removed_start_mapping_from_length += edit.from_length();
-                    }
-                    if (found_start) {
-                        break;
-                    }
-                }
-            }
-            
-            // find the first aligned bases from the end of the path
-            if (!softclip_end) {
-                bool found_last = false;
-                for (; mapping_last_idx >= 0; mapping_last_idx--) {
-                    const Mapping& mapping = path.mapping(mapping_last_idx);
-                    for (edit_last_idx = mapping.edit_size() - 1; edit_last_idx >= 0; edit_last_idx--) {
-                        const Edit& edit = mapping.edit(edit_last_idx);
-                        if (edit.from_length() > 0 && edit.to_length() > 0 &&
-                            (edit.sequence().empty() || any_of(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}))) {
-                            found_last = true;
-                            break;
-                        }
-                        removed_end_to_length += edit.to_length();
-                    }
-                    if (found_last) {
-                        break;
-                    }
-                }
-            }
-#ifdef debug_multipath_alignment
-            cerr << "after removing non-softclip flanking indels and N matches, path goes from (" << mapping_start_idx << ", " << edit_start_idx << ") to (" << mapping_last_idx << ", " << edit_last_idx << ")" << endl;
-#endif
-            
-            // did we find any indels?
-            if (mapping_start_idx != 0 || mapping_last_idx + 1 != path.mapping_size() ||
-                edit_start_idx != 0 || edit_last_idx + 1 != path.mapping(mapping_last_idx).edit_size()) {
-                
-                // would we need to trim the whole node?
-                if (mapping_start_idx < mapping_last_idx ||
-                    (mapping_start_idx == mapping_last_idx && edit_start_idx <= edit_last_idx)) {
-                    
-                    // update the read interval
-                    path_node.begin += removed_start_to_length;
-                    path_node.end -= removed_end_to_length;
-                    
-                    // make a new path with the indels trimmed
-                    Path trimmed_path;
-                    for (int64_t j = mapping_start_idx; j <= mapping_last_idx; j++) {
-                        const Mapping& mapping = path.mapping(j);
-                        const Position& position = mapping.position();
-                        
-                        Mapping* new_mapping = trimmed_path.add_mapping();
-                        Position* new_position = new_mapping->mutable_position();
-                        
-                        new_position->set_node_id(position.node_id());
-                        new_position->set_is_reverse(position.is_reverse());
-                        new_position->set_offset(position.offset() + (j == mapping_start_idx ? removed_start_mapping_from_length : 0));
-                        
-                        size_t k_start = (j == mapping_start_idx ? edit_start_idx : 0);
-                        size_t k_end = (j == mapping_last_idx ? edit_last_idx + 1 : mapping.edit_size());
-                        for (size_t k = k_start; k < k_end; k++) {
-                            *new_mapping->add_edit() = mapping.edit(k);
-                        }
-                    }
-                    
-                    path_node.path = move(trimmed_path);
-                }
-                else {
-                    to_remove.insert(i);
-                }
+            if (trim_and_check_for_empty(alignment, path_node)) {
+                // We trimmed it and it all trimmed away
+                to_remove.insert(i);
             }
         }
         
@@ -1216,6 +1249,83 @@ namespace vg {
                 }
             }
         }
+    }
+    
+    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
+                                                          size_t max_alt_alns, bool dynamic_alt_alns) {
+    
+        
+        // Align the tails, not collecting a set of source subpaths.
+        auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, nullptr);
+        
+        for (auto kv : tail_alignments[false]) {
+            // For each alignment we get on the left
+            auto& aligned_before = kv.first;
+            auto& alns = kv.second;
+            
+            for (auto& aln : alns) {
+                // Make a new PathNode corresponding to the aligned part of the sequence
+                path_nodes.emplace_back();
+                PathNode& new_node = path_nodes.back();
+                Path& new_path = new_node.path;
+                
+                // Work out what part of the alignment we correspond to and fill that in.
+                // It's going to be from the start up to as much as we aligned.
+                new_node.begin = alignment.sequence().begin();
+                new_node.end = new_node.begin + aln.sequence().size();
+                
+                // Fill in the whole path
+                new_path = aln.path();
+               
+                int64_t trimmed_end_from_length;
+                if (trim_and_check_for_empty(alignment, new_node, nullptr, &trimmed_end_from_length)) {
+                    // We trimmed off hanging indels, and we trimmed away the whole node!
+                    // Don't actually add it.
+                    path_nodes.pop_back();
+                } else {
+                    // Link it up to the PathNode it was aligned off of with a reachability edge
+                    // Make sure to account for any trimmed length on the right of the path.
+                    // We need an edge length equal to the total from_length trimmed off.
+                    new_node.edges.emplace_back(aligned_before, trimmed_end_from_length);
+                }
+            }
+        }
+        
+        for (auto kv : tail_alignments[true]) {
+            // For each alignment we get on the right
+            auto& aligned_after = kv.first;
+            auto& alns = kv.second;
+            
+            for (auto& aln : alns) {
+                // Make a new PathNode corresponding to the aligned part of the sequence
+                path_nodes.emplace_back();
+                PathNode& new_node = path_nodes.back();
+                Path& new_path = new_node.path;
+                
+                // Work out what part of the alignment we correspond to and fill that in.
+                // It's going to be from the end back by as much as we aligned.
+                new_node.end = alignment.sequence().end();
+                new_node.begin = new_node.end - aln.sequence().size();
+                
+                // Fill in the whole path
+                new_path = aln.path();
+               
+                int64_t trimmed_start_from_length;
+                if (trim_and_check_for_empty(alignment, new_node, &trimmed_start_from_length, nullptr)) {
+                    // We trimmed off hanging indels, and we trimmed away the whole node!
+                    // Don't actually add it.
+                    path_nodes.pop_back();
+                } else {
+                    // Link up the path node it was aligned off of to it with a reachability edge.
+                    // Make sure to account for any trimmed length on the left of the path.
+                    // We need an edge length equal to the total from_length trimmed off.
+                    path_nodes.at(aligned_after).edges.emplace_back(path_nodes.size() - 1, trimmed_start_from_length);
+                }
+            }
+        }
+        
+        // Now we've created new PathNodes for al the tail alignments.
+        // They can be resected out of snarls just like the original ones.
     }
     
     void MultipathAlignmentGraph::add_reachability_edges(VG& vg,
@@ -3042,7 +3152,6 @@ namespace vg {
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, &sources);
         
         // Handle the right tails
-        
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
             const size_t& j = kv.first;
