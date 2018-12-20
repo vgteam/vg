@@ -136,6 +136,10 @@ namespace vg {
         /// that owns the sequence into which iterators were passed when the
         /// MultipathAlignmentGraph was constructed! TODO: Shouldn't the class
         /// hold a reference to the Alignment then?
+        ///
+        /// Note that the output alignment may NOT be in topologically-sorted
+        /// order, even if this MultipathAlignmentGraph is. You MUST sort it
+        /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out);
         
@@ -147,6 +151,10 @@ namespace vg {
         /// iterators were passed when the MultipathAlignmentGraph was
         /// constructed! TODO: Shouldn't the class hold a reference to the
         /// Alignment then?
+        ///
+        /// Note that the output alignment may NOT be in topologically-sorted
+        /// order, even if this MultipathAlignmentGraph is. You MUST sort it
+        /// with topologically_order_subpaths() before trying to run DP on it.
         void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns,
                    function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,

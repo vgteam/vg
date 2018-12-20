@@ -3003,6 +3003,9 @@ namespace vg {
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
+        // Note that we do NOT topologically order the MultipathAlignment. The
+        // caller has to do that, after it is finished breaking it up into
+        // connected components or whatever.
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "multipath alignment before translation: " << pb2json(multipath_aln_out) << endl;

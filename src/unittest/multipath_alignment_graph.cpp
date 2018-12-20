@@ -95,6 +95,10 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // Make it align, with alignments per gap/tail
     mpg.align(query, vg, &aligner, true, 2, false, 5, out);
     
+    // Make sure to topologically sort the resulting alignment. TODO: Should
+    // the MultipathAlignmentGraph guarantee this for us by construction?
+    topologically_order_subpaths(out);
+    
     cerr << pb2json(out) << endl;
     
     // Make sure it worked at all
@@ -102,16 +106,23 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     REQUIRE(out.subpath_size() > 0);
     
     // Get the top 10 optimal alignments
-    vector<Alignment> opt = optimal_alignments(out, 10);
+    vector<Alignment> opt = optimal_alignments(out, 100);
     
     // Convert to a set of vectors of visited node IDs
     set<vector<id_t>> got;
-    for(auto& aln : opt) {
-        cerr << "Linearization: " << pb2json(aln.path()) << endl;
+    for(size_t i = 0; i < opt.size(); i++) {
+        auto& aln = opt[i];
+        cerr << "Linearization " << i << ": " << pb2json(aln.path()) << endl;
         vector<id_t> ids;
+        cerr << "\t";
         for (auto& mapping : aln.path().mapping()) {
             ids.push_back(mapping.position().node_id());
+            cerr << mapping.position().node_id() << " ";
         }
+        cerr << endl;
+        
+        // Save each list of visited IDs for checking.
+        got.insert(ids);
     }
     
     // Make sure all combinations are there
