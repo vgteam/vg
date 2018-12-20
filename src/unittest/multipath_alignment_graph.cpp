@@ -85,12 +85,12 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // Generate 2 fake tail anchors
     mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
     
-    mpg.to_dot(cerr);
+    mpg.to_dot(cerr, &query);
     
     // Cut new anchors on snarls
     mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
     
-    mpg.to_dot(cerr);
+    mpg.to_dot(cerr, &query);
     
     // Make it align, with alignments per gap/tail
     mpg.align(query, vg, &aligner, true, 2, false, 5, out);

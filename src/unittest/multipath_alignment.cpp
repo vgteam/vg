@@ -1762,6 +1762,63 @@ namespace vg {
         
         }
         
+    
+    
+        TEST_CASE( "Multipath alignment linearization doesn't produce large fake softclips", "[alignment][multipath][mapping]" ) {
+                
+            string multipath_json = R"(
+{"sequence":"GATTACAA","subpath":[
+    {"path":{"mapping":[{"position":{"node_id":"1"},"edit":[{"from_length":4,"to_length":4}],"rank":"1"}]},"next":[5,6,7,8],"score":9},
+    {"path":{"mapping":[{"position":{"node_id":"4"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[9,10],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"4"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[11,12],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"7"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"score":6},
+    {"path":{"mapping":[{"position":{"node_id":"7"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"score":6},
+    {"path":{"mapping":[{"position":{"node_id":"2"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[1],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"3"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[1],"score":-4},
+    {"path":{"mapping":[{"position":{"node_id":"2"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[2],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"3"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[2],"score":-4},
+    {"path":{"mapping":[{"position":{"node_id":"5"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[3],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"6"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[3],"score":-4},
+    {"path":{"mapping":[{"position":{"node_id":"5"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[4],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"6"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[4],"score":-4}
+],"start":[0]}
+            )";
+            
+            MultipathAlignment mpaln;
+            
+            json2pb(mpaln, multipath_json);
+            
+            // Topologically sort the MultipathAlignment so we can linearize it.
+            topologically_order_subpaths(mpaln);
+            
+            // Generate the best linearization with optimal_alignments
+            auto alns = optimal_alignments(mpaln, 1);
+            REQUIRE(alns.size() == 1);
+            cerr << pb2json(alns[0]) << endl;
+            
+            // Also generate it with just optimal_alignment;
+            Alignment opt;
+            optimal_alignment(mpaln, opt);
+            
+            // Make sure they match
+            REQUIRE(pb2json(alns[0]) == pb2json(opt));
+            
+            // Make sure they are all perfect matches, which they should be,
+            // because the best linearization is a perfect match.
+            REQUIRE(alns[0].path().mapping_size() == 5);
+            REQUIRE(alns[0].path().mapping(0).position().node_id() == 1);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(0)));
+            REQUIRE(alns[0].path().mapping(1).position().node_id() == 2);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(1)));
+            REQUIRE(alns[0].path().mapping(2).position().node_id() == 4);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(2)));
+            REQUIRE(alns[0].path().mapping(3).position().node_id() == 5);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(3)));
+            REQUIRE(alns[0].path().mapping(4).position().node_id() == 7);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(4)));
+            
+            
+        }
     }
 }
 

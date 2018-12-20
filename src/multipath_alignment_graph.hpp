@@ -153,7 +153,8 @@ namespace vg {
                    MultipathAlignment& multipath_aln_out);
         
         /// Converts a MultipathAlignmentGraph to a GraphViz Dot representation, output to the given ostream.
-        void to_dot(ostream& out) const;
+        /// If given the Alignment query we are working on, can produce information about subpath iterators.
+        void to_dot(ostream& out, const Alignment* alignment = nullptr) const;
         
         /// Get lists of the vg node IDs that participate in each connected component in the MultipathAlignmentGraph
         vector<vector<id_t>> get_connected_components() const;

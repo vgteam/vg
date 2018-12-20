@@ -3624,7 +3624,7 @@ namespace vg {
         return path_nodes.empty();
     }
     
-    void MultipathAlignmentGraph::to_dot(ostream& out) const {
+    void MultipathAlignmentGraph::to_dot(ostream& out, const Alignment* alignment) const {
         // We track the VG graph nodes we talked about already.
         set<id_t> mentioned_nodes;
         set<pair<id_t, id_t>> mentioned_edges;
@@ -3634,7 +3634,13 @@ namespace vg {
         for (size_t i = 0; i < path_nodes.size(); i++) {
             // For each node, say the node itself as a mapping node, annotated with match length
             out << "m" << i << " [label=\"" << i << "\" shape=circle tooltip=\""
-                << (path_nodes.at(i).end - path_nodes.at(i).begin) << " bp\"];" << endl;
+                << (path_nodes.at(i).end - path_nodes.at(i).begin) << " bp";
+            if (alignment != nullptr) {
+                // Include info on where that falls in the query sequence
+                out << " (" << (path_nodes.at(i).begin - alignment->sequence().begin()) << " - "
+                    << (path_nodes.at(i).end - alignment->sequence().begin()) << ")";
+            }
+            out << "\"];" << endl;
             for (pair<size_t, size_t> edge : path_nodes.at(i).edges) {
                 // For each edge from it, say where it goes and how far it skips
                 out << "m" << i << " -> m" << edge.first << " [label=" << edge.second << "];" << endl;
