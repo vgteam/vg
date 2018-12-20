@@ -47,6 +47,7 @@ void help_mpmap(char** argv) {
     << "algorithm:" << endl
     << "  -S, --single-path-mode        produce single-path alignments (GAM) instead of multipath alignments (GAMP) (ignores -sua)" << endl
     << "  -s, --snarls FILE             align to alternate paths in these snarls" << endl
+    << "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
     << "scoring:" << endl
     << "  -A, --no-qual-adjust          do not perform base quality adjusted alignments (required if input does not have base qualities)" << endl
     << "  -E, --long-read-scoring       set alignment scores to long-read defaults: -q1 -z1 -o1 -y1 -L0 (can be overridden)" << endl
@@ -105,6 +106,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_ALWAYS_CHECK_POPULATION 1002
     #define OPT_DELAY_POPULATION_SCORING 1003
     #define OPT_FORCE_HAPLOTYPE_COUNT 1004
+    #define OPT_SUPPRESS_TAIL_ANCHORS 1005
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -123,6 +125,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
+    bool suppress_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
     int max_single_end_map_attempts = 64;
@@ -212,6 +215,7 @@ int main_mpmap(int argc, char** argv) {
             {"same-strand", no_argument, 0, 'e'},
             {"single-path-mode", no_argument, 0, 'S'},
             {"snarls", required_argument, 0, 's'},
+            {"suppress-tail-anchors", no_argument, 0, OPT_SUPPRESS_TAIL_ANCHORS},
             {"tvs-clusterer", no_argument, 0, 'v'},
             {"snarl-max-cut", required_argument, 0, 'X'},
             {"alt-paths", required_argument, 0, 'a'},
@@ -365,6 +369,10 @@ int main_mpmap(int argc, char** argv) {
                     cerr << "error:[vg mpmap] Must provide snarl file with -s." << endl;
                     exit(1);
                 }
+                break;
+                
+            case OPT_SUPPRESS_TAIL_ANCHORS:
+                suppress_tail_anchors = true;
                 break;
                 
             case 'v':
@@ -979,6 +987,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
+    multipath_mapper.suppress_tail_anchors = suppress_tail_anchors;
     multipath_mapper.num_alt_alns = num_alt_alns;
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;
     multipath_mapper.simplify_topologies = simplify_topologies;

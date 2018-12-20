@@ -2970,12 +2970,16 @@ namespace vg {
         if (snarl_manager) {
             // We want to do snarl cutting
             
+            if (!suppress_tail_anchors) {
+            
 #ifdef debug_multipath_mapper_alignment
-            cerr << "Synthesizing tail anchors for snarl cutting" << endl;
+                cerr << "Synthesizing tail anchors for snarl cutting" << endl;
 #endif
 
-            // Make fake anchor paths to cut the snarls out of in the tails
-            multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), num_alt_alns, dynamic_max_alt_alns);
+                // Make fake anchor paths to cut the snarls out of in the tails
+                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), num_alt_alns, dynamic_max_alt_alns);
+                
+            }
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
