@@ -4,7 +4,7 @@
 
 #include "multipath_alignment_graph.hpp"
 
-//#define debug_multipath_alignment
+#define debug_multipath_alignment
 
 using namespace std;
 namespace vg {
@@ -1258,73 +1258,153 @@ namespace vg {
         // Align the tails, not collecting a set of source subpaths.
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, nullptr);
         
-        for (auto kv : tail_alignments[false]) {
-            // For each alignment we get on the left
-            auto& aligned_before = kv.first;
-            auto& alns = kv.second;
-            
-            for (auto& aln : alns) {
-                // Make a new PathNode corresponding to the aligned part of the sequence
-                path_nodes.emplace_back();
-                PathNode& new_node = path_nodes.back();
-                Path& new_path = new_node.path;
+        for (bool handling_right_tail : {false, true}) {
+            // For each tail we are processing
+        
+            for (auto kv : tail_alignments[handling_right_tail]) {
+                // For each node that has alignments off in that direction
                 
-                // Work out what part of the alignment we correspond to and fill that in.
-                // It's going to be from the start up to as much as we aligned.
-                new_node.begin = alignment.sequence().begin();
-                new_node.end = new_node.begin + aln.sequence().size();
+                // Grab the PathNode we are attached to on the right or left side
+                auto& attached_path_node_index = kv.first;
+                // And all the alignments off of there
+                auto& alns = kv.second;
                 
-                // Fill in the whole path
-                new_path = aln.path();
-               
-                int64_t trimmed_end_from_length;
-                if (trim_and_check_for_empty(alignment, new_node, nullptr, &trimmed_end_from_length)) {
-                    // We trimmed off hanging indels, and we trimmed away the whole node!
-                    // Don't actually add it.
-                    path_nodes.pop_back();
-                } else {
-                    // Link it up to the PathNode it was aligned off of with a reachability edge
-                    // Make sure to account for any trimmed length on the right of the path.
-                    // We need an edge length equal to the total from_length trimmed off.
-                    new_node.edges.emplace_back(aligned_before, trimmed_end_from_length);
+                cerr << "Handling " << (handling_right_tail ? "right" : "left") << " tail off of PathNode "
+                    << attached_path_node_index << " with path " << pb2json(path_nodes.at(attached_path_node_index).path) << endl;
+                
+                for (auto& aln : alns) {
+                    cerr << "Tail alignment: " << pb2json(aln) << endl;
+                
+                    // Keep a cursor in the aligned sequence
+                    size_t aln_cursor = 0;
+                    
+                    // Keep an offset between it and the query alignment's sequence
+                    size_t aln_alignment_offset = handling_right_tail ? (alignment.sequence().size() - aln.sequence().size()) : 0;
+                    
+                    // And a running count of the from_length and to_length burned since the last perfect match
+                    size_t from_length_since_match = 0;
+                    // And what PathNode index the last perfect match we made lives at.
+                    size_t last_path_node = numeric_limits<size_t>::max();
+                    
+                    if (handling_right_tail) {
+                        // Actually just attach off the PathNode we are a tail from
+                        last_path_node = attached_path_node_index;
+                    }
+                    
+                    // And the one we are working on
+                    size_t current_path_node = numeric_limits<size_t>::max();
+                
+                    for (size_t mapping_index = 0; mapping_index < aln.path().mapping_size(); mapping_index++) {
+                        // Visit each mapping, from start to end of the aligned sequence
+                        auto& mapping = aln.path().mapping(mapping_index);
+                        
+                        // We walk this cursor through the mapping's node traversal.
+                        size_t traversal_cursor = mapping.position().offset();
+                        
+                        for(size_t edit_index = 0; edit_index < mapping.edit_size(); edit_index++) {
+                            // For each edit, from start to end
+                            auto& edit = mapping.edit(edit_index);
+                            if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
+                                // If it is a perfect match edit, create or add it to an anchor
+                                
+                                cerr << "Mapping " << mapping_index << " edit " << edit_index << " is a perfect match" << endl;
+                                
+                                if (current_path_node == numeric_limits<size_t>::max()) {
+                                    // No path node for a match in progress, so make one
+                                    current_path_node = path_nodes.size();
+                                    path_nodes.emplace_back();
+                                    auto& node = path_nodes.at(current_path_node);
+                                    
+                                    // Set its range to be nothing, positioned
+                                    // at where the aln sequence cursor falls
+                                    // in the query alignment
+                                    node.begin = alignment.sequence().begin() + aln_cursor + aln_alignment_offset;
+                                    node.end = node.begin;
+                                    
+                                    cerr << "Made new PathNode " << current_path_node << endl;
+                                    
+                                    if (last_path_node != numeric_limits<size_t>::max()) {
+                                        // Add an edge from the last PathNode to this new one we just made
+                                        auto& last = path_nodes.at(last_path_node);
+                                        last.edges.emplace_back(current_path_node, from_length_since_match);
+                                        
+                                        cerr << "Reachable from " << last_path_node << " at distance " << from_length_since_match << endl;
+                                    }
+                                }
+                                
+                                // Grab the PathNode we have to expand
+                                auto& node = path_nodes.at(current_path_node);
+                                
+                                // Add this perfect mapping onto the right of the current anchor path
+                                node.end += edit.to_length();
+                                Mapping* anchor_mapping = node.path.add_mapping();
+                                auto* pos = anchor_mapping->mutable_position();
+                                pos->set_node_id(mapping.position().node_id());
+                                pos->set_is_reverse(mapping.position().is_reverse());
+                                pos->set_offset(traversal_cursor);
+                                // Make sure to copy over the edit
+                                *anchor_mapping->add_edit() = edit;
+                                
+                                // TODO: We assume no adjacent mappings on the
+                                // same node will come in. If they do, we will
+                                // produce adjacent mappings on the same node
+                                // out.
+                                
+                            } else {
+                                // Otherwise, it's not a perfect match.
+                                
+                                cerr << "Mapping " << mapping_index << " edit " << edit_index << " is not a match" << endl;
+                                
+                                if (current_path_node != numeric_limits<size_t>::max()) {
+                                    // End the current perfect match and make it the previous one
+                                    last_path_node = current_path_node;
+                                    current_path_node = numeric_limits<size_t>::max();
+                                    from_length_since_match = 0;
+                                    
+                                    cerr << "Finished off PathNode " << last_path_node << endl;
+                                    cerr << "Sequence: ";
+                                    for (auto c = path_nodes.at(last_path_node).begin; c != path_nodes.at(last_path_node).end; ++c) {
+                                        cerr << *c;
+                                    }
+                                    cerr << endl;
+                                    cerr << "Path: " << pb2json(path_nodes.at(last_path_node).path) << endl; 
+                                }
+                                
+                                
+                                // Record how much from_length we used since the last perfect match.
+                                from_length_since_match += edit.from_length();
+                            }
+                            
+                            // Advance our cursors since we are now past this edit
+                            traversal_cursor += edit.from_length();
+                            aln_cursor += edit.to_length();
+                        }
+                    }
+                    
+                     if (current_path_node != numeric_limits<size_t>::max()) {
+                        // End the final perfect match and make it the previous one
+                        last_path_node = current_path_node;
+                        current_path_node = numeric_limits<size_t>::max();
+                        from_length_since_match = 0;
+                        
+                        cerr << "Finished off last PathNode " << last_path_node << endl;
+                        cerr << "Sequence: ";
+                        for (auto c = path_nodes.at(last_path_node).begin; c != path_nodes.at(last_path_node).end; ++c) {
+                            cerr << *c;
+                        }
+                        cerr << endl;
+                        cerr << "Path: " << pb2json(path_nodes.at(last_path_node).path) << endl; 
+                    }
+                    
+                    if (!handling_right_tail && last_path_node != numeric_limits<size_t>::max()) {
+                        // We just did the left tail, so attach it to the path node it is a tail off of
+                        path_nodes.at(attached_path_node_index).edges.emplace_back(last_path_node, from_length_since_match);
+                    }
                 }
             }
         }
         
-        for (auto kv : tail_alignments[true]) {
-            // For each alignment we get on the right
-            auto& aligned_after = kv.first;
-            auto& alns = kv.second;
-            
-            for (auto& aln : alns) {
-                // Make a new PathNode corresponding to the aligned part of the sequence
-                path_nodes.emplace_back();
-                PathNode& new_node = path_nodes.back();
-                Path& new_path = new_node.path;
-                
-                // Work out what part of the alignment we correspond to and fill that in.
-                // It's going to be from the end back by as much as we aligned.
-                new_node.end = alignment.sequence().end();
-                new_node.begin = new_node.end - aln.sequence().size();
-                
-                // Fill in the whole path
-                new_path = aln.path();
-               
-                int64_t trimmed_start_from_length;
-                if (trim_and_check_for_empty(alignment, new_node, &trimmed_start_from_length, nullptr)) {
-                    // We trimmed off hanging indels, and we trimmed away the whole node!
-                    // Don't actually add it.
-                    path_nodes.pop_back();
-                } else {
-                    // Link up the path node it was aligned off of to it with a reachability edge.
-                    // Make sure to account for any trimmed length on the left of the path.
-                    // We need an edge length equal to the total from_length trimmed off.
-                    path_nodes.at(aligned_after).edges.emplace_back(path_nodes.size() - 1, trimmed_start_from_length);
-                }
-            }
-        }
-        
-        // Now we've created new PathNodes for al the tail alignments.
+        // Now we've created new PathNodes for all the perfect matches in the tail alignments.
         // They can be resected out of snarls just like the original ones.
     }
     
@@ -3334,11 +3414,10 @@ namespace vg {
                         for (auto& aln : alt_alignments) {
                             translate_node_ids(*aln.mutable_path(), tail_trans);
                         }
-                    }
-                    
 #ifdef debug_multipath_alignment
-                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                        cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
+                    }
                 }
             }
             else {
@@ -3419,11 +3498,10 @@ namespace vg {
                         for (auto& aln : alt_alignments) {
                             translate_node_ids(*aln.mutable_path(), tail_trans);
                         }
-                    }
-                    
 #ifdef debug_multipath_alignment
-                    cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
+                        cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
+                    }
                 }
                 else {
                     // This is a source subpath but we have no tail to the left.

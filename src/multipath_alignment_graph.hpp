@@ -116,11 +116,12 @@ namespace vg {
         /// the outermost existing anchors, and define new anchoring paths from
         /// them. After this, you can call resect_snarls_from_paths, in order
         /// to get better coverage of possible combinations of snarl traversals
-        /// in parts of the alignment that didn't originally have anchors. The
-        /// Alignment passed *must* be the same Alignment that owns the
-        /// sequence into which iterators were passed when the
-        /// MultipathAlignmentGraph was constructed! TODO: Shouldn't the class
-        /// hold a reference to the Alignment then?
+        /// in parts of the alignment that didn't originally have anchors.
+        /// Produces *only* perfect match anchors, so it is still safe to use
+        /// score_anchors_as_matches. The Alignment passed *must* be the same
+        /// Alignment that owns the sequence into which iterators were passed
+        /// when the MultipathAlignmentGraph was constructed! TODO: Shouldn't
+        /// the class hold a reference to the Alignment then?
         void synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
                                      size_t max_alt_alns, bool dynamic_alt_alns);
         

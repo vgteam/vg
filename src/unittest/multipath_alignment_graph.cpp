@@ -20,7 +20,8 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
             {"id": 3, "sequence": "G"},
             {"id": 4, "sequence": "C"},
             {"id": 5, "sequence": "A"},
-            {"id": 6, "sequence": "G"}
+            {"id": 6, "sequence": "G"},
+            {"id": 7, "sequence": "A"}
         ],
         "edge": [
             {"from": 1, "to": 2},
@@ -28,7 +29,9 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
             {"from": 2, "to": 4},
             {"from": 3, "to": 4},
             {"from": 4, "to": 5},
-            {"from": 4, "to": 6}
+            {"from": 4, "to": 6},
+            {"from": 5, "to": 7},
+            {"from": 6, "to": 7}
         ]
     })";
     
@@ -45,7 +48,7 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     SnarlManager snarl_manager = bubble_finder.find_snarls(); 
     
     // We need a fake read
-    string read("GATTACA");
+    string read("GATTACAA");
     
     // Pack it into an Alignment.
     // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
@@ -79,34 +82,44 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // Make the output MultipathAlignment
     MultipathAlignment out;
     
-    // Generate fake tail anchors
-    mpg.synthesize_tail_anchors(query, vg, &aligner, 4, false);
+    // Generate 2 fake tail anchors
+    mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
+    
+    mpg.to_dot(cerr);
     
     // Cut new anchors on snarls
     mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
     
-    // Make it align
-    mpg.align(query, vg, &aligner, true, 4, false, 5, out);
+    mpg.to_dot(cerr);
+    
+    // Make it align, with alignments per gap/tail
+    mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+    
+    cerr << pb2json(out) << endl;
     
     // Make sure it worked at all
     REQUIRE(out.sequence() == read);
     REQUIRE(out.subpath_size() > 0);
     
-    set<id_t> seen_nodes;
-    for (auto& s : out.subpath()) {
-        // We should have (at least) one single-node subpath on each node.
-        if (s.path().mapping_size() == 1) {
-            seen_nodes.insert(s.path().mapping(0).position().node_id());
+    // Get the top 10 optimal alignments
+    vector<Alignment> opt = optimal_alignments(out, 10);
+    
+    // Convert to a set of vectors of visited node IDs
+    set<vector<id_t>> got;
+    for(auto& aln : opt) {
+        cerr << "Linearization: " << pb2json(aln.path()) << endl;
+        vector<id_t> ids;
+        for (auto& mapping : aln.path().mapping()) {
+            ids.push_back(mapping.position().node_id());
         }
     }
     
-    REQUIRE(seen_nodes.size() == 6);
-    REQUIRE(seen_nodes.count(1));
-    REQUIRE(seen_nodes.count(2));
-    REQUIRE(seen_nodes.count(3));
-    REQUIRE(seen_nodes.count(4));
-    REQUIRE(seen_nodes.count(5));
-    REQUIRE(seen_nodes.count(6));
+    // Make sure all combinations are there
+    REQUIRE(got.count({1, 2, 4, 6, 7}));
+    REQUIRE(got.count({1, 2, 4, 5, 7}));
+    REQUIRE(got.count({1, 3, 4, 6, 7}));
+    REQUIRE(got.count({1, 3, 4, 5, 7}));
+    
 }
 
 }
