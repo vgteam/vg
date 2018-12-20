@@ -4,7 +4,7 @@
 
 #include "multipath_alignment_graph.hpp"
 
-#define debug_multipath_alignment
+//#define debug_multipath_alignment
 
 using namespace std;
 namespace vg {
@@ -1268,12 +1268,16 @@ namespace vg {
                 auto& attached_path_node_index = kv.first;
                 // And all the alignments off of there
                 auto& alns = kv.second;
-                
+
+#ifdef debug_multipath_alignment
                 cerr << "Handling " << (handling_right_tail ? "right" : "left") << " tail off of PathNode "
                     << attached_path_node_index << " with path " << pb2json(path_nodes.at(attached_path_node_index).path) << endl;
+#endif
                 
                 for (auto& aln : alns) {
+#ifdef debug_multipath_alignment
                     cerr << "Tail alignment: " << pb2json(aln) << endl;
+#endif
                 
                     // Keep a cursor in the aligned sequence
                     size_t aln_cursor = 0;
@@ -1307,7 +1311,9 @@ namespace vg {
                             if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
                                 // If it is a perfect match edit, create or add it to an anchor
                                 
+#ifdef debug_multipath_alignment
                                 cerr << "Mapping " << mapping_index << " edit " << edit_index << " is a perfect match" << endl;
+#endif
                                 
                                 if (current_path_node == numeric_limits<size_t>::max()) {
                                     // No path node for a match in progress, so make one
@@ -1321,14 +1327,18 @@ namespace vg {
                                     node.begin = alignment.sequence().begin() + aln_cursor + aln_alignment_offset;
                                     node.end = node.begin;
                                     
+#ifdef debug_multipath_alignment
                                     cerr << "Made new PathNode " << current_path_node << endl;
+#endif
                                     
                                     if (last_path_node != numeric_limits<size_t>::max()) {
                                         // Add an edge from the last PathNode to this new one we just made
                                         auto& last = path_nodes.at(last_path_node);
                                         last.edges.emplace_back(current_path_node, from_length_since_match);
                                         
+#ifdef debug_multipath_alignment
                                         cerr << "Reachable from " << last_path_node << " at distance " << from_length_since_match << endl;
+#endif
                                     }
                                 }
                                 
@@ -1353,7 +1363,9 @@ namespace vg {
                             } else {
                                 // Otherwise, it's not a perfect match.
                                 
+#ifdef debug_multipath_alignment
                                 cerr << "Mapping " << mapping_index << " edit " << edit_index << " is not a match" << endl;
+#endif
                                 
                                 if (current_path_node != numeric_limits<size_t>::max()) {
                                     // End the current perfect match and make it the previous one
@@ -1361,6 +1373,7 @@ namespace vg {
                                     current_path_node = numeric_limits<size_t>::max();
                                     from_length_since_match = 0;
                                     
+#ifdef debug_multipath_alignment
                                     cerr << "Finished off PathNode " << last_path_node << endl;
                                     cerr << "Sequence: ";
                                     for (auto c = path_nodes.at(last_path_node).begin; c != path_nodes.at(last_path_node).end; ++c) {
@@ -1368,6 +1381,7 @@ namespace vg {
                                     }
                                     cerr << endl;
                                     cerr << "Path: " << pb2json(path_nodes.at(last_path_node).path) << endl; 
+#endif
                                 }
                                 
                                 
@@ -1387,6 +1401,7 @@ namespace vg {
                         current_path_node = numeric_limits<size_t>::max();
                         from_length_since_match = 0;
                         
+#ifdef debug_multipath_alignment
                         cerr << "Finished off last PathNode " << last_path_node << endl;
                         cerr << "Sequence: ";
                         for (auto c = path_nodes.at(last_path_node).begin; c != path_nodes.at(last_path_node).end; ++c) {
@@ -1394,11 +1409,12 @@ namespace vg {
                         }
                         cerr << endl;
                         cerr << "Path: " << pb2json(path_nodes.at(last_path_node).path) << endl; 
+#endif
                     }
                     
                     if (!handling_right_tail && last_path_node != numeric_limits<size_t>::max()) {
                         // We just did the left tail, so attach it to the path node it is a tail off of
-                        path_nodes.at(attached_path_node_index).edges.emplace_back(last_path_node, from_length_since_match);
+                        path_nodes.at(last_path_node).edges.emplace_back(attached_path_node_index, from_length_since_match);
                     }
                 }
             }
@@ -1407,7 +1423,7 @@ namespace vg {
         // Now we've created new PathNodes for all the perfect matches in the tail alignments.
         // They can be resected out of snarls just like the original ones.
     }
-    
+
     void MultipathAlignmentGraph::add_reachability_edges(VG& vg,
                                                          const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                          const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
@@ -3231,6 +3247,11 @@ namespace vg {
         // Actually align the tails
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, &sources);
         
+#ifdef debug_multipath_alignment
+        cerr << "Got " << tail_alignments[false].size() << " and " << tail_alignments[true].size()
+            << " PathNodes that may have tail alignments and " << sources.size() << " sources" << endl;
+#endif
+        
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
@@ -3311,6 +3332,9 @@ namespace vg {
                 }
             }
             else {
+#ifdef debug_multipath_alignment
+                cerr << "No tails left off of subpath " << j << "; it can be a start" << endl;
+#endif
                 multipath_aln_out.add_start(j);
             }
         }
@@ -3432,6 +3456,12 @@ namespace vg {
         // Now we know all the sources so we can do them and the left tails.
         for (size_t j = 0; j < path_nodes.size(); j++) {
             if (is_source_node[j]) {
+                // This is a source, whether or not it has a tail to the left.
+                if (sources != nullptr) {
+                    // Remember it.
+                    sources->insert(j);
+                }
+            
                 PathNode& path_node = path_nodes.at(j);
                 if (path_node.begin != alignment.sequence().begin()) {
                     
@@ -3501,13 +3531,6 @@ namespace vg {
 #ifdef debug_multipath_alignment
                         cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
 #endif
-                    }
-                }
-                else {
-                    // This is a source subpath but we have no tail to the left.
-                    if (sources != nullptr) {
-                        // Remember it.
-                        sources->insert(j);
                     }
                 }
             }

@@ -11,7 +11,7 @@
 namespace vg {
 namespace unittest {
 
-TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls in tails", "[multipath][mapping][multipathalignmentgraph]" ) {
+TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath][mapping][multipathalignmentgraph]" ) {
 
     string graph_json = R"({
         "node": [
@@ -55,6 +55,12 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     Alignment query;
     query.set_sequence(read);
     
+    // Make an Aligner to use for the actual aligning and the scores
+    Aligner aligner;
+        
+    // Make an identity projection translation
+    auto identity = MultipathAlignmentGraph::create_identity_projection_trans(vg);
+    
     // Make up a fake MEM
     // GCSA range_type is just a pair of [start, end], so we can fake them.
     
@@ -65,72 +71,290 @@ TEST_CASE( "MultipathAlignmentGraph::align tries multiple traversals of snarls i
     // Note that this is also a memcluster_t
     vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
     
-    // Make a MEM hit over all of node 1's sequence
-    mems.emplace_back(query.sequence().begin(), query.sequence().begin() + 4, make_pair(5, 5), 1);
-    // Drop it on node 1 where it should sit
-    mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
+    /*
+    SECTION ("Works with right tail only") {
     
-    // Make an Aligner to use for the actual aligning and the scores
-    Aligner aligner;
-    
-    // Make an identity projection translation
-    auto identity = MultipathAlignmentGraph::create_identity_projection_trans(vg);
-    
-    // Make the MultipathAlignmentGraph to test
-    MultipathAlignmentGraph mpg(vg, mem_hits, identity);
-    
-    // Make the output MultipathAlignment
-    MultipathAlignment out;
-    
-    // Generate 2 fake tail anchors
-    mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
-    
-    mpg.to_dot(cerr, &query);
-    
-    // Cut new anchors on snarls
-    mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
-    
-    mpg.to_dot(cerr, &query);
-    
-    // Make it align, with alignments per gap/tail
-    mpg.align(query, vg, &aligner, true, 2, false, 5, out);
-    
-    // Make sure to topologically sort the resulting alignment. TODO: Should
-    // the MultipathAlignmentGraph guarantee this for us by construction?
-    topologically_order_subpaths(out);
-    
-    cerr << pb2json(out) << endl;
-    
-    // Make sure it worked at all
-    REQUIRE(out.sequence() == read);
-    REQUIRE(out.subpath_size() > 0);
-    
-    // Get the top 10 optimal alignments
-    vector<Alignment> opt = optimal_alignments(out, 100);
-    
-    // Convert to a set of vectors of visited node IDs
-    set<vector<id_t>> got;
-    for(size_t i = 0; i < opt.size(); i++) {
-        auto& aln = opt[i];
-        cerr << "Linearization " << i << ": " << pb2json(aln.path()) << endl;
-        vector<id_t> ids;
-        cerr << "\t";
-        for (auto& mapping : aln.path().mapping()) {
-            ids.push_back(mapping.position().node_id());
-            cerr << mapping.position().node_id() << " ";
-        }
-        cerr << endl;
+        // Make a MEM hit over all of node 1's sequence
+        mems.emplace_back(query.sequence().begin(), query.sequence().begin() + 4, make_pair(5, 5), 1);
+        // Drop it on node 1 where it should sit
+        mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
         
-        // Save each list of visited IDs for checking.
-        got.insert(ids);
+        // Make the MultipathAlignmentGraph to test
+        MultipathAlignmentGraph mpg(vg, mem_hits, identity);
+        
+        // Make the output MultipathAlignment
+        MultipathAlignment out;
+        
+        SECTION("Tries multiple traversals of snarls in tails") {
+        
+            // Generate 2 fake tail anchors
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
+            
+            // Cut new anchors on snarls
+            mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
+            
+            // Make it align, with alignments per gap/tail
+            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            
+            // Make sure to topologically sort the resulting alignment. TODO: Should
+            // the MultipathAlignmentGraph guarantee this for us by construction?
+            topologically_order_subpaths(out);
+            
+            // Make sure it worked at all
+            REQUIRE(out.sequence() == read);
+            REQUIRE(out.subpath_size() > 0);
+            
+            // Get the top 10 optimal alignments
+            vector<Alignment> opt = optimal_alignments(out, 100);
+            
+            // Convert to a set of vectors of visited node IDs
+            set<vector<id_t>> got;
+            for(size_t i = 0; i < opt.size(); i++) {
+                auto& aln = opt[i];
+                
+                vector<id_t> ids;
+                for (auto& mapping : aln.path().mapping()) {
+                    ids.push_back(mapping.position().node_id());
+                }
+                
+                // Save each list of visited IDs for checking.
+                got.insert(ids);
+            }
+            
+            // Make sure all combinations are there
+            REQUIRE(got.count({1, 2, 4, 6, 7}));
+            REQUIRE(got.count({1, 2, 4, 5, 7}));
+            REQUIRE(got.count({1, 3, 4, 6, 7}));
+            REQUIRE(got.count({1, 3, 4, 5, 7}));
+            
+        }
+        
+        SECTION("Handles tails when anchors for them are not generated") {
+        
+            // Make it align, with alignments per gap/tail
+            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            
+            // Make sure to topologically sort the resulting alignment. TODO: Should
+            // the MultipathAlignmentGraph guarantee this for us by construction?
+            topologically_order_subpaths(out);
+            
+            // Make sure it worked at all
+            REQUIRE(out.sequence() == read);
+            REQUIRE(out.subpath_size() > 0);
+            
+            // Get the top optimal alignments
+            vector<Alignment> opt = optimal_alignments(out, 100);
+            
+            // Convert to a set of vectors of visited node IDs
+            set<vector<id_t>> got;
+            for(size_t i = 0; i < opt.size(); i++) {
+                auto& aln = opt[i];
+                
+                vector<id_t> ids;
+                for (auto& mapping : aln.path().mapping()) {
+                    ids.push_back(mapping.position().node_id());
+                }
+                
+                // Save each list of visited IDs for checking.
+                got.insert(ids);
+            }
+            
+            // Make sure the best alignment is there.
+            REQUIRE(got.count({1, 2, 4, 5, 7}));
+        
+        }
+        
+    }
+    */
+    
+    SECTION ("Works with both tails at once") {
+    
+        // Make a MEM hit over all of node 4's sequence
+        mems.emplace_back(query.sequence().begin() + 5, query.sequence().begin() + 6, make_pair(5, 5), 1);
+        // Drop it on node 4 where it should sit
+        mem_hits.emplace_back(&mems.back(), make_pos_t(4, false, 0));
+        
+        // Make the MultipathAlignmentGraph to test
+        MultipathAlignmentGraph mpg(vg, mem_hits, identity);
+        
+        // Make the output MultipathAlignment
+        MultipathAlignment out;
+        
+        
+        SECTION("Tries multiple traversals of snarls in tails") {
+        
+            // Generate 2 fake tail anchors
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
+            
+            // Cut new anchors on snarls
+            mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
+            
+            // Make it align, with alignments per gap/tail
+            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            
+            // Make sure to topologically sort the resulting alignment. TODO: Should
+            // the MultipathAlignmentGraph guarantee this for us by construction?
+            topologically_order_subpaths(out);
+            
+            // Make sure it worked at all
+            REQUIRE(out.sequence() == read);
+            REQUIRE(out.subpath_size() > 0);
+            
+            // Get the top optimal alignments
+            vector<Alignment> opt = optimal_alignments(out, 100);
+            
+            // Convert to a set of vectors of visited node IDs
+            set<vector<id_t>> got;
+            for(size_t i = 0; i < opt.size(); i++) {
+                auto& aln = opt[i];
+                
+                vector<id_t> ids;
+                for (auto& mapping : aln.path().mapping()) {
+                    ids.push_back(mapping.position().node_id());
+                }
+                
+                // Save each list of visited IDs for checking.
+                got.insert(ids);
+            }
+            
+            // Make sure all combinations are there
+            REQUIRE(got.count({1, 2, 4, 6, 7}));
+            REQUIRE(got.count({1, 2, 4, 5, 7}));
+            REQUIRE(got.count({1, 3, 4, 6, 7}));
+            REQUIRE(got.count({1, 3, 4, 5, 7}));
+            
+        }
+        
+        
+        SECTION("Handles tails when anchors for them are not generated") {
+            // Make it align, with alignments per gap/tail
+            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            
+            // Make sure to topologically sort the resulting alignment. TODO: Should
+            // the MultipathAlignmentGraph guarantee this for us by construction?
+            topologically_order_subpaths(out);
+            
+            // Make sure it worked at all
+            REQUIRE(out.sequence() == read);
+            REQUIRE(out.subpath_size() > 0);
+            
+            // Get the top optimal alignments
+            vector<Alignment> opt = optimal_alignments(out, 100);
+            
+            // Convert to a set of vectors of visited node IDs
+            set<vector<id_t>> got;
+            for(size_t i = 0; i < opt.size(); i++) {
+                auto& aln = opt[i];
+                
+                vector<id_t> ids;
+                for (auto& mapping : aln.path().mapping()) {
+                    ids.push_back(mapping.position().node_id());
+                }
+                
+                // Save each list of visited IDs for checking.
+                got.insert(ids);
+            }
+            
+            // Make sure the best alignment is there.
+            REQUIRE(got.count({1, 2, 4, 5, 7}));
+        }
+        
     }
     
-    // Make sure all combinations are there
-    REQUIRE(got.count({1, 2, 4, 6, 7}));
-    REQUIRE(got.count({1, 2, 4, 5, 7}));
-    REQUIRE(got.count({1, 3, 4, 6, 7}));
-    REQUIRE(got.count({1, 3, 4, 5, 7}));
     
+    SECTION ("Works with left tail only") {
+    
+        // Make a MEM hit over all of node 7's sequence
+        mems.emplace_back(query.sequence().begin() + 7, query.sequence().begin() + 8, make_pair(5, 5), 1);
+        // Drop it on node 7 where it should sit
+        mem_hits.emplace_back(&mems.back(), make_pos_t(7, false, 0));
+        
+        // Make the MultipathAlignmentGraph to test
+        MultipathAlignmentGraph mpg(vg, mem_hits, identity);
+        
+        // Make the output MultipathAlignment
+        MultipathAlignment out;
+        
+        SECTION("Tries multiple traversals of snarls in tails") {
+        
+            // Generate 2 fake tail anchors
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
+            
+            // Cut new anchors on snarls
+            mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
+            
+            // Make it align, with alignments per gap/tail
+            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            
+            // Make sure to topologically sort the resulting alignment. TODO: Should
+            // the MultipathAlignmentGraph guarantee this for us by construction?
+            topologically_order_subpaths(out);
+            
+            // Make sure it worked at all
+            REQUIRE(out.sequence() == read);
+            REQUIRE(out.subpath_size() > 0);
+            
+            // Get the top optimal alignments
+            vector<Alignment> opt = optimal_alignments(out, 100);
+            
+            // Convert to a set of vectors of visited node IDs
+            set<vector<id_t>> got;
+            for(size_t i = 0; i < opt.size(); i++) {
+                auto& aln = opt[i];
+                
+                vector<id_t> ids;
+                for (auto& mapping : aln.path().mapping()) {
+                    ids.push_back(mapping.position().node_id());
+                }
+                
+                // Save each list of visited IDs for checking.
+                got.insert(ids);
+            }
+            
+            // Make sure all combinations are there
+            REQUIRE(got.count({1, 2, 4, 6, 7}));
+            REQUIRE(got.count({1, 2, 4, 5, 7}));
+            REQUIRE(got.count({1, 3, 4, 6, 7}));
+            REQUIRE(got.count({1, 3, 4, 5, 7}));
+            
+        }
+        
+        SECTION("Handles tails when anchors for them are not generated") {
+            // Make it align, with alignments per gap/tail
+            mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+            
+            // Make sure to topologically sort the resulting alignment. TODO: Should
+            // the MultipathAlignmentGraph guarantee this for us by construction?
+            topologically_order_subpaths(out);
+            
+            // Make sure it worked at all
+            REQUIRE(out.sequence() == read);
+            REQUIRE(out.subpath_size() > 0);
+            
+            // Get the top optimal alignments
+            vector<Alignment> opt = optimal_alignments(out, 100);
+            
+            // Convert to a set of vectors of visited node IDs
+            set<vector<id_t>> got;
+            for(size_t i = 0; i < opt.size(); i++) {
+                auto& aln = opt[i];
+                
+                vector<id_t> ids;
+                for (auto& mapping : aln.path().mapping()) {
+                    ids.push_back(mapping.position().node_id());
+                }
+                
+                // Save each list of visited IDs for checking.
+                got.insert(ids);
+            }
+            
+            // Make sure the best alignment is there.
+            REQUIRE(got.count({1, 2, 4, 5, 7})); 
+        }
+        
+    }
+    
+        
 }
 
 }
