@@ -2968,7 +2968,6 @@ namespace vg {
             multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
                                                         max_suboptimal_path_score_ratio, topological_order);
         }
-#define debug_multipath_mapper_alignment        
         if (snarl_manager) {
             // We want to do snarl cutting
             
@@ -3005,7 +3004,6 @@ namespace vg {
             cerr << endl;
         }
 #endif
-#undef debug_multipath_mapper_alignment
         
         function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
             size_t read_length = seq.sequence().end() - seq.sequence().begin();

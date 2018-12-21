@@ -1251,7 +1251,6 @@ namespace vg {
         }
     }
    
-#define debug_multipath_alignment
     void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
                                                           size_t max_alt_alns, bool dynamic_alt_alns) {
     
@@ -1424,7 +1423,6 @@ namespace vg {
         // Now we've created new PathNodes for all the perfect matches in the tail alignments.
         // They can be resected out of snarls just like the original ones.
     }
-#undef debug_multipath_alignment
 
     void MultipathAlignmentGraph::add_reachability_edges(VG& vg,
                                                          const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
@@ -3340,7 +3338,6 @@ namespace vg {
         }
     }
     
-#define debug_multipath_alignment
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, VG& align_graph,
                                          BaseAligner* aligner, size_t max_alt_alns,
@@ -3574,7 +3571,6 @@ namespace vg {
         // Return all the alignments, organized by tail and subpath
         return to_return;
     }
-#undef debug_multipath_alignment
     
     void MultipathAlignmentGraph::groom_graph_for_gssw(Graph& graph) {
         
@@ -3733,10 +3729,6 @@ namespace vg {
             }
         }
         out << "}" << endl;
-        
-        for (size_t i = 0; i < path_nodes.size(); i++) {
-            out << "PathNode " << i << ": " << pb2json(path_nodes.at(i).path) << endl;
-        }
     }
     
     vector<vector<id_t>> MultipathAlignmentGraph::get_connected_components() const {

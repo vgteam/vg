@@ -2047,7 +2047,7 @@ namespace vg {
         }
     }
     
-    void view_multipath_alignment_as_dot(ostream& out, const MultipathAlignment& multipath_aln) {
+    void view_multipath_alignment_as_dot(ostream& out, const MultipathAlignment& multipath_aln, bool show_graph) {
         out << "digraph graphname {" << endl;
         out << "rankdir=\"LR\";" << endl;
         
@@ -2072,35 +2072,35 @@ namespace vg {
                 out << "s" << i << " -> s" << next_subpath << ";" << endl;
             }
             
-            /*
-            auto& path = multipath_aln.subpath(i).path();
-            for (size_t j = 0; j < path.mapping_size(); j++) {
-                // For each mapping in the path, show the vg node in the graph too
-                auto node_id = path.mapping(j).position().node_id();
-                
-                if (!mentioned_nodes.count(node_id)) {
-                    // This graph node eneds to be made
-                    mentioned_nodes.insert(node_id);
-                    out << "g" << node_id << " [label=\"" << node_id << "\" shape=box];" << endl;
-                }
-                
-                // Attach the subpath to each involved graph node.
-                out << "s" << i << " -> g" << node_id << " [dir=none color=blue];" << endl;
-                
-                if (j != 0) {
-                    // We have a previous node in this segment of path. What is it?
-                    auto prev_id = path.mapping(j-1).position().node_id();
-                    pair<id_t, id_t> edge_pair{prev_id, node_id};
+            if (show_graph) {
+                auto& path = multipath_aln.subpath(i).path();
+                for (size_t j = 0; j < path.mapping_size(); j++) {
+                    // For each mapping in the path, show the vg node in the graph too
+                    auto node_id = path.mapping(j).position().node_id();
                     
-                    if (!mentioned_edges.count(edge_pair)) {
-                        // This graph edge needs to be made
-                        mentioned_edges.insert(edge_pair);
+                    if (!mentioned_nodes.count(node_id)) {
+                        // This graph node eneds to be made
+                        mentioned_nodes.insert(node_id);
+                        out << "g" << node_id << " [label=\"" << node_id << "\" shape=box];" << endl;
+                    }
+                    
+                    // Attach the subpath to each involved graph node.
+                    out << "s" << i << " -> g" << node_id << " [dir=none color=blue];" << endl;
+                    
+                    if (j != 0) {
+                        // We have a previous node in this segment of path. What is it?
+                        auto prev_id = path.mapping(j-1).position().node_id();
+                        pair<id_t, id_t> edge_pair{prev_id, node_id};
                         
-                        out << "g" << prev_id << " -> g" << node_id << ";" << endl;
+                        if (!mentioned_edges.count(edge_pair)) {
+                            // This graph edge needs to be made
+                            mentioned_edges.insert(edge_pair);
+                            
+                            out << "g" << prev_id << " -> g" << node_id << ";" << endl;
+                        }
                     }
                 }
             }
-            */
         }
         
         out << "}" << endl;
