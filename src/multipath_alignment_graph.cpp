@@ -3119,8 +3119,10 @@ namespace vg {
                 
                 if (connecting_graph.node_size() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
+#ifdef debug_multipath_alignment
                     cerr << "Remove edge " << j << " -> " << edge.first << " because we got no nodes in the connecting graph "
                         << src_pos << " to " << dest_pos << endl;
+#endif
                     edges_for_removal.insert(edge);
                     continue;
                 }
