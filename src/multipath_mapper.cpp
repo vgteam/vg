@@ -3219,7 +3219,7 @@ namespace vg {
             
             if (query_population) {
                 // We want to do population scoring
-                if (haplo_score_provider->has_incremental_search()) {
+                if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
                     // And also include up to population_max_paths non-consistent but hopefully scorable paths
@@ -3519,7 +3519,7 @@ namespace vg {
             
             if (query_population) {
                 // We want to do population scoring
-                if (haplo_score_provider->has_incremental_search()) {
+                if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
                     // Also pad out with population_max_paths inconsistent or unscorable paths
