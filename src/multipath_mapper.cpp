@@ -2282,8 +2282,10 @@ namespace vg {
             
 #ifdef debug_multipath_mapper
             cerr << "finding connected components for mapping:" << endl;
-            cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
-            cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+            view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].first);
+            view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].second);
+            //cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+            //cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
             cerr << "read 1 connected components:" << endl;
             for (vector<int64_t>& comp : connected_components_1) {
                 cerr << "\t";
@@ -2966,7 +2968,7 @@ namespace vg {
             multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
                                                         max_suboptimal_path_score_ratio, topological_order);
         }
-        
+#define debug_multipath_mapper_alignment        
         if (snarl_manager) {
             // We want to do snarl cutting
             
@@ -2980,14 +2982,20 @@ namespace vg {
                 multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), num_alt_alns, dynamic_max_alt_alns);
                 
             }
+       
+#ifdef debug_multipath_mapper_alignment
+            cerr << "MultipathAlignmentGraph going into snarl cutting:" << endl;
+            multi_aln_graph.to_dot(cerr, &alignment);
+#endif
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
         }
-        
+
+
 #ifdef debug_multipath_mapper_alignment
         cerr << "MultipathAlignmentGraph going into alignment:" << endl;
-        multi_aln_graph.to_dot(cerr);
+        multi_aln_graph.to_dot(cerr, &alignment);
         
         for (auto& ids : multi_aln_graph.get_connected_components()) {
             cerr << "Component: ";
@@ -2997,6 +3005,7 @@ namespace vg {
             cerr << endl;
         }
 #endif
+#undef debug_multipath_mapper_alignment
         
         function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
             size_t read_length = seq.sequence().end() - seq.sequence().begin();

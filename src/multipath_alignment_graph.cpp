@@ -1250,7 +1250,8 @@ namespace vg {
             }
         }
     }
-    
+   
+#define debug_multipath_alignment
     void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
                                                           size_t max_alt_alns, bool dynamic_alt_alns) {
     
@@ -1423,6 +1424,7 @@ namespace vg {
         // Now we've created new PathNodes for all the perfect matches in the tail alignments.
         // They can be resected out of snarls just like the original ones.
     }
+#undef debug_multipath_alignment
 
     void MultipathAlignmentGraph::add_reachability_edges(VG& vg,
                                                          const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
@@ -3087,6 +3089,7 @@ namespace vg {
             // the longest gap that could be detected at this position in the read
             size_t src_max_gap = aligner->longest_detectable_gap(alignment, src_path_node.end);
             
+            // This holds edges that we remove, because we couldn't actually get an alignment across them with a positive score.
             unordered_set<pair<size_t, size_t>> edges_for_removal;
             
             for (const pair<size_t, size_t>& edge : src_path_node.edges) {
@@ -3118,6 +3121,8 @@ namespace vg {
                 
                 if (connecting_graph.node_size() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
+                    cerr << "Remove edge " << j << " -> " << edge.first << " because we got no nodes in the connecting graph "
+                        << src_pos << " to " << dest_pos << endl;
                     edges_for_removal.insert(edge);
                     continue;
                 }
@@ -3247,11 +3252,6 @@ namespace vg {
         // Actually align the tails
         auto tail_alignments = align_tails(alignment, align_graph, aligner, max_alt_alns, dynamic_alt_alns, &sources);
         
-#ifdef debug_multipath_alignment
-        cerr << "Got " << tail_alignments[false].size() << " and " << tail_alignments[true].size()
-            << " PathNodes that may have tail alignments and " << sources.size() << " sources" << endl;
-#endif
-        
         // Handle the right tails
         for (auto& kv : tail_alignments[true]) {
             // For each sink subpath number
@@ -3340,10 +3340,16 @@ namespace vg {
         }
     }
     
+#define debug_multipath_alignment
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, VG& align_graph,
                                          BaseAligner* aligner, size_t max_alt_alns,
                                          bool dynamic_alt_alns, unordered_set<size_t>* sources) {
+        
+#ifdef debug_multipath_alignment
+        cerr << "doing tail alignments to:" << endl;
+        to_dot(cerr);
+#endif
         
         // Make a structure to populate
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>> to_return;
@@ -3353,6 +3359,9 @@ namespace vg {
         vector<bool> is_source_node(path_nodes.size(), true);
         for (size_t j = 0; j < path_nodes.size(); j++) {
             PathNode& path_node = path_nodes.at(j);
+#ifdef debug_multipath_alignment
+            cerr << "Visit PathNode " << j << " with " << path_node.edges.size() << " outbound edges" << endl;
+#endif
             if (path_node.edges.empty()) {
                 if (path_node.end != alignment.sequence().end()) {
     
@@ -3434,9 +3443,14 @@ namespace vg {
                             aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                         }
                         
-                        // Translate back into non-extracted graph
+                        // Translate back into non-extracted graph.
+                        // Make sure to account for having removed the left end of the cut node relative to end_pos
                         for (auto& aln : alt_alignments) {
-                            translate_node_ids(*aln.mutable_path(), tail_trans);
+                            // We always remove end_pos's offset, since we
+                            // search forward from it to extract the subgraph,
+                            // but that may be from the left or right end of
+                            // its node depending on orientation.
+                            translate_node_ids(*aln.mutable_path(), tail_trans, id(end_pos), offset(end_pos), is_rev(end_pos));
                         }
 #ifdef debug_multipath_alignment
                         cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
@@ -3447,8 +3461,11 @@ namespace vg {
             else {
                 // We go places from here.
                 for (const pair<size_t, size_t>& edge : path_node.edges) {
-                    // Makr everywhere we go as not a source
+                    // Make everywhere we go as not a source
                     is_source_node[edge.first] = false;
+#ifdef debug_multipath_alignment
+                    cerr << "Edge " << j << " -> " << edge.first << " makes " << edge.first << " not a source" << endl;
+#endif
                 }
             }
         }
@@ -3457,6 +3474,11 @@ namespace vg {
         for (size_t j = 0; j < path_nodes.size(); j++) {
             if (is_source_node[j]) {
                 // This is a source, whether or not it has a tail to the left.
+                
+#ifdef debug_multipath_alignment
+                cerr << "PathNode " << j << " had no edges into it and is a source" << endl;
+#endif
+                
                 if (sources != nullptr) {
                     // Remember it.
                     sources->insert(j);
@@ -3524,9 +3546,15 @@ namespace vg {
                             aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         }
                         
-                        // Translate back into non-extracted graph
+                        // Translate back into non-extracted graph.
+                        // Make sure to account for having removed the right end of the cut node relative to begin_pos
                         for (auto& aln : alt_alignments) {
-                            translate_node_ids(*aln.mutable_path(), tail_trans);
+                            // begin_pos's offset is how much we keep, so we removed the node's length minus that.
+                            // And by default it comes off the right side of the node.
+                            translate_node_ids(*aln.mutable_path(), tail_trans, 
+                                id(begin_pos),
+                                align_graph.get_length(align_graph.get_handle(id(begin_pos))) - offset(begin_pos),
+                                !is_rev(begin_pos));
                         }
 #ifdef debug_multipath_alignment
                         cerr << "made " << alt_alignments.size() << " tail alignments" << endl;
@@ -3536,9 +3564,17 @@ namespace vg {
             }
         }
         
+#ifdef debug_multipath_alignment
+        cerr << "made alignments for " << to_return[false].size() << " source PathNodes and " << to_return[true].size() << " sink PathNodes" << endl;
+        if (sources != nullptr) {
+            cerr << "Identified " << sources->size() << " source PathNodes" << endl;
+        }
+#endif 
+        
         // Return all the alignments, organized by tail and subpath
         return to_return;
     }
+#undef debug_multipath_alignment
     
     void MultipathAlignmentGraph::groom_graph_for_gssw(Graph& graph) {
         
@@ -3697,6 +3733,10 @@ namespace vg {
             }
         }
         out << "}" << endl;
+        
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            out << "PathNode " << i << ": " << pb2json(path_nodes.at(i).path) << endl;
+        }
     }
     
     vector<vector<id_t>> MultipathAlignmentGraph::get_connected_components() const {
