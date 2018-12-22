@@ -189,7 +189,7 @@ namespace vg {
     void view_multipath_alignment(ostream& out, const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph);
     
     /// Converts a MultipathAlignment to a GraphViz Dot representation, output to the given ostream.
-    void view_multipath_alignment_as_dot(ostream& out, const MultipathAlignment& multipath_aln);
+    void view_multipath_alignment_as_dot(ostream& out, const MultipathAlignment& multipath_aln, bool show_graph = false);
     
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }
