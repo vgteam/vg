@@ -105,6 +105,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
+<tr class="memitem:namespacehaplo"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehaplo.html">haplo</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -123,6 +125,8 @@ Functions</h2></td></tr>
 <tr class="separator:aeb27a72a431b2f681c6eb88eb594a62c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a78ead1fdf3f2d57f7a35755d24fd5999"><td class="memItemLeft" align="right" valign="top">vector&lt; Alignment &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a78ead1fdf3f2d57f7a35755d24fd5999">vg::optimal_alignments_with_disjoint_subpaths</a> (const MultipathAlignment &amp;multipath_aln, size_t count)</td></tr>
 <tr class="separator:a78ead1fdf3f2d57f7a35755d24fd5999"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9618d2d1905ec3bbb4721441f380f13c"><td class="memItemLeft" align="right" valign="top">vector&lt; Alignment &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9618d2d1905ec3bbb4721441f380f13c">vg::haplotype_consistent_alignments</a> (const MultipathAlignment &amp;multipath_aln, const <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> &amp;score_provider, size_t count, bool optimal_first)</td></tr>
+<tr class="separator:a9618d2d1905ec3bbb4721441f380f13c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40132bfddc17b143e18279d1e176652d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a40132bfddc17b143e18279d1e176652d">vg::rev_comp_multipath_alignment</a> (const MultipathAlignment &amp;multipath_aln, const function&lt; int64_t(int64_t)&gt; &amp;node_length, MultipathAlignment &amp;rev_comp_out)</td></tr>
 <tr class="separator:a40132bfddc17b143e18279d1e176652d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afd751a7942664d45206cc1754755a1d9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afd751a7942664d45206cc1754755a1d9">vg::rev_comp_multipath_alignment_in_place</a> (MultipathAlignment *multipath_aln, const function&lt; int64_t(int64_t)&gt; &amp;node_length)</td></tr>
@@ -147,8 +151,13 @@ Functions</h2></td></tr>
 <tr class="memitem:a0b67eeb9262ee4034a35e068e25a26b1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0b67eeb9262ee4034a35e068e25a26b1">vg::view_multipath_alignment</a> (ostream &amp;out, const MultipathAlignment &amp;multipath_aln, const HandleGraph &amp;handle_graph)</td></tr>
 <tr class="memdesc:a0b67eeb9262ee4034a35e068e25a26b1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send a formatted string representation of the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> into the ostream.  <a href="#a0b67eeb9262ee4034a35e068e25a26b1">More...</a><br/></td></tr>
 <tr class="separator:a0b67eeb9262ee4034a35e068e25a26b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a23e5fc95fa04fafdfef347867f7d4aaa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a23e5fc95fa04fafdfef347867f7d4aaa">vg::view_multipath_alignment_as_dot</a> (ostream &amp;out, const MultipathAlignment &amp;multipath_aln, bool show_graph=false)</td></tr>
+<tr class="memdesc:a23e5fc95fa04fafdfef347867f7d4aaa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> to a GraphViz Dot representation, output to the given ostream.  <a href="#a23e5fc95fa04fafdfef347867f7d4aaa">More...</a><br/></td></tr>
+<tr class="separator:a23e5fc95fa04fafdfef347867f7d4aaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>utility functions for the MultipathAlignment protobuf object </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

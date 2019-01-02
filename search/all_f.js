@@ -45,6 +45,8 @@ var searchData=
   ['opt_5fforce_5fhaplotype_5fcount',['OPT_FORCE_HAPLOTYPE_COUNT',['../mpmap__main_8cpp.html#a2b98cdcb665cd0cb6dcab27cd9b4b38c',1,'mpmap_main.cpp']]],
   ['opt_5frecombination_5fpenalty',['OPT_RECOMBINATION_PENALTY',['../map__main_8cpp.html#aa2bc6ed2ecef5672fcbf4c1d07b8d964',1,'OPT_RECOMBINATION_PENALTY():&#160;map_main.cpp'],['../mpmap__main_8cpp.html#aa2bc6ed2ecef5672fcbf4c1d07b8d964',1,'OPT_RECOMBINATION_PENALTY():&#160;mpmap_main.cpp']]],
   ['opt_5fscore_5fmatrix',['OPT_SCORE_MATRIX',['../align__main_8cpp.html#abda380f5cc9d8b15937d4f67d559fef5',1,'OPT_SCORE_MATRIX():&#160;align_main.cpp'],['../map__main_8cpp.html#abda380f5cc9d8b15937d4f67d559fef5',1,'OPT_SCORE_MATRIX():&#160;map_main.cpp'],['../mpmap__main_8cpp.html#abda380f5cc9d8b15937d4f67d559fef5',1,'OPT_SCORE_MATRIX():&#160;mpmap_main.cpp']]],
+  ['opt_5fsuppress_5ftail_5fanchors',['OPT_SUPPRESS_TAIL_ANCHORS',['../mpmap__main_8cpp.html#a8ac418f2741d5efc457e6ab40a535262',1,'mpmap_main.cpp']]],
+  ['opt_5ftop_5ftracebacks',['OPT_TOP_TRACEBACKS',['../mpmap__main_8cpp.html#a497dfa18c690f36ffeb9370dde515b7d',1,'mpmap_main.cpp']]],
   ['optimal_5falignment',['optimal_alignment',['../namespacevg.html#a7f75115e0fa67db91cc2e0102008b995',1,'vg']]],
   ['optimal_5falignment_5finternal',['optimal_alignment_internal',['../namespacevg.html#a881ca4cff9243336ba8cf64a18f713e6',1,'vg']]],
   ['optimal_5falignment_5fscore',['optimal_alignment_score',['../namespacevg.html#a3e693b91cabeed2d861ba666e98a3cab',1,'vg']]],

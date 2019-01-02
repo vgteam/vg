@@ -1183,6 +1183,8 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:aeb27a72a431b2f681c6eb88eb594a62c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a78ead1fdf3f2d57f7a35755d24fd5999"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a78ead1fdf3f2d57f7a35755d24fd5999">optimal_alignments_with_disjoint_subpaths</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, size_t count)</td></tr>
 <tr class="separator:a78ead1fdf3f2d57f7a35755d24fd5999"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9618d2d1905ec3bbb4721441f380f13c"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9618d2d1905ec3bbb4721441f380f13c">haplotype_consistent_alignments</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, const <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> &amp;score_provider, size_t count, bool optimal_first)</td></tr>
+<tr class="separator:a9618d2d1905ec3bbb4721441f380f13c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad41446f39233ac6ca5343d95b50329b2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad41446f39233ac6ca5343d95b50329b2">rev_comp_subpath</a> (const <a class="el" href="structvg_1_1Subpath.html">Subpath</a> &amp;subpath, const function&lt; int64_t(int64_t)&gt; &amp;node_length, <a class="el" href="structvg_1_1Subpath.html">Subpath</a> &amp;rev_comp_out)</td></tr>
 <tr class="separator:ad41446f39233ac6ca5343d95b50329b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a40132bfddc17b143e18279d1e176652d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a40132bfddc17b143e18279d1e176652d">rev_comp_multipath_alignment</a> (const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, const function&lt; int64_t(int64_t)&gt; &amp;node_length, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;rev_comp_out)</td></tr>
@@ -1209,6 +1211,9 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="memitem:a0b67eeb9262ee4034a35e068e25a26b1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0b67eeb9262ee4034a35e068e25a26b1">view_multipath_alignment</a> (ostream &amp;out, const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;handle_graph)</td></tr>
 <tr class="memdesc:a0b67eeb9262ee4034a35e068e25a26b1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Send a formatted string representation of the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> into the ostream.  <a href="#a0b67eeb9262ee4034a35e068e25a26b1">More...</a><br/></td></tr>
 <tr class="separator:a0b67eeb9262ee4034a35e068e25a26b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a23e5fc95fa04fafdfef347867f7d4aaa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a23e5fc95fa04fafdfef347867f7d4aaa">view_multipath_alignment_as_dot</a> (ostream &amp;out, const <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln, bool show_graph=false)</td></tr>
+<tr class="memdesc:a23e5fc95fa04fafdfef347867f7d4aaa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> to a GraphViz Dot representation, output to the given ostream.  <a href="#a23e5fc95fa04fafdfef347867f7d4aaa">More...</a><br/></td></tr>
+<tr class="separator:a23e5fc95fa04fafdfef347867f7d4aaa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a30f5b0dc3732e48a6d9b8d1c895cd8d1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a30f5b0dc3732e48a6d9b8d1c895cd8d1">node_start</a> (<a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)</td></tr>
 <tr class="memdesc:a30f5b0dc3732e48a6d9b8d1c895cd8d1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Produce the start <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> of a <a class="el" href="structvg_1_1Node.html" title="Nodes store sequence data. ">Node</a>.  <a href="#a30f5b0dc3732e48a6d9b8d1c895cd8d1">More...</a><br/></td></tr>
 <tr class="separator:a30f5b0dc3732e48a6d9b8d1c895cd8d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1320,8 +1325,12 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="memitem:aaac70d8b120ca61591561cba307dcc1b"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaac70d8b120ca61591561cba307dcc1b">overlap</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;p1, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;p2)</td></tr>
 <tr class="separator:aaac70d8b120ca61591561cba307dcc1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af71770196fc31c2e3c9c2a83f3497177"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af71770196fc31c2e3c9c2a83f3497177">translate_node_ids</a> (<a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt; &amp;translator)</td></tr>
+<tr class="memdesc:af71770196fc31c2e3c9c2a83f3497177"><td class="mdescLeft">&#160;</td><td class="mdescRight">Switches the node ids in the path to the ones indicated by the translator.  <a href="#af71770196fc31c2e3c9c2a83f3497177">More...</a><br/></td></tr>
 <tr class="separator:af71770196fc31c2e3c9c2a83f3497177"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa49e4506c94e5747c88805e39aa18090"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa49e4506c94e5747c88805e39aa18090">translate_node_ids</a> (<a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt; &amp;translator, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> cut_node, size_t bases_removed, bool from_right)</td></tr>
+<tr class="separator:aa49e4506c94e5747c88805e39aa18090"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b0ba7a1d0cf7630b79d03ba0ab65c53"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2b0ba7a1d0cf7630b79d03ba0ab65c53">translate_oriented_node_ids</a> (<a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;translator)</td></tr>
+<tr class="memdesc:a2b0ba7a1d0cf7630b79d03ba0ab65c53"><td class="mdescLeft">&#160;</td><td class="mdescRight">Switches the node ids and orientations in the path to the ones indicated by the translator.  <a href="#a2b0ba7a1d0cf7630b79d03ba0ab65c53">More...</a><br/></td></tr>
 <tr class="separator:a2b0ba7a1d0cf7630b79d03ba0ab65c53"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acd31d3a8dc67801f147d0ba1b0059c3f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acd31d3a8dc67801f147d0ba1b0059c3f">initial_position</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="separator:acd31d3a8dc67801f147d0ba1b0059c3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1417,7 +1426,7 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="memdesc:ac52fd5878b0be1d53de644eea3458663"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reverse a pos_t and get a pos_t at the same base, going the other direction.  <a href="#ac52fd5878b0be1d53de644eea3458663">More...</a><br/></td></tr>
 <tr class="separator:ac52fd5878b0be1d53de644eea3458663"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91adfc6327b5709dc73fcc7edbe5da57"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a91adfc6327b5709dc73fcc7edbe5da57">reverse</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;pos, size_t node_length)</td></tr>
-<tr class="memdesc:a91adfc6327b5709dc73fcc7edbe5da57"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reverse a <a class="el" href="structvg_1_1Position.html">Position</a> and get a <a class="el" href="structvg_1_1Position.html">Position</a> at the same base, going the orther direction.  <a href="#a91adfc6327b5709dc73fcc7edbe5da57">More...</a><br/></td></tr>
+<tr class="memdesc:a91adfc6327b5709dc73fcc7edbe5da57"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reverse a <a class="el" href="structvg_1_1Position.html">Position</a> and get a <a class="el" href="structvg_1_1Position.html">Position</a> at the same base, going the other direction.  <a href="#a91adfc6327b5709dc73fcc7edbe5da57">More...</a><br/></td></tr>
 <tr class="separator:a91adfc6327b5709dc73fcc7edbe5da57"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8108426a3ac5985b0f86493fc524d131"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8108426a3ac5985b0f86493fc524d131">operator&lt;&lt;</a> (ostream &amp;out, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos)</td></tr>
 <tr class="memdesc:a8108426a3ac5985b0f86493fc524d131"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a pos_t to a stream.  <a href="#a8108426a3ac5985b0f86493fc524d131">More...</a><br/></td></tr>
@@ -6559,6 +6568,48 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 </div><div class="memdoc">
 
 <p>Takes in a pointer to a <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> and converts it to a <a class="el" href="classvg_1_1VG.html">VG</a> graph. </p>
+
+</div>
+</div>
+<a class="anchor" id="a9618d2d1905ec3bbb4721441f380f13c"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; vg::haplotype_consistent_alignments </td>
+          <td>(</td>
+          <td class="paramtype">const MultipathAlignment &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> &amp;&#160;</td>
+          <td class="paramname"><em>score_provider</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>count</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>optimal_first</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Finds all alignments consistent with haplotypes available by incremental search with the given haplotype score provider. Pads to a certain count with haplotype-inconsistent alignments that are population-scorable (i.e. use only edges used by some haplotype in the index), and then with unscorable alignments if scorable ones are unavailable. This may result in an empty vector.</p>
+<p>Output Alignments may not be unique. The input <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> may have exponentially many ways to spell the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a>, and we will look at all of them. We also may have duplicates of the optimal alignment if we are asked to produce it unconsitionally.</p>
+<p>Note: Assumes that each subpath's <a class="el" href="structvg_1_1Path.html">Path</a> object uses one <a class="el" href="structvg_1_1Mapping.html">Mapping</a> per node and that start subpaths have been identified</p>
+<p>Args: multipath_aln multipath alignment to find optimal paths through score_provider a <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a> that supports incremental search over its haplotype database (such as a GBWTScoreProvider) count maximum number of haplotype-inconsistent alignments to pad to optimal_first always compute and return first the optimal alignment, even if not haplotype-consistent </p>
 
 </div>
 </div>
@@ -11842,7 +11893,7 @@ template&lt;class Decoder &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Reverse a <a class="el" href="structvg_1_1Position.html">Position</a> and get a <a class="el" href="structvg_1_1Position.html">Position</a> at the same base, going the orther direction. </p>
+<p>Reverse a <a class="el" href="structvg_1_1Position.html">Position</a> and get a <a class="el" href="structvg_1_1Position.html">Position</a> at the same base, going the other direction. </p>
 
 </div>
 </div>
@@ -14097,6 +14148,53 @@ template&lt;typename T &gt; </div>
       </table>
 </div><div class="memdoc">
 
+<p>Switches the node ids in the path to the ones indicated by the translator. </p>
+
+</div>
+</div>
+<a class="anchor" id="aa49e4506c94e5747c88805e39aa18090"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::translate_node_ids </td>
+          <td>(</td>
+          <td class="paramtype">Path &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; id_t, id_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>translator</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">id_t&#160;</td>
+          <td class="paramname"><em>cut_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>bases_removed</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>from_right</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Replaces the node IDs in the path with the ones indicated by the translator. Supports a single cut node in the source graph, where the given number of bases of the given node were removed from its left or right side when making the source graph from the destination graph. </p>
+
 </div>
 </div>
 <a class="anchor" id="a98dcd16f2a4eae4c223a374dd2ab2da4"></a>
@@ -14154,6 +14252,8 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Switches the node ids and orientations in the path to the ones indicated by the translator. </p>
 
 </div>
 </div>
@@ -14667,6 +14767,40 @@ template&lt;class PathType &gt; </div>
 </div><div class="memdoc">
 
 <p>Send a formatted string representation of the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> into the ostream. </p>
+
+</div>
+</div>
+<a class="anchor" id="a23e5fc95fa04fafdfef347867f7d4aaa"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::view_multipath_alignment_as_dot </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const MultipathAlignment &amp;&#160;</td>
+          <td class="paramname"><em>multipath_aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>show_graph</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Converts a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> to a GraphViz Dot representation, output to the given ostream. </p>
 
 </div>
 </div>

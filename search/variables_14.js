@@ -32,6 +32,7 @@ var searchData=
   ['top',['top',['../structhaplo_1_1int__itvl__t.html#a28cb4dd08f57cf179227ae76784bdbde',1,'haplo::int_itvl_t']]],
   ['top_5fborder',['top_border',['../classvg_1_1Viz.html#a9e044e100116d5fe502953643f07d2d2',1,'vg::Viz']]],
   ['top_5fdiag',['top_diag',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a76c5471f0be987920ff0076101367fbc',1,'vg::BandedGlobalAligner::BAMatrix']]],
+  ['top_5ftracebacks',['top_tracebacks',['../classvg_1_1MultipathMapper.html#a122b1eaa39c84e9b18a971ebe6566030',1,'vg::MultipathMapper']]],
   ['topological_5forder',['topological_order',['../classvg_1_1BandedGlobalAligner.html#aac77523cd3035ba643a213bc709270e9',1,'vg::BandedGlobalAligner']]],
   ['total_5fbits',['TOTAL_BITS',['../classvg_1_1BitString.html#a754714ef7b6c7a1951ae46b8e2594562',1,'vg::BitString']]],
   ['total_5fsupport',['total_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#af7917163fa9a4e17ef5e61c345f758cf',1,'vg::SupportCaller::PrimaryPath']]],

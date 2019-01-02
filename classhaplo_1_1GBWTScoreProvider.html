@@ -119,6 +119,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a9970037ed1e272daa0e0bfdf358c9bce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8fbe79ad429d09fd75e6041e8ba3daca"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1GBWTScoreProvider.html#a8fbe79ad429d09fd75e6041e8ba3daca">get_haplotype_count</a> () const </td></tr>
 <tr class="separator:a8fbe79ad429d09fd75e6041e8ba3daca"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a33fab3d9908c3831880d553872ce7563"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1GBWTScoreProvider.html#a33fab3d9908c3831880d553872ce7563">has_incremental_search</a> () const </td></tr>
+<tr class="separator:a33fab3d9908c3831880d553872ce7563"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae9946793fee62c4aaa642e90b8cac76b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">IncrementalSearchState</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1GBWTScoreProvider.html#ae9946793fee62c4aaa642e90b8cac76b">incremental_find</a> (const <a class="el" href="structvg_1_1Position.html">vg::Position</a> &amp;pos) const </td></tr>
+<tr class="separator:ae9946793fee62c4aaa642e90b8cac76b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace4c4aa972488497e06e5d22345502d4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">IncrementalSearchState</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1GBWTScoreProvider.html#ace4c4aa972488497e06e5d22345502d4">incremental_extend</a> (const <a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">IncrementalSearchState</a> &amp;state, const <a class="el" href="structvg_1_1Position.html">vg::Position</a> &amp;pos) const </td></tr>
+<tr class="separator:ace4c4aa972488497e06e5d22345502d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhaplo_1_1ScoreProvider"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhaplo_1_1ScoreProvider')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhaplo_1_1ScoreProvider.html">haplo::ScoreProvider</a></td></tr>
 <tr class="memitem:adc52c96c8d122268f57187010a3eef7f inherit pub_methods_classhaplo_1_1ScoreProvider"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhaplo_1_1ScoreProvider.html#adc52c96c8d122268f57187010a3eef7f">~ScoreProvider</a> ()=default</td></tr>
 <tr class="separator:adc52c96c8d122268f57187010a3eef7f inherit pub_methods_classhaplo_1_1ScoreProvider"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -178,6 +184,102 @@ template&lt;class GBWTType &gt; </div>
 <p>Return the haplotype count (number of expected haplotypes that agree with a path that is fixed in the population) that should be used to construct the memo to pass to score, or -1 if the indexes backing the <a class="el" href="classhaplo_1_1ScoreProvider.html">ScoreProvider</a> do not make this information available. </p>
 
 <p>Reimplemented from <a class="el" href="classhaplo_1_1ScoreProvider.html#a0a996828a43c37de27cd982578e84ae7">haplo::ScoreProvider</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a33fab3d9908c3831880d553872ce7563"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class GBWTType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="classhaplo_1_1GBWTScoreProvider.html">haplo::GBWTScoreProvider</a>&lt; GBWTType &gt;::has_incremental_search </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return true if this <a class="el" href="classhaplo_1_1ScoreProvider.html">ScoreProvider</a> supports incremental search for counting haplotypes. </p>
+
+<p>Reimplemented from <a class="el" href="classhaplo_1_1ScoreProvider.html#a02d5c0f5c25cd2a9ac40e8d3f4916438">haplo::ScoreProvider</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="ace4c4aa972488497e06e5d22345502d4"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class GBWTType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">IncrementalSearchState</a> <a class="el" href="classhaplo_1_1GBWTScoreProvider.html">haplo::GBWTScoreProvider</a>&lt; GBWTType &gt;::incremental_extend </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">IncrementalSearchState</a> &amp;&#160;</td>
+          <td class="paramname"><em>state</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Position.html">vg::Position</a> &amp;&#160;</td>
+          <td class="paramname"><em>pos</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Extend the given search state with the node visit described by the given Position, if incremental search is supported. </p>
+
+<p>Reimplemented from <a class="el" href="classhaplo_1_1ScoreProvider.html#af5da22627ab0fb910b695798d91665ed">haplo::ScoreProvider</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="ae9946793fee62c4aaa642e90b8cac76b"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class GBWTType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">IncrementalSearchState</a> <a class="el" href="classhaplo_1_1GBWTScoreProvider.html">haplo::GBWTScoreProvider</a>&lt; GBWTType &gt;::incremental_find </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Position.html">vg::Position</a> &amp;&#160;</td>
+          <td class="paramname"><em>pos</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Start a new search state with the node visit described by the given Position, if incremental search is supported. </p>
+
+<p>Reimplemented from <a class="el" href="classhaplo_1_1ScoreProvider.html#af61922be074a36b260041dab6bc97166">haplo::ScoreProvider</a>.</p>
 
 </div>
 </div>

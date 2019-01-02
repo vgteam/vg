@@ -91,6 +91,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
+<a href="#pri-static-methods">Static Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1MultipathAlignmentGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
@@ -132,6 +133,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:af112f1a5af47cf079a163eec1c2e31f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3543fd819b9bf29db1b49267c7a6b75"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac3543fd819b9bf29db1b49267c7a6b75">resect_snarls_from_paths</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls, const unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;projection_trans, int64_t max_snarl_cut_size=5)</td></tr>
 <tr class="separator:ac3543fd819b9bf29db1b49267c7a6b75"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a10299326ca7bf1e601d012eac724563e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a10299326ca7bf1e601d012eac724563e">synthesize_tail_anchors</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns)</td></tr>
+<tr class="separator:a10299326ca7bf1e601d012eac724563e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a38f57b6180fea14b5c82b63b1c7aa1ae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a38f57b6180fea14b5c82b63b1c7aa1ae">add_reachability_edges</a> (<a class="el" href="classvg_1_1VG.html">VG</a> &amp;vg, const unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;projection_trans, const unordered_multimap&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;injection_trans)</td></tr>
 <tr class="memdesc:a38f57b6180fea14b5c82b63b1c7aa1ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="#a38f57b6180fea14b5c82b63b1c7aa1ae">More...</a><br/></td></tr>
 <tr class="separator:a38f57b6180fea14b5c82b63b1c7aa1ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -139,9 +142,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac68f5f2417c5213243f76f6cff1052a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a58fde633ee00b803360ca39481e91642"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a58fde633ee00b803360ca39481e91642">align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, bool score_anchors_as_matches, size_t max_alt_alns, bool dynamic_alt_alns, function&lt; size_t(const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;)&gt; band_padding_function, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out, const bool allow_negative_scores=false)</td></tr>
 <tr class="separator:a58fde633ee00b803360ca39481e91642"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac86882a7125cb2f6d61dd9d688eaee50"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac86882a7125cb2f6d61dd9d688eaee50">to_dot</a> (ostream &amp;out) const </td></tr>
-<tr class="memdesc:ac86882a7125cb2f6d61dd9d688eaee50"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts a <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> to a GraphViz Dot representation, output to the given ostream.  <a href="#ac86882a7125cb2f6d61dd9d688eaee50">More...</a><br/></td></tr>
-<tr class="separator:ac86882a7125cb2f6d61dd9d688eaee50"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a090155f04120616163803c84430e9e22"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a090155f04120616163803c84430e9e22">to_dot</a> (ostream &amp;out, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *alignment=nullptr) const </td></tr>
+<tr class="separator:a090155f04120616163803c84430e9e22"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2ee71caddf247187f1a756a36f99381f"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a2ee71caddf247187f1a756a36f99381f">get_connected_components</a> () const </td></tr>
 <tr class="memdesc:a2ee71caddf247187f1a756a36f99381f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get lists of the vg node IDs that participate in each connected component in the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a>.  <a href="#a2ee71caddf247187f1a756a36f99381f">More...</a><br/></td></tr>
 <tr class="separator:a2ee71caddf247187f1a756a36f99381f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -154,6 +156,9 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:a8cbd1429036d9f365bd361ffbc8aa855"><td class="memItemLeft" align="right" valign="top">static unordered_multimap<br class="typebreak"/>
 &lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8cbd1429036d9f365bd361ffbc8aa855">create_injection_trans</a> (const unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt;&gt; &amp;projection_trans)</td></tr>
 <tr class="separator:a8cbd1429036d9f365bd361ffbc8aa855"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acbe5d247827829f12132ad05c60b7329"><td class="memItemLeft" align="right" valign="top">static unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, <br class="typebreak"/>
+pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#acbe5d247827829f12132ad05c60b7329">create_identity_projection_trans</a> (const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;vg)</td></tr>
+<tr class="separator:acbe5d247827829f12132ad05c60b7329"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -169,6 +174,15 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:adba05a33bf075eb3eb7260e229245f06"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a47eea302eef9f4501cee2ef871960dd2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a47eea302eef9f4501cee2ef871960dd2">groom_graph_for_gssw</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph)</td></tr>
 <tr class="separator:a47eea302eef9f4501cee2ef871960dd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a31163a1782c3c7db78224abf8f40a353"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, <br class="typebreak"/>
+unordered_map&lt; size_t, vector<br class="typebreak"/>
+&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a31163a1782c3c7db78224abf8f40a353">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1VG.html">VG</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
+<tr class="separator:a31163a1782c3c7db78224abf8f40a353"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
+Static Private Member Functions</h2></td></tr>
+<tr class="memitem:aba6c4c7e8954cbe789393e5ced260a8d"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aba6c4c7e8954cbe789393e5ced260a8d">trim_and_check_for_empty</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="classvg_1_1PathNode.html">PathNode</a> &amp;<a class="el" href="namespacevg.html#a8626775da579a828867bae2f828cbaf6">path_node</a>, int64_t *removed_start_from_length=nullptr, int64_t *removed_end_from_length=nullptr)</td></tr>
+<tr class="separator:aba6c4c7e8954cbe789393e5ced260a8d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -568,7 +582,8 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>. Reachability edges must be in the graph. </p>
+<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>. Reachability edges must be in the graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
+<p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#ae03e9d67c4a774a71895ade9f10c6d19" title="Put subpaths in topological order (assumed to be true for other algorithms) ">topologically_order_subpaths()</a> before trying to run DP on it. </p>
 
 </div>
 </div>
@@ -637,7 +652,67 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>. Reachability edges must be in the graph. Also, choose the band padding dynamically as a function of the inter-MEM sequence and graph </p>
+<p>Do intervening and tail alignments between the anchoring paths and store the result in a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>. Reachability edges must be in the graph. Also, choose the band padding dynamically as a function of the inter-MEM sequence and graph. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then?</p>
+<p>Note that the output alignment may NOT be in topologically-sorted order, even if this <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> is. You MUST sort it with <a class="el" href="namespacevg.html#ae03e9d67c4a774a71895ade9f10c6d19" title="Put subpaths in topological order (assumed to be true for other algorithms) ">topologically_order_subpaths()</a> before trying to run DP on it. </p>
+
+</div>
+</div>
+<a class="anchor" id="a31163a1782c3c7db78224abf8f40a353"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; bool, unordered_map&lt; size_t, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt; vg::MultipathAlignmentGraph::align_tails </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramname"><em>align_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>dynamic_alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_set&lt; size_t &gt; *&#160;</td>
+          <td class="paramname"><em>sources</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Generate alignments of the tails of the query sequence, beyond the sources and sinks. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the one that owns the sequence we are working on. Returns a map from tail (left=false, right=true), to a map from subpath number to all the Alignments of the tail off of that subpath. Also computes the source subpaths and adds their numbers to the given set if not null. </p>
 
 </div>
 </div>
@@ -689,6 +764,31 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Identifies runs of exact matches that are sub-maximal because they hit the order of the GCSA index and merges them into a single node, assumes that match nodes are sorted by length and then lexicographically by read interval, does not update edges </p>
+
+</div>
+</div>
+<a class="anchor" id="acbe5d247827829f12132ad05c60b7329"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool &gt; &gt; vg::MultipathAlignmentGraph::create_identity_projection_trans </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramname"><em>vg</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Create an identity projection translation from a DAG that did not need to be modified during dagification. </p>
 
 </div>
 </div>
@@ -874,6 +974,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Reorders the nodes of a Protobuf graph in topological order, flips doubly reversing edges, and removes empty sequence nodes (invariants required for gssw alignment) TODO: this is duplicative with VG::lazy_sort, but I don't want to construct a <a class="el" href="classvg_1_1VG.html">VG</a> here </p>
 
 </div>
 </div>
@@ -991,7 +1092,52 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ac86882a7125cb2f6d61dd9d688eaee50"></a>
+<a class="anchor" id="a10299326ca7bf1e601d012eac724563e"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MultipathAlignmentGraph::synthesize_tail_anchors </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td>
+          <td class="paramname"><em>align_graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *&#160;</td>
+          <td class="paramname"><em>aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_alt_alns</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>dynamic_alt_alns</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Do some exploratory alignments of the tails of the graph, outside the outermost existing anchors, and define new anchoring paths from them. After this, you can call resect_snarls_from_paths, in order to get better coverage of possible combinations of snarl traversals in parts of the alignment that didn't originally have anchors. Produces <em>only</em> perfect match anchors, so it is still safe to use score_anchors_as_matches. The <a class="el" href="structvg_1_1Alignment.html">Alignment</a> passed <em>must</em> be the same <a class="el" href="structvg_1_1Alignment.html">Alignment</a> that owns the sequence into which iterators were passed when the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> was constructed! TODO: Shouldn't the class hold a reference to the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> then? </p>
+
+</div>
+</div>
+<a class="anchor" id="a090155f04120616163803c84430e9e22"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -999,13 +1145,22 @@ Private Attributes</h2></td></tr>
           <td class="memname">void vg::MultipathAlignmentGraph::to_dot </td>
           <td>(</td>
           <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em></td><td>)</td>
-          <td> const</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> *&#160;</td>
+          <td class="paramname"><em>alignment</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Converts a <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> to a GraphViz Dot representation, output to the given ostream. </p>
+<p>Converts a <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a> to a GraphViz Dot representation, output to the given ostream. If given the <a class="el" href="structvg_1_1Alignment.html">Alignment</a> query we are working on, can produce information about subpath iterators. </p>
 
 </div>
 </div>
@@ -1023,6 +1178,53 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Fills input vector with node indices of a topological sort. Reachability edges must be in the graph. </p>
+
+</div>
+</div>
+<a class="anchor" id="aba6c4c7e8954cbe789393e5ced260a8d"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathAlignmentGraph::trim_and_check_for_empty </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1PathNode.html">PathNode</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_node</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t *&#160;</td>
+          <td class="paramname"><em>removed_start_from_length</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t *&#160;</td>
+          <td class="paramname"><em>removed_end_from_length</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Trim down the given <a class="el" href="classvg_1_1PathNode.html">PathNode</a> of everything except softclips. Return true if it all gets trimmed away and should be removed. Fills in removed_start_from_length and/or removed_end_from_length with the bases in the graph removed from the path on each end during trimming, if set. </p>
 
 </div>
 </div>

@@ -135,6 +135,8 @@ Typedefs</h2></td></tr>
 <tr class="separator:a23197ba43a011bcee9e6eb94b4a58295"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa35eb194ac0f5a70dae8d2283c170736"><td class="memItemLeft" align="right" valign="top">typedef pair&lt; double, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehaplo.html#aa35eb194ac0f5a70dae8d2283c170736">haplo_score_type</a></td></tr>
 <tr class="separator:aa35eb194ac0f5a70dae8d2283c170736"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae3347fe51140216cb836936c306c97bf"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">IncrementalSearchState</a> = gbwt::SearchState</td></tr>
+<tr class="separator:ae3347fe51140216cb836936c306c97bf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
@@ -158,6 +160,19 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ae3347fe51140216cb836936c306c97bf"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacehaplo.html#ae3347fe51140216cb836936c306c97bf">haplo::IncrementalSearchState</a> = typedef gbwt::SearchState</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Incremental haplotype search range type used for <a class="el" href="classhaplo_1_1ScoreProvider.html">ScoreProvider</a>'s incremental search API. Default constructed, represents an empty or un-started search. Supports an empty() and a length(). Copyable. TODO: There's some overlap with the graph accessors here, but I don't understand them enough to work out exactly what it is and eliminate it. TODO: This should become a real type (base class and implementations wrapping implementation-specific data) when we get any other implementations. </p>
 
 </div>
 </div>

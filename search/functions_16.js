@@ -18,6 +18,7 @@ var searchData=
   ['vg_5fhelp',['vg_help',['../main_8cpp.html#aae3a18cc6fba2e4bf97e9a01f4734f4f',1,'main.cpp']]],
   ['vgset',['VGset',['../classvg_1_1VGset.html#a5ff9a6c4fa0223bcee7072f86a657751',1,'vg::VGset::VGset()'],['../classvg_1_1VGset.html#a6adbb25be82de20911fd901da4e9fe41',1,'vg::VGset::VGset(vector&lt; string &gt; &amp;files)']]],
   ['view_5fmultipath_5falignment',['view_multipath_alignment',['../namespacevg.html#a0b67eeb9262ee4034a35e068e25a26b1',1,'vg']]],
+  ['view_5fmultipath_5falignment_5fas_5fdot',['view_multipath_alignment_as_dot',['../namespacevg.html#a23e5fc95fa04fafdfef347867f7d4aaa',1,'vg']]],
   ['visit_5fnext_5fnode',['visit_next_node',['../classvg_1_1ExhaustiveTraversalFinder.html#a97819cfccf220f9ddf9e649d5ebd1a8e',1,'vg::ExhaustiveTraversalFinder::visit_next_node()'],['../classvg_1_1SupportRestrictedTraversalFinder.html#a9cdb3b8f554e58cba6fea9c2ccb40e14',1,'vg::SupportRestrictedTraversalFinder::visit_next_node()']]],
   ['visit_5fnode',['visit_node',['../classvg_1_1BaseAligner.html#a791cba0fe8a42b9a2ae7f74364f78dde',1,'vg::BaseAligner']]],
   ['visits_5fleft',['visits_left',['../classvg_1_1SnarlManager.html#a631de1bc1f9b33c291c4fcd450be6d21',1,'vg::SnarlManager']]],

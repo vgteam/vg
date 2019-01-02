@@ -195,6 +195,8 @@ Public Member Functions</h2></td></tr>
 Public Attributes</h2></td></tr>
 <tr class="memitem:a507872f1a20d6b0e34b6f9b8dac2639f"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a507872f1a20d6b0e34b6f9b8dac2639f">max_snarl_cut_size</a> = 5</td></tr>
 <tr class="separator:a507872f1a20d6b0e34b6f9b8dac2639f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad4c0e1fea285f378ef5c7eb23e9baf89"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad4c0e1fea285f378ef5c7eb23e9baf89">suppress_tail_anchors</a> = false</td></tr>
+<tr class="separator:ad4c0e1fea285f378ef5c7eb23e9baf89"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a136bb7af25fc0b6489c142e6f2871acc"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a136bb7af25fc0b6489c142e6f2871acc">band_padding_multiplier</a> = 1.0</td></tr>
 <tr class="separator:a136bb7af25fc0b6489c142e6f2871acc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a23d02e5f180a337a4b9eff178fc0b65d"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a23d02e5f180a337a4b9eff178fc0b65d">max_expected_dist_approx_error</a> = 8</td></tr>
@@ -241,6 +243,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a135abf9221806d613a60edb087509a06"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adfb100b024b23e3e94a31ea41d0b1ac8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#adfb100b024b23e3e94a31ea41d0b1ac8">population_max_paths</a> = 10</td></tr>
 <tr class="separator:adfb100b024b23e3e94a31ea41d0b1ac8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a122b1eaa39c84e9b18a971ebe6566030"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a122b1eaa39c84e9b18a971ebe6566030">top_tracebacks</a> = false</td></tr>
+<tr class="separator:a122b1eaa39c84e9b18a971ebe6566030"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a26993f76e9bbe5c48e0b436cc9c3fda8"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a26993f76e9bbe5c48e0b436cc9c3fda8">recombination_penalty</a> = 20.7</td></tr>
 <tr class="separator:a26993f76e9bbe5c48e0b436cc9c3fda8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2ad423f9fc1a81bbe31e9c25992de378"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378">rescue_only_min</a> = 128</td></tr>
@@ -328,7 +332,6 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a7dd5a0243c79cbb71c9ca2af2f86fcd5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a7dd5a0243c79cbb71c9ca2af2f86fcd5">align_to_cluster_graphs_with_rescue</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, bool block_rescue_from_1, bool block_rescue_from_2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings)</td></tr>
 <tr class="separator:a7dd5a0243c79cbb71c9ca2af2f86fcd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1751c97818eef51d83a0e8f31260822b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b">attempt_rescue_for_secondaries</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;duplicate_pairs, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs)</td></tr>
-<tr class="memdesc:a1751c97818eef51d83a0e8f31260822b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary.  <a href="#a1751c97818eef51d83a0e8f31260822b">More...</a><br/></td></tr>
 <tr class="separator:a1751c97818eef51d83a0e8f31260822b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a17aa98cc9509dd4e9cec05610dc629ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a17aa98cc9509dd4e9cec05610dc629ea">attempt_rescue_of_repeat_from_non_repeat</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment2, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems1, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems2, bool do_repeat_rescue_from_1, bool do_repeat_rescue_from_2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &gt; &amp;clusters2, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs1, vector&lt; <a class="el" href="classvg_1_1MultipathMapper.html#a65a08ef11f208ddb0f9e741215966a9c">clustergraph_t</a> &gt; &amp;cluster_graphs2, vector&lt; pair&lt; <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &gt;&gt; &amp;multipath_aln_pairs_out, vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;pair_distances, size_t max_alt_mappings, <a class="el" href="classvg_1_1OrientedDistanceMeasurer.html">OrientedDistanceMeasurer</a> &amp;distance_measurer)</td></tr>
 <tr class="separator:a17aa98cc9509dd4e9cec05610dc629ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -638,7 +641,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining which cluster graph pairs meet the fragment length distance constraints, perform multipath alignment </p>
+<p>After clustering MEMs, extracting graphs, assigning hits to cluster graphs, and determining which cluster graph pairs meet the fragment length distance constraints, perform multipath alignment Produces topologically sorted MultipathAlignments. </p>
 
 </div>
 </div>
@@ -697,7 +700,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform multipath alignment </p>
+<p>After clustering MEMs, extracting graphs, and assigning hits to cluster graphs, perform multipath alignment. Produces topologically sorted MultipathAlignments. </p>
 
 </div>
 </div>
@@ -774,7 +777,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Align the read ends independently, but also try to form rescue alignments for each from the other. Return true if output obeys pair consistency and false otherwise. </p>
+<p>Align the read ends independently, but also try to form rescue alignments for each from the other. Return true if output obeys pair consistency and false otherwise. Produces topologically sorted MultipathAlignments. </p>
 
 </div>
 </div>
@@ -922,8 +925,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary. </p>
+<p>Use the rescue routine on strong suboptimal clusters to see if we can find a good secondary. Produces topologically sorted MultipathAlignments. </p>
 
 </div>
 </div>
@@ -1030,7 +1032,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Cluster and extract subgraphs for (possibly) only one end, meant to be a non-repeat, and use them to rescue an alignment for the other end, meant to be a repeat </p>
+<p>Cluster and extract subgraphs for (possibly) only one end, meant to be a non-repeat, and use them to rescue an alignment for the other end, meant to be a repeat. Produces topologically sorted MultipathAlignments. </p>
 
 </div>
 </div>
@@ -1672,7 +1674,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Removes the sections of an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s path within snarls and re-aligns them with multiple traceback to create a multipath alignment with non-trivial topology </p>
+<p>Removes the sections of an <a class="el" href="structvg_1_1Alignment.html">Alignment</a>'s path within snarls and re-aligns them with multiple traceback to create a multipath alignment with non-trivial topology. Guarantees that the resulting <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> is in topological order. </p>
 
 </div>
 </div>
@@ -1767,7 +1769,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Make a multipath alignment of the read against the indicated graph and add it to the list of multimappings. </p>
+<p>Make a multipath alignment of the read against the indicated graph and add it to the list of multimappings. Does NOT necessarily produce a <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> in topological order. </p>
 
 </div>
 </div>
@@ -2209,7 +2211,8 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object Optionally also sorts a vector of indexes to keep track of the cluster-of-origin Allows multipath alignments where the best single path alignment is leaving the read unmapped. </p>
+<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object Optionally also sorts a vector of indexes to keep track of the cluster-of-origin Allows multipath alignments where the best single path alignment is leaving the read unmapped. MultipathAlignments MUST be topologically sorted. </p>
+<p>Get all the linearizations we are going to work with, possibly with duplicates. The first alignment will be optimal. </p>
 
 </div>
 </div>
@@ -2256,7 +2259,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object If there are ties between scores, breaks them by the expected distance between pairs as computed by the OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector) Allows multipath alignments where the best single path alignment is leaving the read unmapped. </p>
+<p>Sorts mappings by score and store mapping quality of the optimal alignment in the <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> object If there are ties between scores, breaks them by the expected distance between pairs as computed by the OrientedDistanceClusterer::cluster_pairs function (modified cluster_pairs vector) Allows multipath alignments where the best single path alignment is leaving the read unmapped. MultipathAlignments MUST be topologically sorted. </p>
 
 </div>
 </div>
@@ -2291,7 +2294,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector. Properly handles MultipathAlignments that are unmapped. </p>
+<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector. Properly handles MultipathAlignments that are unmapped. Does not depend on or guarantee topological order in the MultipathAlignments. </p>
 
 </div>
 </div>
@@ -2326,7 +2329,7 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
   </tr>
 </table>
 </div><div class="memdoc">
-<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector, also measure the distance between them and add a record to the cluster pairs vector. Properly handles MultipathAlignments that are unmapped. </p>
+<p>If there are any MultipathAlignments with multiple connected components, split them up and add them to the return vector, also measure the distance between them and add a record to the cluster pairs vector. Properly handles MultipathAlignments that are unmapped. Does not depend on or guarantee topological order in the MultipathAlignments. </p>
 
 </div>
 </div>
@@ -2849,6 +2852,30 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
       <table class="memname">
         <tr>
           <td class="memname">bool vg::MultipathMapper::suppress_cluster_merging = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ad4c0e1fea285f378ef5c7eb23e9baf89"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::suppress_tail_anchors = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a122b1eaa39c84e9b18a971ebe6566030"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MultipathMapper::top_tracebacks = false</td>
         </tr>
       </table>
 </div><div class="memdoc">

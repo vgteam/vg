@@ -195,5 +195,6 @@ var searchData=
   ['swap_5fnode_5fids',['swap_node_ids',['../classvg_1_1Paths.html#aba01c4d1b1d415622634db97f62b1188',1,'vg::Paths']]],
   ['swap_5fnodes',['swap_nodes',['../classvg_1_1VG.html#aa402d1cf817f83ca44f72f6112b6a2e3',1,'vg::VG']]],
   ['swap_5fremove',['swap_remove',['../swap__remove_8hpp.html#a403d9325a22306c4dfefd9202bd3bd00',1,'swap_remove.hpp']]],
-  ['sync_5fpaths',['sync_paths',['../classvg_1_1VG.html#a124188a9e0cd68c87c2bc009ea7bd799',1,'vg::VG']]]
+  ['sync_5fpaths',['sync_paths',['../classvg_1_1VG.html#a124188a9e0cd68c87c2bc009ea7bd799',1,'vg::VG']]],
+  ['synthesize_5ftail_5fanchors',['synthesize_tail_anchors',['../classvg_1_1MultipathAlignmentGraph.html#a10299326ca7bf1e601d012eac724563e',1,'vg::MultipathAlignmentGraph']]]
 ];

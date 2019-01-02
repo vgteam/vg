@@ -114,9 +114,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a063f965d0a28bf6cc4979aa4eb868dee"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a063f965d0a28bf6cc4979aa4eb868dee">name_prefix</a></td></tr>
-<tr class="memdesc:a063f965d0a28bf6cc4979aa4eb868dee"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read name must have this prefix.  <a href="#a063f965d0a28bf6cc4979aa4eb868dee">More...</a><br/></td></tr>
-<tr class="separator:a063f965d0a28bf6cc4979aa4eb868dee"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1de9ae45579a188cfc673018e9dc8b0c"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a1de9ae45579a188cfc673018e9dc8b0c">name_prefixes</a></td></tr>
+<tr class="separator:a1de9ae45579a188cfc673018e9dc8b0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3b80df71a29a718b34af1becfe821026"><td class="memItemLeft" align="right" valign="top">vector&lt; regex &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a3b80df71a29a718b34af1becfe821026">excluded_refpos_contigs</a></td></tr>
 <tr class="memdesc:a3b80df71a29a718b34af1becfe821026"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read must not have a refpos set with a contig name containing a match to any of these.  <a href="#a3b80df71a29a718b34af1becfe821026">More...</a><br/></td></tr>
 <tr class="separator:a3b80df71a29a718b34af1becfe821026"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -546,17 +545,16 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a063f965d0a28bf6cc4979aa4eb868dee"></a>
+<a class="anchor" id="a1de9ae45579a188cfc673018e9dc8b0c"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">string vg::ReadFilter::name_prefix</td>
+          <td class="memname">vector&lt;string&gt; vg::ReadFilter::name_prefixes</td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Read name must have this prefix. </p>
+<p>Read name must have one of these prefixes, if any are present. TODO: This should be a trie but I don't have one handy. Must be sorted for vaguely efficient search. </p>
 
 </div>
 </div>

@@ -95,6 +95,7 @@ var searchData=
   ['support_5ffile_5fname',['support_file_name',['../classvg_1_1SupportCaller.html#a2310ebac3bb08de54267e7f7aa1b06d4',1,'vg::SupportCaller']]],
   ['support_5fval',['support_val',['../classvg_1_1SupportCaller.html#abc8b8ec1ae50ef22ec1bb7f9307edcdd',1,'vg::SupportCaller']]],
   ['suppress_5fcluster_5fmerging',['suppress_cluster_merging',['../classvg_1_1MultipathMapper.html#ad25f17a8c485548abf5f63517937067f',1,'vg::MultipathMapper']]],
+  ['suppress_5ftail_5fanchors',['suppress_tail_anchors',['../classvg_1_1MultipathMapper.html#ad4c0e1fea285f378ef5c7eb23e9baf89',1,'vg::MultipathMapper']]],
   ['surface',['surface',['../classvg_1_1Viz.html#ad93aa239a30c3b7a017348e22f184b85',1,'vg::Viz']]],
   ['sv_5ftype',['SV_TYPE',['../structvg_1_1BREAKPOINT.html#a52c38d41e036406a3c2e79d9f4bbfc50',1,'vg::BREAKPOINT']]],
   ['symbol_5fcount',['symbol_count',['../classvg_1_1Pictographs.html#a38abbb70a4bdb0b40e5beb2b43cee1d5',1,'vg::Pictographs']]],
