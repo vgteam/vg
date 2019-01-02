@@ -1718,7 +1718,7 @@ namespace vg {
                                                 size_t max_alt_mappings) const {
     
 #ifdef debug_multipath_mapper
-        cerr << "linearizing multipath alignment" << endl;
+        cerr << "linearizing multipath alignment to assess positional diversity" << endl;
 #endif        
         // Compute a few optimal alignments using disjoint sets of subpaths.
         // This hopefully gives us a feel for the positional diversity of the MultipathMapping.
@@ -2282,8 +2282,10 @@ namespace vg {
             
 #ifdef debug_multipath_mapper
             cerr << "finding connected components for mapping:" << endl;
-            cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
-            cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
+            view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].first);
+            view_multipath_alignment_as_dot(cerr, multipath_aln_pairs_out[i].second);
+            //cerr  << pb2json(multipath_aln_pairs_out[i].first) << endl;
+            //cerr  << pb2json(multipath_aln_pairs_out[i].second) << endl;
             cerr << "read 1 connected components:" << endl;
             for (vector<int64_t>& comp : connected_components_1) {
                 cerr << "\t";
@@ -2966,17 +2968,33 @@ namespace vg {
             multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
                                                         max_suboptimal_path_score_ratio, topological_order);
         }
-                      
         if (snarl_manager) {
             // We want to do snarl cutting
+            
+            if (!suppress_tail_anchors) {
+            
+#ifdef debug_multipath_mapper_alignment
+                cerr << "Synthesizing tail anchors for snarl cutting" << endl;
+#endif
+
+                // Make fake anchor paths to cut the snarls out of in the tails
+                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), num_alt_alns, dynamic_max_alt_alns);
+                
+            }
+       
+#ifdef debug_multipath_mapper_alignment
+            cerr << "MultipathAlignmentGraph going into snarl cutting:" << endl;
+            multi_aln_graph.to_dot(cerr, &alignment);
+#endif
         
             // Do the snarl cutting, which modifies the nodes in the multipath alignment graph
             multi_aln_graph.resect_snarls_from_paths(snarl_manager, node_trans, max_snarl_cut_size);
         }
 
+
 #ifdef debug_multipath_mapper_alignment
         cerr << "MultipathAlignmentGraph going into alignment:" << endl;
-        multi_aln_graph.to_dot(cerr);
+        multi_aln_graph.to_dot(cerr, &alignment);
         
         for (auto& ids : multi_aln_graph.get_connected_components()) {
             cerr << "Component: ";
@@ -2996,6 +3014,9 @@ namespace vg {
         // do the connecting alignments and fill out the MultipathAlignment object
         multi_aln_graph.align(alignment, align_graph, get_aligner(), true, num_alt_alns, dynamic_max_alt_alns, choose_band_padding, multipath_aln_out);
         
+        // Note that we do NOT topologically order the MultipathAlignment. The
+        // caller has to do that, after it is finished breaking it up into
+        // connected components or whatever.
         
 #ifdef debug_multipath_mapper_alignment
         cerr << "multipath alignment before translation: " << pb2json(multipath_aln_out) << endl;
@@ -3192,14 +3213,28 @@ namespace vg {
             // is turned on and it succeeded for the others.
             bool query_population = include_population_component && all_multipaths_pop_consistent;
             
-            // Generate the top alignment, or the top population_max_paths
-            // alignments if we are doing multiple alignments for population
-            // scoring.
-            auto wanted_alignments = query_population ? population_max_paths : 1;
-            auto alignments = optimal_alignments(multipath_alns[i], wanted_alignments);
+            /// Get all the linearizations we are going to work with, possibly with duplicates.
+            /// The first alignment will be optimal.
+            vector<Alignment> alignments;
             
+            if (query_population) {
+                // We want to do population scoring
+                if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
+                    // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
+                    // Make sure to also always include the optimal alignment first, even if inconsistent.
+                    // And also include up to population_max_paths non-consistent but hopefully scorable paths
+                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths, true);
+                } else {
+                    // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
+                    alignments = optimal_alignments(multipath_alns[i], population_max_paths);
+                }
+            } else {
+                // Just compute a single optimal alignment
+                alignments = optimal_alignments(multipath_alns[i], 1);
+            }
+           
 #ifdef debug_multipath_mapper
-            cerr << "Got " << alignments.size() << " / " << wanted_alignments << " tracebacks for multipath " << i << endl;
+            cerr << "Got " << alignments.size() << " tracebacks for multipath " << i << endl;
 #endif
 #ifdef debug_multipath_mapper_alignment
             cerr << pb2json(multipath_alns[i]) << endl;
@@ -3325,6 +3360,11 @@ namespace vg {
         
         if (include_population_component && all_multipaths_pop_consistent) {
             // We will go ahead with pop scoring for this read
+            
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is being used." << endl;
+#endif
+            
             for (auto& score : pop_adjusted_scores) {
                 // Adjust the adjusted scores up/down by the minimum adjustment to ensure no scores are negative
                 score -= min_adjustment;
@@ -3336,6 +3376,11 @@ namespace vg {
             }
         } else {
             // Clean up pop score annotations and remove scores on all the reads.
+            
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is not being used." << endl;
+#endif
+            
             for (auto& mpaln : multipath_alns) {
                 clear_annotation(mpaln, "haplotype_score_used");
                 clear_annotation(mpaln, "haplotype_score");
@@ -3471,8 +3516,29 @@ namespace vg {
             // population_max_paths alignments if we are doing multiple
             // alignments for population scoring.
             vector<vector<Alignment>> alignments(2);
-            alignments[0] = optimal_alignments(multipath_aln_pair.first, query_population ? population_max_paths : 1);
-            alignments[1] = optimal_alignments(multipath_aln_pair.second, query_population ? population_max_paths : 1);
+            
+            if (query_population) {
+                // We want to do population scoring
+                if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
+                    // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
+                    // Make sure to also always include the optimal alignment first, even if inconsistent.
+                    // Also pad out with population_max_paths inconsistent or unscorable paths
+                    alignments[0] = haplotype_consistent_alignments(multipath_aln_pair.first, *haplo_score_provider, population_max_paths, true);
+                    alignments[1] = haplotype_consistent_alignments(multipath_aln_pair.second, *haplo_score_provider, population_max_paths, true);
+                } else {
+                    // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
+                    alignments[0] = optimal_alignments(multipath_aln_pair.first, population_max_paths);
+                    alignments[1] = optimal_alignments(multipath_aln_pair.second, population_max_paths);
+                }
+            } else {
+                // Just compute a single optimal alignment
+                alignments[0] = optimal_alignments(multipath_aln_pair.first, 1);
+                alignments[1] = optimal_alignments(multipath_aln_pair.second, 1);
+            }
+            
+#ifdef debug_multipath_mapper
+            cerr << "Got " << alignments[0].size() << " and " << alignments[1].size() << " linearizations on each end" << endl;
+#endif
             
             // We used to fail an assert if either list of optimal alignments
             // was empty, but now we handle it as if that side is an unmapped
@@ -3552,6 +3618,11 @@ namespace vg {
                             pop_score.second = false;
                         }
                         
+#ifdef debug_multipath_mapper
+                        cerr << "Linearization " << j << " on end " << end << " gets pop score " << pop_score.first
+                            << " and alignment score " << alignments[end][j].score() << endl;
+#endif
+                        
                         if (pop_score.second) {
                             // If the alignment was pop-score-able, mix it in as a candidate for the best linearization
                             
@@ -3610,6 +3681,9 @@ namespace vg {
         
         if (include_population_component && all_multipaths_pop_consistent) {
             // Record that we used the population score
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is being used." << endl;
+#endif
             for (auto& multipath_aln_pair : multipath_aln_pairs) {
                 // We have to do it on each read in each pair.
                 // TODO: Come up with a simpler way to dump annotations in based on what happens during mapping.
@@ -3618,6 +3692,9 @@ namespace vg {
             }
         } else {
             // Clean up pop score annotations if present and remove scores from all the reads
+#ifdef debug_multipath_mapper
+            cerr << "Haplotype consistency score is not being used." << endl;
+#endif
             for (auto& multipath_aln_pair : multipath_aln_pairs) {
                 // We have to do it on each read in each pair.
                 clear_annotation(multipath_aln_pair.first, "haplotype_score_used");

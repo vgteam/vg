@@ -32,7 +32,7 @@ bool& get_is_rev(pos_t& pos);
 off_t& get_offset(pos_t& pos);
 /// Reverse a pos_t and get a pos_t at the same base, going the other direction.
 pos_t reverse(const pos_t& pos, size_t node_length);
-/// Reverse a Position and get a Position at the same base, going the orther direction.
+/// Reverse a Position and get a Position at the same base, going the other direction.
 Position reverse(const Position& pos, size_t node_length);
 /// Print a pos_t to a stream.
 ostream& operator<<(ostream& out, const pos_t& pos);

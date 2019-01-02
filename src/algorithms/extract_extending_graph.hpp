@@ -21,9 +21,11 @@ namespace algorithms {
     /// Fills graph 'into' with the subgraph of the handle graph 'source' that extends in one direction from
     /// a given position, up to a maximum distance. The node containing the position will be "cut" so that only
     /// the portion that is forward in the search direction remains. Node IDs may be changed in the extracted
-    /// graph, but they can be translated back to node IDs in the original graph with the returned map. The
-    /// node containing the source node may optionally be duplicated to preserve cycles on it after its cut,
-    /// but no other nodes will will duplicated.
+    /// graph, but they can be translated back to node IDs in the original graph with the returned map, although
+    /// that translation procedure MUST handle the node that pos is on specially, as it may be cut.
+    /// translate_node_ids from path.hpp can do this as long as you pass along what part of the node was removed.
+    /// The node containing the source position may optionally be duplicated to preserve cycles on it after its
+    /// cut, but no other nodes will will duplicated.
     ///
     /// Args:
     ///  source                  graph to extract subgraph from

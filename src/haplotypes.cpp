@@ -829,6 +829,19 @@ int64_t ScoreProvider::get_haplotype_count() const {
   return -1;
 }
 
+bool ScoreProvider::has_incremental_search() const {
+  // By default, say that we lack incremental search support.
+  return false;
+}
+
+IncrementalSearchState ScoreProvider::incremental_find(const vg::Position& pos) const {
+  throw runtime_error("Incremental search not implemented");
+}
+
+IncrementalSearchState ScoreProvider::incremental_extend(const IncrementalSearchState& state, const vg::Position& pos) const {
+  throw runtime_error("Incremental search not implemented");
+}
+
 /*******************************************************************************
 XGScoreProvider
 *******************************************************************************/
