@@ -116,9 +116,14 @@ namespace vg {
         /// which iterators were passed when the MultipathAlignmentGraph was
         /// constructed!
         ///
+        /// If clear_originals is set, all the original subpaths are removed,
+        /// and the search is set to re-find them, assuming they are perfect
+        /// matches.
+        ///
         /// Does *not* create new reachability edges; they will have to be
         /// computed afterwards.
-        void synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph, size_t max_mismatches);
+        void synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph,
+            size_t max_mismatches, bool clear_originals = false);
         
         /// Do some exploratory alignments of the tails of the graph, outside
         /// the outermost existing anchors, and define new anchoring paths from

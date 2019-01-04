@@ -2956,6 +2956,17 @@ namespace vg {
         auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
         MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, gcsa);
         
+        if (synthetic_anchor_search_limit > -1) {
+            // We're going to scrap the original anchors and replace them with
+            // all plausible anchors no more than X mismatches away from the
+            // original anchors.
+            multi_aln_graph.clear_reachability_edges();
+            multi_aln_graph.synthesize_anchors_by_search(alignment, align_graph, synthetic_anchor_search_limit, true);
+            
+            // TODO: Don't bother with the original reachability edges in this case
+            multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
+        }
+        
         {
             // Compute a topological order over the graph
             vector<size_t> topological_order;

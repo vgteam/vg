@@ -2838,7 +2838,8 @@ namespace vg {
     }
     
     
-    void MultipathAlignmentGraph::synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph, size_t max_mismatches) {
+    void MultipathAlignmentGraph::synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph,
+        size_t max_mismatches, bool clear_originals) {
     
         // We don't update reachability edges so make sure they are gone
         assert(!has_reachability_edges);
@@ -2904,6 +2905,17 @@ namespace vg {
 #ifdef debug_multipath_alignment
             cerr << "root search left from " << (match_base - alignment.sequence().begin()) << "=" << match_pos << endl;
 #endif
+
+            if (clear_originals) {
+                // Also look forward over the anchor from the start
+                queue.push(make_pair(0, make_tuple(match_base - alignment.sequence().begin(), match_pos, false)));
+                
+#ifdef debug_multipath_alignment
+                cerr << "root search right from " << (match_base - alignment.sequence().begin()) << "=" << match_pos << endl;
+#endif
+
+                // TODO: The other end of the PathNode will be redundant if we really are a perfect match. But we will queue it up anyway.
+            }
             
             // Now we have to do the same thing in the other direction
             match_base = path_node.end - 1;
@@ -2943,9 +2955,25 @@ namespace vg {
 #ifdef debug_multipath_alignment
             cerr << "root search right from " << (match_base - alignment.sequence().begin()) << "=" << match_pos << endl;
 #endif
+
+            if (clear_originals) {
+                // Also look back over the anchor from the end
+                queue.push(make_pair(0, make_tuple(match_base - alignment.sequence().begin(), match_pos, true)));
+            
+#ifdef debug_multipath_alignment
+                cerr << "root search left from " << (match_base - alignment.sequence().begin()) << "=" << match_pos << endl;
+#endif
+            }
+
         }
         
         // OK now our queue is populated, so we can do the search
+        
+        if (clear_originals) {
+            // Drop all the old PathNodes first. We are going to recover them,
+            // and we can't deduplicate with them if they're already there.
+            path_nodes.clear();
+        }
         
         while (!queue.empty()) {
             // Grab the best thing off the queue

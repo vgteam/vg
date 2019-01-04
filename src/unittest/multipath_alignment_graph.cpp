@@ -248,21 +248,17 @@ TEST_CASE( "MultipathAlignmentGraph can second-guess anchors", "[multipath][mapp
     // Cut up the PathNode if necessary
     mpg.cut_at_forks(vg);
     
-    // Synthesize anchors
-    mpg.synthesize_anchors_by_search(query, vg, 1);
+    // Synthesize anchors, clearing and re-finding the original ones.
+    mpg.synthesize_anchors_by_search(query, vg, 1, true);
     
     // Restore reachability edges, hooking up the synthesized anchors.
     mpg.add_reachability_edges(vg, identity, MultipathAlignmentGraph::create_injection_trans(identity));
-    
-    mpg.to_dot(cerr);
     
     // Make the output MultipathAlignment
     MultipathAlignment out;
     
     // Make it align, with alignments per gap/tail
     mpg.align(query, vg, &aligner, true, 2, false, 5, out);
-    
-    cerr << pb2json(out) << endl;
     
     // Make sure to topologically sort the resulting alignment. TODO: Should
     // the MultipathAlignmentGraph guarantee this for us by construction?
