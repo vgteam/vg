@@ -180,6 +180,122 @@ TEST_CASE( "MultipathAlignmentGraph::synthesize_anchors_by_search creates anchor
     // We shouldn't get anything overlapping the original PathNode because we only start the search from one place.
     REQUIRE(mpg.path_nodes.size() == 5);
 }
+
+TEST_CASE( "MultipathAlignmentGraph can second-guess anchors", "[multipath][mapping][multipathalignmentgraph]" ) {
+
+    string graph_json = R"({
+        "node": [
+            {"id": 1, "sequence": "GA"},
+            {"id": 2, "sequence": "TTTT"},
+            {"id": 3, "sequence": "CT"},
+            {"id": 4, "sequence": "ACA"},
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 4}
+        ]
+    })";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG vg;
+    vg.extend(proto_graph);
+    
+    // We need a fake read
+    string read("GATTACA");
+    
+    // Pack it into an Alignment.
+    // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
+    Alignment query;
+    query.set_sequence(read);
+    
+    // Make an Aligner to use for the actual aligning and the scores
+    Aligner aligner;
+    
+    // Make an identity projection translation
+    auto identity = MultipathAlignmentGraph::create_identity_projection_trans(vg);
+    
+    // Make up a fake MEM
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs
+    vector<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    // Note that this is also a memcluster_t
+    vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
+    
+    // Make a MEM hit GA TT
+    mems.emplace_back(query.sequence().begin(), query.sequence().begin() + 4, make_pair(5, 5), 1);
+    // Drop it on node 1 where it should sit
+    mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
+    
+    // Make the MultipathAlignmentGraph to test.
+    // This will walk from the MEM starting point to find an actual path to spell the MEM.
+    TestableMultipathAlignmentGraph mpg(vg, mem_hits, identity);
+    
+    // We should get only one PathNode
+    REQUIRE(mpg.path_nodes.size() == 1);
+    
+    // Clear out the reachability edges
+    mpg.clear_reachability_edges();
+    
+    // Cut up the PathNode if necessary
+    mpg.cut_at_forks(vg);
+    
+    // Synthesize anchors
+    mpg.synthesize_anchors_by_search(query, vg, 1);
+    
+    // Restore reachability edges, hooking up the synthesized anchors.
+    mpg.add_reachability_edges(vg, identity, MultipathAlignmentGraph::create_injection_trans(identity));
+    
+    mpg.to_dot(cerr);
+    
+    // Make the output MultipathAlignment
+    MultipathAlignment out;
+    
+    // Make it align, with alignments per gap/tail
+    mpg.align(query, vg, &aligner, true, 2, false, 5, out);
+    
+    cerr << pb2json(out) << endl;
+    
+    // Make sure to topologically sort the resulting alignment. TODO: Should
+    // the MultipathAlignmentGraph guarantee this for us by construction?
+    topologically_order_subpaths(out);
+    
+    // Make sure it worked at all
+    REQUIRE(out.sequence() == read);
+    REQUIRE(out.subpath_size() > 0);
+    
+    // Get the top optimal alignments
+    vector<Alignment> opt = optimal_alignments(out, 100);
+    
+    // Convert to a set of vectors of visited node IDs
+    set<vector<id_t>> got;
+    for(size_t i = 0; i < opt.size(); i++) {
+        auto& aln = opt[i];
+        
+        vector<id_t> ids;
+        for (auto& mapping : aln.path().mapping()) {
+            ids.push_back(mapping.position().node_id());
+        }
+        
+        // Save each list of visited IDs for checking.
+        got.insert(ids);
+    }
+    
+    // Make sure we have the good alignment that only takes a SNP but which our
+    // original anchors didn't allow.
+    REQUIRE(got.count({1, 3, 4}));
+    
+    
+    
+}
     
 
 TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath][mapping][multipathalignmentgraph]" ) {
@@ -275,7 +391,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
             REQUIRE(out.sequence() == read);
             REQUIRE(out.subpath_size() > 0);
             
-            // Get the top 10 optimal alignments
+            // Get the top optimal alignments
             vector<Alignment> opt = optimal_alignments(out, 100);
             
             // Convert to a set of vectors of visited node IDs

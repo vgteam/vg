@@ -133,16 +133,16 @@ namespace vg {
         void synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
                                      size_t max_alt_alns, bool dynamic_alt_alns);
                                      
-        /// Cut the interior of snarls out of anchoring paths (and split
-        /// alignment nodes accordingly) unless they are longer than the max
-        /// cut size. Reachability edges must be cleared.
-        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                      int64_t max_snarl_cut_size = 5);
-        
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(VG& vg,
                                     const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                     const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
+                                    
+        /// Cut the interior of snarls out of anchoring paths (and split
+        /// alignment nodes accordingly) unless they are longer than the max
+        /// cut size. Reachability edges should be present and will be updated. 
+        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                      int64_t max_snarl_cut_size = 5);
                                     
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a MultipathAlignment. Reachability edges must
