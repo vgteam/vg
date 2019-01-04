@@ -22,6 +22,31 @@ size_t HandleGraph::get_degree(const handle_t& handle, bool go_left) const {
     return count;
 }
 
+char HandleGraph::get_base(const handle_t& handle, size_t offset) const {
+    handle_t to_query = handle;
+    size_t real_offset = offset;
+    bool flipped = false;
+    if (this->get_is_reverse(handle)) {
+        // Work out what to retrieve on the forward strand instead
+        to_query = this->flip(handle);
+        real_offset = this->get_length(handle) - offset - 1;
+        flipped = true;
+    }
+    
+    // TODO: We have to do a string copy. A better implementation would skip this.
+    const string sequence = this->get_sequence(to_query);
+    
+    // Pull out the character
+    char base = sequence.at(real_offset);
+    
+    if (flipped) {
+        // Complement it since we wanted it on the reverse strand
+        base = reverse_complement(base);
+    }
+    
+    return base;
+}
+
 Visit HandleGraph::to_visit(const handle_t& handle) const {
     return vg::to_visit(this->get_id(handle), this->get_is_reverse(handle));
 }

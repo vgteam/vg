@@ -311,15 +311,15 @@ bool maps_to_node(const Path& p, id_t id);
 Position path_start(const Path& path);
 Position path_end(const Path& path);
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
-// Return true if a mapping is a perfect match (i.e. contains no non-match edits)
+/// Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);
 double divergence(const Mapping& m);
-// Return the identity for the path: perfect matches over total length.
-// For zero-length paths, returns 0.
+/// Return the identity for the path: perfect matches over total length.
+/// For zero-length paths, returns 0.
 double identity(const Path& path);
-// compare the agreement between two alignments
+/// compare the agreement between two alignments
 double overlap(const Path& p1, const Path& p2);
-// helps estimate overapls quickly
+/// helps estimate overapls quickly
 void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
 /// Switches the node ids in the path to the ones indicated by the translator

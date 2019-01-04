@@ -329,6 +329,12 @@ public:
     /// information more efficiently can override this method.
     virtual size_t get_degree(const handle_t& handle, bool go_left) const;
     
+    /// Get a single character form the oriented sequence of a handle. A custom
+    /// implementation may save on reverse complement calls and string copies.
+    /// The default implementation always queries handle sequences in their
+    /// local forward orientation.
+    virtual char get_base(const handle_t& handle, size_t offset) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Concrete utility methods
     ////////////////////////////////////////////////////////////////////////////

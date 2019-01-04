@@ -117,14 +117,8 @@ namespace vg {
         /// constructed!
         ///
         /// Does *not* create new reachability edges; they will have to be
-        /// comnputed afterwards.
-        void synthesize_additional_anchors(const Alignment& alignment, VG& align_graph, size_t max_mismatches);
-        
-        /// Cut the interior of snarls out of anchoring paths (and split
-        /// alignment nodes accordingly) unless they are longer than the max
-        /// cut size. Reachability edges must be cleared.
-        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                      int64_t max_snarl_cut_size = 5);
+        /// computed afterwards.
+        void synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph, size_t max_mismatches);
         
         /// Do some exploratory alignments of the tails of the graph, outside
         /// the outermost existing anchors, and define new anchoring paths from
@@ -138,6 +132,12 @@ namespace vg {
         /// the class hold a reference to the Alignment then?
         void synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
                                      size_t max_alt_alns, bool dynamic_alt_alns);
+                                     
+        /// Cut the interior of snarls out of anchoring paths (and split
+        /// alignment nodes accordingly) unless they are longer than the max
+        /// cut size. Reachability edges must be cleared.
+        void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                      int64_t max_snarl_cut_size = 5);
         
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(VG& vg,

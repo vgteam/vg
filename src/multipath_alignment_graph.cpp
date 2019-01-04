@@ -4,6 +4,8 @@
 
 #include "multipath_alignment_graph.hpp"
 
+#include <structures/updateable_priority_queue.hpp>
+
 //#define debug_multipath_alignment
 
 using namespace std;
@@ -2834,6 +2836,305 @@ namespace vg {
             
         }
     }
+    
+    
+    void MultipathAlignmentGraph::synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph, size_t max_mismatches) {
+    
+        // We don't update reachability edges so make sure they are gone
+        assert(!has_reachability_edges);
+        
+        // We define a priority queue, holding a query base index, a graph base
+        // position, and a flag for searching left in the query to keep our
+        // search from ping-ponging. We allow pairings of mismatching bases in
+        // our search, because that's where we get to charge the mismatch cost.
+        using pairing_t = tuple<size_t, pos_t, bool>;
+        // We prioritize them by a signed score based on mismatches crossed in gapless alignment
+        using record_t = pair<int64_t, pairing_t>;
+        
+        // Make a priority queue
+        // It may hold the same thing multiple times with different priorities.
+        // Remember that the LARGER things come FIRST, so the scores will all be 0 or negative.
+        priority_queue<record_t> queue;
+        
+        // And the set of processed pairings, including mismatches.
+        unordered_set<pairing_t> visited;
+        
+        // And the set of found in-range matching pairings, ignoring search orientation
+        unordered_set<pair<size_t, pos_t>> matches;
+        
+        for (auto& path_node : path_nodes) {
+            // Put the endpoints of all existing PathNodes in the queue
+            
+            assert(path_node.path.mapping_size() != 0);
+            assert(path_node.path.mapping(0).edit_size() != 0);
+            assert(path_node.begin != path_node.end);
+            
+            // First skip over all indels at the front to find the first match
+            auto match_base = path_node.begin;
+            size_t match_mapping = 0;
+            size_t match_edit = 0;
+            size_t offset_in_mapping = 0;
+            
+            while(!edit_is_match(path_node.path.mapping(match_mapping).edit(match_edit))) {
+                // Until we find a match edit, keep going
+                auto& mismatch = path_node.path.mapping(match_mapping).edit(match_edit);
+                match_base += mismatch.to_length();
+                offset_in_mapping += mismatch.from_length();
+                match_edit++;
+                if (match_edit == path_node.path.mapping(match_mapping).edit_size()) {
+                    match_edit = 0;
+                    offset_in_mapping = 0;
+                    match_mapping++;
+                }
+                
+                // Complain if we hit the end
+                assert(match_mapping < path_node.path.mapping_size());
+            }
+            
+            // Now we have a match edit, so we can create a search root hit.
+            
+            // Work out the position
+            pos_t match_pos = make_pos_t(path_node.path.mapping(match_mapping).position());
+            // Apply the offset from used edits
+            get_offset(match_pos) += offset_in_mapping;
+            
+            // Look left from the first matching base of the PathNode
+            queue.push(make_pair(0, make_tuple(match_base - alignment.sequence().begin(), match_pos, true)));
+            
+#ifdef debug_multipath_alignment
+            cerr << "root search left from " << (match_base - alignment.sequence().begin()) << "=" << match_pos << endl;
+#endif
+            
+            // Now we have to do the same thing in the other direction
+            match_base = path_node.end - 1;
+            match_mapping = path_node.path.mapping_size() - 1;
+            match_edit = path_node.path.mapping(match_mapping).edit_size() - 1;
+            offset_in_mapping = mapping_from_length(path_node.path.mapping(match_mapping)) - 1;
+            
+            while(!edit_is_match(path_node.path.mapping(match_mapping).edit(match_edit))) {
+                // Until we find a match edit, keep going
+                auto& mismatch = path_node.path.mapping(match_mapping).edit(match_edit);
+                match_base -= mismatch.to_length();
+                offset_in_mapping -= mismatch.from_length();
+                if (match_edit == 0) {
+                    // Go back to the previous mapping
+                    assert(!match_mapping == 0);
+                    match_mapping--;
+                    
+                    // Be at the last edit
+                    match_edit = path_node.path.mapping(match_mapping).edit_size() - 1;
+                    offset_in_mapping = mapping_from_length(path_node.path.mapping(match_mapping)) - 1;
+                } else {
+                    // Go back to the previous edit
+                    match_edit--;
+                }
+            }
+            
+            // Now we have a match edit, so we can create a search root hit.
+            
+            // Work out the position
+            match_pos = make_pos_t(path_node.path.mapping(match_mapping).position());
+            // Apply the offset from unused edits
+            get_offset(match_pos) += offset_in_mapping;
+            
+            // Look right from the last matching base of the PathNode
+            queue.push(make_pair(0, make_tuple(match_base - alignment.sequence().begin(), match_pos, false)));
+            
+#ifdef debug_multipath_alignment
+            cerr << "root search right from " << (match_base - alignment.sequence().begin()) << "=" << match_pos << endl;
+#endif
+        }
+        
+        // OK now our queue is populated, so we can do the search
+        
+        while (!queue.empty()) {
+            // Grab the best thing off the queue
+            int64_t base_score;
+            pairing_t to_extend;
+            tie(base_score, to_extend) = queue.top();
+            queue.pop();
+            
+            if (visited.count(to_extend)) {
+                // We already did this with a better priority
+                continue;
+            }
+            
+            // Unpack the pairing being extended
+            auto& extend_base = get<0>(to_extend);
+            pos_t& extend_pos = get<1>(to_extend);
+            bool& extend_left = get<2>(to_extend);
+            
+#ifdef debug_multipath_alignment
+            cerr << "best unvisited pairing is " << extend_base << "=" << extend_pos << " "
+                << (extend_left ? "left" : "right") << " with score " << base_score << endl;
+#endif
+            
+            // Find its graph handle
+            handle_t here = align_graph.get_handle(id(extend_pos), is_rev(extend_pos));
+            
+            // This will hold the computed neighbors
+            vector<pairing_t> extended;
+            
+            // Otherwise, look in the correct direction from here in the graph
+            if (extend_left) {
+                // Extend left in the read
+                // This also means backward relative to the articulated matched graph pos
+                if (extend_base != 0) {
+                    // There is room to extend left in the read
+                    if (offset(extend_pos) == 0) {
+                        // Extend to the ends of previous handles from this position's handle
+                        align_graph.follow_edges(here, true, [&](const handle_t& prev) {
+                            // For each reachable prev handle, make a pairing for its last base
+                            auto extended_base = extend_base - 1;
+                            auto extended_pos = make_pos_t(align_graph.get_id(prev),
+                                align_graph.get_is_reverse(prev), align_graph.get_length(prev) - 1);
+                            
+                            extended.emplace_back(extended_base, extended_pos, extend_left);
+                        });
+                    } else {
+                        // Just extend to the previous base
+                        extended.push_back(to_extend);
+                        get<0>(extended.back())--;
+                        get_offset(get<1>(extended.back()))--;
+                    }
+                }
+            } else {
+                // Extend right in the read
+                // This also means forward relative to the articulated matched graph pos
+                if (extend_base + 1 != alignment.sequence().size()) {
+                    // There is room to extend right in the read
+                    if (offset(extend_pos) == align_graph.get_length(here) - 1) {
+                        // Extend to the starts of next handles from this position's handle
+                        align_graph.follow_edges(here, false, [&](const handle_t& next) {
+                            // For each reachable next handle, make a pairing for its first base
+                            auto extended_base = extend_base + 1;
+                            auto extended_pos = make_pos_t(align_graph.get_id(next),
+                                align_graph.get_is_reverse(next), 0);
+                            
+                            extended.emplace_back(extended_base, extended_pos, extend_left);
+                        });
+                    } else {
+                        // Just extend to the next base
+                        extended.push_back(to_extend);
+                        get<0>(extended.back())++;
+                        get_offset(get<1>(extended.back()))++;
+                    }
+                }
+            }
+            
+            for (auto& extension : extended) {
+                // For each place we can go
+                auto& extended_base = get<0>(extension);
+                pos_t& extended_pos = get<1>(extension);
+                bool& extended_left = get<2>(extension);
+                
+                int64_t extended_score = base_score; 
+                    
+                // Get the base we are mapping to.
+                // TODO: We could save a handle query and a whole string reverse complement
+                char paired_with = align_graph.get_base(align_graph.get_handle(id(extended_pos),
+                    is_rev(extended_pos)), offset(extended_pos));
+                
+                if (alignment.sequence().at(extended_base) != paired_with) {
+                    // If it's a mismatch, penalize it
+                    extended_score--;
+                } else {
+                    // We found a match!
+                    matches.emplace(extended_base, extended_pos);
+                }
+                
+#ifdef debug_multipath_alignment
+            cerr << "\textended to " << extended_base << "=" << extended_pos << " with score " << extended_score << endl;
+#endif
+                
+                if (-extended_score <= max_mismatches) {
+                    // Then insert it if it isn't too bad
+                    queue.emplace(extended_score, extension);
+                }
+            }
+            
+            // Record this pairing as handled
+            visited.insert(to_extend);
+        }
+        
+        // Now we have completed the search and all the in-range matches are in
+        // the matches set. Coalesce the matches we found into contiguous
+        // PathNodes within nodes.
+        
+        while (!matches.empty()) {
+            // Pick an arbitrary match from the set to root a run of matches that constitute a new PathNode
+            auto root = *matches.begin();
+            matches.erase(root);
+            
+            // Unpack it
+            auto& root_base = root.first;
+            auto& root_pos = root.second;
+            
+#ifdef debug_multipath_alignment
+            cerr << "root run at " << root_base << "=" << root_pos << endl;
+#endif
+            
+            // Define bounds of the run of matches
+            auto begin_base = root_base;
+            auto end_base = begin_base + 1;
+            auto begin_offset = offset(root_pos);
+            auto end_offset = begin_offset + 1;
+            
+            // Extend right
+            auto right_extension = make_pair(end_base, make_pos_t(id(root_pos), is_rev(root_pos), end_offset));
+            while (matches.count(right_extension)) {
+                // While we see the next pairing to the right
+                // Take it out
+                matches.erase(right_extension);
+                // Look righter
+                end_base++;
+                end_offset++;
+                right_extension = make_pair(end_base, make_pos_t(id(root_pos), is_rev(root_pos), end_offset));
+            }
+            
+            // Extend left
+            if (begin_base != 0 && begin_offset != 0) {
+                // It is safe to try and look left
+                
+                auto left_extension = make_pair(begin_base - 1, make_pos_t(id(root_pos), is_rev(root_pos), begin_offset - 1));
+                while (matches.count(left_extension)) {
+                    // While we see the next pairing to the left
+                    // Take it out
+                    matches.erase(left_extension);
+                    // Look lefter
+                    begin_base--;
+                    begin_offset--;
+                    
+                    if (begin_base == 0 || begin_offset == 0) {
+                        // Can't even think about left of here
+                        break;
+                    }
+                    
+                    left_extension = make_pair(begin_base - 1, make_pos_t(id(root_pos), is_rev(root_pos), begin_offset - 1));
+                }
+            }
+            
+            // OK now we have a range that can be a PathNode, so make one
+            path_nodes.emplace_back();
+            path_nodes.back().begin = alignment.sequence().begin() + begin_base;
+            path_nodes.back().end = alignment.sequence().begin() + end_base;
+            // Give it a mapping that starts at our run's begin position
+            auto* mapping = path_nodes.back().path.add_mapping();
+            *mapping->mutable_position() = make_position(id(root_pos), is_rev(root_pos), begin_offset);
+            // And an edit that runs for the length of our run
+            auto* edit = mapping->add_edit();
+            edit->set_from_length(end_offset - begin_offset);
+            edit->set_to_length(end_offset - begin_offset);
+            
+#ifdef debug_multipath_alignment
+            cerr << "produce new PathNode " << path_nodes.size() - 1 << endl;
+#endif
+        }
+        
+        // TODO: We may recreate the original PathNodes that were in the graph, again.
+    }
+    
+    
     
     // Kahn's algorithm
     void MultipathAlignmentGraph::topological_sort(vector<size_t>& order_out) {
