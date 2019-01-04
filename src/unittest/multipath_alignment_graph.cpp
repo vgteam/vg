@@ -11,6 +11,104 @@
 namespace vg {
 namespace unittest {
 
+/// We define a class to expose some protected members so we can look at them in the tests.
+class TestableMultipathAlignmentGraph : public MultipathAlignmentGraph {
+public:
+    using MultipathAlignmentGraph::MultipathAlignmentGraph;
+    using MultipathAlignmentGraph::path_nodes;
+};
+
+TEST_CASE( "MultipathAlignmentGraph::cut_at_forks cuts PathNodes at graph forks", "[multipath][mapping][multipathalignmentgraph]" ) {
+
+    string graph_json = R"({
+        "node": [
+            {"id": 1, "sequence": "GAT"},
+            {"id": 2, "sequence": "T"},
+            {"id": 3, "sequence": "C"},
+            {"id": 4, "sequence": "ACA"},
+        ],
+        "edge": [
+            {"from": 1, "to": 2},
+            {"from": 1, "to": 3},
+            {"from": 2, "to": 4},
+            {"from": 3, "to": 4}
+        ]
+    })";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Make it into a VG
+    VG vg;
+    vg.extend(proto_graph);
+    
+    // We need a fake read
+    string read("GATTACA");
+    
+    // Pack it into an Alignment.
+    // Note that we need to use the Alignment's copy for getting iterators for the MEMs.
+    Alignment query;
+    query.set_sequence(read);
+    
+    // Make an identity projection translation
+    auto identity = MultipathAlignmentGraph::create_identity_projection_trans(vg);
+    
+    // Make up a fake MEM
+    // GCSA range_type is just a pair of [start, end], so we can fake them.
+    
+    // This will actually own the MEMs
+    vector<MaximalExactMatch> mems;
+    
+    // This will hold our MEMs and their start positions in the imaginary graph.
+    // Note that this is also a memcluster_t
+    vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
+    
+    // Make a MEM hit over 1, 2, 3
+    mems.emplace_back(query.sequence().begin(), query.sequence().begin() + 7, make_pair(5, 5), 1);
+    // Drop it on node 1 where it should sit
+    mem_hits.emplace_back(&mems.back(), make_pos_t(1, false, 0));
+    
+    // Make the MultipathAlignmentGraph to test.
+    // This will walk from the MEM starting point to find an actual path to spell the MEM.
+    TestableMultipathAlignmentGraph mpg(vg, mem_hits, identity);
+    
+    // We should get only one PathNode
+    REQUIRE(mpg.path_nodes.size() == 1);
+    
+    // Clear out the reachability edges
+    mpg.clear_reachability_edges();
+    
+    // Cut up the single PathNode
+    mpg.cut_at_forks(vg);
+    
+    // Now we should have three
+    REQUIRE(mpg.path_nodes.size() == 3);
+    
+    // Check their toplological order and actual positions/paths.
+    mpg.add_reachability_edges(vg, identity, MultipathAlignmentGraph::create_injection_trans(identity));
+    vector<size_t> order;
+    mpg.topological_sort(order);
+    
+    PathNode& first = mpg.path_nodes[order[0]];
+    REQUIRE(first.begin == query.sequence().begin());
+    REQUIRE(first.end == query.sequence().begin() + 3);
+    REQUIRE(first.path.mapping_size() == 1);
+    REQUIRE(first.path.mapping(0).position().node_id() == 1);
+    
+    PathNode& second = mpg.path_nodes[order[1]];
+    REQUIRE(second.begin == query.sequence().begin() + 3);
+    REQUIRE(second.end == query.sequence().begin() + 4);
+    REQUIRE(second.path.mapping_size() == 1);
+    REQUIRE(second.path.mapping(0).position().node_id() == 2);
+    
+    PathNode& third = mpg.path_nodes[order[2]];
+    REQUIRE(third.begin == query.sequence().begin() + 4);
+    REQUIRE(third.end == query.sequence().begin() + 7);
+    REQUIRE(third.path.mapping_size() == 1);
+    REQUIRE(third.path.mapping(0).position().node_id() == 4);
+}
+
 TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath][mapping][multipathalignmentgraph]" ) {
 
     string graph_json = R"({
@@ -71,7 +169,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
     // Note that this is also a memcluster_t
     vector<pair<const MaximalExactMatch*, pos_t>> mem_hits;
     
-    /*
+    
     SECTION ("Works with right tail only") {
     
         // Make a MEM hit over all of node 1's sequence
@@ -165,7 +263,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         }
         
     }
-    */
+    
     
     SECTION ("Works with both tails at once") {
     

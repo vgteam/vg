@@ -88,7 +88,7 @@ namespace vg {
         void topological_sort(vector<size_t>& order_out);
         
         /// Removes non-softclip indels from path nodes. Does not update edges--should be called
-        /// prior to adding computing edges.
+        /// prior to computing edges.
         void trim_hanging_indels(const Alignment& alignment);
         
         /// Removes all transitive edges from graph (reduces to minimum equivalent graph).
@@ -105,12 +105,26 @@ namespace vg {
         /// (possibly after modifying the graph).
         void clear_reachability_edges();
         
+        /// Cut all PathNodes where they cross over decision points in the
+        /// graph. Reachability edges must be cleared. They will not be updated
+        /// to account for cutting of PathNodes.
+        void cut_at_forks(VG& align_graph);
+        
+        /// Find all possible anchors out from the existing anchors without
+        /// going through more than max_mismatches mismatches. The Alignment
+        /// passed *must* be the same Alignment that owns the sequence into
+        /// which iterators were passed when the MultipathAlignmentGraph was
+        /// constructed!
+        ///
+        /// Does *not* create new reachability edges; they will have to be
+        /// comnputed afterwards.
+        void synthesize_additional_anchors(const Alignment& alignment, VG& align_graph, size_t max_mismatches);
+        
         /// Cut the interior of snarls out of anchoring paths (and split
         /// alignment nodes accordingly) unless they are longer than the max
         /// cut size. Reachability edges must be cleared.
         void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                       int64_t max_snarl_cut_size = 5);
-        
         
         /// Do some exploratory alignments of the tails of the graph, outside
         /// the outermost existing anchors, and define new anchoring paths from
@@ -170,7 +184,7 @@ namespace vg {
         /// Does the multipath alignment xgraph have any nodes?
         bool empty();
         
-    private:
+    protected:
         
         /// Nodes representing walked MEMs in the graph
         vector<PathNode> path_nodes;

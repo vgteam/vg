@@ -2737,6 +2737,104 @@ namespace vg {
         
     }
     
+    void MultipathAlignmentGraph::cut_at_forks(VG& align_graph) {
+        // We don't update reachability edges so make sure they are gone
+        assert(!has_reachability_edges);
+    
+        size_t num_original_path_nodes = path_nodes.size();
+        
+#ifdef debug_multipath_alignment
+        cerr << "cutting " << num_original_path_nodes << " path nodes at graph forks" << endl;
+#endif
+        
+        for (size_t i = 0; i < num_original_path_nodes; i++) {
+            // We want to be able to write to the original path node, but the vector may reallocate when we add new ones.
+            // So wew have to do all accesses through the vector and can't keep a reference around.
+            
+            // We will scan along the path, accumulating paths for new PathNodes and emitting them when we hit forks.
+            // When we hit the end, the final remaining bit takes the place of the original PathNode.
+            auto next_begin = path_nodes.at(i).begin;
+            auto next_end = next_begin;
+            Path next_path;
+            
+            // We keep track of the handle we crossed to get to here
+            handle_t prev_right_handle;
+            
+#ifdef debug_multipath_alignment
+            cerr << "\thandling path node " << i << " with " << path_nodes.at(i).path.mapping_size() << " mappings" << endl;
+#endif
+            
+            for (size_t j = 0; j < path_nodes.at(i).path.mapping_size(); j++) {
+                // For each Mapping along the path
+                // Copy it to avoid an invalid reference when we reallocate path_nodes
+                auto mapping = path_nodes.at(i).path.mapping(j);
+                
+                // Get the handle to the node it is on, looking back to the previous node
+                handle_t here_left_handle = align_graph.get_handle(mapping.position().node_id(), !mapping.position().is_reverse());
+                
+                if (j > 0) {
+                    // We moved from a previous mapping to here.
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "\t\ttransition " << align_graph.get_id(prev_right_handle) << " -> " << align_graph.get_id(here_left_handle) << endl;
+#endif
+                    
+                    if (mapping.position().offset() != 0 && align_graph.get_id(here_left_handle) == align_graph.get_id(prev_right_handle)) {
+                        // This is just a within-node transition. Skip to the next mapping.
+                        // Don't update the prev handle; it should stay on the prev node.
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "\t\t\tin same node; ignoring" << endl;
+#endif
+                        
+                        *next_path.add_mapping() = mapping;
+                        next_end += mapping_to_length(mapping);
+                        continue;
+                    }
+                    
+                    // Did we cross a fork in either direction?
+                    size_t out_degree = align_graph.get_degree(prev_right_handle, false);        
+                    size_t in_degree = align_graph.get_degree(here_left_handle, false);                    
+                    if (out_degree > 1 || in_degree > 1) {
+                        // This is a fork. Emit what we have saved as a new PathNode.
+                        // This invaidates the mapping reference.
+                        path_nodes.emplace_back();
+                        path_nodes.back().begin = next_begin;
+                        path_nodes.back().end = next_end;
+                        path_nodes.back().path = next_path;
+                        
+                        // Clear out the buffer
+                        next_path.clear_mapping();
+                        next_begin = next_end;
+                
+#ifdef debug_multipath_alignment
+                        cerr << "\t\t\tfork with " << out_degree << " edges at left and " << in_degree << " edges at right" << endl;
+                        cerr << "\t\t\tput " << path_nodes.back().path.mapping_size() << " mappings into new path node "
+                            << path_nodes.size() - 1 << endl;
+#endif
+                    }
+                }
+                
+                // Now add this node and its used part of the read to the buffer
+                *next_path.add_mapping() = mapping;
+                next_end += mapping_to_length(mapping); 
+            
+                // Move to the next node
+                prev_right_handle = align_graph.flip(here_left_handle);
+            }
+            
+            // Commit the buffer back to the original PathNode
+            path_nodes.at(i).begin = next_begin;
+            path_nodes.at(i).end = next_end;
+            path_nodes.at(i).path = next_path;
+            
+#ifdef debug_multipath_alignment
+            cerr << "\t\tkeep " << path_nodes.at(i).path.mapping_size() << " mappings in original" << endl;
+#endif
+            
+        }
+    }
+    
     // Kahn's algorithm
     void MultipathAlignmentGraph::topological_sort(vector<size_t>& order_out) {
         // Can only sort if edges are present.
