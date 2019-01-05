@@ -132,7 +132,7 @@ namespace vg {
         size_t min_median_mem_coverage_for_split = 0;
         bool suppress_cluster_merging = false;
         /// Max mismatches to read through when looking for potential alternate non-MEM read/graph anchors
-        size_t synthetic_anchor_search_limit = 2;
+        int64_t synthetic_anchor_search_limit = 2;
         size_t alt_anchor_max_length_diff = 5;
         bool dynamic_max_alt_alns = false;
         bool simplify_topologies = false;

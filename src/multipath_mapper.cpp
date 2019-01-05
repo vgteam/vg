@@ -2957,6 +2957,10 @@ namespace vg {
         MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, gcsa);
         
         if (synthetic_anchor_search_limit > -1) {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "searching over " << synthetic_anchor_search_limit << " mismatches for additional anchors" << endl;
+#endif
+        
             // We're going to scrap the original anchors and replace them with
             // all plausible anchors no more than X mismatches away from the
             // original anchors.
@@ -2965,6 +2969,8 @@ namespace vg {
             
             // TODO: Don't bother with the original reachability edges in this case
             multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
+            
+            multi_aln_graph.to_dot(cerr);
         }
         
         {
