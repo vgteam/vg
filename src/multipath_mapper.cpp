@@ -2969,8 +2969,6 @@ namespace vg {
             
             // TODO: Don't bother with the original reachability edges in this case
             multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
-            
-            multi_aln_graph.to_dot(cerr);
         }
         
         {
