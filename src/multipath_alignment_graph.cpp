@@ -2837,7 +2837,7 @@ namespace vg {
         }
     }
     
-    
+#define debug_multipath_alignment
     void MultipathAlignmentGraph::synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph,
         size_t max_mismatches, bool clear_originals) {
     
@@ -3066,10 +3066,10 @@ namespace vg {
                 if (alignment.sequence().at(extended_base) != paired_with) {
                     // If it's a mismatch, penalize it
                     extended_score--;
-                } else {
+                //} else {
                     // We found a match!
                     matches.emplace(extended_base, extended_pos);
-                }
+                //}
                 
 #ifdef debug_multipath_alignment
             cerr << "\textended to " << extended_base << "=" << extended_pos << " with score " << extended_score << endl;
@@ -3161,6 +3161,7 @@ namespace vg {
         
         // TODO: We may recreate the original PathNodes that were in the graph, again.
     }
+#undef debug_multipath_alignment
     
     
     

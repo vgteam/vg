@@ -2982,6 +2982,7 @@ namespace vg {
                 
             }
        
+#define debug_multipath_mapper_alignment
 #ifdef debug_multipath_mapper_alignment
             cerr << "MultipathAlignmentGraph going into snarl cutting:" << endl;
             multi_aln_graph.to_dot(cerr, &alignment);
@@ -2995,6 +2996,11 @@ namespace vg {
 #ifdef debug_multipath_mapper_alignment
             cerr << "searching over " << synthetic_anchor_search_limit << " mismatches for additional anchors" << endl;
 #endif
+
+#ifdef debug_multipath_mapper_alignment
+            cerr << "MultipathAlignmentGraph going into anchor search:" << endl;
+            multi_aln_graph.to_dot(cerr, &alignment);
+#endif
         
             // We're going to scrap the original anchors and replace them with
             // all plausible anchors no more than X mismatches away from the
@@ -3006,7 +3012,7 @@ namespace vg {
             // TODO: Don't bother with the original reachability edges in this case
             multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
         }
-
+        
 #ifdef debug_multipath_mapper_alignment
         cerr << "MultipathAlignmentGraph going into alignment:" << endl;
         multi_aln_graph.to_dot(cerr, &alignment);
@@ -3019,6 +3025,7 @@ namespace vg {
             cerr << endl;
         }
 #endif
+#undef debug_multipath_mapper_alignment
         
         function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
             size_t read_length = seq.sequence().end() - seq.sequence().begin();

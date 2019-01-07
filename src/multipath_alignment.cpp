@@ -9,7 +9,7 @@
 
 #include <type_traits>
 
-//#define debug_multiple_tracebacks
+#define debug_multiple_tracebacks
 //#define debug_verbose_validation
 
 using namespace std;
@@ -805,7 +805,7 @@ namespace vg {
         size_t count, bool optimal_first) {
         
 #ifdef debug_multiple_tracebacks
-        cerr << "Computing haplotype consistent alignments" << endl;
+        cerr << "Computing haplotype consistent alignments of " << pb2json(multipath_aln) << endl;
 #endif
 
         // We can only work with a score provider that supports incremental search.
@@ -1095,6 +1095,12 @@ namespace vg {
                 cerr << "Remove worst from queue (" << queue.size() << "/" << max_size << ")" << endl;
 #endif
             }
+            
+            if (queue.size() >= 1000) {
+                view_multipath_alignment_as_dot(cerr, multipath_aln, true);
+            }
+            
+            assert(queue.size() < 1000);
         };
         
         // Also, subpaths only keep track of their nexts, so we need to invert
