@@ -1007,7 +1007,7 @@ namespace vg {
         }
         
     }
-    
+   
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
                                                            const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                            int64_t max_snarl_cut_size) {
