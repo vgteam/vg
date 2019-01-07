@@ -116,15 +116,31 @@
 <tr>
 <td><a href="#Classes">
                                     Classes (
-                                    3
+                                    11
                                     )
                             </a></td>
-<td><select onChange="window.location.hash = document.getElementById('naviClass').value" id="naviClass"><option value="Node">
+<td><select onChange="window.location.hash = document.getElementById('naviClass').value" id="naviClass"><option value="GAMP_Format">
+				vg:GAMP_Format</option>
+<option value="GAM_Format">
+				vg:GAM_Format</option>
+<option value="GBWT_Format">
+				vg:GBWT_Format</option>
+<option value="GCSA2_Format">
+				vg:GCSA2_Format</option>
+<option value="Node">
 				vg:Node</option>
 <option value="Path">
 				vg:Path</option>
+<option value="Snarl_Format">
+				vg:Snarl_Format</option>
+<option value="Snarl_Traversal_Format">
+				vg:Snarl_Traversal_Format</option>
 <option value="Step">
-				vg:Step</option></select></td>
+				vg:Step</option>
+<option value="VG_Format">
+				vg:VG_Format</option>
+<option value="XG_Format">
+				vg:XG_Format</option></select></td>
 </tr>
 <tr><td><a href="#Properties">
                                     Properties (
@@ -220,6 +236,119 @@
 					</h2>
 <div class="nice-content" id="Classes">
 <table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GAMP_Format"></a><tbody>
+<tr><th id="GAMP_Format">
+				vg:GAMP_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Contains a DAG of subalignments to different paths through the reference graph</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>MultipathAlignment</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GAM_Format"></a><tbody>
+<tr><th id="GAM_Format">
+				vg:GAM_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Contains an alignment to a graph</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>Alignment</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://edamontology.org/format_2055">http://edamontology.org/format_2055</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GBWT_Format"></a><tbody>
+<tr><th id="GBWT_Format">
+				vg:GBWT_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Graph Burrows-Wheeler Transform, a succinct collection of paths through a genome graph, published by Jouni Siren. Usually represents haplotypes.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>GBWT</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#GCSA2_Format"></a><tbody>
+<tr><th id="GCSA2_Format">
+				vg:GCSA2_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Generalized compressed suffix array 2, an exact match index published by Jouni Siren</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>GCSA2</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
 <a name="http://biohackathon.org/resource/vg#Node"></a><tbody>
 <tr><th id="Node">
 				vg:Node<span class="cp-type">
@@ -292,6 +421,60 @@
 </tbody>
 </table>
 <table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Snarl_Format"></a><tbody>
+<tr><th id="Snarl_Format">
+				vg:Snarl_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td> A series of Snarl objects, each of which contain: The boundaries of a snarl (a bubble-like motif in a graph), the snarl (if any) that contains this one, classifications of the snarl based on the reachability of the two boundary nodes from each other and the cyclic-ness of the subcomponent.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>Snarl</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Snarl_Traversal_Format"></a><tbody>
+<tr><th id="Snarl_Traversal_Format">
+				vg:Snarl_Traversal_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td> A series of SnarlTraversal objects, each of which contain: A walk in the graph through a Snarl, and optionally a name.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>SnarlTraversal</td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
 <a name="http://biohackathon.org/resource/vg#Step"></a><tbody>
 <tr><th id="Step">
 				vg:Step<span class="cp-type">
@@ -324,6 +507,76 @@
 					rdfs:subClassOf</a></td>
 <td><a href="http://www.w3.org/2002/07/owl#Thing">
 				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#VG_Format"></a><tbody>
+<tr><th id="VG_Format">
+				vg:VG_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>Nodes, Edges, Paths. Nodes have ID and sequence, Edges consist of two node sides (so the graph is bidirected), Paths are a sequence of Nodes and orientations. Paths also have names</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>Graph</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://edamontology.org/format_2055">http://edamontology.org/format_2055</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://edamontology.org/format_2921">http://edamontology.org/format_2921</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#XG_Format"></a><tbody>
+<tr><th id="XG_Format">
+				vg:XG_Format<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>An immutable, succinct representation of a graph. Contains the same info as the .vg.</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#isDefinedBy">
+					rdfs:isDefinedBy</a></td>
+<td><a href="https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto">https://raw.githubusercontent.com/vgteam/vg/master/src/vg.proto</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>XG</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#seeAlso">
+					rdfs:seeAlso</a></td>
+<td><a href="http://biohackathon.org/resource/vg#VG_Format">
+				vg:VG_Format</a></td>
 </tr>
 </tbody>
 </table>

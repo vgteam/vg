@@ -2186,6 +2186,31 @@ void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator)
     }
 }
 
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator, id_t cut_node, size_t bases_removed, bool from_right) {
+    // First just translate the IDs
+    translate_node_ids(path, translator);
+    
+    
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        // Scan the whole path again. We can't count on the cut node only being in the first and last mappings.
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        if (position->node_id() == cut_node) {
+            // Then adjust offsets to account for the cut on the original node
+            
+            // If the position in the path is counting from the same end of the
+            // node that we didn't keep after the cut, we have to bump up its
+            // offset.
+            if ((!position->is_reverse() && !from_right) || // We cut off the left of the node, and we're counting from the left
+                (position->is_reverse() && from_right)) { // We cut off the right of the node, and we're counting from the right
+                // Update the offset to reflect the removed bases
+                position->set_offset(position->offset() + bases_removed);
+            }
+        }
+    }
+    
+    
+}
+
 void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator) {
     for (size_t i = 0; i < path.mapping_size(); i++) {
         Position* position = path.mutable_mapping(i)->mutable_position();

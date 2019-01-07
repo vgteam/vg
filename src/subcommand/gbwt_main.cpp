@@ -26,15 +26,20 @@ using namespace vg::subcommand;
 void help_gbwt(char** argv) {
     cerr << "usage: " << argv[0] << " [options] [args]" << endl
          << "Manipulate GBWTs." << endl
-         << "merging:" << endl
+         << "merging (use deps/gbwt/merge_gbwt for more options):" << endl
          << "    -m, --merge            merge the GBWT files from the input args and write to output" << endl
          << "    -o, --output X         write output GBWT to X" << endl
-         << "    -b, --batches N        use batches of N sequences for merging (default: " << gbwt::DynamicGBWT::MERGE_BATCH_SIZE << ")" << endl
          << "    -f, --fast             fast merging algorithm (node ids must not overlap; implies -m)" << endl
          << "    -p, --progress         show progress and statistics" << endl
          << "threads:" << endl
          << "    -c, --count-threads    print the number of threads" << endl
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
+         << "    -r, --remove-thread N  remove the thread with identifier N (may repeat; use -o to change output)" << endl
+         << "metadata (use deps/gbwt/metadata to modify):" << endl
+         << "    -M, --metadata         print all metadata" << endl
+         << "    -C, --contigs          print the number of contigs" << endl
+         << "    -H, --haplotypes       print the number of haplotypes" << endl
+         << "    -S, --samples          print the number of samples" << endl
          << endl;
 }
 
@@ -46,11 +51,13 @@ int main_gbwt(int argc, char** argv)
     }
 
     bool merge = false;
-    size_t batch_size = gbwt::DynamicGBWT::MERGE_BATCH_SIZE;
     bool fast_merging = false;
     bool show_progress = false;
     bool count_threads = false;
+    bool metadata = false, contigs = false, haplotypes = false, samples = false;
+    bool load_index = false;
     string gbwt_output, thread_output;
+    std::vector<gbwt::size_type> to_remove;
 
     int c;
     optind = 2; // force optind past command positional argument    
@@ -60,20 +67,26 @@ int main_gbwt(int argc, char** argv)
                 // Merging
                 {"merge", no_argument, 0, 'm'},
                 {"output", required_argument, 0, 'o'},
-                {"batches", required_argument, 0, 'b'},
                 {"fast", no_argument, 0, 'f'},
                 {"progress",  no_argument, 0, 'p'},
 
                 // Threads
                 {"count-threads", no_argument, 0, 'c'},
                 {"extract", required_argument, 0, 'e'},
+                {"remove-thread", required_argument, 0, 'r'},
+
+                // Metadata
+                {"metadata", no_argument, 0, 'M'},
+                {"contigs", no_argument, 0, 'C'},
+                {"haplotypes", no_argument, 0, 'H'},
+                {"samples", no_argument, 0, 'S'},
 
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "mo:b:fpce:h?", long_options, &option_index);
+        c = getopt_long(argc, argv, "mo:fpce:r:MCHSh?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -88,9 +101,6 @@ int main_gbwt(int argc, char** argv)
         case 'o':
             gbwt_output = optarg;
             break;
-        case 'b':
-            batch_size = parse<size_t>(optarg);
-            break;
         case 'f':
             fast_merging = true;
             merge = true;
@@ -99,11 +109,35 @@ int main_gbwt(int argc, char** argv)
             show_progress = true;
             break;
 
+        // Threads
         case 'c':
             count_threads = true;
+            load_index = true;
             break;
         case 'e':
             thread_output = optarg;
+            load_index = true;
+            break;
+        case 'r':
+            to_remove.push_back(parse<size_t>(optarg));
+            break;
+
+        // Metadata
+        case 'M':
+            metadata = true;
+            load_index = true;
+            break;
+        case 'C':
+            contigs = true;
+            load_index = true;
+            break;
+        case 'H':
+            haplotypes = true;
+            load_index = true;
+            break;
+        case 'S':
+            samples = true;
+            load_index = true;
             break;
 
         case 'h':
@@ -139,7 +173,6 @@ int main_gbwt(int argc, char** argv)
             gbwt::printHeader("Algorithm"); cout << (fast_merging ? "fast" : "insert") << endl;
             gbwt::printHeader("Input files"); cout << input_files << endl;
             gbwt::printHeader("Output name"); cout << gbwt_output << endl;
-            if(!fast_merging) { gbwt::printHeader("Batch size"); cout << batch_size << endl; }
             cout << endl;
         }
 
@@ -181,7 +214,7 @@ int main_gbwt(int argc, char** argv)
                 if (show_progress) {
                     gbwt::printStatistics(next, input_name);
                 }
-                index.merge(next, batch_size);
+                index.merge(next);
                 total_inserted += next.size();
             }
             sdsl::store_to_file(index, gbwt_output);
@@ -204,39 +237,78 @@ int main_gbwt(int argc, char** argv)
         cout.rdbuf(cout_buf);
     }
 
-    if (count_threads) {
-        if (optind >= argc) {
-            cerr << "[vg gbwt] error: no input files given" << endl;
+    // Remove threads before extracting or counting them.
+    if (!to_remove.empty()) {
+        if (optind + 1 != argc) {
+            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
             return 1;
         }
-
-        size_t total_threads = 0;
-        for (int i = optind; i < argc; i++) {
-            gbwt::GBWT index;
-            sdsl::load_from_file(index, argv[i]);
-            total_threads += index.sequences() / 2; // Ignore reverse complements.
+        gbwt::DynamicGBWT index;
+        sdsl::load_from_file(index, argv[optind]);
+        gbwt::size_type total_length = index.remove(to_remove);
+        if (total_length > 0) {
+            std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
+            sdsl::store_to_file(index, output);
         }
-        cout << total_threads << endl;
     }
 
-    if (!thread_output.empty()) {
+    // Other non-merge options.
+    if (load_index) {
         if (optind + 1 != argc) {
-            cerr << "[vg gbwt] error: option -e requires one input file" << endl;
+            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
             return 1;
         }
-
         gbwt::GBWT index;
         sdsl::load_from_file(index, argv[optind]);
-        gbwt::size_type node_width = gbwt::bit_length(index.sigma() - 1);
-        gbwt::text_buffer_type out(thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
-        for (gbwt::size_type id = 0; id < index.sequences(); id += 2) { // Ignore reverse complements.
-            gbwt::vector_type sequence = index.extract(id);
-            for (auto node : sequence) {
-                out.push_back(node);
+
+        // Extract threads in SDSL format.
+        if (!thread_output.empty()) {
+            gbwt::size_type node_width = gbwt::bit_length(index.sigma() - 1);
+            gbwt::text_buffer_type out(thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
+            for (gbwt::size_type id = 0; id < index.sequences(); id += 2) { // Ignore reverse complements.
+                gbwt::vector_type sequence = index.extract(id);
+                for (auto node : sequence) {
+                    out.push_back(node);
+                }
+                out.push_back(gbwt::ENDMARKER);
             }
-            out.push_back(gbwt::ENDMARKER);
+            out.close();
         }
-        out.close();
+
+        // There are two sequences for each thread.
+        if (count_threads) {
+            cout << (index.sequences() / 2) << endl;
+        }
+
+        if (metadata) {
+            if (index.hasMetadata()) {
+                gbwt::operator<<(cout, index.metadata) << endl;
+            }
+        }
+
+        if (contigs) {
+            if (index.hasMetadata()) {
+                cout << index.metadata.contigs() << endl;
+            } else {
+                cout << -1 << endl;
+            }
+        }
+
+        if (haplotypes) {
+            if (index.hasMetadata()) {
+                cout << index.metadata.haplotypes() << endl;
+            } else {
+                cout << -1 << endl;
+            }
+        }
+
+        if (samples) {
+            if (index.hasMetadata()) {
+                cout << index.metadata.samples() << endl;
+            } else {
+                cout << -1 << endl;
+            }
+        }
     }
 
     return 0;
@@ -244,5 +316,5 @@ int main_gbwt(int argc, char** argv)
 
 
 // Register subcommand
-static Subcommand vg_gbwt("gbwt", "Manipuate GBWTs", main_gbwt);
+static Subcommand vg_gbwt("gbwt", "Manipulate GBWTs", main_gbwt);
 

@@ -23,8 +23,10 @@ class ReadFilter{
 public:
     
     // Filtering parameters
-    /// Read name must have this prefix
-    string name_prefix;
+    /// Read name must have one of these prefixes, if any are present.
+    /// TODO: This should be a trie but I don't have one handy.
+    /// Must be sorted for vaguely efficient search.
+    vector<string> name_prefixes;
     /// Read must not have a refpos set with a contig name containing a match to any of these
     vector<regex> excluded_refpos_contigs;
     double min_secondary = 0.;

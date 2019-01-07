@@ -57,7 +57,8 @@ public:
             int seed = 0,
             bool forward_only = false,
             bool allow_Ns = false,
-            const vector<string>& source_paths = {})
+            const vector<string>& source_paths = {},
+            const vector<pair<string, double>>& transcript_expressions = {})
         : xgidx(x),
           node_cache(100),
           edge_cache(100),
@@ -69,10 +70,13 @@ public:
             seed = time(NULL);
         }
         rng.seed(seed);
-        set_source_paths(source_paths);
+        set_source_paths(source_paths, transcript_expressions);
     }
 
-    void set_source_paths(const vector<string>& source_paths);
+    /// Make a path sampling distribution based on relative lengths or on transcript expressions
+    /// (at most one should be non-empty)
+    void set_source_paths(const vector<string>& source_paths,
+                          const vector<pair<string, double>>& transcript_expressions);
 
     pos_t position(void);
     string sequence(size_t length);
@@ -137,10 +141,13 @@ public:
     /// Most reads in the FASTQ should be the same length. Polymorphism rates apply
     /// uniformly along a read, whereas errors are distributed as indicated by the learned
     /// distribution. The simulation can also be restricted to named paths in the graph.
+    /// Alternatively, it can match an expression profile. However, it cannot be simulateously
+    /// restricted to paths and to an expression profile.
     NGSSimulator(xg::XG& xg_index,
                  const string& ngs_fastq_file,
                  bool interleaved_fastq = false,
                  const vector<string>& source_paths = {},
+                 const vector<pair<string, double>>& transcript_expressions = {},
                  double substition_polymorphism_rate = 0.001,
                  double indel_polymorphism_rate = 0.0002,
                  double indel_error_proportion = 0.01,

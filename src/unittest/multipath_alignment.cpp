@@ -5,12 +5,17 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "json2pb.h"
-#include "vg.pb.h"
-#include "vg.hpp"
-#include "multipath_alignment.hpp"
+
+#include <gbwt/dynamic_gbwt.h>
+
+#include "../haplotypes.hpp"
+#include "../json2pb.h"
+#include "../vg.pb.h"
+#include "../vg.hpp"
+#include "../multipath_alignment.hpp"
+#include "../utility.hpp"
+
 #include "catch.hpp"
-#include "utility.hpp"
 
 namespace vg {
     namespace unittest {
@@ -622,6 +627,298 @@ namespace vg {
                 }
             }
         
+        }
+        
+        TEST_CASE("Multipath alignment correctly identifies haplotype consistent alignments") {
+        
+            // Make a wrapper to make the compiler shut up about narrowing
+            auto visit = [](id_t id, bool orientation) {
+                return (gbwt::vector_type::value_type) gbwt::Node::encode(id, orientation);
+            };
+            auto end = (gbwt::vector_type::value_type) gbwt::ENDMARKER;
+        
+            SECTION( "Multipath alignment can identify a single haplotype consistent alignment" ) {
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                
+                string read = string("GCATCTGA");
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                
+                // set scores
+                subpath0->set_score(3);
+                subpath1->set_score(1);
+                subpath2->set_score(-1);
+                subpath3->set_score(4);
+                
+                // designate mappings
+                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                mapping0->mutable_position()->set_node_id(1);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                
+                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                mapping1->mutable_position()->set_node_id(2);
+                Edit* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                
+                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                mapping2->mutable_position()->set_node_id(3);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                edit2->set_sequence("T");
+                
+                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                mapping3->mutable_position()->set_node_id(4);
+                Edit* edit3 = mapping3->add_edit();
+                edit3->set_from_length(4);
+                edit3->set_to_length(4);
+                
+                // Create haplotype database
+                gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+                gbwt::DynamicGBWT gbwt_index;
+             
+                // Make and insert a haplotype
+                gbwt::vector_type hap1fwd = {
+                    visit(1, false),
+                    visit(3, false),
+                    visit(4, false),
+                    end
+                };
+                gbwt_index.insert(hap1fwd);
+                // Do both orienatations
+                gbwt::vector_type hap1rev = {
+                    visit(4, true),
+                    visit(3, true),
+                    visit(1, true),
+                    end
+                };
+                gbwt_index.insert(hap1rev);
+                
+                // Make a ScoreProvider
+                haplo::GBWTScoreProvider<gbwt::DynamicGBWT> provider(gbwt_index);
+                
+                SECTION( "We can find the consistent suboptimal alignment" ) {
+
+                    // get haplotype consistent alignments
+                    auto consistent = haplotype_consistent_alignments(multipath_aln, provider, 0);
+                    
+                    // There should be just one alignment
+                    REQUIRE(consistent.size() == 1);
+                    
+                    // The alignment should have score 3 + 4 - 1 = 6
+                    REQUIRE(consistent[0].score() == 6);
+                    
+                    // The alignment should be nodes 1, 3, 4, all forward
+                    REQUIRE(consistent[0].path().mapping_size() == 3);
+                    REQUIRE(consistent[0].path().mapping(0).position().node_id() == 1);
+                    REQUIRE(consistent[0].path().mapping(0).position().is_reverse() == false);
+                    REQUIRE(consistent[0].path().mapping(1).position().node_id() == 3);
+                    REQUIRE(consistent[0].path().mapping(1).position().is_reverse() == false);
+                    REQUIRE(consistent[0].path().mapping(2).position().node_id() == 4);
+                    REQUIRE(consistent[0].path().mapping(2).position().is_reverse() == false);
+                    
+                }
+                
+                SECTION( "We can find the optimal alignment when asked for it" ) {
+                    auto optimal_and_consistent = haplotype_consistent_alignments(multipath_aln, provider, 0, true);
+                    
+                    // There should be two alignments
+                    REQUIRE(optimal_and_consistent.size() == 2);
+                    
+                    // The first should have the optimal score of 3 + 4 + 1 = 8
+                    REQUIRE(optimal_and_consistent[0].score() == 8);
+                    // The second should be the haplotype-consistent alignment with score 6.
+                    REQUIRE(optimal_and_consistent[1].score() == 6);
+                }
+            }
+            
+            SECTION( "Multipath alignment can identify multiple haplotype consistent alignments" ) {
+                
+                VG graph;
+                
+                Node* n1 = graph.create_node("GCA");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("G");
+                Node* n4 = graph.create_node("CTGA");
+                Node* n5 = graph.create_node("ACAC");
+                Node* n6 = graph.create_node("CC");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n4, n5);
+                graph.create_edge(n4, n6);
+                
+                string read = string("GCATCTGAAC");
+                MultipathAlignment multipath_aln;
+                multipath_aln.set_sequence(read);
+                
+                // add subpaths
+                Subpath* subpath0 = multipath_aln.add_subpath();
+                Subpath* subpath1 = multipath_aln.add_subpath();
+                Subpath* subpath2 = multipath_aln.add_subpath();
+                Subpath* subpath3 = multipath_aln.add_subpath();
+                Subpath* subpath4 = multipath_aln.add_subpath();
+                Subpath* subpath5 = multipath_aln.add_subpath();
+                
+                // set edges between subpaths
+                subpath0->add_next(1);
+                subpath0->add_next(2);
+                subpath1->add_next(3);
+                subpath2->add_next(3);
+                subpath3->add_next(4);
+                subpath3->add_next(5);
+                
+                // set scores
+                subpath0->set_score(3);
+                subpath1->set_score(1);
+                subpath2->set_score(-1);
+                subpath3->set_score(4);
+                subpath4->set_score(2);
+                subpath5->set_score(0);
+                
+                // designate mappings
+                Mapping* mapping0 = subpath0->mutable_path()->add_mapping();
+                mapping0->mutable_position()->set_node_id(1);
+                Edit* edit0 = mapping0->add_edit();
+                edit0->set_from_length(3);
+                edit0->set_to_length(3);
+                
+                Mapping* mapping1 = subpath1->mutable_path()->add_mapping();
+                mapping1->mutable_position()->set_node_id(2);
+                Edit* edit1 = mapping1->add_edit();
+                edit1->set_from_length(1);
+                edit1->set_to_length(1);
+                
+                Mapping* mapping2 = subpath2->mutable_path()->add_mapping();
+                mapping2->mutable_position()->set_node_id(3);
+                Edit* edit2 = mapping2->add_edit();
+                edit2->set_from_length(1);
+                edit2->set_to_length(1);
+                edit2->set_sequence("T");
+                
+                Mapping* mapping3 = subpath3->mutable_path()->add_mapping();
+                mapping3->mutable_position()->set_node_id(4);
+                Edit* edit3 = mapping3->add_edit();
+                edit3->set_from_length(4);
+                edit3->set_to_length(4);
+                
+                Mapping* mapping4 = subpath4->mutable_path()->add_mapping();
+                mapping4->mutable_position()->set_node_id(5);
+                Edit* edit4 = mapping4->add_edit();
+                edit4->set_from_length(2);
+                edit4->set_to_length(2);
+                
+                Mapping* mapping5 = subpath5->mutable_path()->add_mapping();
+                mapping5->mutable_position()->set_node_id(6);
+                Edit* edit5a = mapping5->add_edit();
+                edit5a->set_from_length(1);
+                edit5a->set_to_length(1);
+                edit5a->set_sequence("A");
+                Edit* edit5b = mapping5->add_edit();
+                edit5b->set_from_length(1);
+                edit5b->set_to_length(1);
+                
+                // Create haplotype database
+                gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
+                gbwt::DynamicGBWT gbwt_index;
+             
+                // Make and insert a haplotype
+                gbwt::vector_type hap1fwd = {
+                    visit(1, false),
+                    visit(3, false),
+                    visit(4, false),
+                    visit(6, false),
+                    end
+                };
+                gbwt_index.insert(hap1fwd);
+                // Do both orienatations
+                gbwt::vector_type hap1rev = {
+                    visit(6, true),
+                    visit(4, true),
+                    visit(3, true),
+                    visit(1, true),
+                    end
+                };
+                gbwt_index.insert(hap1rev);
+                
+                // More haplotypes. All except 2, 6
+                gbwt::vector_type hap2fwd = {
+                    visit(1, false),
+                    visit(3, false),
+                    visit(4, false),
+                    visit(5, false),
+                    end
+                };
+                gbwt_index.insert(hap2fwd);
+                gbwt::vector_type hap2rev = {
+                    visit(5, true),
+                    visit(4, true),
+                    visit(3, true),
+                    visit(1, true),
+                    end
+                };
+                gbwt_index.insert(hap2rev);
+                gbwt::vector_type hap3fwd = {
+                    visit(1, false),
+                    visit(2, false),
+                    visit(4, false),
+                    visit(5, false),
+                    end
+                };
+                gbwt_index.insert(hap3fwd);
+                gbwt::vector_type hap3rev = {
+                    visit(5, true),
+                    visit(4, true),
+                    visit(2, true),
+                    visit(1, true),
+                    end
+                };
+                gbwt_index.insert(hap3rev);
+                
+                // Make a ScoreProvider
+                haplo::GBWTScoreProvider<gbwt::DynamicGBWT> provider(gbwt_index);
+
+                // get haplotype consistent alignments
+                auto consistent = haplotype_consistent_alignments(multipath_aln, provider, 0);
+                
+                // There should be 3 alignments
+                REQUIRE(consistent.size() == 3);
+                
+                for (auto& aln : consistent) {
+                    // Each should have 4 mappings
+                    REQUIRE(aln.path().mapping_size() == 4);
+                    // None of them should go to nodes 2 and 6
+                    REQUIRE(!(aln.path().mapping(1).position().node_id() == 2 && aln.path().mapping(3).position().node_id() == 6));
+                }
+            }
         }
         
         TEST_CASE( "Reverse complementing multipath alignments works correctly",
@@ -1465,6 +1762,63 @@ namespace vg {
         
         }
         
+    
+    
+        TEST_CASE( "Multipath alignment linearization doesn't produce large fake softclips", "[alignment][multipath][mapping]" ) {
+                
+            string multipath_json = R"(
+{"sequence":"GATTACAA","subpath":[
+    {"path":{"mapping":[{"position":{"node_id":"1"},"edit":[{"from_length":4,"to_length":4}],"rank":"1"}]},"next":[5,6,7,8],"score":9},
+    {"path":{"mapping":[{"position":{"node_id":"4"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[9,10],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"4"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[11,12],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"7"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"score":6},
+    {"path":{"mapping":[{"position":{"node_id":"7"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"score":6},
+    {"path":{"mapping":[{"position":{"node_id":"2"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[1],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"3"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[1],"score":-4},
+    {"path":{"mapping":[{"position":{"node_id":"2"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[2],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"3"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[2],"score":-4},
+    {"path":{"mapping":[{"position":{"node_id":"5"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[3],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"6"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[3],"score":-4},
+    {"path":{"mapping":[{"position":{"node_id":"5"},"edit":[{"from_length":1,"to_length":1}],"rank":"1"}]},"next":[4],"score":1},
+    {"path":{"mapping":[{"position":{"node_id":"6"},"edit":[{"from_length":1,"to_length":1,"sequence":"A"}],"rank":"1"}]},"next":[4],"score":-4}
+],"start":[0]}
+            )";
+            
+            MultipathAlignment mpaln;
+            
+            json2pb(mpaln, multipath_json);
+            
+            // Topologically sort the MultipathAlignment so we can linearize it.
+            topologically_order_subpaths(mpaln);
+            
+            // Generate the best linearization with optimal_alignments
+            auto alns = optimal_alignments(mpaln, 1);
+            REQUIRE(alns.size() == 1);
+            cerr << pb2json(alns[0]) << endl;
+            
+            // Also generate it with just optimal_alignment;
+            Alignment opt;
+            optimal_alignment(mpaln, opt);
+            
+            // Make sure they match
+            REQUIRE(pb2json(alns[0]) == pb2json(opt));
+            
+            // Make sure they are all perfect matches, which they should be,
+            // because the best linearization is a perfect match.
+            REQUIRE(alns[0].path().mapping_size() == 5);
+            REQUIRE(alns[0].path().mapping(0).position().node_id() == 1);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(0)));
+            REQUIRE(alns[0].path().mapping(1).position().node_id() == 2);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(1)));
+            REQUIRE(alns[0].path().mapping(2).position().node_id() == 4);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(2)));
+            REQUIRE(alns[0].path().mapping(3).position().node_id() == 5);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(3)));
+            REQUIRE(alns[0].path().mapping(4).position().node_id() == 7);
+            REQUIRE(mapping_is_match(alns[0].path().mapping(4)));
+            
+            
+        }
     }
 }
 

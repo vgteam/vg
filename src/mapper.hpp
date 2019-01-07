@@ -494,8 +494,9 @@ public:
 
     double graph_entropy(void);
 
-    // Use the xg index to get the first position of an alignment on a reference path. Thread safe.
+    /// Use the xg index we hold to annotate an Alignment with the first position it touches on each reference path. Thread safe.
     void annotate_with_initial_path_positions(Alignment& aln) const;
+    /// Use the xg index we hold to annotate Alignments with the first position they touch on each reference path. Thread safe.
     void annotate_with_initial_path_positions(vector<Alignment>& alns) const;
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise

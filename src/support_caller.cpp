@@ -1554,19 +1554,23 @@ void SupportCaller::call(
                 // Return the shortest universally shared prefix
                 return shortest_prefix;
             };
-            // Trim off the shared prefix
-            size_t shared_prefix = shared_prefix_length(false);
-            for (auto allele : used_alleles) {
-                sequences[allele] = sequences[allele].substr(shared_prefix);
+            if (!leave_shared_ends) {
+                // Find and trim off the shared suffix
+                size_t shared_suffix = shared_prefix_length(true);
+                for (auto allele : used_alleles) {
+                    sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
+                }
+
+                // Then trim off the shared prefix
+                size_t shared_prefix = shared_prefix_length(false);
+                for (auto allele : used_alleles) {
+                    sequences[allele] = sequences[allele].substr(shared_prefix);
+                }
+                // Add it onto the start coordinate
+                // Todo: are we absolutely sure that we're advancing along the reference in both paths?
+                variation_start += shared_prefix;
             }
-            // Add it onto the start coordinate
-            variation_start += shared_prefix;
             
-            // Then find and trim off the shared suffix
-            size_t shared_suffix = shared_prefix_length(true);
-            for (auto allele : used_alleles) {
-                sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
-            }
             
             // Make a Variant
             vcflib::Variant variant;

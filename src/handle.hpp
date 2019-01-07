@@ -214,7 +214,8 @@ public:
     // Interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
    
-    // TODO: Method to check if a node exists by ID?
+    // Method to check if a node exists by ID
+    virtual bool has_node(id_t node_id) const = 0;
    
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;

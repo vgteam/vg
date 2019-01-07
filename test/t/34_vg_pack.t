@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 6
 
-vg construct -r tiny/tiny.fa >flat.vg
+vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
 vg index -x 2snp.xg 2snp.vg
 vg sim -l 30 -x 2snp.xg -n 30 -a >2snp.sim

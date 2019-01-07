@@ -1,8 +1,7 @@
-//
-//  multipath_alignment.hpp
-//
-// utility functions for the MultipathAlignment protobuf object
-//
+/// \file multipath_alignment.hpp
+///
+/// utility functions for the MultipathAlignment protobuf object
+///
 
 #ifndef multipath_alignment_hpp
 #define multipath_alignment_hpp
@@ -12,11 +11,17 @@
 #include <list>
 #include <unordered_map>
 #include <algorithm>
+
 #include "vg.pb.h"
 #include "path.hpp"
 #include "alignment.hpp"
 #include "utility.hpp"
 #include "handle.hpp"
+
+// Declare the haplo::ScoreProvider we use for haplotype-aware traceback generation.
+namespace haplo {
+    class ScoreProvider;
+}
 
 namespace vg {
     
@@ -86,6 +91,28 @@ namespace vg {
     ///
     vector<Alignment> optimal_alignments_with_disjoint_subpaths(const MultipathAlignment& multipath_aln, size_t count);
     
+    /// Finds all alignments consistent with haplotypes available by incremental search with the given haplotype
+    /// score provider. Pads to a certain count with haplotype-inconsistent alignments that are population-scorable
+    /// (i.e. use only edges used by some haplotype in the index), and then with unscorable alignments if scorable
+    /// ones are unavailable. This may result in an empty vector.
+    ///
+    /// Output Alignments may not be unique. The input MultipathAlignment may have exponentially many ways to
+    /// spell the same Alignment, and we will look at all of them. We also may have duplicates of the optimal
+    /// alignment if we are asked to produce it unconsitionally.
+    ///
+    /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
+    /// start subpaths have been identified
+    ///
+    ///
+    ///  Args:
+    ///    multipath_aln     multipath alignment to find optimal paths through
+    ///    score_provider    a haplo::ScoreProvider that supports incremental search over its haplotype database (such as a GBWTScoreProvider)
+    ///    count             maximum number of haplotype-inconsistent alignments to pad to
+    ///    optimal_first     always compute and return first the optimal alignment, even if not haplotype-consistent
+    ///
+    vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
+        size_t count, bool optimal_first = false); 
+    
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///
     ///  Args:
@@ -144,7 +171,7 @@ namespace vg {
     void merge_non_branching_subpaths(MultipathAlignment& multipath_aln);
     
     /// Returns a vector whose elements are vectors with the indexes of the Subpaths in
-    /// each connected component
+    /// each connected component. An unmapped MultipathAlignment with no subpaths produces an empty vector.
     vector<vector<int64_t>> connected_components(const MultipathAlignment& multipath_aln);
     
     /// Extract the MultipathAlignment consisting of the Subpaths with the given indexes
@@ -160,6 +187,9 @@ namespace vg {
     
     /// Send a formatted string representation of the MultipathAlignment into the ostream
     void view_multipath_alignment(ostream& out, const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph);
+    
+    /// Converts a MultipathAlignment to a GraphViz Dot representation, output to the given ostream.
+    void view_multipath_alignment_as_dot(ostream& out, const MultipathAlignment& multipath_aln, bool show_graph = false);
     
     // TODO: function for adding a graph augmentation to an existing multipath alignment
 }

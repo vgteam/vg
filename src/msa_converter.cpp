@@ -388,9 +388,11 @@ using namespace std;
                     edit->set_from_length(node_length);
                     edit->set_to_length(node_length);
                 }
+                graph.paths.extend(*path);
             }
             
             graph.destroy_node(dummy_node);
+            graph.sync_paths();
         }
         
         destroy_progress();

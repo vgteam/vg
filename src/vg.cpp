@@ -3237,13 +3237,16 @@ static
 void
 triple_to_vg(void* user_data, raptor_statement* triple)
 {
-    VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
-    Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
-    const string vg_ns ="<http://example.org/vg/";
+    auto tuple=(std::tuple<VG*, Paths*, string>*) user_data;
+    VG* vg = std::get<0>(*tuple);
+    Paths* paths = std::get<1>(*tuple);
+    const string base_uri = std::get<2>(*tuple);
+    const string vg_ns ="<http://biohackathon.org/resource/vg#";
     const string vg_node_p = vg_ns + "node>" ;
-    const string vg_rank_p = vg_ns + "rank>" ;
-    const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+    const string vg_step_p = vg_ns + "step>" ;
     const string vg_path_p = vg_ns + "path>" ;
+    const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+    const string vg_rank_p = vg_ns + "rank" ;
     const string vg_linkrr_p = vg_ns + "linksReverseToReverse>";
     const string vg_linkrf_p = vg_ns + "linksReverseToForward>";
     const string vg_linkfr_p = vg_ns + "linksForwardToReverse>";
@@ -3256,10 +3259,12 @@ triple_to_vg(void* user_data, raptor_statement* triple)
     if (pred == (vg_node_p) || reverse) {
         Node* node = vg->find_node_by_name_or_add_new(obj);
         Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
-        const string pathname = sub.substr(1, sub.find_last_of("/#"));
+        const string pathname = sub.substr(base_uri.length()+6, sub.length()-sub.find_last_of('-'));
 
         //TODO we are using a nasty trick here, which needs to be fixed.
         //We are using knowledge about the uri format to determine the rank of the step.
+#ifdef debug
+#endif
         try {
             int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
             mapping->set_rank(rank);
@@ -3294,7 +3299,7 @@ triple_to_vg(void* user_data, raptor_statement* triple)
     }
 }
 
-void VG::from_turtle(string filename, string baseuri, bool showp) {
+void VG::from_turtle(string filename, string base_uri, bool showp) {
     raptor_world* world;
     world = raptor_new_world();
     if(!world)
@@ -3314,7 +3319,7 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     rdf_parser = raptor_new_parser(world, "turtle");
     //We use a paths object with its convience methods to build up path objects.
     Paths* paths = new Paths();
-    std::pair<VG*, Paths*> user_data = make_pair(this, paths);
+    std::tuple<VG*, Paths*, string> user_data = make_tuple(this, paths, base_uri);
 
     //The user_data is cast in the triple_to_vg method.
     raptor_parser_set_statement_handler(rdf_parser, &user_data, triple_to_vg);
@@ -3323,7 +3328,7 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
     filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
     uri_file = raptor_new_uri(world, filename_uri_string);
-    uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
+    uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(base_uri.c_str()));
 
     // parse the file indicated by the uri, given an uir_base .
     raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
@@ -6337,17 +6342,17 @@ void VG::to_dot(ostream& out,
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
 
-    out << "@base <http://example.org/vg/> . " << endl;
+    out << "@prefix vg:<http://biohackathon.org/resource/vg#> . " << endl;
     if (precompress) {
-       out << "@prefix : <" <<  rdf_base_uri <<"node/> . " << endl;
-       out << "@prefix p: <" <<  rdf_base_uri <<"path/> . " << endl;
-       out << "@prefix s: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix : <" << rdf_base_uri << "node/> . " << endl;
+       out << "@prefix p: <" << rdf_base_uri << "path/> . " << endl;
+       out << "@prefix s: <" << rdf_base_uri << "step/> . " << endl;
        out << "@prefix r: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
 
     } else {
-       out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
-       out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
-       out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix node: <" << rdf_base_uri << "node/> . " << endl;
+       out << "@prefix path: <" << rdf_base_uri << "path/> . " << endl;
+       out << "@prefix step: <" << rdf_base_uri << "step/> . " << endl;
        out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
     }
     //Ensure that mappings are sorted by ranks
@@ -6383,24 +6388,24 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
         (const Path& path) {
             uint64_t offset=0; //We could have more than 2gigabases in a path
             for (auto &m : path.mapping()) {
-                string orientation = m.position().is_reverse() ? "<reverseOfNode>" : "<node>";
+                string orientation = m.position().is_reverse() ? "vg:reverseOfNode" : "vg:node";
                 if (precompress) {
                     out << "s:";
                     url_encode(path.name());
-                    out << "-" << m.rank() << " <rank> " << m.rank() << " ; " ;
+                    out << "-" << m.rank() << " vg:rank " << m.rank() << " ; " ;
                     out << orientation <<" :" << m.position().node_id() << " ;";
-                    out << " <path> p:";
+                    out << " vg:path p:";
                     url_encode(path.name());
                     out << " ; ";
-                    out << " <position> "<< offset<<" . ";
+                    out << " vg:position "<< offset<<" . ";
                 } else {
                     out << "step:";
                     url_encode(path.name());
-                    out << "-" << m.rank() << " <position> "<< offset<<" ; " << endl;
-                    out << " a <Step> ;" << endl ;
-                    out << " <rank> " << m.rank() << " ; "  << endl ;
+                    out << "-" << m.rank() << " vg:position "<< offset<<" ; " << endl;
+                    out << " a vg:Step ;" << endl ;
+                    out << " vg:rank " << m.rank() << " ; "  << endl ;
                     out << " " << orientation <<" node:" << m.position().node_id() << " ; " << endl;
-                    out << " <path> path:";
+                    out << " vg:path path:";
                     url_encode(path.name());
                     out  << " . " << endl;
                 }
@@ -6425,13 +6430,13 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
         }
 
         if (e->from_start() && e->to_end()) {
-            out << " <linksReverseToReverse> " ; // <--
+            out << " vg:linksReverseToReverse " ; // <--
         } else if (e->from_start() && !e->to_end()) {
-            out << " <linksReverseToForward> " ; // -+
+            out << " vg:linksReverseToForward " ; // -+
         } else if (e->to_end()) {
-            out << " <linksForwardToReverse> " ; //+-
+            out << " vg:linksForwardToReverse " ; //+-
         } else {
-            out << " <linksForwardToForward> " ; //++
+            out << " vg:linksForwardToForward " ; //++
         }
         if (precompress) {
              out << ":" << e->to();
@@ -7128,7 +7133,15 @@ void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
     Node* tail_node = NULL;
     id_t head_id = 0, tail_id = 0;
     add_start_end_markers(path_length, '#', '$', head_node, tail_node, head_id, tail_id);
-    prune_complex(path_length, edge_max, head_node, tail_node);
+
+    // Duplicate code from prune_complex(). If pruning leaves many loose nodes
+    // (that will usually be deleted in the next step), attaching them to the
+    // head/tail nodes is unnecessary and potentially expensive.
+    vector<edge_t> to_destroy = find_edges_to_prune(*this, path_length, edge_max);
+    for (auto& e : to_destroy) {
+        destroy_edge(e.first, e.second);
+    }
+
     destroy_node(head_node);
     destroy_node(tail_node);
 }

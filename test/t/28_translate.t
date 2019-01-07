@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 plan tests 2
 
-vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
+vg construct -m 1000 -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.xg -g tiny.gcsa -k 16 tiny.vg
 vg sim -n 5 -e 0.01 -i 0.005 -x tiny.xg -l 30 -a | vg view -a - | sort | vg view -JGa - > tiny.sim
 vg map -G tiny.sim -x tiny.xg -g tiny.gcsa -t 1 > tiny.gam
@@ -20,7 +20,7 @@ is $(vg mod -U 10 tiny.mod.vg | vg mod -c - | vg view - | grep ^S | cut -f 3 | s
 
 rm -Rf tiny.vg tiny.xg tiny.gcsa tiny.gcsa.lcp tiny.sim tiny.gam tiny.trans tiny.mod.vg tiny.trans.1 tiny.paths.gam tiny.paths.trans.gam tiny.mod.vg.1
 
-vg construct -r tiny/tiny.fa >flat.vg
+vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg index -x flat.xg -g flat.gcsa -k 8 flat.vg
 vg map -x flat.xg -g flat.gcsa -G tiny/flat-s69-n1-l50-e0.05.gam >flat.gam
 vg mod -i flat.gam -Z flat1.trans flat.vg >flat1.vg
