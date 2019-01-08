@@ -94,132 +94,100 @@ using namespace std;
             
             // check for each node whether we've duplicated the component enough times
             // to preserve its cycles
+            
+            vector<int64_t> distances(layout.size(), numeric_limits<int64_t>::max());
+            vector<int64_t> next_distances(layout.size(), numeric_limits<int64_t>::max());
+            
             for (const handle_t& handle : backward_edge_heads) {
-                
-                vector<int64_t> distances(layout.size(), numeric_limits<int64_t>::max());
-                // start with negative distance so that we are measuring from the end of the node
                 distances[ordering[handle]] = -subgraph.get_length(handle);
+            }
+            
+            // init the tracker that we use for the bail-out condition
+            int64_t min_relaxed_dist = 0;
+            
+            // add copies until the minimum distance to the new copy is longer than the distance we're
+            // trying to preserve
+            for (size_t copy_num = 0; min_relaxed_dist <= int64_t(min_preserved_path_length); copy_num++) {
                 
-                // keep going until the distance to the next copy unit is too large
-                int64_t min_relaxed_dist = -subgraph.get_length(handle);
-                for (size_t copy_num = 0; min_relaxed_dist <= int64_t(min_preserved_path_length); copy_num++) {
+                // do we need a new copy of this SCC to preserve paths?
+                if (copy_num == injector[layout.front()].size()) {
+                    // we haven't added this copy of the connected component yet
                     
-                    // do we need a new copy of this SCC to preserve paths?
-                    if (copy_num == injector[layout.front()].size()) {
-                        // we haven't added this copy of the connected component yet
-                        
-                        // add the nodes
-                        for (const handle_t& original_handle : layout) {
-                            // create the node in the same foward orientation as the original
-                            handle_t new_handle = into->create_handle(graph->get_sequence(graph->forward(original_handle)));
-                            // use the handle locally in the same orientation as it is in the layout
-                            if (graph->get_is_reverse(original_handle)) {
-                                new_handle = into->flip(new_handle);
-                            }
-                            trans[into->get_id(new_handle)] = graph->get_id(original_handle);
-                            injector[handle].push_back(new_handle);
+                    // add the nodes
+                    for (const handle_t& original_handle : layout) {
+                        // create the node in the same foward orientation as the original
+                        handle_t new_handle = into->create_handle(graph->get_sequence(graph->forward(original_handle)));
+                        // use the handle locally in the same orientation as it is in the layout
+                        if (graph->get_is_reverse(original_handle)) {
+                            new_handle = into->flip(new_handle);
                         }
-                        
-                        // add the forward edges within this copy
-                        for (size_t i = 0; i < forward_edges.size(); i++) {
-                            handle_t from = injector[layout[i]].back();
-                            for (const size_t& j : forward_edges[i]) {
-                                into->create_edge(from, injector[layout[j]].back());
-                            }
-                        }
-                        
-                        if (copy_num > 0) {
-                            // add the backward edges between the copies
-                            for (const pair<size_t, size_t>& bwd_edge : backward_edges) {
-                                const auto& from_copies = injector[layout[bwd_edge.first]];
-                                into->create_edge(from_copies[from_copies.size() - 2],
-                                                  injector[layout[bwd_edge.second]].back());
-                            }
-                        }
+                        trans[into->get_id(new_handle)] = graph->get_id(original_handle);
+                        injector[original_handle].push_back(new_handle);
                     }
                     
-                    // find the shortest path to the nodes, staying within this copy
-                    // of the SCC
-                    for (size_t i = 0; i < distances.size(); i++) {
-                        // skip infinity to avoid overflow
-                        if (distances[i] == numeric_limits<int64_t>::max()) {
-                            continue;
-                        }
-                        
-                        int64_t dist_thru = distances[i] + subgraph.get_length(layout[i]);
+                    // add the forward edges within this copy
+                    for (size_t i = 0; i < forward_edges.size(); i++) {
+                        handle_t from = injector[layout[i]].back();
                         for (const size_t& j : forward_edges[i]) {
-                            distances[j] = min(distances[j], dist_thru);
+                            into->create_edge(from, injector[layout[j]].back());
                         }
                     }
                     
-                    // now find the minimum distance to nodes in the next copy of the SCC (which
-                    // may not yet be created in the graph)
-                    min_relaxed_dist = numeric_limits<int64_t>::max();
-                    vector<int64_t> next_distances(distances.size(), numeric_limits<int64_t>::max());
-                    for (const pair<size_t, size_t>& bwd_edge : backward_edges) {
-                        if (distances[bwd_edge.first] == numeric_limits<int64_t>::max()) {
-                            continue;
-                        }
-                        
-                        int64_t dist_thru = distances[bwd_edge.first] + subgraph.get_length(layout[bwd_edge.first]);
-                        if (dist_thru < next_distances[bwd_edge.second]) {
-                            next_distances[bwd_edge.second] = dist_thru;
-                            min_relaxed_dist = min(min_relaxed_dist, dist_thru);
+                    if (copy_num > 0) {
+                        // add the backward edges between the copies
+                        for (const pair<size_t, size_t>& bwd_edge : backward_edges) {
+                            const auto& from_copies = injector[layout[bwd_edge.first]];
+                            into->create_edge(from_copies[from_copies.size() - 2],
+                                              injector[layout[bwd_edge.second]].back());
                         }
                     }
-                    
-                    distances = move(next_distances);
                 }
+                
+                // we've finished adding the copy of the SCC that corresponds to this iteration
+                // now we will do the dynamic programming to bound the distance to the next SCC
+                
+                // find the shortest path to the nodes, staying within this copy
+                // of the SCC
+                for (size_t i = 0; i < distances.size(); i++) {
+                    // skip infinity to avoid overflow
+                    if (distances[i] == numeric_limits<int64_t>::max()) {
+                        continue;
+                    }
+                    
+                    int64_t dist_thru = distances[i] + subgraph.get_length(layout[i]);
+                    for (const size_t& j : forward_edges[i]) {
+                        distances[j] = min(distances[j], dist_thru);
+                    }
+                }
+                
+                // now find the minimum distance to nodes in the next copy of the SCC (which
+                // may not yet be created in the graph)
+                min_relaxed_dist = numeric_limits<int64_t>::max();
+                vector<int64_t> next_distances(distances.size(), numeric_limits<int64_t>::max());
+                for (const pair<size_t, size_t>& bwd_edge : backward_edges) {
+                    if (distances[bwd_edge.first] == numeric_limits<int64_t>::max()) {
+                        continue;
+                    }
+                    
+                    int64_t dist_thru = distances[bwd_edge.first] + subgraph.get_length(layout[bwd_edge.first]);
+                    if (dist_thru < next_distances[bwd_edge.second]) {
+                        next_distances[bwd_edge.second] = dist_thru;
+                        // keep track of the shortest distance to the next copy
+                        min_relaxed_dist = min(min_relaxed_dist, dist_thru);
+                    }
+                }
+                
+                // initialize the DP structures for the next iteration
+                distances = move(next_distances);
+                next_distances.assign(distances.size(), numeric_limits<int64_t>::max());
             }
         }
-        
-//        // compute the edges between the connected components (i.e. the condensation graph)
-//        vector<unordered_set<size_t>> condensation_graph(strong_components.size());
-//        for (const handle_t& handle : orientation) {
-//            size_t comp_here = component_of[graph->get_id(handle)];
-//            graph->follow_edges(handle, false, [&](const handle_t& next) {
-//                size_t comp_next = component_of[graph->get_id(next)];
-//                if (comp_here != comp_next) {
-//                    condensation_graph[comp_here].insert(comp_next);
-//                }
-//            });
-//        }
-//
-//        // use Kahn's algorithm to compute the topological order of the condensation graph
-//        vector<size_t> topological_index(condensation_graph.size(), 0);
-//
-//        // compute in degrees
-//        vector<size_t> in_degree(condensation_graph.size(), 0);
-//        for (const unordered_set<size_t>& adj_list : condensation_graph) {
-//            for (const size_t& edge : adj_list) {
-//                in_degree[edge]++;
-//            }
-//        }
-//        // init stack
-//        vector<size_t> stack;
-//        for (size_t i = 0; i < in_degree.size(); i++) {
-//            if (in_degree[i] == 0) {
-//                stack.push_back(i);
-//            }
-//        }
-//        // compute topological order
-//        for (size_t next_top_idx = 0; next_top_idx < condensation_graph.size(); next_top_idx++) {
-//            size_t here = stack.back();
-//            stack.pop_back();
-//            topological_index[here] = next_top_idx;
-//            for (const size_t& next : condensation_graph[here]) {
-//                in_degree[next]--;
-//                if (in_degree[next] == 0) {
-//                    stack.push_back(next);
-//                }
-//            }
-//        }
         
         // add edges between the strongly connected components
         graph->for_each_edge([&](const edge_t& canonical_edge) {
             // put the edge in the order of the orientation we've imposed on the graph
             edge_t edge = (graph->get_is_reverse(canonical_edge.first) != reversed_nodes.count(graph->get_id(canonical_edge.first)) ?
-                           make_pair(graph->flip(canonical_edge.second), graph->flip(canonical_edge.first)) :
+                           edge_t(graph->flip(canonical_edge.second), graph->flip(canonical_edge.first)) :
                            canonical_edge);
 
             if (component_of[graph->get_id(edge.first)] != component_of[graph->get_id(edge.second)]) {
