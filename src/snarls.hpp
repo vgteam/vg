@@ -517,6 +517,14 @@ public:
     /// includes Snarl's own boundary Nodes)
     pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl, VG& graph,
                                                                     bool include_boundary_nodes) const;
+                                                                    
+    /// Returns handles to the nodes and pairs of handles describing the edges
+    /// contained in this Snarl, including those in child Snarls (optionally
+    /// includes Snarl's own boundary nodes)
+    /// TODO: The vg one will look more specific for non-const VGs
+    pair<unordered_set<handle_t>, unordered_set<edge_t>> deep_contents(const Snarl* snarl,
+                                                                       const HandleGraph& graph,
+                                                                       bool include_boundary_nodes) const;
         
     /// Look left from the given visit in the given graph and gets all the
     /// attached Visits to nodes or snarls.

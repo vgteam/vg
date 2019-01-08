@@ -1252,6 +1252,84 @@ namespace vg {
             }
         }
     }
+    
+    void MultipathAlignmentGraph::destroy_anchors_in_snarls(SnarlManager* cutting_snarls,
+        const HandleGraph& backing_graph,
+        const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+        const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
+    
+        assert(!has_reachability_edges);
+        
+        // Keep a set of Snarls whose interiors we have to clean out
+        unordered_set<const Snarl*> snarls_to_clear;
+        
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            // For each PathNode
+            auto& path_node = path_nodes.at(i);
+            
+            for (auto& mapping : path_node.path.mapping()) {
+                // For each visit to a node
+                auto& position = mapping.position();
+                
+                // Project it back into the base graph
+                const auto& projection = projection_trans.at(position.node_id());
+                id_t projected_id = projection.first;
+                
+                // See what snarls it is on the bounds of, and remember to clear them.
+                // We may put in nulls, we will clear them out later
+                snarls_to_clear.insert(cutting_snarls->into_which_snarl(projected_id, false));
+                snarls_to_clear.insert(cutting_snarls->into_which_snarl(projected_id, true));
+            }
+        }
+        
+        // Make sure we don't try and clear the null snarl.
+        snarls_to_clear.erase(nullptr);
+        
+        // Now build a list of the nodes in all of these snarls
+        unordered_set<id_t> nodes_to_clear;
+        
+        for (auto& snarl : snarls_to_clear) {
+            for (auto& handle : cutting_snarls->deep_contents(snarl, backing_graph, false).first) {
+                id_t id = backing_graph.get_id(handle);
+                
+                // Inject each node ID from the snarl into our graph, if present
+                auto match = injection_trans.equal_range(id);
+                for (auto it = match.first; it != match.second; ++it) {
+                    // Put each injected ID in the set
+                    nodes_to_clear.insert(it->first);
+                }
+            }
+        }
+        
+        // Now get rid of the PathNodes that touch the forbidden nodes.
+        // We will make a new collection of path nodes to keep
+        vector<PathNode> kept;
+        
+        for (size_t i = 0; i < path_nodes.size(); i++) {
+            // For each PathNode
+            auto& path_node = path_nodes.at(i);
+            
+            bool keep = true;
+            
+            for (auto& mapping : path_node.path.mapping()) {
+                // For each visit to a node
+                auto& position = mapping.position();
+                
+                if (nodes_to_clear.count(position.node_id())) {
+                    // This node is on the blacklist. Kill this path.
+                    keep = false;
+                    break;
+                }
+                
+            }
+            
+            if (keep) {
+                kept.emplace_back(std::move(path_nodes.at(i)));
+            }
+        }
+        
+        path_nodes = std::move(kept);
+    }
    
     void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
                                                           size_t max_alt_alns, bool dynamic_alt_alns) {
@@ -3066,10 +3144,10 @@ namespace vg {
                 if (alignment.sequence().at(extended_base) != paired_with) {
                     // If it's a mismatch, penalize it
                     extended_score--;
-                //} else {
+                } else {
                     // We found a match!
                     matches.emplace(extended_base, extended_pos);
-                //}
+                }
                 
 #ifdef debug_multipath_alignment
             cerr << "\textended to " << extended_base << "=" << extended_pos << " with score " << extended_score << endl;

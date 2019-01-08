@@ -148,6 +148,13 @@ namespace vg {
         /// cut size. Reachability edges should be present and will be updated. 
         void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                       int64_t max_snarl_cut_size = 5);
+                                      
+        /// Destroy any PathNodes completely contained in snarls that have PathNodes touching at least one end.
+        /// Reachability edges are not updated and must not be present.
+        /// Needs access to the backing graph to be able to pull out the snarl contents from the SnarlManager.
+        void destroy_anchors_in_snarls(SnarlManager* cutting_snarls, const HandleGraph& backing_graph,
+                                       const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
+                                       const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
                                     
         /// Do intervening and tail alignments between the anchoring paths and
         /// store the result in a MultipathAlignment. Reachability edges must

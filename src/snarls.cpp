@@ -1430,6 +1430,94 @@ pair<unordered_set<Node*>, unordered_set<Edge*> > SnarlManager::deep_contents(co
         
     return to_return;
 }
+
+pair<unordered_set<handle_t>, unordered_set<edge_t>>
+SnarlManager::deep_contents(const Snarl* snarl, const HandleGraph& graph, bool include_boundary_nodes) const {
+
+    pair<unordered_set<handle_t>, unordered_set<edge_t> > to_return;
+        
+    // Holds handles to nodes on the stack in local forward orientation
+    unordered_set<handle_t> already_stacked;
+        
+    // initialize stack for DFS traversal of site
+    // Everything in ste stack is in local forward orientation.
+    vector<handle_t> stack;
+    
+    // Get start and end handles in snarl forward orientation
+    handle_t start_node = graph.get_handle(snarl->start());
+    handle_t end_node = graph.get_handle(snarl->end());
+        
+    // mark the boundary nodes as already stacked so that paths will terminate on them
+    already_stacked.insert(graph.forward(start_node));
+    already_stacked.insert(graph.forward(end_node));
+        
+    // add boundary nodes as directed
+    if (include_boundary_nodes) {
+        to_return.first.insert(graph.forward(start_node));
+        to_return.first.insert(graph.forward(end_node));
+    }
+        
+    graph.follow_edges(start_node, false, [&](const handle_t& next) {
+        // For each edge into the snarl from the start
+        if (!already_stacked.count(graph.forward(next))) {
+            // stack up the nodes one edge inside the snarl from the start
+            stack.push_back(graph.forward(next));
+            already_stacked.insert(graph.forward(next));
+        }
+            
+        to_return.second.insert(graph.edge_handle(start_node, next));
+    });
+    
+    graph.follow_edges(end_node, true, [&](const handle_t& prev) {
+        // For each edge into the snarl from the end
+        if (!already_stacked.count(graph.forward(prev))) {
+            // stack up the nodes one edge inside the snarl from the end
+            stack.push_back(graph.forward(prev));
+            already_stacked.insert(graph.forward(prev));
+        }
+            
+        to_return.second.insert(graph.edge_handle(prev, end_node));
+    });
+    
+    // traverse the snarl with DFS, skipping over any child snarls
+    // do not pay attention to valid walks since we also want to discover any tips
+    while (stack.size()) {
+        // pop the top handle off the stack
+        handle_t node = stack.back();
+        stack.pop_back();
+            
+        // record that this node is in the snarl
+        // Everything in ste stack is in local forward orientation.
+        to_return.first.insert(node);
+            
+        graph.follow_edges(node, false, [&](const handle_t& next) {
+            // For each edge right from the node
+            // Record it
+            to_return.second.insert(graph.edge_handle(node, next));
+            
+            if (!already_stacked.count(graph.forward(next))) {
+                // Stack it if not stacked
+                stack.push_back(graph.forward(next));
+                already_stacked.insert(graph.forward(next));
+            }
+        });
+        
+        graph.follow_edges(node, true, [&](const handle_t& prev) {
+            // For each edge right from the node
+            // Record it
+            to_return.second.insert(graph.edge_handle(prev, node));
+            
+            if (!already_stacked.count(graph.forward(prev))) {
+                // Stack it if not stacked
+                stack.push_back(graph.forward(prev));
+                already_stacked.insert(graph.forward(prev));
+            }
+        });
+    }
+        
+    return to_return;
+
+}
     
 const Snarl* SnarlManager::manage(const Snarl& not_owned) const {
     // TODO: keep the Snarls in some kind of sorted order to make lookup
