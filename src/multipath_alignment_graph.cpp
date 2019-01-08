@@ -3658,9 +3658,11 @@ namespace vg {
                                                        band_padding_function(intervening_sequence, connecting_graph), true);
                 }
                 
-                
                 {
+#ifdef debug_multipath_alignment
+                    auto old_alns = alt_alignments;
                     size_t old_aln_count = alt_alignments.size();
+#endif
                     
                     // Now we need to deduplicate the connecting alignments.
                     // We should have at most one connecting alignment (the best one) on each walk (sequence of oriented original graph nodes).
@@ -3684,6 +3686,9 @@ namespace vg {
                                 // We have a new best alignment for this walk
                                 best_alt_alignment_by_walk.emplace(std::move(walk), std::move(connecting_alignment));
                             }
+                        } else {
+                            // This is the only alignment for this walk.
+                            best_alt_alignment_by_walk.emplace(std::move(walk), std::move(connecting_alignment));
                         }
                     }
                     
@@ -3697,8 +3702,16 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     size_t new_aln_count = alt_alignments.size();
-                    if (old_aln_count < new_aln_count) {
+                    if (new_aln_count < old_aln_count || true) {
                         cerr << "Deduplicated to " << new_aln_count << "/" << old_aln_count << " unique walks" << endl;
+                        cerr << "Old:" << endl;
+                        for (auto& aln : old_alns) {
+                            cerr << pb2json(aln) << endl;
+                        }
+                        cerr << "New:" << endl;
+                        for (auto& aln : alt_alignments) {
+                            cerr << pb2json(aln) << endl;
+                        }
                     }
 #endif
                 }

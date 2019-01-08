@@ -802,7 +802,7 @@ namespace vg {
     }
    
     vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
-        size_t count, bool optimal_first) {
+        size_t count, bool optimal_first, size_t hard_cap) {
         
 #ifdef debug_multiple_tracebacks
         cerr << "Computing haplotype consistent alignments of " << pb2json(multipath_aln) << endl;
@@ -1096,11 +1096,13 @@ namespace vg {
 #endif
             }
             
-            if (queue.size() >= 1000) {
-                view_multipath_alignment_as_dot(cerr, multipath_aln, true);
+            while(!queue.empty() && queue.size() > hard_cap) {
+                // We have hit the hard cap. Drop the worst thing even if it is haplotype consistent.
+                queue.pop_max();
+#ifdef debug_multiple_tracebacks
+                cerr << "Hit hard cap! Remove excess from queue (" << queue.size() << "/" << max_size << ")" << endl;
+#endif
             }
-            
-            assert(queue.size() < 1000);
         };
         
         // Also, subpaths only keep track of their nexts, so we need to invert

@@ -100,6 +100,10 @@ namespace vg {
     /// spell the same Alignment, and we will look at all of them. We also may have duplicates of the optimal
     /// alignment if we are asked to produce it unconsitionally.
     ///
+    /// If hard_cap is nonzero, only up to that many alignments-in-progress
+    /// will be considered, and some haplotype-consistent Alignments may not be
+    /// returned.
+    ///
     /// Note: Assumes that each subpath's Path object uses one Mapping per node and that
     /// start subpaths have been identified
     ///
@@ -111,7 +115,7 @@ namespace vg {
     ///    optimal_first     always compute and return first the optimal alignment, even if not haplotype-consistent
     ///
     vector<Alignment> haplotype_consistent_alignments(const MultipathAlignment& multipath_aln, const haplo::ScoreProvider& score_provider,
-        size_t count, bool optimal_first = false); 
+        size_t count, bool optimal_first = false, size_t hard_cap = 0); 
     
     /// Stores the reverse complement of a MultipathAlignment in another MultipathAlignment
     ///

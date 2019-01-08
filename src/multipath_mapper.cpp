@@ -3041,7 +3041,7 @@ namespace vg {
             cerr << endl;
         }
 #endif
-        
+
         function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
             size_t read_length = seq.sequence().end() - seq.sequence().begin();
             return read_length < band_padding_memo.size() ? band_padding_memo.at(read_length)
@@ -3259,8 +3259,10 @@ namespace vg {
                 if (!top_tracebacks && haplo_score_provider->has_incremental_search()) {
                     // We can use incremental haplotype search to find all the linearizations consistent with haplotypes
                     // Make sure to also always include the optimal alignment first, even if inconsistent.
-                    // And also include up to population_max_paths non-consistent but hopefully scorable paths
-                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths, true);
+                    // And also include up to population_max_paths non-consistent but hopefully scorable paths.
+                    // TODO: We're passing a static hard cap on the traversal queue size. Some slippery regions
+                    // will produce exponentially many haplotype-consistent alignments. This is a hack.
+                    alignments = haplotype_consistent_alignments(multipath_alns[i], *haplo_score_provider, population_max_paths, true, 100);
                 } else {
                     // We will just find the top n best-alignment-scoring linearizations and hope some match haplotypes
                     alignments = optimal_alignments(multipath_alns[i], population_max_paths);
