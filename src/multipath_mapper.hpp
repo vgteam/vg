@@ -134,7 +134,7 @@ namespace vg {
         /// Max mismatches to read through when looking for potential alternate non-MEM read/graph anchors
         int64_t synthetic_anchor_search_limit = 2;
         size_t alt_anchor_max_length_diff = 5;
-        bool dynamic_max_alt_alns = false;
+        bool dynamic_max_alt_alns = true;
         bool simplify_topologies = false;
         bool delay_population_scoring = false;
         bool use_tvs_clusterer = false;

@@ -2915,7 +2915,6 @@ namespace vg {
         }
     }
     
-#define debug_multipath_alignment
     void MultipathAlignmentGraph::synthesize_anchors_by_search(const Alignment& alignment, VG& align_graph,
         size_t max_mismatches, bool clear_originals) {
     
@@ -3239,9 +3238,6 @@ namespace vg {
         
         // TODO: We may recreate the original PathNodes that were in the graph, again.
     }
-#undef debug_multipath_alignment
-    
-    
     
     // Kahn's algorithm
     void MultipathAlignmentGraph::topological_sort(vector<size_t>& order_out) {
@@ -3660,6 +3656,51 @@ namespace vg {
                 
                     aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns,
                                                        band_padding_function(intervening_sequence, connecting_graph), true);
+                }
+                
+                
+                {
+                    size_t old_aln_count = alt_alignments.size();
+                    
+                    // Now we need to deduplicate the connecting alignments.
+                    // We should have at most one connecting alignment (the best one) on each walk (sequence of oriented original graph nodes).
+                    // The others capture alignment diversity, but not path diversity, which is all we really care about.
+                    // And duplicate alignments on the same path can make haplotype-aware traceback explode because it follows all combinations.
+                    // So we deduplicate them.
+                    map<vector<pair<id_t, bool>>, Alignment> best_alt_alignment_by_walk;
+                    
+                    for(Alignment& connecting_alignment : alt_alignments) {
+                        // Synthesize the walk key for each alignment
+                        vector<pair<id_t, bool>> walk;
+                        
+                        for (auto& mapping : connecting_alignment.path().mapping()) {
+                            // TODO: deduplicate the walks in the ID space of the original graph, not the alignment graph
+                            // Use connect_trans and handle empty first/last mappings
+                            walk.emplace_back(mapping.position().node_id(), mapping.position().is_reverse());
+                        }
+                        
+                        if (best_alt_alignment_by_walk.count(walk)) {
+                            if (best_alt_alignment_by_walk[walk].score() < connecting_alignment.score()) {
+                                // We have a new best alignment for this walk
+                                best_alt_alignment_by_walk.emplace(std::move(walk), std::move(connecting_alignment));
+                            }
+                        }
+                    }
+                    
+                    // Now pull the deduplicated alignments back out
+                    alt_alignments.clear();
+                    for (auto& kv : best_alt_alignment_by_walk) {
+                        // Only keep the best alignment for each walk
+                        alt_alignments.emplace_back(std::move(kv.second));
+                    }
+                    
+                    
+#ifdef debug_multipath_alignment
+                    size_t new_aln_count = alt_alignments.size();
+                    if (old_aln_count < new_aln_count) {
+                        cerr << "Deduplicated to " << new_aln_count << "/" << old_aln_count << " unique walks" << endl;
+                    }
+#endif
                 }
                 
                 for (Alignment& connecting_alignment : alt_alignments) {

@@ -4,7 +4,7 @@
 //
 //
 
-#define debug_multipath_mapper
+//#define debug_multipath_mapper
 //#define debug_multipath_mapper_alignment
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
@@ -2956,18 +2956,6 @@ namespace vg {
         auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
         MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, gcsa);
         
-        {
-            // Compute a topological order over the graph
-            vector<size_t> topological_order;
-            multi_aln_graph.topological_sort(topological_order);
-            
-            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
-            multi_aln_graph.remove_transitive_edges(topological_order);
-            
-            // prune this graph down the paths that have reasonably high likelihood
-            multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
-                                                        max_suboptimal_path_score_ratio, topological_order);
-        }
         if (snarl_manager) {
             // We want to do snarl cutting
             
@@ -2982,7 +2970,6 @@ namespace vg {
                 
             }
        
-#define debug_multipath_mapper_alignment
 #ifdef debug_multipath_mapper_alignment
             cerr << "MultipathAlignmentGraph going into snarl cutting:" << endl;
             multi_aln_graph.to_dot(cerr, &alignment);
@@ -3009,8 +2996,37 @@ namespace vg {
             multi_aln_graph.clear_reachability_edges();
             multi_aln_graph.synthesize_anchors_by_search(alignment, align_graph, synthetic_anchor_search_limit, true);
             
+            if (snarl_manager) {
+            
+#ifdef debug_multipath_mapper_alignment
+                cerr << "MultipathAlignmentGraph going into snarl interior destruction:" << endl;
+                multi_aln_graph.to_dot(cerr, &alignment);
+#endif
+            
+                // Cut away anchors created inside snarls
+                // TODO: we need access to the full backing graph to find the contents of snarls.
+                // Can we avoid this weird cross-dependency and just use vg that we have been passed?
+                assert(xindex != nullptr);
+                multi_aln_graph.destroy_anchors_in_snarls(snarl_manager, *xindex, node_trans, node_inj);
+            }
+            
             // TODO: Don't bother with the original reachability edges in this case
             multi_aln_graph.add_reachability_edges(align_graph, node_trans, node_inj);
+            
+            // We may add transitive edges, so transitive edge removal has to be next.
+        }
+        
+        {
+            // Compute a topological order over the graph
+            vector<size_t> topological_order;
+            multi_aln_graph.topological_sort(topological_order);
+            
+            // it's sometimes possible for transitive edges to survive the original construction algorithm, so remove them
+            multi_aln_graph.remove_transitive_edges(topological_order);
+            
+            // prune this graph down the paths that have reasonably high likelihood
+            multi_aln_graph.prune_to_high_scoring_paths(alignment, get_aligner(),
+                                                        max_suboptimal_path_score_ratio, topological_order);
         }
         
 #ifdef debug_multipath_mapper_alignment
@@ -3025,7 +3041,6 @@ namespace vg {
             cerr << endl;
         }
 #endif
-#undef debug_multipath_mapper_alignment
         
         function<size_t(const Alignment&, const HandleGraph&)> choose_band_padding = [&](const Alignment& seq, const HandleGraph& graph) {
             size_t read_length = seq.sequence().end() - seq.sequence().begin();
