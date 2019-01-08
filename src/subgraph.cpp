@@ -24,6 +24,10 @@ using namespace std;
         contents.insert(node_id);
     }
     
+    bool SubHandleGraph::has_node(id_t node_id) const {
+        return contents.count(node_id);
+    }
+    
     handle_t SubHandleGraph::get_handle(const id_t& node_id, bool is_reverse) const {
         if (!contents.count(node_id)) {
             cerr << "error:[SubHandleGraph] subgraph does not contain node with ID " << node_id << endl;

@@ -18,7 +18,7 @@ using namespace std;
      * the nodes in the super graph are considered part of the subgraph. Subgraph
      * handles can also be used by the super graph.
      */
-    class SubHandleGraph : HandleGraph {
+    class SubHandleGraph : public HandleGraph {
     public:
         
         /// Initialize with a super graph and nodes returned by iterators to handles
@@ -37,6 +37,9 @@ using namespace std;
         //////////////////////////
         /// HandleGraph interface
         //////////////////////////
+        
+        // Method to check if a node exists by ID
+        virtual bool has_node(id_t node_id) const;
         
         /// Look up the handle for the node with the given ID in the given orientation
         virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;

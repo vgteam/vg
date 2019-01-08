@@ -350,7 +350,7 @@ public:
     
     /// Loop over all edges in their canonical orientation (as returned by edge_handle) and
     /// execute an iteratee on each one. Can stop early by returning false from the iteratee.
-    void for_each_edge(const function<bool(const edge_t&)>& iteratee, bool parallel = false);
+    void for_each_edge(const function<bool(const edge_t&)>& iteratee, bool parallel = false) const;
     
 };
     
