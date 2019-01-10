@@ -58,7 +58,7 @@ class VGCITest(TestCase):
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
         self.do_teardown = True
-        self.baseline = 's3://vg-data/vg_ci/jenkins_regression_baseline'
+        self.baseline = 's3://vg-data/vg_ci/vgci_regression_baseline'
         self.cores = 8
         self.sim_chunk_size = 100000
         self.force_outstore = False
@@ -1266,7 +1266,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(1200)
     def test_sim_brca2_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
-        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        so vgci doesn't report failures.  vg is run only in single ended with multipath on
         and off. 
         """
         log.info("Test start at {}".format(datetime.now()))
@@ -1280,7 +1280,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(2400)
     def test_sim_chr21_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
-        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        so vgci doesn't report failures.  vg is run only in single ended with multipath on
         and off.
         """
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
@@ -1294,7 +1294,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(3000)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
-        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        so vgci doesn't report failures.  vg is run only in single ended with multipath on
         and off.
         """
         log.info("Test start at {}".format(datetime.now()))

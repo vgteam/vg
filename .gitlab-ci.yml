@@ -1,0 +1,8 @@
+# Setup for all test jobs
+before_script:
+  - docker version
+
+# Define a vgci job that runs the tests in ./vgci/
+vcci:
+  script:
+    - vgci/vgci.sh

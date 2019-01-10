@@ -119,9 +119,10 @@ lock_mutex() {
 }
 
 
-read_build_number() {
+read_job_id() {
     # Given the name of a SimpleDB item, read the buildnumber key and set
-    # OLD_BUILD_NUMBER. Defaults it to 0.
+    # OLD_JOB_ID. Defaults it to 0.
+    # We use the "buildnumber" key because that's what Jenkins called the concept.
     
     local ITEM_NAME="${1}"; shift
     
@@ -131,14 +132,14 @@ read_build_number() {
     # Download the data
     local RESULT="$(aws sdb get-attributes --region us-west-2 --domain-name vgci --item-name ${ITEM_NAME} --consistent-read)"
     # Pull out the build number
-    OLD_BUILD_NUMBER="$(echo "${RESULT}" | grep -A 1 "buildnumber" | tail -n1 | cut -f2 -d':' | tr -d " \"")"
+    OLD_JOB_ID="$(echo "${RESULT}" | grep -A 1 "buildnumber" | tail -n1 | cut -f2 -d':' | tr -d " \"")"
 }
 
-write_build_number() {
+write_job_id() {
     # Given the name of a SimpleDB item, and a build number, save the build number over whatever is there.
     
     local ITEM_NAME="${1}"; shift
-    local NEW_BUILD_NUMBER="${1}"; shift
+    local NEW_JOB_ID="${1}"; shift
     
     # Overwrite the attribute
     aws sdb put-attributes --region us-west-2 --domain-name vgci --item-name "${ITEM_NAME}" --attributes "Name=buildnumber,Value=${NEW_BUILD_NUMBER},Replace=true"
@@ -146,11 +147,11 @@ write_build_number() {
 }
 
 # Figure out where we are. In the real version this will affect our behavior.
-if [ ! -z "${BUILD_NUMBER}" ]; then
-    echo "On Jenkins"
+if [ ! -z "${CI}" ]; then
+    echo "On Cloud CI"
     
     # Where we should put the report depends on what build we're doing
-    if [ -z ${ghprbActualCommit} ]; then
+    if [ -z "${CI_MERGE_REQUEST_IID}" && "${CI_COMMIT_REF_NAME}" == "master" ]; then
         echo "Running on master"
         
         # On master we need to hold the mutex.
@@ -159,25 +160,26 @@ if [ ! -z "${BUILD_NUMBER}" ]; then
         lock_mutex "master_sync" 60 5
         
         # Load the last build number
-        read_build_number "master_sync"
+        read_job_id "master_sync"
         
-        if [ "${BUILD_NUMBER}" -gt "${OLD_BUILD_NUMBER}" ]; then
-            # Upload to the path for master, overwriting whatever was there.
-            HTML_PATH="vg_ci/jenkins_reports/branch/master"
+        # We assume CI_JOB_ID is a monotonically increasing number.
+        
+        if [ "${CI_JOB_ID}" -gt "${OLD_JOB_ID}" ]; then # Upload to the path for master, overwriting whatever was there.
+            HTML_PATH="vg_ci/vgci_reports/branch/master"
             
             # Save the new higher build number
-            write_build_number "master_sync" "${BUILD_NUMBER}"
+            write_job_id "master_sync" "${CI_JOB_ID}"
             
         else
             # Just work on the commit, since a newer master build has already finished.
-            HTML_PATH="vg_ci/jenkins_reports/commit/${GIT_COMMIT}"
+            HTML_PATH="vg_ci/vgci_reports/commit/${CI_COMMIT_SHA}"
         fi
         
     else
         echo "Running on a pull request"
         
         # Upload to a path specific to this commit.
-        HTML_PATH="vg_ci/jenkins_reports/commit/${ghprbActualCommit}"
+        HTML_PATH="vg_ci/vgci_reports/commit/${CI_COMMIT_SHA}"
         
         # Say we had 0 as the last build number
         OLD_BUILD_NUMBER=0
@@ -203,21 +205,21 @@ echo "Uploaded HTML as ${REPORT_URL}"
 echo "Markdown to post:"
 cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
 
-if [ ! -z "${BUILD_NUMBER}" ]; then
-    # On Jenkins, so actually post a comment
+if [ ! -z "${CI}" ]; then
+    # On cloud CI, so actually post a comment
     
-    if [ -z ${ghprbActualCommit} ]; then
+    if [ -z "${CI_MERGE_REQUEST_IID}" && "${CI_COMMIT_REF_NAME}" == "master" ]; then
         # Normal master build
                 
         # Comment on the commit we built
-        jenkins/post-comment.py vgteam/vg --in_file processed.md --commit "${GIT_COMMIT}" || true    
+        vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true    
         
         # We grabbed the mutex, so we need to release it
         unlock_mutex "master_sync"    
-    else
+    elif [ ! -z "${CI_MERGE_REQUEST_IID}" ]; then
         # PR build so we comment on the PR
-        # Won't work until GH_TOKEN env var is exposed on Jenkins
-        jenkins/post-comment.py vgteam/vg --in_file processed.md --pr "${ghprbPullId}" || true
+        # Won't work until GH_TOKEN env var is exposed on cloud CI 
+        vgci/post-comment.py vgteam/vg --in_file processed.md --pr "${CI_MERGE_REQUEST_IID}" || true
     fi
 fi
 

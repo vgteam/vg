@@ -6,9 +6,9 @@
 
 # This script is hooked into 
 
-# http://jenkins.cgcloud.info
+# http://vgci.cgcloud.info
 
-# Most of the setup here is cribbed from other cgcloud jenkins projects such as toil-vg
+# Most of the setup here is cribbed from other cgcloud vgci projects such as toil-vg
 # itself
 
 # Note: we assume we run this in vg/ ie inside the vg directory we want to test
@@ -35,8 +35,8 @@ TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@f04a21197cef57dc42
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
 TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
 # What tests should we run?
-# Should be something like "jenkins/vgci.py::VGCITest::test_sim_brca2_snp1kg"
-PYTEST_TEST_SPEC="jenkins/vgci.py"
+# Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg"
+PYTEST_TEST_SPEC="vgci/vgci.py"
 # What S3 URL does test output go to?
 OUTPUT_DESTINATION="s3://vg-data/vg_ci"
 # What bucket owner account ID should be granted full control of uploaded objects?
@@ -226,8 +226,8 @@ else
     rm -f .dockerignore
 
     docker pull ubuntu:16.04
-    DOCKER_TAG="jenkins-docker-vg-local"
-    docker build --no-cache -t "jenkins-docker-vg-local" -f jenkins/Dockerfile.jenkins .
+    DOCKER_TAG="vgci-docker-vg-local"
+    docker build --no-cache -t "vgci-docker-vg-local" -f vgci/Dockerfile.vgci .
     if [ "$?" -ne 0 ]
     then
         echo "vg docker build fail"
@@ -239,11 +239,11 @@ else
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
     fi
-    VG_VERSION=`docker run jenkins-docker-vg-local vg version -s`
-    printf "vg-docker-version jenkins-docker-vg-local\n" >> vgci_cfg.tsv
+    VG_VERSION=`docker run vgci-docker-vg-local vg version -s`
+    printf "vg-docker-version vgci-docker-vg-local\n" >> vgci_cfg.tsv
 fi
 
-# run the tests, output the junit report for Jenkins
+# run the tests, output the junit report 
 rm -f test-report.xml
 PYRET=1
 if [ ${BUILD_FAIL} -ne 1 ]
@@ -253,36 +253,36 @@ then
 fi
 
 # Generate a report in two files: HTML full output, and a Markdown summary.
-# Takes as input the Jenkins test result XML and the work directory with the
+# Takes as input the test result XML and the work directory with the
 # test output files.
-jenkins/mine-logs.py test-report.xml vgci-work/ report-html/ summary.md
+vgci/mine-logs.py test-report.xml vgci-work/ report-html/ summary.md
 
 # Put the report on Github for the current pull request or commit.
-jenkins/post-report report-html summary.md
+vgci/post-report report-html summary.md
 
 
-if [ ! -z "${BUILD_NUMBER}" ]
+if [ ! -z "${CI}" ]
 then
-    # We are running on Jenkins (and not manually running the Jenkins tests), so
+    # We are running on cloud CI (and not manually running the tests), so
     # we probably have AWS credentials and can upload stuff to S3.
 
     # we publish the results to the archive
-    tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml jenkins/vgci.py jenkins/jenkins.sh vgci_cfg.tsv
+    tar czf "${VG_VERSION}_output.tar.gz" vgci-work test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
     aws s3 cp --only-show-errors \
-        "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/jenkins_output_archives/" \
+        "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/vgci_output_archives/" \
         --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
 
     # if we're merging the PR (and not just testing it), we publish results to the baseline
-    if [ -z ${ghprbActualCommit} ]
+    if [ -z "${CI_MERGE_REQUEST_IID}" && "${CI_COMMIT_REF_NAME}" == "master" ]
     then
         echo "Updating baseline"
         aws s3 sync \
-            ./vgci-work/ "${OUTPUT_DESTINATION}/jenkins_regression_baseline" \
+            ./vgci-work/ "${OUTPUT_DESTINATION}/vgci_regression_baseline" \
             --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"    
         printf "${VG_VERSION}\n" > "vg_version_${VG_VERSION}.txt"
-        printf "${ghprbActualCommitAuthor}\n${ghprbPullTitle}\n${ghprbPullLink}\n" >> "vg_version_${VG_VERSION}.txt"
+        printf "${CI_COMMIT_TITLE}" >> "vg_version_${VG_VERSION}.txt"
         aws s3 cp --only-show-errors \
-            "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/jenkins_regression_baseline/" \
+            "vg_version_${VG_VERSION}.txt" "${OUTPUT_DESTINATION}/vgci_regression_baseline/" \
             --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
     fi
 fi
