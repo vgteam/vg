@@ -453,7 +453,6 @@ endif
 # Build a real git version file.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
-
 .check-git:
 	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp
 	@diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp
