@@ -439,18 +439,21 @@ $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB
 
 # Auto-git-versioning
 
+# We need to scope this variable here
+GIT_VERSION_FILE_DEPS =
 # Decide if .git exists and needs to be watched
 ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
 	# If so, try and make a git version file
-	GIT_VERSION_FILE_DEPS=.check-git
+	GIT_VERSION_FILE_DEPS = .check-git
 else
 	# Just use the version file we have, if any
-	GIT_VERSION_FILE_DEPS=.no-git
+	GIT_VERSION_FILE_DEPS = .no-git
 endif
  
 # Build a real git version file.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
+
 .check-git:
 	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp
 	@diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp
@@ -458,7 +461,7 @@ endif
 	
 # Make sure the version file exists, if we weren't given one in our tarball
 .no-git:
-	if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
+	@if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
 		touch $(INC_DIR)/vg_git_version.hpp \
 	fi;
  
