@@ -224,7 +224,7 @@ ifneq ($(shell uname -s),Darwin)
 	LD_LIB_FLAGS += -ltcmalloc_minimal
 endif
 
-.PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment
+.PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
 
 $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
@@ -441,19 +441,28 @@ $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB
 
 # Decide if .git exists and needs to be watched
 ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
-	GIT_DIR_DEPS=.git
+	# If so, try and make a git version file
+	GIT_VERSION_FILE_DEPS=.check-git
 else
-	GIT_DIR_DEPS=
+	# Just use the version file we have, if any
+	GIT_VERSION_FILE_DEPS=.no-git
 endif
  
-# We want to preserve an existing vg_git_version.hpp if there's no .git, and update it otherwise.
-# We only depend on .git if it exists, to avoid rebuilding every time it doesn't exist.
-$(INC_DIR)/vg_git_version.hpp: $(GIT_DIR_DEPS)
-	if [ -d .git ]; then \
-		echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $@; \
-	else \
-		touch $@; \
+# Build a real git version file.
+# If it's not the same as the old one, replace the old one.
+# If it is the same, do nothing and don't rebuild dependent targets.
+.check-git:
+	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp
+	@diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp
+	@rm -f $(INC_DIR)/vg_git_version.hpp.tmp
+	
+# Make sure the version file exists, if we weren't given one in our tarball
+.no-git:
+	if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
+		touch $(INC_DIR)/vg_git_version.hpp \
 	fi;
+ 
+$(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
 	
 # Build an environment version file with this phony target.
 # If it's not the same as the old one, replace the old one.

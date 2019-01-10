@@ -12,7 +12,7 @@
 // If the VG_GIT_VERSION deosn't exist at all, define a placeholder
 // This lets us be somewhat robust to undeterminable versions
 #ifndef VG_GIT_VERSION
-    #define VG_GIT_VERSION "unknown"
+    #define VG_GIT_VERSION "not-from-git"
 #endif
 
 namespace vg {
