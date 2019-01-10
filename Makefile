@@ -462,7 +462,7 @@ endif
 # Make sure the version file exists, if we weren't given one in our tarball
 .no-git:
 	@if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
-		touch $(INC_DIR)/vg_git_version.hpp \
+		touch $(INC_DIR)/vg_git_version.hpp; \
 	fi;
  
 $(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
