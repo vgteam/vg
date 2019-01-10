@@ -1096,7 +1096,7 @@ namespace vg {
 #endif
             }
             
-            while(!queue.empty() && queue.size() > hard_cap) {
+            while(!queue.empty() && hard_cap != 0 && queue.size() > hard_cap) {
                 // We have hit the hard cap. Drop the worst thing even if it is haplotype consistent.
                 queue.pop_max();
 #ifdef debug_multiple_tracebacks
