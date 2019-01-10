@@ -281,7 +281,7 @@ namespace unittest {
             size_t preserved_length = 1;
             
             unordered_map<id_t, id_t> trans = algorithms::dagify(&graph, &dagified, preserved_length);
-                        
+            
             REQUIRE(algorithms::is_acyclic(&dagified));
             REQUIRE(dagified.node_size() == 6);
             
