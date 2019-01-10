@@ -438,9 +438,23 @@ $(LIB_DIR)/libsublinearLS.a: $(LINLS_DIR)/src/*.cpp $(LINLS_DIR)/src/*.hpp $(LIB
 	cd $(LINLS_DIR) && INCLUDE_FLAGS="-I$(CWD)/$(INC_DIR)" $(MAKE) libs $(FILTER) && cp lib/libsublinearLS.a $(CWD)/$(LIB_DIR)/ && mkdir -p $(CWD)/$(INC_DIR)/sublinearLS && cp src/*.hpp $(CWD)/$(INC_DIR)/sublinearLS/
 
 # Auto-git-versioning
-$(INC_DIR)/vg_git_version.hpp: .git
-	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
 
+# Decide if .git exists and needs to be watched
+ifeq ($(shell if [ -d .git ]; then echo present; else echo absent; fi),present)
+	GIT_DIR_DEPS=.git
+else
+	GIT_DIR_DEPS=
+endif
+ 
+# We want to preserve an existing vg_git_version.hpp if there's no .git, and update it otherwise.
+# We only depend on .git if it exists, to avoid rebuilding every time it doesn't exist.
+$(INC_DIR)/vg_git_version.hpp: $(GIT_DIR_DEPS)
+	if [ -d .git ]; then \
+		echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $@; \
+	else \
+		touch $@; \
+	fi;
+	
 # Build an environment version file with this phony target.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
@@ -454,10 +468,6 @@ $(INC_DIR)/vg_git_version.hpp: .git
 
 # The way to get the actual file is to maybe replace it.
 $(INC_DIR)/vg_environment_version.hpp: .check-environment
-	
-
-# Not important if .git isn't real
-.git:
 
 ###################################
 ## VG source code compilation begins here
