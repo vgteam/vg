@@ -668,7 +668,6 @@ haplo_score_type haplo_DP::score(const gbwt_thread_t& thread, GBWTType& graph, h
   return pair<double, bool>(hdp.DP_column.current_sum(), true);
 }
 
-
 //------------------------------------------------------------------------------
 
 template<class GBWTType>
