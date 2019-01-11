@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include "vg.pb.h"
+#include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"
 
@@ -527,6 +528,23 @@ void sort_shuffling_ties(RandomIt begin, RandomIt end, Compare comp) {
     });
 
 }
+
+/// Compose the translations from two graph operations, both of which involved oriented transformations.
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under);
+
+/// Compose the translations from two graph operations, the first of which involved oriented transformations.
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under);
+
+/// Compose the translations from two graph operations, the second of which involved oriented transformations.
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, id_t>& under);
+
+/// Compose the translations from two graph operations, neither of which involved oriented transformations.
+unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                    const unordered_map<id_t, id_t>& under);
+    
 
 /// Get a callback with an istream& to an open file if a file name argument is
 /// present after the parsed options, or print an error message and exit if one

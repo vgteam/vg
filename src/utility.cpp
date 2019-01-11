@@ -622,4 +622,46 @@ string percent_url_encode(const string& seq) {
     return replace_in_string(seq, "%", "%25");
 }
 
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under) {
+    
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, pair<id_t, bool>>& node_trans : over) {
+        const pair<id_t, bool>& trans_thru = under.at(node_trans.second.first);
+        overlaid[node_trans.first] = make_pair(trans_thru.first, trans_thru.second != node_trans.second.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under) {
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, id_t>& node_trans : over) {
+        overlaid[node_trans.first] = under.at(node_trans.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, id_t>& under) {
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, pair<id_t, bool>>& node_trans : over) {
+        overlaid[node_trans.first] = make_pair(under.at(node_trans.second.first), node_trans.second.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                    const unordered_map<id_t, id_t>& under) {
+    unordered_map<id_t, id_t> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, id_t>& node_trans : over) {
+        overlaid[node_trans.first] = under.at(node_trans.second);
+    }
+    return overlaid;
+}
+
 }

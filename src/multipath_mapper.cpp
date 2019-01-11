@@ -455,12 +455,13 @@ namespace vg {
         unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&rescue_graph)) {
-            unordered_map<id_t, pair<id_t, bool> > dagify_trans;
-            align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
-                                             dagify_trans,
-                                             target_length,
-                                             0); // no maximum on size of component
-            node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
+            // make a dagified graph and translation
+            VG dagified;
+            unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
+            
+            // replace the original with the dagified ones
+            align_graph = move(dagified);
+            node_trans = overlay_node_translations(dagify_trans, node_trans);
         }
         
         // put local alignment here
@@ -2935,13 +2936,13 @@ namespace vg {
 
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&align_graph)) {
-            unordered_map<id_t, pair<id_t, bool> > dagify_trans;
-            align_graph = align_graph.dagify(target_length, // high enough that num SCCs is never a limiting factor
-                                             dagify_trans,
-                                             target_length,
-                                             0); // no maximum on size of component
-                                             
-            node_trans = align_graph.overlay_node_translations(dagify_trans, node_trans);
+            // make a dagified graph and translation
+            VG dagified;
+            unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
+            
+            // replace the original with the dagified ones
+            align_graph = move(dagified);
+            node_trans = overlay_node_translations(dagify_trans, node_trans);
         }
         
         // put the internal graph in topological order for the MultipathAlignmentGraph algorithm
