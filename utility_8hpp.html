@@ -108,6 +108,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &lt;regex&gt;</code><br/>
 <code>#include &lt;unistd.h&gt;</code><br/>
 <code>#include &quot;vg.pb.h&quot;</code><br/>
+<code>#include &quot;<a class="el" href="types_8hpp.html">types.hpp</a>&quot;</code><br/>
 <code>#include &quot;sha1.hpp&quot;</code><br/>
 <code>#include &quot;Variant.h&quot;</code><br/>
 </div><table class="memberdecls">
@@ -294,6 +295,21 @@ Functions</h2></td></tr>
 <tr class="memitem:aa071bccfee3a9078930f2c385e8dda20"><td class="memTemplParams" colspan="2">template&lt;class RandomIt , class Compare &gt; </td></tr>
 <tr class="memitem:aa071bccfee3a9078930f2c385e8dda20"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa071bccfee3a9078930f2c385e8dda20">vg::sort_shuffling_ties</a> (RandomIt begin, RandomIt end, Compare comp)</td></tr>
 <tr class="separator:aa071bccfee3a9078930f2c385e8dda20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a86d5f690fe272c74949e080aca561467"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; id_t, pair<br class="typebreak"/>
+&lt; id_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a86d5f690fe272c74949e080aca561467">vg::overlay_node_translations</a> (const unordered_map&lt; id_t, pair&lt; id_t, bool &gt;&gt; &amp;over, const unordered_map&lt; id_t, pair&lt; id_t, bool &gt;&gt; &amp;under)</td></tr>
+<tr class="memdesc:a86d5f690fe272c74949e080aca561467"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compose the translations from two graph operations, both of which involved oriented transformations.  <a href="#a86d5f690fe272c74949e080aca561467">More...</a><br/></td></tr>
+<tr class="separator:a86d5f690fe272c74949e080aca561467"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7816225a17a671ff849a79f064770ebb"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; id_t, pair<br class="typebreak"/>
+&lt; id_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7816225a17a671ff849a79f064770ebb">vg::overlay_node_translations</a> (const unordered_map&lt; id_t, id_t &gt; &amp;over, const unordered_map&lt; id_t, pair&lt; id_t, bool &gt;&gt; &amp;under)</td></tr>
+<tr class="memdesc:a7816225a17a671ff849a79f064770ebb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compose the translations from two graph operations, the first of which involved oriented transformations.  <a href="#a7816225a17a671ff849a79f064770ebb">More...</a><br/></td></tr>
+<tr class="separator:a7816225a17a671ff849a79f064770ebb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af224cfdc27efec675771ba4cc5143a3f"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; id_t, pair<br class="typebreak"/>
+&lt; id_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af224cfdc27efec675771ba4cc5143a3f">vg::overlay_node_translations</a> (const unordered_map&lt; id_t, pair&lt; id_t, bool &gt;&gt; &amp;over, const unordered_map&lt; id_t, id_t &gt; &amp;under)</td></tr>
+<tr class="memdesc:af224cfdc27efec675771ba4cc5143a3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compose the translations from two graph operations, the second of which involved oriented transformations.  <a href="#af224cfdc27efec675771ba4cc5143a3f">More...</a><br/></td></tr>
+<tr class="separator:af224cfdc27efec675771ba4cc5143a3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae996017b379b1178d5e588b96a7c7f3f"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; id_t, id_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae996017b379b1178d5e588b96a7c7f3f">vg::overlay_node_translations</a> (const unordered_map&lt; id_t, id_t &gt; &amp;over, const unordered_map&lt; id_t, id_t &gt; &amp;under)</td></tr>
+<tr class="memdesc:ae996017b379b1178d5e588b96a7c7f3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Compose the translations from two graph operations, neither of which involved oriented transformations.  <a href="#ae996017b379b1178d5e588b96a7c7f3f">More...</a><br/></td></tr>
+<tr class="separator:ae996017b379b1178d5e588b96a7c7f3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab1b8b686ef6eca09515be1abe566c013"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab1b8b686ef6eca09515be1abe566c013">vg::get_input_file</a> (int &amp;optind, int argc, char **argv, function&lt; void(istream &amp;)&gt; callback)</td></tr>
 <tr class="separator:ab1b8b686ef6eca09515be1abe566c013"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a511d30ecf4d39aaa944c2f59f6821fad"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a511d30ecf4d39aaa944c2f59f6821fad">vg::get_input_file_name</a> (int &amp;optind, int argc, char **argv)</td></tr>
