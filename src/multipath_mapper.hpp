@@ -21,6 +21,7 @@
 #include "snarls.hpp"
 #include "haplotypes.hpp"
 #include "distance.hpp"
+#include "utility.hpp"
 
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
@@ -31,6 +32,7 @@
 #include "algorithms/is_single_stranded.hpp"
 #include "algorithms/split_strands.hpp"
 #include "algorithms/count_walks.hpp"
+#include "algorithms/dagify.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>

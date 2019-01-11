@@ -2133,6 +2133,7 @@ namespace vg {
                 // traverse all of the reachable starts to find the adjacent ends that might be colinear
                 
                 size_t start = starts[start_idx];
+                
 #ifdef debug_multipath_alignment
                 cerr << "searching backward from start " << start << endl;
 #endif
@@ -2140,204 +2141,140 @@ namespace vg {
                 PathNode& start_node = path_nodes.at(start);
                 unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
                 
-                // pairs of (dist, index)
-                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> start_queue;
-                priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> end_queue;
-                start_queue.emplace(0, start);
+                // TODO: would it be better to combine these into one queue?
                 
-                unordered_set<size_t> traversed_start;
+                // initialize queues for the next start and next end, prioritized by shortest distance
+                structures::RankPairingHeap<size_t, size_t, std::greater<size_t>> start_queue, end_queue;
                 
-                while (!start_queue.empty()) {
-                    pair<size_t, size_t> start_here = start_queue.top();
-                    start_queue.pop();
-                    if (traversed_start.count(start_here.second)) {
-                        continue;
-                    }
-                    traversed_start.insert(start_here.second);
-#ifdef debug_multipath_alignment
-                    cerr << "traversing initial start " << start_here.second << " at distance " << start_here.first << endl;
-#endif
-                    
-                    // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
-                    // between them and the distance already traversed
-                    for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
-                        end_queue.emplace(start_here.first + end.second, end.first);
-#ifdef debug_multipath_alignment
-                        cerr << "found reachable end " << end.first << " at distance " << start_here.first + end.second << endl;
-#endif
-                    }
-                    
-                    for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
-                        start_queue.emplace(start_here.first + start_next.second, start_next.first);
-                    }
-                }
+                // we begin at the start we're searching backward from
+                start_queue.push_or_reprioritize(start, 0);
                 
-                // now we've traversed all of the starts, we have the set of ends that can be reached
-                // without passing another end
-                
-                unordered_set<size_t> traversed_end;
-                
-                while (!end_queue.empty()) {
-                    size_t candidate_end = end_queue.top().second;
-                    size_t candidate_dist = end_queue.top().first;
-                    end_queue.pop();
-                    
-                    if (traversed_end.count(candidate_end)) {
-                        continue;
-                    }
-#ifdef debug_multipath_alignment
-                    cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
-#endif
-                    traversed_end.insert(candidate_end);
-                    
-                    PathNode& candidate_end_node = path_nodes.at(candidate_end);
-                    
-                    if (candidate_end_node.end <= start_node.begin) {
-                        // these MEMs are read colinear and graph reachable, so connect them
-                        candidate_end_node.edges.emplace_back(start, candidate_dist);
+                while (!start_queue.empty() || !end_queue.empty()) {
+                    // is the next item on the queues a start or an end?
+                    if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
+                        
+                        // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
+                        
+                        pair<size_t, size_t> start_here = start_queue.top();
+                        start_queue.pop();
                         
 #ifdef debug_multipath_alignment
-                        cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
-                        for (auto& edge : candidate_end_node.edges) {
-                            cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
-                        }
+                        cerr << "traversing start " << start_here.first << " at distance " << start_here.second << endl;
 #endif
                         
-                        // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
-                        // this connection
-                        for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+                        // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
+                        // between them and the distance already traversed
+                        for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.first]) {
+                            end_queue.push_or_reprioritize(end.first, start_here.second + end.second);
 #ifdef debug_multipath_alignment
-                            cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second + candidate_dist << " from noncolinear shell" << endl;
-#endif
-                            end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
-                        }
-                    }
-                    else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
-                        // the MEM can be made colinear by removing an overlap, which will not threaten reachability
-                        size_t overlap = candidate_end_node.end - start_node.begin;
-                        confirmed_overlaps.emplace_back(overlap, start, candidate_end, candidate_dist + overlap);
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "connection is overlap colinear, recording to add edge later" << endl;
-#endif
-                        
-                        // the end of this node might not actually block connections since it's going to intersect the middle of the node
-                        // so we need to find predecessors to this end too
-                        
-                        // add any ends directly reachable from the end
-                        for (const pair<size_t, size_t>& exposed_end : reachable_ends_from_end[candidate_end]) {
-                            end_queue.emplace(candidate_dist + exposed_end.second, exposed_end.first);
-#ifdef debug_multipath_alignment
-                            cerr << "found reachable exposed end " << exposed_end.first << " at distance " << candidate_dist + exposed_end.second << endl;
+                            cerr << "found reachable end " << end.first << " at distance " << start_here.second + end.second << endl;
 #endif
                         }
                         
-                        // traverse through any exposed starts to see if we can find other exposed ends
-                        priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> exposed_start_queue;
-                        unordered_set<size_t> traversed_exposed_start;
-                        
-                        // inialize the queue with the directly reachable exposed starts
-                        for (const pair<size_t, size_t>& exposed_start : reachable_starts_from_end[candidate_end]) {
-#ifdef debug_multipath_alignment
-                            cerr << "initializing exposed start traversal with " << exposed_start.first << " at distance " << candidate_dist + exposed_start.second << endl;
-#endif
-                            exposed_start_queue.emplace(candidate_dist + exposed_start.second, exposed_start.first);
-                        }
-                        
-                        while (!exposed_start_queue.empty()) {
-                            pair<size_t, size_t> start_here = exposed_start_queue.top();
-                            exposed_start_queue.pop();
-                            if (traversed_exposed_start.count(start_here.second)) {
-                                continue;
-                            }
-                            traversed_exposed_start.insert(start_here.second);
-#ifdef debug_multipath_alignment
-                            cerr << "traversing exposed start " << start_here.second << " at distance " << start_here.first << endl;
-#endif
-                            
-                            // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
-                            // between them and the distance already traversed
-                            for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.second]) {
-                                end_queue.emplace(start_here.first + end.second, end.first);
-#ifdef debug_multipath_alignment
-                                cerr << "found reachable exposed end " << end.first << " at distance " << start_here.first + end.second << endl;
-#endif
-                            }
-                            
-                            for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
-                                exposed_start_queue.emplace(start_here.first + start_next.second, start_next.first);
-                            }
-                        }
-                        
-                        // also skip to the predecessor's noncolinear shell, whose connections might not be blocked by
-                        // this connection
-                        for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
-#ifdef debug_multipath_alignment
-                            cerr << "enqueueing " << shell_pred.first << " at dist " << candidate_dist + shell_pred.second << " from noncolinear shell" << endl;
-#endif
-                            end_queue.emplace(candidate_dist + shell_pred.second, shell_pred.first);
+                        for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
+                            start_queue.push_or_reprioritize(start_next.first, start_here.second + start_next.second);
                         }
                     }
                     else {
-                        // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
-                        if (noncolinear_shell.count(candidate_end)) {
-                            noncolinear_shell[candidate_end] = std::min(candidate_dist + (start_node.end - start_node.begin),
-                                                                        noncolinear_shell[candidate_end]);
+                        
+                        // the next closest endpoint is an end, so we check if we can make a connection to the start
+                        // that we're searching backward from
+                        
+                        size_t candidate_end = end_queue.top().first;
+                        size_t candidate_dist = end_queue.top().second;
+                        end_queue.pop();
+                        
+#ifdef debug_multipath_alignment
+                        cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
+#endif
+                        
+                        PathNode& candidate_end_node = path_nodes[candidate_end];
+                        
+                        if (candidate_end_node.end <= start_node.begin) {
+                            // these MEMs are read colinear and graph reachable, so connect them
+                            candidate_end_node.edges.emplace_back(start, candidate_dist);
+                            
+#ifdef debug_multipath_alignment
+                            cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
+                            for (auto& edge : candidate_end_node.edges) {
+                                cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
+                            }
+#endif
+                            
+                            // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
+                            // this connection
+                            for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+#ifdef debug_multipath_alignment
+                                cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second + candidate_dist << " from noncolinear shell" << endl;
+#endif
+                                end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
+                            }
+                        }
+                        else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
+                            // the MEM can be made colinear by removing an overlap, which will not threaten reachability
+                            size_t overlap = candidate_end_node.end - start_node.begin;
+                            confirmed_overlaps.emplace_back(overlap, start, candidate_end, candidate_dist + overlap);
+                            
+#ifdef debug_multipath_alignment
+                            cerr << "connection is overlap colinear, recording to add edge later" << endl;
+#endif
+                            
+                            // the end of this node might not actually block connections since it's going to intersect the middle of the node
+                            // so we need to find predecessors to this end too
+                            
+                            // add any ends directly reachable from the end
+                            for (const pair<size_t, size_t>& exposed_end : reachable_ends_from_end[candidate_end]) {
+                                end_queue.push_or_reprioritize(exposed_end.first, candidate_dist + exposed_end.second);
+#ifdef debug_multipath_alignment
+                                cerr << "found reachable exposed end " << exposed_end.first << " at distance " << candidate_dist + exposed_end.second << endl;
+#endif
+                            }
+                            
+                            // add the directly reachable exposed starts to the queue
+                            for (const pair<size_t, size_t>& exposed_start : reachable_starts_from_end[candidate_end]) {
+#ifdef debug_multipath_alignment
+                                cerr << "adding exposed start traversal with " << exposed_start.first << " at distance " << candidate_dist + exposed_start.second << endl;
+#endif
+                                start_queue.push_or_reprioritize(exposed_start.first, candidate_dist + exposed_start.second);
+                            }
+                            
+                            // also skip to the predecessor's noncolinear shell, whose connections might not be blocked by
+                            // this connection
+                            for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+#ifdef debug_multipath_alignment
+                                cerr << "enqueueing " << shell_pred.first << " at dist " << candidate_dist + shell_pred.second << " from noncolinear shell" << endl;
+#endif
+                                end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
+                            }
                         }
                         else {
-                            noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
-                        }
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
-#endif
-                        
-                        // there is no connection to block further connections back, so any of this MEMs
-                        // predecessors could still be colinear
-                        
-                        // find the ends that can reach it directly
-                        for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
-                            end_queue.emplace(candidate_dist + pred_end.second, pred_end.first);
-#ifdef debug_multipath_alignment
-                            cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
-#endif
-                        }
-                        
-                        // traverse backward through any starts to find more ends that can reach this MEM
-                        priority_queue<pair<size_t, size_t>, vector<pair<size_t, size_t>>, std::greater<pair<size_t, size_t>>> pred_start_queue;
-                        
-                        // initialize the queue with the immediate start neighbors
-                        for (const pair<size_t, size_t>& pred_start : reachable_starts_from_end[candidate_end]) {
-                            pred_start_queue.emplace(candidate_dist + pred_start.second, pred_start.first);
-                        }
-                        
-                        unordered_set<size_t> pred_traversed;
-                        
-                        // traverse backwards through starts, stopping at any ends
-                        while (!pred_start_queue.empty()) {
-                            size_t start_here = pred_start_queue.top().second;
-                            size_t start_dist = pred_start_queue.top().first;
-                            pred_start_queue.pop();
-                            if (pred_traversed.count(start_here)) {
-                                continue;
+                            // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
+                            if (noncolinear_shell.count(candidate_end)) {
+                                noncolinear_shell[candidate_end] = std::min(candidate_dist + (start_node.end - start_node.begin),
+                                                                            noncolinear_shell[candidate_end]);
                             }
-                            pred_traversed.insert(start_here);
+                            else {
+                                noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
+                            }
                             
 #ifdef debug_multipath_alignment
-                            cerr << "traversing predecessor start " << start_here << " at distance " << start_dist << endl;
+                            cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
 #endif
                             
-                            for (const pair<size_t, size_t>& pred_end : reachable_ends_from_start[start_here]) {
-                                end_queue.emplace(start_dist + pred_end.second, pred_end.first);
+                            // there is no connection to block further connections back, so any of this MEMs
+                            // predecessors could still be colinear
+                            
+                            // find the ends that can reach it directly
+                            for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
+                                end_queue.push_or_reprioritize(pred_end.first, candidate_dist + pred_end.second);
 #ifdef debug_multipath_alignment
                                 cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
 #endif
                             }
-                            for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here]) {
-                                pred_start_queue.emplace(start_dist + start_next.second, start_next.first);
-#ifdef debug_multipath_alignment
-                                cerr << "found intermediate start " << start_next.first << " at distance " << start_dist + start_next.second << endl;
-#endif
+                            
+                            // set the start queue up with the immediate start neighbors
+                            for (const pair<size_t, size_t>& pred_start : reachable_starts_from_end[candidate_end]) {
+                                start_queue.push_or_reprioritize(pred_start.first, candidate_dist + pred_start.second);
                             }
                         }
                     }

@@ -12,6 +12,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include "structures/rank_pairing_heap.hpp"
+
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "snarls.hpp"
