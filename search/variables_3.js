@@ -40,6 +40,7 @@ var searchData=
   ['connectivity',['connectivity',['../classvg_1_1NetGraph.html#aa1014dccd8e1bfa54a434a6caf0c4d40',1,'vg::NetGraph']]],
   ['consistent',['consistent',['../structvg_1_1Genotyper_1_1Affinity.html#af58e963c9680682966f810d4f922cb5f',1,'vg::Genotyper::Affinity']]],
   ['content',['content',['../structvg_1_1BitStringTree_1_1TreeNode.html#a654e2ccb451511ff925aa9d66e290fbe',1,'vg::BitStringTree::TreeNode']]],
+  ['contents',['contents',['../classvg_1_1SubHandleGraph.html#a6d06eff177c6d87feadd561675c11b73',1,'vg::SubHandleGraph']]],
   ['context_5fbases',['context_bases',['../classvg_1_1GraphSynchronizer_1_1Lock.html#ae4a5790fef0070239e02d0f14bab68c3',1,'vg::GraphSynchronizer::Lock']]],
   ['context_5fsize',['context_size',['../classvg_1_1ReadFilter.html#a5452d3494b272196ab5436109db6023c',1,'vg::ReadFilter']]],
   ['contig',['contig',['../structvg_1_1BREAKPOINT.html#a8daffa4f64b5d59660eb3b3b00de7d0a',1,'vg::BREAKPOINT']]],

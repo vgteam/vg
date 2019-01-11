@@ -10,6 +10,7 @@ var searchData=
   ['add_5fedges',['add_edges',['../classvg_1_1VG.html#a7f23cdd532ca7b8d3c0bb9cceff3d378',1,'vg::VG::add_edges(const vector&lt; Edge &gt; &amp;edges)'],['../classvg_1_1VG.html#a679e39a7c1771c3ecc7204bd3b999583',1,'vg::VG::add_edges(const vector&lt; Edge * &gt; &amp;edges)'],['../classvg_1_1VG.html#acb8712eefbfd373c45f54d6bac8188c6',1,'vg::VG::add_edges(const set&lt; Edge * &gt; &amp;edges)']]],
   ['add_5ffragment',['add_fragment',['../structvg_1_1NodeDivider.html#a284fdf0232f747d08b0492045c6746dd',1,'vg::NodeDivider']]],
   ['add_5fgroup',['add_group',['../classvg_1_1StreamIndexBase.html#ad54626f7e5eb2587d4a5d5f514c82f75',1,'vg::StreamIndexBase::add_group()'],['../classvg_1_1StreamIndex.html#a172dd150297aad85dada7ba852ec3a0c',1,'vg::StreamIndex::add_group()']]],
+  ['add_5fhandle',['add_handle',['../classvg_1_1SubHandleGraph.html#a2ab52610b56f49a48262faafc7e510df',1,'vg::SubHandleGraph']]],
   ['add_5fhaplotype',['add_haplotype',['../classvg_1_1PhasedGenome.html#ad36e2c71ff5b2714d1fe1bb6af075f9c',1,'vg::PhasedGenome']]],
   ['add_5flog',['add_log',['../namespacevg.html#a0d4ce16064ad3986381aeead6afe317f',1,'vg']]],
   ['add_5fname',['add_name',['../classVectorizer.html#a37c3afd6049c63e09910ca050a2f2b10',1,'Vectorizer']]],
