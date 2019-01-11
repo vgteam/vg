@@ -299,6 +299,7 @@ public:
         static_assert(!std::is_void<decltype(lambda(get_handle(0, false)))>::value, "can't take our own lambda");
     }
     
+    
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Works with void-returning iteratees.
     /// MUST be pulled into implementing classes with `using` in order to work!
@@ -346,6 +347,11 @@ public:
     /// Such a pair can be viewed from either inward end handle and produce the
     /// outward handle you would arrive at.
     handle_t traverse_edge_handle(const edge_t& edge, const handle_t& left) const;
+    
+    /// Loop over all edges in their canonical orientation (as returned by edge_handle) and
+    /// execute an iteratee on each one. Can stop early by returning false from the iteratee.
+    void for_each_edge(const function<bool(const edge_t&)>& iteratee, bool parallel = false) const;
+    
 };
     
 /**

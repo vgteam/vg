@@ -995,12 +995,12 @@ int64_t Index::new_path_id(const string& path_name) {
 }
 
 string Index::path_name_prefix(const string& name) {
-    return "path_name" + start_sep + name;
+    return "path_name" + string(1, start_sep) + name;
 }
 
 string Index::path_id_prefix(int64_t id) {
     // TODO: ensure consistent endianness
-    string prefix = "path_id" + start_sep;
+    string prefix = "path_id" + string(1, start_sep);
     size_t prefix_size = prefix.size();
     prefix.resize(prefix.size() + sizeof(int64_t));
     memcpy((char*)prefix.c_str() + prefix_size, &id, sizeof(int64_t));
@@ -1590,7 +1590,7 @@ void Index::for_each_alignment(function<void(const Alignment&)> lambda) {
 }
 
 void Index::for_each_mapping(function<void(const Mapping&)> lambda) {
-    string start = start_sep + "s";
+    string start = string(1, start_sep) + "s";
     string end = start + end_sep;
     for_range(start, end, [this, &lambda](string& key, string& value) {
             Mapping mapping;
