@@ -420,7 +420,8 @@ double BaseAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
         scaled_scores.push_back(0.0);
         padded = true;
     }
-    
+   
+    assert(!scaled_scores.empty());
     double max_score = scaled_scores[0];
     size_t max_idx = 0;
     

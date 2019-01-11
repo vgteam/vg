@@ -912,7 +912,9 @@ RRMemo::RRMemo(double recombination_penalty, size_t population_size) :
 
   // log versions
   logT_base = log1p(-exp_rho);
-  for(int i = 0; i < population_size; i++) {
+  // Populate the tabel out to twice the haplotype count.
+  // In regions between unphased variants, we can have twice as many hits as real haplotypes in the index.
+  for(int i = 0; i < population_size * 2; i++) {
     logS_bases.push_back(log1p(i*exp_rho));
   }
 }
@@ -993,7 +995,14 @@ double RRMemo::logT(int width) {
 }
 
 double RRMemo::logS(int height, int width) {
-  return (width-1)*logS_bases[height-1]; //logS_base = log(1 + i*exp_rho)
+  if (height <= logS_bases.size()) {
+    // Fulfil from lookup table
+    return (width-1)*logS_bases[height-1]; //logS_base = log(1 + i*exp_rho)
+  } else {
+    // We must have a cycle or something; we have *way* more hits than haplotypes.
+    // Uncommon; just recompute the logS base as we do in the constructor.
+    return (width-1)*log1p((height-1)*exp_rho);
+  }
 }
 
 double RRMemo::logRRDiff(int height, int width) {
