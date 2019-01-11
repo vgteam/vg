@@ -38,7 +38,7 @@ void help_construct(char** argv) {
          << "    -F, --msa-format       format of the MSA file (options: fasta, maf, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
-         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 1000)" << endl
+         << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 32)" << endl
          << "                           nodes greater than this threshold will be divided" << endl
          << "                           Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
          << "    -p, --progress         show progress" << endl;
@@ -62,7 +62,7 @@ int main_construct(int argc, char** argv) {
     string region;
     bool region_is_chrom = false;
     string msa_filename;
-    int max_node_size = 1000;
+    int max_node_size = 32;
     bool keep_paths = true;
     string msa_format = "fasta";
     bool show_progress = false;
@@ -209,8 +209,19 @@ int main_construct(int argc, char** argv) {
         // Actually use the Constructor.
         // TODO: If we aren't always going to use the Constructor, refactor the subcommand to not always create and configure it.
 
+        // Make an emitter that serializes the actual Graph objects, with buffering.
+        // But just serialize one graph at a time in each group.
+        stream::ProtobufEmitter<Graph> emitter(cout, 1);
+
         // We need a callback to handle pieces of graph as they are produced.
         auto callback = [&](Graph& big_chunk) {
+            // Sort the nodes by ID so that the serialized chunks come out in sorted order
+            // TODO: We still interleave chunks from different threads working on different contigs
+            std::sort(big_chunk.mutable_node()->begin(), big_chunk.mutable_node()->end(), [](const Node& a, const Node& b) -> bool {
+                // Return true if a comes before b
+                return a.id() < b.id();
+            });
+        
             // Wrap the chunk in a vg object that can properly divide it into
             // reasonably sized serialized chunks.
             VG* g = new VG(big_chunk, false, true);
@@ -218,8 +229,9 @@ int main_construct(int argc, char** argv) {
             // Check our work. Never output an invalid graph.
             // But allow for edges where one node isn't there, because we need those to connect segments.
             assert(g->is_valid(true, false, true, true));
-#pragma omp critical (cout)
-            g->serialize_to_ostream_as_part(cout);
+            // One thread at a time can write to the emitter and the output stream
+#pragma omp critical (emitter)
+            g->serialize_to_emitter(emitter);
         };
         
         // Copy shared parameters into the constructor
@@ -329,9 +341,8 @@ int main_construct(int argc, char** argv) {
         constructor.construct_graph(fasta_pointers, vcf_pointers,
                                     ins_pointers, callback);
                                     
-        // Now all the graph chunks are written out.
-        // Add an EOF marker
-        stream::finish(cout);
+        // The output will be flushed when the ProtobufEmitter we use in the callback goes away.
+        // Don't add an extra EOF marker or anything.
         
         // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
         // this would free all the memory used by protobuf:

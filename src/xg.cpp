@@ -1575,7 +1575,7 @@ Graph XG::graph_context_g(const pos_t& g_pos, int64_t length) const {
     set<pos_t> seen;
     set<pos_t> nexts;
     nexts.insert(g_pos);
-    int64_t distance = -offset(g_pos); // don't count what we won't traverse
+    int64_t distance = -offset(g_pos); // don't count what we won't traverse, so back out the part of the node not relative-forward
     while (!nexts.empty()) {
         set<pos_t> todo;
         int nextd = 0;
@@ -3574,7 +3574,7 @@ pair<bool, bool> XG::validate_strand_consistency(int64_t id1, size_t offset1, bo
 }
 
 void XG::for_path_range(const string& name, int64_t start, int64_t stop,
-                        function<void(int64_t)> lambda, bool is_rev) const {
+                        function<void(int64_t, bool)> lambda, bool is_rev) const {
 
     // what is the node at the start, and at the end
     auto& path = *paths[path_rank(name)-1];
@@ -3591,9 +3591,7 @@ void XG::for_path_range(const string& name, int64_t start, int64_t stop,
 
     // Grab the IDs visited in order along the path
     for (size_t i = pr1; i <= pr2; ++i) {
-        // For all the visits along this section of path, grab the node being visited and all its edges.
-        int64_t id = path.node(i);
-        lambda(id);
+        lambda(path.node(i), path.is_reverse(i));
     }
 }
 
@@ -3602,7 +3600,7 @@ void XG::get_path_range(const string& name, int64_t start, int64_t stop, Graph& 
     set<int64_t> nodes;
     set<pair<side_t, side_t> > edges;
 
-    for_path_range(name, start, stop, [&](int64_t id) {
+    for_path_range(name, start, stop, [&](int64_t id, bool) {
             nodes.insert(id);
             for (auto& e : edges_from(id)) {
                 // For each edge where this is a from node, turn it into a pair of side_ts, each of which holds an id and an is_end flag.
@@ -3688,7 +3686,7 @@ map<string, vector<size_t> > XG::position_in_paths(int64_t id, bool is_rev, size
         auto& pos_in_path = positions[path_name(prank)];
         for (auto i : node_ranks_in_path(id, prank)) {
             size_t pos = offset + (is_rev ?
-                                   path_length(prank) - path.positions[i] - node_length(id)
+                                   path_length(prank) - path.positions[i] - node_length(id) // Account for the reverse-strand offset
                                    : path.positions[i]);
             pos_in_path.push_back(pos);
         }
@@ -3705,7 +3703,15 @@ map<string, vector<pair<size_t, bool> > > XG::offsets_in_paths(pos_t pos) const 
         for (auto i : node_ranks_in_path(node_id, prank)) {
             // relative direction to this traversal
             bool dir = path.directions[i] != is_rev(pos);
-            size_t off = path.positions[i] + offset(pos);
+            // Make sure to interpret the pos_t offset on the correct strand.
+            // Normalize to a forward strand offset.
+            size_t node_forward_strand_offset = is_rev(pos) ? (node_length(node_id) - offset(pos) - 1) : offset(pos);
+            // Then go forward or backward along the path as appropriate. If
+            // the node is on the path in reverse we have where its end landed
+            // and have to flip the forward strand offset around again.
+            size_t off = path.positions[i] + (path.directions[i] ?
+                (node_length(node_id) - node_forward_strand_offset - 1) :
+                node_forward_strand_offset);
             
             pos_in_path.push_back(make_pair(off, dir));
         }
@@ -3792,6 +3798,9 @@ pos_t XG::graph_pos_at_path_position(const string& name, size_t path_pos) const 
     auto& path = get_path(name);
     path_pos = min((size_t)path.offsets.size()-1, path_pos);
     size_t trav_idx = path.offsets_rank(path_pos+1)-1;
+    // Get the offset along the node in its path direction.
+    // If the node is forward along the path, we get the forward strand offset on the node, and return a forward pos_t.
+    // If the node is backward along the path, we get the reverse strand offset automatically, and return a reverse pos_t.
     int64_t offset = path_pos - path.positions[trav_idx];
     id_t node_id = path.node(trav_idx);
     bool is_rev = path.directions[trav_idx];

@@ -846,7 +846,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
             is_indel_ma_3 &&
             max_indel_ma_bias * bias_multiple * support_val(third_best_support) >= support_val(best_support) &&
             total(second_best_support) >= max((size_t)min_total_support_for_call, 1UL) &&
-            total(third_best_support) >= min_total_support_for_call) {
+            total(third_best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
             // There's a second best allele and third best allele, and it's not too biased to call,
             // and both alleles exceed the minimum to call them present, and the
             // second-best and third-best alleles have enough support that it won't torpedo the
@@ -869,7 +869,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
             second_best_allele != -1 &&
             bias_limit * bias_multiple * support_val(second_best_support) >= support_val(best_support) &&
             total(best_support) >= max((size_t)min_total_support_for_call, 1UL) &&
-            total(second_best_support) >= min_total_support_for_call) {
+            total(second_best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
             // There's a second best allele, and it's not too biased to call,
             // and both alleles exceed the minimum to call them present, and the
             // second-best allele has enough support that it won't torpedo the
@@ -1554,19 +1554,23 @@ void SupportCaller::call(
                 // Return the shortest universally shared prefix
                 return shortest_prefix;
             };
-            // Trim off the shared prefix
-            size_t shared_prefix = shared_prefix_length(false);
-            for (auto allele : used_alleles) {
-                sequences[allele] = sequences[allele].substr(shared_prefix);
+            if (!leave_shared_ends) {
+                // Find and trim off the shared suffix
+                size_t shared_suffix = shared_prefix_length(true);
+                for (auto allele : used_alleles) {
+                    sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
+                }
+
+                // Then trim off the shared prefix
+                size_t shared_prefix = shared_prefix_length(false);
+                for (auto allele : used_alleles) {
+                    sequences[allele] = sequences[allele].substr(shared_prefix);
+                }
+                // Add it onto the start coordinate
+                // Todo: are we absolutely sure that we're advancing along the reference in both paths?
+                variation_start += shared_prefix;
             }
-            // Add it onto the start coordinate
-            variation_start += shared_prefix;
             
-            // Then find and trim off the shared suffix
-            size_t shared_suffix = shared_prefix_length(true);
-            for (auto allele : used_alleles) {
-                sequences[allele] = sequences[allele].substr(0, sequences[allele].size() - shared_suffix);
-            }
             
             // Make a Variant
             vcflib::Variant variant;

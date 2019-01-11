@@ -22,29 +22,29 @@ bool is_empty(const pos_t& pos);
 id_t id(const pos_t& pos);
 /// Return true if a pos_t is on the reverse strand of its node.
 bool is_rev(const pos_t& pos);
-/// Get the offset from a pos_t.
+/// Get the offset along the selected strand of the node from a pos_t.
 off_t offset(const pos_t& pos);
 /// Get a reference to the Node ID of a pos_t.
 id_t& get_id(pos_t& pos);
 /// Get a reference to the reverse flag of a pos_t.
 bool& get_is_rev(pos_t& pos);
-/// Get a reference to the offset field of a pos_t.
+/// Get a reference to the offset field of a pos_t, which counts along the selected strand of the node.
 off_t& get_offset(pos_t& pos);
 /// Reverse a pos_t and get a pos_t at the same base, going the other direction.
 pos_t reverse(const pos_t& pos, size_t node_length);
-/// Reverse a Position and get a Position at the same base, going the orther direction.
+/// Reverse a Position and get a Position at the same base, going the other direction.
 Position reverse(const Position& pos, size_t node_length);
 /// Print a pos_t to a stream.
 ostream& operator<<(ostream& out, const pos_t& pos);
 /// Convert a Position to a (much smaller) pos_t.
 pos_t make_pos_t(const Position& pos);
-/// Create a pos_t from a Node ID, an orientation flag, and an offset.
+/// Create a pos_t from a Node ID, an orientation flag, and an offset along that strand of the node.
 pos_t make_pos_t(id_t id, bool is_rev, off_t off);
 /// Create a pos_t from a gcsa node
 pos_t make_pos_t(gcsa::node_type node);
 /// Convert a pos_t to a Position.
 Position make_position(const pos_t& pos);
-/// Create a Position from a Node ID, an orientation flag, and an offset.
+/// Create a Position from a Node ID, an orientation flag, and an offset along that strand of the node.
 Position make_position(id_t id, bool is_rev, off_t off);
 /// Make a Position from a gcsa node
 Position make_position(gcsa::node_type node);

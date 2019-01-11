@@ -65,7 +65,7 @@ TEST_CASE( "Sampler can sample from a 1-node graph", "[sampler]" ) {
     SECTION( "Can sample all bases in both directions from a path" ) {
         
         // Same as above except we do this
-        sampler.set_source_paths({"ref"});
+        sampler.set_source_paths({"ref"}, {});
         
         unordered_set<pair<size_t, bool>> seen;
         
@@ -207,7 +207,7 @@ TEST_CASE( "Sampler can sample from a loop-containing path", "[sampler]" ) {
     SECTION( "Can sample entire path" ) {
         
         // Same as above except we do this
-        sampler.set_source_paths({"ref"});
+        sampler.set_source_paths({"ref"}, {});
         
         unordered_set<string> found;
         
@@ -270,7 +270,7 @@ TEST_CASE( "Sampler can across reversing edges", "[sampler]" ) {
     SECTION( "Can sample entire path" ) {
         
         // Same as above except we do this
-        sampler.set_source_paths({"ref"});
+        sampler.set_source_paths({"ref"}, {});
         
         unordered_set<string> found;
         

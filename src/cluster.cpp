@@ -3261,7 +3261,7 @@ Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector
                expansion * ((int)(mems[i+1].begin - mem.end) + mem_remainder));
         if (get_after > 0) graph.MergeFrom(xg.graph_context_id(make_pos_t(pos), get_after));
     }
-    xg.expand_context(graph, 1, false);
+    xg.expand_context(graph, 0, false); // get connected edges
     sort_by_id_dedup_and_clean(graph);
     return graph;
 }

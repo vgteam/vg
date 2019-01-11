@@ -24,6 +24,8 @@
 #include "algorithms/count_walks.hpp"
 #include "algorithms/strongly_connected_components.hpp"
 #include "algorithms/a_star.hpp"
+#include "algorithms/eades_algorithm.hpp"
+#include "algorithms/shortest_cycle.hpp"
 #include "unittest/random_graph.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
@@ -4108,7 +4110,7 @@ namespace vg {
             }
         }
 
-        TEST_CASE("lazy_sort() and lazier_sort() should put a DAG in topological order", "[algorithms][sort]") {
+        TEST_CASE("lazy_topological_sort() and lazier_topological_sort() should put a DAG in topological order", "[algorithms][sort]") {
             
             auto is_in_topological_order = [](const Graph& graph) {
                 
@@ -4167,7 +4169,7 @@ namespace vg {
                 return return_val;
             };
             
-            SECTION("laz[y/ier]_sort() works on a simple graph that's already in topological order") {
+            SECTION("laz[y/ier]_topological_sort() works on a simple graph that's already in topological order") {
                 
                 VG vg1;
                 
@@ -4180,14 +4182,14 @@ namespace vg {
                 // make the second graph have some locally stored nodes in the reverse orientation
                 vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-                algorithms::lazier_sort(&vg1);
-                algorithms::lazy_sort(&vg2);
+                algorithms::lazier_topological_sort(&vg1);
+                algorithms::lazy_topological_sort(&vg2);
                 
                 REQUIRE(is_in_topological_order(vg1.graph));
                 REQUIRE(is_in_topological_order(vg2.graph));
             }
             
-            SECTION("laz[y/ier]_sort() works on a simple graph that's not already in topological order") {
+            SECTION("laz[y/ier]_topological_sort() works on a simple graph that's not already in topological order") {
                 
                 VG vg1;
                 
@@ -4200,15 +4202,15 @@ namespace vg {
                 // make the second graph have some locally stored nodes in the reverse orientation
                 vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-                algorithms::lazier_sort(&vg1);
-                algorithms::lazy_sort(&vg2);
+                algorithms::lazier_topological_sort(&vg1);
+                algorithms::lazy_topological_sort(&vg2);
                 
                 REQUIRE(is_in_topological_order(vg1.graph));
                 REQUIRE(is_in_topological_order(vg2.graph));
 
             }
             
-            SECTION("laz[y/ier]_sort() works on a more complex graph that's not already in topological order") {
+            SECTION("laz[y/ier]_topological_sort() works on a more complex graph that's not already in topological order") {
                 
                 VG vg1;
                 
@@ -4243,8 +4245,8 @@ namespace vg {
                 vg2.apply_orientation(vg2.get_handle(n8->id(), true));
                 vg2.apply_orientation(vg2.get_handle(n6->id(), true));
                 
-                algorithms::lazier_sort(&vg1);
-                algorithms::lazy_sort(&vg2);
+                algorithms::lazier_topological_sort(&vg1);
+                algorithms::lazy_topological_sort(&vg2);
                 
                 REQUIRE(is_in_topological_order(vg1.graph));
                 REQUIRE(is_in_topological_order(vg2.graph));
@@ -5220,6 +5222,215 @@ namespace vg {
                         }
                     }
                 }
+            }
+        }
+        
+        TEST_CASE("Eades algorithm finds layouts with small feedback arc sets","[eades][algorithms]") {
+            
+            auto count_feedback_arcs = [](const HandleGraph* graph, const vector<handle_t>& layout) {
+                
+                unordered_map<handle_t, int64_t> idx_of;
+                for (int64_t i = 0; i < layout.size(); i++) {
+                    idx_of[layout[i]] = i;
+                }
+                
+                unordered_set<edge_t> seen;
+                
+                int64_t num_feedback_arcs = 0;
+                for (const handle_t& handle : layout) {
+                    graph->follow_edges(handle, true, [&](const handle_t& prev) {
+                        auto edge = graph->edge_handle(prev, handle);
+                        if (!seen.count(edge)) {
+                            seen.insert(edge);
+                            if (idx_of[prev] >= idx_of[handle]) {
+                                num_feedback_arcs++;
+                            }
+                        }
+                    });
+                    graph->follow_edges(handle, false, [&](const handle_t& next) {
+                        auto edge = graph->edge_handle(handle, next);
+                        if (!seen.count(edge)) {
+                            seen.insert(edge);
+                            if (idx_of[handle] >= idx_of[next]) {
+                                num_feedback_arcs++;
+                            }
+                        }
+                    });
+                }
+                return num_feedback_arcs;
+            };
+            
+            SECTION("Eades algorithm finds a topological ordering on a DAG") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                
+                vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+                
+                REQUIRE(count_feedback_arcs(&graph, layout) == 0);
+            }
+            
+            SECTION("Eades algorithm finds a feedback arc set with only one feedback arc") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                graph.create_edge(n7, n3);
+                
+                vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+                
+                REQUIRE(count_feedback_arcs(&graph, layout) == 1);
+            }
+        }
+        
+        TEST_CASE("Shortest cycle algorithm correctly identifies shortest cycle","[shortest-cycle][cycles][algorithms]") {
+            
+            SECTION("shortest_cycle correctly identifies graph with no cycles") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                
+                REQUIRE(algorithms::shortest_cycle_length(&graph) == numeric_limits<size_t>::max());
+            }
+            
+            SECTION("shortest_cycle correctly identifies self-loop in graph with small FAS") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n3, n3);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n6);
+                
+                REQUIRE(algorithms::shortest_cycle_length(&graph) == 1);
+            }
+            
+            SECTION("shortest_cycle correctly identifies a short cycle in graph with moderate FAS") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                handle_t n8 = graph.create_handle("TGA");
+                handle_t n9 = graph.create_handle("TTTC");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n4, n6);
+                graph.create_edge(n4, n1); // feedback
+                graph.create_edge(n7, n8);
+                graph.create_edge(n7, n3); // feedback
+                graph.create_edge(n8, n9);
+                graph.create_edge(n9, n1); // feedback
+                
+                REQUIRE(algorithms::shortest_cycle_length(&graph) == 2);
+            }
+            
+            SECTION("shortest_cycle correctly identifies a short cycle in graph with large FAS") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                handle_t n2 = graph.create_handle("TACC");
+                handle_t n3 = graph.create_handle("A");
+                handle_t n4 = graph.create_handle("ATG");
+                handle_t n5 = graph.create_handle("TG");
+                handle_t n6 = graph.create_handle("CCG");
+                handle_t n7 = graph.create_handle("C");
+                handle_t n8 = graph.create_handle("TGA");
+                handle_t n9 = graph.create_handle("TTTC");
+                
+                graph.create_edge(n1, n2);
+                graph.create_edge(n1, n7);
+                graph.create_edge(n2, n1); // feedback
+                graph.create_edge(n2, n3);
+                graph.create_edge(n3, n1); // feedback
+                graph.create_edge(n3, n2); // feedback
+                graph.create_edge(n3, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n3, n7);
+                graph.create_edge(n4, n1); // feedback
+                graph.create_edge(n4, n3); // feedback
+                graph.create_edge(n4, n6);
+                graph.create_edge(n5, n2); // feedback
+                graph.create_edge(n5, n3); // feedback
+                graph.create_edge(n7, n3); // feedback
+                graph.create_edge(n7, n4); // feedback
+                graph.create_edge(n7, n6); // feedback
+                graph.create_edge(n7, n8);
+                graph.create_edge(n8, n9);
+                graph.create_edge(n9, n1); // feedback
+                
+                REQUIRE(algorithms::shortest_cycle_length(&graph) == 2);
             }
         }
     }

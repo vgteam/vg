@@ -208,7 +208,7 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
+    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     // Copy over the visit version which would otherwise be shadowed.
     using HandleGraph::get_handle;
     /// Get the ID from a handle
@@ -286,7 +286,7 @@ public:
     
     // use_steps flag toggles whether dist refers to steps or length in base pairs
     void neighborhood(int64_t id, size_t dist, Graph& g, bool use_steps = true) const;
-    void for_path_range(const string& name, int64_t start, int64_t stop, function<void(int64_t node_id)> lambda, bool is_rev = false) const;
+    void for_path_range(const string& name, int64_t start, int64_t stop, function<void(int64_t node_id, bool rev)> lambda, bool is_rev = false) const;
     void get_path_range(const string& name, int64_t start, int64_t stop, Graph& g, bool is_rev = false) const;
     // basic method to query regions of the graph
     // add_paths flag allows turning off the (potentially costly, and thread-locking) addition of paths
@@ -352,8 +352,16 @@ public:
     vector<size_t> position_in_path(int64_t id, const string& name) const;
     vector<size_t> position_in_path(int64_t id, size_t rank) const;
     map<string, vector<size_t> > position_in_paths(int64_t id, bool is_rev = false, size_t offset = 0) const;
+    
+    /// Return a mapping from path name to all positions along each path at
+    /// which the given pos_t occurs.
     map<string, vector<pair<size_t, bool> > > offsets_in_paths(pos_t pos) const;
+    
+    /// Return, for the nearest position in a path to the given position,
+    /// subject to the given max search distance, a mapping from path name to
+    /// all positions on each path where that pos_t occurs.
     map<string, vector<pair<size_t, bool> > > nearest_offsets_in_paths(pos_t pos, int64_t max_search) const;
+    
     map<string, vector<size_t> > distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,
                                                    int64_t id2, bool is_rev2, size_t offset2) const;
     int64_t min_distance_in_paths(int64_t id1, bool is_rev1, size_t offset1,

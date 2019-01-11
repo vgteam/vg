@@ -45,6 +45,11 @@ using namespace std;
         // same component.
         vector<unordered_set<id_t>> components;
         
+        // A single node ID from each component we've already added, which we use
+        // to deduplicate the results
+        // TODO: why do we produce duplicate components in the first place?
+        unordered_set<id_t> already_used;
+        
         dfs(*handle_graph,
         [&](const handle_t& trav) {
             // When a NodeTraversal is first visited
@@ -101,8 +106,8 @@ using namespace std;
                 cerr << "\tWe are our own best root, so glom up everything under us" << endl;
 #endif
                 handle_t other;
-                components.emplace_back();
-                auto& component = components.back();
+                bool is_duplicate = false;
+                unordered_set<id_t> component;
                 do
                 {
                     // Grab everything that was put on the DFS stack below us
@@ -110,12 +115,27 @@ using namespace std;
                     other = stack.back();
                     stack.pop_back();
                     on_stack.erase(other);
-                    component.insert(handle_graph->get_id(other));
+                    
+                    id_t node_id = handle_graph->get_id(other);
+                    
+                    if (already_used.count(node_id)) {
+                        is_duplicate = true;
+                        break;
+                    }
+                    
+                    component.insert(node_id);
 #ifdef debug
                     cerr << "\t\tSnarf up node " << handle_graph->get_id(other) << " from handle in orientation "
                         << handle_graph->get_is_reverse(other) << endl;
 #endif
                 } while (other != trav);
+                
+                if (!is_duplicate) {
+                    // use one node ID to mark this component as finished
+                    already_used.insert(*component.begin());
+                    // add it to the return valuse
+                    components.emplace_back(move(component));
+                }
             }
         },
         vector<handle_t>(), unordered_set<handle_t>());

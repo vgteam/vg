@@ -15,7 +15,7 @@ namespace vg {
 CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
     graph(graph) {
     // Make sure the graph is sorted.
-    algorithms::sort(&graph);
+    algorithms::topological_sort(&graph);
 }
 
 CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
@@ -1709,6 +1709,10 @@ void NetGraph::add_chain_child(const Chain& chain) {
         // Act like a normal connected-through node.
         connectivity[graph->get_id(chain_start_handle)] = make_tuple(false, false, true);
     }
+}
+
+bool NetGraph::has_node(id_t node_id) const {
+    return graph->has_node(node_id);
 }
     
 handle_t NetGraph::get_handle(const id_t& node_id, bool is_reverse) const {

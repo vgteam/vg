@@ -93,7 +93,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     SECTION("Extract whole graph as chunk") {
 
         // Note: regions are 0-based inclusive
-        Region region = {"x", 1, 32};
+        Region region = {"x", 0, 31};
         VG subgraph;
         Region out_region;
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -105,7 +105,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph as chunk") {
         
-        Region region = {"x", 9, 16};
+        Region region = {"x", 8, 15};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -117,7 +117,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph as chunk via id range") {
         
-        Region region = {"x", 3, 6};
+        Region region = {"x", 2, 5};
         VG subgraph;
         Region out_region;        
         chunker.extract_id_range(region.start, region.end, 1, 0, false, subgraph, out_region);
@@ -129,7 +129,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph as chunk with exact node boundary") {
 
-        Region region = {"x", 8, 16};
+        Region region = {"x", 7, 15};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -141,7 +141,7 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract whole graph via harder path") {
 
-        Region region = {"y", 1, 37};
+        Region region = {"y", 0, 36};
         VG subgraph;
         Region out_region;
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -154,19 +154,19 @@ TEST_CASE("basic graph chunking", "[chunk]") {
 
     SECTION("Extract partial graph via harder path") {
 
-        Region region = {"y", 15, 35};
+        Region region = {"y", 10, 30};
         VG subgraph;
         Region out_region;
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
 
-        REQUIRE(subgraph.node_count() == 7);
-        REQUIRE(subgraph.edge_count() == 9);
-        REQUIRE(out_region.start == 6);
+        REQUIRE(subgraph.node_count() == 9);
+        REQUIRE(subgraph.edge_count() == 12);
+        REQUIRE(out_region.start == 0);
     }
     
     SECTION("Extract whole graph via cyclic path") {
         
-        Region region = {"z", 1, 60};
+        Region region = {"z", 0, 59};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
@@ -179,14 +179,14 @@ TEST_CASE("basic graph chunking", "[chunk]") {
     
     SECTION("Partial graph via cyclic path") {
         
-        Region region = {"z", 36, 59};
+        Region region = {"z", 35, 58};
         VG subgraph;
         Region out_region;        
         chunker.extract_subgraph(region, 1, 0, false, subgraph, out_region);
         
         REQUIRE(subgraph.node_count() == 7);
         REQUIRE(subgraph.edge_count() == 9);
-        REQUIRE(out_region.start == 6);
+        REQUIRE(out_region.start == 31);
         
     }
 

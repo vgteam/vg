@@ -1608,4 +1608,23 @@ void alignment_set_distance_to_correct(Alignment& aln, const map<string ,vector<
     }
 }
 
+bool alignment_is_valid(Alignment& aln, const HandleGraph* hgraph) {
+    for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+        const Mapping& mapping = aln.path().mapping(i);
+        if (!hgraph->has_node(mapping.position().node_id())) {
+            cerr << "Invalid Alignment:\n" << pb2json(aln) <<"\nNode " << mapping.position().node_id()
+                 << " not found in graph" << endl;
+            return false;
+        }
+        size_t node_len = hgraph->get_length(hgraph->get_handle(mapping.position().node_id()));
+        if (mapping_from_length(mapping) + mapping.position().offset() > node_len) {
+            cerr << "Invalid Alignment:\n" << pb2json(aln) << "\nLength of node "
+                 << mapping.position().node_id() << " (" << node_len << ") exceeded by Mapping with offset "
+                 << mapping.position().offset() << " and from-length " << mapping_from_length(mapping) << ":\n"
+                 << pb2json(mapping) << endl;
+            return false;
+        }
+    }
+    return true;
+}
 }
