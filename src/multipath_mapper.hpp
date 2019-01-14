@@ -122,6 +122,7 @@ namespace vg {
         // disambiguate. This lets us get an accurate count of scorable reads.
         bool always_check_population = false;
         size_t population_max_paths = 10;
+        size_t population_hard_cap = 100;
         bool top_tracebacks = false;
         // Note that, like the haplotype scoring code, we work with recombiantion penalties in exponent form.
         double recombination_penalty = 20.7; // 20.7 = 9 * 2.3
