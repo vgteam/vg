@@ -18,4 +18,5 @@ vgci:
     - pwd
     - ls
     - ls vgci
-    - ./vgci/vgci.sh
+    - ls vgci/vgci.sh
+    - bash vgci/vgci.sh
