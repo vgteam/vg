@@ -20,7 +20,7 @@
 namespace vg {
 namespace algorithms {
     
-    /// Fills a MutableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes that
+    /// Fills a DeletableHandleGraph with the subgraph of a HandleGraph that connects two positions. The nodes that
     /// contain the two positions will be 'cut' at the position and will be tips in the returned graph. By default,
     /// the algorithm provides only one guarantee:
     ///   - 'into' contains all walks between pos_1 and pos_2 under the maximum length except walks that include
@@ -43,7 +43,7 @@ namespace algorithms {
     ///  strict_max_len             only extract nodes and edges if they fall on some walk between pos_1 and pos_2
     ///                             that is under the maximum length (implies only_walks = true)
     unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
-                                                       MutableHandleGraph* into,
+                                                       DeletableHandleGraph* into,
                                                        int64_t max_len,
                                                        pos_t pos_1, pos_t pos_2,
                                                        bool detect_terminal_cycles = false,

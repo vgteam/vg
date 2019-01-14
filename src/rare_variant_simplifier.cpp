@@ -4,7 +4,7 @@ namespace vg {
 
 using namespace std;
 
-RareVariantSimplifier::RareVariantSimplifier(MutablePathMutableHandleGraph& graph, VcfBuffer& variant_source) : Progressive(), graph(graph), variant_source(variant_source) {
+RareVariantSimplifier::RareVariantSimplifier(MutablePathDeletableHandleGraph& graph, VcfBuffer& variant_source) : Progressive(), graph(graph), variant_source(variant_source) {
     // Nothing to do!
 }
 
