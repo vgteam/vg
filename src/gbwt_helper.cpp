@@ -13,19 +13,20 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
         std::stack<GBWTTraversal> kmers;
         for (bool is_reverse : { false, true }) {
             handle_t handle = (is_reverse ? graph.flip(h) : h);
+            gbwt::SearchState state = haplotypes.find(handle_to_gbwt(graph, handle));
+            if (state.empty()) {
+                continue;
+            }
             id_t id = graph.get_id(handle);
             std::string seq = graph.get_sequence(handle);
             for (size_t i = 0; i < seq.length(); i++) {
                 pos_t begin = make_pos_t(id, is_reverse, i);
                 pos_t end = make_pos_t(id, is_reverse, std::min(seq.length(), i + k));
-                gbwt::SearchState state = haplotypes.find(pos_to_gbwt(begin));
-                if (!state.empty()) {
-                    GBWTTraversal kmer;
-                    kmer.traversal.emplace_back(std::make_pair(begin, end));
-                    kmer.seq = seq.substr(offset(begin), offset(end) - offset(begin));
-                    kmer.state = state;
-                    kmers.push(kmer);
-                }
+                GBWTTraversal kmer;
+                kmer.traversal.emplace_back(std::make_pair(begin, end));
+                kmer.seq = seq.substr(offset(begin), offset(end) - offset(begin));
+                kmer.state = state;
+                kmers.push(kmer);
             }
         }
 
@@ -42,20 +43,24 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
             gbwt::CompressedRecord record = haplotypes.record(curr.state.node);
             for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
                 gbwt::node_type next_node = record.successor(outrank);
-                gbwt::range_type range = record.LF(curr.state.range, next_node);
-                if (!gbwt::Range::empty(range)) {
-                    id_t id = gbwt::Node::id(next_node);
-                    bool is_reverse = gbwt::Node::is_reverse(next_node);
-                    std::string seq = graph.get_sequence(gbwt_to_handle(graph, next_node));
-                    pos_t begin = make_pos_t(id, is_reverse, 0);
-                    pos_t end = make_pos_t(id, is_reverse, std::min(seq.length(), k - curr.seq.length()));
-                    GBWTTraversal next = curr;
-                    next.traversal.emplace_back(std::make_pair(begin, end));
-                    next.seq.append(seq, offset(begin), offset(end) - offset(begin));
-                    next.state.node = next_node;
-                    next.state.range = range;
-                    kmers.push(next);
+                if (next_node == gbwt::ENDMARKER) {
+                    continue;
                 }
+                gbwt::range_type range = record.LF(curr.state.range, next_node);
+                if (gbwt::Range::empty(range)) {
+                    continue;
+                }
+                id_t id = gbwt::Node::id(next_node);
+                bool is_reverse = gbwt::Node::is_reverse(next_node);
+                std::string seq = graph.get_sequence(gbwt_to_handle(graph, next_node));
+                pos_t begin = make_pos_t(id, is_reverse, 0);
+                pos_t end = make_pos_t(id, is_reverse, std::min(seq.length(), k - curr.seq.length()));
+                GBWTTraversal next = curr;
+                next.traversal.emplace_back(std::make_pair(begin, end));
+                next.seq.append(seq, offset(begin), offset(end) - offset(begin));
+                next.state.node = next_node;
+                next.state.range = range;
+                kmers.push(next);
             }
         }
     }, true);

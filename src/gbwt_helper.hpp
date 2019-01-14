@@ -35,7 +35,7 @@ inline gbwt::node_type handle_to_gbwt(const HandleGraph& graph, handle_t handle)
 
 /// Extract gbwt::node_type from pos_t.
 inline gbwt::node_type pos_to_gbwt(pos_t pos) {
-    return gbwt::Node::encode(std::get<0>(pos), std::get<1>(pos));
+    return gbwt::Node::encode(id(pos), is_rev(pos));
 }
 
 /// Convert Mapping to gbwt::node_type.

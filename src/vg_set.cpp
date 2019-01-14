@@ -173,12 +173,21 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
     });
 }
 
-void VGset::for_each_kmer_parallel(int kmer_size, const function<void(const kmer_t&)>& lambda) {
+void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda) {
     for_each([&lambda, kmer_size, this](VG* g) {
         g->show_progress = show_progress;
         g->preload_progress("processing kmers of " + g->name);
         //g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
         for_each_kmer(*g, kmer_size, lambda);
+    });
+}
+
+void VGset::for_each_kmer_parallel(const gbwt::GBWT& haplotypes, size_t kmer_size,
+                                   const function<void(const GBWTTraversal&)>& lambda) {
+    for_each([&lambda, &haplotypes, kmer_size, this](VG* g) {
+        g->show_progress = show_progress;
+        g->preload_progress("processing kmers of " + g->name);
+        for_each_kmer(*g, haplotypes, kmer_size, lambda);
     });
 }
 
