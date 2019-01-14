@@ -1,5 +1,5 @@
 # Steal the example Docker in docker code
-image: docker:latest
+image: ubuntu:latest
 
 # When using dind, it's wise to use the overlayfs driver for
 # improved performance.
@@ -10,6 +10,8 @@ services:
   - docker:dind
 
 before_script:
+  - sudo apt-get update
+  - sudo apt-get install docker.io
   - docker info
 
 # Define a vgci job that runs the tests in ./vgci/
