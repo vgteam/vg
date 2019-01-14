@@ -1,18 +1,10 @@
-# Steal the example Docker in docker code
-image: ubuntu:latest
-
-# When using dind, it's wise to use the overlayfs driver for
-# improved performance.
-variables:
-  DOCKER_DRIVER: overlay
-
-services:
-  - docker:dind
-  
-variables:
-  DOCKER_HOST: "tcp://docker:2375"
+# The VG tests are going to use toil-vg.
+# toil-vg needs to be able to mount paths it can see into Docker containers.
+# There's no good way to do that when running Docker containers as siblings of a container containing toil-vg.
+# So we either have to genuinely nest Docker inside another Docker, or we have to run the build on the real host.
 
 before_script:
+  - whoami
   - apt-get -q -y update
   - apt-get -q -y install docker.io
   - cat /etc/hosts
