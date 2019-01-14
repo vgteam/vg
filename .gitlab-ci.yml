@@ -5,16 +5,12 @@
 
 before_script:
   - whoami
-  - sudo apt-get -q -y update || apt-get -q -y update
-  - sudo apt-get -q -y install docker.io || apt-get -q -y install docker.io
+  - sudo apt-get -q -y update
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv
   - cat /etc/hosts
   - docker info
 
 # Define a vgci job that runs the tests in ./vgci/
 vgci:
   script:
-    - pwd
-    - ls
-    - ls vgci
-    - ls vgci/vgci.sh
     - bash vgci/vgci.sh
