@@ -13,6 +13,8 @@ before_script:
   - docker info
 
 # Define a vgci job that runs the tests in ./vgci/
-vcci:
+vgci:
   script:
+    - pwd
+    - ls
     - vgci/vgci.sh
