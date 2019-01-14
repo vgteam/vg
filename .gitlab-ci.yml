@@ -13,4 +13,5 @@ before_script:
 # Define a vgci job that runs the tests in ./vgci/
 vgci:
   script:
+    - ls
     - bash vgci/vgci.sh
