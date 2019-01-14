@@ -8,10 +8,15 @@ variables:
 
 services:
   - docker:dind
+  
+variables:
+  - DOCKER_HOST: "tcp://docker:2375"
 
 before_script:
   - apt-get -q -y update
   - apt-get -q -y install docker.io
+  - cat /etc/hosts
+  - nslookup docker
   - docker info
 
 # Define a vgci job that runs the tests in ./vgci/
