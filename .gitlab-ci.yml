@@ -5,8 +5,8 @@
 
 before_script:
   - whoami
-  - apt-get -q -y update
-  - apt-get -q -y install docker.io
+  - sudo apt-get -q -y update || apt-get -q -y update
+  - sudo apt-get -q -y install docker.io || apt-get -q -y install docker.io
   - cat /etc/hosts
   - docker info
 
