@@ -17,4 +17,5 @@ vgci:
   script:
     - pwd
     - ls
-    - vgci/vgci.sh
+    - ls vgci
+    - ./vgci/vgci.sh
