@@ -10,8 +10,8 @@ services:
   - docker:dind
 
 before_script:
-  - apt-get update
-  - apt-get install docker.io
+  - apt-get -q -y update
+  - apt-get -q -y install docker.io
   - docker info
 
 # Define a vgci job that runs the tests in ./vgci/
