@@ -6,7 +6,8 @@
 before_script:
   - whoami
   - sudo apt-get -q -y update
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv
+  # Make sure we have some curl stuff for pycurl which we need for some Python stuff
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev
   - cat /etc/hosts
   - docker info
 

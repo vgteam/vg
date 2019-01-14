@@ -13,10 +13,8 @@
 
 # Note: we assume we run this in vg/ ie inside the vg directory we want to test
 
-#!/bin/bash
-
-# Don't stop on errors, so we can post a report no matter what
-set +e
+# Fail on errors, so we get correct CI results based on status code
+set -e
 
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
