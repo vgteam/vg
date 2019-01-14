@@ -20,10 +20,10 @@
 #include "../snarls.hpp"
 #include "../distance.hpp"
 #include "../source_sink_overlay.hpp"
+#include "../gbwt_helper.hpp"
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
-#include <gbwt/dynamic_gbwt.h>
 #include <gbwt/variants.h>
 
 using namespace std;
@@ -86,17 +86,11 @@ void help_index(char** argv) {
          << "    -w  --max_dist N   cap beyond which the maximum distance is no longer accurate" << endl;
 }
 
-// Convert gbwt::node_type to ThreadMapping.
-xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
-    xg::XG::ThreadMapping thread_mapping = { (int64_t)(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
-    return thread_mapping;
-}
-
 // Convert Path to a GBWT path.
 gbwt::vector_type path_to_gbwt(const Path& path) {
     gbwt::vector_type result(path.mapping_size());
     for (size_t i = 0; i < result.size(); i++) {
-        result[i] = gbwt::Node::encode(path.mapping(i).position().node_id(), path.mapping(i).position().is_reverse());
+        result[i] = mapping_to_gbwt(path.mapping(i));
     }
     return result;
 }
@@ -640,7 +634,7 @@ int main_index(int argc, char** argv) {
                 }
                 gbwt::vector_type buffer(path.ids.size());
                 for (size_t i = 0; i < path.ids.size(); i++) {
-                    buffer[i] = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+                    buffer[i] = xg_path_to_gbwt(path, i);
                 }
                 store_thread(buffer, xg_index->path_name(path_rank));
             }
@@ -654,7 +648,7 @@ int main_index(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&](Alignment& aln) {
                 gbwt::vector_type buffer;
                 for (auto& m : aln.path().mapping()) {
-                    buffer.push_back(gbwt::Node::encode(m.position().node_id(), m.position().is_reverse()));
+                    buffer.push_back(mapping_to_gbwt(m));
                 }
                 store_thread(buffer, aln.name());
                 haplotype_count++;
@@ -724,7 +718,7 @@ int main_index(int argc, char** argv) {
 
                 // Add the reference to VariantPaths.
                 for (size_t i = 0; i < path.ids.size(); i++) {
-                    variants.appendToReference(gbwt::Node::encode(path.node(i), path.is_reverse(i)));
+                    variants.appendToReference(xg_path_to_gbwt(path, i));
                 }
                 variants.indexReference();
 

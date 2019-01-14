@@ -38,9 +38,9 @@ void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) const {
             continue;
         }
 
-        gbwt::node_type prev = gbwt::Node::encode(path.node(0), path.is_reverse(0));
+        gbwt::node_type prev = xg_path_to_gbwt(path, 0);
         for (size_t i = 1; i < path.ids.size(); i++) {
-            gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+            gbwt::node_type curr = xg_path_to_gbwt(path, i);
             Edge candidate = make_edge(prev, curr);
             if (!graph.has_edge(candidate)) {
                 graph.add_node(this->xg_index.node(candidate.from()));
@@ -263,9 +263,9 @@ std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress
         if (path.ids.size() == 0) {
             continue;
         }
-        gbwt::node_type prev = gbwt::Node::encode(path.node(0), path.is_reverse(0));
+        gbwt::node_type prev = xg_path_to_gbwt(path, 0);
         for (size_t i = 1; i < path.ids.size(); i++) {
-            gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+            gbwt::node_type curr = xg_path_to_gbwt(path, i);
             Edge candidate = make_edge(prev, curr);
             if (!graph.has_edge(candidate)) {
                 complement.add_node(this->xg_index.node(candidate.from()));
@@ -370,10 +370,10 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
         for (size_t occurrence : occurrences) {
             // Forward.
             {
-                gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), path.is_reverse(occurrence));
+                gbwt::node_type prev = xg_path_to_gbwt(path, occurrence);
                 path_type buffer(1, prev);
                 for (size_t i = occurrence + 1; i < path.ids.size(); i++) {
-                    gbwt::node_type curr = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+                    gbwt::node_type curr = xg_path_to_gbwt(path, i);
                     Edge candidate = make_edge(prev, curr);
                     if (!component.has_edge(candidate)) {
                         break;  // Found a maximal path.
@@ -391,10 +391,10 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
 
             // Backward.
             {
-                gbwt::node_type prev = gbwt::Node::encode(path.node(occurrence), !path.is_reverse(occurrence));
+                gbwt::node_type prev = gbwt::Node::reverse(xg_path_to_gbwt(path, occurrence));
                 path_type buffer(1, prev);
                 for (size_t i = occurrence; i > 0 ; i--) {
-                    gbwt::node_type curr = gbwt::Node::encode(path.node(i - 1), !path.is_reverse(i - 1));
+                    gbwt::node_type curr = gbwt::Node::reverse(xg_path_to_gbwt(path, i - 1));
                     Edge candidate = make_edge(prev, curr);
                     if (!component.has_edge(candidate)) {
                         break;  // Found a maximal path.

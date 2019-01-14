@@ -13,14 +13,13 @@
 #include "subcommand.hpp"
 
 #include "../xg.hpp"
+#include "../gbwt_helper.hpp"
 
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
 #include <unistd.h>
-
-#include <gbwt/dynamic_gbwt.h>
 
 
 void help_gbwt(char** argv) {
