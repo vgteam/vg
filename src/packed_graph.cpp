@@ -110,6 +110,15 @@ namespace vg {
         graph_iv.set(g_iv_right, edge_lists_iv.size() / EDGE_RECORD_SIZE);
     }
     
+    bool PackedGraph::has_node(id_t node_id) const {
+        if (node_id < min_id || node_id - min_id >= id_to_graph_iv.size()) {
+            return false;
+        }
+        else {
+            return id_to_graph_iv.get(node_id - min_id) != 0;
+        }
+    }
+    
     handle_t PackedGraph::get_handle(const id_t& node_id, bool is_reverse) const {
         return EasyHandlePacking::pack(node_id, is_reverse);
     }
