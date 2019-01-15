@@ -9,6 +9,8 @@
 
 # If any test fails, stop
 set +e
+# Report what we're up to
+set -x
 
 # Parse arguments
 TEST_LIST="${1}"
