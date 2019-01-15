@@ -5,7 +5,7 @@ namespace algorithms {
 
 using namespace std;
 
-void remove_high_degree_nodes(MutableHandleGraph& g, int max_degree) {
+void remove_high_degree_nodes(DeletableHandleGraph& g, int max_degree) {
     vector<handle_t> to_remove;
     g.for_each_handle([&](const handle_t& h) {
             int edge_count = 0;

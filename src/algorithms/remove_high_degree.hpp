@@ -16,7 +16,7 @@ namespace algorithms {
 
 using namespace std;
 
-void remove_high_degree_nodes(MutableHandleGraph& g, int max_degree);
+void remove_high_degree_nodes(DeletableHandleGraph& g, int max_degree);
 
 }
 }
