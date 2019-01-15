@@ -8,7 +8,7 @@ before_script:
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # We also need ruby for junit merging
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev ruby ruby-dev
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev ruby ruby-dev zlib1g-dev
   - sudo gem install junit_merge
   - cat /etc/hosts
   - docker info
