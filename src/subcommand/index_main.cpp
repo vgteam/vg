@@ -162,6 +162,8 @@ int main_index(int argc, char** argv) {
 
     // GBWT
     bool warn_on_missing_variants = true;
+    size_t found_missing_variants = 0; // Track the number of variants in the phasing VCF that aren't found in the graph
+    size_t max_missing_variant_warnings = 10; // Only report up to this many of them
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     bool parse_only = false;
     vector<string> gam_file_names;
@@ -668,6 +670,7 @@ int main_index(int argc, char** argv) {
 
         // Generate haplotypes
         if (index_haplotypes) {
+            size_t total_variants_processed = 0;
             vcflib::VariantCallFile variant_file;
             variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
             variant_file.open(vcf_name);
@@ -814,11 +817,18 @@ int main_index(int argc, char** argv) {
                         if (!found) {
                             // This variant from the VCF is just not in the graph
 
+                            found_missing_variants++;
+
                             if (warn_on_missing_variants) {
-                                // The user might not know it. Warn them in case they mixed up their VCFs.
-                                cerr << "warning: [vg index] Alt and ref paths for " << var_name
-                                     << " at " << var.sequenceName << ":" << var.position
-                                     << " missing/empty! Was the variant skipped during construction?" << endl;
+                                if (found_missing_variants <= max_missing_variant_warnings) {
+                                    // The user might not know it. Warn them in case they mixed up their VCFs.
+                                    cerr << "warning: [vg index] Alt and ref paths for " << var_name
+                                         << " at " << var.sequenceName << ":" << var.position
+                                         << " missing/empty! Was the variant skipped during construction?" << endl;
+                                    if (found_missing_variants == max_missing_variant_warnings) {
+                                        cerr << "warning: [vg index] Suppressing further missing variant warnings" << endl;
+                                    }
+                                }
                             }
 
                             // Skip this variant and move on to the next as if it never appeared.
@@ -905,9 +915,18 @@ int main_index(int argc, char** argv) {
                         }
                     }
                 } // End of haplotype generation for the current contig.
+            
+                // Record the number of variants we saw on this contig
+                total_variants_processed += variants_processed;
+            
             } // End of contigs.
+            
+            if (warn_on_missing_variants && found_missing_variants > 0) {
+                cerr << "warning: [vg index] Found " << found_missing_variants << "/" << total_variants_processed
+                    << " variants in phasing VCF but not in graph! Do your graph and VCF match?" << endl;
+            }
         } // End of haplotypes.
-
+        
         // Store the thread database. Write it to disk if a filename is given,
         // or store it in the XG index if building gPBWT or if the XG index
         // will be written to disk.
