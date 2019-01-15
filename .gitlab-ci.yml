@@ -24,7 +24,9 @@ stages:
 # We define one job to do the build
 build-job:
   stage: build
-  script: "bash vgci/vgci.sh -t None -d vgci-docker-vg-local.tar.gz -H"
+  script: 
+    - bash vgci/vgci.sh -t None -d vgci-docker-vg-local.tar.gz -H
+    - ls -lah vgci-docker-vg-local.tar.gz
   artifacts:
     paths:
       - vgci-docker-vg-local.tar.gz
