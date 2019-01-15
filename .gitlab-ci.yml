@@ -10,9 +10,44 @@ before_script:
   - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev
   - cat /etc/hosts
   - docker info
+  
+# We have two pipeline stages: build to make a Docker, and test to run tests.
+# TODO: make test stage parallel
+stages:
+  - build
+  - test
+  - report
+  
 
-# Define a vgci job that runs the tests in ./vgci/
-vgci:
-  script:
-    - ls
-    - bash vgci/vgci.sh
+# We define one job to do the build
+build-job:
+  stage: build
+  script: "bash vgci/vgci.sh -t None -d vgci-docker-vg-local.tar.gz"
+  artifacts:
+    paths:
+      - vgci-docker-vg-local.tar.gz
+    expire_in: 1 week
+    
+# We define a second follow-on phase to run the tests
+# This could be multiple jobs but for now it is just one
+test-job:
+  stage: test
+  # Pass artifacts from build (same as default)
+  dependencies: 
+    - build-job
+  script: "bash vgci/vgci.sh -D vgci-docker-vg-local.tar.gz -j junit.xml -H"
+  artifacts:
+    # Let Gitlab see the junit report
+    reports:
+      junit: junit.xml
+    expire_in: 3 months
+
+# We have a final job in the last stage to compose an HTML report
+report-job:
+  stage: report
+  # Only pass artifacts from test and not build
+  dependencies: 
+    - test-job
+  script: "bash vgci/vgci.sh -J junit.xml"
+   
+  
