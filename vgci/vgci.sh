@@ -13,8 +13,8 @@
 
 # Note: we assume we run this in vg/ ie inside the vg directory we want to test
 
-# Fail on errors, so we get correct CI results based on status code
-set -e
+# Keep going on errors; we make sure to return the right status code.
+set +e
 
 # Should we build and run locally, or should we use Docker?
 LOCAL_BUILD=0
@@ -307,3 +307,6 @@ if [ -d "/mnt/ephemeral" ]
 then
     rm -rf $TMPDIR
 fi
+
+# Preserve exit status for enclosing CI system
+exit $PYRET
