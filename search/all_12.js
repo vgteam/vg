@@ -19,7 +19,7 @@ var searchData=
   ['rare_5fvariant_5fsimplifier_2ecpp',['rare_variant_simplifier.cpp',['../rare__variant__simplifier_8cpp.html',1,'']]],
   ['rare_5fvariant_5fsimplifier_2ehpp',['rare_variant_simplifier.hpp',['../rare__variant__simplifier_8hpp.html',1,'']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html',1,'vg']]],
-  ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a87e9cb73aaa5056b19d9609edf88b20f',1,'vg::RareVariantSimplifier']]],
+  ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],
   ['read',['read',['../structvg_1_1ReadFilter_1_1Counts.html#aa98f360b9420e67d5b8ba1fbc45919fe',1,'vg::ReadFilter::Counts']]],
   ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5fcoverage_5fz_5fscore',['read_coverage_z_score',['../classvg_1_1MultipathMapper.html#ac5398224011f7ed5f8f200e801b515a6',1,'vg::MultipathMapper']]],

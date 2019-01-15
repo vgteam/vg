@@ -102,9 +102,11 @@ Inheritance diagram for vg::MutableHandleGraph:</div>
  <div class="center">
   <img src="classvg_1_1MutableHandleGraph.png" usemap="#vg::MutableHandleGraph_map" alt=""/>
   <map id="vg::MutableHandleGraph_map" name="vg::MutableHandleGraph_map">
-<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="0,0,222,24"/>
-<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="0,112,222,136"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,168,222,192"/>
+<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="120,0,350,24"/>
+<area href="classvg_1_1DeletableHandleGraph.html" alt="vg::DeletableHandleGraph" shape="rect" coords="0,112,230,136"/>
+<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="240,112,470,136"/>
+<area href="classvg_1_1MutablePathDeletableHandleGraph.html" alt="vg::MutablePathDeletableHandleGraph" shape="rect" coords="0,168,230,192"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,224,230,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -116,21 +118,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a777dd0a8b47a17885d507d4dde61fb26"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#a777dd0a8b47a17885d507d4dde61fb26">create_handle</a> (const string &amp;sequence, const <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> &amp;<a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>)=0</td></tr>
 <tr class="memdesc:a777dd0a8b47a17885d507d4dde61fb26"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given id and sequence, then return the handle.  <a href="#a777dd0a8b47a17885d507d4dde61fb26">More...</a><br/></td></tr>
 <tr class="separator:a777dd0a8b47a17885d507d4dde61fb26"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7d0b38b1583065f42da2623d66708445"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#a7d0b38b1583065f42da2623d66708445">destroy_handle</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle)=0</td></tr>
-<tr class="separator:a7d0b38b1583065f42da2623d66708445"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d9cb79c32996386b0cb3f4582772a36"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#a0d9cb79c32996386b0cb3f4582772a36">create_edge</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;right)=0</td></tr>
 <tr class="separator:a0d9cb79c32996386b0cb3f4582772a36"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6a43778a31cb0169c956eafa6d658a1c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#a6a43778a31cb0169c956eafa6d658a1c">create_edge</a> (const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;edge)</td></tr>
 <tr class="memdesc:a6a43778a31cb0169c956eafa6d658a1c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper for create_edge.  <a href="#a6a43778a31cb0169c956eafa6d658a1c">More...</a><br/></td></tr>
 <tr class="separator:a6a43778a31cb0169c956eafa6d658a1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a70285f2ecc73174b4b109e259ff2f8c8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#a70285f2ecc73174b4b109e259ff2f8c8">destroy_edge</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;right)=0</td></tr>
-<tr class="separator:a70285f2ecc73174b4b109e259ff2f8c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7a00adda2ca7e2e71dac27bc34c91932"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#a7a00adda2ca7e2e71dac27bc34c91932">destroy_edge</a> (const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;edge)</td></tr>
-<tr class="memdesc:a7a00adda2ca7e2e71dac27bc34c91932"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper for destroy_edge.  <a href="#a7a00adda2ca7e2e71dac27bc34c91932">More...</a><br/></td></tr>
-<tr class="separator:a7a00adda2ca7e2e71dac27bc34c91932"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac42932fe8f302112742fedb2db87b9cd"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#ac42932fe8f302112742fedb2db87b9cd">clear</a> ()=0</td></tr>
-<tr class="memdesc:ac42932fe8f302112742fedb2db87b9cd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove all nodes and edges. Does not update any stored paths.  <a href="#ac42932fe8f302112742fedb2db87b9cd">More...</a><br/></td></tr>
-<tr class="separator:ac42932fe8f302112742fedb2db87b9cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a92fb5ae7e5f1cd198d42d152f8d87500"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#a92fb5ae7e5f1cd198d42d152f8d87500">swap_handles</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;a, const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;b)=0</td></tr>
 <tr class="separator:a92fb5ae7e5f1cd198d42d152f8d87500"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae11f07b5471c7ad209d8fadecb59a936"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html#ae11f07b5471c7ad209d8fadecb59a936">apply_orientation</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle)=0</td></tr>
@@ -194,7 +186,7 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a65b8e2e73873e73dd0448949dd09f795 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>This is the interface for a handle graph that supports modification. </p>
+<div class="textblock"><p>This is the interface for a handle graph that supports addition of new graph material. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
 <a class="anchor" id="ae11f07b5471c7ad209d8fadecb59a936"></a>
 <div class="memitem">
@@ -220,33 +212,6 @@ Public Member Functions</h2></td></tr>
 <p>Alter the node that the given handle corresponds to so the orientation indicated by the handle becomes the node's local forward orientation. Rewrites all edges pointing to the node and the node's sequence to reflect this. Invalidates all handles to the node (including the one passed). Returns a new, valid handle to the node in its new forward orientation. Note that it is possible for the node's ID to change. Does not update any stored paths. May change the ordering of the underlying graph. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#ab5ee06ac168f037f2cff3b332079b49c">vg::VG</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="ac42932fe8f302112742fedb2db87b9cd"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void vg::MutableHandleGraph::clear </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Remove all nodes and edges. Does not update any stored paths. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#aa1eb3332c0a99a25c75681da485297e5">vg::VG</a>.</p>
 
 </div>
 </div>
@@ -376,96 +341,6 @@ Public Member Functions</h2></td></tr>
 <p>Create a new node with the given id and sequence, then return the handle. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#ae968a71f586b6cc3876f2e9452f4c576">vg::VG</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a70285f2ecc73174b4b109e259ff2f8c8"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void vg::MutableHandleGraph::destroy_edge </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>left</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>right</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Remove the edge connecting the given handles in the given order and orientations. Ignores nonexistent edges. Does not update any stored paths. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a9d4264e39e3826ded714992361ab879e">vg::VG</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a7a00adda2ca7e2e71dac27bc34c91932"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MutableHandleGraph::destroy_edge </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>edge</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Convenient wrapper for destroy_edge. </p>
-
-</div>
-</div>
-<a class="anchor" id="a7d0b38b1583065f42da2623d66708445"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void vg::MutableHandleGraph::destroy_handle </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>handle</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Remove the node belonging to the given handle and all of its edges. Does not update any stored paths. Invalidates the destroyed handle. May be called during serial for_each_handle iteration <b>ONLY</b> on the node being iterated. May <b>NOT</b> be called during parallel for_each_handle iteration. May <b>NOT</b> be called on the node from which edges are being followed during follow_edges. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a3e52875d37f046daeaf9e7b301ad59ff">vg::VG</a>.</p>
 
 </div>
 </div>

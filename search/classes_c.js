@@ -16,6 +16,7 @@ var searchData=
   ['multipathmapper',['MultipathMapper',['../classvg_1_1MultipathMapper.html',1,'vg']]],
   ['multipathproblem',['MultipathProblem',['../structvg_1_1MultipathProblem.html',1,'vg']]],
   ['mutablehandlegraph',['MutableHandleGraph',['../classvg_1_1MutableHandleGraph.html',1,'vg']]],
+  ['mutablepathdeletablehandlegraph',['MutablePathDeletableHandleGraph',['../classvg_1_1MutablePathDeletableHandleGraph.html',1,'vg']]],
   ['mutablepathhandlegraph',['MutablePathHandleGraph',['../classvg_1_1MutablePathHandleGraph.html',1,'vg']]],
   ['mutablepathmutablehandlegraph',['MutablePathMutableHandleGraph',['../classvg_1_1MutablePathMutableHandleGraph.html',1,'vg']]]
 ];
