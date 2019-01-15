@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to build a test Docker and run tests on it.
 # Tests are run using toil-vg: https://github.com/BD2KGenomics/toil-vg
@@ -34,7 +34,8 @@ TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@f04a21197cef57dc42
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
 TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
 # What tests should we run?
-# Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg"
+# Should be something like "vgci/vgci.py::VGCITest::test_sim_brca2_snp1kg_mpmap"
+# Must have the Python file in it or Pytest can't find the tests.
 PYTEST_TEST_SPEC="vgci/vgci.py"
 # What scratch directory should we use to run the tests?
 # A vgci-work under it will be destroyed and recreated

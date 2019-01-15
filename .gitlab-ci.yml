@@ -7,7 +7,9 @@ before_script:
   - whoami
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev
+  # We also need ruby for junit merging
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev ruby
+  - sudo gem install junit_merge
   - cat /etc/hosts
   - docker info
   
@@ -29,25 +31,32 @@ build-job:
     expire_in: 1 week
     
 # We define a second follow-on phase to run the tests
-# This could be multiple jobs but for now it is just one
+# Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
 test-job:
   stage: test
-  # Pass artifacts from build (same as default)
-  dependencies: 
-    - build-job
-  script: "bash vgci/vgci.sh -D vgci-docker-vg-local.tar.gz -j junit.xml -H"
+  # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
+  # We will find our share of tests from vgci/test-list.txt and run them
+  # We ought to run one job per test, but we can wrap around.
+  parallel: 29 
+  # All artifacts from previous stages are available
+  script: 
+    - mkdir -p junit
+    - bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz ${CI_NODE_INDEX} ${CI_NODE_TOTAL} junit
   artifacts:
     # Let Gitlab see the junit report
     reports:
-      junit: junit.xml
+      junit: junit/*.xml
+    paths:
+      - junit/*.xml
     expire_in: 3 months
 
 # We have a final job in the last stage to compose an HTML report
 report-job:
   stage: report
-  # Only pass artifacts from test and not build
-  dependencies: 
-    - test-job
-  script: "bash vgci/vgci.sh -J junit.xml"
+  # All artifacts from previous stages are available
+  script: 
+    # Collect all the junit files from all the test jobs
+    - junit_merge junit/*.xml junit.all.xml
+    - bash vgci/vgci.sh -J junit.all.xml
    
   
