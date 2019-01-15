@@ -151,7 +151,7 @@ if [ ! -z "${CI}" ]; then
     echo "On Cloud CI"
     
     # Where we should put the report depends on what build we're doing
-    if [ -z "${CI_MERGE_REQUEST_IID}" && "${CI_COMMIT_REF_NAME}" == "master" ]; then
+    if [ -z "${CI_MERGE_REQUEST_IID}" ] && [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
         echo "Running on master"
         
         # On master we need to hold the mutex.
@@ -208,7 +208,7 @@ cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
 if [ ! -z "${CI}" ]; then
     # On cloud CI, so actually post a comment
     
-    if [ -z "${CI_MERGE_REQUEST_IID}" && "${CI_COMMIT_REF_NAME}" == "master" ]; then
+    if [ -z "${CI_MERGE_REQUEST_IID}" ] && [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
         # Normal master build
                 
         # Comment on the commit we built
