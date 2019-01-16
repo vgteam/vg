@@ -57,8 +57,11 @@ report-job:
   stage: report
   # All artifacts from previous stages are available
   script: 
-    # Collect all the junit files from all the test jobs
+    # Find one junit file to get all the others merged into it
+    - mv "$(ls junit/*.xml | head -n 1)" junit.all.xml
+    # Collect all the junit files from all the test jobs into it
     - junit_merge junit/*.xml junit.all.xml
+    # Make the report and post it
     - bash vgci/vgci.sh -J junit.all.xml
    
   
