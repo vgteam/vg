@@ -38,8 +38,10 @@ TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
 # Must have the Python file in it or Pytest can't find the tests.
 PYTEST_TEST_SPEC="vgci/vgci.py"
 # What scratch directory should we use to run the tests?
-# A vgci-work under it will be destroyed and recreated
-WORK_DIR="."
+# If unset we use vgci_work and don't persist it
+SAVE_WORK_DIR=
+# What test result directory shoudl we load, if any?
+LOAD_WORK_DIR=
 # Save JUnit test report to this file
 SAVE_JUNIT=""
 # Import JUnit test report from this file instead of running tests.
@@ -66,14 +68,15 @@ usage() {
     printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run, or 'None' for no tests.\n"
-    printf "\t-w WORKDIR\tPlace the vgci-work scratch directory under the given path.\n"
+    printf "\t-w WORKDIR\tOutput test result data to the given path (also used for scratch)\n"
+    printf "\t-W WORKDIR\Load test result data to the given path instead of building or running tests\n"
     printf "\t-j FILE\tSave the JUnit test report XML to the given file (default: test-report.xml)\n"
     printf "\t-J FILE\tLoad the JUnit test report from the given file instead of building or running tests\n"
     printf "\t-H\tSkip generating HTML report based on JUnit report\n"
     exit 1
 }
 
-while getopts "ld:D:rkisp:t:w:j:J:H" o; do
+while getopts "ld:D:rkisp:t:w:W:j:J:H" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
@@ -103,7 +106,10 @@ while getopts "ld:D:rkisp:t:w:j:J:H" o; do
             PYTEST_TEST_SPEC="${OPTARG}"
             ;;
         w)
-            WORK_DIR="${OPTARG}"
+            SAVE_WORK_DIR="${OPTARG}"
+            ;;
+        W)
+            LOAD_WORK_DIR="${OPTARG}"
             ;;
         j)
             SAVE_JUNIT="${OPTARG}"
@@ -165,7 +171,7 @@ then
     DO_TEST=0
 fi
 
-if [ ! -z "${LOAD_JUNIT}" ]
+if [ ! -z "${LOAD_JUNIT}" ] || [ ! -z "${LOAD_WORK_DIR}" ]
 then
     # Skip the build phase because we don't even need to run anything
     DO_BUILD=0
@@ -325,10 +331,9 @@ then
 
     # we pass some parameters through pytest by way of our config file
     # in particular, we set the vg version and cores, and specify
-    # that we want to keep all the results in ${WORK_DIR}/vgci-work/
     printf "cores ${NUM_CORES}\n" > vgci_cfg.tsv
     printf "teardown False\n" >> vgci_cfg.tsv
-    printf "workdir ${WORK_DIR}/vgci-work\n" >> vgci_cfg.tsv
+    printf "workdir ${SAVE_WORK_DIR:-vgci-work}\n" >> vgci_cfg.tsv
     if [ "${KEEP_INTERMEDIATE_FILES}" == "0" ]; then
         printf "force_outstore False\n" >> vgci_cfg.tsv
     else
@@ -355,8 +360,7 @@ then
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
     fi
 
-    rm -rf "${WORK_DIR}/vgci-work"
-    mkdir "${WORK_DIR}/vgci-work"
+    mkdir -p "${SAVE_WORK_DIR:-vgci-work}"
     
     # run the tests, output the junit report 
     rm -f test-report.xml
@@ -368,6 +372,9 @@ then
         # Copy it to the destination
         cp test-report.xml "${SAVE_JUNIT}" || touch "${SAVE_JUNIT}"
     fi
+    
+    # Load from the work directory we saved to
+    LOAD_WORK_DIR="${SAVE_WORK_DIR:-vgci-work}"
 fi
 
 if [ ! -z "${LOAD_JUNIT}" ]
@@ -415,7 +422,7 @@ then
     # Generate a report in two files: HTML full output, and a Markdown summary.
     # Takes as input the test result XML and the work directory with the
     # test output files.
-    vgci/mine-logs.py test-report.xml "${WORK_DIR}/vgci-work/" report-html/ summary.md
+    vgci/mine-logs.py test-report.xml "${LOAD_WORK_DIR}/" report-html/ summary.md
     if [ "$?" -ne 0 ]
     then
         REPORT_FAIL=1
@@ -434,7 +441,7 @@ then
         fi
 
         # we publish the results to the archive
-        tar czf "${VG_VERSION}_output.tar.gz" "${WORK_DIR}/vgci-work" test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
+        tar czf "${VG_VERSION}_output.tar.gz" "${LOAD_WORK_DIR}/" test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
         aws s3 cp --only-show-errors \
             "${VG_VERSION}_output.tar.gz" "${OUTPUT_DESTINATION}/vgci_output_archives/" \
             --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
@@ -447,8 +454,8 @@ then
         if [ -z "${CI_MERGE_REQUEST_IID}" ] && [ "${CI_COMMIT_REF_NAME}" == "master" ]
         then
             echo "Updating baseline"
-            aws s3 sync \
-                "${WORK_DIR}/vgci-work/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" \
+            aws s3 sync --delete \
+                "${LOAD_WORK_DIR}/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" \
                 --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
             if [ "$?" -ne 0 ]
             then
@@ -482,9 +489,14 @@ then
 fi
 
 # General cleanup of test stuff we may have had to keep for the report
-if ([ "${LOCAL_BUILD}" == "0" ] || [ "${TEST_FAIL}" == 0 ]) && [ ! "${KEEP_OUTPUT}" == "1" ]; then
-    # On anything other than a failed local run, and if we haven't been told not to, clean up the test output.
-    rm -rf "${WORK_DIR}/vgci-work"
+if ([ "${LOCAL_BUILD}" == "0" ] || [ "${TEST_FAIL}" == 0 ]) && \
+    [ ! "${KEEP_OUTPUT}" == "1" ] && \
+    [ -z "${SAVE_WORK_DIR}" ] && \
+    [ "${DO_TEST}" != "0" ] ; then
+    # On anything other than a failed local run, and if we haven't been told not to,
+    # and if we ran tests, clean up the test output.
+    # We only ever clean the default work path
+    rm -rf "./vgci_work"
 fi
 if [ ! "${REUSE_VENV}" == "1" ]; then
     # If we aren't re-using the virtualenv, clean it up

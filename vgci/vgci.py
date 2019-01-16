@@ -151,8 +151,9 @@ class VGCITest(TestCase):
                 connection = urllib2.urlopen(url)
                 return unicode(connection.read())
             except urllib2.HTTPError as e:
-                if e.code == 404:
+                if e.code == 404 or e.code == 403:
                     # Baseline file doesn't yet exist. Give an empty string.
+                    # Nonexistent things give 403 to prevent enumeration.
                     return ""
                 else:
                     # Something else is wrong
