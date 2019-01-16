@@ -555,4 +555,109 @@ namespace vg {
         deleted_edge_records = 0;
         deleted_node_records = 0;
     }
+    
+    bool PackedGraph::has_path(const std::string& path_name) const {
+        return path_id.count(path_name);
+    }
+    
+    path_handle_t PackedGraph::get_path_handle(const std::string& path_name) const {
+        return as_path_handle(path_id.at(path_name));
+    }
+    
+    string PackedGraph::get_path_name(const path_handle_t& path_handle) const {
+        return paths.at(as_integer(path_handle)).first;
+    }
+    
+    size_t PackedGraph::get_occurrence_count(const path_handle_t& path_handle) const {
+        return paths.at(as_integer(path_handle)).second.size();
+    }
+    
+    size_t PackedGraph::get_path_count() const {
+        return paths.size();
+    }
+    
+    void PackedGraph::for_each_path_handle(const std::function<void(const path_handle_t&)>& iteratee) const {
+        
+        for (const auto& path_record : paths) {
+            iteratee(as_path_handle(path_record.first));
+        }
+        
+    }
+    
+    handle_t PackedGraph::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
+        const PagedVector& path = paths.at(as_integers(occurrence_handle)[0]).second;
+        uint64_t trav = path.get(as_integers(occurrence_handle)[1]);
+        return reinterpret_cast<const handle_t&>(trav);
+    }
+    
+    occurrence_handle_t PackedGraph::get_first_occurrence(const path_handle_t& path_handle) const {
+        occurrence_handle_t occ;
+        as_integers(occ)[0] = as_integer(path_handle);
+        as_integers(occ)[1] = 0;
+        return occ;
+    }
+    
+    occurrence_handle_t PackedGraph::get_last_occurrence(const path_handle_t& path_handle) const {
+        occurrence_handle_t occ;
+        as_integers(occ)[0] = as_integer(path_handle);
+        as_integers(occ)[1] = paths.at(as_integer(path_handle)).second.size() - 1;
+        return occ;
+    }
+    
+    bool PackedGraph::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
+        return as_integers(occurrence_handle)[1] + 1 < paths.at(as_integers(occurrence_handle)[0]).second.size();
+    }
+    
+    bool PackedGraph::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
+        return as_integers(occurrence_handle)[1] > 0;
+    }
+    
+    occurrence_handle_t PackedGraph::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
+        occurrence_handle_t next;
+        as_integers(next)[0] = as_integers(occurrence_handle)[0];
+        as_integers(next)[1] = as_integers(occurrence_handle)[0] + 1;
+        return next;
+    }
+    
+    occurrence_handle_t PackedGraph::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
+        occurrence_handle_t prev;
+        as_integers(prev)[0] = as_integers(occurrence_handle)[0];
+        as_integers(prev)[1] = as_integers(occurrence_handle)[0] - 1;
+        return prev;
+    }
+    
+    path_handle_t PackedGraph::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
+        return as_path_handle(as_integers(occurrence_handle)[0]);
+    }
+    
+    size_t PackedGraph::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
+        return as_integers(occurrence_handle)[1];
+    }
+    
+    void PackedGraph::destroy_path(const path_handle_t& path) {
+        auto& path_record = paths.at(as_integer(path));
+        path_id.erase(path_record.first);
+        paths.erase(as_integer(path));
+    }
+    
+    path_handle_t PackedGraph::create_path_handle(const std::string& name) {
+        path_id[name] = next_path_id;
+        paths.emplace(next_path_id, pair<string, PagedVector>(name, PagedVector(PAGE_WIDTH)));
+        path_handle_t path = as_path_handle(next_path_id);
+        next_path_id++;
+        return path;
+        
+    }
+    
+    occurrence_handle_t PackedGraph::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+        PagedVector& path_vector = paths.at(as_integer(path)).second;
+        
+        occurrence_handle_t occ;
+        as_integers(occ)[0] = as_integer(path);
+        as_integers(occ)[1] = path_vector.size();
+        
+        path_vector.append(as_integer(to_append));
+        
+        return occ;
+    }
 }

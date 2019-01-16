@@ -8,13 +8,11 @@
 #ifndef VG_PACKED_GRAPH_HPP_INCLUDED
 #define VG_PACKED_GRAPH_HPP_INCLUDED
 
-#include <cstdio>
-#include <cstdint>
-#include <vector>
 #include <utility>
-#include <functional>
+
 #include "handle.hpp"
 #include "packed_structs.hpp"
+#include "hash_map.hpp"
 
 
 namespace vg {
@@ -72,80 +70,7 @@ public:
     /// Return the largest ID in the graph, or some larger number if the
     /// largest ID is unavailable. Return value is unspecified if the graph is empty.
     virtual id_t max_node_id(void) const;
-    
-    
-/**
- * This is the interface for a handle graph that stores embedded paths.
- */
-    
-//    ////////////////////////////////////////////////////////////////////////////
-//    // Path handle interface that needs to be implemented
-//    ////////////////////////////////////////////////////////////////////////////
-//
-//    /// Determine if a path name exists and is legal to get a path handle for.
-//    bool has_path(const std::string& path_name) const;
-//
-//    /// Look up the path handle for the given path name.
-//    /// The path with that name must exist.
-//    path_handle_t get_path_handle(const std::string& path_name) const;
-//
-//    /// Look up the name of a path from a handle to it
-//    std::string get_path_name(const path_handle_t& path_handle) const;
-//
-//    /// Returns the number of node occurrences in the path
-//    size_t get_occurrence_count(const path_handle_t& path_handle) const;
-//
-//    /// Returns the number of paths stored in the graph
-//    size_t get_path_count() const;
-//
-//    /// Execute a function on each path in the graph
-//    // TODO: allow stopping early?
-//    void for_each_path_handle(const std::function<void(const path_handle_t&)>& iteratee) const;
-//
-//    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
-//    handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
-//
-//    /// Get a handle to the first occurrence in a path.
-//    /// The path MUST be nonempty.
-//    occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
-//
-//    /// Get a handle to the last occurrence in a path
-//    /// The path MUST be nonempty.
-//    occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
-//
-//    /// Returns true if the occurrence is not the last occurence on the path, else false
-//    bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-//
-//    /// Returns true if the occurrence is not the first occurence on the path, else false
-//    bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-//
-//    /// Returns a handle to the next occurrence on the path
-//    occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-//
-//    /// Returns a handle to the previous occurrence on the path
-//    occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-//
-//    /// Returns a handle to the path that an occurrence is on
-//    path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-//
-//    /// Returns the 0-based ordinal rank of a occurrence on a path
-//    size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-//
-//    ////////////////////////////////////////////////////////////////////////////
-//    // Additional optional interface with a default implementation
-//    ////////////////////////////////////////////////////////////////////////////
-//
-//    /// Returns true if the given path is empty, and false otherwise
-//    bool is_empty(const path_handle_t& path_handle) const;
 
-
-/**
- * This is the interface for a handle graph that supports modification.
- */
-    /*
-     * Note: All operations may invalidate path handles and occurrence handles.
-     */
-    
     /// Create a new node with the given sequence and return the handle.
     virtual handle_t create_handle(const std::string& sequence);
 
@@ -201,36 +126,79 @@ public:
     /// passed in.
     /// Updates stored paths.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const std::vector<size_t>& offsets);
-
-/**
- * This is the interface for a handle graph with embedded paths where the paths can be modified.
- * Note that if the *graph* can also be modified, the implementation will also
- * need to inherit from MutableHandleGraph, via the combination
- * MutablePathMutableHandleGraph interface.
- * TODO: This is a very limited interface at the moment. It will probably need to be extended.
- */
     
-//    /**
-//     * Destroy the given path. Invalidates handles to the path and its node occurrences.
-//     */
-//    void destroy_path(const path_handle_t& path);
-//
-//    /**
-//     * Create a path with the given name. The caller must ensure that no path
-//     * with the given name exists already, or the behavior is undefined.
-//     * Returns a handle to the created empty path. Handles to other paths must
-//     * remain valid.
-//     */
-//    path_handle_t create_path_handle(const std::string& name);
-//
-//    /**
-//     * Append a visit to a node to the given path. Returns a handle to the new
-//     * final occurrence on the path which is appended. Handles to prior
-//     * occurrences on the path, and to other paths, must remain valid.
-//     */
-//    occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
+    ////////////////////////////////////////////////////////////////////////////
+    // Path handle interface
+    ////////////////////////////////////////////////////////////////////////////
 
-/// These are the backing data structures that we use to fulfill the above functions
+    /// Determine if a path name exists and is legal to get a path handle for.
+    bool has_path(const std::string& path_name) const;
+
+    /// Look up the path handle for the given path name.
+    /// The path with that name must exist.
+    path_handle_t get_path_handle(const std::string& path_name) const;
+
+    /// Look up the name of a path from a handle to it
+    string get_path_name(const path_handle_t& path_handle) const;
+
+    /// Returns the number of node occurrences in the path
+    size_t get_occurrence_count(const path_handle_t& path_handle) const;
+
+    /// Returns the number of paths stored in the graph
+    size_t get_path_count() const;
+
+    /// Execute a function on each path in the graph
+    // TODO: allow stopping early?
+    void for_each_path_handle(const std::function<void(const path_handle_t&)>& iteratee) const;
+
+    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
+    handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
+
+    /// Get a handle to the first occurrence in a path.
+    /// The path MUST be nonempty.
+    occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
+
+    /// Get a handle to the last occurrence in a path
+    /// The path MUST be nonempty.
+    occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
+
+    /// Returns true if the occurrence is not the last occurence on the path, else false
+    bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+
+    /// Returns true if the occurrence is not the first occurence on the path, else false
+    bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+
+    /// Returns a handle to the next occurrence on the path
+    occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+
+    /// Returns a handle to the previous occurrence on the path
+    occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+
+    /// Returns a handle to the path that an occurrence is on
+    path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
+
+    /// Returns the 0-based ordinal rank of a occurrence on a path
+    size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    
+    /**
+     * Destroy the given path. Invalidates handles to the path and its node occurrences.
+     */
+    void destroy_path(const path_handle_t& path);
+
+    /**
+     * Create a path with the given name. The caller must ensure that no path
+     * with the given name exists already, or the behavior is undefined.
+     * Returns a handle to the created empty path. Handles to other paths must
+     * remain valid.
+     */
+    path_handle_t create_path_handle(const std::string& name);
+
+    /**
+     * Append a visit to a node to the given path. Returns a handle to the new
+     * final occurrence on the path which is appended. Handles to prior
+     * occurrences on the path, and to other paths, must remain valid.
+     */
+    occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
 
 private:
     // TODO: delete this later, very duplicative
@@ -297,7 +265,17 @@ private:
     /// Encodes all of the sequences of all nodes and all paths in the graph.
     /// The node sequences occur in the same order as in graph_iv;
     PackedVector seq_iv;
-
+    
+    /// The next path ID we will assign, updated after every addition
+    int64_t next_path_id = 1;
+    
+    /// Map of path ID to paths, which are are represented as a vector of traversals:
+    /// ID|orientation (bit-packed)
+    hash_map<int64_t, pair<string, PagedVector>> paths;
+    
+    /// Map from path names to index in the paths vector.
+    string_hash_map<string, int64_t> path_id;
+    
 //    /// Same length as seq_iv. 0's indicate that a base is still touched by some
 //    /// node or some path. 1's indicate that all nodes or paths that touch this
 //    /// base have been deleted.
@@ -312,7 +290,7 @@ private:
 //    /// path_membership_value_iv, and parent/left child/right child index indicates the
 //    /// topology of a binary tree search structure for these intervals. The indexes are 1-based
 //    /// with 0 indicating that the neighbor does not exist.
-//    SuccinctSplayTree path_membership_range_iv;
+//    PackedSplayTree path_membership_range_iv;
 //
 //    /// Encodes a series of linked lists. Consists of fixed-width records that have
 //    /// the following structure:
