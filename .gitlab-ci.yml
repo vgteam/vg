@@ -39,11 +39,11 @@ test-job:
   # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
   # We will find our share of tests from vgci/test-list.txt and run them
   # We ought to run one job per test, but we can wrap around.
-  parallel: 29 
+  parallel: 19 
   # All artifacts from previous stages are available
   script: 
     - mkdir -p junit
-    - bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz ${CI_NODE_INDEX} ${CI_NODE_TOTAL} junit test_output
+    - bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
   artifacts:
     # Let Gitlab see the junit report
     reports:
