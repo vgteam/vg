@@ -7,8 +7,8 @@
 # If we have to run more than 1 test we will duplicate vgci.sh's setup work creating venvs and so on.
 # Meant to be run fromn the vg project root.
 
-# If any test fails, stop
-set +e
+# We will handle errors ourselves
+set -e
 # Report what we're up to
 set -x
 
@@ -29,13 +29,20 @@ TEST_NUMBER=0
 
 # Get every NODE_TOTAL'th line starting at NODE_INDEX
 # See https://superuser.com/a/396557
-sed -n "${NODE_INDEX}~${NODE_TOTAL}p" "${TEST_LIST}" | while read TEST_SPEC
+for TEST_SPEC in "$(sed -n "${NODE_INDEX}~${NODE_TOTAL}p" "${TEST_LIST}")"
 do
     # And for each
    
     # Run the main vgci script for that test
     # TODO: We're hardcoding the Docker file here...
     vgci/vgci.sh -D "${DOCKER_ARCHIVE}" -t "${TEST_SPEC}" -j "${OUT_DIR}/junit.${NODE_INDEX}.${TEST_NUMBER}.xml" -H
+    TEST_EXIT="${?}"
+    
+    if [ "${TEST_EXIT}" != "0" ]
+    then
+        echo "Test ${TEST_SPEC} failed!"
+        exit "${TEST_EXIT}"
+    fi
 
     # Number the next test differently
     ((TEST_NUMBER+=1))
