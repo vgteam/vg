@@ -43,14 +43,15 @@ test-job:
   # All artifacts from previous stages are available
   script: 
     - mkdir -p junit
-    - bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz ${CI_NODE_INDEX} ${CI_NODE_TOTAL} junit
+    - bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz ${CI_NODE_INDEX} ${CI_NODE_TOTAL} junit test_output
   artifacts:
     # Let Gitlab see the junit report
     reports:
       junit: junit/*.xml
     paths:
       - junit/*.xml
-    expire_in: 3 months
+      - test_output/*
+    expire_in: 1 week
 
 # We have a final job in the last stage to compose an HTML report
 report-job:
@@ -61,7 +62,8 @@ report-job:
     - mv "$(ls junit/*.xml | head -n 1)" junit.all.xml
     # Collect all the junit files from all the test jobs into it
     - junit_merge junit/*.xml junit.all.xml
-    # Make the report and post it
-    - bash vgci/vgci.sh -J junit.all.xml
+    # All the test output folder artifacts should automatically merge.
+    # Make the report and post it.
+    - bash vgci/vgci.sh -J junit.all.xml -W test_output
    
   
