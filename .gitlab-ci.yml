@@ -30,7 +30,8 @@ build-job:
   artifacts:
     paths:
       - vgci-docker-vg-local.tar.gz
-    expire_in: 1 week
+    # This is huge and needs to expire fast
+    expire_in: 1 day
     
 # We define a second follow-on phase to run the tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
