@@ -38,7 +38,8 @@ TOIL_PACKAGE="toil[aws,mesos]==3.13.0"
 # Must have the Python file in it or Pytest can't find the tests.
 PYTEST_TEST_SPEC="vgci/vgci.py"
 # What scratch directory should we use to run the tests?
-# If unset we use vgci_work and don't persist it
+# If unset we use vgci_work and don't persist it.
+# If set, must start with / or ./ because it is used to make toil-vg IOstores
 SAVE_WORK_DIR=
 # What test result directory shoudl we load, if any?
 LOAD_WORK_DIR=
@@ -68,7 +69,7 @@ usage() {
     printf "\t-s\t\tShow test output and error streams (pass -s to pytest). \n"
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run, or 'None' for no tests.\n"
-    printf "\t-w WORKDIR\tOutput test result data to the given path (also used for scratch)\n"
+    printf "\t-w WORKDIR\tOutput test result data to the given absolute or ./ path (also used for scratch)\n"
     printf "\t-W WORKDIR\Load test result data to the given path instead of building or running tests\n"
     printf "\t-j FILE\tSave the JUnit test report XML to the given file (default: test-report.xml)\n"
     printf "\t-J FILE\tLoad the JUnit test report from the given file instead of building or running tests\n"
@@ -333,7 +334,7 @@ then
     # in particular, we set the vg version and cores, and specify
     printf "cores ${NUM_CORES}\n" > vgci_cfg.tsv
     printf "teardown False\n" >> vgci_cfg.tsv
-    printf "workdir ${SAVE_WORK_DIR:-vgci-work}\n" >> vgci_cfg.tsv
+    printf "workdir ${SAVE_WORK_DIR:-./vgci-work}\n" >> vgci_cfg.tsv
     if [ "${KEEP_INTERMEDIATE_FILES}" == "0" ]; then
         printf "force_outstore False\n" >> vgci_cfg.tsv
     else
@@ -360,7 +361,7 @@ then
         for img in $(toil-vg generate-config | grep docker: | grep -v vg | awk '{print $2}' | sed "s/^\([\"']\)\(.*\)\1\$/\2/g"); do docker pull $img ; done
     fi
 
-    mkdir -p "${SAVE_WORK_DIR:-vgci-work}"
+    mkdir -p "${SAVE_WORK_DIR:-./vgci-work}"
     
     # run the tests, output the junit report 
     rm -f test-report.xml
@@ -374,7 +375,7 @@ then
     fi
     
     # Load from the work directory we saved to
-    LOAD_WORK_DIR="${SAVE_WORK_DIR:-vgci-work}"
+    LOAD_WORK_DIR="${SAVE_WORK_DIR:-./vgci-work}"
 fi
 
 if [ ! -z "${LOAD_JUNIT}" ]
