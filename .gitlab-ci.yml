@@ -8,7 +8,7 @@ before_script:
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # We also need Node >4 for junit merging (so we need to be on Ubuntu 18.04+)
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev npm nodejs
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev npm nodejs node-gyp
   - sudo npm install -g junit-merge
   - cat /etc/hosts
   - docker info
