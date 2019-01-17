@@ -11,9 +11,12 @@
 #include <cstdio>
 #include <cstdint>
 #include <algorithm>
+#include <vector>
 #include "sdsl/int_vector.hpp"
 
 namespace vg {
+    
+using namespace std;
     
 /*
  * A dynamic integer vector that maintains integers in bit-compressed form.
@@ -68,7 +71,8 @@ private:
 
 /*
  * A dynamic integer vector that provides better compression when values in the
- * integer vector do not vary much from their neighbors
+ * integer vector either 1) do not vary much from their neighbors or 2) are 0.
+ * Compression is also optimized for vectors that are mostly increasing.
  */
 class PagedVector {
 public:
@@ -118,10 +122,13 @@ private:
     // TODO: is there a way to const this and still allow copy/move constructors?
     size_t page_size = 64;
     
+    // The number of entries filled so far
+    size_t filled = 0;
+    
     // Evenly spaced entries from the vector
-    PackedVector pages;
+    PackedVector anchors;
     // All entries in the vector expressed as a difference from the preceding page value
-    PackedVector diffs;
+    vector<PackedVector> pages;
 };
 
 /*
@@ -507,55 +514,106 @@ inline void PackedDeque::clear() {
 }
     
 inline void PagedVector::set(const size_t& i, const uint64_t& value) {
-    diffs.set(i, to_diff(value, pages.get(i / page_size)));
+    assert(i < filled);
+    uint64_t anchor = anchors.get(i / page_size);
+    if (anchor == 0) {
+        // this page does not have a non-zero anchor yet, use this one
+        anchors.set(i / page_size, value);
+        anchor = value;
+    }
+    pages[i / page_size].set(i % page_size, to_diff(value, anchor));
 }
 
 inline uint64_t PagedVector::get(const size_t& i) const {
-    return from_diff(diffs.get(i), pages.get(i / page_size));
+    assert(i < filled);
+    return from_diff(pages[i / page_size].get(i % page_size),
+                     anchors.get(i / page_size));
 }
 
 inline void PagedVector::append(const uint64_t& value) {
-    if (diffs.size() % page_size == 0) {
-        diffs.append(to_diff(value, value));
-        pages.append(value);
+    if (filled % page_size == 0) {
+        // init a new page and a new anchor
+        pages.emplace_back();
+        pages.back().resize(page_size);
+        anchors.append(0);
     }
-    else {
-        diffs.append(to_diff(value, pages.get(diffs.size() / page_size)));
-    }
+    
+    // use the logic in set to choose anchor and diff
+    filled++;
+    set(filled - 1, value);
 }
 
 inline void PagedVector::pop() {
-    diffs.pop();
-    if (diffs.size() % page_size == 0) {
-        pages.pop();
+    filled--;
+    if (filled % page_size == 0) {
+        // we've emptied a page, remove it
+        pages.pop_back();
+        anchors.pop();
     }
 }
 
 inline void PagedVector::resize(size_t new_size) {
-    diffs.resize(new_size);
-    pages.resize(new_size / page_size);
+    // how many pages does this require?
+    size_t num_pages = new_size > 0 ? (new_size - 1) / page_size + 1 : 0;
+    
+    anchors.resize(num_pages);
+    // add pages if necessary
+    while (num_pages > pages.size()) {
+        pages.emplace_back();
+        pages.back().resize(page_size);
+    }
+    // remove pages if necessary
+    pages.resize(num_pages);
+    
+    filled = new_size;
 }
 
 inline size_t PagedVector::size() const {
-    return diffs.size();
+    return filled;
 }
 
 inline bool PagedVector::empty() const {
-    return pages.empty();
+    return filled == 0;
 }
 
 inline void PagedVector::clear() {
     pages.clear();
-    diffs.clear();
+    anchors.clear();
+    filled = 0;
 }
     
-inline uint64_t PagedVector::to_diff(const uint64_t& value, const uint64_t& page) const {
-    // negatives map to odds, positives to evens
-    return value < page ? ((page - value) << 1) - 1 : (value - page) << 1;
+inline uint64_t PagedVector::to_diff(const uint64_t& value, const uint64_t& anchor) const {
+    // leaves 0 unchanged, encodes other values as a difference from the anchor value
+    // with a bijection into the positive integers as follows:
+    // difference  0  1  2  3 -1  4  5  6  7 -2  8  9 10 11 -3 ...
+    // integer     1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 ...
+    // the goal here is use smaller integers to maintain low bit-width, allowing 0 as
+    // a sentinel. the bijection is biased to encode positive differences as smaller bit-
+    // width integers since anchors are taken from the beginning of their page in the
+    // vector and we expect most vectors to be mostly increasing
+    
+    if (value == 0) {
+        return 0;
+    }
+    else if (value >= anchor) {
+        uint64_t raw_diff = value - anchor;
+        return raw_diff + raw_diff / 4 + 1;
+    }
+    else {
+        return 5 * (anchor - value);
+    }
 }
 
-inline uint64_t PagedVector::from_diff(const uint64_t& diff, const uint64_t& page) const {
-    return diff % 2 ? page - ((diff + 1) >> 1) : page + (diff >> 1);
+inline uint64_t PagedVector::from_diff(const uint64_t& diff, const uint64_t& anchor) const {
+    if (diff == 0) {
+        return 0;
+    }
+    else if (diff % 5 == 0) {
+        return anchor - diff / 5;
+    }
+    else {
+        return anchor + diff - diff / 5 - 1;
+    }
 }
 }
 
