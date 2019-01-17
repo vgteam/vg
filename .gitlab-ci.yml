@@ -7,9 +7,9 @@ before_script:
   - whoami
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
-  # We also need ruby for junit merging
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev ruby ruby-dev zlib1g-dev
-  - sudo gem install junit_merge
+  # We also need Node >4 for junit merging (so we need to be on Ubuntu 18.04+)
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libssl-dev libcurl4-openssl-dev python-dev npm nodejs
+  - sudo npm install -g junit-merge
   - cat /etc/hosts
   - docker info
   
@@ -59,10 +59,8 @@ report-job:
   stage: report
   # All artifacts from previous stages are available
   script: 
-    # Find one junit file to get all the others merged into it
-    - mv "$(ls junit/*.xml | head -n 1)" junit.all.xml
-    # Collect all the junit files from all the test jobs into it
-    - junit_merge junit/*.xml junit.all.xml
+    # Collect all the junit files from all the test jobs into one
+    - junit-merge -o junit.all.xml junit/*.xml
     # All the test output folder artifacts should automatically merge.
     # Make the report and post it.
     - bash vgci/vgci.sh -J junit.all.xml -D vgci-docker-vg-local.tar.gz -W test_output
