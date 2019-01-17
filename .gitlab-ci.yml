@@ -65,6 +65,6 @@ report-job:
     - junit_merge junit/*.xml junit.all.xml
     # All the test output folder artifacts should automatically merge.
     # Make the report and post it.
-    - bash vgci/vgci.sh -J junit.all.xml -W test_output
+    - bash vgci/vgci.sh -J junit.all.xml -D vgci-docker-vg-local.tar.gz -W test_output
    
   
