@@ -176,7 +176,7 @@ if [ ! -z "${CI}" ]; then
         fi
         
     else
-        echo "Running on a pull request"
+        echo "Running on a branch or pull request"
         
         # Upload to a path specific to this commit.
         HTML_PATH="vg_ci/vgci_reports/commit/${CI_COMMIT_SHA}"

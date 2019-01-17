@@ -392,6 +392,10 @@ then
     #########
     # REPORT PREP PHASE
     #########
+    
+    # We need a local bin directory to put on our path.
+    # The vg build makes this but we may not have run it.
+    mkdir -p bin
 
     # Create awscli venv
     if [ ! "${REUSE_VENV}" == "1" ]; then
