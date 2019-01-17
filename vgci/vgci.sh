@@ -256,6 +256,14 @@ then
     DO_TEST=0
 fi
 
+if ([ "${DO_TEST}" != "0" ] || [ "${DO_REPORT}" != "0" ]) && [ ! -z "${LOAD_DOCKER}" ]
+then
+    # Just load the Docker instead of building.
+    # It will set the tag it was saved from.
+    # We need it both for testing and reportign because both need the vg version
+    docker load -i "${LOAD_DOCKER}"
+fi
+
 if [ "${DO_TEST}" != "0" ]
 then
 
@@ -264,13 +272,6 @@ then
     #########
     # TEST PREP PHASE
     #########
-
-    if [ ! -z "${LOAD_DOCKER}" ]
-    then
-        # Just load the Docker instead of building
-        # It will set the tag it was saved from
-        docker load -i "${LOAD_DOCKER}"
-    fi
 
     # Create Toil venv
     if [ ! "${REUSE_VENV}" == "1" ]; then
@@ -444,6 +445,17 @@ then
         then
             REPORT_FAIL=1
         fi
+        
+        # We need to re-determine the vg version since we may not have run the tests.
+        if [ "${LOCAL_BUILD}" == "1" ]
+        then
+            # Report on the locally built vg
+            VG_VERSION=`vg version -s`
+        else
+            # Test the Dockerized vg
+            VG_VERSION=`docker run ${DOCKER_TAG} vg version -s`
+        fi
+            
 
         # we publish the results to the archive
         tar czf "${VG_VERSION}_output.tar.gz" "${LOAD_WORK_DIR}/" test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
