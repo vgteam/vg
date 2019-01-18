@@ -692,7 +692,6 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
                 
                 REQUIRE(graph.get_id(handle) == mapping.position().node_id());
                 REQUIRE(graph.get_is_reverse(handle) == mapping.position().is_reverse());
-                REQUIRE(graph.get_ordinal_rank_of_occurrence(occurrence_handle) == mapping_idx);
             };
             
             occurrence_handle_t occurrence_handle;

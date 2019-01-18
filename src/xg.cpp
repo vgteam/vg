@@ -1855,7 +1855,7 @@ void XG::for_each_path_handle(const function<void(const path_handle_t&)>& iterat
 
 handle_t XG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
     const auto& xgpath = *paths[as_integer(get_path_handle_of_occurrence(occurrence_handle)) - 1];
-    size_t idx = get_ordinal_rank_of_occurrence(occurrence_handle);
+    size_t idx = as_integers(occurrence_handle)[1];
     return get_handle(xgpath.node(idx), xgpath.is_reverse(idx));
 }
 
@@ -1898,10 +1898,6 @@ occurrence_handle_t XG::get_previous_occurrence(const occurrence_handle_t& occur
 
 path_handle_t XG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
     return as_path_handle(as_integers(occurrence_handle)[0]);
-}
-    
-size_t XG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return as_integers(occurrence_handle)[1];
 }
 
 size_t XG::node_size() const {
