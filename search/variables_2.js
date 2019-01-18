@@ -22,6 +22,7 @@ var searchData=
   ['bases',['bases',['../structvg_1_1BasePileup.html#ab1ca874f6f9ee568866822a408300ba8',1,'vg::BasePileup']]],
   ['bases_5fper_5fchunk',['bases_per_chunk',['../classvg_1_1Constructor.html#ae525487466a66456d7169cc5047abf90',1,'vg::Constructor']]],
   ['begin',['begin',['../structvg_1_1kmer__t.html#ace8cd88692b6bb3c25a2989a4c505d1a',1,'vg::kmer_t::begin()'],['../classvg_1_1MaximalExactMatch.html#a894b11889ee0ef652acbfb84527e5225',1,'vg::MaximalExactMatch::begin()'],['../classvg_1_1PathNode.html#a4b103c45ebef87573a2b0288a2fc483c',1,'vg::PathNode::begin()'],['../structvg_1_1walk__t.html#af2f0816d239b918c2f2d76f9b696ab1b',1,'vg::walk_t::begin()']]],
+  ['begin_5fidx',['begin_idx',['../classvg_1_1PackedDeque.html#a06b679740b1b0e4276c9fc7011a27aa0',1,'vg::PackedDeque']]],
   ['bgzip_5fin',['bgzip_in',['../classvg_1_1stream_1_1ProtobufIterator.html#a85fad60d3d60c28fe13bb468f74e6b22',1,'vg::stream::ProtobufIterator']]],
   ['bgzip_5fout',['bgzip_out',['../classvg_1_1stream_1_1ProtobufEmitter.html#a2e3107a1a549b77aace7f4ac635e2bd9',1,'vg::stream::ProtobufEmitter']]],
   ['bin_5fsize',['bin_size',['../classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d',1,'vg::Packer']]],

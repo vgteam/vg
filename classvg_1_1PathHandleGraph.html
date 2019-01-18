@@ -102,12 +102,13 @@ Inheritance diagram for vg::PathHandleGraph:</div>
  <div class="center">
   <img src="classvg_1_1PathHandleGraph.png" usemap="#vg::PathHandleGraph_map" alt=""/>
   <map id="vg::PathHandleGraph_map" name="vg::PathHandleGraph_map">
-<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="240,0,470,24"/>
-<area href="classvg_1_1MutablePathHandleGraph.html" alt="vg::MutablePathHandleGraph" shape="rect" coords="120,112,350,136"/>
-<area href="classxg_1_1XG.html" alt="xg::XG" shape="rect" coords="360,112,590,136"/>
-<area href="classvg_1_1MutablePathDeletableHandleGraph.html" alt="vg::MutablePathDeletableHandleGraph" shape="rect" coords="0,168,230,192"/>
-<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="240,168,470,192"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="0,224,230,248"/>
+<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="360,0,590,24"/>
+<area href="classvg_1_1MutablePathHandleGraph.html" alt="vg::MutablePathHandleGraph" shape="rect" coords="240,112,470,136"/>
+<area href="classxg_1_1XG.html" alt="xg::XG" shape="rect" coords="480,112,710,136"/>
+<area href="classvg_1_1MutablePathDeletableHandleGraph.html" alt="vg::MutablePathDeletableHandleGraph" shape="rect" coords="120,168,350,192"/>
+<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="360,168,590,192"/>
+<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="0,224,230,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="240,224,470,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -152,9 +153,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a444b400530c76ba44f87d1837be3cf08"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathHandleGraph.html#a444b400530c76ba44f87d1837be3cf08">get_path_handle_of_occurrence</a> (const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const =0</td></tr>
 <tr class="memdesc:a444b400530c76ba44f87d1837be3cf08"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that an occurrence is on.  <a href="#a444b400530c76ba44f87d1837be3cf08">More...</a><br/></td></tr>
 <tr class="separator:a444b400530c76ba44f87d1837be3cf08"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1af839d3811d13bea1d2585702e802b7"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathHandleGraph.html#a1af839d3811d13bea1d2585702e802b7">get_ordinal_rank_of_occurrence</a> (const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const =0</td></tr>
-<tr class="memdesc:a1af839d3811d13bea1d2585702e802b7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the 0-based ordinal rank of a occurrence on a path.  <a href="#a1af839d3811d13bea1d2585702e802b7">More...</a><br/></td></tr>
-<tr class="separator:a1af839d3811d13bea1d2585702e802b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a373e2c9973e81d20269cf2ad9dde985d"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathHandleGraph.html#a373e2c9973e81d20269cf2ad9dde985d">is_empty</a> (const <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
 <tr class="memdesc:a373e2c9973e81d20269cf2ad9dde985d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the given path is empty, and false otherwise.  <a href="#a373e2c9973e81d20269cf2ad9dde985d">More...</a><br/></td></tr>
 <tr class="separator:a373e2c9973e81d20269cf2ad9dde985d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -296,7 +294,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Get a handle to the first occurrence in a path. The path MUST be nonempty. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#a5c6acb966d14b97b07177afc38bdef45">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#adff0e1716e97115deacaf3115786db5b">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#a5c6acb966d14b97b07177afc38bdef45">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#adff0e1716e97115deacaf3115786db5b">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#ae16a805e7a64e43ff84e64bbb9456123">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -323,7 +321,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Get a handle to the last occurrence in a path The path MUST be nonempty. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#aba71fb75e26bf5d984b8921fe80249bc">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a82696917d41113970d95e84cb2ed9f88">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#aba71fb75e26bf5d984b8921fe80249bc">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a82696917d41113970d95e84cb2ed9f88">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#acf9f7223d6a1b9b43648f01acc3f2543">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -351,7 +349,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Returns a handle to the next occurrence on the path. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#a3c0a39f1812c2165ba768813cd01bda0">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a8de058cf4945d57d348d148945281b00">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#a3c0a39f1812c2165ba768813cd01bda0">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a8de058cf4945d57d348d148945281b00">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a97734cc862ffeb217d031a36ebfc8cca">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -379,7 +377,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Get a node handle (node ID and orientation) from a handle to an occurrence on a path. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#af91ea6ef0a4e7153a12f11405b5373b9">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#abbef12f2d3db8d702f1fdf2aea40351d">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#af91ea6ef0a4e7153a12f11405b5373b9">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#abbef12f2d3db8d702f1fdf2aea40351d">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a044d676b6ff513a3a606e9793b802ca8">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -407,35 +405,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Returns the number of node occurrences in the path. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#a5c47be9e4c0cf8e628ac8d48b52258a2">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a800d31a2623c04eaf0073554e7ca31c5">vg::VG</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a1af839d3811d13bea1d2585702e802b7"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual size_t vg::PathHandleGraph::get_ordinal_rank_of_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Returns the 0-based ordinal rank of a occurrence on a path. </p>
-
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#aa44d179fe024d5a2d4cec22528206a81">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a0c908483fc487a286df4e2e56b05cc32">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#a5c47be9e4c0cf8e628ac8d48b52258a2">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a800d31a2623c04eaf0073554e7ca31c5">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#ab1fa306dc557bb91ac4330f69b74303d">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -462,7 +432,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Returns the number of paths stored in the graph. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#ad0dfa4e3b00e3bb8c59c1b776e3d81c0">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#ad0dfa4e3b00e3bb8c59c1b776e3d81c0">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#af2ca74884d23adfee43225ca141a8dec">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -517,7 +487,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Returns a handle to the path that an occurrence is on. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#ae4224cd806551144c32e6b3fa8239438">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a99957343fa6c48216d95787c1ddbd680">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#ae4224cd806551144c32e6b3fa8239438">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a99957343fa6c48216d95787c1ddbd680">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a4d8b896a9c644a92e40811be08a73794">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -545,7 +515,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Look up the name of a path from a handle to it. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#ab4edff13b7e39a1d1d525b0e50d02750">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#ac71b9547040f0d8ae430d564aa897d97">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#ab4edff13b7e39a1d1d525b0e50d02750">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#ac71b9547040f0d8ae430d564aa897d97">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a645cc630338a8b22385e689fbc958da2">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -573,7 +543,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Returns a handle to the previous occurrence on the path. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#a9078b12de7730dd4e6dd8a956a87021b">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#aeb4c806b52f820abecb2ef14b39f9fac">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#a9078b12de7730dd4e6dd8a956a87021b">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#aeb4c806b52f820abecb2ef14b39f9fac">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a5ecf42505e27409eb5a6edfc636cb594">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -601,7 +571,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Returns true if the occurrence is not the last occurence on the path, else false. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#ae199d9e85e6249de42f05a8643403b43">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#add251f0d262b6af53b11b244c17b39ec">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#ae199d9e85e6249de42f05a8643403b43">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#add251f0d262b6af53b11b244c17b39ec">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a1538bb1a073ded923e84d2521d344b09">vg::PackedGraph</a>.</p>
 
 </div>
 </div>
@@ -657,7 +627,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Returns true if the occurrence is not the first occurence on the path, else false. </p>
 
-<p>Implemented in <a class="el" href="classxg_1_1XG.html#a78270e8289fbae60293e521a8500caf5">xg::XG</a>, and <a class="el" href="classvg_1_1VG.html#a4fdaf206869cf4a3d7fe09858fa757c8">vg::VG</a>.</p>
+<p>Implemented in <a class="el" href="classxg_1_1XG.html#a78270e8289fbae60293e521a8500caf5">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a4fdaf206869cf4a3d7fe09858fa757c8">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a425d58cc5422563e593350bed3b32570">vg::PackedGraph</a>.</p>
 
 </div>
 </div>

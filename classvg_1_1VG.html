@@ -199,9 +199,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a99957343fa6c48216d95787c1ddbd680"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a99957343fa6c48216d95787c1ddbd680">get_path_handle_of_occurrence</a> (const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
 <tr class="memdesc:a99957343fa6c48216d95787c1ddbd680"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that an occurrence is on.  <a href="#a99957343fa6c48216d95787c1ddbd680">More...</a><br/></td></tr>
 <tr class="separator:a99957343fa6c48216d95787c1ddbd680"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0c908483fc487a286df4e2e56b05cc32"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a0c908483fc487a286df4e2e56b05cc32">get_ordinal_rank_of_occurrence</a> (const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:a0c908483fc487a286df4e2e56b05cc32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the 0-based ordinal rank of a occurrence on a path.  <a href="#a0c908483fc487a286df4e2e56b05cc32">More...</a><br/></td></tr>
-<tr class="separator:a0c908483fc487a286df4e2e56b05cc32"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54ad97e46dc1297b1a65a32697e2d37e"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a54ad97e46dc1297b1a65a32697e2d37e">create_handle</a> (const string &amp;sequence)</td></tr>
 <tr class="memdesc:a54ad97e46dc1297b1a65a32697e2d37e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given sequence and return the handle.  <a href="#a54ad97e46dc1297b1a65a32697e2d37e">More...</a><br/></td></tr>
 <tr class="separator:a54ad97e46dc1297b1a65a32697e2d37e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2863,6 +2860,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         <tr>
           <td class="memname">void vg::VG::clear </td>
           <td>(</td>
+          <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
         </tr>
@@ -5737,34 +5735,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a0c908483fc487a286df4e2e56b05cc32"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::VG::get_ordinal_rank_of_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Returns the 0-based ordinal rank of a occurrence on a path. </p>
-
-<p>Implements <a class="el" href="classvg_1_1PathHandleGraph.html#a1af839d3811d13bea1d2585702e802b7">vg::PathHandleGraph</a>.</p>
-
-</div>
-</div>
 <a class="anchor" id="a20417af67e14d7800b20df8b0ac763f9"></a>
 <div class="memitem">
 <div class="memproto">
@@ -7218,6 +7188,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         <tr>
           <td class="memname">size_t vg::VG::node_size </td>
           <td>(</td>
+          <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
         </tr>

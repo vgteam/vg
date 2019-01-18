@@ -310,9 +310,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ae4224cd806551144c32e6b3fa8239438"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ae4224cd806551144c32e6b3fa8239438">get_path_handle_of_occurrence</a> (const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
 <tr class="memdesc:ae4224cd806551144c32e6b3fa8239438"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that an occurrence is on.  <a href="#ae4224cd806551144c32e6b3fa8239438">More...</a><br/></td></tr>
 <tr class="separator:ae4224cd806551144c32e6b3fa8239438"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa44d179fe024d5a2d4cec22528206a81"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#aa44d179fe024d5a2d4cec22528206a81">get_ordinal_rank_of_occurrence</a> (const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:aa44d179fe024d5a2d4cec22528206a81"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the 0-based ordinal rank of a occurrence on a pth.  <a href="#aa44d179fe024d5a2d4cec22528206a81">More...</a><br/></td></tr>
-<tr class="separator:aa44d179fe024d5a2d4cec22528206a81"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af7ed9434d6aff7039337d0912c9d09de"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#af7ed9434d6aff7039337d0912c9d09de">neighborhood</a> (int64_t id, size_t dist, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, bool use_steps=true) const </td></tr>
 <tr class="separator:af7ed9434d6aff7039337d0912c9d09de"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1bd23f7a047b25dcf14a4516efbba3b3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a1bd23f7a047b25dcf14a4516efbba3b3">for_path_range</a> (const string &amp;name, int64_t start, int64_t stop, function&lt; void(int64_t node_id, bool rev)&gt; lambda, bool is_rev=false) const </td></tr>
@@ -2781,34 +2778,6 @@ Static Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="aa44d179fe024d5a2d4cec22528206a81"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t xg::XG::get_ordinal_rank_of_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Returns the 0-based ordinal rank of a occurrence on a pth. </p>
-
-<p>Implements <a class="el" href="classvg_1_1PathHandleGraph.html#a1af839d3811d13bea1d2585702e802b7">vg::PathHandleGraph</a>.</p>
-
-</div>
-</div>
 <a class="anchor" id="a4583077aa3f075112fcf474e434050af"></a>
 <div class="memitem">
 <div class="memproto">
@@ -4243,6 +4212,7 @@ Static Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">size_t xg::XG::node_size </td>
           <td>(</td>
+          <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
         </tr>

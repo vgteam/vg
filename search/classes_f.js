@@ -1,7 +1,13 @@
 var searchData=
 [
+  ['packeddeque',['PackedDeque',['../classvg_1_1PackedDeque.html',1,'vg']]],
+  ['packedgraph',['PackedGraph',['../classvg_1_1PackedGraph.html',1,'vg']]],
+  ['packedpath',['PackedPath',['../structvg_1_1PackedGraph_1_1PackedPath.html',1,'vg::PackedGraph']]],
+  ['packedsplaytree',['PackedSplayTree',['../classvg_1_1PackedSplayTree.html',1,'vg']]],
+  ['packedvector',['PackedVector',['../classvg_1_1PackedVector.html',1,'vg']]],
   ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg']]],
   ['packers',['Packers',['../classvg_1_1Packers.html',1,'vg']]],
+  ['pagedvector',['PagedVector',['../classvg_1_1PagedVector.html',1,'vg']]],
   ['pair_5fhash_5fmap',['pair_hash_map',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vector_3c_20vg_3a_3aalignment_20_2a_20_3e_20_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vector&lt; vg::Alignment * &gt; &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],
   ['pair_5fhash_5fmap_3c_20pair_3c_20vg_3a_3anodeside_2c_20vg_3a_3anodeside_20_3e_2c_20vg_3a_3aedge_20_2a_20_3e',['pair_hash_map&lt; pair&lt; vg::NodeSide, vg::NodeSide &gt;, vg::Edge * &gt;',['../classvg_1_1pair__hash__map.html',1,'vg']]],

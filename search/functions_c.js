@@ -2,6 +2,7 @@ var searchData=
 [
   ['last_5fpath_5fposition',['last_path_position',['../namespacevg.html#aa1c1e5b8ce9f9607976913317102d6dc',1,'vg']]],
   ['left_5fdegree',['left_degree',['../classvg_1_1VG.html#af9ac6e61dfa9350459dbb9586088c4a5',1,'vg::VG']]],
+  ['left_5frotate',['left_rotate',['../classvg_1_1PackedSplayTree.html#ab9e91c22ee97a2576a4debfc9b71808e',1,'vg::PackedSplayTree']]],
   ['length',['length',['../classvg_1_1MaximalExactMatch.html#a337debd9fc7219234fc98d2d2462c5fc',1,'vg::MaximalExactMatch::length()'],['../classvg_1_1BitString.html#ab4a80eb1f2c9dc963ee13ad640a92611',1,'vg::BitString::length()'],['../classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c',1,'vg::VG::length()']]],
   ['less_5fthan',['less_than',['../classvg_1_1StreamSorter.html#a7430c2e7c5191f314a241067d13aa3ea',1,'vg::StreamSorter::less_than(const Message &amp;a, const Message &amp;b) const '],['../classvg_1_1StreamSorter.html#a92260948d55c244f28803053ab52e992',1,'vg::StreamSorter::less_than(const Position &amp;a, const Position &amp;b) const ']]],
   ['likelihoods',['likelihoods',['../classvg_1_1VG.html#ada5821862279a350885f5368a54a5cba',1,'vg::VG']]],
@@ -22,7 +23,7 @@ var searchData=
   ['load_5fsupports',['load_supports',['../structvg_1_1SupportAugmentedGraph.html#a1aef5debe026648525732be7bc6cc4b1',1,'vg::SupportAugmentedGraph']]],
   ['load_5ftranslations',['load_translations',['../structvg_1_1AugmentedGraph.html#af86dc51d58ee0cfa4513602dccc373cd',1,'vg::AugmentedGraph']]],
   ['local_5fid',['local_id',['../classxg_1_1XGPath.html#a41b662917615dc6922e89d23fbfb5146',1,'xg::XGPath']]],
-  ['lock',['lock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1a6ed95994cc497481d3338986a30e49',1,'vg::GraphSynchronizer::Lock::lock()'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#a62805a6582a0280c58509f232079b416',1,'vg::GraphSynchronizer::Lock::Lock(GraphSynchronizer &amp;synchronizer, const string &amp;path_name, size_t path_offset, size_t context_bases, bool reflect)'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#a64972da675bb40fbbaec55470aeebdc4',1,'vg::GraphSynchronizer::Lock::Lock(GraphSynchronizer &amp;synchronizer, const string &amp;path_name, size_t start, size_t past_end)']]],
+  ['lock',['Lock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a62805a6582a0280c58509f232079b416',1,'vg::GraphSynchronizer::Lock::Lock(GraphSynchronizer &amp;synchronizer, const string &amp;path_name, size_t path_offset, size_t context_bases, bool reflect)'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#a64972da675bb40fbbaec55470aeebdc4',1,'vg::GraphSynchronizer::Lock::Lock(GraphSynchronizer &amp;synchronizer, const string &amp;path_name, size_t start, size_t past_end)'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1a6ed95994cc497481d3338986a30e49',1,'vg::GraphSynchronizer::Lock::lock()']]],
   ['locus_5fto_5fvariant',['locus_to_variant',['../classvg_1_1Genotyper.html#acdc3a6f24680b8f44564e15e671141db',1,'vg::Genotyper']]],
   ['log10_5fto_5fln',['log10_to_ln',['../namespacevg.html#a48d9ec9295afc7457506af4ddaf44217',1,'vg']]],
   ['log_5fcontinue_5ffactor',['log_continue_factor',['../structhaplo_1_1haploMath_1_1RRMemo.html#a4a3dacc819f40fd7e5063821b133028d',1,'haplo::haploMath::RRMemo']]],

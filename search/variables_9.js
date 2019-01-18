@@ -2,6 +2,7 @@ var searchData=
 [
   ['id',['id',['../structvg_1_1Node.html#af886497fd0ba196f651b5d8f9678b52d',1,'vg::Node']]],
   ['id_5fto_5fedge_5findices',['id_to_edge_indices',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a75ad6266609d35ec42e64abb2a29c7c8',1,'vg::IndexedVG::CacheEntry']]],
+  ['id_5fto_5fgraph_5fiv',['id_to_graph_iv',['../classvg_1_1PackedGraph.html#a513189c05c6f624f996fe5b045477512',1,'vg::PackedGraph']]],
   ['id_5fto_5findex',['id_to_index',['../classvg_1_1XdropAligner.html#a5f85612e0c2b4ce232f8459ab106da74',1,'vg::XdropAligner']]],
   ['id_5fto_5fname',['id_to_name',['../classvg_1_1Paths.html#a75a67b0c836eb9a21ae0eee3a213d62c',1,'vg::Paths']]],
   ['id_5fto_5fnode_5findex',['id_to_node_index',['../structvg_1_1IndexedVG_1_1CacheEntry.html#aa83d17938b7e420d9c592707721eed35',1,'vg::IndexedVG::CacheEntry']]],
@@ -36,6 +37,7 @@ var searchData=
   ['is_5fchecked_5fin',['is_checked_in',['../structvg_1_1Watchdog_1_1thread__state__t.html#aae7887d9b7548a028a6b7271aabd44eb',1,'vg::Watchdog::thread_state_t']]],
   ['is_5fcircular',['is_circular',['../structvg_1_1Path.html#ad04d3a1745f479f32b4a4358bec17c8f',1,'vg::Path::is_circular()'],['../classxg_1_1XGPath.html#a4cc65b6cfdbd12f6220dde5a716fd345',1,'xg::XGPath::is_circular()']]],
   ['is_5fcompacted',['is_compacted',['../classvg_1_1Packer.html#aa7f90bbde45e8487029a424392b653ad',1,'vg::Packer']]],
+  ['is_5fdeleted',['is_deleted',['../structvg_1_1PackedGraph_1_1PackedPath.html#a4a75015706cc60ec675609a33473857f',1,'vg::PackedGraph::PackedPath']]],
   ['is_5fend',['is_end',['../structvg_1_1CactusSide.html#a960c0e9a2c2dc004aac017030f6ad805',1,'vg::CactusSide::is_end()'],['../classvg_1_1NodeSide.html#a1493cac020ed0c9b1cbd37e2a99eb9b5',1,'vg::NodeSide::is_end()']]],
   ['is_5ffixed',['is_fixed',['../classvg_1_1FragmentLengthDistribution.html#adcfca733e40d173dcbaf2e8c617c74ec',1,'vg::FragmentLengthDistribution']]],
   ['is_5fphased',['is_phased',['../structvg_1_1Genotype.html#a7aceacf9d5e3def3d6e675ef34906aab',1,'vg::Genotype']]],

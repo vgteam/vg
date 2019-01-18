@@ -18,6 +18,7 @@ var searchData=
   ['has_5fbuffer',['has_buffer',['../classvg_1_1VcfBuffer.html#a13f0fa2e0b50cd133c117bd1f34715c3',1,'vg::VcfBuffer']]],
   ['has_5fcontent',['has_content',['../structvg_1_1BitStringTree_1_1TreeNode.html#ac222ba76d226ad0f457be10e8c8a8b30',1,'vg::BitStringTree::TreeNode']]],
   ['has_5freachability_5fedges',['has_reachability_edges',['../classvg_1_1MultipathAlignmentGraph.html#a77a113d4c5b6b5ca1d7748c1b812e8d3',1,'vg::MultipathAlignmentGraph']]],
+  ['head',['head',['../structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6',1,'vg::PackedGraph::PackedPath']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],
   ['het_5fprior_5flogprob',['het_prior_logprob',['../classvg_1_1Genotyper.html#a21799af8d6da86a3bbcfffb1060d27cf',1,'vg::Genotyper']]],

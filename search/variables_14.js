@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['tail',['tail',['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath']]],
   ['target_5fprotobuf_5fsize',['TARGET_PROTOBUF_SIZE',['../namespacevg_1_1stream.html#a1c251c853915079cc6a23af49619db75',1,'vg::stream']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
@@ -43,6 +44,7 @@ var searchData=
   ['traversal',['traversal',['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5ffinder',['traversal_finder',['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier']]],
+  ['tree',['tree',['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree']]],
   ['true',['true',['../classvg_1_1SupportCaller.html#ae80afc297411ff87d793461d259106a2',1,'vg::SupportCaller']]],
   ['ts_5fciv',['ts_civ',['../classxg_1_1XG.html#a10edf2d06ea2dd4c2447fee2d45315d0',1,'xg::XG']]],
   ['ts_5fiv',['ts_iv',['../classxg_1_1XG.html#a05141e12ffaf3a49aef046d3e2d7181a',1,'xg::XG']]],
