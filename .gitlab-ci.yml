@@ -1,0 +1,68 @@
+# The VG tests are going to use toil-vg.
+# toil-vg needs to be able to mount paths it can see into Docker containers.
+# There's no good way to do that when running Docker containers as siblings of a container containing toil-vg.
+# So we either have to genuinely nest Docker inside another Docker, or we have to run the build on the real host.
+
+before_script:
+  - whoami
+  - sudo apt-get -q -y update
+  # Make sure we have some curl stuff for pycurl which we need for some Python stuff
+  # We also need Node >4 for junit merging (so we need to be on Ubuntu 18.04+)
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev
+  - sudo npm install -g junit-merge
+  - cat /etc/hosts
+  - docker info
+  
+# We have two pipeline stages: build to make a Docker, and test to run tests.
+# TODO: make test stage parallel
+stages:
+  - build
+  - test
+  - report
+  
+
+# We define one job to do the build
+build-job:
+  stage: build
+  script: 
+    - bash vgci/vgci.sh -t None -d vgci-docker-vg-local.tar.gz -H
+    - ls -lah vgci-docker-vg-local.tar.gz
+  artifacts:
+    paths:
+      - vgci-docker-vg-local.tar.gz
+    # This is huge and needs to expire fast
+    expire_in: 1 day
+    
+# We define a second follow-on phase to run the tests
+# Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
+test-job:
+  stage: test
+  # Run in parallel, setting CI_NODE_INDEX and CI_NODE_TOTAL
+  # We will find our share of tests from vgci/test-list.txt and run them
+  # We ought to run one job per test, but we can wrap around.
+  parallel: 19 
+  # All artifacts from previous stages are available
+  script: 
+    - mkdir -p junit
+    - bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
+  artifacts:
+    # Let Gitlab see the junit report
+    reports:
+      junit: junit/*.xml
+    paths:
+      - junit/*.xml
+      - test_output/*
+    expire_in: 1 week
+
+# We have a final job in the last stage to compose an HTML report
+report-job:
+  stage: report
+  # All artifacts from previous stages are available
+  script: 
+    # Collect all the junit files from all the test jobs into one
+    - junit-merge -o junit.all.xml junit/*.xml
+    # All the test output folder artifacts should automatically merge.
+    # Make the report and post it.
+    - bash vgci/vgci.sh -J junit.all.xml -D vgci-docker-vg-local.tar.gz -W test_output
+   
+  
