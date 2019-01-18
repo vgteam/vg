@@ -160,6 +160,7 @@ public:
     bool has_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id);
+    const map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id) const;
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(Node* n);
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(id_t id);
     map<string, map<int, mapping_t*> > get_node_mappings_by_rank(id_t id);
