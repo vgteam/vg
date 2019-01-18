@@ -339,10 +339,6 @@ path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occur
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
 
-size_t VG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])->rank - 1;
-}
-
 handle_t VG::create_handle(const string& sequence) {
     Node* node = create_node(sequence);
     return get_handle(node->id(), false);

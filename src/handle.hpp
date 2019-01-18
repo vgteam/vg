@@ -409,9 +409,6 @@ public:
     
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
-    
-    /// Returns the 0-based ordinal rank of a occurrence on a path
-    virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
 
     ////////////////////////////////////////////////////////////////////////////
     // Additional optional interface with a default implementation

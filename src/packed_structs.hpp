@@ -72,7 +72,8 @@ private:
 /*
  * A dynamic integer vector that provides better compression when values in the
  * integer vector either 1) do not vary much from their neighbors or 2) are 0.
- * Compression is also optimized for vectors that are mostly increasing.
+ * Compression is also optimized for vectors that are mostly (but not necessarily
+ * exclusively) increasing.
  */
 class PagedVector {
 public:
@@ -584,7 +585,7 @@ inline void PagedVector::clear() {
     
 inline uint64_t PagedVector::to_diff(const uint64_t& value, const uint64_t& anchor) const {
     // leaves 0 unchanged, encodes other values as a difference from the anchor value
-    // with a bijection into the positive integers as follows:
+    // with a reversible mapping into the positive integers as follows:
     // difference  0  1  2  3 -1  4  5  6  7 -2  8  9 10 11 -3 ...
     // integer     1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 ...
     // the goal here is use smaller integers to maintain low bit-width, allowing 0 as
