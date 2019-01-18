@@ -823,6 +823,8 @@ namespace vg {
         packed_path.name.clear();
         packed_path.head = 0;
         packed_path.tail = 0;
+        
+        defragment();
     }
     
     path_handle_t PackedGraph::create_path_handle(const string& name) {
