@@ -1,8 +1,10 @@
 /// \file stream.cpp
 ///  
-/// Unit tests for stream functions
+/// Unit tests for stream file external interface
 
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/protobuf_iterator.hpp"
+#include "../stream/protobuf_emitter.hpp"
 
 #include "vg.pb.h"
 

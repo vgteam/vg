@@ -15,7 +15,7 @@
 
 #include "sdsl/bit_vectors.hpp"
 #include "../version.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../cpp/vg.pb.h"
 #include "../xg.hpp"
 #include "../region.hpp"

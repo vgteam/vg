@@ -2,7 +2,7 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 
 #include <unistd.h>
 #include <getopt.h>

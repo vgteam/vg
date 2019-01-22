@@ -27,7 +27,8 @@
 #include "mem.hpp"
 
 #include "vg.pb.h"
-#include "stream.hpp"
+#include "stream/stream.hpp"
+#include "stream/protobuf_emitter.hpp"
 #include "hash_map.hpp"
 
 #include "progressive.hpp"

@@ -1,7 +1,7 @@
 #include "subcommand.hpp"
 #include "../utility.hpp"
 #include "../viz.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 
 #include <unistd.h>
 #include <getopt.h>

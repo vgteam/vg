@@ -1,5 +1,5 @@
 #include "../stream_sorter.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../stream_index.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"

@@ -3,7 +3,7 @@
 
 /**
  * \file stream_index.hpp
- * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted stream.hpp-formatted files.
+ * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted stream/stream.hpp-formatted files.
  */
  
 #include <iostream>
@@ -14,7 +14,7 @@
 
 #include "types.hpp"
 #include "vg.pb.h"
-#include "stream.hpp"
+#include "stream/protobuf_iterator.hpp"
 #include "scanner.hpp"
 
 namespace vg {
@@ -160,7 +160,7 @@ protected:
 };
 
 /**
- * An index for a node-ID-sorted stream.hpp-formatted file, such as GAM or VG.
+ * An index for a node-ID-sorted stream/stream.hpp-formatted file, such as GAM or VG.
  *
  * Works on a BAI-like concept of bins partitioning node ID space.
  *

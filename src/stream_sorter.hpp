@@ -2,7 +2,8 @@
 #define VG_STREAM_SORTER_HPP_INCLUDED
 
 #include "vg.pb.h"
-#include "stream.hpp"
+#include "stream/protobuf_emitter.hpp"
+#include "stream/protobuf_iterator.hpp"
 #include "types.hpp"
 #include "progressive.hpp"
 #include "stream_index.hpp"
@@ -24,7 +25,7 @@
 
 /**
  * \file stream_sorter.hpp
- * stream.hpp-format file sorting tools.
+ * stream/stream.hpp-format file sorting tools.
  */
 using namespace std;
 namespace vg {
@@ -54,12 +55,12 @@ public:
     /// show_progress is true.
     StreamSorter(bool show_progress = false);
     
-    /// Sort a stream of stream.hpp-format data, using temporary files,
+    /// Sort a stream of stream/stream.hpp-format data, using temporary files,
     /// limiting the number of simultaneously open input files and the size of
     /// in-memory data. Optionally index the sorted file into the given index.
     void stream_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
     
-    /// Sort a stream of stream.hpp-format data, loading it all into memory and
+    /// Sort a stream of stream/stream.hpp-format data, loading it all into memory and
     /// doing a single giant sort operation. Optionally index the sorted file
     /// into the given index.
     void easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);

@@ -14,7 +14,7 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include <gbwt/dynamic_gbwt.h>
 
 using namespace std;

@@ -2,7 +2,7 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../alignment.hpp"
 #include "../annotation.hpp"
 

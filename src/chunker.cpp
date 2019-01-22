@@ -1,6 +1,6 @@
 #include <iostream>
 #include <unordered_set>
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "chunker.hpp"
 
 

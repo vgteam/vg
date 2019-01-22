@@ -13,7 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"

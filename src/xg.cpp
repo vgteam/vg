@@ -1,5 +1,5 @@
 #include "xg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "alignment.hpp"
 
 #include <bitset>

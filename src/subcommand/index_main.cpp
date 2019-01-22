@@ -12,7 +12,7 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"

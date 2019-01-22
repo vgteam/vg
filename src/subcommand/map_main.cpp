@@ -3,7 +3,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../surjector.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 
 #include <unistd.h>
 #include <getopt.h>

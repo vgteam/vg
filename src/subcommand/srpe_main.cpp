@@ -5,7 +5,7 @@
 #include <regex>
 #include "subcommand.hpp"
 #include "srpe.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "index.hpp"
 #include "position.hpp"
 #include "vg.pb.h"

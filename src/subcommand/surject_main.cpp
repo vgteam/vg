@@ -11,7 +11,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../utility.hpp"
 #include "../surjector.hpp"
 

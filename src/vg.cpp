@@ -1,5 +1,5 @@
 #include "vg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "gssw_aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
@@ -6736,7 +6736,7 @@ Alignment VG::align(const Alignment& alignment,
     // trans is only required in the X-drop aligner; can be nullptr
     auto do_align = [&](Graph& g) {
 #ifdef debug
-        write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
+        stream::write_to_file(alignment, hash_alignment(alignment) + ".gam");
         serialize_to_file(hash_alignment(alignment) + ".vg");
 #endif
         if (aligner && qual_adj_aligner) {
@@ -6836,7 +6836,7 @@ Alignment VG::align(const Alignment& alignment,
                          << pb2json(a) << endl
                          << "expect:\t" << a.sequence() << endl
                          << "got:\t" << seq << endl;
-                    write_alignment_to_file(a, "fail.gam");
+                    stream::write_to_file(a, "fail.gam");
                     graph.serialize_to_file("fail.vg");
                     assert(false);
                 }

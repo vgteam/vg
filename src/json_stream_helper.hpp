@@ -5,7 +5,7 @@
 #include <vector>
 #include <iostream>
 
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "json2pb.h"
 
 namespace vg {
