@@ -600,9 +600,9 @@ namespace vg {
 #endif
                 
                 // stack for DFS, each record contains tuples of (read begin, node offset, next node index, next node ids)
-                vector<tuple<string::const_iterator, size_t, size_t, vector<NodeTraversal>>> stack;
+                vector<tuple<string::const_iterator, size_t, size_t, vector<handle_t>>> stack;
                 stack.emplace_back(begin, offset(hit_pos), 0,
-                                   vector<NodeTraversal>{NodeTraversal(vg.get_node(injected_id))});
+                                   vector<handle_t>{vg.get_handle(injected_id)});
                 
                 while (!stack.empty()) {
                     auto& back = stack.back();
@@ -613,14 +613,15 @@ namespace vg {
                         stack.pop_back();
                         continue;
                     }
-                    NodeTraversal trav = get<3>(back)[get<2>(back)];
+                    
+                    handle_t trav = get<3>(back)[get<2>(back)];
                     get<2>(back)++;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "checking node " << trav.node->id() << endl;
+                    cerr << "checking node " << vg.get_id(trav); << endl;
 #endif
                     
-                    const string& node_seq = trav.node->sequence();
+                    string node_seq = vg.get_sequence(trav);
                     size_t node_idx = get<1>(back);
                     string::const_iterator read_iter = get<0>(back);
                     
@@ -637,71 +638,57 @@ namespace vg {
                     if (read_iter == end) {
                         // finished walking match
 #ifdef debug_multipath_alignment
-                        cerr << "reached end of read sequence, finished walking match" << endl;
+                        cerr << "reached end of read sequence, converting into a Path at idx " << path_nodes.size() << endl;
 #endif
-                        break;
+                        
+                        path_nodes.emplace_back();
+                        PathNode& match_node = path_nodes.back();
+                        Path& path = match_node.path;
+                        match_node.begin = begin;
+                        match_node.end = end;
+                        int64_t length_remaining = end - begin;
+                        
+                        // walk out the match
+                        int32_t rank = 1;
+                        for (auto search_record : stack) {
+                            int64_t offset = get<1>(search_record);
+                            handle_t handle = get<3>(search_record)[get<2>(search_record) - 1];
+                            int64_t length = std::min(int64_t(vg.get_length(handle)) - offset, length_remaining);
+                            
+                            Mapping* mapping = path.add_mapping();
+                            mapping->set_rank(rank);
+                            
+                            Edit* edit = mapping->add_edit();
+                            edit->set_from_length(length);
+                            edit->set_to_length(length);
+                            
+                            // note: the graph is dagified and unrolled, so all hits should be on the forward strand
+                            Position* position = mapping->mutable_position();
+                            position->set_node_id(vg.get_id(handle));
+                            position->set_offset(offset);
+                            
+                            // record that each node occurs in this match so we can filter out sub-MEMs
+                            node_matches[vg.get_id(handle)].push_back(path_nodes.size() - 1);
+#ifdef debug_multipath_alignment
+                            cerr << "associating node " << vg.get_id(handle) << " with a match at idx " << path_nodes.size() - 1 << endl;
+#endif
+                            
+                            rank++;
+                            length_remaining -= length;
+                        }
+                        
+#ifdef debug_multipath_alignment
+                        cerr << pb2json(path) << endl;
+#endif
                     }
                     else if (node_idx == node_seq.size()) {
-                        // matched entire node
-                        stack.emplace_back(read_iter, 0, 0, vector<NodeTraversal>());
-                        vg.nodes_next(trav, get<3>(stack.back()));
+                        // matched entire node, move to next node(s)
+                        stack.emplace_back(read_iter, 0, 0, vector<handle_t>());
+                        vg.follow_edges(trav, false, [&](const handle_t& next) {
+                            get<3>(stack.back()).push_back(next);
+                        });
                     }
                 }
-                
-                // if we left a trace in the stack we found a complete match, but sometimes MEMs that overhang
-                // the edge of the subraph find their way in (only when they are not part of the alignment
-                // represented by the cluster used to query the subgraph) in which case we just skip this MEM
-                if (stack.empty()) {
-#ifdef debug_multipath_alignment
-                    cerr << "this MEM overhangs the end of the graph" << endl;
-#endif
-                    continue;
-                }
-                
-#ifdef debug_multipath_alignment
-                cerr << "converting into a Path at idx " << path_nodes.size() << endl;
-#endif
-                
-                int64_t match_node_idx = path_nodes.size();
-                path_nodes.emplace_back();
-                PathNode& match_node = path_nodes.back();
-                Path& path = match_node.path;
-                match_node.begin = begin;
-                match_node.end = end;
-                int64_t length_remaining = end - begin;
-                
-                // walk out the match
-                int32_t rank = 1;
-                for (auto search_record : stack) {
-                    int64_t offset = get<1>(search_record);
-                    Node* node = get<3>(search_record)[get<2>(search_record) - 1].node;
-                    int64_t length = std::min((int64_t) node->sequence().size() - offset, length_remaining);
-                    
-                    Mapping* mapping = path.add_mapping();
-                    mapping->set_rank(rank);
-                    
-                    Edit* edit = mapping->add_edit();
-                    edit->set_from_length(length);
-                    edit->set_to_length(length);
-                    
-                    // note: the graph is dagified and unrolled, so all hits should be on the forward strand
-                    Position* position = mapping->mutable_position();
-                    position->set_node_id(node->id());
-                    position->set_offset(offset);
-                    
-                    // record that each node occurs in this match so we can filter out sub-MEMs
-                    node_matches[node->id()].push_back(match_node_idx);
-#ifdef debug_multipath_alignment
-                    cerr << "associating node " << node->id() << " with a match at idx " << match_node_idx << endl;
-#endif
-                    
-                    rank++;
-                    length_remaining -= length;
-                }
-                
-#ifdef debug_multipath_alignment
-                cerr << pb2json(path) << endl;
-#endif
             }
         }
     }
