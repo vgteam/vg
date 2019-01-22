@@ -111,23 +111,27 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     // Cut our graph so that our reference path end points are graph tips.  This will let the
     // snarl finder use the path to find telomeres.
     Node* start_node = subgraph.get_node(mappings.begin()->node_id());
-    if (!mappings.begin()->is_reverse() && subgraph.start_degree(start_node) != 0) {
-        for (auto edge : subgraph.edges_to(start_node)) {
-            subgraph.destroy_edge(edge);
-        }
-    } else if (mappings.begin()->is_reverse() && subgraph.end_degree(start_node) != 0) {
-        for (auto edge : subgraph.edges_from(start_node)) {
-            subgraph.destroy_edge(edge);
+    if (rewrite_paths && xg->position_in_path(start_node->id(), region.seq).size() == 1) {
+        if (!mappings.begin()->is_reverse() && subgraph.start_degree(start_node) != 0) {
+            for (auto edge : subgraph.edges_to(start_node)) {
+                subgraph.destroy_edge(edge);
+            }
+        } else if (mappings.begin()->is_reverse() && subgraph.end_degree(start_node) != 0) {
+            for (auto edge : subgraph.edges_from(start_node)) {
+                subgraph.destroy_edge(edge);
+            }
         }
     }
     Node* end_node = subgraph.get_node(mappings.rbegin()->node_id());
-    if (!mappings.rbegin()->is_reverse() && subgraph.end_degree(end_node) != 0) {
-        for (auto edge : subgraph.edges_from(end_node)) {
-            subgraph.destroy_edge(edge);
-        }
-    } else if (mappings.rbegin()->is_reverse() && subgraph.start_degree(end_node) != 0) {
-        for (auto edge : subgraph.edges_to(end_node)) {
-            subgraph.destroy_edge(edge);
+    if (rewrite_paths && xg->position_in_path(end_node->id(), region.seq).size() == 1) {
+        if (!mappings.rbegin()->is_reverse() && subgraph.end_degree(end_node) != 0) {
+            for (auto edge : subgraph.edges_from(end_node)) {
+                subgraph.destroy_edge(edge);
+            }
+        } else if (mappings.rbegin()->is_reverse() && subgraph.start_degree(end_node) != 0) {
+            for (auto edge : subgraph.edges_to(end_node)) {
+                subgraph.destroy_edge(edge);
+            }
         }
     }
     
