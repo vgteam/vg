@@ -495,9 +495,6 @@ namespace vg {
                     assert(!variant->isSymbolicSV());
                     // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
-                    // Check the variant's reference sequence to catch bad VCF/FASTA pairings
-                    auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
-
                     // Since we make the fasta reference uppercase, we do the VCF too (otherwise vcflib get mad)
                     bool reindex = false;
                     for (auto& alt : variant->alt) {
@@ -526,7 +523,9 @@ namespace vg {
                     if (reindex) {
                         variant->updateAlleleIndexes();
                     }
-                    
+
+                    // Check the variant's reference sequence to catch bad VCF/FASTA pairings
+                    auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
                     if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
                     #pragma omp critical (cerr)
