@@ -1262,7 +1262,7 @@ void SupportCaller::call(
         // We can handle some things that aren't ultrabubbles, but we can't yet
         // handle general snarls.
         auto is_traversable = [](const Snarl* s) {
-            return s->start_end_reachable() && s->directed_acyclic_net_graph();
+            return s->start_end_reachable() && s->directed_acyclic_net_graph() && s->type() == ULTRABUBBLE;
         };
         
         // We don't just need to check the top snarl; we also need to enforce
