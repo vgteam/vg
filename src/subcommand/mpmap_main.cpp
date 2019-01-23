@@ -127,6 +127,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
+    int max_branch_trim_length = 1;
     bool suppress_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
@@ -996,6 +997,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
+    multipath_mapper.max_branch_trim_length = max_branch_trim_length;
     multipath_mapper.suppress_tail_anchors = suppress_tail_anchors;
     multipath_mapper.num_alt_alns = num_alt_alns;
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;

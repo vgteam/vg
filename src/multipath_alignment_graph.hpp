@@ -57,12 +57,12 @@ namespace vg {
         MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                gcsa::GCSA* gcsa = nullptr);
+                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
                                 
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily.
         MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                gcsa::GCSA* gcsa = nullptr);
+                                size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
         
         /// Construct a graph of the reachability between MEMs in a linearized
         /// path graph. Produces a graph with reachability edges.
@@ -107,12 +107,15 @@ namespace vg {
         /// (possibly after modifying the graph).
         void clear_reachability_edges();
         
+        /// Remove the ends of paths, up to a maximum length, if they cause the path
+        /// to extend past a branch point in the graph.
+        void trim_to_branch_points(const HandleGraph* graph, size_t max_trim_length = 1);
+        
         /// Cut the interior of snarls out of anchoring paths (and split
         /// alignment nodes accordingly) unless they are longer than the max
         /// cut size. Reachability edges must be cleared.
         void resect_snarls_from_paths(SnarlManager* cutting_snarls, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                       int64_t max_snarl_cut_size = 5);
-        
         
         /// Do some exploratory alignments of the tails of the graph, outside
         /// the outermost existing anchors, and define new anchoring paths from
@@ -169,7 +172,7 @@ namespace vg {
         /// Get lists of the vg node IDs that participate in each connected component in the MultipathAlignmentGraph
         vector<vector<id_t>> get_connected_components() const;
         
-        /// Does the multipath alignment xgraph have any nodes?
+        /// Does the multipath alignment graph have any nodes?
         bool empty();
         
     private:

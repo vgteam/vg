@@ -2955,7 +2955,7 @@ namespace vg {
         // construct a graph that summarizes reachability between MEMs
         // First we need to reverse node_trans
         auto node_inj = MultipathAlignmentGraph::create_injection_trans(node_trans);
-        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, gcsa);
+        MultipathAlignmentGraph multi_aln_graph(align_graph, graph_mems, node_trans, node_inj, max_branch_trim_length, gcsa);
         
         {
             // Compute a topological order over the graph

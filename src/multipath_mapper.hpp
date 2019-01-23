@@ -91,6 +91,7 @@ namespace vg {
         
         // parameters
         
+        size_t max_branch_trim_length = 1;
         int64_t max_snarl_cut_size = 5;
         bool suppress_tail_anchors = false;
         double band_padding_multiplier = 1.0;

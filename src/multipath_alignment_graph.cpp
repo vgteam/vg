@@ -62,7 +62,7 @@ namespace vg {
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
-                                                     gcsa::GCSA* gcsa) {
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) {
         
         // initialize the match nodes
         create_match_nodes(vg, hits, projection_trans, injection_trans);
@@ -72,8 +72,14 @@ namespace vg {
             collapse_order_length_runs(vg, gcsa);
         }
         
+        if (max_branch_trim_length) {
+            // we indicated that we'd like to trim the path nodes to avoid ends that cause us to look at different
+            // branches
+            trim_to_branch_points(&vg, max_branch_trim_length);
+        }
+        
 #ifdef debug_multipath_alignment
-        cerr << "nodes after adding and collapsing:" << endl;
+        cerr << "nodes after adding, trimming, and collapsing:" << endl;
         for (size_t i = 0; i < path_nodes.size(); i++) {
             PathNode& path_node = path_nodes.at(i);
             cerr << i << " " << pb2json(path_node.path) << " ";
@@ -90,9 +96,10 @@ namespace vg {
     
     MultipathAlignmentGraph::MultipathAlignmentGraph(VG& vg, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
-                                                     gcsa::GCSA* gcsa) : 
+                                                     size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
                                                      MultipathAlignmentGraph(vg, hits, projection_trans, 
-                                                                             create_injection_trans(projection_trans), gcsa) {
+                                                                             create_injection_trans(projection_trans),
+                                                                             max_branch_trim_length, gcsa) {
         // Nothing to do
         
     }
@@ -503,12 +510,12 @@ namespace vg {
             auto hit_range = injection_trans.equal_range(id(hit_pos));
             for (auto iter = hit_range.first; iter != hit_range.second; iter++) {
                 // this graph is unrolled/dagified, so all orientations should match
-                if ((*iter).second.second != is_rev(hit_pos)) {
+                if (iter->second.second != is_rev(hit_pos)) {
                     continue;
                 }
                 
                 // an id that corresponds to the original node
-                id_t injected_id = (*iter).second.first;
+                id_t injected_id = iter->second.first;
                 
 #ifdef debug_multipath_alignment
                 cerr << "hit node exists in graph as " << injected_id << endl;
@@ -991,6 +998,89 @@ namespace vg {
             path_nodes.resize(path_nodes.size() - to_remove.size());
         }
         
+    }
+    
+    void MultipathAlignmentGraph::trim_to_branch_points(const HandleGraph* graph, size_t max_trim_length) {
+        
+        assert(!has_reachability_edges);
+        
+        for (PathNode& path_node : path_nodes) {
+            
+            // find the mapping where we are first pass the maximum trim length coming inward
+            // from the left
+            int64_t from_length = 0;
+            int64_t to_length = 0;
+            int64_t prefix_idx = 0;
+            for (; prefix_idx < path_node.path.mapping_size()
+                 && from_length <= max_trim_length
+                 && to_length <= max_trim_length; prefix_idx++) {
+                
+                from_length += mapping_from_length(path_node.path.mapping(prefix_idx));
+                to_length += mapping_to_length(path_node.path.mapping(prefix_idx));
+            }
+            
+            // walk backwards to see if we passed any leftward branch points
+            for (; prefix_idx > 0; prefix_idx--) {
+                const Position& pos = path_node.path.mapping(prefix_idx).position();
+                if (graph->get_degree(graph->get_handle(pos.node_id(), pos.is_reverse()), true) > 1) {
+                    // this is the inward most branch point within the trim length
+                    break;
+                }
+            }
+            
+            // find the mapping where we are first pass the maximum trim length coming inward
+            // from the right
+            from_length = 0;
+            to_length = 0;
+            int64_t suffix_idx = path_node.path.mapping_size() - 1;
+            for (; suffix_idx >= 0
+                 && from_length <= max_trim_length
+                 && to_length <= max_trim_length; suffix_idx--) {
+                
+                from_length += mapping_from_length(path_node.path.mapping(suffix_idx));
+                to_length += mapping_to_length(path_node.path.mapping(suffix_idx));
+            }
+            
+            // walk forward to see if we passed any rightwards branch points
+            for (; suffix_idx + 1 < path_node.path.mapping_size(); suffix_idx++) {
+                const Position& pos = path_node.path.mapping(suffix_idx).position();
+                if (graph->get_degree(graph->get_handle(pos.node_id(), pos.is_reverse()), false) > 1) {
+                    // this is the inward most branch point within the trim length
+                    break;
+                }
+            }
+            
+            // the prefix/suffix idx now indicate the place after which we can trim
+            
+            if (prefix_idx > suffix_idx) {
+                // this is a weird case, we seem to want to trim the whole anchor, which suggests
+                // that maybe the trim length was chosen to be too long. there are other explanations
+                // but we're just going to ignore the trimming for now
+                // TODO: is this the right approach
+                continue;
+            }
+            
+            if (prefix_idx > 0 || suffix_idx + 1 < path_node.path.mapping_size()) {
+                
+                // compute the amount of read we're trimming off from each end
+                int64_t trimmed_prefix_from_length = 0;
+                int64_t trimmed_suffix_from_length = 0;
+                for (int64_t i = 0; i < prefix_idx; i++) {
+                    trimmed_prefix_from_length += mapping_from_length(path_node.path.mapping(i));
+                }
+                for (int64_t i = suffix_idx + 1; i < path_node.path.mapping_size(); i++) {
+                    trimmed_suffix_from_length += mapping_from_length(path_node.path.mapping(i));
+                }
+                
+                Path new_path;
+                for (int64_t i = prefix_idx; i <= suffix_idx; i++) {
+                    *new_path.add_mapping() = path_node.path.mapping(i);
+                }
+                path_node.path = move(new_path);
+                path_node.begin += trimmed_prefix_from_length;
+                path_node.end -= trimmed_suffix_from_length;
+            }
+        }
     }
     
     void MultipathAlignmentGraph::resect_snarls_from_paths(SnarlManager* cutting_snarls,
