@@ -2,6 +2,7 @@ var searchData=
 [
   ['occurrence_5fhandle_5ft',['occurrence_handle_t',['../structvg_1_1occurrence__handle__t.html',1,'vg']]],
   ['occurrences_5fiv',['occurrences_iv',['../structvg_1_1PackedGraph_1_1PackedPath.html#a98c102a0192e95b2f2a1a8680e72f721',1,'vg::PackedGraph::PackedPath']]],
+  ['occurrences_5fof_5fhandle',['occurrences_of_handle',['../classvg_1_1PathHandleGraph.html#aaf7a2a2def7cdb9f8f1ddc7d8835fe7c',1,'vg::PathHandleGraph::occurrences_of_handle()'],['../classvg_1_1PackedGraph.html#afabc7a6962a46a3a4eff4c9c19b837b3',1,'vg::PackedGraph::occurrences_of_handle()'],['../classvg_1_1VG.html#a838967605238fb226a5a5a7836229c96',1,'vg::VG::occurrences_of_handle()'],['../classxg_1_1XG.html#af1bbf7edcfaffb121f51cdc0fd6e3b9a',1,'xg::XG::occurrences_of_handle()']]],
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
   ['off_5ft',['off_t',['../namespacevg.html#a9cdb6d0305bd8cbf46efed9b2799877a',1,'vg']]],
   ['offset',['offset',['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()'],['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg::offset()']]],

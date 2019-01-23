@@ -146,7 +146,7 @@ var searchData=
   ['travs_5ffrom',['travs_from',['../classvg_1_1VG.html#a34a493a0628857a3bfae181295ba541d',1,'vg::VG']]],
   ['travs_5fof',['travs_of',['../classvg_1_1VG.html#ae065082f817e9bc0e278cf71f31af1e2',1,'vg::VG']]],
   ['travs_5fto',['travs_to',['../classvg_1_1VG.html#a0a962957210c079fa242b383d5c65de3',1,'vg::VG']]],
-  ['tree',['Tree',['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()'],['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree::tree()']]],
+  ['tree',['tree',['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree::tree()'],['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()']]],
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],

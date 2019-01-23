@@ -163,7 +163,7 @@ var searchData=
   ['get_5fnode_5fdegree',['get_node_degree',['../classvg_1_1FlowSort.html#a033cbc4da28f5ad6c3be63374eb55ac3',1,'vg::FlowSort']]],
   ['get_5fnode_5fid_5fto_5fvariant',['get_node_id_to_variant',['../classvg_1_1VG.html#a12f5208ae9a2f22a31658dfaad28229b',1,'vg::VG']]],
   ['get_5fnode_5flength',['get_node_length',['../classvg_1_1Mapper.html#a99717b5d61b6db599c177b8bafcb6dd8',1,'vg::Mapper']]],
-  ['get_5fnode_5fmapping',['get_node_mapping',['../classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598',1,'vg::Paths::get_node_mapping(Node *n)'],['../classvg_1_1Paths.html#a7fa795ccee1427d6cac6e44fafe41e1e',1,'vg::Paths::get_node_mapping(id_t id)']]],
+  ['get_5fnode_5fmapping',['get_node_mapping',['../classvg_1_1Paths.html#a6314d7f8036a65b31d4dfac643bc3598',1,'vg::Paths::get_node_mapping(Node *n)'],['../classvg_1_1Paths.html#a7fa795ccee1427d6cac6e44fafe41e1e',1,'vg::Paths::get_node_mapping(id_t id)'],['../classvg_1_1Paths.html#a3e9954f127e2b862bd69fd4a85993285',1,'vg::Paths::get_node_mapping(id_t id) const ']]],
   ['get_5fnode_5fmapping_5fby_5fpath_5fname',['get_node_mapping_by_path_name',['../classvg_1_1Paths.html#a9c9cf2b7f26c788195812e2b8170a6ce',1,'vg::Paths::get_node_mapping_by_path_name(Node *n)'],['../classvg_1_1Paths.html#a72c6a29a41521996fd3454170b1a76f6',1,'vg::Paths::get_node_mapping_by_path_name(id_t id)']]],
   ['get_5fnode_5fmapping_5fcopies_5fby_5frank',['get_node_mapping_copies_by_rank',['../classvg_1_1Paths.html#a36a26abe18d10e17e273fa658be9d5c6',1,'vg::Paths']]],
   ['get_5fnode_5fmappings_5fby_5frank',['get_node_mappings_by_rank',['../classvg_1_1Paths.html#a5a40b701389bcc2c513083b02f17b4f4',1,'vg::Paths']]],

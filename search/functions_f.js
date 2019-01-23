@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['occurrences_5fof_5fhandle',['occurrences_of_handle',['../classvg_1_1PathHandleGraph.html#aaf7a2a2def7cdb9f8f1ddc7d8835fe7c',1,'vg::PathHandleGraph::occurrences_of_handle()'],['../classvg_1_1PackedGraph.html#afabc7a6962a46a3a4eff4c9c19b837b3',1,'vg::PackedGraph::occurrences_of_handle()'],['../classvg_1_1VG.html#a838967605238fb226a5a5a7836229c96',1,'vg::VG::occurrences_of_handle()'],['../classxg_1_1XG.html#af1bbf7edcfaffb121f51cdc0fd6e3b9a',1,'xg::XG::occurrences_of_handle()']]],
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
   ['offset',['offset',['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg']]],
   ['offset_5fat_5fposition',['offset_at_position',['../classxg_1_1XGPath.html#a04977ce25eff23220765586de660b37c',1,'xg::XGPath']]],

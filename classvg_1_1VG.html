@@ -199,6 +199,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a99957343fa6c48216d95787c1ddbd680"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a99957343fa6c48216d95787c1ddbd680">get_path_handle_of_occurrence</a> (const <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
 <tr class="memdesc:a99957343fa6c48216d95787c1ddbd680"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that an occurrence is on.  <a href="#a99957343fa6c48216d95787c1ddbd680">More...</a><br/></td></tr>
 <tr class="separator:a99957343fa6c48216d95787c1ddbd680"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a838967605238fb226a5a5a7836229c96"><td class="memItemLeft" align="right" valign="top">virtual vector<br class="typebreak"/>
+&lt; <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a838967605238fb226a5a5a7836229c96">occurrences_of_handle</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle, bool match_orientation=false) const </td></tr>
+<tr class="separator:a838967605238fb226a5a5a7836229c96"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54ad97e46dc1297b1a65a32697e2d37e"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a54ad97e46dc1297b1a65a32697e2d37e">create_handle</a> (const string &amp;sequence)</td></tr>
 <tr class="memdesc:a54ad97e46dc1297b1a65a32697e2d37e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given sequence and return the handle.  <a href="#a54ad97e46dc1297b1a65a32697e2d37e">More...</a><br/></td></tr>
 <tr class="separator:a54ad97e46dc1297b1a65a32697e2d37e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -7431,6 +7434,43 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Use unchop and sibling merging to simplify the graph into a normalized form. </p>
+
+</div>
+</div>
+<a class="anchor" id="a838967605238fb226a5a5a7836229c96"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="structvg_1_1occurrence__handle__t.html">occurrence_handle_t</a> &gt; vg::VG::occurrences_of_handle </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>match_orientation</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns a vector of all occurrences of a node on paths. Optionally restricts to occurrences that match the handle in orientation. </p>
+
+<p>Implements <a class="el" href="classvg_1_1PathHandleGraph.html#aaf7a2a2def7cdb9f8f1ddc7d8835fe7c">vg::PathHandleGraph</a>.</p>
 
 </div>
 </div>
