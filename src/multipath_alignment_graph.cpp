@@ -73,8 +73,8 @@ namespace vg {
         }
         
         if (max_branch_trim_length) {
-            // we indicated that we'd like to trim the path nodes to avoid ends that cause us to look at different
-            // branches
+            // we indicated that we'd like to trim the path nodes to avoid ends that cause us to get locked into one
+            // branch after a branch point
             trim_to_branch_points(&vg, max_branch_trim_length);
         }
         
@@ -1056,7 +1056,7 @@ namespace vg {
                 // this is a weird case, we seem to want to trim the whole anchor, which suggests
                 // that maybe the trim length was chosen to be too long. there are other explanations
                 // but we're just going to ignore the trimming for now
-                // TODO: is this the right approach
+                // TODO: is this the right approach?
                 continue;
             }
             
@@ -1072,11 +1072,13 @@ namespace vg {
                     trimmed_suffix_from_length += mapping_from_length(path_node.path.mapping(i));
                 }
                 
+                // replace the path with the portion that we didn't trim
                 Path new_path;
                 for (int64_t i = prefix_idx; i <= suffix_idx; i++) {
                     *new_path.add_mapping() = path_node.path.mapping(i);
                 }
                 path_node.path = move(new_path);
+                // update the read interval
                 path_node.begin += trimmed_prefix_from_length;
                 path_node.end -= trimmed_suffix_from_length;
             }
