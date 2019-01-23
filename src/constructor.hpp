@@ -225,6 +225,8 @@ private:
     static pair<int64_t, int64_t> get_symbolic_bounds(vcflib::Variant var);
     /// What sequences have we warned about containing lowercase characters?
     mutable unordered_set<string> warned_sequences;
+    /// Have we given a warning yet about lowercase alt alleles?
+    mutable bool warned_alt = false;
     
 
 };

@@ -495,9 +495,37 @@ namespace vg {
                     assert(!variant->isSymbolicSV());
                     // If variants have SVTYPE set, though, we will still use that info instead of the base-level sequence.
 
+                    // Since we make the fasta reference uppercase, we do the VCF too (otherwise vcflib get mad)
+                    bool reindex = false;
+                    for (auto& alt : variant->alt) {
+                        string upper_case_alt = toUppercase(alt);
+                        if (alt != upper_case_alt) {
+                            if (!warned_alt && warn_on_lowercase) {
+                                #pragma omp critical (cerr)
+                                {
+                                    cerr << "warning:[vg::Constructor] Lowercase characters found in "
+                                         << "variant, coercing to uppercase:\n" << *variant << endl;
+                                    warned_alt = true;
+                                }
+                            }
+                            swap(alt, upper_case_alt);
+                            reindex = true;
+                        }
+                    }
+                    for (auto& allele : variant->alleles) {
+                        allele = toUppercase(allele);
+                    }
+                    string upper_case_var_ref = toUppercase(variant->ref);
+                    if (upper_case_var_ref != variant->ref) {
+                        swap(variant->ref, upper_case_var_ref);
+                        reindex = true;
+                    }
+                    if (reindex) {
+                        variant->updateAlleleIndexes();
+                    }
+
                     // Check the variant's reference sequence to catch bad VCF/FASTA pairings
                     auto expected_ref = reference_sequence.substr(variant->zeroBasedPosition() - chunk_offset, variant->ref.size());
-
                     if(variant->ref != expected_ref) {
                     // TODO: report error to caller somehow
                     #pragma omp critical (cerr)
