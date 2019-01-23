@@ -56,15 +56,15 @@ using namespace std;
  * individual characters immediately read/written. The next TODO is batch
  * reads/writes.
  */
-class FDStreambuf : public streambuf {
+class fdstreambuf : public streambuf {
 public:
     /**
-     * Make a new FDStreambuf wrapping the given file descriptor. Undefined
+     * Make a new fdstreambuf wrapping the given file descriptor. Undefined
      * behavior will happen if the FD is closed while the streambuf is alive,
      * or if we try to read/write when the file descriptor doesn't support that
      * direction of IO.
      */
-    FDStreambuf(int fd);
+    fdstreambuf(int fd);
     
 protected:
     
@@ -79,30 +79,30 @@ protected:
     int fd;
 };
 
-// Now we define istream and ostream implementations that create, own, and associate an FDStreambuf.
+// Now we define istream and ostream implementations that create, own, and associate an fdstreambuf.
 
 /**
  * C++ istream that reads from a file descriptor.
  */
-class FDIstream : public istream {
+class fdistream : public istream {
 public:
     /// Wrap a file descriptor in an istream.
-    FDIstream(int fd);
+    fdistream(int fd);
 protected:
     /// The streambuf implementation we use as a backend.
-    FDStreambuf backend;
+    fdstreambuf backend;
 };
 
 /**
  * C++ ostream that writes to a file descriptor.
  */
-class FDOstream : public ostream {
+class fdostream : public ostream {
 public:
     /// Wrap a file descriptor in an ostream.
-    FDOstream(int fd);
+    fdostream(int fd);
 protected:
     /// The streambuf implementation we use as a backend.
-    FDStreambuf backend;
+    fdstreambuf backend;
 };
 
 }

@@ -13,12 +13,12 @@ namespace stream {
 
 using namespace std;
 
-FDStreambuf::FDStreambuf(int fd) : fd(fd) {
+fdstreambuf::fdstreambuf(int fd) : fd(fd) {
     // Nothing to do!
     // Leave all the buffers empty/nonexistent
 }
 
-auto FDStreambuf::overflow(int c) -> int {
+auto fdstreambuf::overflow(int c) -> int {
 
     if (c != traits_type::eof()) {
         // It's not EOF, so write the character
@@ -32,18 +32,18 @@ auto FDStreambuf::overflow(int c) -> int {
 
 }
 
-auto FDStreambuf::underflow() -> int {
+auto fdstreambuf::underflow() -> int {
     char byte;
     // Read a byte, and return it if successful or EOF if failed.
     return (read(fd, &byte, 1) == 1) ? (int) byte : traits_type::eof();
 }
 
-FDIstream::FDIstream(int fd) : istream(nullptr), backend(fd) {
+fdistream::fdistream(int fd) : istream(nullptr), backend(fd) {
     // Now that buf is constructed, associate ourselves with it
     rdbuf(&backend);
 }
 
-FDOstream::FDOstream(int fd) : ostream(nullptr), backend(fd) {
+fdostream::fdostream(int fd) : ostream(nullptr), backend(fd) {
     // Now that buf is constructed, associate ourselves with it
     rdbuf(&backend);
 }
