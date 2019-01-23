@@ -687,6 +687,10 @@ bool Paths::has_node_mapping(Node* n) {
 map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(id_t id) {
     return node_mapping[id];
 }
+    
+const map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(id_t id) const {
+    return node_mapping.at(id);
+}
 
 map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];

@@ -1121,6 +1121,76 @@ using namespace std;
         
         check_path(p2, {h1, graph.flip(h2), h3});
         
+        SECTION("PackedGraph can query occurrences of a node on paths") {
+            
+            bool found1 = false, found2 = false;
+            vector<occurrence_handle_t> occs = graph.occurrences_of_handle(h1);
+            for (auto& occ : occs) {
+                if (graph.get_path_handle_of_occurrence(occ) == p1 &&
+                    graph.get_occurrence(occ) == h1) {
+                    found1 = true;
+                }
+                else if (graph.get_path_handle_of_occurrence(occ) == p2 &&
+                         graph.get_occurrence(occ) == h1) {
+                    found2 = true;
+                }
+                else {
+                    REQUIRE(false);
+                }
+            }
+            REQUIRE(found1);
+            REQUIRE(found2);
+            found1 = found2 = false;
+            
+            occs = graph.occurrences_of_handle(h1, true);
+            for (auto& occ : occs) {
+                if (graph.get_path_handle_of_occurrence(occ) == p1 &&
+                    graph.get_occurrence(occ) == h1) {
+                    found1 = true;
+                }
+                else if (graph.get_path_handle_of_occurrence(occ) == p2 &&
+                         graph.get_occurrence(occ) == h1) {
+                    found2 = true;
+                }
+                else {
+                    REQUIRE(false);
+                }
+            }
+            REQUIRE(found1);
+            REQUIRE(found2);
+            found1 = found2 = false;
+            
+            occs = graph.occurrences_of_handle(graph.flip(h1), true);
+            for (auto& occ : occs) {
+                REQUIRE(false);
+            }
+            
+            occs = graph.occurrences_of_handle(h2, true);
+            for (auto& occ : occs) {
+                if (graph.get_path_handle_of_occurrence(occ) == p1 &&
+                    graph.get_occurrence(occ) == h2) {
+                    found1 = true;
+                }
+                else {
+                    REQUIRE(false);
+                }
+            }
+            occs = graph.occurrences_of_handle(graph.flip(h2), true);
+            for (auto& occ : occs) {
+                if (graph.get_path_handle_of_occurrence(occ) == p2 &&
+                    graph.get_occurrence(occ) == graph.flip(h2)) {
+                    found2 = true;
+                }
+                else {
+                    REQUIRE(false);
+                }
+            }
+            REQUIRE(found1);
+            REQUIRE(found2);
+            found1 = found2 = false;
+            
+        }
+        
         vector<handle_t> segments = graph.divide_handle(h2, {size_t(2), size_t(4)});
         
         SECTION("PackedGraph preserves paths when dividing nodes") {
