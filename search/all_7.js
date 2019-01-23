@@ -42,7 +42,7 @@ var searchData=
   ['genomestate',['GenomeState',['../classvg_1_1GenomeState.html#ab132518a611296d53c4f59a6b5737374',1,'vg::GenomeState']]],
   ['genomestatecommand',['GenomeStateCommand',['../structvg_1_1GenomeStateCommand.html',1,'vg']]],
   ['genotype',['Genotype',['../structvg_1_1Genotype.html',1,'vg']]],
-  ['genotype',['Genotype',['../classvg_1_1PileupAugmenter.html#a3632c0750110aaadad11fcc5fb7d5529',1,'vg::PileupAugmenter::Genotype()'],['../structvg_1_1Locus.html#a144d9dc0f9d61910db33decca23e4755',1,'vg::Locus::genotype()']]],
+  ['genotype',['genotype',['../structvg_1_1Locus.html#a144d9dc0f9d61910db33decca23e4755',1,'vg::Locus::genotype()'],['../classvg_1_1PileupAugmenter.html#a3632c0750110aaadad11fcc5fb7d5529',1,'vg::PileupAugmenter::Genotype()']]],
   ['genotype_5fmain_2ecpp',['genotype_main.cpp',['../genotype__main_8cpp.html',1,'']]],
   ['genotype_5fsnarl',['genotype_snarl',['../classvg_1_1Genotyper.html#ae6a3a060adcffc32724498bbfda2c771',1,'vg::Genotyper']]],
   ['genotype_5fsvs',['genotype_svs',['../namespacevg.html#a7d3374c888c7c37f1de8370e151af7f9',1,'vg']]],

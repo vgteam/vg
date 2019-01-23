@@ -94,7 +94,7 @@ var searchData=
   ['node_5ftraversal',['node_traversal',['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html#a6347ba68d0d1a79fa623928b2d2eadcc',1,'vg::PhasedGenome::HaplotypeNode']]],
   ['nodedivider',['NodeDivider',['../structvg_1_1NodeDivider.html',1,'vg']]],
   ['nodehash',['NodeHash',['../structvg_1_1NodeDivider.html#a2acd547268cff9e3882b4a7d7a89917b',1,'vg::NodeDivider']]],
-  ['nodelength',['nodeLength',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#aa532d18ffee956c7276e5a52dcd1b950',1,'vg::DistanceIndex::SnarlIndex::nodeLength()'],['../structhaplo_1_1gbwt__thread__t.html#a9feb2364370c6cec9c04f5dea5173792',1,'haplo::gbwt_thread_t::nodelength()']]],
+  ['nodelength',['nodelength',['../structhaplo_1_1gbwt__thread__t.html#a9feb2364370c6cec9c04f5dea5173792',1,'haplo::gbwt_thread_t::nodelength()'],['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#aa532d18ffee956c7276e5a52dcd1b950',1,'vg::DistanceIndex::SnarlIndex::nodeLength()']]],
   ['nodemap',['NodeMap',['../structvg_1_1NodeDivider.html#a5b836a4174fc7ab4d0e47d1a93dfdd8e',1,'vg::NodeDivider']]],
   ['nodeoffside',['NodeOffSide',['../classvg_1_1PileupAugmenter.html#a27e9a56508b2b69bb572c73aaef65bd3',1,'vg::PileupAugmenter']]],
   ['nodepileup',['NodePileup',['../structvg_1_1NodePileup.html',1,'vg']]],

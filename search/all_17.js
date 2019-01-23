@@ -17,6 +17,7 @@ var searchData=
   ['wang_5fhash_5f64',['wang_hash_64',['../namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3',1,'vg']]],
   ['warn_5fon_5flowercase',['warn_on_lowercase',['../classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267',1,'vg::Constructor']]],
   ['warn_5fon_5fscore_5ffail',['warn_on_score_fail',['../namespacehaplo.html#ab22b0954ba9062360178078ce504f1c2',1,'haplo']]],
+  ['warned_5falt',['warned_alt',['../classvg_1_1Constructor.html#a796834180783ae5bcd634f737191df9d',1,'vg::Constructor']]],
   ['warned_5fsequences',['warned_sequences',['../classvg_1_1Constructor.html#a40f9794e0ce98121d8334e1a62c75689',1,'vg::Constructor']]],
   ['watchdog',['Watchdog',['../classvg_1_1Watchdog.html',1,'vg']]],
   ['watchdog',['Watchdog',['../classvg_1_1Watchdog.html#a87e679ecbb8461ae6a26a1958216629b',1,'vg::Watchdog::Watchdog(size_t thread_count, const duration &amp;timeout)'],['../classvg_1_1Watchdog.html#a2934cc5c1fc3b7d0ab20343e6bde1a56',1,'vg::Watchdog::Watchdog(const Watchdog &amp;other)=delete'],['../classvg_1_1Watchdog.html#a73aa9888b0017ed46053c75c085f2748',1,'vg::Watchdog::Watchdog(Watchdog &amp;&amp;other)=delete']]],
