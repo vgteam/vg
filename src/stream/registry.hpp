@@ -332,6 +332,11 @@ const string& Registry::get_protobuf_tag() {
 
 template<typename Message>
 bool Registry::check_protobuf_tag(const string& tag) {
+    if (tag.empty()) {
+        // For reading old tagless files, "" is always a valid tag for Protobuf data.
+        return true;
+    }
+
     // Get our state
     Tables& tables = get_tables();
     

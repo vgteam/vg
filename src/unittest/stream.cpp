@@ -253,6 +253,10 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     SECTION("Data can be found by seeking") {
         stream::ProtobufIterator<message_t> it(datastream);
         
+#ifdef debug
+        cerr << "Try and load from VO " << index_to_group.at(4) << endl;
+#endif
+        
         it.seek_group(index_to_group.at(4));
         REQUIRE((*it).node_id() == 4);
     }

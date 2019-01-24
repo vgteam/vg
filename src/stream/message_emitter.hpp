@@ -59,7 +59,7 @@ public:
     const size_t MAX_MESSAGE_SIZE = 1000000000;
 
     /// Constructor
-    MessageEmitter(std::ostream& out, size_t max_group_size = 1000);
+    MessageEmitter(ostream& out, size_t max_group_size = 1000);
     
     /// Destructor that finishes the file
     ~MessageEmitter();

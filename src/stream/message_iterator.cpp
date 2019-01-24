@@ -12,7 +12,7 @@ namespace stream {
 
 using namespace std;
 
-MessageIterator::MessageIterator(std::istream& in) :
+MessageIterator::MessageIterator(istream& in) :
     value(),
     backup_tag(),
     group_count(0),
@@ -83,8 +83,8 @@ auto MessageIterator::operator++() -> const MessageIterator& {
         handle(coded_in.ReadVarint32(&tagSize));
         
         if (tagSize > MAX_MESSAGE_SIZE) {
-            throw std::runtime_error("[stream::MessageIterator::get_next] tag of " +
-                                     std::to_string(tagSize) + " bytes is too long");
+            throw runtime_error("[stream::MessageIterator::get_next] tag of " +
+                                to_string(tagSize) + " bytes is too long");
         }
         
         // Read it into the tag field of our value
@@ -148,8 +148,8 @@ auto MessageIterator::operator++() -> const MessageIterator& {
     handle(coded_in.ReadVarint32(&msgSize));
     
     if (msgSize > MAX_MESSAGE_SIZE) {
-        throw std::runtime_error("[stream::MessageIterator::get_next] message of " +
-                                 std::to_string(msgSize) + " bytes is too long");
+        throw runtime_error("[stream::MessageIterator::get_next] message of " +
+                            to_string(msgSize) + " bytes is too long");
     }
     
     
@@ -248,7 +248,7 @@ auto MessageIterator::range(istream& in) -> pair<MessageIterator, MessageIterato
 
 auto MessageIterator::handle(bool ok) -> void {
     if (!ok) {
-        throw std::runtime_error("[stream::MessageIterator] obsolete, invalid, or corrupt protobuf input");
+        throw runtime_error("[stream::MessageIterator] obsolete, invalid, or corrupt protobuf input");
     }
 }
 

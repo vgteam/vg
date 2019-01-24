@@ -42,7 +42,7 @@ public:
     const size_t MAX_MESSAGE_SIZE = 1000000000;
 
     /// Constructor to wrap a stream.
-    MessageIterator(std::istream& in);
+    MessageIterator(istream& in);
     
     /// Represents a pair of a tag value and some message data.
     /// If there is no valid tag for a group, as given in the Registry, the tag will be "".
@@ -66,18 +66,18 @@ public:
     /// In-place pre-increment to advance the iterator.
     const MessageIterator& operator++();
     
-    /// Check if two MessageIterators are equal. Since you can only have one on
+    /// Check if two iterators are equal. Since you can only have one on
     /// a stream, this only has two equality classes: iterators that have hit
     /// the end, and iterators that haven't.
     bool operator==(const MessageIterator& other) const;
     
-    /// Check if two MessageIterators are not equal. Since you can only have one on
+    /// Check if two iterators are not equal. Since you can only have one on
     /// a stream, this only has two equality classes: iterators that have hit
     /// the end, and iterators that haven't.
     bool operator!=(const MessageIterator& other) const;
     
     /// Returns iterators that act like begin() and end() for a stream containing messages
-    static std::pair<MessageIterator, MessageIterator> range(std::istream& in);
+    static std::pair<MessageIterator, MessageIterator> range(istream& in);
     
     ///////////
     // has_next()/take() interface
