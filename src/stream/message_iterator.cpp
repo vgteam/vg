@@ -22,12 +22,16 @@ MessageIterator::MessageIterator(std::istream& in) :
     get_next();
 }
 
-bool MessageIterator::has_next() const {
-    return item_vo != -1;
+const string& MessageIterator::operator*() const {
+    return value;
 }
 
-/// Advance the iterator to the next message, or the end if this was the last message.
-void MessageIterator::get_next() {
+string& MessageIterator::operator*() {
+    return value;
+}
+
+
+const MessageIterator& MessageIterator::operator++() {
     if (end_next || group_count == group_idx) {
         // We have made it to the end of the group we are reading. We will
         // start a new group now.
@@ -62,7 +66,7 @@ void MessageIterator::get_next() {
             group_vo = -1;
             item_vo = -1;
             value = string();
-            return;
+            return *this;
         }
         
     }
@@ -105,10 +109,28 @@ void MessageIterator::get_next() {
     
     // Move on to the next message in the group
     group_idx++;
+    
+    // Return ourselves, after increment
+    return *this;
 }
 
-const string& MessageIterator::operator*() const {
-    return value;
+bool MessageIterator::operator==(const MessageIterator& other) const {
+    // Just ask if we both agree on whether we hit the end.
+    return has_next() == other.has_next();
+}
+    
+bool MessageIterator::operator!=(const MessageIterator& other) const {
+    // Just ask if we disagree on whether we hit the end.
+    return has_next() != other.has_next();
+}
+
+bool MessageIterator::has_next() const {
+    return item_vo != -1;
+}
+
+void MessageIterator::get_next() {
+    // Run increment but don't return anything.
+    ++(*this);
 }
 
 string MessageIterator::take() {

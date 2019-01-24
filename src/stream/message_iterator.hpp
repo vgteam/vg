@@ -35,20 +35,54 @@ public:
     /// Constructor to wrap a stream.
     MessageIterator(std::istream& in);
     
+    ///////////
+    // C++ Iterator Interface
+    ///////////
+    
     /// Default constructor for an end iterator.
     MessageIterator() = default;
+    
+    /// Get the current item. Caller may move it away.
+    /// Only legal to call if we are not an end iterator.
+    string& operator*();
+    
+    /// Get the current item when we are const.
+    /// Only legal to call if we are not an end iterator.
+    const string& operator*() const;
+    
+    /// In-place pre-increment to advance the iterator.
+    const MessageIterator& operator++();
+    
+    /// Check if two MessageIterators are equal. Since you can only have one on
+    /// a stream, this only has two equality classes: iterators that have hit
+    /// the end, and iterators that haven't.
+    bool operator==(const MessageIterator& other) const;
+    
+    /// Check if two MessageIterators are not equal. Since you can only have one on
+    /// a stream, this only has two equality classes: iterators that have hit
+    /// the end, and iterators that haven't.
+    bool operator!=(const MessageIterator& other) const;
+    
+    /// Returns iterators that act like begin() and end() for a stream containing messages
+    static std::pair<MessageIterator, MessageIterator> range(std::istream& in);
+    
+    ///////////
+    // has_next()/take() interface
+    ///////////
     
     /// Return true if dereferencing the iterator will produce a valid value, and false otherwise.
     bool has_next() const;
     
     /// Advance the iterator to the next message, or the end if this was the last message.
+    /// Basically the same as ++.
     void get_next();
-    
-    /// Get the current item
-    const string& operator*() const;
     
     /// Take the current item, which must exist, and advance the iterator to the next one.
     string take();
+    
+    ///////////
+    // File position and seeking
+    ///////////
     
     /// Return the virtual offset of the group being currently read (i.e. the
     /// group to which the current message belongs), to seek back to. You can't
@@ -63,11 +97,10 @@ public:
     /// Return false if seeking is unsupported or the seek fails.
     bool seek_group(int64_t virtual_offset);
     
-    /// Returns iterators that act like begin() and end() for a stream containing messages
-    static std::pair<MessageIterator, MessageIterator> range(std::istream& in);
-    
 private:
     
+    /// Holds the most recently pulled-out message string.
+    /// May get moved away.
     string value;
     
     /// This holds the number of messages that exist in the current group.
