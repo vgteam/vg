@@ -50,9 +50,14 @@ MessageEmitter::~MessageEmitter() {
 #endif
 }
 
-void MessageEmitter::write(string&& message) {
-    if (group.size() >= max_group_size) {
+void MessageEmitter::write(const string& tag, string&& message) {
+    if (group.size() >= max_group_size || tag != group_tag) {
+        // We have run out of buffer space or changed type
         emit_group();
+    }
+    if (tag != group_tag) {
+        // Adopt the new tag
+        group_tag = tag;
     }
     group.emplace_back(std::move(message));
     
@@ -61,9 +66,14 @@ void MessageEmitter::write(string&& message) {
     }
 }
 
-void MessageEmitter::write_copy(const string& message) {
-    if (group.size() >= max_group_size) {
+void MessageEmitter::write_copy(const string& tag, const string& message) {
+    if (group.size() >= max_group_size || tag != group_tag) {
+        // We have run out of buffer space or changed type
         emit_group();
+    }
+    if (tag != group_tag) {
+        // Adopt the new tag
+        group_tag = tag;
     }
     group.push_back(message);
     
@@ -96,15 +106,21 @@ void MessageEmitter::emit_group() {
 
     ::google::protobuf::io::CodedOutputStream coded_out(bgzip_out.get());
 
-    // Prefix the group with the number of objects
-    coded_out.WriteVarint64(group.size());
+    // Prefix the group with the number of objects, plus 1 for the tag header
+    coded_out.WriteVarint64(group.size() + 1);
+    handle(!coded_out.HadError());
+   
+    // Write the tag length and the tag
+    coded_out.WriteVarint32(group_tag.size());
+    handle(!coded_out.HadError());
+    coded_out.WriteRaw(group_tag.data(), group_tag.size());
     handle(!coded_out.HadError());
 
-    size_t written = 0;
     for (auto& message : group) {
         
 #ifdef debug
-        cerr << "Writing message of " << message.size() << " bytes in group @ " << virtual_offset << endl;
+        cerr << "Writing message of " << message.size() << " bytes in group of \""
+            << group_tag << "\" @ " << virtual_offset << endl;
 #endif
         
         // And prefix each object with its size
@@ -120,7 +136,7 @@ void MessageEmitter::emit_group() {
     
     for (auto& handler : group_handlers) {
         // Report the group to each group handler that is listening
-        handler(group, virtual_offset, next_virtual_offset);
+        handler(group_tag, group, virtual_offset, next_virtual_offset);
     }
     
     // Empty the buffer because everything in it is written

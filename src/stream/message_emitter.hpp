@@ -32,6 +32,17 @@ using namespace std;
  * stream (as long as the entire stream is controlled by one instance). Cannot
  * be copied, but can be moved.
  *
+ * Each group consists of:
+ * - A 64-bit varint with the number of messages plus 1
+ * - A 64-bit varint header/tag length
+ * - Header/tag data
+ * And then for each message item:
+ * - A 64-bit varint message length
+ * - Message data
+ *
+ * This format is designed to be syntactically the same as the old untagged VG
+ * Protobuf format, to allow easy sniffing/reading of old files.
+ *
  * Can call callbacks with the groups emitted and their virtual offsets, for
  * indexing purposes.
  * 
@@ -60,16 +71,16 @@ public:
     MessageEmitter(MessageEmitter&& other) = default;
     MessageEmitter& operator=(MessageEmitter&& other) = default;
     
-    /// Emit the given message.
-    void write(string&& message);
+    /// Emit the given message with the given type tag.
+    void write(const string& tag, string&& message);
     
-    /// Emit a copy of the given message.
+    /// Emit a copy of the given message with the given type tag.
     /// To use when you have something you can't move.
-    void write_copy(const string& message);
+    void write_copy(const string& tag, const string& message);
     
     /// Define a type for group emission event listeners.
-    /// Arguments are: group buffer, start virtual offset, and past-end virtual offset.
-    using listener_t = std::function<void(const vector<string>&, int64_t, int64_t)>;
+    /// Arguments are: type tag, group buffer, start virtual offset, and past-end virtual offset.
+    using listener_t = std::function<void(const string&, const vector<string>&, int64_t, int64_t)>;
     
     /// Add an event listener that listens for emitted groups. The listener
     /// will be called with the group buffer, the start virtual offset, and the
@@ -84,6 +95,8 @@ public:
 
 private:
 
+    // This is our internal tag string for what is in our buffer.
+    string group_tag;
     // This is our internal buffer
     vector<string> group;
     // This is how big we let it get before we dump it
