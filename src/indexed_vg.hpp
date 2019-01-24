@@ -9,6 +9,7 @@
 #include <lru_cache.h>
 
 #include <string>
+#include <list>
 #include <mutex>
 
 #include "stream_index.hpp"

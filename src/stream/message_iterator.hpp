@@ -15,7 +15,6 @@
 
 #include <google/protobuf/io/coded_stream.h>
 
-#include "stream.hpp"
 #include "blocked_gzip_input_stream.hpp"
 
 namespace vg {

@@ -21,6 +21,10 @@
 #include "blocked_gzip_output_stream.hpp"
 #include "blocked_gzip_input_stream.hpp"
 
+#include "registry.hpp"
+#include "message_iterator.hpp"
+#include "protobuf_iterator.hpp"
+
 namespace vg {
 
 namespace stream {
@@ -263,122 +267,14 @@ void write_to_file(const T& item, const string& filename) {
     out.close();
 }
 
-/// Deserialize the input stream into the objects. Skips over groups of objects
-/// with count 0. Takes a callback function to be called on the objects, with
-/// the object and the blocked gzip virtual offset of its group (or -1 if the
-/// input is not blocked gzipped), and another to be called per object group
-/// with the group size.
-template <typename T>
-void for_each_with_group_length(std::istream& in,
-              const std::function<void(int64_t, T&)>& lambda,
-              const std::function<void(size_t)>& handle_count) {
-
-    BlockedGzipInputStream bgzip_in(in);
-
-    // Have a function to complain if any protobuf things report failure
-    auto handle = [](bool ok) {
-        if (!ok) {
-            throw std::runtime_error("[stream::for_each] obsolete, invalid, or corrupt protobuf input");
-        }
-    };
-
-    while (true) {
-        // For each count-prefixed group
-    
-        // Get the offset we're at, or -1 if we can't seek/tell
-        int64_t virtual_offset = bgzip_in.Tell();
-        
-#ifdef debug
-        cerr << "At virtual offset " << virtual_offset << endl;
-#endif
-        
-        // Read the count
-        size_t count;
-        {
-            
-#ifdef debug
-            // Peek ahead at the group header
-            char* data;
-            int size;
-            bool worked = bgzip_in.Next((const void**)&data, &size);
-            if (worked) {
-                cerr << "Next data is " << size << " bytes: " << endl;
-                for (size_t i = 0; size > 0 && i < std::min(size, 10); i++) {
-                    cerr << (unsigned int)data[i] << " ";
-                }
-                cerr << endl;
-                bgzip_in.BackUp(size);
-            } else {
-                cerr << "Peek failed!" << endl;
-            }
-#endif
-            
-            ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
-            bool saw_count = coded_in.ReadVarint64((::google::protobuf::uint64*) &count);
-            if (!saw_count) {
-        
-#ifdef debug
-                cerr << "Could not read count. Stopping read." << endl;
-#endif
-                // EOF (probably)
-                return;
-            }
-            
-#ifdef debug 
-                cerr << "Found group with count " << count << endl;
-#endif
-        }
-        
-        // Call the count callback
-        handle_count(count);
-        
-        // Make a shared buffer string to hold message data for each message.
-        std::string s;
-        for (size_t i = 0; i < count; ++i) {
-            uint32_t msgSize = 0;
-            
-            // Make sure to use a new CodedInputStream every time, because each
-            // one limits all input size on the assumption it is reading a
-            // single message.
-            ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
-            
-            // Alot space for size, and for reading next chunk's length
-            coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
-            
-            // the messages are prefixed by their size. Insist on reading it.
-            handle(coded_in.ReadVarint32(&msgSize));
-            
-#ifdef debug
-            cerr << "Found message size of " << msgSize << endl;
-#endif
-            
-            if (msgSize > MAX_PROTOBUF_SIZE) {
-                throw std::runtime_error("[stream::for_each] protobuf message of " +
-                    std::to_string(msgSize) + " bytes is too long");
-            }
-            
-#ifdef debug
-            cerr << "Reading message of " << msgSize << " bytes at " << i << "/" << count << " in group @ " << virtual_offset << endl; 
-#endif
-            
-            // Note that the message may be 0-size, which is a valid (all default values) Protobuf message.
-            T object;
-            if (msgSize > 0) {
-                // Actually need to parse the nonempty message
-                handle(coded_in.ReadString(&s, msgSize));
-                handle(object.ParseFromString(s));
-            }
-            // Process the message, passing along the virtual offset of the group, if available
-            lambda(virtual_offset, object);
-        }
-    }
-}
-    
 template <typename T>
 void for_each(std::istream& in,
               const std::function<void(int64_t, T&)>& lambda) {
-    std::function<void(size_t)> noop = [](size_t) { };
-    for_each_with_group_length(in, lambda, noop);
+    
+    for(ProtobufIterator<T> it(in); it.has_next(); ++it) {
+        // For each message in the file, parse and process it with its group VO (or -1)
+        lambda(it.tell_group(), *it);
+    }
 }
 
 template <typename T>
@@ -400,10 +296,10 @@ template <typename T>
 void for_each_parallel_impl(std::istream& in,
                             const std::function<void(T&,T&)>& lambda2,
                             const std::function<void(T&)>& lambda1,
-                            const std::function<void(size_t)>& handle_count,
                             const std::function<bool(void)>& single_threaded_until_true) {
 
     // objects will be handed off to worker threads in batches of this many
+    // Must be divisible by 2.
     const size_t batch_size = 256;
     static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
     // max # of such batches to be holding in memory
@@ -415,67 +311,71 @@ void for_each_parallel_impl(std::istream& in,
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda1, lambda2, handle_count, batches_outstanding, max_batches_outstanding, single_threaded_until_true)
+    #pragma omp parallel default(none) shared(in, lambda1, lambda2, batches_outstanding, max_batches_outstanding, single_threaded_until_true)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
             if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
         };
+        
+        // We do our own multi-threaded Protobuf decoding, but we batch up our strings by pulling them from this iterator.
+        MessageIterator message_it(in);
 
         BlockedGzipInputStream bgzip_in(in);
         ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
 
         std::vector<std::string> *batch = nullptr;
         
-        // process chunks prefixed by message count
-        size_t count;
-        while (coded_in.ReadVarint64((::google::protobuf::uint64*) &count)) {
-            handle_count(count);
-            for (size_t i = 0; i < count; ++i) {
-                if (!batch) {
-                     batch = new std::vector<std::string>();
-                     batch->reserve(batch_size);
-                }
-                
-                // Reconstruct the CodedInputStream in place to reset its maximum-
-                // bytes-ever-read counter, because it thinks it's reading a single
-                // message.
-                coded_in.~CodedInputStream();
-                new (&coded_in) ::google::protobuf::io::CodedInputStream(&bgzip_in);
-                // Allot space for size, and for reading next chunk's length
-                coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
-                
-                uint32_t msgSize = 0;
-                // the messages are prefixed by their size
-                handle(coded_in.ReadVarint32(&msgSize));
-                
-                if (msgSize > MAX_PROTOBUF_SIZE) {
-                    throw std::runtime_error("[stream::for_each] protobuf message of " +
-                        std::to_string(msgSize) + " bytes is too long");
-                }
-                
-               
-                {
-                    std::string s;
-                    if (msgSize > 0) {
-                        // pick off the message (serialized protobuf object)
-                        handle(coded_in.ReadString(&s, msgSize));
-                    }
-                    // Even empty messages need to be handled; they are all-default Protobuf objects.
-                    batch->push_back(std::move(s));
-                }
-
-                if (batch->size() == batch_size) {
-                    // time to enqueue this batch for processing. first, block if
-                    // we've hit max_batches_outstanding.
-                    size_t b;
+        while (message_it.has_next()) {
+            // Until we run out of messages, grab them with their tags
+            auto tag_and_data = std::move(message_it.take());
+            
+            // Check the tag.
+            // TODO: we should only do this when it changes!
+            handle(Registry::check_protobuf_tag<T>(tag_and_data.first));
+            
+            // If the tag checks out, add it to the batch
+            batch->push_back(std::move(tag_and_data.second));
+            
+            if (batch->size() == batch_size) {
+                // time to enqueue this batch for processing. first, block if
+                // we've hit max_batches_outstanding.
+                size_t b;
 #pragma omp atomic capture
-                    b = ++batches_outstanding;
+                b = ++batches_outstanding;
+                
+                bool do_single_threaded = !single_threaded_until_true();
+                if (b >= max_batches_outstanding || do_single_threaded) {
                     
-                    bool do_single_threaded = !single_threaded_until_true();
-                    if (b >= max_batches_outstanding || do_single_threaded) {
-                        
-                        // process this batch in the current thread
+                    // process this batch in the current thread
+                    {
+                        T obj1, obj2;
+                        for (int i = 0; i<batch_size; i+=2) {
+                            // parse protobuf objects and invoke lambda on the pair
+                            handle(obj1.ParseFromString(batch->at(i)));
+                            handle(obj2.ParseFromString(batch->at(i+1)));
+                            lambda2(obj1,obj2);
+                        }
+                    } // scope obj1 & obj2
+                    delete batch;
+#pragma omp atomic capture
+                    b = --batches_outstanding;
+                    
+                    if (4 * b / 3 < max_batches_outstanding
+                        && max_batches_outstanding < max_max_batches_outstanding
+                        && !do_single_threaded) {
+                        // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
+                        // this looks risky, since we want the batch buffer to stay populated the entire time we're
+                        // occupying this thread on compute, so let's increase the batch buffer size
+                        // (skip this adjustment if you're in single-threaded mode and thus expect the buffer to be
+                        // empty)
+                        max_batches_outstanding *= 2;
+                    }
+                }
+                else {
+                    // spawn a task in another thread to process this batch
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true)
+                    {
                         {
                             T obj1, obj2;
                             for (int i = 0; i<batch_size; i+=2) {
@@ -486,41 +386,12 @@ void for_each_parallel_impl(std::istream& in,
                             }
                         } // scope obj1 & obj2
                         delete batch;
-#pragma omp atomic capture
-                        b = --batches_outstanding;
-                        
-                        if (4 * b / 3 < max_batches_outstanding
-                            && max_batches_outstanding < max_max_batches_outstanding
-                            && !do_single_threaded) {
-                            // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
-                            // this looks risky, since we want the batch buffer to stay populated the entire time we're
-                            // occupying this thread on compute, so let's increase the batch buffer size
-                            // (skip this adjustment if you're in single-threaded mode and thus expect the buffer to be
-                            // empty)
-                            max_batches_outstanding *= 2;
-                        }
-                    }
-                    else {
-                        // spawn a task in another thread to process this batch
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true)
-                        {
-                            {
-                                T obj1, obj2;
-                                for (int i = 0; i<batch_size; i+=2) {
-                                    // parse protobuf objects and invoke lambda on the pair
-                                    handle(obj1.ParseFromString(batch->at(i)));
-                                    handle(obj2.ParseFromString(batch->at(i+1)));
-                                    lambda2(obj1,obj2);
-                                }
-                            } // scope obj1 & obj2
-                            delete batch;
 #pragma omp atomic update
-                            batches_outstanding--;
-                        }
+                        batches_outstanding--;
                     }
-
-                    batch = nullptr;
                 }
+
+                batch = nullptr;
             }
         }
 
@@ -552,9 +423,8 @@ void for_each_interleaved_pair_parallel(std::istream& in,
     std::function<void(T&)> err1 = [](T&){
         throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
     };
-    std::function<void(size_t)> no_count = [](size_t i) {};
     std::function<bool(void)> no_wait = [](void) {return true;};
-    for_each_parallel_impl(in, lambda2, err1, no_count, no_wait);
+    for_each_parallel_impl(in, lambda2, err1, no_wait);
 }
     
 template <typename T>
@@ -564,25 +434,16 @@ void for_each_interleaved_pair_parallel_after_wait(std::istream& in,
     std::function<void(T&)> err1 = [](T&){
         throw std::runtime_error("stream::for_each_interleaved_pair_parallel: expected input stream of interleaved pairs, but it had odd number of elements");
     };
-    std::function<void(size_t)> no_count = [](size_t i) {};
-    for_each_parallel_impl(in, lambda2, err1, no_count, single_threaded_until_true);
+    for_each_parallel_impl(in, lambda2, err1, single_threaded_until_true);
 }
 
 // parallelized for each individual element
 template <typename T>
 void for_each_parallel(std::istream& in,
-                       const std::function<void(T&)>& lambda1,
-                       const std::function<void(size_t)>& handle_count) {
+                       const std::function<void(T&)>& lambda1) {
     std::function<void(T&,T&)> lambda2 = [&lambda1](T& o1, T& o2) { lambda1(o1); lambda1(o2); };
     std::function<bool(void)> no_wait = [](void) {return true;};
-    for_each_parallel_impl(in, lambda2, lambda1, handle_count, no_wait);
-}
-
-template <typename T>
-void for_each_parallel(std::istream& in,
-              const std::function<void(T&)>& lambda) {
-    std::function<void(size_t)> noop = [](size_t) { };
-    for_each_parallel(in, lambda, noop);
+    for_each_parallel_impl(in, lambda2, lambda1, no_wait);
 }
 
 }
