@@ -140,6 +140,15 @@ public:
     /////////
     
     /**
+     * Determine if the given tag string loaded from a file is a valid/possible
+     * tag, or if it should be interpreted as message data from a pre-tags VG
+     * file instead. Only tag values literally registered with the registry are
+     * valid.
+     * NOT thread-safe to run simultaneously with tag registrations.
+     */
+    static bool is_valid_tag(const string& tag);
+    
+    /**
      * Get the correct tag to use when serializing Protobuf messages of the
      * given type.
      */

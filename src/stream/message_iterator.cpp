@@ -4,6 +4,7 @@
  */
 
 #include "message_iterator.hpp"
+#include "registry.hpp"
 
 namespace vg {
 
@@ -12,27 +13,28 @@ namespace stream {
 using namespace std;
 
 MessageIterator::MessageIterator(std::istream& in) :
+    value(),
+    backup_tag(),
     group_count(0),
     group_idx(0),
     group_vo(-1),
     item_vo(-1),
-    end_next(false),
     bgzip_in(new BlockedGzipInputStream(in))
 {
     get_next();
 }
 
-const string& MessageIterator::operator*() const {
+auto MessageIterator::operator*() const -> const TaggedMessage& {
     return value;
 }
 
-string& MessageIterator::operator*() {
+auto MessageIterator::operator*() -> TaggedMessage& {
     return value;
 }
 
 
-const MessageIterator& MessageIterator::operator++() {
-    if (end_next || group_count == group_idx) {
+auto MessageIterator::operator++() -> const MessageIterator& {
+    if (group_count == group_idx) {
         // We have made it to the end of the group we are reading. We will
         // start a new group now.
         
@@ -54,24 +56,75 @@ const MessageIterator& MessageIterator::operator++() {
         
         // Make a CodedInputStream to read the group length
         ::google::protobuf::io::CodedInputStream coded_in(bgzip_in.get());
-        // Alot space for group's length (generously)
-        coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+        // Alot space for group's length, tag's length, and tag (generously)
+        coded_in.SetTotalBytesLimit(MAX_MESSAGE_SIZE * 2, MAX_MESSAGE_SIZE * 2);
         
         // Try and read the group's length
-        if (end_next || !coded_in.ReadVarint64((::google::protobuf::uint64*) &group_count)) {
-            // We didn't get a length (or we want to end the iteration)
+        if (!coded_in.ReadVarint64((::google::protobuf::uint64*) &group_count)) {
+            // We didn't get a length
             
             // This is the end of the input stream, switch to state that
             // will match the end constructor
             group_vo = -1;
             item_vo = -1;
-            value = string();
+            value.first.clear();
+            value.second.clear();
             return *this;
         }
         
+        // Now we have to grab the tag, which is pretending to be the first item.
+        // It could also be the first item, if it isn't a known tag string.
+        
+        // Get the tag's virtual offset, if available
+        virtual_offset = bgzip_in->Tell();
+        
+        // The tag is prefixed by its size
+        uint32_t tagSize = 0;
+        handle(coded_in.ReadVarint32(&tagSize));
+        
+        if (tagSize > MAX_MESSAGE_SIZE) {
+            throw std::runtime_error("[stream::MessageIterator::get_next] tag of " +
+                                     std::to_string(tagSize) + " bytes is too long");
+        }
+        
+        // Read it into the tag field of our value
+        value.first.clear();
+        if (tagSize) {
+            handle(coded_in.ReadString(&value.first, tagSize));
+        }
+        
+        // Update the counters for the tag, which the counters treat as a message.
+        if (virtual_offset == -1) {
+            // Just track the counter.
+            item_vo++;
+        } else {
+            // We know where here is
+            item_vo = virtual_offset;
+        }
+        
+        // Move on to the next message in the group
+        group_idx++;
+    
+        if (!(!backup_tag.empty() && backup_tag == value.first) && !Registry::is_valid_tag(value.first)) {
+            // If the tag isn't the same as our previous (nonempty) tag, we have to check it with the registry.
+            // If we get here, the registry doesn't think it's a tag.
+            // Assume it is actually a message, and make the group's tag ""
+            swap(value.first, value.second);
+            value.first.clear();
+            backup_tag.clear();
+            
+            // Return ourselves, after increment
+            return *this;
+        }
+        
+        // Otherwise this is a real tag.
+        // Back up its value in case our pair gets moved away.
+        backup_tag = value.first;
+        
+        // We continue and read the real first message into the message half of our pair.
     }
     
-    // Now we know we're in a group.
+    // Now we know we're in a group, and we know the tag, if any.
     
     // Get the item's virtual offset, if available
     auto virtual_offset = bgzip_in->Tell();
@@ -79,7 +132,7 @@ const MessageIterator& MessageIterator::operator++() {
     // We need a fresh CodedInputStream every time, because of the total byte limit
     ::google::protobuf::io::CodedInputStream coded_in(bgzip_in.get());
     // Alot space for size and item (generously)
-    coded_in.SetTotalBytesLimit(MAX_PROTOBUF_SIZE * 2, MAX_PROTOBUF_SIZE * 2);
+    coded_in.SetTotalBytesLimit(MAX_MESSAGE_SIZE * 2, MAX_MESSAGE_SIZE * 2);
     
     // A message starts here
     if (virtual_offset == -1) {
@@ -94,18 +147,21 @@ const MessageIterator& MessageIterator::operator++() {
     uint32_t msgSize = 0;
     handle(coded_in.ReadVarint32(&msgSize));
     
-    if (msgSize > MAX_PROTOBUF_SIZE) {
-        throw std::runtime_error("[stream::MessageIterator::get_next] protobuf message of " +
+    if (msgSize > MAX_MESSAGE_SIZE) {
+        throw std::runtime_error("[stream::MessageIterator::get_next] message of " +
                                  std::to_string(msgSize) + " bytes is too long");
     }
     
     
     // We have a message.
-    value.clear();
+    value.second.clear();
     if (msgSize) {
-        // It has non-default field values. Parse them.
-        handle(coded_in.ReadString(&value, msgSize));
-    } 
+        handle(coded_in.ReadString(&value.second, msgSize));
+    }
+    
+    // Fill in the tag from the backup to make sure our value pair actually has it.
+    // It may have been moved away.
+    value.first = backup_tag;
     
     // Move on to the next message in the group
     group_idx++;
@@ -114,33 +170,33 @@ const MessageIterator& MessageIterator::operator++() {
     return *this;
 }
 
-bool MessageIterator::operator==(const MessageIterator& other) const {
+auto MessageIterator::operator==(const MessageIterator& other) const -> bool {
     // Just ask if we both agree on whether we hit the end.
     return has_next() == other.has_next();
 }
     
-bool MessageIterator::operator!=(const MessageIterator& other) const {
+auto MessageIterator::operator!=(const MessageIterator& other) const -> bool {
     // Just ask if we disagree on whether we hit the end.
     return has_next() != other.has_next();
 }
 
-bool MessageIterator::has_next() const {
+auto MessageIterator::has_next() const -> bool {
     return item_vo != -1;
 }
 
-void MessageIterator::get_next() {
+auto MessageIterator::get_next() -> void {
     // Run increment but don't return anything.
     ++(*this);
 }
 
-string MessageIterator::take() {
-    string temp = std::move(value);
+auto MessageIterator::take() -> TaggedMessage {
+    auto temp = std::move(value);
     get_next();
     // Return by value, which gets moved.
     return temp;
 }
 
-int64_t MessageIterator::tell_group() const {
+auto MessageIterator::tell_group() const -> int64_t {
     if (bgzip_in->Tell() != -1) {
         // The backing file supports seek/tell (which we ascertain by attempting it).
         if (group_vo == -1) {
@@ -156,13 +212,13 @@ int64_t MessageIterator::tell_group() const {
     }
 }
 
-bool MessageIterator::seek_group(int64_t virtual_offset) {
+auto MessageIterator::seek_group(int64_t virtual_offset) -> bool {
     if (virtual_offset < 0) {
         // That's not allowed
         return false;
     }
     
-    if (group_idx == 0 && group_vo == virtual_offset && !end_next) {
+    if (group_idx == 0 && group_vo == virtual_offset) {
         // We are there already
         return true;
     }
@@ -178,7 +234,6 @@ bool MessageIterator::seek_group(int64_t virtual_offset) {
     // Get ready to read the group that's here
     group_count = 0;
     group_idx = 0;
-    end_next = false;
     
     // Read it (or detect EOF)
     get_next();
@@ -187,11 +242,11 @@ bool MessageIterator::seek_group(int64_t virtual_offset) {
     return true;
 }
 
-pair<MessageIterator, MessageIterator> MessageIterator::range(istream& in) {
+auto MessageIterator::range(istream& in) -> pair<MessageIterator, MessageIterator> {
     return make_pair(MessageIterator(in), MessageIterator());
 }
 
-void MessageIterator::handle(bool ok) {
+auto MessageIterator::handle(bool ok) -> void {
     if (!ok) {
         throw std::runtime_error("[stream::MessageIterator] obsolete, invalid, or corrupt protobuf input");
     }

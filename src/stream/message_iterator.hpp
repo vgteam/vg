@@ -26,14 +26,27 @@ using namespace std;
 
 
 /**
- * Iterator over messages in VG-format files.
- * Also supports seeking and telling at the group level in bgzip files.
- * Cannot be copied, but can be moved.
+ * Iterator over messages in VG-format files. Yields pairs of string tag and
+ * message data. Also supports seeking and telling at the group level in bgzip
+ * files. Cannot be copied, but can be moved.
+ *
+ * TODO: Right now we always copy all messages into an internal buffer. We
+ * should only do that if the message contents are actually accessed, with some
+ * kind of lazy fake string that evaluates on string conversion. Then we could
+ * more efficiently skip stuff with the wrong tag.
  */
 class MessageIterator {
 public:
+
+    /// We refuse to serialize individual messages longer than this size.
+    const size_t MAX_MESSAGE_SIZE = 1000000000;
+
     /// Constructor to wrap a stream.
     MessageIterator(std::istream& in);
+    
+    /// Represents a pair of a tag value and some message data.
+    /// If there is no valid tag for a group, as given in the Registry, the tag will be "".
+    using TaggedMessage = pair<string, string>;
     
     ///////////
     // C++ Iterator Interface
@@ -44,11 +57,11 @@ public:
     
     /// Get the current item. Caller may move it away.
     /// Only legal to call if we are not an end iterator.
-    string& operator*();
+    TaggedMessage& operator*();
     
     /// Get the current item when we are const.
     /// Only legal to call if we are not an end iterator.
-    const string& operator*() const;
+    const TaggedMessage& operator*() const;
     
     /// In-place pre-increment to advance the iterator.
     const MessageIterator& operator++();
@@ -78,7 +91,7 @@ public:
     void get_next();
     
     /// Take the current item, which must exist, and advance the iterator to the next one.
-    string take();
+    TaggedMessage take();
     
     ///////////
     // File position and seeking
@@ -99,24 +112,27 @@ public:
     
 private:
     
-    /// Holds the most recently pulled-out message string.
+    /// Holds the most recently pulled-out message tag and value.
     /// May get moved away.
-    string value;
+    TaggedMessage value;
+    
+    /// Because the whole value pair may get moved away, we keep a backup copy of the tag and replace it.
+    /// TODO: This is a bit of a hack.
+    string backup_tag;
     
     /// This holds the number of messages that exist in the current group.
+    /// Counts the tag, if present.
     size_t group_count;
     /// This holds the number of messages read in the current group.
+    /// Counts the tag, if present.
     size_t group_idx;
     /// This holds the virtual offset of the current group's start, or the
     /// number of the current group if seeking is not available.
     /// If the iterator is the end iterator, this is -1.
     int64_t group_vo;
-    /// This holds the virtual offset of the current item, or -1 if seeking is not possible.
+    /// This holds the virtual offset of the current item, or counts up through the group if seeking is not possible.
     /// Useful for seeking back to the item later, although you will have to seek to a group to iterate, after that.
     int64_t item_vo;
-    /// This is a flag for whether we should hit the end on the next get_next()
-    /// It is set when we seek to a message individually, and unset when we seek to a group.
-    bool end_next;
     
     /// Since these streams can't be copied or moved, we wrap ours in a uniqueptr_t so we can be moved.
     unique_ptr<BlockedGzipInputStream> bgzip_in;

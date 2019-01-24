@@ -15,7 +15,7 @@ namespace stream {
 
 using namespace std;
 
-load_function_t wrap_stream_loader(function<void*(istream&)> istream_loader) {
+auto wrap_stream_loader(function<void*(istream&)> istream_loader) -> load_function_t {
     // Capture the istream-using function by value
     return [istream_loader](const message_sender_function_t& for_each_message) -> void* {
     
@@ -63,7 +63,7 @@ load_function_t wrap_stream_loader(function<void*(istream&)> istream_loader) {
     };
 }
 
-save_function_t wrap_stream_saver(function<void(const void*, ostream&)> ostream_saver) {
+auto wrap_stream_saver(function<void(const void*, ostream&)> ostream_saver) -> save_function_t {
     // Capture the ostream-using function by value
     return [ostream_saver](const void* to_save, const message_consumer_function_t& emit_message) {
     
@@ -140,6 +140,25 @@ auto Registry::get_tables() -> Tables& {
     // Keep state in a static function local, for on-demand initialization.
     static Tables tables;
     return tables;
+}
+
+auto Registry::is_valid_tag(const string& tag) -> bool {
+    // Get our state
+    Tables& tables = get_tables();
+    
+    // Check if the tag is known in any table
+    
+    if (tables.tag_to_protobuf.count(tag)) {
+        return true;
+    }
+    
+    if (tables.tag_to_loader.count(tag)) {
+        return true;
+    }
+    
+    // Otherwise, it is new and suspicious. Treat it as a message.
+    // If it's really some new thing we haven't heard of, we'll hopefully crash.
+    return false;
 }
 
 }
