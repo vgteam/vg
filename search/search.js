@@ -17,7 +17,7 @@ var indexSectionsWithContent =
   7: "cemnpst",
   8: "adeilmnprstuw",
   9: "abcdhopst",
-  10: "_bcdgmos"
+  10: "_bcdgmosv"
 };
 
 var indexSectionNames =
