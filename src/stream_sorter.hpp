@@ -261,8 +261,8 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
                 size_t buffered_message_bytes = 0;
                 while (input_cursor.has_next() && buffered_message_bytes < max_buf_size) {
                     // Until we run out of input messages or space, buffer each, recording its size.
-                    buffered_message_bytes += input_cursor.get_item_size();
                     thread_buffer.emplace_back(std::move(input_cursor.take()));
+                    buffered_message_bytes += thread_buffer.back().ByteSizeLong();
                 }
             
                 // Update the progress bar

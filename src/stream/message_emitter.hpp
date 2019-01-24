@@ -34,10 +34,10 @@ using namespace std;
  *
  * Each group consists of:
  * - A 64-bit varint with the number of messages plus 1
- * - A 64-bit varint header/tag length
+ * - A 32-bit varint header/tag length
  * - Header/tag data
  * And then for each message item:
- * - A 64-bit varint message length
+ * - A 32-bit varint message length
  * - Message data
  *
  * This format is designed to be syntactically the same as the old untagged VG

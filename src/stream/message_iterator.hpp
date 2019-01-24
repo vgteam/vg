@@ -50,10 +50,6 @@ public:
     /// Take the current item, which must exist, and advance the iterator to the next one.
     string take();
     
-    /// How many serialized, uncompressed bytes did the currently loaded item take.
-    /// Will be 0 if no current item is available, but can also be 0 for valid, all-default items.
-    size_t get_item_size() const;
-    
     /// Return the virtual offset of the group being currently read (i.e. the
     /// group to which the current message belongs), to seek back to. You can't
     /// seek back to the current message, just to the start of the group.
@@ -66,24 +62,6 @@ public:
     /// If already at the start of the group at the given virtual offset, does nothing.
     /// Return false if seeking is unsupported or the seek fails.
     bool seek_group(int64_t virtual_offset);
-    
-    /// Return the raw virtual offset that the cursor is at in the file, or -1
-    /// for an unseekable/untellable stream. Not necessarily at a group
-    /// boundary, so cannot be used for seeking. Useful for getting the final
-    /// virtual offset when the cursor hits the end of a file.
-    /// This is NOT the virtual offset at which the currently loaded item occurs!
-    int64_t tell_raw() const;
-    
-    /// Return the virtual offset of the currently loaded item, or tell_raw() if at end.
-    /// Returns -1 for an unseekable/untellable stream.
-    int64_t tell_item() const;
-    
-    /// Seek to the given virtual offset and read a single item from there. The
-    /// next value produced will be the item that is there, and then the
-    /// iterator will end (unless the user seeks somewhere else). Return false
-    /// if seeking is unsupported or the seek fails.
-    /// Will not work right if EOF is sought.
-    bool seek_item_and_stop(int64_t virtual_offset);
     
     /// Returns iterators that act like begin() and end() for a stream containing messages
     static std::pair<MessageIterator, MessageIterator> range(std::istream& in);
@@ -103,9 +81,6 @@ private:
     /// This holds the virtual offset of the current item, or -1 if seeking is not possible.
     /// Useful for seeking back to the item later, although you will have to seek to a group to iterate, after that.
     int64_t item_vo;
-    /// This holds the number of serialized bytes that the currently loaded item took up in the stream.
-    /// Doesn't count group size or item length overhead.
-    size_t item_bytes;
     /// This is a flag for whether we should hit the end on the next get_next()
     /// It is set when we seek to a message individually, and unset when we seek to a group.
     bool end_next;

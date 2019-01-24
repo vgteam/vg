@@ -641,7 +641,7 @@ auto StreamIndex<Message>::find(cursor_t& cursor, const vector<pair<id_t, id_t>>
 #endif
     
     // We need seek support
-    assert(cursor.tell_raw() != -1);
+    assert(cursor.tell_group() != -1);
     
     // Because a node in a later range may appear earlier in the file than a
     // node in an earlier range (but in a high-in-the-hierarchy bin), in
@@ -903,7 +903,7 @@ auto StreamIndex<Message>::index(cursor_t& cursor) -> void {
     
     if (!group.empty()) {
         // Record the final group. Use wherever the cursor landed at the end as its final virtual offset.
-        add_group(group, group_vo, cursor.tell_raw());
+        add_group(group, group_vo, cursor.tell_group());
     }
 }
 
