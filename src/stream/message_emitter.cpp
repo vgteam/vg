@@ -126,7 +126,7 @@ void MessageEmitter::emit_group() {
         // And prefix each object with its size
         coded_out.WriteVarint32(message.size());
         handle(!coded_out.HadError());
-        coded_out.WriteRaw(message.data(), message.size());
+        coded_out.WriteString(message);
         handle(!coded_out.HadError());
     }
     
