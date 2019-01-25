@@ -5,22 +5,21 @@
 //  hash tables
 //
 
-#ifndef VG_PACKED_GRAPH_HPP_INCLUDED
-#define VG_PACKED_GRAPH_HPP_INCLUDED
+#ifndef VG_HASH_GRAPH_HPP_INCLUDED
+#define VG_HASH_GRAPH_HPP_INCLUDED
 
 #include "handle.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
 
-
 namespace vg {
     
 using namespace std;
 
-
 class HashGraph : public MutablePathDeletableHandleGraph {
         
 public:
+    
     HashGraph();
     ~HashGraph();
     
@@ -202,6 +201,9 @@ public:
 
 private:
     
+    /*
+     * A node object with the sequence and its edge lists
+     */
     struct node_t {
         node_t() {}
         node_t(const string& sequence) : sequence(sequence) {}
@@ -210,6 +212,9 @@ private:
         vector<handle_t> right_edges;
     };
     
+    /*
+     * A linked list record representing a single node in an embedded path
+     */
     struct path_mapping_t {
         path_mapping_t(const handle_t& handle,
                        const int64_t& path_id) : handle(handle), path_id(path_id) {}
@@ -220,6 +225,9 @@ private:
         struct path_mapping_t* next = nullptr;
     };
     
+    /*
+     * A simple linked list implementation of an embedded path
+     */
     struct path_t {
         path_t() {}
         path_t(const string& name, const int64_t& path_id) : name(name), path_id(path_id) {}
@@ -231,6 +239,7 @@ private:
             }
         }
         
+        /// Add a node to the end of the path
         path_mapping_t* push_back(const handle_t& handle) {
             path_mapping_t* pushing = new path_mapping_t(handle, path_id);
             if (!tail) {
@@ -245,6 +254,7 @@ private:
             return pushing;
         }
         
+        /// Add a node to the front of the path
         path_mapping_t* push_front(const handle_t& handle) {
             path_mapping_t* pushing = new path_mapping_t(handle, path_id);
             if (!head) {
@@ -259,17 +269,56 @@ private:
             return pushing;
         }
         
+        /// Remove the mapping from the path and free its memory
+        void remove(path_mapping_t* mapping) {
+            if (mapping == head) {
+                head = mapping->next;
+            }
+            if (mapping == tail) {
+                tail = mapping->prev;
+            }
+            if (mapping->next) {
+                mapping->next->prev = mapping->prev;
+            }
+            if (mapping->prev) {
+                mapping->prev->next = mapping->next;
+            }
+            count--;
+            delete mapping;
+        }
+        
+        /// Insert a new node into the middle of the path. If the the profvided node
+        /// is null, inserts at the beginning.
         path_mapping_t* insert_after(const handle_t& handle, path_mapping_t* mapping) {
             path_mapping_t* inserting = new path_mapping_t(handle, path_id);
-            inserting->next = mapping->next;
-            if (mapping->next) {
-                mapping->next->prev = inserting;
+            if (mapping) {
+                inserting->next = mapping->next;
+                if (mapping->next) {
+                    mapping->next->prev = inserting;
+                }
+                mapping->next = inserting;
+                inserting->prev = mapping;
+                
+                if (mapping == tail) {
+                    tail = inserting;
+                }
             }
-            mapping->next = inserting;
-            inserting->prev = mapping;
+            else {
+                if (head) {
+                    inserting->next = head;
+                    head->prev = inserting;
+                    head = inserting;
+                }
+                else {
+                    head = tail = inserting;
+                }
+            }
+            
             count++;
             return inserting;
         }
+        
+        
         
         path_mapping_t* head = nullptr;
         path_mapping_t* tail = nullptr;
@@ -283,14 +332,19 @@ private:
     /// The minimum ID in the graph
     id_t min_id = numeric_limits<id_t>::max();
     
+    /// Encodes the graph topology
     hash_map<id_t, node_t> graph;
     
+    /// Maps path names to path IDs
     string_hash_map<string, int64_t> path_id;
     
+    /// Maps path IDs to the actual paths
     hash_map<int64_t, path_t> paths;
     
+    /// Maps node IDs to their occurrences on paths
     hash_map<id_t, vector<path_mapping_t*>> occurrences;
     
+    /// The next path ID we will assign to a new path
     int64_t next_path_id = 1;
 };
     

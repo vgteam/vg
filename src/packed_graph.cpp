@@ -486,7 +486,7 @@ namespace vg {
         
         if (get_is_reverse(handle)) {
             // reverse the vector to the orientation of the input handle
-            std::reverse(return_val.begin(), return_val.end());
+            reverse(return_val.begin(), return_val.end());
             for (handle_t& ret_handle : return_val) {
                 ret_handle = flip(ret_handle);
             }

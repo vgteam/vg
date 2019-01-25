@@ -37,10 +37,10 @@ namespace vg {
         
         if (left != flip(right)){
             if (get_is_reverse(right)) {
-                graph[get_id(right)].left_edges.push_back(flip(left));
+                graph[get_id(right)].right_edges.push_back(flip(left));
             }
             else {
-                graph[get_id(right)].right_edges.push_back(flip(left));
+                graph[get_id(right)].left_edges.push_back(flip(left));
             }
         }
     }
@@ -70,7 +70,8 @@ namespace vg {
     }
     
     string HashGraph::get_sequence(const handle_t& handle) const {
-        return graph.at(get_id(handle)).sequence;
+        return get_is_reverse(handle) ? reverse_complement(graph.at(get_id(handle)).sequence)
+                                      : graph.at(get_id(handle)).sequence;
     }
     
     void HashGraph::swap_handles(const handle_t& a, const handle_t& b) {
@@ -137,6 +138,7 @@ namespace vg {
         }
         
         node_t& node = graph[get_id(handle)];
+        node.sequence = reverse_complement(node.sequence);
         
         for (auto& edge_list : {node.left_edges, node.right_edges}) {
             for (const handle_t& target : edge_list) {
@@ -161,19 +163,110 @@ namespace vg {
     }
     
     vector<handle_t> HashGraph::divide_handle(const handle_t& handle, const vector<size_t>& offsets) {
+        vector<handle_t> return_val;
+        if (offsets.empty()) {
+            return return_val;
+        }
         
-        // TODO
+        // put the offsets in forward orientation to simplify subsequent steps
+        vector<size_t> forward_offsets = offsets;
+        size_t node_length = get_length(handle);
+        if (get_is_reverse(handle)) {
+            for (size_t& off : forward_offsets) {
+                off = node_length - off;
+            }
+        }
         
-        return vector<handle_t>();
+        // we will also build the return value in forward orientation
+        handle_t forward_handle = forward(handle);
+        return_val.push_back(forward_handle);
+        
+        // divvy up the sequence onto separate nodes
+        for (size_t i = 0; i < forward_offsets.size(); i++) {
+            size_t length = (i + 1 < forward_offsets.size() ? forward_offsets[i + 1] : node_length) - forward_offsets[i];
+            return_val.push_back(create_handle(graph[get_id(handle)].sequence.substr(forward_offsets[i], length)));
+        }
+        graph[get_id(handle)].sequence = graph[get_id(handle)].sequence.substr(0, forward_offsets.front());
+        
+        // move the edges out the end of the node to the final one
+        node_t& final_node = graph[get_id(return_val.back())];
+        final_node.right_edges = move(graph[get_id(handle)].right_edges);
+        graph[get_id(handle)].right_edges.clear();
+        
+        // update the backwards references back onto this node
+        for (const handle_t& next : final_node.right_edges) {
+            for (handle_t& bwd_target : get_is_reverse(next) ?
+                                        graph[get_id(next)].right_edges :
+                                        graph[get_id(next)].left_edges) {
+                if (bwd_target == flip(forward_handle)) {
+                    bwd_target = flip(return_val.back());
+                    break;
+                }
+            }
+        }
+        
+        // create edges between the segments of the original node
+        for (size_t i = 1; i < return_val.size(); i++) {
+            create_edge(return_val[i - 1], return_val[i]);
+        }
+        
+        // update the paths and the occurrence records
+        auto iter = occurrences.find(get_id(handle));
+        if (iter != occurrences.end()) {
+            for (path_mapping_t* mapping : iter->second) {
+                path_t& path = paths[mapping->path_id];
+                if (get_is_reverse(mapping->handle)) {
+                    mapping = mapping->prev;
+                    for (size_t i = return_val.size() - 1; i > 0; i++) {
+                        mapping = path.insert_after(flip(return_val[i]), mapping);
+                        occurrences[get_id(return_val[i])].push_back(mapping);
+                    }
+                }
+                else {
+                    for (size_t i = 1; i < return_val.size(); i++) {
+                        mapping = path.insert_after(return_val[i], mapping);
+                        occurrences[get_id(return_val[i])].push_back(mapping);
+                    }
+                }
+            }
+        }
+        
+        if (get_is_reverse(handle)) {
+            // reverse the orientation of the return value to match the input
+            reverse(return_val.begin(), return_val.end());
+            for (handle_t& ret_handle : return_val) {
+                ret_handle = flip(ret_handle);
+            }
+        }
+        
+        return return_val;
     }
     
     void HashGraph::destroy_handle(const handle_t& handle) {
+        
+        // remove backwards references from edges on other nodes
+        node_t& node = graph[get_id(handle)];
+        for (vector<handle_t>* edge_list : {&node.left_edges, &node.right_edges}) {
+            for (const handle_t& next : *edge_list) {
+                auto& bwd_edge_list = get_is_reverse(next) ? graph[get_id(next)].right_edges : graph[get_id(next)].left_edges;
+                for (handle_t& bwd_target : bwd_edge_list) {
+                    if (get_id(bwd_target) == get_id(handle)) {
+                        bwd_target = bwd_edge_list.back();
+                        bwd_edge_list.pop_back();
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // remove this node from the relevant indexes
         graph.erase(get_id(handle));
         occurrences.erase(get_id(handle));
     }
     
     void HashGraph::destroy_edge(const handle_t& left, const handle_t& right) {
         
+        // remove this edge from left
         node_t& left_node = graph[get_id(left)];
         auto& left_edge_list = get_is_reverse(left) ? left_node.left_edges : left_node.right_edges;
         
@@ -185,6 +278,7 @@ namespace vg {
             }
         }
         
+        // remove this edge from right
         node_t& right_node = graph[get_id(right)];
         auto& right_edge_list = get_is_reverse(right) ? right_node.right_edges : right_node.left_edges;
         
