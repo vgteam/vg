@@ -6,6 +6,9 @@
 #include "registry.hpp"
 #include "fd_streams.hpp"
 
+#include "register_loader_saver_gcsa.hpp"
+#include "register_loader_saver_lcp.cpp"
+
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/util/type_resolver.h>
@@ -21,6 +24,69 @@ namespace vg {
 namespace stream {
 
 using namespace std;
+
+auto Registry::register_everything() -> bool {
+
+    // Register all the Protobufs
+    register_protobuf<Alignment>("GAM");
+    register_protobuf<MultipathAlignment>("MGAM");
+    register_protobuf<Graph>("VG");
+    register_protobuf<Snarl>("SNARL");
+
+    // Register all the stream loader/savers.
+    // These all call back to the registry.
+    register_loader_saver_gcsa();
+    register_loader_saver_lcp();
+    
+    return true;
+}
+
+// Make sure the register_everything function is statically invoked.
+static bool registration_success = Registry::register_everything();
+
+auto Registry::get_tables() -> Tables& {
+    // Keep state in a static function local, for on-demand initialization.
+    static Tables tables;
+    return tables;
+}
+
+auto Registry::is_valid_tag(const string& tag) -> bool {
+    // Get our state
+    Tables& tables = get_tables();
+    
+    // Check if the tag is known in any table
+    
+    if (tables.tag_to_protobuf.count(tag)) {
+        return true;
+    }
+    
+    if (tables.tag_to_loader.count(tag)) {
+        return true;
+    }
+    
+    // Sniff if it is known by Protobuf.
+    // See <https://stackoverflow.com/a/41651378>
+    // TODO: Don't allocate a new resolver constantly.
+    auto* resolver = ::google::protobuf::util::NewTypeResolverForDescriptorPool("", ::google::protobuf::DescriptorPool::generated_pool());
+    
+    ::google::protobuf::Type scratch;
+    
+    // The returned status is not really documented.
+    // See <https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/stubs/status.h>
+    // We need a leading slash or it can't find it.
+    auto find_status = resolver->ResolveMessageType("/" + tag, &scratch);
+    
+#ifdef debug
+    cerr << "Resolve " << tag << " status " << find_status.ok()  << " " << find_status.error_code() << " " << find_status.error_message() << endl;
+#endif
+    
+    delete resolver;
+    
+    // If we resolved it OK, it can be a tag.
+    // Otherwise, it is new and suspicious. Treat it as a message.
+    // If it's really some new thing we haven't heard of, we'll hopefully crash.
+    return find_status.ok();
+}
 
 auto wrap_stream_loader(function<void*(istream&)> istream_loader) -> load_function_t {
     // Capture the istream-using function by value
@@ -143,49 +209,6 @@ auto wrap_stream_saver(function<void(const void*, ostream&)> ostream_saver) -> s
 }
 
 
-auto Registry::get_tables() -> Tables& {
-    // Keep state in a static function local, for on-demand initialization.
-    static Tables tables;
-    return tables;
-}
-
-auto Registry::is_valid_tag(const string& tag) -> bool {
-    // Get our state
-    Tables& tables = get_tables();
-    
-    // Check if the tag is known in any table
-    
-    if (tables.tag_to_protobuf.count(tag)) {
-        return true;
-    }
-    
-    if (tables.tag_to_loader.count(tag)) {
-        return true;
-    }
-    
-    // Sniff if it is known by Protobuf.
-    // See <https://stackoverflow.com/a/41651378>
-    // TODO: Don't allocate a new resolver constantly.
-    auto* resolver = ::google::protobuf::util::NewTypeResolverForDescriptorPool("", ::google::protobuf::DescriptorPool::generated_pool());
-    
-    ::google::protobuf::Type scratch;
-    
-    // The returned status is not really documented.
-    // See <https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/stubs/status.h>
-    // We need a leading slash or it can't find it.
-    auto find_status = resolver->ResolveMessageType("/" + tag, &scratch);
-    
-#ifdef debug
-    cerr << "Resolve " << tag << " status " << find_status.ok()  << " " << find_status.error_code() << " " << find_status.error_message() << endl;
-#endif
-    
-    delete resolver;
-   
-    // If we resolved it OK, it can be a tag.
-    // Otherwise, it is new and suspicious. Treat it as a message.
-    // If it's really some new thing we haven't heard of, we'll hopefully crash.
-    return find_status.ok();
-}
 
 }
 
