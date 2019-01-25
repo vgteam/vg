@@ -35,6 +35,8 @@ namespace vg {
             graph[get_id(left)].right_edges.push_back(right);
         }
         
+        // a reversing self-edge only touches one side of one node, so we only want
+        // to add it to a single edge list rather than two
         if (left != flip(right)){
             if (get_is_reverse(right)) {
                 graph[get_id(right)].right_edges.push_back(flip(left));
@@ -82,7 +84,8 @@ namespace vg {
     bool HashGraph::follow_edges(const handle_t& handle, bool go_left,
                                  const std::function<bool(const handle_t&)>& iteratee) const {
         
-        auto& edge_list = get_is_reverse(handle) != go_left ? graph.at(get_id(handle)).left_edges : graph.at(get_id(handle)).right_edges;
+        auto& edge_list = get_is_reverse(handle) != go_left ? graph.at(get_id(handle)).left_edges
+                                                            : graph.at(get_id(handle)).right_edges;
         
         bool keep_going = true;
         for (auto it = edge_list.begin(); it != edge_list.end() && keep_going; it++) {
@@ -133,15 +136,18 @@ namespace vg {
     
     handle_t HashGraph::apply_orientation(const handle_t& handle) {
         
+        // don't do anything if it's already forward
         if (!get_is_reverse(handle)) {
             return handle;
         }
         
+        // reverse the sequence
         node_t& node = graph[get_id(handle)];
         node.sequence = reverse_complement(node.sequence);
         
-        for (auto& edge_list : {node.left_edges, node.right_edges}) {
-            for (const handle_t& target : edge_list) {
+        // reverse the orientation
+        for (vector<handle_t>* edge_list : {&node.left_edges, &node.right_edges}) {
+            for (const handle_t& target : *edge_list) {
                 node_t& other_node = graph[get_id(target)];
                 auto& bwd_edge_list = get_is_reverse(target) ? other_node.right_edges : other_node.left_edges;
                 for (handle_t& bwd_handle : bwd_edge_list) {
@@ -149,16 +155,22 @@ namespace vg {
                         bwd_handle = flip(bwd_handle);
                         break;
                     }
+                    // note: if a node has an edge to both sides of another node, we will end up flipping the
+                    // same edge target twice, but this actually ends with the edge list in the desired state,
+                    // so it's okay
                 }
             }
         }
         
+        // the edge lists switch sides
         swap(node.left_edges, node.right_edges);
         
+        // update the occurrences on paths
         for (auto& occurrence : occurrences[get_id(handle)]) {
             occurrence->handle = flip(occurrence->handle);
         }
         
+        // make it forward and return it
         return flip(handle);
     }
     
@@ -415,6 +427,7 @@ namespace vg {
     }
     
     occurrence_handle_t HashGraph::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+        
         path_t& path_list = paths[as_integer(path)];
         path_mapping_t* mapping = path_list.push_back(to_append);
         occurrences[get_id(to_append)].push_back(mapping);

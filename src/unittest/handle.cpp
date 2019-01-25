@@ -1828,6 +1828,204 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
     }
 }
     
+TEST_CASE("Deletable handle graphs behave correctly when a graph has multiple edges between the same pair of nodes", "[handle][vg][packed][hashgraph]") {
+    
+    vector<DeletableHandleGraph*> implementations;
+    
+    PackedGraph pg;
+    implementations.push_back(&pg);
+    
+    HashGraph hg;
+    implementations.push_back(&hg);
+    
+    VG vg;
+    implementations.push_back(&vg);
+    
+    for(DeletableHandleGraph* implementation : implementations) {
+        
+        DeletableHandleGraph& graph = *implementation;
+        
+        // initialize the graph
+        
+        handle_t h1 = graph.create_handle("A");
+        handle_t h2 = graph.create_handle("C");
+        
+        graph.create_edge(h1, h2);
+        graph.create_edge(graph.flip(h1), h2);
+        
+        // test for the right initial topology
+        bool found1 = false, found2 = false, found3 = false, found4 = false, found5 = false, found6 = false;
+        int count1 = 0, count2 = 0, count3 = 0, count4 = 0;
+        
+        graph.follow_edges(h1, false, [&](const handle_t& other) {
+            if (other == h2) {
+                found1 = true;
+            }
+            count1++;
+        });
+        graph.follow_edges(h1, true, [&](const handle_t& other) {
+            if (other == graph.flip(h2)) {
+                found2 = true;
+            }
+            count2++;
+        });
+        graph.follow_edges(h2, false, [&](const handle_t& other) {
+            count3++;
+        });
+        graph.follow_edges(h2, true, [&](const handle_t& other) {
+            if (other == h1) {
+                found3 = true;
+            }
+            else if (other == graph.flip(h1)) {
+                found4 = true;
+            }
+            count4++;
+        });
+        REQUIRE(found1);
+        REQUIRE(found2);
+        REQUIRE(found3);
+        REQUIRE(found4);
+        REQUIRE(count1 == 1);
+        REQUIRE(count2 == 1);
+        REQUIRE(count3 == 0);
+        REQUIRE(count4 == 2);
+        found1 = found2 = found3 = found4 = found5 = found6 = false;
+        count1 = count2 = count3 = count4 = 0;
+        
+        // flip a node and check if the orientation is correct
+        h1 = graph.apply_orientation(graph.flip(h1));
+        
+        graph.follow_edges(h1, false, [&](const handle_t& other) {
+            if (other == h2) {
+                found1 = true;
+            }
+            count1++;
+        });
+        graph.follow_edges(h1, true, [&](const handle_t& other) {
+            if (other == graph.flip(h2)) {
+                found2 = true;
+            }
+            count2++;
+        });
+        graph.follow_edges(h2, false, [&](const handle_t& other) {
+            count3++;
+        });
+        graph.follow_edges(h2, true, [&](const handle_t& other) {
+            if (other == h1) {
+                found3 = true;
+            }
+            else if (other == graph.flip(h1)) {
+                found4 = true;
+            }
+            count4++;
+        });
+        REQUIRE(found1);
+        REQUIRE(found2);
+        REQUIRE(found3);
+        REQUIRE(found4);
+        REQUIRE(count1 == 1);
+        REQUIRE(count2 == 1);
+        REQUIRE(count3 == 0);
+        REQUIRE(count4 == 2);
+        found1 = found2 = found3 = found4 = found5 = found6 = false;
+        count1 = count2 = count3 = count4 = 0;
+        
+        // create a new edge
+        
+        graph.create_edge(h1, graph.flip(h2));
+        
+        // check the topology
+        
+        graph.follow_edges(h1, false, [&](const handle_t& other) {
+            if (other == h2) {
+                found1 = true;
+            }
+            else if (other == graph.flip(h2)) {
+                found2 = true;
+            }
+            count1++;
+        });
+        graph.follow_edges(h1, true, [&](const handle_t& other) {
+            if (other == graph.flip(h2)) {
+                found3 = true;
+            }
+            count2++;
+        });
+        graph.follow_edges(h2, false, [&](const handle_t& other) {
+             if (other == graph.flip(h1)) {
+                found4 = true;
+            }
+            count3++;
+        });
+        graph.follow_edges(h2, true, [&](const handle_t& other) {
+            if (other == h1) {
+                found5 = true;
+            }
+            else if (other == graph.flip(h1)) {
+                found6 = true;
+            }
+            count4++;
+        });
+        REQUIRE(found1);
+        REQUIRE(found2);
+        REQUIRE(found3);
+        REQUIRE(found4);
+        REQUIRE(found5);
+        REQUIRE(found6);
+        REQUIRE(count1 == 2);
+        REQUIRE(count2 == 1);
+        REQUIRE(count3 == 1);
+        REQUIRE(count4 == 2);
+        found1 = found2 = found3 = found4 = found5 = found6 = false;
+        count1 = count2 = count3 = count4 = 0;
+        
+        // now another node and check to make sure that the edges are updated appropriately
+
+        h2 = graph.apply_orientation(graph.flip(h2));
+        
+        graph.follow_edges(h1, false, [&](const handle_t& other) {
+            if (other == h2) {
+                found1 = true;
+            }
+            else if (other == graph.flip(h2)) {
+                found2 = true;
+            }
+            count1++;
+        });
+        graph.follow_edges(h1, true, [&](const handle_t& other) {
+            if (other == h2) {
+                found3 = true;
+            }
+            count2++;
+        });
+        graph.follow_edges(h2, false, [&](const handle_t& other) {
+            if (other == h1) {
+                found4 = true;
+            }
+            else if (other == graph.flip(h1)) {
+                found5 = true;
+            }
+            count3++;
+        });
+        graph.follow_edges(h2, true, [&](const handle_t& other) {
+            if (other == h1) {
+                found6 = true;
+            }
+            count4++;
+        });
+        REQUIRE(found1);
+        REQUIRE(found2);
+        REQUIRE(found3);
+        REQUIRE(found4);
+        REQUIRE(found5);
+        REQUIRE(found6);
+        REQUIRE(count1 == 2);
+        REQUIRE(count2 == 1);
+        REQUIRE(count3 == 2);
+        REQUIRE(count4 == 1);
+    }
+}
+    
 TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][hashgraph]") {
     
     vector<MutablePathDeletableHandleGraph*> implementations;
