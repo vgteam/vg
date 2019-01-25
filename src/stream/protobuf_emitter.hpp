@@ -12,9 +12,10 @@
 #include <fstream>
 #include <functional>
 #include <vector>
+#include <list>
 
-#include "blocked_gzip_output_stream.hpp"
-#include "stream.hpp"
+#include "message_emitter.hpp"
+#include "registry.hpp"
 
 namespace vg {
 
@@ -23,7 +24,6 @@ namespace stream {
 using namespace std;
 
 /**
- *
  * Class that wraps an output stream and allows emitting groups of Protobuf
  * objects to it, with internal buffering. Handles finishing the file on its
  * own, and allows tracking of BGZF virtual offsets within a non-seekable
@@ -43,45 +43,10 @@ template <typename T>
 class ProtobufEmitter {
 public:
     /// Constructor
-    ProtobufEmitter(std::ostream& out, size_t max_group_size = 1000) :
-        group(),
-        max_group_size(max_group_size),
-        bgzip_out(new BlockedGzipOutputStream(out))
-    {
-#ifdef debug
-        cerr << "Creating ProtobufEmitter" << endl;
-#endif
-        if (bgzip_out->Tell() == -1) {
-            // Say we are starting at the beginnign of the stream, if we don't know where we are.
-            bgzip_out->StartFile();
-        }
-    }
+    ProtobufEmitter(std::ostream& out, size_t max_group_size = 1000);
     
     /// Destructor that finishes the file
-    ~ProtobufEmitter() {
-#ifdef debug
-        cerr << "Destroying ProtobufEmitter" << endl;
-#endif
-        if (bgzip_out.get() != nullptr) {
-#ifdef debug
-            cerr << "ProtobufEmitter emitting final group" << endl;
-#endif
-        
-            // Before we are destroyed, write stuff out.
-            emit_group();
-            
-#ifdef debug
-            cerr << "ProtobufEmitter ending file" << endl;
-#endif
-            
-            // Tell our stream to finish the file (since it hasn't been moved away)
-            bgzip_out->EndFile();
-        }
-        
-#ifdef debug
-        cerr << "ProtobufEmitter destroyed" << endl;
-#endif
-    }
+    ~ProtobufEmitter() = default;
     
     // Prohibit copy
     ProtobufEmitter(const ProtobufEmitter& other) = delete;
@@ -91,114 +56,142 @@ public:
     ProtobufEmitter& operator=(ProtobufEmitter&& other) = default;
     
     /// Emit the given item.
-    /// TODO: Not thread safe.
-    void write(T&& item) {
-        if (group.size() >= max_group_size) {
-            emit_group();
-        }
-        group.emplace_back(std::move(item));
-    }
+    /// TODO: May not really be any more efficient.
+    /// We serialize to string right away in either case.
+    void write(T&& item);
     
     /// Emit a copy of the given item.
     /// To use when you have something you can't move.
-    void write_copy(const T& item) {
-        if (group.size() >= max_group_size) {
-            emit_group();
-        }
-        group.push_back(item);
-    }
+    void write_copy(const T& item);
     
-    /// Define a type for group emission event listeners
-    using listener_t = std::function<void(const vector<T>&, int64_t, int64_t)>;
+    /// Define a type for group emission event listeners.
+    /// The arguments are the start virtual offset and the past-end virtual offset.
+    using group_listener_t = std::function<void(int64_t, int64_t)>;
     
     /// Add an event listener that listens for emitted groups. The listener
-    /// will be called with the group buffer, the start virtual offset, and the
+    /// will be called with the start virtual offset, and the
     /// past-end virtual offset. Moves the function passed in.
     /// Anything the function uses by reference must outlive this object!
-    void on_group(listener_t&& listener) {
-        group_handlers.emplace_back(std::move(listener));
-    }
+    void on_group(group_listener_t&& listener);
+    
+    /// Define a type for message emission event listeners.
+    /// This gets called for every message we emit, and then the group listeners get called for the whole group.
+    using message_listener_t = std::function<void(const T&)>;
+    
+    /// Add an event listener that will be called every time a message is emitted.
+    void on_message(message_listener_t&& listener);
     
     /// Actually write out everything in the buffer.
     /// Doesn't actually flush the underlying streams to disk.
     /// Assumes that no more than one group's worht of items are in the buffer.
-    void emit_group() {
-        if (group.empty()) {
-            // Nothing to do
-            return;
-        }
-        
-        // We can't write a non-empty buffer if our stream is gone/moved away
-        assert(bgzip_out.get() != nullptr);
-        
-        auto handle = [](bool ok) {
-            if (!ok) {
-                throw std::runtime_error("stream::ProtobufEmitter::emit_group: I/O error writing protobuf");
-            }
-        };
-    
-        // Work out where the group we emit will start
-        int64_t virtual_offset = bgzip_out->Tell();
-    
-        ::google::protobuf::io::CodedOutputStream coded_out(bgzip_out.get());
-
-        // Prefix the group with the number of objects
-        coded_out.WriteVarint64(group.size());
-        handle(!coded_out.HadError());
-
-        std::string s;
-        size_t written = 0;
-        for (auto& item : group) {
-            handle(item.SerializeToString(&s));
-            if (s.size() > MAX_PROTOBUF_SIZE) {
-                throw std::runtime_error("stream::ProtobufEmitter::emit_group: message too large error writing protobuf");
-            }
-            
-#ifdef debug
-            cerr << "Writing message of " << s.size() << " bytes in group @ " << virtual_offset << endl;
-#endif
-            
-            // And prefix each object with its size
-            coded_out.WriteVarint32(s.size());
-            handle(!coded_out.HadError());
-            coded_out.WriteRaw(s.data(), s.size());
-            handle(!coded_out.HadError());
-        }
-        
-        // Work out where we ended
-        coded_out.Trim();
-        int64_t next_virtual_offset = bgzip_out->Tell();
-        
-        for (auto& handler : group_handlers) {
-            // Report the group to each group handler that is listening
-            handler(group, virtual_offset, next_virtual_offset);
-        }
-        
-        // Empty the buffer because everything in it is written
-        group.clear();
-    }
-    
+    void emit_group();
     
 private:
 
-    // This is our internal buffer
-    vector<T> group;
-    // This is how big we let it get before we dump it
-    size_t max_group_size;
-    // Since Protobuf streams can't be copied or moved, we wrap ours in a uniqueptr_t so we can be moved.
-    unique_ptr<BlockedGzipOutputStream> bgzip_out;
+    /// We wrap a MessageEmitter that handles tagged message IO
+    MessageEmitter message_emitter;
     
-    // If someone wants to listen in on emitted groups, they can register a handler
-    vector<listener_t> group_handlers;
+    /// And a single precomputed copy of the tag string to use
+    string tag;
+    
+    /// And all the group handler functions. These need to never move; they are
+    /// captured by reference to listeners in our MessageEmitter.
+    list<group_listener_t> group_handlers;
+    
+    /// These we invoke ourselves per message.
+    vector<message_listener_t> message_handlers;
+    
+    /// Make sure the given Protobuf-library bool return value is true, and fail otherwise with a message.
+    void handle(bool ok);
 
 };
-
 
 /// Produce an std::function that can be invoked with Protobuf objects and save them to the given stream.
 /// Easy way to get a dumping callback to feed to something that wants a callback.
 /// The passed stream must outlive the resulting function.
 template<typename Item>
-std::function<void(const Item&)> emit_to(ostream& out) {
+std::function<void(const Item&)> emit_to(ostream& out);
+
+/////////
+// Template implementations
+/////////
+
+template<typename T>
+ProtobufEmitter<T>::ProtobufEmitter(std::ostream& out, size_t max_group_size) : message_emitter(out, max_group_size),
+    tag(Registry::get_protobuf_tag<T>()) {
+    
+    // Nothing to do!
+}
+
+template<typename T>
+auto ProtobufEmitter<T>::write(T&& item) -> void {
+    // Grab the item
+    T to_encode = std::move(item);
+    
+    for (auto& handler : message_handlers) {
+        // Fire the handlers
+        handler(to_encode);
+    }
+    
+    // Encode it to a string
+    string encoded;
+    handle(to_encode.SerializeToString(&encoded));
+    
+    // Write it with the correct tag.
+    message_emitter.write(tag, std::move(encoded));
+}
+
+template<typename T>
+auto ProtobufEmitter<T>::write_copy(const T& item) -> void {
+    for (auto& handler : message_handlers) {
+        // Fire the handlers
+        handler(item);
+    }
+
+    // Encode it to a string
+    string encoded;
+    handle(item.SerializeToString(&encoded));
+    
+    // Write it with the correct tag.
+    message_emitter.write(tag, std::move(encoded));
+}
+
+template<typename T>
+auto ProtobufEmitter<T>::on_group(group_listener_t&& listener) -> void {
+    // Take custody
+    group_handlers.emplace_back(std::move(listener));
+    
+    // Grab a reference
+    auto& owned_listener = group_handlers.back();
+    
+    // Capture by reference in another listener.
+    // TODO: This isn't going to work at all if we want to ever use the same MessageEmitter with multiple ProtobufEmitters...
+    message_emitter.on_group([&owned_listener](const string& tag, int64_t start_vo, int64_t past_end_vo) {
+        // Call back with the group info.
+        owned_listener(start_vo, past_end_vo);
+    });
+}
+
+template<typename T>
+auto ProtobufEmitter<T>::on_message(message_listener_t&& listener) -> void {
+    // Put in the collection to loop through on every message.
+    message_handlers.emplace_back(std::move(listener));
+}
+
+template<typename T>
+auto ProtobufEmitter<T>::emit_group() -> void {
+    message_emitter.emit_group();
+}
+
+template<typename T>
+auto ProtobufEmitter<T>::handle(bool ok) -> void {
+    if (!ok) {
+        throw std::runtime_error("stream::ProtobufEmitter: could not write Protobuf");
+    }
+}
+
+template<typename Item>
+auto emit_to(ostream& out) -> std::function<void(const Item&)> {
     // We are going to be clever and make a lambda capture a shared_ptr to an
     // emitter, so we can have the emitter last as long as the function we
     // return.
@@ -211,7 +204,6 @@ std::function<void(const Item&)> emit_to(ostream& out) {
         emitter->write_copy(item);
     };
 }
-
 
 }
 

@@ -74,19 +74,23 @@ public:
     /// Emit the given message with the given type tag.
     void write(const string& tag, string&& message);
     
+    /// Emit the given message with the given type tag.
+    /// If this res
+    void write(const string& tag, string&& message, const function<void(int64_t, int64_t)>& group_emitted_callback);
+    
     /// Emit a copy of the given message with the given type tag.
     /// To use when you have something you can't move.
     void write_copy(const string& tag, const string& message);
     
     /// Define a type for group emission event listeners.
-    /// Arguments are: type tag, group buffer, start virtual offset, and past-end virtual offset.
-    using listener_t = std::function<void(const string&, const vector<string>&, int64_t, int64_t)>;
+    /// Arguments are: type tag, start virtual offset, and past-end virtual offset.
+    using group_listener_t = function<void(const string&, int64_t, int64_t)>;
     
     /// Add an event listener that listens for emitted groups. The listener
-    /// will be called with the group buffer, the start virtual offset, and the
+    /// will be called with the type tag, the start virtual offset, and the
     /// past-end virtual offset. Moves the function passed in.
     /// Anything the function uses by reference must outlive this object!
-    void on_group(listener_t&& listener);
+    void on_group(group_listener_t&& listener);
     
     /// Actually write out everything in the buffer.
     /// Doesn't actually flush the underlying streams to disk.
@@ -105,7 +109,7 @@ private:
     unique_ptr<BlockedGzipOutputStream> bgzip_out;
     
     // If someone wants to listen in on emitted groups, they can register a handler
-    vector<listener_t> group_handlers;
+    vector<group_listener_t> group_handlers;
 
 };
 

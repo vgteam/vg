@@ -12,6 +12,7 @@
 #include <fstream>
 #include <functional>
 #include <vector>
+#include <memory>
 
 #include <google/protobuf/io/coded_stream.h>
 

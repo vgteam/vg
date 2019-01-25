@@ -4,6 +4,7 @@
 #include "vg.pb.h"
 #include "stream/protobuf_emitter.hpp"
 #include "stream/protobuf_iterator.hpp"
+#include "stream/stream.hpp"
 #include "types.hpp"
 #include "progressive.hpp"
 #include "stream_index.hpp"
@@ -187,26 +188,34 @@ void StreamSorter<Message>::easy_sort(istream& stream_in, ostream& stream_out, S
 
     this->sort(sort_buffer);
     
-    // Write the output in non-enormous chunks, so indexing is actually useful
-    vector<Message> out_buffer;
+    // Maintain our own group buffer at a higher scope than the emitter.
+    vector<Message> group_buffer;
     
-    // Make an output emitter
-    stream::ProtobufEmitter<Message> emitter(stream_out);
-    
-    if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Message>& group, int64_t start_vo, int64_t past_end_vo) {
-            // Whenever it emits a group, index it.
-            // Make sure to only capture things that will outlive the emitter
-            index_to->add_group(group, start_vo, past_end_vo);
-        });
+    {
+        // Make an output emitter
+        stream::ProtobufEmitter<Message> emitter(stream_out);
+        
+        if (index_to != nullptr) {
+            emitter.on_message([&](const Message& m) {
+                // Copy every message that is emitted.
+                // TODO: Just compute indexing stats instead.
+                group_buffer.push_back(m);
+            });
+        
+            emitter.on_group([&](int64_t start_vo, int64_t past_end_vo) {
+                // On every group, tell the index to record the group stats, and clear the buffer.
+                index_to->add_group(group_buffer, start_vo, past_end_vo);
+                group_buffer.clear();
+            });
+        }
+        
+        for (auto& msg : sort_buffer) {
+            // Feed in all the sorted messages
+            emitter.write(std::move(msg));
+        }
+        
+        // Emitter destruction will terminate the file with an EOF marker
     }
-    
-    for (auto& msg : sort_buffer) {
-        // Feed in all the sorted messages
-        emitter.write(std::move(msg));
-    }
-    
-    // Emitter destruction will terminate the file with an EOF marker
 }
 
 template<typename Message>
@@ -312,19 +321,30 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
     list<cursor_t> temp_cursors;
     open_all(outstanding_temp_files, temp_ifstreams, temp_cursors);
     
-    // Make an output emitter
-    emitter_t emitter(stream_out);
+    // Maintain our own group buffer at a higher scope than the emitter.
+    vector<Message> group_buffer;
+    {
     
-    if (index_to != nullptr) {
-        emitter.on_group([&index_to](const vector<Message>& group, int64_t start_vo, int64_t past_end_vo) {
-            // Whenever it emits a group, index it.
-            // Make sure to only capture things that will outlive the emitter
-            index_to->add_group(group, start_vo, past_end_vo);
-        });
+        // Make an output emitter
+        emitter_t emitter(stream_out);
+        
+        if (index_to != nullptr) {
+            emitter.on_message([&](const Message& m) {
+                // Copy every message that is emitted.
+                // TODO: Just compute indexing stats instead.
+                group_buffer.push_back(m);
+            });
+        
+            emitter.on_group([&](int64_t start_vo, int64_t past_end_vo) {
+                // On every group, tell the index to record the group stats, and clear the buffer.
+                index_to->add_group(group_buffer, start_vo, past_end_vo);
+                group_buffer.clear();
+            });
+        }
+    
+        // Merge the cursors into the emitter
+        streaming_merge(temp_cursors, emitter, total_messages_read);
     }
-    
-    // Merge the cursors into the emitter
-    streaming_merge(temp_cursors, emitter, total_messages_read);
     
     // Clean up
     temp_cursors.clear();

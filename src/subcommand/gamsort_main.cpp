@@ -119,21 +119,34 @@ int main_gamsort(int argc, char **argv)
             };
             stream::for_each_parallel(gam_in, lambda_reader);
             
-            // Set up the emitter
-            stream::ProtobufEmitter<Alignment> output(cout);
-            if (index.get() != nullptr) {
-                output.on_group([&index](const vector<Alignment>& group, int64_t start_vo, int64_t past_end_vo) {
-                    // If we are making a sorted GAM index, record the group.
-                    // The index will outlive the emitter so this is safe to call in the emitter's destructor.
-                    index->add_group(group, start_vo, past_end_vo);
-                });
-            }
+            // Maintain our own group buffer at a higher scope than the emitter.
+            vector<Alignment> group_buffer;
             
-            // Print them out again in order
-            auto lambda_writer = [&output](const Alignment& aln) {
-                output.write_copy(aln);
-            };
-            rocks.for_each_alignment(lambda_writer);
+            {
+                // Set up the emitter
+                stream::ProtobufEmitter<Alignment> output(cout);
+                if (index.get() != nullptr) {
+                
+                    output.on_message([&](const Alignment& a) {
+                        // Copy every alignment that is emitted.
+                        // TODO: Just compute indexing stats instead.
+                        group_buffer.push_back(a);
+                    });
+                
+                    output.on_group([&](int64_t start_vo, int64_t past_end_vo) {
+                        // On every group, tell the index to record the group stats, and clear the buffer.
+                        index->add_group(group_buffer, start_vo, past_end_vo);
+                        group_buffer.clear();
+                    });
+                }
+                
+                // Print them out again in order
+                auto lambda_writer = [&output](const Alignment& aln) {
+                    output.write_copy(aln);
+                };
+                rocks.for_each_alignment(lambda_writer);
+                
+            }
             
             rocks.flush();
             rocks.close();

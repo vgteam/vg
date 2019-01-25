@@ -82,7 +82,7 @@ void MessageEmitter::write_copy(const string& tag, const string& message) {
     }
 }
 
-void MessageEmitter::on_group(listener_t&& listener) {
+void MessageEmitter::on_group(group_listener_t&& listener) {
     group_handlers.emplace_back(std::move(listener));
 }
 
@@ -135,8 +135,9 @@ void MessageEmitter::emit_group() {
     int64_t next_virtual_offset = bgzip_out->Tell();
     
     for (auto& handler : group_handlers) {
-        // Report the group to each group handler that is listening
-        handler(group_tag, group, virtual_offset, next_virtual_offset);
+        // Report the group to each group handler that is listening.
+        // We don't report the individual messages. They need to be observed separately.
+        handler(group_tag, virtual_offset, next_virtual_offset);
     }
     
     // Empty the buffer because everything in it is written
