@@ -12,18 +12,10 @@
 #include <vector>
 #include <list>
 
-#include <google/protobuf/stubs/common.h>
-#include <google/protobuf/io/zero_copy_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/io/gzip_stream.h>
-#include <google/protobuf/io/coded_stream.h>
-
-#include "blocked_gzip_output_stream.hpp"
-#include "blocked_gzip_input_stream.hpp"
-
 #include "registry.hpp"
 #include "message_iterator.hpp"
 #include "protobuf_iterator.hpp"
+#include "protobuf_emitter.hpp"
 
 namespace vg {
 
@@ -40,200 +32,43 @@ const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
 /// Internal EOF markers MAY exist, but a file SHOULD have exactly one EOF marker at its end.
 void finish(std::ostream& out);
 
-/// Write objects using adaptive chunking. Takes a stream to write to, a total
-/// element count to write, a guess at how many elements should be in a chunk,
-/// and a function that, given a destination virtual offset in the output
-/// stream (or -1), a start element, and a length, returns a Protobuf object
-/// representing that range of elements.
-///
-/// Adaptively sets the chunk size, in elements, so that no too-large Protobuf
-/// records are serialized.
-///
-/// Returns true on success, but throws errors on failure.
+/// Write objects. count should be equal to the number of objects to write.
+/// count is written before the objects, but if it is 0, it is not written. To
+/// get the objects, calls lambda with the index of the object to retrieve. If
+/// not all objects are written, return false, otherwise true.
 template <typename T>
-bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
-    const std::function<T(int64_t, size_t, size_t)>& lambda) {
+bool write(std::ostream& out, size_t count, const std::function<T&(size_t)>& lambda) {
 
-    // How many elements have we serialized so far
-    size_t serialized = 0;
+    // Wrap stream in an emitter
+    ProtobufEmitter<T> emitter(out);
     
-    BlockedGzipOutputStream bgzip_out(out);
-    ::google::protobuf::io::CodedOutputStream coded_out(&bgzip_out);
-
-    auto handle = [](bool ok) {
-        if (!ok) throw std::runtime_error("stream::write: I/O error writing protobuf");
-    };
-    
-    while (serialized < element_count) {
-    
-        // Work out how many elements can go in this chunk, accounting for the total element count
-        chunk_elements = std::min(chunk_elements, element_count - serialized);
-    
-        // Work out where the chunk is going.
-        // TODO: we need to back up the coded output stream after every chunk,
-        // and push the partial buffer into BGZF, and get a new buffer, which 
-        // wastes time.
-#ifdef debug
-        cerr << "Trim stream and determine offset" << endl;
-#endif
-        coded_out.Trim(); 
-        int64_t virtual_offset = bgzip_out.Tell();
-#ifdef debug
-        cerr << "Offset is " << virtual_offset << endl;
-#endif
-    
-        // Serialize a chunk
-#ifdef debug
-        cerr << "Go get " << chunk_elements << " elements" << endl;
-#endif
-        std::string chunk_data;
-        handle(lambda(virtual_offset, serialized, chunk_elements).SerializeToString(&chunk_data));
-    
-        if (chunk_data.size() > MAX_PROTOBUF_SIZE) {
-            // This is too big!
-            
-            if (chunk_elements > 1) {
-                // But we can make it smaller. Try again at half this size.
-                chunk_elements = chunk_elements / 2;
-                continue;
-            } else {
-                // This single element is too large
-                throw std::runtime_error("stream::write: message for element " +
-                    std::to_string(serialized) + " too large error writing protobuf");
-            }
-        } else {
-            // We can send this message
-#ifdef debug
-            cerr << "Writing message/group of " << chunk_data.size() << " bytes and elements "
-                << serialized << "-" << (serialized + chunk_elements) << endl;
-#endif
-            
-            // Say we have a group of a single message
-#ifdef debug
-            cerr << "\tWrite group length" << endl;
-#endif
-            coded_out.WriteVarint64(1);
-            handle(!coded_out.HadError());
-            // and prefix each object with its size
-#ifdef debug
-            cerr << "\tWrite message length" << endl;
-#endif
-            coded_out.WriteVarint32(chunk_data.size());
-            handle(!coded_out.HadError());
-#ifdef debug
-            cerr << "\tWrite message data" << endl;
-#endif
-            coded_out.WriteRaw(chunk_data.data(), chunk_data.size());
-            handle(!coded_out.HadError());
-#ifdef debug
-            cerr << "\tMessage/group written" << endl;
-#endif
-            
-            // Remember how far we've serialized now
-            serialized += chunk_elements;
-            
-            if (chunk_data.size() < TARGET_PROTOBUF_SIZE/2) {
-                // We were less than half the target size, so try being twice as
-                // big next time.
-                chunk_elements *= 2;
-            } else if (chunk_data.size() > TARGET_PROTOBUF_SIZE && chunk_elements > 1) {
-                // We were larger than the target size and we can be smaller
-                chunk_elements /= 2;
-            }
-        }
+    for (size_t i = 0; i < count; i++) {
+        // Write each item.
+        emitter.write_copy(lambda(i));
     }
     
     return true;
-
-}
-
-/// Write objects using adaptive chunking. Takes a stream to write to, a total
-/// element count to write, a guess at how many elements should be in a chunk,
-/// and a function that, given a start element and a length, returns a Protobuf
-/// object representing that range of elements.
-///
-/// Adaptively sets the chunk size, in elements, so that no too-large Protobuf
-/// records are serialized.
-///
-/// Returns true on success, but throws errors on failure.
-template <typename T>
-bool write(std::ostream& out, size_t element_count, size_t chunk_elements,
-    const std::function<T(size_t, size_t)>& lambda) {
-    
-    return write(out, element_count, chunk_elements,
-        static_cast<const typename std::function<T(int64_t, size_t, size_t)>&>(
-        [&lambda](int64_t virtual_offset, size_t chunk_start, size_t chunk_length) -> T {
-        
-        // Ignore the virtual offset
-        return lambda(chunk_start, chunk_length);
-    }));
-}
-
-/// Write objects. count should be equal to the number of objects to write.
-/// count is written before the objects, but if it is 0, it is not written. To
-/// get the objects, calls lambda with the highest virtual offset that can be
-/// seek'd to in order to read the object (or -1 if the stream is not
-/// tellable), and the index of the object to retrieve. If not all objects are
-/// written, return false, otherwise true.
-template <typename T>
-bool write(std::ostream& out, size_t count, const std::function<T(int64_t, size_t)>& lambda) {
-
-    // Make all our streams on the stack, in case of error.
-    BlockedGzipOutputStream bgzip_out(out);
-    ::google::protobuf::io::CodedOutputStream coded_out(&bgzip_out);
-
-    auto handle = [](bool ok) {
-        if (!ok) {
-            throw std::runtime_error("stream::write: I/O error writing protobuf");
-        }
-    };
-    
-    // We can't seek directly to individual messages, because we can only read
-    // count-prefixed groups. So the highest seek offset is going to be where
-    // we are now, where the group count is being written.
-    coded_out.Trim();
-    int64_t virtual_offset = bgzip_out.Tell();
-
-    // prefix the chunk with the number of objects, if any objects are to be written
-    if(count > 0) {
-        coded_out.WriteVarint64(count);
-        handle(!coded_out.HadError());
-    }
-
-    std::string s;
-    size_t written = 0;
-    for (size_t n = 0; n < count; ++n, ++written) {
-        handle(lambda(virtual_offset, n).SerializeToString(&s));
-        if (s.size() > MAX_PROTOBUF_SIZE) {
-            throw std::runtime_error("stream::write: message too large error writing protobuf");
-        }
-        
-#ifdef debug
-        cerr << "Writing message of " << s.size() << " bytes at " << n << "/" << count << " in group @ " << virtual_offset << endl;
-#endif
-        
-        // and prefix each object with its size
-        coded_out.WriteVarint32(s.size());
-        handle(!coded_out.HadError());
-        coded_out.WriteRaw(s.data(), s.size());
-        handle(!coded_out.HadError());
-    }
-
-    return !count || written == count;
 }
 
 /// Write objects. count should be equal to the number of objects to write.
 /// count is written before the objects, but if it is 0, it is not written. To
 /// get the objects, calls lambda with the index of the object to retrieve. If
 /// not all objects are written, return false, otherwise true.
+/// This implementation takes a function that returns actual objects and not references.
 template <typename T>
 bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lambda) {
-    return write(out, count,
-        static_cast<const typename std::function<T(int64_t, size_t)>&>(
-        [&lambda](int64_t virtual_offset, size_t object_number) -> T {
-        // Discard the virtual offset
-        return lambda(object_number);
-    }));
+
+    static_assert(!std::is_reference<T>::value);
+
+    // Wrap stream in an emitter
+    ProtobufEmitter<T> emitter(out);
+    
+    for (size_t i = 0; i < count; i++) {
+        // Write each item.
+        emitter.write_copy(lambda(i));
+    }
+    
+    return true;
 }
 
 /// Start, continue, or finish a buffered stream of objects.

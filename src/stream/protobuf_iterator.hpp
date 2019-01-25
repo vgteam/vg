@@ -213,7 +213,9 @@ auto ProtobufIterator<T>::fill_value() -> void {
         }
         
         // Parse the value
-        value.ParseFromString(message);
+        if (!value.ParseFromString(message)) {
+            throw runtime_error("[stream::ProtobufIterator] could not parse message");
+        }
         
 #ifdef debug   
         cerr << "Got " << pb2json(value) << " from " << message.size() << " bytes" << endl;

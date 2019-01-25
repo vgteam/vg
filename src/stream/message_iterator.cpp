@@ -93,6 +93,10 @@ auto MessageIterator::operator++() -> const MessageIterator& {
             handle(coded_in.ReadString(&value.first, tagSize));
         }
         
+#ifdef debug
+        cerr << "Read what should be the tag of " << tagSize << " bytes" << endl;
+#endif
+        
         // Update the counters for the tag, which the counters treat as a message.
         if (virtual_offset == -1) {
             // Just track the counter.
@@ -105,13 +109,45 @@ auto MessageIterator::operator++() -> const MessageIterator& {
         // Move on to the next message in the group
         group_idx++;
     
-        if (!(!backup_tag.empty() && backup_tag == value.first) && !Registry::is_valid_tag(value.first)) {
-            // If the tag isn't the same as our previous (nonempty) tag, we have to check it with the registry.
+        // Work out if this really is a tag.
+        bool is_tag = false;
+        
+        if (!backup_tag.empty() && backup_tag == value.first) {
+#ifdef debug
+            cerr << "Tag is the same as the last tag of \"" << backup_tag << "\"" << endl;
+#endif
+            is_tag = true;
+        } else {
+#ifdef debug
+            cerr << "Tag does not match cached backup tag or there is no cached backup tag" << endl;
+#endif
+        }
+    
+        if (!is_tag && Registry::is_valid_tag(value.first)) {
+#ifdef debug
+            cerr << "Tag \"" << value.first << "\" is OK with the registry" << endl;
+#endif
+            is_tag = true;
+        } else if (!is_tag) {
+#ifdef debug
+            cerr << "Tag is not approved by the registry" << endl;
+#endif
+        }
+    
+        if (!is_tag) {
             // If we get here, the registry doesn't think it's a tag.
             // Assume it is actually a message, and make the group's tag ""
             swap(value.first, value.second);
             value.first.clear();
             backup_tag.clear();
+            
+#ifdef debug
+            cerr << "Tag is actually a message probably." << endl;
+#endif
+
+#ifdef debug
+            cerr << "Found message with tag \"" << value.first << "\"" << endl;
+#endif
             
             // Return ourselves, after increment
             return *this;
@@ -166,6 +202,10 @@ auto MessageIterator::operator++() -> const MessageIterator& {
     // Move on to the next message in the group
     group_idx++;
     
+#ifdef debug
+    cerr << "Found message with tag \"" << value.first << "\"" << endl;
+#endif
+    
     // Return ourselves, after increment
     return *this;
 }
@@ -215,11 +255,17 @@ auto MessageIterator::tell_group() const -> int64_t {
 auto MessageIterator::seek_group(int64_t virtual_offset) -> bool {
     if (virtual_offset < 0) {
         // That's not allowed
+#ifdef debug
+        cerr << "Can't seek to negative position" << endl;
+#endif
         return false;
     }
     
     if (group_idx == 0 && group_vo == virtual_offset) {
         // We are there already
+#ifdef debug
+        cerr << "Already at seek position" << endl;
+#endif
         return true;
     }
     
@@ -228,12 +274,19 @@ auto MessageIterator::seek_group(int64_t virtual_offset) -> bool {
     
     if (!sought) {
         // We can't seek
+#ifdef debug
+        cerr << "bgzip_in could not seek" << endl;
+#endif
         return false;
     }
     
     // Get ready to read the group that's here
     group_count = 0;
     group_idx = 0;
+    
+#ifdef debug
+    cerr << "Successfully sought" << endl;
+#endif
     
     // Read it (or detect EOF)
     get_next();

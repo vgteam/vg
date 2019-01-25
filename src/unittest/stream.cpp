@@ -116,102 +116,6 @@ TEST_CASE("Multiple write calls work correctly on the same stream", "[stream]") 
 
 }
 
-TEST_CASE("Single auto-chunking write calls work correctly", "[stream]") {
-    stringstream datastream;
-
-    // Define some functions to make and check fake Protobuf objects
-    using message_t = Graph;
-    
-    id_t id_to_make = 0;
-    auto get_message = [&](size_t start, size_t count) {
-        message_t item;
-        
-        for(size_t i = 0; i < count; i++) {
-            // Put nodes with those IDs in
-            Node* added = item.add_node();
-            added->set_id(id_to_make);
-            id_to_make++;
-#ifdef debug
-            cerr << "Emit item " << added->id() << endl;
-#endif
-        }
-        
-        return item;
-    };
-    
-    id_t id_expected = 0;
-    auto check_message = [&](const message_t& item) {
-        for (size_t i = 0; i < item.node_size(); i++) {
-            // Make sure they come out in the same order
-#ifdef debug
-            cerr << "Found item " << item.node(i).id() << endl;
-#endif
-            REQUIRE(item.node(i).id() == id_expected);
-            id_expected++;
-        }
-    };
-    
-    // Serialize some objects with dynamic chunking
-    REQUIRE(stream::write<message_t>(datastream, 10, 1, get_message));
-    stream::finish(datastream);
-    
-    // Read them back
-    stream::for_each<message_t>(datastream, check_message);
-    
-    // Make sure we saw them all
-    REQUIRE(id_expected == 10);
-
-}
-
-TEST_CASE("Multiple auto-chunking write calls work correctly on the same stream", "[stream]") {
-    stringstream datastream;
-
-    // Define some functions to make and check fake Protobuf objects
-    using message_t = Graph;
-    
-    id_t id_to_make = 0;
-    auto get_message = [&](size_t start, size_t count) {
-        message_t item;
-        
-        for(size_t i = 0; i < count; i++) {
-            // Put nodes with those IDs in
-            Node* added = item.add_node();
-            added->set_id(id_to_make);
-            id_to_make++;
-#ifdef debug
-            cerr << "Emit item " << added->id() << endl;
-#endif
-        }
-        
-        return item;
-    };
-    
-    id_t id_expected = 0;
-    auto check_message = [&](const message_t& item) {
-        for (size_t i = 0; i < item.node_size(); i++) {
-            // Make sure they come out in the same order
-#ifdef debug
-            cerr << "Found item " << item.node(i).id() << endl;
-#endif
-            REQUIRE(item.node(i).id() == id_expected);
-            id_expected++;
-        }
-    };
-    
-    for (size_t i = 0; i < 3; i++) {
-        // Serialize some objects with dynamic chunking
-        REQUIRE(stream::write<message_t>(datastream, 10, 1, get_message));
-    }
-    stream::finish(datastream);
-    
-    // Read them back
-    stream::for_each<message_t>(datastream, check_message);
-    
-    // Make sure we saw them all
-    REQUIRE(id_expected == 30);
-
-}
-
 /// Deconstruct a virtual offset into its component parts
 static pair<size_t, size_t> unvo(int64_t virtual_offset) {
     pair<size_t, size_t> to_return;
@@ -231,15 +135,9 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     unordered_map<size_t, int64_t> index_to_group;
     
     size_t index_to_make = 0;
-    auto get_message = [&](int64_t group_virtual_offset, size_t index) {
+    auto get_message = [&](size_t index) {
         message_t item;
         item.set_node_id(index_to_make);
-        auto vo_parts = unvo(group_virtual_offset);
-#ifdef debug
-        cerr << "Write item " << index_to_make << " at VO " << group_virtual_offset 
-            << " = " << vo_parts.first << ", " << vo_parts.second << endl;
-#endif
-        index_to_group[index_to_make] = group_virtual_offset;
         index_to_make++;
         return item;
     };
@@ -250,6 +148,26 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     }
     stream::finish(datastream);
     
+    {
+        // Scan and populate the table
+        stream::ProtobufIterator<message_t> it(datastream);
+        
+        size_t index_found = 0;
+        while (it.has_next()) {
+#ifdef debug
+        cerr << "We wrote " << index_found << " at VO " << it.tell_group() << endl;
+#endif
+        
+            index_to_group[index_found] = it.tell_group();
+            index_found++;
+            ++it;
+        }
+        
+    }
+    
+    // Start over
+    datastream = stringstream(datastream.str());
+    
     SECTION("Data can be found by seeking") {
         stream::ProtobufIterator<message_t> it(datastream);
         
@@ -257,7 +175,9 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
         cerr << "Try and load from VO " << index_to_group.at(4) << endl;
 #endif
         
-        it.seek_group(index_to_group.at(4));
+        // We know #4 should lead its group.
+        bool sought = it.seek_group(index_to_group.at(4));
+        REQUIRE(sought == true);
         REQUIRE((*it).node_id() == 4);
     }
     

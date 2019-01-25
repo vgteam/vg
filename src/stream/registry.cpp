@@ -6,6 +6,13 @@
 #include "registry.hpp"
 #include "fd_streams.hpp"
 
+#include <google/protobuf/stubs/common.h>
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/util/type_resolver.h>
+#include <google/protobuf/util/type_resolver_util.h>
+#include <google/protobuf/type.pb.h>
+#include <google/protobuf/descriptor.pb.h>
+
 #include <unistd.h>
 #include <thread>
 
@@ -156,9 +163,28 @@ auto Registry::is_valid_tag(const string& tag) -> bool {
         return true;
     }
     
+    // Sniff if it is known by Protobuf.
+    // See <https://stackoverflow.com/a/41651378>
+    // TODO: Don't allocate a new resolver constantly.
+    auto* resolver = ::google::protobuf::util::NewTypeResolverForDescriptorPool("", ::google::protobuf::DescriptorPool::generated_pool());
+    
+    ::google::protobuf::Type scratch;
+    
+    // The returned status is not really documented.
+    // See <https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/stubs/status.h>
+    // We need a leading slash or it can't find it.
+    auto find_status = resolver->ResolveMessageType("/" + tag, &scratch);
+    
+#ifdef debug
+    cerr << "Resolve " << tag << " status " << find_status.ok()  << " " << find_status.error_code() << " " << find_status.error_message() << endl;
+#endif
+    
+    delete resolver;
+   
+    // If we resolved it OK, it can be a tag.
     // Otherwise, it is new and suspicious. Treat it as a message.
     // If it's really some new thing we haven't heard of, we'll hopefully crash.
-    return false;
+    return find_status.ok();
 }
 
 }

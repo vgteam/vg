@@ -16,6 +16,7 @@
 
 #include "message_emitter.hpp"
 #include "registry.hpp"
+#include "../json2pb.h"
 
 namespace vg {
 
@@ -147,10 +148,14 @@ auto ProtobufEmitter<T>::write_copy(const T& item) -> void {
         // Fire the handlers
         handler(item);
     }
-
+    
     // Encode it to a string
     string encoded;
     handle(item.SerializeToString(&encoded));
+    
+#ifdef debug
+    cerr << "Write Protobuf: " << pb2json(item) << " to " << encoded.size() << " bytes" << endl;
+#endif
     
     // Write it with the correct tag.
     message_emitter.write(tag, std::move(encoded));
