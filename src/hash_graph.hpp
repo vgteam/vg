@@ -231,6 +231,43 @@ private:
     struct path_t {
         path_t() {}
         path_t(const string& name, const int64_t& path_id) : name(name), path_id(path_id) {}
+        
+        // Move constructor
+        path_t(path_t&& other) : head(other.head), tail(other.tail), path_id(other.path_id), count(other.count), name(move(other.name)) {
+            
+            other.head = nullptr;
+            other.tail = nullptr;
+            other.path_id = 0;
+            other.count = 0;
+        }
+        
+        // Move assignment
+        path_t& operator=(path_t&& other) {
+            if (this != &other) {
+                // free existing list
+                for (path_mapping_t* mapping = head; mapping != nullptr;) {
+                    path_mapping_t* next = mapping->next;
+                    delete mapping;
+                    mapping = next;
+                }
+                
+                // steal other list
+                head = other.head;
+                tail = other.tail;
+                other.head = nullptr;
+                other.tail = nullptr;
+                
+                name = move(other.name);
+                
+                path_id = other.path_id;
+                other.path_id = 0;
+                
+                count = other.count;
+                other.count = 0;
+            }
+            return *this;
+        }
+        
         ~path_t() {
             for (path_mapping_t* mapping = head; mapping != nullptr;) {
                 path_mapping_t* next = mapping->next;

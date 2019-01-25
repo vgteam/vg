@@ -163,10 +163,6 @@ namespace vg {
     }
     
     vector<handle_t> HashGraph::divide_handle(const handle_t& handle, const vector<size_t>& offsets) {
-        vector<handle_t> return_val;
-        if (offsets.empty()) {
-            return return_val;
-        }
         
         // put the offsets in forward orientation to simplify subsequent steps
         vector<size_t> forward_offsets = offsets;
@@ -179,7 +175,12 @@ namespace vg {
         
         // we will also build the return value in forward orientation
         handle_t forward_handle = forward(handle);
+        vector<handle_t> return_val;
         return_val.push_back(forward_handle);
+        
+        if (offsets.empty()) {
+            return return_val;
+        }
         
         // divvy up the sequence onto separate nodes
         for (size_t i = 0; i < forward_offsets.size(); i++) {
@@ -217,7 +218,7 @@ namespace vg {
                 path_t& path = paths[mapping->path_id];
                 if (get_is_reverse(mapping->handle)) {
                     mapping = mapping->prev;
-                    for (size_t i = return_val.size() - 1; i > 0; i++) {
+                    for (size_t i = return_val.size() - 1; i > 0; i--) {
                         mapping = path.insert_after(flip(return_val[i]), mapping);
                         occurrences[get_id(return_val[i])].push_back(mapping);
                     }
@@ -387,6 +388,7 @@ namespace vg {
     }
     
     void HashGraph::destroy_path(const path_handle_t& path) {
+        
         // remove the records of nodes occurring on this path
         for_each_occurrence_in_path(path, [&](const occurrence_handle_t& occ) {
             path_mapping_t* mapping = (path_mapping_t*) intptr_t(as_integers(occ)[1]);

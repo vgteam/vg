@@ -1827,6 +1827,267 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
         check_path_traversal(xg_index, path3);
     }
 }
+    
+TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][hashgraph]") {
+    
+    vector<MutablePathDeletableHandleGraph*> implementations;
+    
+    PackedGraph pg;
+    implementations.push_back(&pg);
+    
+    HashGraph hg;
+    implementations.push_back(&hg);
+    
+    // These tests include assertions that embedded paths are maintained to be
+    // consistent during graph edits, which VG doesn't currently do
+    //VG vg;
+    //implementations.push_back(&vg);
+    
+    for(MutablePathDeletableHandleGraph* implementation : implementations) {
+        
+        MutablePathDeletableHandleGraph& graph = *implementation;
+        
+        auto check_path = [&](const path_handle_t& p, const vector<handle_t>& occs) {
+            
+            occurrence_handle_t occ;
+            for (int i = 0; i < occs.size(); i++){
+                if (i == 0) {
+                    occ = graph.get_first_occurrence(p);
+                }
+                
+                REQUIRE(graph.get_path_handle_of_occurrence(occ) == p);
+                REQUIRE(graph.get_occurrence(occ) == occs[i]);
+                REQUIRE(graph.has_previous_occurrence(occ) == (i > 0));
+                REQUIRE(graph.has_next_occurrence(occ) == (i < occs.size() - 1));
+                
+                if (i != occs.size() - 1) {
+                    occ = graph.get_next_occurrence(occ);
+                }
+            }
+            
+            for (int i = occs.size() - 1; i >= 0; i--){
+                if (i == occs.size() - 1) {
+                    occ = graph.get_last_occurrence(p);
+                }
+                
+                REQUIRE(graph.get_path_handle_of_occurrence(occ) == p);
+                REQUIRE(graph.get_occurrence(occ) == occs[i]);
+                REQUIRE(graph.has_previous_occurrence(occ) == (i > 0));
+                REQUIRE(graph.has_next_occurrence(occ) == (i < occs.size() - 1));
+                
+                if (i != 0) {
+                    occ = graph.get_previous_occurrence(occ);
+                }
+            }
+        };
+        
+        auto check_flips = [&](const path_handle_t& p, const vector<handle_t>& occs) {
+            auto flipped = occs;
+            for (size_t i = 0; i < occs.size(); i++) {
+                
+                graph.apply_orientation(graph.flip(graph.forward(flipped[i])));
+                flipped[i] = graph.flip(flipped[i]);
+                check_path(p, flipped);
+                
+                graph.apply_orientation(graph.flip(graph.forward(flipped[i])));
+                flipped[i] = graph.flip(flipped[i]);
+                check_path(p, flipped);
+            }
+        };
+        
+        handle_t h1 = graph.create_handle("AC");
+        handle_t h2 = graph.create_handle("CAGTGA");
+        handle_t h3 = graph.create_handle("GT");
+        
+        graph.create_edge(h1, h2);
+        graph.create_edge(h2, h3);
+        graph.create_edge(h1, graph.flip(h2));
+        graph.create_edge(graph.flip(h2), h3);
+        
+        REQUIRE(!graph.has_path("1"));
+        REQUIRE(graph.get_path_count() == 0);
+        
+        path_handle_t p1 = graph.create_path_handle("1");
+        
+        REQUIRE(graph.has_path("1"));
+        REQUIRE(graph.get_path_count() == 1);
+        REQUIRE(graph.get_path_handle("1") == p1);
+        REQUIRE(graph.get_path_name(p1) == "1");
+        REQUIRE(graph.get_occurrence_count(p1) == 0);
+        REQUIRE(graph.is_empty(p1));
+        
+        graph.append_occurrence(p1, h1);
+        
+        REQUIRE(graph.get_occurrence_count(p1) == 1);
+        REQUIRE(!graph.is_empty(p1));
+        
+        graph.append_occurrence(p1, h2);
+        graph.append_occurrence(p1, h3);
+        
+        REQUIRE(graph.get_occurrence_count(p1) == 3);
+        
+        // graph can traverse a path
+        check_path(p1, {h1, h2, h3});
+        
+        // graph preserves paths when reversing nodes
+        check_flips(p1, {h1, h2, h3});
+        
+        path_handle_t p2 = graph.create_path_handle("2");
+        REQUIRE(graph.get_path_count() == 2);
+        
+        graph.append_occurrence(p2, h1);
+        graph.append_occurrence(p2, graph.flip(h2));
+        graph.append_occurrence(p2, h3);
+        
+        check_path(p2, {h1, graph.flip(h2), h3});
+        
+        // graph can query occurrences of a node on paths
+        
+        bool found1 = false, found2 = false;
+        vector<occurrence_handle_t> occs = graph.occurrences_of_handle(h1);
+        for (auto& occ : occs) {
+            if (graph.get_path_handle_of_occurrence(occ) == p1 &&
+                graph.get_occurrence(occ) == h1) {
+                found1 = true;
+            }
+            else if (graph.get_path_handle_of_occurrence(occ) == p2 &&
+                     graph.get_occurrence(occ) == h1) {
+                found2 = true;
+            }
+            else {
+                REQUIRE(false);
+            }
+        }
+        REQUIRE(found1);
+        REQUIRE(found2);
+        found1 = found2 = false;
+        
+        occs = graph.occurrences_of_handle(h1, true);
+        for (auto& occ : occs) {
+            if (graph.get_path_handle_of_occurrence(occ) == p1 &&
+                graph.get_occurrence(occ) == h1) {
+                found1 = true;
+            }
+            else if (graph.get_path_handle_of_occurrence(occ) == p2 &&
+                     graph.get_occurrence(occ) == h1) {
+                found2 = true;
+            }
+            else {
+                REQUIRE(false);
+            }
+        }
+        REQUIRE(found1);
+        REQUIRE(found2);
+        found1 = found2 = false;
+        
+        occs = graph.occurrences_of_handle(graph.flip(h1), true);
+        for (auto& occ : occs) {
+            REQUIRE(false);
+        }
+        
+        occs = graph.occurrences_of_handle(h2, true);
+        for (auto& occ : occs) {
+            if (graph.get_path_handle_of_occurrence(occ) == p1 &&
+                graph.get_occurrence(occ) == h2) {
+                found1 = true;
+            }
+            else {
+                REQUIRE(false);
+            }
+        }
+        occs = graph.occurrences_of_handle(graph.flip(h2), true);
+        for (auto& occ : occs) {
+            if (graph.get_path_handle_of_occurrence(occ) == p2 &&
+                graph.get_occurrence(occ) == graph.flip(h2)) {
+                found2 = true;
+            }
+            else {
+                REQUIRE(false);
+            }
+        }
+        REQUIRE(found1);
+        REQUIRE(found2);
+        found1 = found2 = false;
+        
+        vector<handle_t> segments = graph.divide_handle(h2, {size_t(2), size_t(4)});
+        
+        // graph preserves paths when dividing nodes
+        
+        check_path(p1, {h1, segments[0], segments[1], segments[2], h3});
+        check_path(p2, {h1, graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0]), h3});
+        
+        path_handle_t p3 = graph.create_path_handle("3");
+        graph.append_occurrence(p3, h1);
+        graph.append_occurrence(p3, segments[0]);
+        
+        REQUIRE(graph.has_path("3"));
+        REQUIRE(graph.get_path_count() == 3);
+        
+        // graph can destroy paths
+        
+        graph.destroy_path(p3);
+        
+        REQUIRE(!graph.has_path("3"));
+        REQUIRE(graph.get_path_count() == 2);
+        
+        bool found3 = false;
+        
+        graph.for_each_path_handle([&](const path_handle_t& p) {
+            if (graph.get_path_name(p) == "1") {
+                found1 = true;
+            }
+            else if (graph.get_path_name(p) == "2") {
+                found2 = true;
+            }
+            else if (graph.get_path_name(p) == "3") {
+                found3 = true;
+            }
+            else {
+                REQUIRE(false);
+            }
+        });
+        
+        REQUIRE(found1);
+        REQUIRE(found2);
+        REQUIRE(!found3);
+        
+        // check flips to see if membership records are still functional
+        check_flips(p1, {h1, segments[0], segments[1], segments[2], h3});
+        check_flips(p2, {h1, graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0]), h3});
+        
+        graph.destroy_path(p1);
+        
+        REQUIRE(!graph.has_path("1"));
+        REQUIRE(graph.get_path_count() == 1);
+        
+        found1 = found2 = found3 = false;
+        
+        graph.for_each_path_handle([&](const path_handle_t& p) {
+            if (graph.get_path_name(p) == "1") {
+                found1 = true;
+            }
+            else if (graph.get_path_name(p) == "2") {
+                found2 = true;
+            }
+            else if (graph.get_path_name(p) == "3") {
+                found3 = true;
+            }
+            else {
+                REQUIRE(false);
+            }
+        });
+        
+        REQUIRE(!found1);
+        REQUIRE(found2);
+        REQUIRE(!found3);
+        
+        // check flips to see if membership records are still functional
+        check_flips(p2, {h1, graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0]), h3});
+        
+    }
+    
+}
+    
 
 }
 }
