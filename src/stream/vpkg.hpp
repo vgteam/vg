@@ -11,7 +11,7 @@
 
 #include <iostream>
 #include <tuple>
-#include <list>
+#include <vector>
 #include <memory>
 
 namespace vg {
@@ -43,37 +43,14 @@ public:
 private:
 
     /**
-     * If any type in Wanted can be loaded from the message the given iterator
-     * is on, load it into the corresponding empty unique_ptr<T> in the given
-     * list.
-     *
-     * Returns true if somethign was loaded, or if something is still wanted
-     * but the current tag can't load anything.
-     *
-     * Returns false when all the unique_ptrs have been fileld, or the iterator
-     * hits EOF.
+     * If the one item of type One at index i in the destination tuple can be
+     * filled from the given MessageIterator, and is empty, fill it.
+     * 
+     * Returns false if it can't be filled, or is already filled, or the
+     * iterator is over.
      */
-    template<typename... Wanted>
-    static bool load_into(MessageIterator& it, list<void*>::iterator unique_ptrs_begin, list<void*>::iterator unique_ptrs_end);
-    
-    template<typename One>
-    static bool load_into_one(MessageIterator& it, list<void*>::iterator unique_ptrs_begin, list<void*>::iterator unique_ptrs_end);
-
-    /**
-     * We need a way to scan over the tuple entries, but std::tuple can't do
-     * first/rest. So we have this tool to allocate us a bunch of empty
-     * unique_ptrs of various types and return a list of pointers to them.
-     */
-    template<typename... Wanted>
-    static list<void*> allocate_unique_ptrs();
-    
-    /**
-     * And then we have this to turn those void*s back into a tuple of
-     * unique_ptrs, by moving and de-allocating the ones in the list.
-     */
-    template<typename... Wanted>
-    static tuple<unique_ptr<Wanted>...> deallocate_unique_ptrs(list<void*>::iterator unique_ptrs_begin,
-        list<void*>::iterator unique_ptrs_end);
+    template<typename One, typename... TupleTypes>
+    static bool load_into_one(MessageIterator& it, size_t i, tuple<unique_ptr<TupleTypes>...>& dest);
 };
 
 /////////////
@@ -82,31 +59,42 @@ private:
 
 template<typename... Wanted>
 auto VPKG::load_all(istream& in) -> tuple<unique_ptr<Wanted>...> {
-
-    // Allocate all the unique pointers
-    list<void*> unique_ptr_ptrs = allocate_unique_ptrs<Wanted...>();
-    
     // Make an iterator
     MessageIterator it(in);
     
-    // Repeatedly recurse over all our types.
-    // When we find one that we can read from the current tag, read it and make the appropriate unique_ptr own it
-    // Repeat until we run out of file or all our unique_ptrs are filled.
-    while(load_into<Wanted...>(it, unique_ptr_ptrs.begin(), unique_ptr_ptrs.end())) {
-        // Nothing to do!
-    }
+    // Make a destination tuple
+    tuple<unique_ptr<Wanted>...> to_return;
     
-    // Go from unique pointers floating to unique pointers in a tuple
-    return deallocate_unique_ptrs<Wanted...>(unique_ptr_ptrs.begin(), unique_ptr_ptrs.end());
+    bool keep_going = false;
+
+    do {
+
+        // We exploit initializer list evaluation order to be able to tell
+        // individual calls resulting from a ... variadic template argument
+        // expansion what number they are, so they can index into a tuple.
+        // See https://stackoverflow.com/a/21194071
+        
+        size_t tuple_index = 0;
+        
+        // Call the load function for each type, and get the statuses
+        vector<bool> load_statuses = {load_into_one<Wanted, Wanted...>(it, tuple_index++, to_return)...};
+        
+        for (bool status : load_statuses) {
+            // OR together all the statuses so we know if we need to continue for anything.
+            keep_going |= status;
+        }
+        
+    } while (keep_going);
+    
+    // Now all the unique_ptrs that can be filled in are filled in
+    return to_return;
 }
 
-// Load one thing into a unique_ptr in a void pointer list
-template<typename One>
-auto VPKG::load_into_one(MessageIterator& it, list<void*>::iterator unique_ptrs_begin,
-    list<void*>::iterator unique_ptrs_end) -> bool {
+template<typename One, typename... TupleTypes>
+auto load_into_one(MessageIterator& it, size_t i, tuple<unique_ptr<TupleTypes>...>& dest) -> bool {
     
     // Find the pointer to load
-    unique_ptr<One>& ptr = *((unique_ptr<One>*)*unique_ptrs_begin);
+    unique_ptr<One>& ptr = get<i>(dest);
     
     if (ptr.get() != nullptr) {
         // If it's already loaded, we're done
@@ -140,34 +128,6 @@ auto VPKG::load_into_one(MessageIterator& it, list<void*>::iterator unique_ptrs_
     
     // Now there's nothing left to load
     return false;
-}
-
-template<typename... Wanted>
-auto VPKG::load_into(MessageIterator& it, list<void*>::iterator unique_ptrs_begin,
-    list<void*>::iterator unique_ptrs_end) -> bool {
-   
-    // TODO: Work out a way to get through the list without relying on argument evaluation order.
-    
-    return false;
-}
-
-
-
-// Allocate a possibly empty list of unique_ptrs.
-template<typename... Wanted>
-auto VPKG::allocate_unique_ptrs() -> list<void*> {
-    // Try and use magic espression looping in an initializer list.
-    return list<void*>{((void*) new unique_ptr<Wanted>())...};
-}
-
-// Move any and all uniqur_ptrs from the void* list to a tuple
-template<typename... Wanted>
-auto VPKG::deallocate_unique_ptrs(list<void*>::iterator unique_ptrs_begin,
-    list<void*>::iterator unique_ptrs_end) -> tuple<unique_ptr<Wanted>...> {
-    
-    // TODO: Work out a way to get through the list without relying on argument evaluation order.
-    
-    return tuple<unique_ptr<Wanted>...>();
 }
 
 }
