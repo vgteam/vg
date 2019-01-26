@@ -98,9 +98,9 @@ public:
     /// Move assignment.
     MinimizerIndex& operator=(MinimizerIndex&& source);
 
-    // FIXME how to report failure
-    /// Serialize the index to the ostream and return the size in bytes.
-    size_t serialize(std::ostream& out) const;
+    /// Serialize the index to the ostream. Returns the number of bytes written and
+    /// true if the serialization was successful.
+    std::pair<size_t, bool> serialize(std::ostream& out) const;
 
     // FIXME implement
     /// Load the index from the istream and return true if successful.

@@ -179,6 +179,7 @@ namespace mi {
 constexpr static size_t BLOCK_SIZE = 4 * 1024 * 1024;
 constexpr static size_t WORD_BITS  = 64;
 
+// Serialize a simple element.
 template<typename Element>
 size_t serialize(std::ostream& out, const Element& element, bool& ok) {
     out.write(reinterpret_cast<const char*>(&element), sizeof(element));
@@ -189,13 +190,37 @@ size_t serialize(std::ostream& out, const Element& element, bool& ok) {
     return sizeof(element);
 }
 
+// Load a simple element and return true if successful.
+template<typename Element>
+bool load(std::istream& in, Element& element) {
+    in.read(reinterpret_cast<char*>(&element), sizeof(element));
+    return (in.gcount() == sizeof(element));
+}
+
+// Serialize the size of a container.
+template<class Container>
+size_t serialize_size(std::ostream& out, const Container& c, bool &ok) {
+    size_t size = c.size();
+    return serialize(out, size, ok);
+}
+
+// Resize the container to the serialized size.
+template<class Container>
+bool load_size(std::istream& in, Container& c) {
+    size_t size = 0;
+    if (!load(in, size)) {
+        return false;
+    }
+    c.resize(size);
+    return true;
+}
+
+// Serialize a vector of simple elements in blocks.
 template<typename Element>
 size_t serialize_vector(std::ostream& out, const std::vector<Element>& v, bool& ok) {
     size_t bytes = 0;
 
-    // Element count.
-    size_t elements = v.size();
-    bytes += serialize(out, elements, ok);
+    bytes += serialize_size(out, v, ok);
 
     // Data in blocks of BLOCK_SIZE elements.
     for (size_t i = 0; i < v.size(); i += BLOCK_SIZE) {
@@ -212,12 +237,61 @@ size_t serialize_vector(std::ostream& out, const std::vector<Element>& v, bool& 
     return bytes;
 }
 
+// Load a serialized vector of simple elements.
+template<typename Element>
+bool load_vector(std::istream& in, std::vector<Element>& v) {
+    if (!load_size(in, v)) {
+        return false;
+    }
+
+    // Data in blocks of BLOCK_SIZE elements.
+    for (size_t i = 0; i < v.size(); i += BLOCK_SIZE) {
+        size_t block_size = std::min(v.size() - i, BLOCK_SIZE);
+        size_t byte_size = block_size * sizeof(Element);
+        in.read(reinterpret_cast<char*>(v.data() + i), byte_size);
+        if (in.gcount() != byte_size) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Serialize a hash table, replacing pointers with empty values.
+// The hash table can be loaded with load_vector().
+size_t serialize_hash_table(std::ostream& out, const std::vector<MinimizerIndex::cell_type>& hash_table,
+                            const std::vector<bool>& is_pointer, bool& ok) {
+    size_t bytes = 0;
+
+    bytes += serialize_size(out, hash_table, ok);
+
+    // Data in blocks of BLOCK_SIZE elements. Replace pointers with NO_VALUE to ensure
+    // that the file contents are deterministic.
+    for (size_t i = 0; i < hash_table.size(); i += BLOCK_SIZE) {
+        size_t block_size = std::min(hash_table.size() - i, BLOCK_SIZE);
+        size_t byte_size = block_size * sizeof(MinimizerIndex::cell_type);
+        std::vector<MinimizerIndex::cell_type> buffer(hash_table.begin() + i, hash_table.begin() + i + block_size);
+        for (size_t j = 0; j < buffer.size(); j++) {
+            if (is_pointer[i + j]) {
+                buffer[j].second.value = MinimizerIndex::NO_VALUE;
+            }
+        }
+        out.write(reinterpret_cast<const char*>(buffer.data() + i), byte_size);
+        if (out.fail()) {
+            ok = false;
+            return bytes;
+        }
+        bytes += byte_size;
+    }
+
+    return bytes;
+}
+
+// Serialize a boolean vector in blocks.
 size_t serialize_bool_vector(std::ostream& out, const std::vector<bool>& v, bool& ok) {
     size_t bytes = 0;
 
-    // Element count.
-    size_t elements = v.size();
-    bytes += serialize(out, elements, ok);
+    bytes += serialize_size(out, v, ok);
 
     // Data in blocks of BLOCK_SIZE words.
     for (size_t i = 0; i < v.size(); i += BLOCK_SIZE * WORD_BITS) {
@@ -225,8 +299,8 @@ size_t serialize_bool_vector(std::ostream& out, const std::vector<bool>& v, bool
         size_t word_size = (block_size + WORD_BITS - 1) / WORD_BITS;
         size_t byte_size = word_size * sizeof(std::uint64_t);
         std::vector<std::uint64_t> buffer(word_size, 0);
-        for (size_t j = i; j < i + block_size; j++) {
-            if (v[j]) {
+        for (size_t j = 0; j < block_size; j++) {
+            if (v[i + j]) {
                 buffer[j / WORD_BITS] |= static_cast<std::uint64_t>(1) << (j % WORD_BITS);
             }
         }
@@ -241,14 +315,38 @@ size_t serialize_bool_vector(std::ostream& out, const std::vector<bool>& v, bool
     return bytes;
 }
 
+// Load a serialized boolean vector.
+bool load_bool_vector(std::istream& in, std::vector<bool>& v) {
+    if (!load_size(in, v)) {
+        return false;
+    }
+
+    // Data in blocks of BLOCK_SIZE words.
+    for (size_t i = 0; i < v.size(); i += BLOCK_SIZE * WORD_BITS) {
+        size_t block_size = std::min(v.size() - i, BLOCK_SIZE * WORD_BITS);
+        size_t word_size = (block_size + WORD_BITS - 1) / WORD_BITS;
+        size_t byte_size = word_size * sizeof(std::uint64_t);
+        std::vector<std::uint64_t> buffer(word_size, 0);
+        in.read(reinterpret_cast<char*>(buffer.data() + i), byte_size);
+        if (in.gcount() != byte_size) {
+            return false;
+        }
+        for (size_t j = 0; j < block_size; j++) {
+            v[i + j] = static_cast<bool>(buffer[j / WORD_BITS] & (static_cast<std::uint64_t>(1) << (j % WORD_BITS)));
+        }
+    }
+
+    return true;
+}
+
 } // namespace mi
 
-size_t MinimizerIndex::serialize(std::ostream& out) const {
+std::pair<size_t, bool> MinimizerIndex::serialize(std::ostream& out) const {
     size_t bytes = 0;
     bool ok = true;
 
     bytes += mi::serialize(out, this->header, ok);
-    bytes += mi::serialize_vector(out, this->hash_table, ok);
+    bytes += mi::serialize_hash_table(out, this->hash_table, this->is_pointer, ok);
     bytes += mi::serialize_bool_vector(out, this->is_pointer, ok);
 
     // Serialize the occurrence lists.
@@ -262,7 +360,29 @@ size_t MinimizerIndex::serialize(std::ostream& out) const {
         std::cerr << "error: [MinimizerIndex]: Serialization failed" << std::endl;
     }
 
-    return bytes;
+    return std::make_pair(bytes, ok);
+}
+
+bool MinimizerIndex::load(std::istream& in) {
+    bool ok = true;
+
+    ok &= mi::load(in, this->header);
+    ok &= mi::load_vector(in, this->hash_table);
+    ok &= mi::load_bool_vector(in, this->is_pointer);
+
+    // Load the occurrence lists.
+    for (size_t i = 0; i < this->capacity(); i++) {
+        if (this->is_pointer[i]) {
+            this->hash_table[i].second.pointer = new std::vector<code_type>();
+            ok &= mi::load_vector(in, *(this->hash_table[i].second.pointer));
+        }
+    }
+
+    if (!ok) {
+        std::cerr << "error: [MinimizerIndex]: Loading failed" << std::endl;
+    }
+
+    return ok;
 }
 
 bool MinimizerIndex::operator==(const MinimizerIndex& another) const {
