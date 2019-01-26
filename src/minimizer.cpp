@@ -1,7 +1,6 @@
 #include "minimizer.hpp"
 
 #include <algorithm>
-#include <iostream>
 
 namespace vg {
 
@@ -166,6 +165,97 @@ MinimizerIndex& MinimizerIndex::operator=(MinimizerIndex&& source) {
     return *this;
 }
 
+namespace mi {
+
+constexpr static size_t BLOCK_SIZE = 4 * 1024 * 1024;
+constexpr static size_t WORD_BITS  = 64;
+
+template<typename Element>
+size_t serialize(std::ostream& out, const Element& element, bool& ok) {
+    out.write(reinterpret_cast<const char*>(&element), sizeof(element));
+    if (out.fail()) {
+        ok = false;
+        return 0;
+    }
+    return sizeof(element);
+}
+
+template<typename Element>
+size_t serialize_vector(std::ostream& out, const std::vector<Element>& v, bool& ok) {
+    size_t bytes = 0;
+
+    // Element count.
+    size_t elements = v.size();
+    bytes += serialize(out, elements, ok);
+
+    // Data in blocks of BLOCK_SIZE elements.
+    for (size_t i = 0; i < v.size(); i += BLOCK_SIZE) {
+        size_t block_size = std::min(v.size() - i, BLOCK_SIZE);
+        size_t byte_size = block_size * sizeof(Element);
+        out.write(reinterpret_cast<const char*>(v.data() + i), byte_size);
+        if (out.fail()) {
+            ok = false;
+            return bytes;
+        }
+        bytes += byte_size;
+    }
+
+    return bytes;
+}
+
+size_t serialize_bool_vector(std::ostream& out, const std::vector<bool>& v, bool& ok) {
+    size_t bytes = 0;
+
+    // Element count.
+    size_t elements = v.size();
+    bytes += serialize(out, elements, ok);
+
+    // Data in blocks of BLOCK_SIZE words.
+    for (size_t i = 0; i < v.size(); i += BLOCK_SIZE * WORD_BITS) {
+        size_t block_size = std::min(v.size() - i, BLOCK_SIZE * WORD_BITS);
+        size_t word_size = (block_size + WORD_BITS - 1) / WORD_BITS;
+        size_t byte_size = word_size * sizeof(std::uint64_t);
+        std::vector<std::uint64_t> buffer(word_size, 0);
+        for (size_t j = i; j < i + block_size; j++) {
+            if (v[j]) {
+                buffer[j / WORD_BITS] |= static_cast<std::uint64_t>(1) << (j % WORD_BITS);
+            }
+        }
+        out.write(reinterpret_cast<const char*>(buffer.data()), byte_size);
+        if (out.fail()) {
+            ok = false;
+            return bytes;
+        }
+        bytes += byte_size;
+    }
+
+    return bytes;
+}
+
+} // namespace mi
+
+size_t MinimizerIndex::serialize(std::ostream& out) const {
+    size_t bytes = 0;
+    bool ok = true;
+
+    bytes += mi::serialize(out, this->header, ok);
+    bytes += mi::serialize_vector(out, this->hash_table, ok);
+    bytes += mi::serialize_bool_vector(out, this->is_pointer, ok);
+
+    // Serialize the occurrence lists.
+    for (size_t i = 0; i < this->capacity(); i++) {
+        if (this->is_pointer[i]) {
+            bytes += mi::serialize_vector(out, *(this->hash_table[i].second.pointer), ok);
+        }
+    }
+
+    if (!ok) {
+        std::cerr << "error: [MinimizerIndex]: Serialization failed" << std::endl;
+    }
+
+    return bytes;
+}
+
 void MinimizerIndex::copy(const MinimizerIndex& source) {
     this->clear();
     this->header = source.header;
@@ -189,8 +279,10 @@ void MinimizerIndex::clear() {
 
 //------------------------------------------------------------------------------
 
+namespace mi {
+
 MinimizerIndex::minimizer_type
-minimizer_unsafe(std::string::const_iterator begin, std::string::const_iterator end, size_t k) {
+minimizer(std::string::const_iterator begin, std::string::const_iterator end, size_t k) {
     MinimizerIndex::minimizer_type result(MinimizerIndex::NO_KEY, 0);
 
     MinimizerIndex::key_type key = 0;
@@ -213,12 +305,15 @@ minimizer_unsafe(std::string::const_iterator begin, std::string::const_iterator 
     return result;
 }
 
+} // namespace mi
+
+
 MinimizerIndex::minimizer_type
 MinimizerIndex::minimizer(std::string::const_iterator begin, std::string::const_iterator end) const {
     if (end - begin < this->k()) {
         return minimizer_type(NO_KEY, 0);
     }
-    return minimizer_unsafe(begin, end, this->k());
+    return mi::minimizer(begin, end, this->k());
 }
 
 std::vector<MinimizerIndex::minimizer_type>
@@ -230,7 +325,7 @@ MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const
     }
 
     for (size_t i = 0; i + window_length <= total_length; i++) {
-        minimizer_type temp = minimizer_unsafe(begin + i, begin + i + window_length, this->k());
+        minimizer_type temp = mi::minimizer(begin + i, begin + i + window_length, this->k());
         if (temp.first != NO_KEY) {
             result.push_back(temp);
         }

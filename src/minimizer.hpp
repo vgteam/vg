@@ -6,6 +6,7 @@
  */
 
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -94,7 +95,13 @@ public:
     /// Move assignment.
     MinimizerIndex& operator=(MinimizerIndex&& source);
 
-    // FIXME custom serialize / load
+    // FIXME how to report failure
+    /// Serialize the index to the ostream and return the size in bytes.
+    size_t serialize(std::ostream& out) const;
+
+    // FIXME implement
+    /// Load the index from the istream and return true if successful.
+    bool load(std::istream& in);
 
 //------------------------------------------------------------------------------
 
