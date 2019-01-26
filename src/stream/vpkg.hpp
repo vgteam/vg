@@ -8,6 +8,7 @@
 
 #include "registry.hpp"
 #include "message_iterator.hpp"
+#include "message_emitter.hpp"
 
 #include <iostream>
 #include <tuple>
@@ -38,7 +39,61 @@ public:
      * Retuens a tuple of pointers to loaded objects, or null if they could not be found.
      */
     template<typename... Wanted>
-    static tuple<unique_ptr<Wanted>...> load_all(istream& in);
+    static tuple<unique_ptr<Wanted>...> load_all(istream& in) {
+         // Make an iterator
+        MessageIterator it(in);
+        
+        // Make a destination tuple
+        tuple<unique_ptr<Wanted>...> to_return;
+        
+        bool keep_going = false;
+
+        do {
+
+            // We exploit initializer list evaluation order to be able to tell
+            // individual calls resulting from a ... variadic template argument
+            // expansion what number they are, so they can index into a tuple.
+            // See https://stackoverflow.com/a/21194071
+            
+            size_t tuple_index = 0;
+            
+            // Call the load function for each type, and get the statuses
+            vector<bool> load_statuses = {load_into_one<Wanted, Wanted...>(it, tuple_index++, to_return)...};
+            
+            for (bool status : load_statuses) {
+                // OR together all the statuses so we know if we need to continue for anything.
+                keep_going |= status;
+            }
+            
+            
+            
+        } while (keep_going);
+        
+        // Now all the unique_ptrs that can be filled in are filled in
+        return to_return;
+    }
+    
+    /**
+     * Save an object to the given stream, using the appropriate saver.
+     */
+    template<typename Have>
+    static void save(const Have& have, ostream& out) {
+        // Look for a saver in the registry
+        auto* tag_and_saver = Registry::find_saver<Have>();
+        
+        // We shouldn't ever be saving something we don't know how to save.
+        assert(tag_and_saver != nullptr);
+        
+        // Make an emitter to emit tagged messages
+        MessageEmitter emitter(out);
+        
+        // Start the save
+        tag_and_saver->second((const void*)&have, [&](const string& message) {
+            // For each message that we have to output during the save, output it via the emitter with the selected tag.
+            // TODO: We copy the data string.
+            emitter.write_copy(tag_and_saver->first, message);
+        });
+    }
     
 private:
 
@@ -50,85 +105,44 @@ private:
      * iterator is over.
      */
     template<typename One, typename... TupleTypes>
-    static bool load_into_one(MessageIterator& it, size_t i, tuple<unique_ptr<TupleTypes>...>& dest);
+    static bool load_into_one(MessageIterator& it, size_t i, tuple<unique_ptr<TupleTypes>...>& dest) {
+        // Find the pointer to load
+        unique_ptr<One>& ptr = get<i>(dest);
+        
+        if (ptr.get() != nullptr) {
+            // If it's already loaded, we're done
+            return false;
+        }
+        
+        if (!it.has_next()) {
+            // If there's nothing to look at, we're done
+            return false;
+        }
+        
+        // Grab and cache the tag
+        string tag_to_load = (*it).first;
+        
+        // Look for a loader in the registry based on the tag.
+        auto* loader = Registry::find_loader<One>(tag_to_load);
+        
+        if (loader == nullptr) {
+            // We can't load from this. Try again later.
+            return true;
+        }
+        
+        // Otherwise we can load, so do it.
+        ptr = unique_ptr<One>((*loader)([&](const message_consumer_function_t& handle_message) {
+            while (it.has_next() && (*it).first == tag_to_load) {
+                // Feed in messages from the file until we run out or the tag changes
+                handle_message((*it).second);
+                ++it;
+            }
+        }));
+        
+        // Now there's nothing left to load
+        return false;
+    }
 };
-
-/////////////
-// Template implementations
-/////////////
-
-template<typename... Wanted>
-auto VPKG::load_all(istream& in) -> tuple<unique_ptr<Wanted>...> {
-    // Make an iterator
-    MessageIterator it(in);
-    
-    // Make a destination tuple
-    tuple<unique_ptr<Wanted>...> to_return;
-    
-    bool keep_going = false;
-
-    do {
-
-        // We exploit initializer list evaluation order to be able to tell
-        // individual calls resulting from a ... variadic template argument
-        // expansion what number they are, so they can index into a tuple.
-        // See https://stackoverflow.com/a/21194071
-        
-        size_t tuple_index = 0;
-        
-        // Call the load function for each type, and get the statuses
-        vector<bool> load_statuses = {load_into_one<Wanted, Wanted...>(it, tuple_index++, to_return)...};
-        
-        for (bool status : load_statuses) {
-            // OR together all the statuses so we know if we need to continue for anything.
-            keep_going |= status;
-        }
-        
-    } while (keep_going);
-    
-    // Now all the unique_ptrs that can be filled in are filled in
-    return to_return;
-}
-
-template<typename One, typename... TupleTypes>
-auto load_into_one(MessageIterator& it, size_t i, tuple<unique_ptr<TupleTypes>...>& dest) -> bool {
-    
-    // Find the pointer to load
-    unique_ptr<One>& ptr = get<i>(dest);
-    
-    if (ptr.get() != nullptr) {
-        // If it's already loaded, we're done
-        return false;
-    }
-    
-    if (!it.has_next()) {
-        // If there's nothing to look at, we're done
-        return false;
-    }
-    
-    // Grab and cache the tag
-    string tag_to_load = (*it).first;
-    
-    // Look for a loader in the registry based on the tag.
-    auto* loader = Registry::find_loader<One>(tag_to_load);
-    
-    if (loader == nullptr) {
-        // We can't load from this. Try again later.
-        return true;
-    }
-    
-    // Otherwise we can load, so do it.
-    ptr = unique_ptr<One>((*loader)([&](const message_consumer_function_t& handle_message) {
-        while (it.has_next() && (*it).first == tag_to_load) {
-            // Feed in messages from the file until we run out or the tag changes
-            handle_message((*it).second);
-            ++it;
-        }
-    }));
-    
-    // Now there's nothing left to load
-    return false;
-}
 
 }
 

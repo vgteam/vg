@@ -13,10 +13,6 @@ namespace stream {
 
 using namespace std;
 
-void do_stuff() {
-    VPKG::load_all<gcsa::GCSA, gcsa::LCPArray>(std::cin);
-}
-
 }
 
 }

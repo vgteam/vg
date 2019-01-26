@@ -74,10 +74,6 @@ public:
     /// Emit the given message with the given type tag.
     void write(const string& tag, string&& message);
     
-    /// Emit the given message with the given type tag.
-    /// If this res
-    void write(const string& tag, string&& message, const function<void(int64_t, int64_t)>& group_emitted_callback);
-    
     /// Emit a copy of the given message with the given type tag.
     /// To use when you have something you can't move.
     void write_copy(const string& tag, const string& message);

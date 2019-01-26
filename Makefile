@@ -23,8 +23,9 @@ all: $(BIN_DIR)/$(EXE)
 # Magic dependencies (see <http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/#tldr>)
 include $(wildcard $(OBJ_DIR)/*.d)
 include $(wildcard $(ALGORITHMS_OBJ_DIR)/*.d)
-include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
+include $(wildcard $(STREAM_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
+include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler
 CXXFLAGS := -O3 -Werror=return-type -std=c++11 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)

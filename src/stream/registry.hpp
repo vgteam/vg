@@ -12,6 +12,7 @@
  * - Create a register_loader_saver_whatever.cpp/.hpp defining register_loader_savert_whatever().
  * - Make it call Registry::register_loader_saver<Type>(tag, load_function, save_function)
  * - Call register_loader_saver_whatever() in Registry::register_everything() in registry.cpp
+ * TO LOAD/SAVE SOMETHING:
  */
 
 #include <string>
@@ -165,7 +166,7 @@ public:
      * result to the right type. If there isn't, returns nullptr.
      */
     template<typename Have>
-    static const pair<string, save_function_t>* find_saver(const string& tag);
+    static const pair<string, save_function_t>* find_saver();
     
 private:
     
@@ -263,7 +264,7 @@ const load_function_t* Registry::find_loader(const string& tag) {
     
 
 template<typename Have>
-const pair<string, save_function_t>* Registry::find_saver(const string& tag) {
+const pair<string, save_function_t>* Registry::find_saver() {
     // Get our state
     Tables& tables = get_tables();
    
