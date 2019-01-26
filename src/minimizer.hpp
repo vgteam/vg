@@ -67,6 +67,9 @@ public:
         Header(size_t kmer_length, size_t window_length, size_t max_values_per_key);
         void sanitize();
         bool check() const;
+
+        bool operator==(const Header& another) const;
+        bool operator!=(const Header& another) const { return !(this->operator==(another)); }
     };
 
 //------------------------------------------------------------------------------
@@ -102,6 +105,12 @@ public:
     // FIXME implement
     /// Load the index from the istream and return true if successful.
     bool load(std::istream& in);
+
+    /// Equality comparison for testing.
+    bool operator==(const MinimizerIndex& another) const;
+
+    /// Inequality comparison for testing.
+    bool operator!=(const MinimizerIndex& another) const { return !(this->operator==(another)); }
 
 //------------------------------------------------------------------------------
 

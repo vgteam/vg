@@ -111,6 +111,15 @@ bool MinimizerIndex::Header::check() const {
     return (this->tag == TAG && this->version >= MIN_VERSION && this->version <= VERSION && this->flags == 0);
 }
 
+bool MinimizerIndex::Header::operator==(const Header& another) const {
+    return (this->tag == another.tag && this->version == another.version &&
+            this->flags == another.flags &&
+            this->k == another.k && this->w == another.w &&
+            this->keys == another.keys && this->capacity == another.capacity && this->max_keys == another.max_keys &&
+            this->values == another.values && this->max_values == another.max_values &&
+            this->unique == another.unique && this->frequent == another.frequent);
+}
+
 //------------------------------------------------------------------------------
 
 MinimizerIndex::MinimizerIndex() :
@@ -254,6 +263,30 @@ size_t MinimizerIndex::serialize(std::ostream& out) const {
     }
 
     return bytes;
+}
+
+bool MinimizerIndex::operator==(const MinimizerIndex& another) const {
+    if (this->header != another.header || this->is_pointer != another.is_pointer) {
+        return false;
+    }
+
+    for (size_t i = 0; i < this->capacity(); i++) {
+        cell_type a = this->hash_table[i], b = another.hash_table[i];
+        if (a.first != b.first) {
+            return false;
+        }
+        if (this->is_pointer[i]) {
+            if (*(a.second.pointer) != *(b.second.pointer)) {
+                return false;
+            }
+        } else {
+            if (a.second.value != b.second.value) {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 void MinimizerIndex::copy(const MinimizerIndex& source) {
