@@ -50,6 +50,24 @@ public:
 
     static cell_type empty_cell() { return cell_type(NO_KEY, { NO_VALUE }); }
 
+    struct Header {
+        std::uint32_t tag, version;
+        std::uint64_t flags;
+        size_t        k, w;
+        size_t        keys, capacity, max_keys;
+        size_t        values, max_values;
+        size_t        unique, frequent;
+
+        constexpr static std::uint32_t TAG = 31513151;
+        constexpr static std::uint32_t VERSION = 1;
+        constexpr static std::uint32_t MIN_VERSION = 1;
+
+        Header();
+        Header(size_t kmer_length, size_t window_length, size_t max_values_per_key);
+        void sanitize();
+        bool check() const;
+    };
+
 //------------------------------------------------------------------------------
 
     /// Constructs an index with the default parameters.
@@ -90,34 +108,41 @@ public:
     /// characters.
     std::vector<minimizer_type> minimizers(std::string::const_iterator begin, std::string::const_iterator end) const;
 
-    /// Inserts the minimizer encoded in key at the given position into the index.
+    /// Inserts the minimizer encoded in the key at the given position into the index.
+    /// Minimizers with key NO_KEY are not inserted.
     /// Use minimizer() or minimizers() to get the key.
     void insert(key_type key, pos_t pos);
 
 //------------------------------------------------------------------------------
 
+    /// Length of the kmers in the index.
+    size_t k() const { return this->header.k; }
+
+    /// Window length for the minimizers.
+    size_t w() const { return this->header.w; }
+
     /// Number of keys in the index.
-    size_t size() const { return this->keys; }
+    size_t size() const { return this->header.keys; }
 
     /// Size of the hash table.
-    size_t capacity() const { return this->hash_table.size(); }
+    size_t capacity() const { return this->header.capacity; }
+
+    /// Actual capacity of the hash table. Exceeding it will initiate rehashing.
+    size_t max_keys() const { return this->header.max_keys; }
 
     /// Current load factor of the hash table.
     double load_factor() const { return static_cast<double>(this->size()) / static_cast<double>(this->capacity()); }
 
     /// Number of minimizers with a single occurrence.
-    size_t unique_keys() const { return this->unique; }
+    size_t unique_keys() const { return this->header.unique; }
 
     /// Number of minimizers with too many occurrences.
-    size_t frequent_keys() const { return this->frequent; }
+    size_t frequent_keys() const { return this->header.frequent; }
 
 //------------------------------------------------------------------------------
 
 private:
-    size_t                 k, w;
-    size_t                 keys, max_keys;
-    size_t                 values, max_values;
-    size_t                 unique, frequent;
+    Header                 header;
     std::vector<cell_type> hash_table;
     std::vector<bool>      is_pointer;
 

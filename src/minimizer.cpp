@@ -66,49 +66,66 @@ const std::vector<MinimizerIndex::key_type> MinimizerIndex::KMER_MASK = {
     0x3FFFFFFFFFFFFFFFull
 };
 
+MinimizerIndex::Header::Header() :
+    tag(TAG), version(VERSION),
+    flags(0),
+    k(KMER_LENGTH), w(WINDOW_LENGTH),
+    keys(0), capacity(INITIAL_CAPACITY), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
+    values(0), max_values(MAX_VALUES),
+    unique(0), frequent(0)
+{
+}
+
+MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length, size_t max_values_per_key) :
+    tag(TAG), version(VERSION),
+    flags(0),
+    k(kmer_length), w(window_length),
+    keys(0), capacity(INITIAL_CAPACITY), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
+    values(0), max_values(max_values_per_key),
+    unique(0), frequent(0)
+{
+    this->sanitize();
+}
+
+void MinimizerIndex::Header::sanitize() {
+    if (this->k > KMER_MAX_LENGTH) {
+        std::cerr << "warning: [MinimizerIndex] Adjusting k from " << this->k << " to " << KMER_MAX_LENGTH << std::endl;
+        this->k = KMER_MAX_LENGTH;
+    }
+    if (this->k == 0) {
+        std::cerr << "warning: [MinimizerIndex] Adjusting k from " << this->k << " to " << 1 << std::endl;
+        this->k = 1;
+    }
+
+    if (this->w == 0) {
+        std::cerr << "warning: [MinimizerIndex] Adjusting w from " << this->w << " to " << 1 << std::endl;
+        this->w = 1;
+    }
+
+    if (this->max_values == 0) {
+        std::cerr << "warning: [MinimizerIndex] Adjusting max_values from " << this->max_values << " to " << 1 << std::endl;
+        this->max_values = 1;
+    }
+}
+
+bool MinimizerIndex::Header::check() const {
+    return (this->tag == TAG && this->version >= MIN_VERSION && this->version <= VERSION && this->flags == 0);
+}
+
 //------------------------------------------------------------------------------
 
 MinimizerIndex::MinimizerIndex() :
-    k(KMER_LENGTH), w(WINDOW_LENGTH),
-    keys(0), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
-    values(0), max_values(MAX_VALUES),
-    unique(0), frequent(0),
-    hash_table(INITIAL_CAPACITY, empty_cell()),
-    is_pointer(INITIAL_CAPACITY, false)
+    header(),
+    hash_table(this->header.capacity, empty_cell()),
+    is_pointer(this->header.capacity, false)
 {
 }
 
 MinimizerIndex::MinimizerIndex(size_t kmer_length, size_t window_length,  size_t max_values_per_key) :
-    k(kmer_length), w(window_length),
-    keys(0), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
-    values(0), max_values(max_values_per_key),
-    unique(0), frequent(0),
-    hash_table(INITIAL_CAPACITY, empty_cell()),
-    is_pointer(INITIAL_CAPACITY, false)
+    header(kmer_length, window_length, max_values_per_key),
+    hash_table(this->header.capacity, empty_cell()),
+    is_pointer(this->header.capacity, false)
 {
-    if (this->k > KMER_MAX_LENGTH) {
-        this->k = KMER_MAX_LENGTH;
-    }
-    if (this->k == 0) {
-        this->k = 1;
-    }
-    if (this->k != kmer_length) {
-        std::cerr << "warning: [MinimizerIndex] Adjusting k from " << kmer_length << " to " << this->k << std::endl;
-    }
-
-    if (this->w == 0) {
-        this->w = 1;
-    }
-    if (this->w != window_length) {
-        std::cerr << "warning: [MinimizerIndex] Adjusting w from " << window_length << " to " << this->w << std::endl;
-    }
-
-    if (this->max_values == 0) {
-        this->max_values = 1;
-    }
-    if (this->max_values != max_values_per_key) {
-        std::cerr << "warning: [MinimizerIndex] Adjusting max_values from " << max_values_per_key << " to " << this->max_values << std::endl;
-    }
 }
 
 MinimizerIndex::MinimizerIndex(const MinimizerIndex& source) {
@@ -128,16 +145,7 @@ void MinimizerIndex::swap(MinimizerIndex& another) {
         return;
     }
 
-    std::swap(this->k, another.k);
-    std::swap(this->w, another.w);
-
-    std::swap(this->keys, another.keys);
-    std::swap(this->max_keys, another.max_keys);
-    std::swap(this->values, another.values);
-    std::swap(this->max_values, another.max_values);
-    std::swap(this->unique, another.unique);
-    std::swap(this->frequent, another.frequent);
-
+    std::swap(this->header, another.header);
     this->hash_table.swap(another.hash_table);
     this->is_pointer.swap(another.is_pointer);
 }
@@ -151,17 +159,7 @@ MinimizerIndex& MinimizerIndex::operator=(const MinimizerIndex& source) {
 
 MinimizerIndex& MinimizerIndex::operator=(MinimizerIndex&& source) {
     if (&source != this) {
-        this->k = std::move(source.k);
-        this->w = std::move(source.w);
-
-        this->keys = std::move(source.keys);
-        this->max_keys = std::move(source.max_keys);
-        this->values = std::move(source.values);
-        this->max_values = std::move(source.max_values);
-        this->unique = std::move(source.unique);
-        this->frequent = std::move(source.frequent);
-
-        this->clear();
+        this->header = std::move(source.header);
         this->hash_table = std::move(source.hash_table);
         this->is_pointer = std::move(source.is_pointer);
     }
@@ -169,17 +167,8 @@ MinimizerIndex& MinimizerIndex::operator=(MinimizerIndex&& source) {
 }
 
 void MinimizerIndex::copy(const MinimizerIndex& source) {
-    this->k = source.k;
-    this->w = source.w;
-
-    this->keys = source.keys;
-    this->max_keys = source.max_keys;
-    this->values = source.values;
-    this->max_values = source.max_values;
-    this->unique = source.unique;
-    this->frequent = source.frequent;
-
     this->clear();
+    this->header = source.header;
     this->hash_table = source.hash_table;
     this->is_pointer = source.is_pointer;
 }
@@ -226,22 +215,22 @@ minimizer_unsafe(std::string::const_iterator begin, std::string::const_iterator 
 
 MinimizerIndex::minimizer_type
 MinimizerIndex::minimizer(std::string::const_iterator begin, std::string::const_iterator end) const {
-    if (end - begin < this->k) {
+    if (end - begin < this->k()) {
         return minimizer_type(NO_KEY, 0);
     }
-    return minimizer_unsafe(begin, end, this->k);
+    return minimizer_unsafe(begin, end, this->k());
 }
 
 std::vector<MinimizerIndex::minimizer_type>
 MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const_iterator end) const {
     std::vector<minimizer_type> result;
-    size_t window_length = this->k + this->w - 1, total_length = end - begin;
+    size_t window_length = this->k() + this->w() - 1, total_length = end - begin;
     if (total_length < window_length) {
         return result;
     }
 
     for (size_t i = 0; i + window_length <= total_length; i++) {
-        minimizer_type temp = minimizer_unsafe(begin + i, begin + i + window_length, this->k);
+        minimizer_type temp = minimizer_unsafe(begin + i, begin + i + window_length, this->k());
         if (temp.first != NO_KEY) {
             result.push_back(temp);
         }
@@ -251,8 +240,11 @@ MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const
 }
 
 void MinimizerIndex::insert(key_type key, pos_t pos) {
-    size_t offset = hash(key) & (this->capacity() - 1);
+    if (key == NO_KEY) {
+        return;
+    }
 
+    size_t offset = hash(key) & (this->capacity() - 1);
     for (size_t attempt = 0; attempt < this->capacity(); attempt++) {
         if (this->hash_table[offset].first == NO_KEY) {
             this->insert(key, encode(pos), offset);
@@ -273,11 +265,11 @@ void MinimizerIndex::insert(key_type key, pos_t pos) {
 void MinimizerIndex::insert(key_type key, code_type pos, size_t offset) {
     this->hash_table[offset].first = key;
     this->hash_table[offset].second.value = pos;
-    this->keys++;
-    this->values++;
-    this->unique++;
+    this->header.keys++;
+    this->header.values++;
+    this->header.unique++;
 
-    if (this->keys > this->max_keys) {
+    if (this->size() > this->max_keys()) {
         this->rehash();
     }
 }
@@ -289,21 +281,21 @@ void MinimizerIndex::append(key_type key, code_type pos, size_t offset) {
 
     if (this->is_pointer[offset]) {
         std::vector<code_type>* occs = this->hash_table[offset].second.pointer;
-        if (occs->size() + 1 > this->max_values) {
-            this->values -= occs->size();
-            this->frequent++;
+        if (occs->size() + 1 > this->header.max_values) {
+            this->header.values -= occs->size();
+            this->header.frequent++;
             this->clear(offset);
         } else {
             occs->push_back(pos);
             std::sort(occs->begin(), occs->end());
-            this->values++;
+            this->header.values++;
         }
     } else {
-        this->unique--;
-        if (this->max_values < 2) {
+        this->header.unique--;
+        if (this->header.max_values < 2) {
             this->hash_table[offset].second.value = NO_VALUE;
-            this->values--;
-            this->frequent++;
+            this->header.values--;
+            this->header.frequent++;
         } else {
             std::vector<code_type>* occs = new std::vector<code_type>(2);
             occs->at(0) = this->hash_table[offset].second.value;
@@ -313,7 +305,7 @@ void MinimizerIndex::append(key_type key, code_type pos, size_t offset) {
             }
             this->hash_table[offset].second.pointer = occs;
             this->is_pointer[offset] = true;
-            this->values++;
+            this->header.values++;
         }
     }
 }
@@ -354,7 +346,8 @@ void MinimizerIndex::rehash() {
 
     std::swap(this->hash_table, new_hash_table);
     std::swap(this->is_pointer, new_is_pointer);
-    this->max_keys = this->capacity() * MAX_LOAD_FACTOR;
+    this->header.capacity = this->hash_table.size();
+    this->header.max_keys = this->capacity() * MAX_LOAD_FACTOR;
 }
 
 //------------------------------------------------------------------------------
