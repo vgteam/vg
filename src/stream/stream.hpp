@@ -23,11 +23,6 @@ namespace stream {
 
 using namespace std;
 
-/// Protobuf will refuse to read messages longer than this size.
-const size_t MAX_PROTOBUF_SIZE = 1000000000;
-/// We aim to generate messages that are this size
-const size_t TARGET_PROTOBUF_SIZE = MAX_PROTOBUF_SIZE/2;
-
 /// Write the EOF marker to the given stream, so that readers won't complain that it might be truncated when they read it in.
 /// Internal EOF markers MAY exist, but a file SHOULD have exactly one EOF marker at its end.
 void finish(std::ostream& out);
