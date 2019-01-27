@@ -50,7 +50,7 @@ inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
 
 /// Stores haplotype-consistent traversal of the graph and the corresponding sequence.
 struct GBWTTraversal {
-    /// The traversal as a sequence of (begin, end) pairs.
+    /// The traversal as a sequence of semiopen [begin, end) intervals.
     std::vector<std::pair<pos_t, pos_t>> traversal;
     /// The sequence.
     std::string seq;
@@ -59,8 +59,13 @@ struct GBWTTraversal {
 };
 
 /// Traverse all haplotype-consistent kmers in the graph and call lambda() for each kmer.
+/// Uses multiple threads, so the lamda should be thread-safe.
 void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t k,
                    const function<void(const GBWTTraversal&)>& lambda);
+
+
+/// Transform the paths into a GBWT index. Primarily for testing.
+gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);
 
 } // namespace vg
 
