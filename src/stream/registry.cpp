@@ -4,7 +4,7 @@
  */
 
 #include "registry.hpp"
-#include "fd_streams.hpp"
+#include "fdstream.hpp"
 
 #include "register_loader_saver_gcsa.hpp"
 #include "register_loader_saver_lcp.cpp"
@@ -139,7 +139,9 @@ auto wrap_stream_loader(function<void*(istream&)> istream_loader) -> load_functi
 auto wrap_stream_saver(function<void(const void*, ostream&)> ostream_saver) -> save_function_t {
     // Capture the ostream-using function by value
     return [ostream_saver](const void* to_save, const message_consumer_function_t& emit_message) {
-    
+   
+        assert(to_save != nullptr);
+   
         // Open a pipe with an istream and an ostream.
         
         // First we make an array to hold input and output ends of a pipe.

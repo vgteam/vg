@@ -26,7 +26,8 @@ void register_loader_saver_gcsa() {
         return (void*) index;
     }), wrap_stream_saver([](const void* index_void, ostream& output) {
         // Cast to GCSA and serialize to the stream.
-        sdsl::serialize(*(const gcsa::GCSA*) index_void, output);
+        assert(index_void != nullptr);
+        ((const gcsa::GCSA*) index_void)->serialize(output);
     }));
 }
 

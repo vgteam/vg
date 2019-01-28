@@ -21,6 +21,10 @@ TEST_CASE("We can serialize and re-read an empty GCSA", "[vpkg][gcsa]") {
 
     gcsa::GCSA empty_index;
     
+    // Make sure we can save the empty index to a stream at all.
+    stringstream teststream;
+    empty_index.serialize(teststream);
+    
     stringstream ss;
     
     stream::VPKG::save(empty_index, ss);

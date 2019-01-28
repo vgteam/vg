@@ -26,7 +26,7 @@ void register_loader_saver_lcp() {
         return (void*) index;
     }), wrap_stream_saver([](const void* index_void, ostream& output) {
         // Cast to LCP and serialize to the stream.
-        sdsl::serialize(*(const gcsa::LCPArray*) index_void, output);
+        ((const gcsa::LCPArray*) index_void)->serialize(output);
     }));
 
 }

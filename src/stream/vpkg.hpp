@@ -13,7 +13,7 @@
 #include <iostream>
 #include <tuple>
 #include <vector>
-#include <memory>
+#include <deque>
 
 namespace vg {
 
@@ -43,8 +43,8 @@ public:
          // Make an iterator
         MessageIterator it(in);
         
-        // Make a destination tuple
-        tuple<unique_ptr<Wanted>...> to_return;
+        // Create a collection of null void*s that will hold the allocated objects we want to load when we think we can load them.
+        deque<void*> to_fill { (void*)(Wanted*)nullptr... };
         
         bool keep_going = false;
 
@@ -52,25 +52,24 @@ public:
 
             // We exploit initializer list evaluation order to be able to tell
             // individual calls resulting from a ... variadic template argument
-            // expansion what number they are, so they can index into a tuple.
-            // See https://stackoverflow.com/a/21194071
+            // expansion what number they are, so they can index into a data
+            // structure. See https://stackoverflow.com/a/21194071
             
-            size_t tuple_index = 0;
+            size_t index = 0;
             
             // Call the load function for each type, and get the statuses
-            vector<bool> load_statuses = {load_into_one<Wanted, Wanted...>(it, tuple_index++, to_return)...};
+            vector<bool> load_statuses { load_into_one<Wanted>(it, index++, to_fill)... };
             
             for (bool status : load_statuses) {
                 // OR together all the statuses so we know if we need to continue for anything.
                 keep_going |= status;
             }
             
-            
-            
         } while (keep_going);
         
-        // Now all the unique_ptrs that can be filled in are filled in
-        return to_return;
+        // Now all the unique_ptrs that can be filled in are filled in.
+        // Convert to a tuple and return.
+        return to_tuple<Wanted...>(to_fill);
     }
     
     /**
@@ -98,18 +97,41 @@ public:
 private:
 
     /**
-     * If the one item of type One at index i in the destination tuple can be
-     * filled from the given MessageIterator, and is empty, fill it.
+     * Given a collection of void pointers, give ownership of the objects they point to, if any, to unique_ptrs in a tuple.
+     */
+    template<typename... TupleTypes>
+    static tuple<unique_ptr<TupleTypes>...> to_tuple(deque<void*> items) {
+        // Use initializer list expansion to repeatedly pop the first thing off the collection and type it correctly.
+        tuple<unique_ptr<TupleTypes>...> to_return { extract_first<TupleTypes>(items)... };
+        return to_return;
+    }
+    
+    /**
+     * Pop off the first item in the given collection and wrap it in a typed unique_ptr.
+     */
+    template<typename Pointed>
+    static unique_ptr<Pointed> extract_first(deque<void*>& pointers) {
+        // Grab off the first thing
+        void* got = pointers.front();
+        pointers.pop_front();
+        // Wrap it in a properly typed unique_ptr;
+        return unique_ptr<Pointed>((Pointed*) got);
+    }
+
+    /**
+     * If the null slot at index i in the given collection of void*s can be
+     * filled with an object of type One from the given MessageIterator, fill
+     * it.
      * 
      * Returns false if it can't be filled, or is already filled, or the
      * iterator is over.
      */
-    template<typename One, typename... TupleTypes>
-    static bool load_into_one(MessageIterator& it, size_t i, tuple<unique_ptr<TupleTypes>...>& dest) {
-        // Find the pointer to load
-        unique_ptr<One>& ptr = get<i>(dest);
+    template<typename One>
+    static bool load_into_one(MessageIterator& it, size_t i, deque<void*>& dest) {
+        // Find the slot to load into
+        void*& slot = dest[i];
         
-        if (ptr.get() != nullptr) {
+        if (slot != nullptr) {
             // If it's already loaded, we're done
             return false;
         }
@@ -131,13 +153,13 @@ private:
         }
         
         // Otherwise we can load, so do it.
-        ptr = unique_ptr<One>((*loader)([&](const message_consumer_function_t& handle_message) {
+        slot = (*loader)([&](const message_consumer_function_t& handle_message) {
             while (it.has_next() && (*it).first == tag_to_load) {
                 // Feed in messages from the file until we run out or the tag changes
                 handle_message((*it).second);
                 ++it;
             }
-        }));
+        });
         
         // Now there's nothing left to load
         return false;
