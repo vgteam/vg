@@ -480,7 +480,10 @@ MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const
     for (size_t i = 0; i + window_length <= total_length; i++) {
         minimizer_type temp = mi::minimizer(begin + i, begin + i + window_length, this->k());
         if (temp.first != NO_KEY) {
-            result.push_back(temp);
+            temp.second += i;
+            if (result.empty() || temp != result.back()) {
+                result.push_back(temp);
+            }
         }
     }
 
@@ -491,23 +494,54 @@ void MinimizerIndex::insert(key_type key, pos_t pos) {
     if (key == NO_KEY) {
         return;
     }
+    code_type code = encode(pos);
+    if (code == NO_VALUE) {
+        return;
+    }
 
+    size_t offset = this->find_offset(key);
+    if (this->hash_table[offset].first == NO_KEY) {
+        this->insert(key, encode(pos), offset);
+    } else if (this->hash_table[offset].first == key) {
+        this->append(key, encode(pos), offset);
+    }
+}
+
+std::vector<pos_t> MinimizerIndex::find(key_type key) const {
+    std::vector<pos_t> result;
+    if (key == NO_KEY) {
+        return result;
+    }
+
+    size_t offset = this->find_offset(key);
+    cell_type cell = this->hash_table[offset];
+    if (cell.first == key) {
+        if (this->is_pointer[offset]) {
+            for (code_type pos : *(cell.second.pointer)) {
+                result.push_back(decode(pos));
+            }
+        } else if (cell.second.value != NO_VALUE) {
+            result.push_back(decode(cell.second.value));
+        }
+    }
+
+    return result;
+}
+
+size_t MinimizerIndex::find_offset(key_type key) const {
     size_t offset = hash(key) & (this->capacity() - 1);
     for (size_t attempt = 0; attempt < this->capacity(); attempt++) {
-        if (this->hash_table[offset].first == NO_KEY) {
-            this->insert(key, encode(pos), offset);
-            return;
+        if (this->hash_table[offset].first == NO_KEY || this->hash_table[offset].first == key) {
+            return offset;
         }
-        if (this->hash_table[offset].first == key) {
-            this->append(key, encode(pos), offset);
-            return;
-        }
+
         // Quadratic probing with triangular numbers.
         offset = (offset + attempt + 1) & (this->capacity() - 1);
     }
 
     // This should not happen.
-    std::cerr << "error: [MinimizerIndex::insert()] Insertion failed for key " << key << std::endl;
+    std::cerr << "error: [MinimizerIndex] Cannot find the offset for key " << key << std::endl;
+    return 0;
 }
 
 void MinimizerIndex::insert(key_type key, code_type pos, size_t offset) {
@@ -539,10 +573,13 @@ void MinimizerIndex::append(key_type key, code_type pos, size_t offset) {
             this->header.values++;
         }
     } else {
-        this->header.unique--;
+        if (this->hash_table[offset].second.value == NO_VALUE) {
+            return;
+        }
         if (this->header.max_values < 2) {
             this->hash_table[offset].second.value = NO_VALUE;
             this->header.values--;
+            this->header.unique--;
             this->header.frequent++;
         } else {
             std::vector<code_type>* occs = new std::vector<code_type>(2);
@@ -554,6 +591,7 @@ void MinimizerIndex::append(key_type key, code_type pos, size_t offset) {
             this->hash_table[offset].second.pointer = occs;
             this->is_pointer[offset] = true;
             this->header.values++;
+            this->header.unique--;
         }
     }
 }
@@ -568,34 +606,25 @@ bool MinimizerIndex::contains(size_t offset, code_type pos) const {
 }
 
 void MinimizerIndex::rehash() {
-    std::vector<cell_type> new_hash_table(2 * this->capacity(), empty_cell());
-    std::vector<bool> new_is_pointer(2 * this->capacity(), false);
+    // Reinitialize with a larger hash table.
+    std::vector<cell_type> old_hash_table(2 * this->capacity(), empty_cell());
+    std::vector<bool> old_is_pointer(2 * this->capacity(), false);
+    this->hash_table.swap(old_hash_table);
+    this->is_pointer.swap(old_is_pointer);
+    this->header.capacity = this->hash_table.size();
+    this->header.max_keys = this->capacity() * MAX_LOAD_FACTOR;
 
-    for (size_t i = 0; i < this->capacity(); i++) {
-        key_type key = this->hash_table[i].first;
+    // Move the keys to the new hash table.
+    for (size_t i = 0; i < old_hash_table.size(); i++) {
+        key_type key = old_hash_table[i].first;
         if (key == NO_KEY) {
             continue;
         }
 
-        size_t offset = hash(key) & (new_hash_table.size() - 1);
-        for (size_t attempt = 0; attempt < new_hash_table.size(); attempt++) {
-            if (new_hash_table[offset].first == NO_KEY) {
-                new_hash_table[offset] = this->hash_table[i];
-                new_is_pointer[offset] = this->is_pointer[i];
-                break;
-            }
-            // Quadratic probing with triangular numbers.
-            offset = (offset + attempt + 1) & (this->capacity() - 1);
-        }
-
-        // This should not happen.
-        std::cerr << "error: [MinimizerIndex::rehash()] Insertion failed for key " << key << std::endl;
+        size_t offset = this->find_offset(key);
+        this->hash_table[offset] = old_hash_table[i];
+        this->is_pointer[offset] = old_is_pointer[i];
     }
-
-    std::swap(this->hash_table, new_hash_table);
-    std::swap(this->is_pointer, new_is_pointer);
-    this->header.capacity = this->hash_table.size();
-    this->header.max_keys = this->capacity() * MAX_LOAD_FACTOR;
 }
 
 //------------------------------------------------------------------------------

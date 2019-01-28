@@ -102,7 +102,6 @@ public:
     /// true if the serialization was successful.
     std::pair<size_t, bool> serialize(std::ostream& out) const;
 
-    // FIXME implement
     /// Load the index from the istream and return true if successful.
     bool load(std::istream& in);
 
@@ -125,9 +124,13 @@ public:
     std::vector<minimizer_type> minimizers(std::string::const_iterator begin, std::string::const_iterator end) const;
 
     /// Inserts the minimizer encoded in the key at the given position into the index.
-    /// Minimizers with key NO_KEY are not inserted.
+    /// Minimizers with key NO_KEY or a position encoded as NO_VALUE are not inserted.
     /// Use minimizer() or minimizers() to get the key.
     void insert(key_type key, pos_t pos);
+
+    /// Returns the sorted set of occurrences of the kmer encoded in the key.
+    /// Use minimizer() or minimizers() to get the key.
+    std::vector<pos_t> find(key_type key) const;
 
 //------------------------------------------------------------------------------
 
@@ -139,6 +142,12 @@ public:
 
     /// Number of keys in the index.
     size_t size() const { return this->header.keys; }
+
+    /// Is the index empty.
+    bool empty() const { return (this->size() == 0); }
+
+    /// Number of values (minimizer occurrences) in the index.
+    size_t values() const { return this->header.values; }
 
     /// Size of the hash table.
     size_t capacity() const { return this->header.capacity; }
@@ -187,11 +196,14 @@ public:
                (static_cast<code_type>(std::get<2>(pos)) & OFF_MASK);
     }
 
+    /// Copied from position.cpp to avoid excessive dependencies.
+    static pos_t make_pos_t(id_t id, bool is_reverse, off_t offset) {
+        return std::make_tuple(id, is_reverse, offset);
+    }
+
     /// Decode code_type as pos_t.
     static pos_t decode(code_type pos) {
-        return std::make_tuple(static_cast<id_t>(pos >> ID_OFFSET),
-                               static_cast<bool>(pos & REV_MASK),
-                               static_cast<off_t>(pos & OFF_MASK));
+        return make_pos_t(pos >> ID_OFFSET, pos & REV_MASK, pos & OFF_MASK);
     }
 
 //------------------------------------------------------------------------------
@@ -200,6 +212,9 @@ private:
     void copy(const MinimizerIndex& source);
     void clear(size_t i);   // Deletes the pointer at hash_table[i].
     void clear();           // Deletes all pointers in the hash table.
+
+    // Find the hash table offset for the key.
+    size_t find_offset(key_type key) const;
 
     // Insert (key, pos) to hash_table[offset], which is assumed to be empty.
     // Rehashing may be necessary.

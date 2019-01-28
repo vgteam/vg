@@ -49,7 +49,7 @@ const std::string gbwt_helper_graph = R"(
 }
 )";
 
-TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper][gbwt]") {
+TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper]") {
 
     // Build an XG index.
     Graph graph;
