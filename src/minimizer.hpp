@@ -45,7 +45,7 @@ public:
     constexpr static size_t    KMER_MAX_LENGTH  = 31;
     constexpr static size_t    INITIAL_CAPACITY = 1024;
     constexpr static double    MAX_LOAD_FACTOR  = 0.77;
-    constexpr static size_t    MAX_VALUES       = std::numeric_limits<size_t>::max();
+    constexpr static size_t    MAX_OCCS         = std::numeric_limits<size_t>::max();
     constexpr static key_type  NO_KEY           = std::numeric_limits<key_type>::max();
     constexpr static code_type NO_VALUE         = 0;
 
@@ -56,7 +56,7 @@ public:
         std::uint64_t flags;
         size_t        k, w;
         size_t        keys, capacity, max_keys;
-        size_t        values, max_values;
+        size_t        values, max_occs;
         size_t        unique, frequent;
 
         constexpr static std::uint32_t TAG = 31513151;
@@ -64,7 +64,7 @@ public:
         constexpr static std::uint32_t MIN_VERSION = 1;
 
         Header();
-        Header(size_t kmer_length, size_t window_length, size_t max_values_per_key);
+        Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key);
         void sanitize();
         bool check() const;
 
@@ -78,7 +78,7 @@ public:
     MinimizerIndex();
 
     /// Constructs an index with the specified parameter values.
-    MinimizerIndex(size_t kmer_length, size_t window_length, size_t max_values_per_key = MAX_VALUES);
+    MinimizerIndex(size_t kmer_length, size_t window_length, size_t max_occs_per_key = MAX_OCCS);
 
     /// Copy constructor.
     MinimizerIndex(const MinimizerIndex& source);

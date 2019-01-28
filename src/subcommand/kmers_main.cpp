@@ -36,9 +36,6 @@ void help_kmers(char** argv) {
          << "    -B, --gcsa-binary     write the GCSA graph in binary format (implies -g)" << endl
          << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
          << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
-         << "minimizer options:" << endl
-         << "    -w, --window-size N   output the smallest kmer out of N consecutive kmers" << endl
-         << "    -G, --gbwt-name X     use GBWT index X (required with -w)" << endl
          << "" << endl;
 }
 
@@ -59,11 +56,6 @@ int main_kmers(int argc, char** argv) {
     int64_t head_id = 0;
     int64_t tail_id = 0;
 
-    // Minimizer options.
-    bool minimizer_out = false;
-    size_t window_size = 0;
-    std::string gbwt_name;
-
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -81,10 +73,6 @@ int main_kmers(int argc, char** argv) {
             {"head-id", required_argument, 0, 'H'},
             {"tail-id", required_argument, 0, 'T'},
 
-            // Minimizer options.
-            {"window-size", required_argument, 0, 'w'},
-            {"gbwt-name", required_argument, 0, 'G'},
-
             // Obsolete options.
             {"edge-max", required_argument, 0, 'e'},
             {"forward-only", no_argument, 0, 'F'},
@@ -94,7 +82,7 @@ int main_kmers(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "k:t:pgBH:T:w:G:e:Fh",
+        c = getopt_long (argc, argv, "k:t:pgBH:T:e:Fh",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -129,15 +117,6 @@ int main_kmers(int argc, char** argv) {
                 tail_id = parse<int>(optarg);
                 break;
 
-            // Minimizer options.
-            case 'w':
-                minimizer_out = true;
-                window_size = parse<size_t>(optarg);
-                break;
-            case 'G':
-                gbwt_name = optarg;
-                break;
-
             // Obsolete options.
             case 'e':
                 cerr << "error: [vg kmers] Option --edge-max is obsolete. Use vg prune to prune the graph instead." << endl;
@@ -163,14 +142,6 @@ int main_kmers(int argc, char** argv) {
         cerr << "error: [vg kmers] --kmer-size was not specified" << endl;
         std::exit(EXIT_FAILURE);
     }
-    if (gcsa_out && minimizer_out) {
-        cerr << "error: [vg kmers] Cannot output minimizers in GCSA format" << endl;
-        std::exit(EXIT_FAILURE);
-    }
-    if (minimizer_out && gbwt_name.empty()) {
-        cerr << "error: [vg kmers] Minimizers require a GBWT index" << endl;
-        std::exit(EXIT_FAILURE);
-    }
 
     vector<string> graph_file_names;
     while (optind < argc) {
@@ -188,35 +159,6 @@ int main_kmers(int argc, char** argv) {
         } else {
             size_t limit = ~(size_t)0;
             graphs.write_gcsa_kmers_binary(cout, kmer_size, limit, head_id, tail_id);
-        }
-    } else if (minimizer_out) {
-        // FIXME This is a placeholder.
-        std::set<std::pair<std::string, pos_t>> minimizers;
-        gbwt::GBWT haplotypes;
-        sdsl::load_from_file(haplotypes, gbwt_name);
-        auto lambda = [kmer_size, window_size, &minimizers](const GBWTTraversal& window) {
-            std::string kmer = window.seq.substr(0, kmer_size);
-            auto iter = window.traversal.begin();
-            pos_t pos = iter->first, min_pos = iter->first;
-            for (size_t i = 1; i < window_size; i++) {
-                std::string temp = window.seq.substr(i, kmer_size);
-                get_offset(pos)++;
-                if (offset(pos) >= offset(iter->second)) {
-                    ++iter;
-                    pos = iter->first;
-                }
-                if (temp < kmer) {
-                    kmer = temp;
-                    min_pos = pos;
-                }
-            }
-#pragma omp critical (minimizers)
-            minimizers.insert(std::make_pair(kmer, min_pos));
-        };
-        graphs.for_each_kmer_parallel(haplotypes, kmer_size + window_size - 1, lambda);
-        for (auto& kmer : minimizers) {
-            cout << kmer.first << "\t"
-                 << id(kmer.second) << (is_rev(kmer.second) ? ":-" : ":") << offset(kmer.second) << endl;
         }
     } else {
         auto lambda = [](const kmer_t& kmer) {
