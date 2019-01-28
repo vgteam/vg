@@ -102,12 +102,13 @@ Inheritance diagram for vg::MutableHandleGraph:</div>
  <div class="center">
   <img src="classvg_1_1MutableHandleGraph.png" usemap="#vg::MutableHandleGraph_map" alt=""/>
   <map id="vg::MutableHandleGraph_map" name="vg::MutableHandleGraph_map">
-<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="240,0,470,24"/>
-<area href="classvg_1_1DeletableHandleGraph.html" alt="vg::DeletableHandleGraph" shape="rect" coords="120,112,350,136"/>
-<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="360,112,590,136"/>
-<area href="classvg_1_1MutablePathDeletableHandleGraph.html" alt="vg::MutablePathDeletableHandleGraph" shape="rect" coords="120,168,350,192"/>
-<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="0,224,230,248"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="240,224,470,248"/>
+<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="360,0,590,24"/>
+<area href="classvg_1_1DeletableHandleGraph.html" alt="vg::DeletableHandleGraph" shape="rect" coords="240,112,470,136"/>
+<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="480,112,710,136"/>
+<area href="classvg_1_1MutablePathDeletableHandleGraph.html" alt="vg::MutablePathDeletableHandleGraph" shape="rect" coords="240,168,470,192"/>
+<area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="0,224,230,248"/>
+<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="240,224,470,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="480,224,710,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -212,7 +213,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Alter the node that the given handle corresponds to so the orientation indicated by the handle becomes the node's local forward orientation. Rewrites all edges pointing to the node and the node's sequence to reflect this. Invalidates all handles to the node (including the one passed). Returns a new, valid handle to the node in its new forward orientation. Note that it is possible for the node's ID to change. Does not update any stored paths. May change the ordering of the underlying graph. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#ab5ee06ac168f037f2cff3b332079b49c">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#aa743018733bc15ec3bb4af4516041be7">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#ab5ee06ac168f037f2cff3b332079b49c">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#aa743018733bc15ec3bb4af4516041be7">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a2b741a08b4eebe011de20208b32232e0">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -249,7 +250,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Create an edge connecting the given handles in the given order and orientations. Ignores existing edges. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#adeec0612fcf13e4e1fc2ef3566577ae2">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a8922810d5228ab5c4619eb2ddc16e78b">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#adeec0612fcf13e4e1fc2ef3566577ae2">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a4642ba1ee8a0acaec0f7e037f13a3726">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -451,7 +452,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Swap the nodes corresponding to the given handles, in the ordering used by for_each_handle when looping over the graph. Other handles to the nodes being swapped must not be invalidated. If a swap is made while for_each_handle is running, it affects the order of the handles traversed during the current traversal (so swapping an already seen handle to a later handle's position will make the seen handle be visited again and the later handle not be visited at all). </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a3d4db6ea2a99bda9a48411491aa6ed4e">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#af277d9d702500220c50f12d57b417931">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a3d4db6ea2a99bda9a48411491aa6ed4e">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#af277d9d702500220c50f12d57b417931">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a2baff414f3e0c3d3a63260cd8b1f19ab">vg::HashGraph</a>.</p>
 
 </div>
 </div>

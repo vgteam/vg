@@ -49,6 +49,7 @@ var searchData=
   ['control_5fstddev',['control_stddev',['../structvg_1_1BenchmarkResult.html#ac6db5580a02c1860981365245812304e',1,'vg::BenchmarkResult']]],
   ['correct',['correct',['../structvg_1_1Alignment.html#a07751b50cfb9c985fccc2c701bfc55fc',1,'vg::Alignment']]],
   ['correctly_5fmapped',['correctly_mapped',['../structvg_1_1Alignment.html#a9ec303e39d844ec1e6289ddfbcdd7911',1,'vg::Alignment']]],
+  ['count',['count',['../structvg_1_1HashGraph_1_1path__t.html#aceff47fb61a0df65396b55600facdb07',1,'vg::HashGraph::path_t']]],
   ['coverage_5fciv',['coverage_civ',['../classvg_1_1Packer.html#adc0b40cfa531d0edbc50c9ed7bfcf84e',1,'vg::Packer']]],
   ['coverage_5fdynamic',['coverage_dynamic',['../classvg_1_1Packer.html#ae382431ffbae1d4ebc173c5704604cbc',1,'vg::Packer']]],
   ['cr',['cr',['../classvg_1_1Viz.html#a1c514ef7170a0f6a195aeed7b2cd0b20',1,'vg::Viz']]],

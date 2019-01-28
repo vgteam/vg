@@ -16,6 +16,8 @@ var searchData=
   ['pair_5fhash_5fset_3c_20std_3a_3apair_3c_20gbwt_3a_3anode_5ftype_2c_20gbwt_3a_3anode_5ftype_20_3e_20_3e',['pair_hash_set&lt; std::pair&lt; gbwt::node_type, gbwt::node_type &gt; &gt;',['../classvg_1_1pair__hash__set.html',1,'vg']]],
   ['path',['Path',['../structvg_1_1Path.html',1,'vg']]],
   ['path_5fhandle_5ft',['path_handle_t',['../structvg_1_1path__handle__t.html',1,'vg']]],
+  ['path_5fmapping_5ft',['path_mapping_t',['../structvg_1_1HashGraph_1_1path__mapping__t.html',1,'vg::HashGraph']]],
+  ['path_5ft',['path_t',['../structvg_1_1HashGraph_1_1path__t.html',1,'vg::HashGraph']]],
   ['pathbasedtraversalfinder',['PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html',1,'vg']]],
   ['pathbranch',['PathBranch',['../structvg_1_1PathBranch.html',1,'vg']]],
   ['pathchunker',['PathChunker',['../classvg_1_1PathChunker.html',1,'vg']]],

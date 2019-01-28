@@ -102,12 +102,13 @@ Inheritance diagram for vg::MutablePathHandleGraph:</div>
  <div class="center">
   <img src="classvg_1_1MutablePathHandleGraph.png" usemap="#vg::MutablePathHandleGraph_map" alt=""/>
   <map id="vg::MutablePathHandleGraph_map" name="vg::MutablePathHandleGraph_map">
-<area href="classvg_1_1PathHandleGraph.html" alt="vg::PathHandleGraph" shape="rect" coords="240,56,470,80"/>
-<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="240,0,470,24"/>
-<area href="classvg_1_1MutablePathDeletableHandleGraph.html" alt="vg::MutablePathDeletableHandleGraph" shape="rect" coords="120,168,350,192"/>
-<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="360,168,590,192"/>
-<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="0,224,230,248"/>
-<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="240,224,470,248"/>
+<area href="classvg_1_1PathHandleGraph.html" alt="vg::PathHandleGraph" shape="rect" coords="360,56,590,80"/>
+<area href="classvg_1_1HandleGraph.html" alt="vg::HandleGraph" shape="rect" coords="360,0,590,24"/>
+<area href="classvg_1_1MutablePathDeletableHandleGraph.html" alt="vg::MutablePathDeletableHandleGraph" shape="rect" coords="240,168,470,192"/>
+<area href="classvg_1_1MutablePathMutableHandleGraph.html" alt="vg::MutablePathMutableHandleGraph" shape="rect" coords="480,168,710,192"/>
+<area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="0,224,230,248"/>
+<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="240,224,470,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="480,224,710,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -257,7 +258,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Append a visit to a node to the given path. Returns a handle to the new final occurrence on the path which is appended. Handles to prior occurrences on the path, and to other paths, must remain valid. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#aa27ce8091357377810e01f45bc783e49">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a0cd448ac1121e009f3ffa4578c450c8a">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#aa27ce8091357377810e01f45bc783e49">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a0cd448ac1121e009f3ffa4578c450c8a">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a378eebdbfd87aae0098e342ced05325b">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -284,7 +285,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Create a path with the given name. The caller must ensure that no path with the given name exists already, or the behavior is undefined. Returns a handle to the created empty path. Handles to other paths must remain valid. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a4bcd5d003953bbec11cd6162e53bb974">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a49b55285f3d56d25dd2ea1913a20dddb">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a4bcd5d003953bbec11cd6162e53bb974">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a49b55285f3d56d25dd2ea1913a20dddb">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#ad0d3d60790d6da614822d24269940cb3">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -311,7 +312,7 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Destroy the given path. Invalidates handles to the path and its node occurrences. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>, and <a class="el" href="classvg_1_1PackedGraph.html#a1840f8ccf0d3885913c8a0a616955f18">vg::PackedGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a1840f8ccf0d3885913c8a0a616955f18">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a5bf7cdad16ee57b77665981b3a94b7b8">vg::HashGraph</a>.</p>
 
 </div>
 </div>

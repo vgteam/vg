@@ -2,7 +2,7 @@ var searchData=
 [
   ['h_5fciv',['h_civ',['../classxg_1_1XG.html#ab871905c981137ff7ac1f17cfdbc1308',1,'xg::XG']]],
   ['h_5fiv',['h_iv',['../classxg_1_1XG.html#ae9a5cc096db7d4713d87cf36e485e2b4',1,'xg::XG']]],
-  ['handle',['handle',['../classvg_1_1stream_1_1BlockedGzipInputStream.html#ab4b3f12a86a1be9f679d01ce2952925f',1,'vg::stream::BlockedGzipInputStream::handle()'],['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#a0a752132a6bf314a9df7751a14d43e38',1,'vg::stream::BlockedGzipOutputStream::handle()']]],
+  ['handle',['handle',['../classvg_1_1stream_1_1BlockedGzipInputStream.html#ab4b3f12a86a1be9f679d01ce2952925f',1,'vg::stream::BlockedGzipInputStream::handle()'],['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#a0a752132a6bf314a9df7751a14d43e38',1,'vg::stream::BlockedGzipOutputStream::handle()'],['../structvg_1_1HashGraph_1_1path__mapping__t.html#ab2136ffc2343352ac2c578bab15aca5b',1,'vg::HashGraph::path_mapping_t::handle()']]],
   ['handle_5fbase_5foption',['handle_base_option',['../classvg_1_1ConfigurableParser.html#a0c39f36cf64d91a336afaac0604ff9f0',1,'vg::ConfigurableParser']]],
   ['handle_5fgraph',['handle_graph',['../classvg_1_1TargetValueSearch.html#a99dd4b74b5894a228a6d31174ca322de',1,'vg::TargetValueSearch']]],
   ['handle_5fmemo',['handle_memo',['../classvg_1_1PathOrientedDistanceMeasurer.html#a73fae6600abc1114e0f28b1cd9e74ee4',1,'vg::PathOrientedDistanceMeasurer']]],
@@ -18,7 +18,7 @@ var searchData=
   ['has_5fbuffer',['has_buffer',['../classvg_1_1VcfBuffer.html#a13f0fa2e0b50cd133c117bd1f34715c3',1,'vg::VcfBuffer']]],
   ['has_5fcontent',['has_content',['../structvg_1_1BitStringTree_1_1TreeNode.html#ac222ba76d226ad0f457be10e8c8a8b30',1,'vg::BitStringTree::TreeNode']]],
   ['has_5freachability_5fedges',['has_reachability_edges',['../classvg_1_1MultipathAlignmentGraph.html#a77a113d4c5b6b5ca1d7748c1b812e8d3',1,'vg::MultipathAlignmentGraph']]],
-  ['head',['head',['../structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6',1,'vg::PackedGraph::PackedPath']]],
+  ['head',['head',['../structvg_1_1HashGraph_1_1path__t.html#a3e43e8351b548cbc65cbb5ec421039d0',1,'vg::HashGraph::path_t::head()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6',1,'vg::PackedGraph::PackedPath::head()']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],
   ['het_5fprior_5flogprob',['het_prior_logprob',['../classvg_1_1Genotyper.html#a21799af8d6da86a3bbcfffb1060d27cf',1,'vg::Genotyper']]],

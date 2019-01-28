@@ -44,6 +44,7 @@ var searchData=
   ['rho',['rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7536987972e5d717ba43a951adcece82',1,'haplo::haploMath::RRMemo']]],
   ['right',['right',['../structvg_1_1Support.html#ab2fd7cba17f56ce67501f47fda6ae153',1,'vg::Support']]],
   ['right_5fchild_5foffset',['RIGHT_CHILD_OFFSET',['../classvg_1_1PackedSplayTree.html#a6914a8ae96ecfa00c2536e9a9dfe5afc',1,'vg::PackedSplayTree']]],
+  ['right_5fedges',['right_edges',['../structvg_1_1HashGraph_1_1node__t.html#aeed9aa5616260e5205c4e171e47d76a2',1,'vg::HashGraph::node_t']]],
   ['right_5fends',['right_ends',['../structvg_1_1ConstructedChunk.html#ac20dbdc398181350e73bee0429fe2842',1,'vg::ConstructedChunk']]],
   ['right_5ftelomere_5fnode',['right_telomere_node',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a3d771a24b8889ea668939eac31276ea3',1,'vg::PhasedGenome::Haplotype']]],
   ['rng',['rng',['../classvg_1_1Colors.html#a79a79da7cbc2bef7eea8c3ff1e229b7c',1,'vg::Colors::rng()'],['../classvg_1_1Pictographs.html#ac7600f845d01a084a15cff9aacc6bc3e',1,'vg::Pictographs::rng()'],['../classvg_1_1Sampler.html#ad26ea071330c6a4b580af84bec064453',1,'vg::Sampler::rng()']]],
