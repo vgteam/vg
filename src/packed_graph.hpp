@@ -178,6 +178,11 @@ public:
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
+    /// Returns a vector of all occurrences of a node on paths. Optionally restricts to
+    /// occurrences that match the handle in orientation.
+    virtual vector<occurrence_handle_t> occurrences_of_handle(const handle_t& handle,
+                                                              bool match_orientation = false) const;
+    
     /**
      * Destroy the given path. Invalidates handles to the path and its node occurrences.
      */
@@ -200,22 +205,31 @@ public:
 
 private:
     
+    /// The maximum ID in the graph
     id_t max_id = 0;
+    /// The minimum ID in the graph
     id_t min_id = std::numeric_limits<id_t>::max();
     
+    /// Initialize all of the data corresponding with a new node and return
+    /// it's 1-based offset
     size_t new_node_record(id_t node_id);
+    
+    /// Find and edge on given handle, to a given handle, and remove it from the edge list
     void remove_edge_reference(const handle_t& on, const handle_t& to);
+    
+    /// Check if have orphaned enough records in the graph's various linked lists to
+    /// warrant reallocating and defragmenting them. If so, do it.
     void defragment(void);
     
-    // We use a standard page width for all page-compressed vectors
+    /// Defragment when the orphaned records are this fraction of the whole.
+    const static double defrag_factor;
+    
+    /// We use a standard page width for all page-compressed vectors
     const static size_t PAGE_WIDTH = 128;
     
-    // TODO: some of these offsets are a little silly and
-    // only are around as legacy. I should remove them once
-    // the factoring stabilizes
-    
-    // defragment when the deleted records are this fraction of the whole
-    const static double defrag_factor;
+    // TODO: some of these offsets are a little silly and only are around as legacy.
+    // They could be removed once the factoring stabilizes, but optimization will also
+    // probably handle it.
     
     /// Encodes the topology of the graph. Consists of fixed width records that represent
     /// offsets in edge_lists_iv.
@@ -240,13 +254,16 @@ private:
     const static size_t EDGE_TRAV_OFFSET = 0;
     const static size_t EDGE_NEXT_OFFSET = 1;
     
-    // TODO: template out the deque and back it with a paged vector?
+    // TODO: template out the deque and back id_to_graph_iv with a paged vector? might
+    // provide better compression now that it can handle 0's gracefully. unsure how the
+    // wrapping around would act with pages though...
     
     /// Encodes the 1-based offset of an ID in graph_iv in units of GRAPH_RECORD_SIZE.
-    /// If no node with that ID exists, contains a 0.
+    /// If no node with that ID exists, contains a 0. The index of a given ID is
+    /// computed by (ID - min ID).
     PackedDeque id_to_graph_iv;
 
-    /// Encodes all of the sequences of all nodes and all paths in the graph.
+    /// Encodes all of the sequences of all nodes in the graph.
     PackedVector seq_iv;
     
     /// Encodes the membership of a node in all paths. In the same order as graph_iv.

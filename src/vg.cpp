@@ -338,6 +338,24 @@ occurrence_handle_t VG::get_previous_occurrence(const occurrence_handle_t& occur
 path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
+    
+vector<occurrence_handle_t> VG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
+    
+    vector<occurrence_handle_t> return_val;
+    const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
+    for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
+        for (const mapping_t* mapping : path_occs.second) {
+            if (!match_orientation || mapping->is_reverse() == get_is_reverse(handle)) {
+                occurrence_handle_t occurrence_handle;
+                as_integers(occurrence_handle)[0] = path_occs.first;
+                as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
+                return_val.push_back(occurrence_handle);
+            }
+        }
+    }
+    
+    return return_val;
+}
 
 handle_t VG::create_handle(const string& sequence) {
     Node* node = create_node(sequence);
