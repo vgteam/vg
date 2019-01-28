@@ -210,8 +210,8 @@ int main_minimizer(int argc, char** argv) {
 
     double seconds = gbwt::readTimer() - start;
     if (progress) {
-        std::cout << "Time usage: " << seconds << " seconds" << std::endl;
-        std::cout << "Memory usage: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
+        std::cerr << "Time usage: " << seconds << " seconds" << std::endl;
+        std::cerr << "Memory usage: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
     }
 
     return 0;
