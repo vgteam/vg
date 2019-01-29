@@ -35,8 +35,8 @@ void register_loader_saver_gbwt() {
     });
     
     Registry::register_bare_loader_saver<gbwt::DynamicGBWT>("GBWT", [](istream& input) -> void* {
-        // Allocate a GBWT
-        gbwt::GBWT* index = new gbwt::GBWT();
+        // Allocate a DynamicGBWT
+        gbwt::DynamicGBWT* index = new gbwt::DynamicGBWT();
         
         // Load it
         index->load(input);
@@ -44,9 +44,9 @@ void register_loader_saver_gbwt() {
         // Return it so the caller owns it.
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
-        // Cast to GBWT and serialize to the stream.
+        // Cast to DynamicGBWT and serialize to the stream.
         assert(index_void != nullptr);
-        ((const gbwt::GBWT*) index_void)->serialize(output);
+        ((const gbwt::DynamicGBWT*) index_void)->serialize(output);
     });
 }
 
