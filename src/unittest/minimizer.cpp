@@ -158,6 +158,16 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
         check_minimizer_index(index, correct_values, keys, values, unique, frequent);
     }
 
+    SECTION("missing keys") {
+        MinimizerIndex index;
+        for (size_t i = 1; i <= TOTAL_KEYS; i++) {
+            index.insert(i, MinimizerIndex::make_pos_t(i, i & 1, i & MinimizerIndex::OFF_MASK));
+        }
+        for (size_t i = TOTAL_KEYS + 1; i <= 2 * TOTAL_KEYS; i++) {
+            REQUIRE(index.find(i).empty());
+        }
+    }
+
     SECTION("empty keys and values") {
         MinimizerIndex index;
 
