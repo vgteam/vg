@@ -143,6 +143,8 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "Input files: " << file_names.size() << std::endl;
     }
     VGset graphs(file_names);
+    graphs.show_progress = progress;
+    graphs.progress_bars = false;
 
     // GBWT index.
     gbwt::GBWT gbwt_index;
@@ -173,21 +175,27 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "Building the index" << std::endl;
     }
     auto lambda = [&index](const GBWTTraversal& window) {
-        MinimizerIndex::minimizer_type minimizer = index.minimizer(window.seq.begin(), window.seq.end());
-        if (minimizer.first == MinimizerIndex::NO_KEY) {
-            return;
-        }
+        std::vector<MinimizerIndex::minimizer_type> minimizers = index.minimizers(window.seq.begin(), window.seq.end());
         auto iter = window.traversal.begin();
-        while (offset(iter->second) - offset(iter->first) <= minimizer.second) {
-            minimizer.second -= offset(iter->second) - offset(iter->first);
-            ++iter;
-        }
-        pos_t pos = iter->first;
-        get_offset(pos) += minimizer.second;
+        size_t starting_offset = 0;
 #pragma omp critical (minimizer_index)
-        index.insert(minimizer.first, pos);
+        {
+            for (MinimizerIndex::minimizer_type minimizer : minimizers) {
+                if (minimizer.first == MinimizerIndex::NO_KEY) {
+                    continue;
+                }
+                // Find the node covering minimizer starting position.
+                while (starting_offset + iter->second <= minimizer.second) {
+                    starting_offset += iter->second;
+                    ++iter;
+                }
+                pos_t pos = iter->first;
+                get_offset(pos) += minimizer.second - starting_offset;
+                index.insert(minimizer.first, pos);
+            }
+        }
     };
-    graphs.for_each_kmer_parallel(gbwt_index, index.k() + index.w() - 1, lambda);
+    graphs.for_each_window_parallel(gbwt_index, index.k() + index.w() - 1, lambda);
 
     // Index statistics.
     if (progress) {

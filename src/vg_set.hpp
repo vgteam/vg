@@ -54,6 +54,13 @@ public:
     void for_each_kmer_parallel(const gbwt::GBWT& haplotypes, size_t kmer_size,
                                 const function<void(const GBWTTraversal&)>& lambda);
 
+    /// Iterate over all haplotype-consistent windows. A window starts with the sequence
+    /// of a node and is followed by window_size - 1 bases from subsequent nodes. If no
+    /// extensions are possible, a shorter substring of length >= window_size also
+    /// qualifies as a window.
+    void for_each_window_parallel(const gbwt::GBWT& haplotypes, size_t window_size,
+                                  const function<void(const GBWTTraversal&)>& lambda);
+
     /**
      * Write out kmer lines to GCSA2.
      * size_limit is the maximum space usage for the kmer files in bytes. When the
@@ -69,6 +76,8 @@ public:
     // Should we show our progress running through each graph?             
     bool show_progress = false;
 
+    // Use progress bars if show_progress is true?
+    bool progress_bars = true;
 };
 
 }

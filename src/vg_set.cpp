@@ -10,11 +10,11 @@ void VGset::transform(std::function<void(VG*)> lambda) {
         // load
         VG* g = NULL;
         if (name == "-") {
-            g = new VG(std::cin, show_progress);
+            g = new VG(std::cin, show_progress & progress_bars);
         } else {
             ifstream in(name.c_str());
             if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress);
+            g = new VG(in, show_progress & progress_bars);
             in.close();
         }
         g->name = name;
@@ -33,11 +33,11 @@ void VGset::for_each(std::function<void(VG*)> lambda) {
         // load
         VG* g = NULL;
         if (name == "-") {
-            g = new VG(std::cin, show_progress);
+            g = new VG(std::cin, show_progress & progress_bars);
         } else {
             ifstream in(name.c_str());
             if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress);
+            g = new VG(in, show_progress & progress_bars);
             in.close();
         }
         g->name = name;
@@ -175,7 +175,7 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
 
 void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda) {
     for_each([&lambda, kmer_size, this](VG* g) {
-        g->show_progress = show_progress;
+        g->show_progress = show_progress & progress_bars;
         g->preload_progress("processing kmers of " + g->name);
         //g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
         for_each_kmer(*g, kmer_size, lambda);
@@ -185,9 +185,20 @@ void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const k
 void VGset::for_each_kmer_parallel(const gbwt::GBWT& haplotypes, size_t kmer_size,
                                    const function<void(const GBWTTraversal&)>& lambda) {
     for_each([&lambda, &haplotypes, kmer_size, this](VG* g) {
-        g->show_progress = show_progress;
-        g->preload_progress("processing kmers of " + g->name);
+        if (show_progress) {
+            cerr << "Processing " << g->name << std::endl;
+        }
         for_each_kmer(*g, haplotypes, kmer_size, lambda);
+    });
+}
+
+void VGset::for_each_window_parallel(const gbwt::GBWT& haplotypes, size_t window_size,
+                                    const function<void(const GBWTTraversal&)>& lambda) {
+    for_each([&lambda, &haplotypes, window_size, this](VG* g) {
+        if (show_progress) {
+            cerr << "Processing " << g->name << std::endl;
+        }
+        for_each_window(*g, haplotypes, window_size, lambda);
     });
 }
 
