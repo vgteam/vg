@@ -4,6 +4,7 @@
 #include "../mapper.hpp"
 #include "../surjector.hpp"
 #include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -610,7 +611,7 @@ int main_map(int argc, char** argv) {
     xg::XG* xgidx = nullptr;
     gcsa::GCSA* gcsa = nullptr;
     gcsa::LCPArray* lcp = nullptr;
-    gbwt::GBWT* gbwt = nullptr;
+    unique_ptr<gbwt::GBWT> gbwt;
     
     // One of them may be used to provide haplotype scores
     haplo::ScoreProvider* haplo_score_provider = nullptr;
@@ -657,8 +658,14 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
         }
-        gbwt = new gbwt::GBWT();
-        gbwt->load(gbwt_stream);
+        
+        gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+
+        if (gbwt.get() == nullptr) {
+          // Complain if we couldn't.
+          cerr << "error:[vg map] unable to load gbwt index file" << endl;
+          exit(1);
+        }
         
         // We want to use this for haplotype scoring
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
@@ -1409,10 +1416,6 @@ int main_map(int argc, char** argv) {
     if (haplo_score_provider) {
         delete haplo_score_provider;
         haplo_score_provider = nullptr;
-    }
-    if (gbwt) {
-        delete gbwt;
-        gbwt = nullptr;
     }
     if (lcp) {
         delete lcp;

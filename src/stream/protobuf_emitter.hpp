@@ -47,7 +47,7 @@ public:
     ProtobufEmitter(std::ostream& out, size_t max_group_size = 1000);
     
     /// Destructor that finishes the file
-    ~ProtobufEmitter() = default;
+    ~ProtobufEmitter();
     
     // Prohibit copy
     ProtobufEmitter(const ProtobufEmitter& other) = delete;
@@ -122,6 +122,22 @@ ProtobufEmitter<T>::ProtobufEmitter(std::ostream& out, size_t max_group_size) : 
     tag(Registry::get_protobuf_tag<T>()) {
     
     // Nothing to do!
+}
+
+template<typename T>
+ProtobufEmitter<T>::~ProtobufEmitter() {
+#ifdef debug
+    cerr << "Destroying ProtobufEmitter" << endl;
+#endif
+    
+    // Emit the final group, so the MessageEmitter is empty when it destructs
+    // and doesn't try to call any callbacks.
+    // TODO: The whole callback ownership system is weird and should be re-done better somehow.
+    emit_group();
+    
+#ifdef debug
+    cerr << "ProtobufEmitter destroyed" << endl;
+#endif
 }
 
 template<typename T>

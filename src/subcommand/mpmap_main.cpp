@@ -8,6 +8,7 @@
 
 #include "subcommand.hpp"
 
+#include "../stream/vpkg.hpp"
 #include "../multipath_mapper.hpp"
 #include "../path.hpp"
 #include "../watchdog.hpp"
@@ -897,13 +898,20 @@ int main_mpmap(int argc, char** argv) {
     
     // Load optional indexes
     
-    gbwt::GBWT* gbwt = nullptr;
+    unique_ptr<gbwt::GBWT> gbwt;
     haplo::linear_haplo_structure* sublinearLS = nullptr;
     haplo::ScoreProvider* haplo_score_provider = nullptr;
     if (!gbwt_name.empty()) {
-        gbwt = new gbwt::GBWT();
-        gbwt->load(gbwt_stream);
         
+        // Load the GBWT from its container
+        gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+
+        if (gbwt.get() == nullptr) {
+          // Complain if we couldn't.
+          cerr << "error:[vg mpmap] unable to load gbwt index file" << endl;
+          exit(1);
+        }
+    
         // We have the GBWT available for scoring haplotypes
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
     } else if (!sublinearLS_name.empty()) {
@@ -1442,10 +1450,6 @@ int main_mpmap(int argc, char** argv) {
         delete sublinearLS;
     }
    
-    if (gbwt != nullptr) {
-        delete gbwt;
-    }
-    
     if (distance_index != nullptr) {
         delete distance_index;
     }

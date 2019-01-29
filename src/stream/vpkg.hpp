@@ -98,7 +98,21 @@ public:
     }
     
     /**
-     * Load an object of the given type form a stream.
+     * Allocate and load one or more objects from the given file on a single pass.
+     * Returns a tuple of pointers to loaded objects, or null if they could not be found.
+     * Only works on VPKG-formatted files.
+     */
+    template<typename... Wanted>
+    static tuple<unique_ptr<Wanted>...> load_all(const string& filename) {
+        // Open the file
+        ifstream open_file(filename.c_str());
+        
+        // Read from it
+        return load_all<Wanted...>(open_file);
+    }
+    
+    /**
+     * Load an object of the given type from a stream.
      * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
      * Tagged messages that can't be used to load the thing we are looking for are skipped.
      */
@@ -157,6 +171,20 @@ public:
     }
     
     /**
+     * Load an object of the given type from a file by name.
+     * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
+     * Tagged messages that can't be used to load the thing we are looking for are skipped.
+     */
+    template<typename Wanted>
+    static unique_ptr<Wanted> load_one(const string& filename) {
+        // Open the file
+        ifstream open_file(filename.c_str());
+        
+        // Read from it
+        return load_one<Wanted>(open_file);
+    }
+    
+    /**
      * Save an object to the given stream, using the appropriate saver.
      */
     template<typename Have>
@@ -176,6 +204,18 @@ public:
             // TODO: We copy the data string.
             emitter.write_copy(tag_and_saver->first, message);
         });
+    }
+    
+    /*
+     * Save an object to the given filename, using the appropriate saver.
+     */
+    template<typename Have>
+    static void save(const Have& have, const string& filename) {
+        // Open the file
+        ofstream open_file(filename.c_str());
+        
+        // Save to it
+        save<Have>(have, open_file);
     }
     
 private:

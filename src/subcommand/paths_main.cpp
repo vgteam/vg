@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
+#include "../stream/vpkg.hpp"
 #include "../stream/stream.hpp"
 #include <gbwt/dynamic_gbwt.h>
 
@@ -171,9 +172,15 @@ int main_paths(int argc, char** argv) {
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_file.empty()) {
         // We want a gbwt
-        gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
-        // Load the gbwt (TODO: support streams)
-        sdsl::load_from_file(*gbwt_index, gbwt_file);
+        
+        // Load the GBWT from its container
+        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+
+        if (gbwt_index.get() == nullptr) {
+          // Complain if we couldn't.
+          cerr << "error:[vg paths] unable to load gbwt index file" << endl;
+          exit(1);
+        }
     }
     
     
@@ -282,6 +289,7 @@ int main_paths(int argc, char** argv) {
             exit(1);
         } else {
             cerr << "[vg paths] Error: specify an operation to perform" << endl;
+            exit(1);
         }
     } else if (xg_index.get() != nullptr) {
         // Handle non-thread queries from xg

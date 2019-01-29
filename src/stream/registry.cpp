@@ -8,6 +8,7 @@
 
 #include "register_loader_saver_gcsa.hpp"
 #include "register_loader_saver_lcp.hpp"
+#include "register_loader_saver_gbwt.hpp"
 #include "register_loader_saver_xg.hpp"
 
 #include <google/protobuf/stubs/common.h>
@@ -38,6 +39,7 @@ auto Registry::register_everything() -> bool {
     // These all call back to the registry.
     register_loader_saver_gcsa();
     register_loader_saver_lcp();
+    register_loader_saver_gbwt();
     register_loader_saver_xg();
     
     return true;

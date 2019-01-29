@@ -13,6 +13,7 @@
 #include "../vg.hpp"
 #include "../index.hpp"
 #include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -942,7 +943,10 @@ int main_index(int argc, char** argv) {
                     cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
                     cerr << "Saving GBWT to disk..." << endl;
                 }
-                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+                
+                // Save encapsulated in a VPKG
+                stream::VPKG::save(gbwt_builder->index, gbwt_name);
+                
                 delete gbwt_builder; gbwt_builder = nullptr;
             }
             if (write_threads) {

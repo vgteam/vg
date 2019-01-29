@@ -164,7 +164,14 @@ void for_each_parallel_impl(std::istream& in,
             // TODO: we should only do this when it changes!
             handle(Registry::check_protobuf_tag<T>(tag_and_data.first));
             
-            // If the tag checks out, add it to the batch
+            // If the tag checks out
+            
+            // Make sure we have a batch
+            if (batch == nullptr) {
+                batch = new vector<string>();
+            }
+            
+            // Add the message to the batch
             batch->push_back(std::move(tag_and_data.second));
             
             if (batch->size() == batch_size) {

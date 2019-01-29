@@ -266,7 +266,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
         
             #pragma omp critical (input_cursor)
             {
-                // Each thread fights for the file and the winner messages some data
+                // Each thread fights for the file and the winner takes some data
                 size_t buffered_message_bytes = 0;
                 while (input_cursor.has_next() && buffered_message_bytes < max_buf_size) {
                     // Until we run out of input messages or space, buffer each, recording its size.
@@ -324,18 +324,17 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
     // Maintain our own group buffer at a higher scope than the emitter.
     vector<Message> group_buffer;
     {
-    
         // Make an output emitter
         emitter_t emitter(stream_out);
         
         if (index_to != nullptr) {
-            emitter.on_message([&](const Message& m) {
+            emitter.on_message([&index_to,&group_buffer](const Message& m) {
                 // Copy every message that is emitted.
                 // TODO: Just compute indexing stats instead.
                 group_buffer.push_back(m);
             });
         
-            emitter.on_group([&](int64_t start_vo, int64_t past_end_vo) {
+            emitter.on_group([&index_to,&group_buffer](int64_t start_vo, int64_t past_end_vo) {
                 // On every group, tell the index to record the group stats, and clear the buffer.
                 index_to->add_group(group_buffer, start_vo, past_end_vo);
                 group_buffer.clear();
@@ -344,6 +343,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
     
         // Merge the cursors into the emitter
         streaming_merge(temp_cursors, emitter, total_messages_read);
+        
     }
     
     // Clean up

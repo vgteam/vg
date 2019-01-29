@@ -913,8 +913,6 @@ auto StreamIndex<Message>::add_group(const vector<Message>& msgs, int64_t virtua
     id_t min_id = numeric_limits<id_t>::max();
     id_t max_id = numeric_limits<id_t>::min();
     
-    
-    
     for (auto& msg : msgs) {
         // For each message
         for_each_id(msg, [&](const id_t& found) {

@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"
@@ -289,17 +290,15 @@ int main_chunk(int argc, char** argv) {
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (trace && !gbwt_file.empty()) {
         // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
-        gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
-        
-        // Open up the index
-        ifstream in(gbwt_file.c_str());
-        if (!in) {
-            cerr << "error:[vg chunk] unable to load gbwt index file " << gbwt_file << endl;
-            return 1;
-        }
+    
+        // Load the GBWT from its container
+        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
-        // And load it
-        gbwt_index->load(in);
+        if (gbwt_index.get() == nullptr) {
+          // Complain if we couldn't.
+          cerr << "error:[vg chunk] unable to load gbwt index file " << gbwt_file << endl;
+          exit(1);
+        }
     }
 
     
