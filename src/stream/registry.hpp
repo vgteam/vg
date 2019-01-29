@@ -68,18 +68,24 @@ using load_function_t = function<void*(const message_sender_function_t&)>;
 /// This is the type of a function that can serialize an object of unspecified type to a message consumer.
 using save_function_t = function<void(const void*, const message_consumer_function_t&)>;
 
+/// This is the type of a function that can load an object of unspecified type from a bare input stream.
+using bare_load_function_t = function<void*(istream&)>;
+
+/// This is the type of a function that can save an object of unspecified type to a bare output stream.
+using bare_save_function_t = function<void(const void*, ostream&)>;
+
 /**
  * We also have an adapter that takes a function from an istream& to a void*
  * object, and runs that in a thread to adapt it to the message consuming shape
  * of interface. It captures the wrapped function by value.
  */
-load_function_t wrap_stream_loader(function<void*(istream&)> istream_loader);
+load_function_t wrap_bare_loader(bare_load_function_t istream_loader);
 
 /**
  * And an adapter that takes a function of void* and ostream&, and adapts that
  * to a message consumer destination.
  */
-save_function_t wrap_stream_saver(function<void(const void*, ostream&)> ostream_saver);
+save_function_t wrap_bare_saver(function<void(const void*, ostream&)> ostream_saver);
 
 /**
  * A registry mapping between tag strings for serialized message groups and the
@@ -123,6 +129,25 @@ public:
     template<typename Handled>
     static void register_loader_saver(const string& tag, load_function_t loader, save_function_t saver);
     
+    /**
+     * Register a loading function and a saving function with the given
+     * collection of tags for the given object type. The first tag in the
+     * collection will be used for saving. If "" appears in the list of tags,
+     * the loader can be deployed on untagged message groups (for backward compatibility).
+     */
+    template<typename Handled>
+    static void register_loader_saver(const vector<string>& tags, load_function_t loader, save_function_t saver);
+    
+    /**
+     * Register a loading function and a saving function with the given tag for
+     * the given object type. The functions operate on bare streams; conversion
+     * to type-tagged messages of chunks of stream data is performed
+     * automatically. The load function will also be registered to load from
+     * non-type-tagged-message-format files, for backward compatibility.
+     */
+    template<typename Handled>
+    static void register_bare_loader_saver(const string& tag, bare_load_function_t loader, bare_save_function_t saver);
+    
     /////////
     // Lookup functions
     /////////
@@ -160,6 +185,15 @@ public:
     static const load_function_t* find_loader(const string& tag);
     
     /**
+     * Look up the appropriate loader function to use to load an object of the
+     * given type from a bare stream. If there is one registered, return a
+     * pointer to it. The caller has to call it and cast the result to the
+     * right type. If there isn't, returns nullptr.
+     */
+    template<typename Want>
+    static const bare_load_function_t* find_bare_loader();
+    
+    /**
      * Look up the appropriate saver function to use to save an object of the
      * given type. If there is one registered, return a pointer to a pair of
      * the tag to use and the function. The caller has to call it and cast the
@@ -184,12 +218,38 @@ private:
         unordered_map<string, unordered_map<type_index, load_function_t>> tag_to_loader;
         /// Maps from type to a single tag and save function pair to use when outputting that type.
         unordered_map<type_index, pair<string, save_function_t>> type_to_saver;
+        
+        /// Maps from type_index we want to load from a old,
+        /// non-tagged-message-format file to a "bare" loader taht can load the
+        /// desired thing from an istream.
+        unordered_map<type_index, bare_load_function_t> type_to_bare_loader;
     };
     
     /**
      * Get or create the registry tables in which things are registerd.
      */
     static Tables& get_tables();
+    
+    /**
+     * Register a load function for a tag. The empty tag means it can run on
+     * untagged message groups.
+     */
+    template<typename Handled>
+    static void register_loader(const string& tag, load_function_t loader);
+    
+    /**
+     * Register a load function for loading a type from non-type-tagged-message
+     * "bare" streams.
+     */
+    template<typename Handled>
+    static void register_bare_loader(bare_load_function_t loader);
+    
+    /**
+     * Register a save function to save a type with a given tag. The empty tag
+     * is not permitted.
+     */
+    template<typename Handled>
+    static void register_saver(const string& tag, save_function_t saver);
 };
 
 /////////////
@@ -211,7 +271,7 @@ void Registry::register_protobuf(const string& tag) {
 }
 
 template<typename Handled>
-void Registry::register_loader_saver(const string& tag, load_function_t loader, save_function_t saver) {
+void Registry::register_loader(const string& tag, load_function_t loader) {
     // Get our state
     Tables& tables = get_tables();
     
@@ -230,13 +290,62 @@ void Registry::register_loader_saver(const string& tag, load_function_t loader, 
         // It implements PathHandleGraph, so it can get us a PathHandleGraph
         tables.tag_to_loader[tag][type_index(typeid(PathHandleGraph))] = loader;
     }
+}
+
+template<typename Handled>
+void Registry::register_bare_loader(bare_load_function_t loader) {
+    // Get our state
+    Tables& tables = get_tables();
+    
+    // Save the function in the table
+    tables.type_to_bare_loader.emplace(type_index(typeid(Handled)), loader);
+}
+
+template<typename Handled>
+void Registry::register_saver(const string& tag, save_function_t saver) {
+    // Prohibit the empty tag here.
+    assert(!tag.empty());
+    
+    // Get our state
+    Tables& tables = get_tables();
     
     // Save the saving function to save the given type
     tables.type_to_saver.emplace(type_index(typeid(Handled)), make_pair(tag, saver));
+}
+
+template<typename Handled>
+void Registry::register_loader_saver(const string& tag, load_function_t loader, save_function_t saver) {
+    // Dispatch to the vector implementation
+    register_loader_saver<Handled>(vector<string>{tag}, loader, saver);
+}
+
+template<typename Handled>
+void Registry::register_loader_saver(const vector<string>& tags, load_function_t loader, save_function_t saver) {
+    // There must be tags
+    assert(!tags.empty());
+
+    // The first must be a real tag we can save with
+    assert(!tags.front().empty());
     
-#ifdef debug
-    cerr << "Registered loader/saver for " << tag << endl;
-#endif
+    // The first tag gets the loader and saver
+    register_loader<Handled>(tags.front(), loader);
+    register_saver<Handled>(tags.front(), saver);
+    
+    for (size_t i = 1; i < tags.size(); i++) {
+        // Other tags just get loaders
+        register_loader<Handled>(tags.front(), loader);
+    }
+}
+
+template<typename Handled>
+void Registry::register_bare_loader_saver(const string& tag, bare_load_function_t loader, bare_save_function_t saver) {
+
+    // Register the type-tagged wrapped functions
+    register_loader_saver<Handled>(tag, wrap_bare_loader(loader), wrap_bare_saver(saver));
+    
+    // Register the bare stream loader
+    register_bare_loader<Handled>(loader);
+
 }
 
 template<typename Want>
@@ -259,6 +368,23 @@ const load_function_t* Registry::find_loader(const string& tag) {
     }
     
     // We can't find the right function. Return null.
+    return nullptr;
+}
+
+template<typename Want>
+const bare_load_function_t* Registry::find_bare_loader() {
+    // Get our state
+    Tables& tables = get_tables();
+    
+    // Look for a loader for this type from bare streams
+    auto found = tables.type_to_bare_loader.find(type_index(typeid(Want)));
+    
+    if (found != tables.type_to_bare_loader.end()) {
+        // We found one. Return a pointer to it.
+        return &found->second;
+    }
+    
+    // We don't have a loader to load this from a bare file.
     return nullptr;
 }
     

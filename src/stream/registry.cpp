@@ -7,7 +7,8 @@
 #include "fdstream.hpp"
 
 #include "register_loader_saver_gcsa.hpp"
-#include "register_loader_saver_lcp.cpp"
+#include "register_loader_saver_lcp.hpp"
+#include "register_loader_saver_xg.hpp"
 
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/descriptor.h>
@@ -37,6 +38,7 @@ auto Registry::register_everything() -> bool {
     // These all call back to the registry.
     register_loader_saver_gcsa();
     register_loader_saver_lcp();
+    register_loader_saver_xg();
     
     return true;
 }
@@ -88,7 +90,7 @@ auto Registry::is_valid_tag(const string& tag) -> bool {
     return find_status.ok();
 }
 
-auto wrap_stream_loader(function<void*(istream&)> istream_loader) -> load_function_t {
+auto wrap_bare_loader(function<void*(istream&)> istream_loader) -> load_function_t {
     // Capture the istream-using function by value
     return [istream_loader](const message_sender_function_t& for_each_message) -> void* {
     
@@ -180,7 +182,7 @@ auto wrap_stream_loader(function<void*(istream&)> istream_loader) -> load_functi
     };
 }
 
-auto wrap_stream_saver(function<void(const void*, ostream&)> ostream_saver) -> save_function_t {
+auto wrap_bare_saver(function<void(const void*, ostream&)> ostream_saver) -> save_function_t {
     // Capture the ostream-using function by value
     return [ostream_saver](const void* to_save, const message_consumer_function_t& emit_message) {
    

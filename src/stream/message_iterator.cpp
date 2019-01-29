@@ -12,14 +12,18 @@ namespace stream {
 
 using namespace std;
 
-MessageIterator::MessageIterator(istream& in) :
+MessageIterator::MessageIterator(istream& in) : MessageIterator(unique_ptr<BlockedGzipInputStream>(new BlockedGzipInputStream(in))) {
+    // Nothing to do!
+}
+
+MessageIterator::MessageIterator(unique_ptr<BlockedGzipInputStream>&& bgzf) :
     value(),
     backup_tag(),
     group_count(0),
     group_idx(0),
     group_vo(-1),
     item_vo(-1),
-    bgzip_in(new BlockedGzipInputStream(in))
+    bgzip_in(std::move(bgzf))
 {
     get_next();
 }

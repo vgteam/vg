@@ -44,6 +44,9 @@ public:
     /// Constructor to wrap a stream.
     MessageIterator(istream& in);
     
+    /// Constructor to wrap an existing BGZF 
+    MessageIterator(unique_ptr<BlockedGzipInputStream>&& bgzf);
+    
     /// Represents a pair of a tag value and some message data.
     /// If there is no valid tag for a group, as given in the Registry, the tag will be "".
     using TaggedMessage = pair<string, string>;

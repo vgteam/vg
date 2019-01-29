@@ -1,6 +1,6 @@
 /**
  * \file register_loader_saver_lcp.cpp
- * Defines loaders for a GCSA LCPArray from stream files.
+ * Defines IO for a GCSA LCPArray from stream files.
  */
 
 #include "registry.hpp"
@@ -15,7 +15,7 @@ namespace stream {
 using namespace std;
 
 void register_loader_saver_lcp() {
-    Registry::register_loader_saver<gcsa::LCPArray>("LCP", wrap_stream_loader([](istream& input) -> void* {
+    Registry::register_bare_loader_saver<gcsa::LCPArray>("LCP", [](istream& input) -> void* {
         // Allocate an LCPArray
         gcsa::LCPArray* index = new gcsa::LCPArray();
         
@@ -24,10 +24,10 @@ void register_loader_saver_lcp() {
         
         // Return it so the caller owns it.
         return (void*) index;
-    }), wrap_stream_saver([](const void* index_void, ostream& output) {
+    }, [](const void* index_void, ostream& output) {
         // Cast to LCP and serialize to the stream.
         ((const gcsa::LCPArray*) index_void)->serialize(output);
-    }));
+    });
 
 }
 
