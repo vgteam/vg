@@ -625,7 +625,7 @@ namespace vg {
                     get<2>(back)++;
                     
 #ifdef debug_multipath_alignment
-                    cerr << "checking node " << vg.get_id(trav); << endl;
+                    cerr << "checking node " << vg.get_id(trav) << endl;
 #endif
                     
                     string node_seq = vg.get_sequence(trav);
@@ -997,7 +997,9 @@ namespace vg {
             
             path_nodes.resize(path_nodes.size() - to_remove.size());
         }
-        
+#ifdef debug_multipath_alignment
+        cerr << "done merging MEMs" << endl;
+#endif
     }
     
     void MultipathAlignmentGraph::trim_to_branch_points(const HandleGraph* graph, size_t max_trim_length) {
@@ -1005,6 +1007,10 @@ namespace vg {
         assert(!has_reachability_edges);
         
         for (PathNode& path_node : path_nodes) {
+            
+#ifdef debug_multipath_alignment
+            cerr << "trimming to branch points within " << max_trim_length << " of ends in path " << pb2json(path_node.path) << endl;
+#endif
             
             // find the mapping where we are first pass the maximum trim length coming inward
             // from the left
@@ -1020,10 +1026,15 @@ namespace vg {
             }
             
             // walk backwards to see if we passed any leftward branch points
-            for (; prefix_idx > 0; prefix_idx--) {
+            for (prefix_idx--; prefix_idx > 0; prefix_idx--) {
                 const Position& pos = path_node.path.mapping(prefix_idx).position();
                 if (graph->get_degree(graph->get_handle(pos.node_id(), pos.is_reverse()), true) > 1) {
                     // this is the inward most branch point within the trim length
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "found leftward branch point at " << prefix_idx << endl;
+#endif
+                    
                     break;
                 }
             }
@@ -1042,10 +1053,14 @@ namespace vg {
             }
             
             // walk forward to see if we passed any rightwards branch points
-            for (; suffix_idx + 1 < path_node.path.mapping_size(); suffix_idx++) {
+            for (suffix_idx++; suffix_idx + 1 < path_node.path.mapping_size(); suffix_idx++) {
                 const Position& pos = path_node.path.mapping(suffix_idx).position();
                 if (graph->get_degree(graph->get_handle(pos.node_id(), pos.is_reverse()), false) > 1) {
                     // this is the inward most branch point within the trim length
+                    
+#ifdef debug_multipath_alignment
+                    cerr << "found right branch point at " << suffix_idx << endl;
+#endif
                     break;
                 }
             }
@@ -1057,6 +1072,9 @@ namespace vg {
                 // that maybe the trim length was chosen to be too long. there are other explanations
                 // but we're just going to ignore the trimming for now
                 // TODO: is this the right approach?
+#ifdef debug_multipath_alignment
+                cerr << "seem to want to trim entire path, skipping" << endl;
+#endif
                 continue;
             }
             
@@ -1078,6 +1096,9 @@ namespace vg {
                     *new_path.add_mapping() = path_node.path.mapping(i);
                 }
                 path_node.path = move(new_path);
+#ifdef debug_multipath_alignment
+                cerr << "trimmed path: " << pb2json(path_node.path) << endl;
+#endif
                 // update the read interval
                 path_node.begin += trimmed_prefix_from_length;
                 path_node.end -= trimmed_suffix_from_length;
