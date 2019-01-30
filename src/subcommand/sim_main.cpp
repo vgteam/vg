@@ -16,7 +16,7 @@
 #include "../vg.hpp"
 #include "../mapper.hpp"
 #include "../sampler.hpp"
-#include "../stream/stream.hpp"
+#include "../stream/protobuf_emitter.hpp"
 
 using namespace std;
 using namespace vg;
@@ -266,6 +266,12 @@ int main_sim(int argc, char** argv) {
             return 1;
         }
     }
+    
+    unique_ptr<stream::ProtobufEmitter<Alignment>> aln_emitter;
+    if (align_out && !json_out) {
+        // Make an emitter to emit Alignments
+        aln_emitter = unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+    }
 
     // Make a Mapper to score reads, with the default parameters
     Mapper rescorer(xgidx, nullptr, nullptr);
@@ -325,8 +331,8 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(alns.front()) << endl;
                         cout << pb2json(alns.back()) << endl;
                     } else {
-                        function<Alignment(size_t)> lambda = [&alns](size_t n) { return alns[n]; };
-                        stream::write(cout, 2, lambda);
+                        aln_emitter->write_copy(alns.front());
+                        aln_emitter->write_copy(alns.back());
                     }
                 } else {
                     cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
@@ -358,8 +364,7 @@ int main_sim(int argc, char** argv) {
                     if (json_out) {
                         cout << pb2json(aln) << endl;
                     } else {
-                        function<Alignment(size_t)> lambda = [&aln](size_t n) { return aln; };
-                        stream::write(cout, 1, lambda);
+                        aln_emitter->write_copy(aln);
                     }
                 } else {
                     cout << aln.sequence() << endl;
@@ -399,10 +404,8 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(read_pair.second) << endl;
                     }
                     else {
-                        function<Alignment(size_t)> lambda = [&read_pair](size_t n) {
-                            return n % 2 == 0 ? read_pair.first : read_pair.second;
-                        };
-                        stream::write(cout, 2, lambda);
+                        aln_emitter->write_copy(read_pair.first);
+                        aln_emitter->write_copy(read_pair.second);
                     }
                 }
                 else {
@@ -420,10 +423,7 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(read) << endl;
                     }
                     else {
-                        function<Alignment(size_t)> lambda = [&read](size_t n) {
-                            return read;
-                        };
-                        stream::write(cout, 1, lambda);
+                        aln_emitter->write_copy(read);
                     }
                 }
                 else {
@@ -433,11 +433,6 @@ int main_sim(int argc, char** argv) {
         }
     }
     
-    if (align_out && !json_out) {
-        // We wrote alignment data, so write an EOF
-        stream::finish(cout);
-    }
-
     return 0;
 }
 
