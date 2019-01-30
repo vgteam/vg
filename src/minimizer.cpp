@@ -569,7 +569,11 @@ void MinimizerIndex::append(key_type key, code_type pos, size_t offset) {
             this->clear(offset);
         } else {
             occs->push_back(pos);
-            std::sort(occs->begin(), occs->end());
+            size_t offset = occs->size() - 1;
+            while(offset > 0 && occs->at(offset - 1) > occs->at(offset)) {
+                std::swap(occs->at(offset - 1), occs->at(offset));
+                offset--;
+            }
             this->header.values++;
         }
     } else {
