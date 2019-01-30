@@ -227,8 +227,8 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 
 ifneq ($(shell uname -s),Darwin)
-	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
-	LD_LIB_FLAGS += -ltcmalloc_minimal
+	#DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
+	#LD_LIB_FLAGS += -ltcmalloc_minimal
 endif
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment

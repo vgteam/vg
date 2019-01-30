@@ -138,10 +138,14 @@ void for_each_parallel_impl(std::istream& in,
     const size_t max_max_batches_outstanding = 1 << 13; // 8192
     // number of batches currently being processed
     size_t batches_outstanding = 0;
+    
+#ifdef debug
+    cerr << "Looping over file in batches of size " << batch_size << endl;
+#endif
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda1, lambda2, batches_outstanding, max_batches_outstanding, single_threaded_until_true)
+    #pragma omp parallel default(none) shared(in, lambda1, lambda2, batches_outstanding, max_batches_outstanding, single_threaded_until_true, cerr)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
@@ -150,9 +154,6 @@ void for_each_parallel_impl(std::istream& in,
         
         // We do our own multi-threaded Protobuf decoding, but we batch up our strings by pulling them from this iterator.
         MessageIterator message_it(in);
-
-        BlockedGzipInputStream bgzip_in(in);
-        ::google::protobuf::io::CodedInputStream coded_in(&bgzip_in);
 
         std::vector<std::string> *batch = nullptr;
         
@@ -175,6 +176,10 @@ void for_each_parallel_impl(std::istream& in,
             batch->push_back(std::move(tag_and_data.second));
             
             if (batch->size() == batch_size) {
+#ifdef debug
+                cerr << "Found full batch of size " << batch_size << endl;
+#endif
+            
                 // time to enqueue this batch for processing. first, block if
                 // we've hit max_batches_outstanding.
                 size_t b;
@@ -183,6 +188,10 @@ void for_each_parallel_impl(std::istream& in,
                 
                 bool do_single_threaded = !single_threaded_until_true();
                 if (b >= max_batches_outstanding || do_single_threaded) {
+                    
+#ifdef debug
+                    cerr << "Run batch in current thread" << endl;
+#endif
                     
                     // process this batch in the current thread
                     {
@@ -210,9 +219,17 @@ void for_each_parallel_impl(std::istream& in,
                     }
                 }
                 else {
+#ifdef debug
+                    cerr << "Run batch in task" << endl;
+#endif
+                
                     // spawn a task in another thread to process this batch
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true)
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true, cerr)
                     {
+#ifdef debug
+                        cerr << "Batch task is running" << endl;
+#endif
+                        
                         {
                             T obj1, obj2;
                             for (int i = 0; i<batch_size; i+=2) {
@@ -235,6 +252,9 @@ void for_each_parallel_impl(std::istream& in,
         #pragma omp taskwait
         // process final batch
         if (batch) {
+#ifdef debug
+            cerr << "Run final batch of size " << batch->size() << " in current thread" << endl;
+#endif
             {
                 T obj1, obj2;
                 int i = 0;

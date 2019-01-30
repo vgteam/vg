@@ -360,6 +360,10 @@ int main_prune(int argc, char** argv) {
                     exit(1);
                 }
             });
+        } else {
+            // The PhaseUnfolder can't deal with having no GBWT at all; we need to give it an empty one.
+            gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
+            // TODO: Let us pass in null pointers instead.
         }
         PhaseUnfolder unfolder(xg_index, *gbwt_index, max_node_id + 1);
         if (append_mapping) {

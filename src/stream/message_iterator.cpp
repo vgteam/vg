@@ -67,6 +67,10 @@ auto MessageIterator::operator++() -> const MessageIterator& {
         if (!coded_in.ReadVarint64((::google::protobuf::uint64*) &group_count)) {
             // We didn't get a length
             
+#ifdef debug
+            cerr << "Failed to read group count at " << group_vo << "; stop iteration." << endl;
+#endif
+            
             // This is the end of the input stream, switch to state that
             // will match the end constructor
             group_vo = -1;
@@ -75,6 +79,10 @@ auto MessageIterator::operator++() -> const MessageIterator& {
             value.second.clear();
             return *this;
         }
+        
+#ifdef debug
+        cerr << "Read group count at " << group_vo << ": " << group_count << endl;
+#endif
         
         // Now we have to grab the tag, which is pretending to be the first item.
         // It could also be the first item, if it isn't a known tag string.
@@ -203,12 +211,12 @@ auto MessageIterator::operator++() -> const MessageIterator& {
     // It may have been moved away.
     value.first = backup_tag;
     
+#ifdef debug
+    cerr << "Found message " << group_idx << " size " << msgSize << " with tag \"" << value.first << "\"" << endl;
+#endif
+    
     // Move on to the next message in the group
     group_idx++;
-    
-#ifdef debug
-    cerr << "Found message with tag \"" << value.first << "\"" << endl;
-#endif
     
     // Return ourselves, after increment
     return *this;
