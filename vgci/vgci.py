@@ -663,7 +663,8 @@ class VGCITest(TestCase):
                                      None,
                                      plan.reads_fastq_file_ids,
                                      plan.fasta_file_id, 
-                                     plan.bwa_index_ids, 
+                                     plan.bwa_index_ids,
+                                     None,
                                      plan.bam_file_ids,
                                      plan.pe_bam_file_ids, 
                                      plan.true_read_stats_file_id)
