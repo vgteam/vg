@@ -34,6 +34,9 @@ auto Registry::register_everything() -> bool {
     register_protobuf<MultipathAlignment>("MGAM");
     register_protobuf<Graph>("VG");
     register_protobuf<Snarl>("SNARL");
+    register_protobuf<Pileup>("PILEUP");
+    register_protobuf<Locus>("LOCUS");
+    register_protobuf<Translation>("TRANS");
 
     // Register all the stream loader/savers.
     // These all call back to the registry.
