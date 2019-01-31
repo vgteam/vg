@@ -15,7 +15,8 @@ vg index -k 11 -g x.gcsa -x x.xg x.vg
 
 #samtools view -f 0 small/x.bam | awk '$6 ~ /100M/' > p.bam
 #samtools view -f 0 small/x.bam | awk '$6 !~ /100M/' > pm.bam
-samtools view -O bam -f 16 small/x.bam > i.bam
+# One samtools version needs -O bam to make bam, the other explodes on it but I think makes BAM by default
+samtools view -O bam -f 16 small/x.bam > i.bam || samtools view -f 16 small/x.bam > i.bam
 #samtools view -f 16 small/x.bam | awk '$6 ~ /100M/' > i.bam
 #samtools view -f 16 small/x.bam | awk '$6 !~ /100M/' > im.bam
 
