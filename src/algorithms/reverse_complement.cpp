@@ -1,4 +1,4 @@
-#include "split_strands.hpp"
+#include "reverse_complement.hpp"
 
 namespace vg {
 namespace algorithms {
@@ -13,8 +13,13 @@ using namespace std;
             exit(1);
         }
         
+        // the return value, translation from 'into' -> 'source'
         unordered_map<id_t, pair<id_t, bool>> node_translation;
+        // for translating b/w the graphs the other direction in the course in the algorithm
         unordered_map<handle_t, handle_t> forward_translation;
+        
+        node_translation.reserve(source->node_size());
+        forward_translation.reserve(source->node_size());
         
         // make the nodes in reverse orientation
         source->for_each_handle([&](const handle_t& handle) {
@@ -43,6 +48,8 @@ using namespace std;
             
             // actually make the edge
             into->create_edge(rev_right, rev_left);
+            
+            // always keep going
             return true;
         });
         

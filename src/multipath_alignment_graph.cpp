@@ -34,7 +34,7 @@ namespace vg {
         return to_return;
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& graph,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                                      const Alignment& alignment,  const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
@@ -50,7 +50,7 @@ namespace vg {
         
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& graph,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph,
                                                      const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                                      const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
                                                      MultipathAlignmentGraph(graph, path_chunks, alignment, projection_trans,
@@ -59,7 +59,7 @@ namespace vg {
         
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa) {
@@ -94,7 +94,7 @@ namespace vg {
         add_reachability_edges(graph, projection_trans, injection_trans);
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& graph, const MultipathMapper::memcluster_t& hits,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      size_t max_branch_trim_length, gcsa::GCSA* gcsa) :
                                                      MultipathAlignmentGraph(graph, hits, projection_trans,
@@ -104,7 +104,7 @@ namespace vg {
         
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                                      const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans) {
         
@@ -128,7 +128,7 @@ namespace vg {
         trim_hanging_indels(alignment);
     }
     
-    MultipathAlignmentGraph::MultipathAlignmentGraph(VG& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+    MultipathAlignmentGraph::MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
                                                      const unordered_map<id_t, pair<id_t, bool>>& projection_trans) :
                                                      MultipathAlignmentGraph(graph, alignment, snarl_manager, max_snarl_cut_size, projection_trans,
                                                                              create_injection_trans(projection_trans)) {
@@ -1353,7 +1353,7 @@ namespace vg {
         }
     }
    
-    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
+    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner,
                                                           size_t max_alt_alns, bool dynamic_alt_alns) {
     
         
@@ -1690,9 +1690,8 @@ namespace vg {
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_ends_from_end;
         unordered_map<size_t, vector<pair<size_t, size_t>>> reachable_starts_from_end;
         
-        // note: graph has been sorted into topological order
+        // get a topological order over the nodes in the graph to iterate over
         vector<handle_t> topological_order = algorithms::lazier_topological_order(&graph);
-        
         for (int64_t i = 0; i < topological_order.size(); i++) {
             id_t node_id = graph.get_id(topological_order[i]);
             
@@ -3049,7 +3048,7 @@ namespace vg {
 #endif
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
@@ -3059,7 +3058,7 @@ namespace vg {
         align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns, constant_padding, multipath_aln_out, allow_negative_scores);
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns,
                                         function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                                         MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
@@ -3383,7 +3382,7 @@ namespace vg {
     }
     
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
-    MultipathAlignmentGraph::align_tails(const Alignment& alignment, VG& align_graph,
+    MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph,
                                          BaseAligner* aligner, size_t max_alt_alns,
                                          bool dynamic_alt_alns, unordered_set<size_t>* sources) {
         

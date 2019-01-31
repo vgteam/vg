@@ -335,6 +335,11 @@ public:
     /// on left, but can be overridden with more efficient implementations.
     virtual bool has_edge(const handle_t& left, const handle_t& right) const;
     
+    /// Convenient wrapper of has_edge for edge_t argument.
+    inline bool has_edge(const edge_t& edge) {
+        return has_edge(edge.first, edge.second);
+    }
+    
     ////////////////////////////////////////////////////////////////////////////
     // Concrete utility methods
     ////////////////////////////////////////////////////////////////////////////

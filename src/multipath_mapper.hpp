@@ -22,7 +22,10 @@
 #include "haplotypes.hpp"
 #include "distance.hpp"
 #include "utility.hpp"
+#include "hash_graph.hpp"
+#include "annotation.hpp"
 
+#include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
@@ -33,6 +36,8 @@
 #include "algorithms/split_strands.hpp"
 #include "algorithms/count_walks.hpp"
 #include "algorithms/dagify.hpp"
+#include "algorithms/reverse_complement.hpp"
+#include "algorithms/extend.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
@@ -42,8 +47,6 @@ using namespace haplo;
 using namespace structures;
 
 namespace vg {
-
-    
     
     class MultipathMapper : public BaseMapper  {
     public:
@@ -153,7 +156,7 @@ namespace vg {
         /// actual extracted graph, a list of assigned MEMs, and the number of
         /// bases of read coverage that that MEM cluster provides (which serves
         /// as a priority).
-        using clustergraph_t = tuple<VG*, memcluster_t, size_t>;
+        using clustergraph_t = tuple<HashGraph*, memcluster_t, size_t>;
         
     protected:
         
@@ -283,7 +286,7 @@ namespace vg {
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         /// Does NOT necessarily produce a MultipathAlignment in topological order.
-        void multipath_align(const Alignment& alignment, VG* vg,
+        void multipath_align(const Alignment& alignment, const HashGraph* graph,
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         

@@ -54,33 +54,33 @@ namespace vg {
         /// Produces a graph with reachability edges. Assumes that the cluster
         /// is sorted by primarily length and secondarily lexicographically by
         /// read interval.
-        MultipathAlignmentGraph(VG& graph, const MultipathMapper::memcluster_t& hits,
+        MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
                                 
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily.
-        MultipathAlignmentGraph(VG& graph, const MultipathMapper::memcluster_t& hits,
+        MultipathAlignmentGraph(const HandleGraph& graph, const MultipathMapper::memcluster_t& hits,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 size_t max_branch_trim_length = 0, gcsa::GCSA* gcsa = nullptr);
         
         /// Construct a graph of the reachability between MEMs in a linearized
         /// path graph. Produces a graph with reachability edges.
-        MultipathAlignmentGraph(VG& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
        
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
-        MultipathAlignmentGraph(VG& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
+        MultipathAlignmentGraph(const HandleGraph& graph, const vector<pair<pair<string::const_iterator, string::const_iterator>, Path>>& path_chunks,
                                 const Alignment& alignment, const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
         /// Make a multipath alignment graph using the path of a single-path alignment
-        MultipathAlignmentGraph(VG& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+        MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans,
                                 const unordered_multimap<id_t, pair<id_t, bool>>& injection_trans);
         
         /// Same as the previous constructor, but construct injection_trans implicitly and temporarily
-        MultipathAlignmentGraph(VG& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
+        MultipathAlignmentGraph(const HandleGraph& graph, const Alignment& alignment, SnarlManager& snarl_manager, size_t max_snarl_cut_size,
                                 const unordered_map<id_t, pair<id_t, bool>>& projection_trans);
         
         ~MultipathAlignmentGraph();
@@ -127,7 +127,7 @@ namespace vg {
         /// Alignment that owns the sequence into which iterators were passed
         /// when the MultipathAlignmentGraph was constructed! TODO: Shouldn't
         /// the class hold a reference to the Alignment then?
-        void synthesize_tail_anchors(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
+        void synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner,
                                      size_t max_alt_alns, bool dynamic_alt_alns);
         
         /// Add edges between reachable nodes and split nodes at overlaps
@@ -145,7 +145,7 @@ namespace vg {
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
-        void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+        void align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
         
         /// Do intervening and tail alignments between the anchoring paths and
@@ -160,7 +160,7 @@ namespace vg {
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
-        void align(const Alignment& alignment, VG& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+        void align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns,
                    function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                    MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
@@ -228,7 +228,7 @@ namespace vg {
         /// source subpaths and adds their numbers to the given set if not
         /// null.
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
-        align_tails(const Alignment& alignment, VG& align_graph, BaseAligner* aligner,
+        align_tails(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner,
                     size_t max_alt_alns, bool dynamic_alt_alns, unordered_set<size_t>* sources = nullptr);
     };
 }

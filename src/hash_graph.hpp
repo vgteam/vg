@@ -232,7 +232,7 @@ private:
         path_t() {}
         path_t(const string& name, const int64_t& path_id) : name(name), path_id(path_id) {}
         
-        // Move constructor
+        /// Move constructor
         path_t(path_t&& other) : head(other.head), tail(other.tail), path_id(other.path_id), count(other.count), name(move(other.name)) {
             
             other.head = nullptr;
@@ -241,7 +241,7 @@ private:
             other.count = 0;
         }
         
-        // Move assignment
+        /// Move assignment
         path_t& operator=(path_t&& other) {
             if (this != &other) {
                 // free existing list
@@ -264,6 +264,61 @@ private:
                 
                 count = other.count;
                 other.count = 0;
+            }
+            return *this;
+        }
+        
+        /// Copy constructor
+        path_t(const path_t& other) : path_id(other.path_id), count(other.count), name(other.name) {
+            
+            path_mapping_t* prev = nullptr;
+            for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+                
+                path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
+                
+                if (!head) {
+                    head = copied;
+                }
+                if (prev) {
+                    prev->next = copied;
+                    copied->prev = prev;
+                }
+                prev = copied;
+            }
+            tail = prev;
+        }
+        
+        /// Copy assignment
+        path_t& operator=(const path_t& other) {
+            if (this != &other) {
+                // free existing list
+                for (path_mapping_t* mapping = head; mapping != nullptr;) {
+                    path_mapping_t* next = mapping->next;
+                    delete mapping;
+                    mapping = next;
+                }
+                
+                // copy the other list
+                path_mapping_t* prev = nullptr;
+                for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+                    
+                    path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
+                    
+                    if (!head) {
+                        head = copied;
+                    }
+                    if (prev) {
+                        prev->next = copied;
+                        copied->prev = prev;
+                    }
+                    prev = copied;
+                }
+                tail = prev;
+                
+                // copy the rest of the info
+                path_id = other.path_id;
+                name = other.name;
+                count = other.count;
             }
             return *this;
         }

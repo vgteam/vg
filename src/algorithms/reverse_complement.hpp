@@ -2,9 +2,9 @@
 #define VG_ALGORITHMS_REVERSE_COMPLEMENT_HPP_INCLUDED
 
 /**
- * \file split_strands.hpp
+ * \file reverse_complement.hpp
  *
- * Defines algorithm for converting any graph into a single stranded graph.
+ * Defines algorithm for reverse complementing the sequence in a graph
  */
 
 #include "../handle.hpp"
