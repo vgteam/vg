@@ -3,8 +3,6 @@
  * Defines IO for a GBWT index from stream files.
  */
 
-#include "registry.hpp"
-
 namespace vg {
 
 namespace stream {

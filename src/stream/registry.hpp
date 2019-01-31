@@ -82,7 +82,13 @@ using bare_save_function_t = function<void(const void*, ostream&)>;
 load_function_t wrap_bare_loader(bare_load_function_t istream_loader);
 
 /**
- * And an adapter that takes a function of void* and ostream&, and adapts that
+ * This calls the given stream-using callback with a stream that, when written to, calls the given emit_message function.
+ * The emit_message function and the stream-using callback will run in different threads.
+ */
+void with_function_calling_stream(const message_consumer_function_t& emit_message, const function<void(ostream&)>& use_stream);
+
+/**
+ * We have an adapter that takes a function of void* and ostream&, and adapts that
  * to a message consumer destination.
  */
 save_function_t wrap_bare_saver(function<void(const void*, ostream&)> ostream_saver);

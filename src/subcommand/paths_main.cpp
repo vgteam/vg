@@ -163,10 +163,10 @@ int main_paths(int argc, char** argv) {
     unique_ptr<xg::XG> xg_index;
     if (!xg_file.empty()) {
         // We want an xg
-        xg_index = unique_ptr<xg::XG>(new xg::XG());
+        xg_index = unique_ptr<xg::XG>();
         // Load the xg
         get_input_file(xg_file, [&](istream& in) {
-            xg_index->load(in);
+            xg_index = stream::VPKG::load_one<xg::XG>(in);
         });
     }
     unique_ptr<gbwt::GBWT> gbwt_index;

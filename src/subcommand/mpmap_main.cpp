@@ -890,11 +890,9 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     
-    xg::XG xg_index(xg_stream);
-    gcsa::GCSA gcsa_index;
-    gcsa_index.load(gcsa_stream);
-    gcsa::LCPArray lcp_array;
-    lcp_array.load(lcp_stream);
+    unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_stream);
+    unique_ptr<gcsa::GCSA> gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
+    unique_ptr<gcsa::LCPArray> lcp_array = stream::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     
     // Load optional indexes
     
@@ -920,9 +918,9 @@ int main_mpmap(int argc, char** argv) {
         // hardcoded mutation and recombination likelihoods
         
         // What is the rank of our one and only reference path
-        auto xg_ref_rank = xg_index.path_rank(sublinearLS_ref_path);
+        auto xg_ref_rank = xg_index->path_rank(sublinearLS_ref_path);
         
-        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, xg_index, xg_ref_rank);
+        sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index.get(), xg_ref_rank);
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
     // TODO: Allow using haplo::XGScoreProvider?
@@ -934,10 +932,10 @@ int main_mpmap(int argc, char** argv) {
     
     DistanceIndex* distance_index = nullptr;
     if (!distance_index_name.empty()) {
-        distance_index = new DistanceIndex(&xg_index, snarl_manager, distance_index_stream);
+        distance_index = new DistanceIndex(xg_index.get(), snarl_manager, distance_index_stream);
     }
     
-    MultipathMapper multipath_mapper(&xg_index, &gcsa_index, &lcp_array, haplo_score_provider, snarl_manager, distance_index);
+    MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider, snarl_manager, distance_index);
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
@@ -1132,7 +1130,7 @@ int main_mpmap(int argc, char** argv) {
             else {
                 output_buf.emplace_back();
                 rev_comp_multipath_alignment(mp_aln_pair.second,
-                                             [&](vg::id_t node_id) { return xg_index.node_length(node_id); },
+                                             [&](vg::id_t node_id) { return xg_index->node_length(node_id); },
                                              output_buf.back());
             }
 
@@ -1201,7 +1199,7 @@ int main_mpmap(int argc, char** argv) {
             // switch second read back to the opposite strand if necessary
             if (!same_strand) {
                 reverse_complement_alignment_in_place(&output_buf.back(),
-                                                      [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                                                      [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
             }
             
             // label with read group and sample name
@@ -1267,7 +1265,7 @@ int main_mpmap(int argc, char** argv) {
         if (!same_strand) {
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
         }
                 
         vector<pair<MultipathAlignment, MultipathAlignment>> mp_aln_pairs;
@@ -1310,7 +1308,7 @@ int main_mpmap(int argc, char** argv) {
         
             // remove the path so we won't try to RC it (the path may not refer to this graph)
             alignment_2.clear_path();
-            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+            reverse_complement_alignment_in_place(&alignment_2, [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
         }
         
         // Align independently
@@ -1395,7 +1393,7 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                                                          [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
                 }
                 do_paired_alignments(aln_pair.first, aln_pair.second);
             }
@@ -1411,7 +1409,7 @@ int main_mpmap(int argc, char** argv) {
                 // TODO: slightly wasteful, inelegant
                 if (!same_strand) {
                     reverse_complement_alignment_in_place(&aln_pair.second,
-                                                          [&](vg::id_t node_id) { return xg_index.node_length(node_id); });
+                                                          [&](vg::id_t node_id) { return xg_index->node_length(node_id); });
                 }
                 do_independent_paired_alignments(aln_pair.first, aln_pair.second);
             }

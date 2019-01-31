@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../region.hpp"
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
@@ -371,10 +372,9 @@ int main_find(int argc, char** argv) {
         vindex->open_read_only(db_name);
     }
 
-    xg::XG xindex;
+    unique_ptr<xg::XG> xindex;
     if (!xg_name.empty()) {
-        ifstream in(xg_name.c_str());
-        xindex.load(in);
+        xindex = stream::VPKG::load_one<xg::XG>(xg_name);
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -515,9 +515,9 @@ int main_find(int argc, char** argv) {
             for (auto node_id : node_ids) ids.insert(node_id);
             for (auto node_id : node_ids) {
                 Graph g;
-                xindex.neighborhood(node_id, context_size, g, !use_length);
+                xindex->neighborhood(node_id, context_size, g, !use_length);
                 if (context_size == 0) {
-                    for (auto& edge : xindex.edges_of(node_id)) {
+                    for (auto& edge : xindex->edges_of(node_id)) {
                         // if both ends of the edge are in our targets, keep them
                         if (ids.count(edge.to()) && ids.count(edge.from())) {
                             *g.add_edge() = edge;
@@ -541,17 +541,17 @@ int main_find(int argc, char** argv) {
             result_graph.serialize_to_ostream(cout);
             // TODO: We're serializing graphs all with their own redundant EOF markers if we use multiple functions simultaneously.
         } else if (end_id != 0) {
-            for (auto& e : xindex.edges_on_end(end_id)) {
+            for (auto& e : xindex->edges_on_end(end_id)) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
             }
         } else if (start_id != 0) {
-            for (auto& e : xindex.edges_on_start(start_id)) {
+            for (auto& e : xindex->edges_on_start(start_id)) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
             }
         }
         if (!node_ids.empty() && !path_name.empty() && !pairwise_distance && (position_in || rank_in)) {
             // Go get the positions of these nodes in this path
-            if (xindex.path_rank(path_name) == 0) {
+            if (xindex->path_rank(path_name) == 0) {
                 // This path doesn't exist, and we'll get a segfault or worse if
                 // we go look for positions in it.
                 cerr << "[vg find] error, path \"" << path_name << "\" not found in index" << endl;
@@ -562,8 +562,8 @@ int main_find(int argc, char** argv) {
             // and then mapping, but need this info right now for scripts/chunked_call
             for (auto node_id : node_ids) {
                 cout << node_id;
-                for (auto r : (position_in ? xindex.position_in_path(node_id, path_name)
-                               : xindex.node_ranks_in_path(node_id, path_name))) {
+                for (auto r : (position_in ? xindex->position_in_path(node_id, path_name)
+                               : xindex->node_ranks_in_path(node_id, path_name))) {
                     cout << "\t" << r;
                 }
                 cout << endl;
@@ -574,17 +574,17 @@ int main_find(int argc, char** argv) {
                 cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
                 exit(1);
             }
-            cout << xindex.min_approx_path_distance(node_ids[0], node_ids[1]) << endl;
+            cout << xindex->min_approx_path_distance(node_ids[0], node_ids[1]) << endl;
             return 0;
         }
         if (approx_id != 0) {
-            cout << xindex.node_start(approx_id) << endl;
+            cout << xindex->node_start(approx_id) << endl;
             return 0;
         }
         if (list_path_names) {
-            size_t m = xindex.max_path_rank();
+            size_t m = xindex->max_path_rank();
             for (size_t i = 1; i <= m; ++i) {
-                cout << xindex.path_name(i) << endl;
+                cout << xindex->path_name(i) << endl;
             }
         }
         if (!targets.empty()) {
@@ -594,7 +594,7 @@ int main_find(int argc, char** argv) {
                 string name;
                 int64_t start, end;
                 parse_region(target, name, start, end);
-                if(xindex.path_rank(name) == 0) {
+                if(xindex->path_rank(name) == 0) {
                     // Passing a nonexistent path to get_path_range produces Undefined Behavior
                     cerr << "[vg find] error, path " << name << " not found in index" << endl;
                     exit(1);
@@ -603,10 +603,10 @@ int main_find(int argc, char** argv) {
                 if (start < 0 && end < 0) {
                     start = 0;
                 }
-                xindex.get_path_range(name, start, end, graph);
+                xindex->get_path_range(name, start, end, graph);
             }
             if (context_size > 0) {
-                xindex.expand_context(graph, context_size, true, !use_length);
+                xindex->expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
             
@@ -627,13 +627,13 @@ int main_find(int argc, char** argv) {
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);
             if (!use_length) {
-                xindex.get_id_range(id_start, id_end, graph);
+                xindex->get_id_range(id_start, id_end, graph);
             } else {
                 // treat id_end as length instead.
-                xindex.get_id_range_by_length(id_start, id_end, graph, true);
+                xindex->get_id_range_by_length(id_start, id_end, graph, true);
             }
             if (context_size > 0) {
-                xindex.expand_context(graph, context_size, true, !use_length);
+                xindex->expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
@@ -644,7 +644,7 @@ int main_find(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&xindex](Alignment& aln) {
                 // Count the amtches to the path. The path might be empty, in
                 // which case it will yield the biggest size_t you can have.
-                size_t matches = xindex.count_matches(aln.path());
+                size_t matches = xindex->count_matches(aln.path());
 
                 // We do this single-threaded, at least for now, so we don't
                 // need to worry about coordinating output, and we can just
@@ -668,10 +668,10 @@ int main_find(int argc, char** argv) {
             bool extract_reverse = false;
             map<string, list<xg::XG::thread_t> > threads;
             if (extract_thread_patterns.empty()) {
-                threads = xindex.extract_threads(extract_reverse);
+                threads = xindex->extract_threads(extract_reverse);
             } else {
                 for (auto& pattern : extract_thread_patterns) {
-                    for (auto& t : xindex.extract_threads_matching(pattern, extract_reverse)) {
+                    for (auto& t : xindex->extract_threads_matching(pattern, extract_reverse)) {
                         threads[t.first] = t.second;
                     }
                 }
@@ -687,7 +687,7 @@ int main_find(int argc, char** argv) {
                     mapping.mutable_position()->set_node_id(m.node_id);
                     mapping.mutable_position()->set_is_reverse(m.is_reverse);
                     Edit* e = mapping.add_edit();
-                    size_t l = xindex.node_length(m.node_id);
+                    size_t l = xindex->node_length(m.node_id);
                     e->set_from_length(l);
                     e->set_to_length(l);
                     *(path.add_mapping()) = mapping;
@@ -709,14 +709,14 @@ int main_find(int argc, char** argv) {
         if (extract_paths) {
             vector<Path> paths;
             for (auto& pattern : extract_path_patterns) {
-                for (auto& p : xindex.paths_by_prefix(pattern)) {
+                for (auto& p : xindex->paths_by_prefix(pattern)) {
                     paths.push_back(p);
                 }
             }
             for(auto& path : paths) {
                 // We need a Graph for serialization purposes.
                 Graph g;
-                *(g.add_path()) = xindex.path(path.name());
+                *(g.add_path()) = xindex->path(path.name());
                 // Dump the graph with its mappings. TODO: can we restrict these to
                 vector<Graph> gb = { g };
                 stream::write_buffered(cout, gb, 0);
@@ -752,9 +752,9 @@ int main_find(int argc, char** argv) {
             // now we have the nodes to get
             Graph graph;
             for (auto& node : nodes) {
-                *graph.add_node() = xindex.node(node);
+                *graph.add_node() = xindex->node(node);
             }
-            xindex.expand_context(graph, max(1, context_size), true); // get connected edges
+            xindex->expand_context(graph, max(1, context_size), true); // get connected edges
             VG vgg; vgg.extend(graph);
             vgg.serialize_to_ostream(cout);
         }
@@ -878,30 +878,26 @@ int main_find(int argc, char** argv) {
             gcsa::TempFile::setDirectory(temp_file::get_dir());
 
             // Open it
-            ifstream in_gcsa(gcsa_in.c_str());
-            gcsa::GCSA gcsa_index;
-            gcsa_index.load(in_gcsa);
-            gcsa::LCPArray lcp_index;
+            auto gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_in);
             // default LCP is the gcsa base name +.lcp
-            string lcp_in = gcsa_in + ".lcp";
-            ifstream in_lcp(lcp_in.c_str());
-            lcp_index.load(in_lcp);
+            auto lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_in + ".lcp");
+            
             //range_type find(const char* pattern, size_type length) const;
             //void locate(size_type path, std::vector<node_type>& results, bool append = false, bool sort = true) const;
             //locate(i, results);
             if (!get_mems) {
-                auto paths = gcsa_index.find(sequence.c_str(), sequence.length());
+                auto paths = gcsa_index->find(sequence.c_str(), sequence.length());
                 //cerr << paths.first << " - " << paths.second << endl;
                 for (gcsa::size_type i = paths.first; i <= paths.second; ++i) {
                     std::vector<gcsa::node_type> ids;
-                    gcsa_index.locate(i, ids);
+                    gcsa_index->locate(i, ids);
                     for (auto id : ids) {
                         cout << gcsa::Node::decode(id) << endl;
                     }
                 }
             } else {
                 // for mems we need to load up the gcsa and lcp structures into the mapper
-                Mapper mapper(&xindex, &gcsa_index, &lcp_index);
+                Mapper mapper(xindex.get(), gcsa_index.get(), lcp_index.get());
                 mapper.fast_reseed = use_fast_reseed;
                 // get the mems
                 double lcp_max, fraction_filtered;

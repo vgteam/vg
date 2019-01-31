@@ -608,9 +608,9 @@ int main_map(int argc, char** argv) {
     gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     // Load up our indexes.
-    xg::XG* xgidx = nullptr;
-    gcsa::GCSA* gcsa = nullptr;
-    gcsa::LCPArray* lcp = nullptr;
+    unique_ptr<xg::XG> xgidx;
+    unique_ptr<gcsa::GCSA> gcsa;
+    unique_ptr<gcsa::LCPArray> lcp;
     unique_ptr<gbwt::GBWT> gbwt;
     
     // One of them may be used to provide haplotype scores
@@ -627,9 +627,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xgidx = new xg::XG(xg_stream);
-        
-        // TODO: Support haplo::XGScoreProvider?
+        xgidx = stream::VPKG::load_one<xg::XG>(xg_stream);
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -638,18 +636,16 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
-        gcsa = new gcsa::GCSA();
-        gcsa->load(gcsa_stream);
+        gcsa = stream::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     }
 
     string lcp_name = gcsa_name + ".lcp";
     ifstream lcp_stream(lcp_name);
     if (lcp_stream) {
         if(debug) {
-            cerr << "Loading LCP index " << gcsa_name << "..." << endl;
+            cerr << "Loading LCP index " << lcp_name << "..." << endl;
         }
-        lcp = new gcsa::LCPArray();
-        lcp->load(lcp_stream);
+        lcp = stream::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
     
     ifstream gbwt_stream(gbwt_name);
@@ -660,12 +656,6 @@ int main_map(int argc, char** argv) {
         }
         
         gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
-
-        if (gbwt.get() == nullptr) {
-          // Complain if we couldn't.
-          cerr << "error:[vg map] unable to load gbwt index file" << endl;
-          exit(1);
-        }
         
         // We want to use this for haplotype scoring
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
@@ -689,7 +679,7 @@ int main_map(int argc, char** argv) {
     vector<Alignment> empty_alns;
     
     // If we need to do surjection
-    Surjector surjector(xgidx);
+    Surjector surjector(xgidx.get());
 
     // bam/sam/cram output
     samFile* sam_out = 0;
@@ -703,7 +693,7 @@ int main_map(int argc, char** argv) {
     if (!surject_type.empty()) {
         surjectors.resize(thread_count);
         for (int i = 0; i < surjectors.size(); i++) {
-            surjectors[i] = new Surjector(xgidx);
+            surjectors[i] = new Surjector(xgidx.get());
         }
     }
 
@@ -949,9 +939,9 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m = nullptr;
-        if(xgidx && gcsa && lcp) {
+        if(xgidx.get() && gcsa.get() && lcp.get()) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xgidx, gcsa, lcp, haplo_score_provider);
+            m = new Mapper(xgidx.get(), gcsa.get(), lcp.get(), haplo_score_provider);
         } else {
             // Can't continue with null
             throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
@@ -1416,18 +1406,6 @@ int main_map(int argc, char** argv) {
     if (haplo_score_provider) {
         delete haplo_score_provider;
         haplo_score_provider = nullptr;
-    }
-    if (lcp) {
-        delete lcp;
-        lcp = nullptr;
-    }
-    if(gcsa) {
-        delete gcsa;
-        gcsa = nullptr;
-    }
-    if(xgidx) {
-        delete xgidx;
-        xgidx = nullptr;
     }
     
     for (Surjector* surjector : surjectors) {

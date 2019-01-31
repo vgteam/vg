@@ -15,6 +15,7 @@
 
 #include "../vg.hpp"
 #include "../readfilter.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -252,30 +253,18 @@ int main_filter(int argc, char** argv) {
     // Sort the prefixes for reads we will accept, for efficient search
     sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
     
+     // If the user gave us an XG index, we probably ought to load it up.
+    unique_ptr<xg::XG> xindex;
+    if (!xg_name.empty()) {
+        // read the xg index
+        xindex = stream::VPKG::load_one<xg::XG>(xg_name);
+    }
+    
     get_input_file(optind, argc, argv, [&](istream& in) {
         // Open up the alignment stream
         
-        // If the user gave us an XG index, we probably ought to load it up.
-        // TODO: make sure if we add any other error exits from this function we
-        // remember to delete this!
-        xg::XG* xindex = nullptr;
-        if (!xg_name.empty()) {
-            // read the xg index
-            ifstream xg_stream(xg_name);
-            if(!xg_stream) {
-                cerr << "Unable to open xg index: " << xg_name << endl;
-                error_code = 1;
-                return;
-            }
-            xindex = new xg::XG(xg_stream);
-        }
-    
         // Read in the alignments and filter them.
-        error_code = filter.filter(&in, xindex);
-        
-        if(xindex != nullptr) {
-            delete xindex;
-        }
+        error_code = filter.filter(&in, xindex.get());
     });
 
     return error_code;

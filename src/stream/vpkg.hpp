@@ -38,6 +38,7 @@ public:
      * Allocate and load one or more objects from the given stream on a single pass.
      * Returns a tuple of pointers to loaded objects, or null if they could not be found.
      * Only works on VPKG-formatted files.
+     * TODO: Probably ought to fail if something isn't found!
      */
     template<typename... Wanted>
     static tuple<unique_ptr<Wanted>...> load_all(istream& in) {
@@ -117,7 +118,12 @@ public:
      * Tagged messages that can't be used to load the thing we are looking for are skipped.
      */
     template<typename Wanted>
-    static unique_ptr<Wanted> load_one(istream& in) {
+    static unique_ptr<Wanted> try_load_one(istream& in) {
+        if(!in) {
+            // We can't open the file; return an empty pointer.
+            return unique_ptr<Wanted>();
+        }
+    
         // Check if the thing we want can be loaded from a bare stream
         auto* bare_loader = Registry::find_bare_loader<Wanted>();
         
@@ -166,7 +172,7 @@ public:
             }
         }
         
-        // If we get here, nothing with an appropriate tag could be found, and it wasn;t a bare loadable file.
+        // If we get here, nothing with an appropriate tag could be found, and it wasn't a bare loadable file.
         return unique_ptr<Wanted>(nullptr);
     }
     
@@ -174,15 +180,74 @@ public:
      * Load an object of the given type from a file by name.
      * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
      * Tagged messages that can't be used to load the thing we are looking for are skipped.
+     * Returns null if the object could not be found in the file.
      */
     template<typename Wanted>
-    static unique_ptr<Wanted> load_one(const string& filename) {
+    static unique_ptr<Wanted> try_load_one(const string& filename) {
+        if (filename.empty()) {
+            // There's no file here, so fail by returning an empty pointer.
+            return unique_ptr<Wanted>();
+        }
+        
         // Open the file
         ifstream open_file(filename.c_str());
         
         // Read from it
-        return load_one<Wanted>(open_file);
+        return try_load_one<Wanted>(open_file);
     }
+    
+    /**
+     * Load an object of the given type from a stream.
+     * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
+     * Tagged messages that can't be used to load the thing we are looking for are skipped.
+     * Ends the program with an error if the object could not be found in the stream.
+     */
+    template<typename Wanted>
+    static unique_ptr<Wanted> load_one(istream& in) {
+        if (!in) {
+            cerr << "error[VPKG::load_one]: Could not load " << typeid(Wanted).name() << " from unreadable stream" << endl;
+            exit(1);
+        }
+        
+        // Read from it
+        auto result = try_load_one<Wanted>(in);
+        
+        if (result.get() == nullptr) {
+            cerr << "error[VPKG::load_one]: Could not find correct object " << typeid(Wanted).name() << " in stream" << endl;
+            exit(1);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Load an object of the given type from a file by name.
+     * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
+     * Tagged messages that can't be used to load the thing we are looking for are skipped.
+     * Ends the program with an error if the object could not be found in the file.
+     */
+    template<typename Wanted>
+    static unique_ptr<Wanted> load_one(const string& filename) {
+        if (filename.empty()) {
+            cerr << "error[VPKG::load_one]: Could not load " << typeid(Wanted).name() << " because file name was not specified" << endl;
+            exit(1);
+        }
+        
+        // Open the file
+        ifstream open_file(filename.c_str());
+        
+        // Read from it
+        auto result = try_load_one<Wanted>(open_file);
+        
+        if (result.get() == nullptr) {
+            cerr << "error[VPKG::load_one]: Could not find correct object " << typeid(Wanted).name() << " in " << filename << endl;
+            exit(1);
+        }
+        
+        return result;
+    }
+    
+    
     
     /**
      * Save an object to the given stream, using the appropriate saver.
@@ -217,6 +282,12 @@ public:
         // Save to it
         save<Have>(have, open_file);
     }
+    
+    /**
+     * Lower-level function used to get direct access to a stream tagged with
+     * the given tag, in the given type-tagged message output file.
+     */
+    static void with_save_stream(ostream& to, const string& tag, const function<void(ostream&)>& use_stream);
     
 private:
 

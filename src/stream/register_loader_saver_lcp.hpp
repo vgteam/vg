@@ -3,8 +3,6 @@
  * Defines IO for an LCP array from stream files.
  */
 
-#include "registry.hpp"
-
 namespace vg {
 
 namespace stream {

@@ -17,6 +17,7 @@
 #include "../mapper.hpp"
 #include "../sampler.hpp"
 #include "../stream/protobuf_emitter.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -243,16 +244,11 @@ int main_sim(int argc, char** argv) {
         transcript_expressions = parse_rsem_expression_file(rsem_in);
     }
 
-    xg::XG* xgidx = nullptr;
-    ifstream xg_stream(xg_name);
-    if(xg_stream) {
-        xgidx = new xg::XG(xg_stream);
+    unique_ptr<xg::XG> xgidx;
+    if (!xg_name.empty()) {
+        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
     }
-    if (!xg_stream || xgidx == nullptr) {
-        cerr << "[vg sim] error: could not open xg index" << endl;
-        return 1;
-    }
-
+    
     for (auto& path_name : path_names) {
         if (xgidx->path_rank(path_name) == 0) {
             cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
@@ -274,7 +270,7 @@ int main_sim(int argc, char** argv) {
     }
 
     // Make a Mapper to score reads, with the default parameters
-    Mapper rescorer(xgidx, nullptr, nullptr);
+    Mapper rescorer(xgidx.get(), nullptr, nullptr);
     // We define a function to score a generated alignment under the mapper
     auto rescore = [&] (Alignment& aln) {
         // Score using exact distance.
@@ -285,10 +281,10 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
+        Sampler sampler(xgidx.get(), seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
         
         // Make a Mapper to score reads, with the default parameters
-        Mapper rescorer(xgidx, nullptr, nullptr);
+        Mapper rescorer(xgidx.get(), nullptr, nullptr);
         // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
         // TODO: is it safe to change the default?
         rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);

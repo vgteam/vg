@@ -187,125 +187,132 @@ auto wrap_bare_loader(function<void*(istream&)> istream_loader) -> load_function
     };
 }
 
+void with_function_calling_stream(const message_consumer_function_t& emit_message, const function<void(ostream&)>& use_stream) {
+    // Open a pipe with an istream and an ostream.
+    
+    // First we make an array to hold input and output ends of a pipe.
+    int pipe_fds[2];
+    
+    // Then we make the pipe with Unix magic.
+    assert(pipe(pipe_fds) == 0);
+    
+#ifdef debug
+    #pragma omp critical (cerr)
+    cerr << "Starting saver thread" << endl;
+#endif
+    
+    // Start a thread to do the data schelpping
+    thread run_chunker([&]() {
+    
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "Chunker thread running" << endl;
+#endif
+
+        // We don't want to emit an empty trailing chunk, but we should
+        // emit an empty chunk if there is actually no data in the stream.
+        bool emitted_anything = false;
+    
+        {
+            // Wrap the read FD
+            fdistream read_pipe(pipe_fds[0]);
+            
+            while (read_pipe) {
+                // Until the read pipe EOFs or otherwise crashes
+                
+                // Collect chunks of a certain size
+                // TODO: What size is best?
+                string chunk(4096, 0);
+            
+#ifdef debug
+                #pragma omp critical (cerr)
+                cerr << "Chunker thread waiting on pipe" << endl;
+#endif
+            
+                // Read blockingly.
+                // See https://stackoverflow.com/a/1816382
+                read_pipe.read(&chunk[0], chunk.size());
+                
+                // Remember if we got all the characters or not.
+                auto bytes_gotten = read_pipe.gcount();
+                
+#ifdef debug
+                #pragma omp critical (cerr)
+                cerr << "Chunker thread got " << bytes_gotten << " bytes" << endl;
+#endif
+                
+                if (bytes_gotten < chunk.size()) {
+                    // Shrink to fit
+                    chunk.resize(bytes_gotten);
+                }
+                
+                if (bytes_gotten != 0) {
+                    // Emit some bytes
+                    emit_message(chunk);
+                    emitted_anything = true;
+                }
+            }
+            
+        }
+        
+        close(pipe_fds[0]);
+        
+        if (!emitted_anything) {
+            // Nothing came through before EOF.
+            // We should still emit *a* message.
+            emit_message("");
+        }
+        
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "Chunker thread done" << endl;
+#endif
+    
+
+    });
+    
+#ifdef debug
+    #pragma omp critical (cerr)
+    cerr << "Saver thread running" << endl;
+#endif
+
+    {
+        // Wrap the write FD
+        fdostream write_pipe(pipe_fds[1]);
+        
+        // Run the saver on that stream
+        use_stream(write_pipe);
+    }
+    
+    // Close the FD so the chunker thread can see EOF and make progress.
+    close(pipe_fds[1]);
+    
+#ifdef debug
+    #pragma omp critical (cerr)
+    cerr << "Saver thread done" << endl;
+#endif
+    
+    // Now both threads are done.
+    run_chunker.join();
+    
+#ifdef debug
+    #pragma omp critical (cerr)
+    cerr << "Save threads joined" << endl;
+#endif
+    
+}
+
 auto wrap_bare_saver(function<void(const void*, ostream&)> ostream_saver) -> save_function_t {
     // Capture the ostream-using function by value
     return [ostream_saver](const void* to_save, const message_consumer_function_t& emit_message) {
    
         assert(to_save != nullptr);
-   
-        // Open a pipe with an istream and an ostream.
         
-        // First we make an array to hold input and output ends of a pipe.
-        int pipe_fds[2];
-        
-        // Then we make the pipe with Unix magic.
-        assert(pipe(pipe_fds) == 0);
-        
-#ifdef debug
-        #pragma omp critical (cerr)
-        cerr << "Starting saver thread" << endl;
-#endif
-        
-        // Start a thread to run the real saver function and write to the pipe
-        thread run_saver([&]() {
-        
-#ifdef debug
-            #pragma omp critical (cerr)
-            cerr << "Saver thread running" << endl;
-#endif
-        
-            {
-                // Wrap the write FD
-                fdostream write_pipe(pipe_fds[1]);
-                
-                // Run the saver on that stream
-                ostream_saver(to_save, write_pipe);
-            }
-            
-            // Close the FD so the chunker thread can see EOF and make progress.
-            close(pipe_fds[1]);
-            
-#ifdef debug
-            #pragma omp critical (cerr)
-            cerr << "Saver thread done" << endl;
-#endif
+        // Get ahold of an ostream that calls our emit_message function
+        with_function_calling_stream(emit_message, [&ostream_saver, &to_save](ostream& out) {
+            // And save to it
+            ostream_saver(to_save, out);
         });
-            
-        {
-
-#ifdef debug
-            #pragma omp critical (cerr)
-            cerr << "Chunker thread running" << endl;
-#endif
-
-            // We don't want to emit an empty trailing chunk, but we should
-            // emit an empty chunk if there is actually no data in the stream.
-            bool emitted_anything = false;
-        
-            {
-                // Wrap the read FD
-                fdistream read_pipe(pipe_fds[0]);
-                
-                while (read_pipe) {
-                    // Until the read pipe EOFs or otherwise crashes
-                    
-                    // Collect chunks of a certain size
-                    // TODO: What size is best?
-                    string chunk(4096, 0);
-                
-#ifdef debug
-                    #pragma omp critical (cerr)
-                    cerr << "Chunker thread waiting on pipe" << endl;
-#endif
-                
-                    // Read blockingly.
-                    // See https://stackoverflow.com/a/1816382
-                    read_pipe.read(&chunk[0], chunk.size());
-                    
-                    // Remember if we got all the characters or not.
-                    auto bytes_gotten = read_pipe.gcount();
-                    
-#ifdef debug
-                    #pragma omp critical (cerr)
-                    cerr << "Chunker thread got " << bytes_gotten << " bytes" << endl;
-#endif
-                    
-                    if (bytes_gotten < chunk.size()) {
-                        // Shrink to fit
-                        chunk.resize(bytes_gotten);
-                    }
-                    
-                    if (bytes_gotten != 0) {
-                        // Emit some bytes
-                        emit_message(chunk);
-                        emitted_anything = true;
-                    }
-                }
-                
-            }
-            
-            close(pipe_fds[0]);
-            
-            if (!emitted_anything) {
-                // Nothing came through before EOF.
-                // We should still emit *a* message.
-                emit_message("");
-            }
-            
-#ifdef debug
-            #pragma omp critical (cerr)
-            cerr << "Chunker thread done" << endl;
-#endif
-        }
-        
-        // After we got all the data and sent all the messages, wait for the
-        // writer thread to do whatever it does after writing everything.
-        run_saver.join();
-        
-#ifdef debug
-        #pragma omp critical (cerr)
-        cerr << "Save threads joined" << endl;
-#endif
         
     };
 }
