@@ -53,7 +53,7 @@ bool write(std::ostream& out, size_t count, const std::function<T&(size_t)>& lam
 template <typename T>
 bool write(std::ostream& out, size_t count, const std::function<T(size_t)>& lambda) {
 
-    static_assert(!std::is_reference<T>::value);
+    static_assert(!std::is_reference<T>::value, "This write() implementation doesn't operate on references");
 
     // Wrap stream in an emitter
     ProtobufEmitter<T> emitter(out);
