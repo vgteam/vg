@@ -486,7 +486,7 @@ namespace vg {
         
         if (get_is_reverse(handle)) {
             // reverse the vector to the orientation of the input handle
-            std::reverse(return_val.begin(), return_val.end());
+            reverse(return_val.begin(), return_val.end());
             for (handle_t& ret_handle : return_val) {
                 ret_handle = flip(ret_handle);
             }
@@ -782,6 +782,35 @@ namespace vg {
     
     path_handle_t PackedGraph::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
         return as_path_handle(as_integers(occurrence_handle)[0]);
+    }
+    
+    vector<occurrence_handle_t> PackedGraph::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
+        vector<occurrence_handle_t> return_val;
+        
+        size_t path_membership = path_membership_node_iv.get(graph_index_to_node_member_index(graph_iv_index(handle)));
+        while (path_membership) {
+            
+            // get the path that this membership record is on
+            uint64_t path_id = get_membership_path(path_membership);
+            const PackedPath& packed_path = paths[path_id];
+            
+            // get the traversal
+            size_t occ_idx = get_membership_occurrence(path_membership);
+            handle_t trav = decode_traversal(get_occurrence_trav(packed_path, occ_idx));
+            
+            // add this occurrence to the return value if we're supposed to
+            if (!match_orientation || get_is_reverse(trav) == get_is_reverse(handle)) {
+                occurrence_handle_t occ_handle;
+                as_integers(occ_handle)[0] = path_id;
+                as_integers(occ_handle)[1] = occ_idx;
+                return_val.push_back(occ_handle);
+            }
+            
+            // move to the next membership record
+            path_membership = get_next_membership(path_membership);
+        }
+        
+        return return_val;
     }
     
     void PackedGraph::destroy_path(const path_handle_t& path) {

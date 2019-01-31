@@ -29,7 +29,7 @@ void help_surject(char** argv) {
          << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
          << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
-         << "    -f, --full-length       use the full length of the graph alignment, even if it makes a negative score" << endl
+         << "    -l, --subpath-local     let the multipath mapping surjection produce local (rather than global) alignments" << endl
          << "    -i, --interleaved       GAM is interleaved paired-ended, so when outputting HTS formats, pair reads" << endl
          << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
@@ -51,7 +51,7 @@ int main_surject(int argc, char** argv) {
     string input_type = "gam";
     bool interleaved = false;
     int compress_level = 9;
-    bool full_length = false;
+    bool subpath_global = true; // force full length alignments in mpmap resolution
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -63,7 +63,7 @@ int main_surject(int argc, char** argv) {
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'F'},
-            {"full-length", required_argument, 0, 'f'},
+            {"subpath-local", required_argument, 0, 'l'},
             {"interleaved", no_argument, 0, 'i'},
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
@@ -73,7 +73,7 @@ int main_surject(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:ficbsC:t:",
+        c = getopt_long (argc, argv, "hx:p:F:licbsC:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -95,8 +95,8 @@ int main_surject(int argc, char** argv) {
             path_file = optarg;
             break;
 
-        case 'f':
-            full_length = true;
+        case 'l':
+            subpath_global = false;
             break;
 
         case 'i':
@@ -192,7 +192,7 @@ int main_surject(int argc, char** argv) {
                                                                                 path_name,
                                                                                 path_pos,
                                                                                 path_reverse,
-                                                                                full_length));
+                                                                                subpath_global));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             get_input_file(file_name, [&](istream& in) {
@@ -256,7 +256,7 @@ int main_surject(int argc, char** argv) {
                                                                       path_name,
                                                                       path_pos,
                                                                       path_reverse,
-                                                                      full_length);
+                                                                      subpath_global);
                 // Always use the surjected alignment, even if it surjects to unmapped.
                 
                 if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {

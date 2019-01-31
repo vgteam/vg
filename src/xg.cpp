@@ -1899,6 +1899,25 @@ occurrence_handle_t XG::get_previous_occurrence(const occurrence_handle_t& occur
 path_handle_t XG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
+    
+vector<occurrence_handle_t> XG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
+    vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths = oriented_paths_of_node(get_id(handle));
+    
+    vector<occurrence_handle_t> return_val;
+    for (const pair<size_t, vector<pair<size_t, bool>>>& path_occs : oriented_paths) {
+        for (const pair<size_t, bool>& oriented_occ : path_occs.second) {
+            if (!match_orientation || oriented_occ.second == get_is_reverse(handle)) {
+                
+                occurrence_handle_t occurrence_handle;
+                as_integers(occurrence_handle)[0] = path_occs.first;
+                as_integers(occurrence_handle)[1] = oriented_occ.first;
+                return_val.push_back(occurrence_handle);
+            }
+        }
+    }
+    
+    return return_val;
+}
 
 size_t XG::node_size() const {
     return this->node_count;
