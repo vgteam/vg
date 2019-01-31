@@ -260,7 +260,12 @@ size_t VG::get_degree(const handle_t& handle, bool go_left) const {
     // Otherwise there can be no edges
     return 0;
 }
-    
+
+bool VG::has_edge(const handle_t& left, const handle_t& right) const {
+    return has_edge(NodeSide(get_id(left), !get_is_reverse(left)),
+                    NodeSide(get_id(right), get_is_reverse(right)));
+}
+
 bool VG::has_path(const string& path_name) const {
     return paths.has_path(path_name);
 }
@@ -2563,19 +2568,19 @@ Node* VG::find_node_by_name_or_add_new(string name) {
     }
 }
 
-bool VG::has_edge(Edge* edge) {
+bool VG::has_edge(Edge* edge) const {
     return edge && has_edge(*edge);
 }
 
-bool VG::has_edge(const Edge& edge) {
+bool VG::has_edge(const Edge& edge) const {
     return edge_by_sides.find(NodeSide::pair_from_edge(edge)) != edge_by_sides.end();
 }
 
-bool VG::has_edge(const NodeSide& side1, const NodeSide& side2) {
+bool VG::has_edge(const NodeSide& side1, const NodeSide& side2) const {
     return edge_by_sides.find(minmax(side1, side2)) != edge_by_sides.end();
 }
 
-bool VG::has_edge(const pair<NodeSide, NodeSide>& sides) {
+bool VG::has_edge(const pair<NodeSide, NodeSide>& sides) const {
     return has_edge(sides.first, sides.second);
 }
 

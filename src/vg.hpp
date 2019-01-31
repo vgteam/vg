@@ -136,6 +136,10 @@ public:
     /// Uses the VG graph's internal degree index.
     virtual size_t get_degree(const handle_t& handle, bool go_left) const;
     
+    /// Efficiently check for the existence of an edge using VG graph's internal
+    /// index of node sides.
+    virtual bool has_edge(const handle_t& left, const handle_t& right) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
@@ -943,13 +947,13 @@ public:
     /// node pairs or the graph; those must be updated seperately.
     void index_edge_by_node_sides(Edge* edge);
     /// Get the edge between the given node sides, which can be in either order.
-    bool has_edge(const NodeSide& side1, const NodeSide& side2);
+    bool has_edge(const NodeSide& side1, const NodeSide& side2) const;
     /// Determine if the graph has an edge. This can take sides in any order.
-    bool has_edge(const pair<NodeSide, NodeSide>& sides);
+    bool has_edge(const pair<NodeSide, NodeSide>& sides) const;
     /// Determine if the graph has an edge. This can take sides in any order.
-    bool has_edge(Edge* edge);
+    bool has_edge(Edge* edge) const;
     /// Determine if the graph has an edge. This can take sides in any order.
-    bool has_edge(const Edge& edge);
+    bool has_edge(const Edge& edge) const;
     /// Determine if the graph has an inverting edge on the given node.
     bool has_inverting_edge(Node* n);
     /// Determine if the graph has an inverting edge from the given node.
