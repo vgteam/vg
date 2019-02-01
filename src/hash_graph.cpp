@@ -166,8 +166,11 @@ namespace vg {
         swap(node.left_edges, node.right_edges);
         
         // update the occurrences on paths
-        for (auto& occurrence : occurrences[get_id(handle)]) {
-            occurrence->handle = flip(occurrence->handle);
+        auto it = occurrences.find(get_id(handle));
+        if (it != occurrences.end()) {
+            for (auto& occurrence : it->second) {
+                occurrence->handle = flip(occurrence->handle);
+            }
         }
         
         // make it forward and return it

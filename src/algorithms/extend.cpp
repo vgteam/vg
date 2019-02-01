@@ -1,4 +1,4 @@
-#include "split_strands.hpp"
+#include "extend.hpp"
 
 namespace vg {
 namespace algorithms {

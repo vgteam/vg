@@ -474,8 +474,8 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     // short sequences
     mapper.max_mapping_quality = 10;
     
-    SECTION( "topologically_order_subpaths works within a node" ) {
     
+    SECTION( "topologically_order_subpaths works within a node" ) {    
         string aln_json = R"(
         {
             "subpath": [
@@ -505,7 +505,6 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     }
     
     SECTION( "topologically_order_subpaths works between nodes" ) {
-    
         string aln_json = R"(
         {
             "subpath": [

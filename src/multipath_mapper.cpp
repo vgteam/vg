@@ -251,7 +251,7 @@ namespace vg {
             }
             
 #ifdef debug_multipath_mapper_alignment
-            cerr << "performing alignment to subgraph " << pb2json(get<0>(cluster_graph)->graph) << endl;
+            cerr << "performing alignment to subgraph" << endl;
 #endif
             
             multipath_alns_out.emplace_back();
@@ -440,7 +440,7 @@ namespace vg {
         algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist);
         
 #ifdef debug_multipath_mapper
-        cerr << "got rescue graph " << pb2json(rescue_graph.graph) << endl;
+        cerr << "got rescue graph" << endl;
 #endif
         
         
@@ -462,6 +462,9 @@ namespace vg {
             align_graph = move(dagified);
             node_trans = overlay_node_translations(dagify_trans, node_trans);
         }
+        
+        // gssw is going to want a topologically ordered Protobuf graph from us
+        algorithms::lazier_topological_sort(&align_graph);
         
         // put local alignment here
         Alignment aln = other_aln;
@@ -2741,14 +2744,6 @@ namespace vg {
                 }
                 return true;
             });
-            
-#ifdef debug_multipath_mapper
-            cerr << "split graphs:" << endl;
-            for (size_t i = 0; i < multicomponent_graph.second.size(); i++) {
-                cerr << "component " << max_graph_idx + i << ":" << endl;
-                cerr << pb2json(cluster_graphs[max_graph_idx + i]->graph) << endl;
-            }
-#endif
             
             // remove the old graph
             delete cluster_graphs[multicomponent_graph.first];
