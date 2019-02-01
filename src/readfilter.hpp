@@ -53,9 +53,14 @@ public:
     double downsample_probability = 1.0;
     // Samtools-compatible internal seed mask, for deciding which read pairs to keep.
     // To be generated with rand() after srand() from the user-visible seed.
-    uint32_t downsample_seed_mask = 0;        
-    // default to 1 thread (as opposed to all)
-    int threads = 1;
+    uint32_t downsample_seed_mask = 0;
+    // number of threads from omp
+    int threads = -1;
+    // GAM output buffer size
+    int buffer_size = 512;
+    // Sometimes we only want a report, and not a filtered gam.  toggling off output
+    // speeds things up considerably.
+    bool write_output = true;
 
     // Keep some basic counts for when verbose mode is enabled
     struct Counts {
@@ -96,10 +101,6 @@ public:
         }
     };
     
-    // Extra filename things we need for chunking. TODO: refactor that somehow
-    // to maybe be a different class?
-    string regions_file;
-    string outbase;
     bool append_regions = false;
     
     /**

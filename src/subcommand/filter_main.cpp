@@ -37,12 +37,11 @@ void help_filter(char** argv) {
          << "    -o, --max-overhang N       filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -m, --min-end-matches N    filter reads that don't begin with at least N matches on each end" << endl
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
-         << "    -x, --xg-name FILE         use this xg index (required for -R, -S, and -D)" << endl
-         << "    -R, --regions-file         only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
-         << "    -B, --output-basename      output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
+         << "    -x, --xg-name FILE         use this xg index (required for -S and -D)" << endl
          << "    -A, --append-regions       append to alignments created with -RB" << endl
          << "    -c, --context STEPS        expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
+         << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
          << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N        filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
@@ -84,8 +83,6 @@ int main_filter(int argc, char** argv) {
                 {"min-end-matches", required_argument, 0, 'm'},
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
-                {"regions-file",  required_argument, 0, 'R'},
-                {"output-basename",  required_argument, 0, 'B'},
                 {"append-regions", no_argument, 0, 'A'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
@@ -99,7 +96,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:R:B:Ac:vq:E:D:C:d:t:",
+        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:Ac:vVq:E:D:C:d:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -153,12 +150,6 @@ int main_filter(int argc, char** argv) {
         case 'x':
             xg_name = optarg;
             break;
-        case 'R':
-            filter.regions_file = optarg;
-            break;
-        case 'B':
-            filter.outbase = optarg;
-            break;
         case 'A':
             filter.append_regions = true;
             break;
@@ -170,6 +161,10 @@ int main_filter(int argc, char** argv) {
             break;
         case 'v':
             filter.verbose = true;
+            break;
+        case 'V':
+            filter.verbose = true;
+            filter.write_output = false;
             break;
         case 'E':
             filter.repeat_size = parse<int>(optarg);
@@ -219,7 +214,7 @@ int main_filter(int argc, char** argv) {
             }
             break;
         case 't':
-            filter.threads = parse<int>(optarg);
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':
@@ -234,14 +229,8 @@ int main_filter(int argc, char** argv) {
         }
     }
 
-    if (filter.threads < 1) {
-        cerr << "error:[vg filter]: Cannot use " << filter.threads << " threads." << endl;
-        exit(1);
-    }
-
-    omp_set_num_threads(filter.threads);
+    filter.threads = get_thread_count();
     
-    // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
         return 1;

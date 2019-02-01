@@ -496,163 +496,31 @@ bool ReadFilter::sample_read(const Alignment& aln) {
 
 int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
-    // name helper for output
-    function<string(int)> chunk_name = [this](int num) -> string {
-        stringstream ss;
-        ss << outbase << "-" << num << ".gam";
-        return ss.str();
-    };
-
-    // index regions by their inclusive ranges
-    vector<Interval<int, int64_t> > interval_list;
-    vector<Region> regions;
-    // use strings instead of ofstreams because worried about too many handles
-    vector<string> chunk_names;
-    vector<bool> chunk_new; // flag if write or append
-
-    // parse a bed, for now this is only way to do regions.  note
-    // this operation converts from 0-based BED to 1-based inclusive VCF
-    if (!regions_file.empty()) {
-        if (outbase.empty()) {
-            cerr << "-B option required with -R" << endl;
-            return 1;
-        }
-        parse_bed_regions(regions_file, regions);
-        if (regions.empty()) {
-            cerr << "No regions read from BED file, doing whole graph" << endl;
-        }
-    }
 
     if(defray_length > 0 && xindex == nullptr) {
         cerr << "xg index required for end de-fraying" << endl;
         return 1;
     }
+
+    // output buffers
+    vector<vector<Alignment> > output_buffer(threads);
     
-    if (regions.empty()) {
-        // empty region, do everything
-        // we handle empty intervals as special case when looking up, otherwise,
-        // need to insert giant interval here.
-        chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
-    } else {
-        // otherwise, need to extract regions with xg
-        if (xindex == nullptr) {
-            cerr << "xg index required for -R option" << endl;
-            return 1;
-        }
-    
-        // fill in the map using xg index
-        // relies entirely on the assumption that are path chunks
-        // are perfectly spanned by an id range
-        for (int i = 0; i < regions.size(); ++i) {
-            Graph graph;
-            int rank = xindex->path_rank(regions[i].seq);
-            int64_t path_size = rank == 0 ? 0 : xindex->path_length(regions[i].seq);
-
-            if (regions[i].start >= path_size) {
-                cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
-                     << "-" << regions[i].end << endl;
-            } else {
-                // clip region on end of path
-                regions[i].end = min(path_size - 1, regions[i].end);
-                // do path node query
-                xindex->get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
-                if (context_size > 0) {
-                    xindex->expand_context(graph, context_size);
-                }
-            }
-            // find node range of graph, without bothering to build vg indices..
-            int64_t min_id = numeric_limits<int64_t>::max();
-            int64_t max_id = 0;
-            for (int j = 0; j < graph.node_size(); ++j) {
-                min_id = min(min_id, (int64_t)graph.node(j).id());
-                max_id = max(max_id, (int64_t)graph.node(j).id());
-            }
-            // map the chunk id to a name
-            chunk_names.push_back(chunk_name(i));
-
-            // map the node range to the chunk id.
-            if (graph.node_size() > 0) {
-                interval_list.push_back(Interval<int, int64_t>(min_id, max_id, i));
-                assert(chunk_names.size() == i + 1);
-            }
-        }
-    }
-
-    // index chunk regions
-    IntervalTree<int, int64_t> region_map(std::move(interval_list));
-
-    // which chunk(s) does a gam belong to?
-    function<void(Alignment&, vector<int>&)> get_chunks = [&region_map, &regions](Alignment& aln, vector<int>& chunks) {
-        // speed up case where no chunking
-        if (regions.empty()) {
-            chunks.push_back(0);
-        } else {
-            int64_t min_aln_id = numeric_limits<int64_t>::max();
-            int64_t max_aln_id = -1;
-            for (int i = 0; i < aln.path().mapping_size(); ++i) {
-                const Mapping& mapping = aln.path().mapping(i);
-                min_aln_id = min(min_aln_id, (int64_t)mapping.position().node_id());
-                max_aln_id = max(max_aln_id, (int64_t)mapping.position().node_id());
-            }
-            vector<Interval<int, int64_t> > found_ranges = region_map.findOverlapping(min_aln_id, max_aln_id);
-            for (auto& interval : found_ranges) {
-                chunks.push_back(interval.value);
-            }
-        }
-    };
-
-    // buffered output (one buffer per chunk), one set of chunks per thread
-    // buffer[THREAD][CHUNK] = vector<Alignment>
-    vector<vector<vector<Alignment> > > buffer(threads);
-    for (int i = 0; i < buffer.size(); ++i) {
-        buffer[i].resize(chunk_names.size());
-    }
-    
-    static const int buffer_size = 1000; // we let this be off by 1
-
-    // remember if write or append
-    vector<bool> chunk_append(chunk_names.size(), append_regions);
-
-    // flush a buffer specified by cur_buffer to target in chunk_names, and clear it.
-    // if end is true, write an EOF marker
-    function<void(int, int, bool)> flush_buffer = [&buffer, &chunk_names, &chunk_append](int tid, int cur_buffer, bool end) {
-        ofstream outfile;
-        auto& outbuf = chunk_names[cur_buffer] == "-" ? cout : outfile;
-        if (chunk_names[cur_buffer] != "-") {
-            outfile.open(chunk_names[cur_buffer], chunk_append[cur_buffer] ? ios::app : ios_base::out);
-            chunk_append[cur_buffer] = true;
-        }
-        function<Alignment&(size_t)> write_buffer = [&buffer, &tid, &cur_buffer](size_t i) -> Alignment& {
-            return buffer[tid][cur_buffer][i];
-        };
-        stream::write(outbuf, buffer[tid][cur_buffer].size(), write_buffer);
-        if (end) {
-            stream::finish(outbuf);
-        }
-        buffer[tid][cur_buffer].clear();
-    };
-
-    // add alignment to all appropriate buffers, flushing as necessary
-    function<void(int, Alignment&, const vector<int>&)> update_buffers = [
-        &buffer, &region_map, &get_chunks, &flush_buffer](int tid, Alignment& aln,
-                                                          const vector<int>& aln_chunks) {
-        for (auto chunk : aln_chunks) {
-            buffer[tid][chunk].push_back(aln);
-            if (buffer[tid][chunk].size() >= buffer_size) {
-                // flush buffer (could get fancier and allow parallel writes to different
-                // files, but unlikely to be worth effort as we're mostly trying to
-                // speed up defray and not write IO)
-#pragma omp critical (ReadFilter_flush_buffer)
-                {
-                    flush_buffer(tid, chunk, false);
-                }
-            }
-        }
-    };
-
     // keep counts of what's filtered to report (in verbose mode)
     vector<Counts> counts_vec(threads);
-            
+
+    auto output_alignment = [&](Alignment& aln) {
+        auto& output_buf = output_buffer[omp_get_thread_num()];
+        output_buf.emplace_back(move(aln));
+        stream::write_buffered(cout, output_buf, buffer_size);
+    };
+
+    auto flush_buffer = [&output_buffer]() {
+        for (auto& output_buf : output_buffer) {
+            stream::write_buffered(cout, output_buf, 0);
+        }
+        cout.flush();
+    };
+    
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
@@ -850,15 +718,6 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
             ++counts.min_mapq[co];
             keep = false;
         }
-
-        // do region check before heavier filters
-        vector<int> aln_chunks;
-        if (keep || verbose) {
-            get_chunks(aln, aln_chunks);
-            if (aln_chunks.empty()) {
-                keep = false;
-            }
-        }
         
         if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
             ++counts.split[co];
@@ -886,18 +745,13 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         }
 
         // add to write buffer
-        if (keep) {
-            update_buffers(tid, aln, aln_chunks);
+        if (keep && write_output) {
+            output_alignment(aln);
         }
     };
     stream::for_each_parallel(*alignment_stream, lambda);
-
-    for (int tid = 0; tid < buffer.size(); ++tid) {
-        for (int chunk = 0; chunk < buffer[tid].size(); ++chunk) {
-            // Give every chunk, even those going to standard out or with no buffered reads, an EOF marker.
-            // This also makes sure empty chunks exist.
-            flush_buffer(tid, chunk, true);
-        }
+    if (write_output) {
+        flush_buffer();
     }
 
     if (verbose) {
