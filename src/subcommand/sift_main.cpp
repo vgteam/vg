@@ -7,7 +7,7 @@
 #include <omp.h>
 #include "subcommand.hpp"
 #include <gcsa/gcsa.h>
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../json2pb.h"
 #include "../vg.hpp"
 #include "vg.pb.h"

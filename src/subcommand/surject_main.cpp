@@ -11,7 +11,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../utility.hpp"
 #include "../surjector.hpp"
 
@@ -24,7 +25,7 @@ void help_surject(char** argv) {
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE      use the graph in this xg index" << endl
+         << "    -x, --xg-name FILE      use the graph in this xg index (required)" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into this path (many allowed, default: all in xg)" << endl
          << "    -F, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
@@ -145,14 +146,13 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    xg::XG* xgidx = nullptr;
-    ifstream xg_stream(xg_name);
-    if(xg_stream) {
-        xgidx = new xg::XG(xg_stream);
-    }
-    if (!xg_stream || xgidx == nullptr) {
-        cerr << "[vg surject] error: could not open xg index" << endl;
-        return 1;
+    unique_ptr<xg::XG> xgidx;
+    if (!xg_name.empty()) {
+        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+    } else {
+        // We need an XG index for the rest of the algorithm
+        cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;
+        exit(1);
     }
 
     // if no paths were given take all of those in the index
@@ -172,7 +172,7 @@ int main_surject(int argc, char** argv) {
     int thread_count = get_thread_count();
     vector<Surjector*> surjectors(thread_count);
     for (int i = 0; i < surjectors.size(); i++) {
-        surjectors[i] = new Surjector(xgidx);
+        surjectors[i] = new Surjector(xgidx.get());
     }
 
     if (input_type == "gam") {

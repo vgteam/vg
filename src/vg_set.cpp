@@ -1,5 +1,5 @@
 #include "vg_set.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "source_sink_overlay.hpp"
 
 namespace vg {

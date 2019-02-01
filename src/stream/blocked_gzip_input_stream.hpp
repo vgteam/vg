@@ -77,6 +77,16 @@ public:
     /// this stream *must* be destroyed before this function is called.
     virtual bool Seek(int64_t virtual_offset);
     
+    /// Return true if the stream being read really is BGZF, and false if we
+    /// are operating on a non-blocked GZIP or uncompressed file.
+    virtual bool IsBGZF() const;
+    
+    /// Return true if the given istream looks like GZIP-compressed data (i.e.
+    /// has the GZIP magic number as its first two bytes). Replicates some of
+    /// the sniffing logic that htslib does, but puts back the sniffed
+    /// characters so the stream can be read fine either way after sniffing.
+    static bool SmellsLikeGzip(std::istream& in);
+    
 protected:
     
     /// The open BGZF handle being read from. We use the BGZF's buffer as our

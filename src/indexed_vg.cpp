@@ -454,11 +454,10 @@ bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const Cac
         with_cursor([&](cursor_t& cursor) {
             // Try to get to the VO we are supposed to go to
             auto pre_seek_group = cursor.tell_group();
-            auto pre_seek_pos = cursor.tell_raw();
             if (!cursor.seek_group(group_vo)) {
                 cerr << "error[vg::IndexedVG]: Could not seek from group pos " << pre_seek_group
-                    << " and raw pos " << pre_seek_pos << " to group pos " << group_vo << endl;
-                cerr << "Current position: group " << cursor.tell_group() << " raw " << cursor.tell_raw()
+                    << " to group pos " << group_vo << endl;
+                cerr << "Current position: group " << cursor.tell_group()
                     << " has_next: " << cursor.has_next() << endl;
                 assert(false);
             }

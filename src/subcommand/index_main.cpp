@@ -12,7 +12,8 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -942,7 +943,10 @@ int main_index(int argc, char** argv) {
                     cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
                     cerr << "Saving GBWT to disk..." << endl;
                 }
-                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+                
+                // Save encapsulated in a VPKG
+                stream::VPKG::save(gbwt_builder->index, gbwt_name);
+                
                 delete gbwt_builder; gbwt_builder = nullptr;
             }
             if (write_threads) {
@@ -988,9 +992,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving XG index to disk..." << endl;
         }
-        ofstream db_out(xg_name);
-        xg_index->serialize(db_out);
-        db_out.close();
+        // Save encapsulated in a VPKG
+        stream::VPKG::save(*xg_index, xg_name); 
     }
     delete xg_index; xg_index = nullptr;
 
@@ -1027,11 +1030,11 @@ int main_index(int argc, char** argv) {
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
-                    xg::XG xg(xg_stream);
+                    auto xg = stream::VPKG::load_one<xg::XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
-                    SourceSinkOverlay overlay(&xg, kmer_size);
+                    SourceSinkOverlay overlay(xg.get(), kmer_size);
                     
                     // Get the size limit
                     size_t kmer_bytes = params.getLimitBytes();
@@ -1071,8 +1074,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving the index to disk..." << endl;
         }
-        sdsl::store_to_file(gcsa_index, gcsa_name);
-        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
+        stream::VPKG::save(gcsa_index, gcsa_name);
+        stream::VPKG::save(lcp_array, gcsa_name + ".lcp");
 
         // Verify the index
         if (verify_gcsa) {

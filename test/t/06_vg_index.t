@@ -61,16 +61,18 @@ is $? 0 "storing a VCF parse for a graph with haplotypes"
 ../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parse"
 
-# Add the metadata manually and compare the indexes
+# Add the metadata manually, dump the tagged stream, and compare the indexes
 ../deps/gbwt/metadata -c 1 -h 2 -s 1 parse_x > /dev/null
-cmp parse_x.gbwt x.gbwt
+vg view --extract-tag GBWT x.gbwt > x.bare.gbwt
+
+cmp parse_x.gbwt x.bare.gbwt
 is $? 0 "the indexes are identical"
 
 rm -f x.vg
 rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
-rm -f parse_x parse_x_0_1 parse_x.gbwt
+rm -f parse_x parse_x_0_1 parse_x.gbwt x.bare.gbwt
 
 
 # Subregion graph with haplotypes
@@ -133,16 +135,18 @@ is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
 ../deps/gbwt/build_gbwt -p -r -o parse_xy parse_x parse_y > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parses"
 
-# Add the metadata manually and compare the indexes
+# Add the metadata manually, extract the packaged GBWT, and compare the indexes
 ../deps/gbwt/metadata -c 2 -h 2 -s 1 parse_xy > /dev/null
-cmp parse_xy.gbwt xy.gbwt
+vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
+
+cmp parse_xy.gbwt xy.bare.gbwt
 is $? 0 "the indexes are identical"
 
 rm -f x.vg y.vg
 rm -f x.gbwt y.gbwt x.threads y.threads
 rm -f xy.xg xy.gbwt xy.gcsa xy.gcsa.lcp
 rm -f xy2.xg xy2.gbwt xy2.gcsa xy2.gcsa.lcp
-rm -f parse_x parse_x_0_1 parse_y parse_y_0_1 parse_xy.gbwt
+rm -f parse_x parse_x_0_1 parse_y parse_y_0_1 parse_xy.gbwt xy.bare.gbwt
 
 
 # GBWT construction options
