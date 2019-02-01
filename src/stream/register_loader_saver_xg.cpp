@@ -4,7 +4,7 @@
  */
 
 #include "registry.hpp"
-#include "register_loader_saver_gcsa.hpp"
+#include "register_loader_saver_xg.hpp"
 
 #include "../xg.hpp"
 

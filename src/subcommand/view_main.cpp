@@ -16,7 +16,7 @@
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
 #include "../gfa.hpp"
-#include "../json_stream_helper.hpp"
+#include "../stream/json_stream_helper.hpp"
 #include "../stream/message_iterator.hpp"
 
 using namespace std;
@@ -486,7 +486,13 @@ int main_view(int argc, char** argv) {
         assert(input_json);
         stream::JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
-        graph = new VG(get_next_graph, false, !expect_duplicates);
+        // TODO: This is less inversion of control and more putting control in the middle.
+        graph = new VG([&](const function<void(Graph&)> use_graph) {
+            Graph g;
+            while (get_next_graph(g)) {
+                use_graph(g);
+            }
+        }, false, !expect_duplicates);
     } else if(input_type == "turtle-in") {
         graph = new VG;
         bool pre_compress=color_variants;

@@ -319,13 +319,14 @@ public:
     /// Default constructor.
     VG(void);
 
-    /// Construct from protobufs.
+    /// Construct from Graph objects serialized in a tagged group stream.
     VG(istream& in, bool showp = false, bool warn_on_duplicates = true);
     void from_istream(istream& in, bool showp = false, bool warn_on_duplicates = true);
 
-    /// Construct from an arbitrary source of Graph protobuf messages (which
-    /// populates the given Graph and returns a flag for whether it's valid).
-    VG(function<bool(Graph&)>& get_next_graph, bool showp = false, bool warn_on_duplicates = true);
+    /// Construct from an arbitrary source of Graph protobuf messages, with the message source in control of execution.
+    /// Takes a function that takes a callback to call with each Graph object to incorporate.
+    /// The Graph object may be moved by the VG.
+    VG(const function<void(const function<void(Graph&)>&)>& send_graphs, bool showp = false, bool warn_on_duplicates = true);
 
     /// Construct from a single Protobuf graph. The same as making an empty VG and using extend().
     VG(const Graph& from, bool showp = false, bool warn_on_duplicates = true);
@@ -521,6 +522,12 @@ public:
     void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
     void prune_short_subgraphs(size_t min_size);
 
+    /// Send chunked graphs to a function that will write them somewhere.
+    /// Used to internally implement saving to many destinations.
+    /// Graph will be serialized in internal storage order.
+    /// This is NOT const because it synchronizes path ranks before saving!
+    /// We allow the emitted Graph to move.
+    void serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_size = 1000);
     /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
     /// Use when combining multiple VG objects in a stream.
     /// Graph will be serialized in internal storage order.

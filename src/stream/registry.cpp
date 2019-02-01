@@ -10,6 +10,7 @@
 #include "register_loader_saver_lcp.hpp"
 #include "register_loader_saver_gbwt.hpp"
 #include "register_loader_saver_xg.hpp"
+#include "register_loader_saver_vg.hpp"
 
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/descriptor.h>
@@ -44,6 +45,7 @@ auto Registry::register_everything() -> bool {
     register_loader_saver_lcp();
     register_loader_saver_gbwt();
     register_loader_saver_xg();
+    register_loader_saver_vg();
     
     return true;
 }
