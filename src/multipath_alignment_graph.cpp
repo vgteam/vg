@@ -1094,8 +1094,12 @@ namespace vg {
                 
                 // replace the path with the portion that we didn't trim
                 Path new_path;
+                int32_t rank = 1;
                 for (int64_t i = prefix_idx; i <= suffix_idx; i++) {
-                    *new_path.add_mapping() = path_node.path.mapping(i);
+                    Mapping* mapping = new_path.add_mapping();
+                    *mapping = path_node.path.mapping(i);
+                    mapping->set_rank(rank);
+                    rank++;
                 }
                 path_node.path = move(new_path);
 #ifdef debug_multipath_alignment

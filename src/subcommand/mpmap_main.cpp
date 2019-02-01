@@ -197,6 +197,7 @@ int main_mpmap(int argc, char** argv) {
     int gap_open_score_arg = std::numeric_limits<int>::min();
     int gap_extension_score_arg = std::numeric_limits<int>::min();
     int full_length_bonus_arg = std::numeric_limits<int>::min();
+    int reversing_walk_length = 1;
     
     
     int c;
@@ -985,6 +986,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.min_median_mem_coverage_for_split = min_median_mem_coverage_for_split;
     multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
+    multipath_mapper.reversing_walk_length = reversing_walk_length;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;

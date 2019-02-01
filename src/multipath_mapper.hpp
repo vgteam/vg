@@ -142,6 +142,8 @@ namespace vg {
         bool simplify_topologies = false;
         bool delay_population_scoring = false;
         bool use_tvs_clusterer = false;
+        // length of reversing walks during graph extraction
+        size_t reversing_walk_length = 0;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
