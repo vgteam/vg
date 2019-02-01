@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <functional>
 #include <iostream>
+#include <google/protobuf/util/type_resolver.h>
 
 #include "../handle.hpp"
 
@@ -110,12 +111,13 @@ class Registry {
 public:
 
     /////////
-    // Registration functions
+    // Registration API
     /////////
     
     /**
-     * Register everything. Main entry point.
-     * Returns true on success.
+     * Register everything. Main entry point. When you have new things to
+     * register, add calls to your function to this method. Returns true on
+     * success.
      */
     static bool register_everything();
 
@@ -154,8 +156,13 @@ public:
     template<typename Handled>
     static void register_bare_loader_saver(const string& tag, bare_load_function_t loader, bare_save_function_t saver);
     
+    /**
+     * To help with telling messages from tags, we enforce a max tag length.
+     */
+    static const size_t MAX_TAG_LENGTH = 25;
+    
     /////////
-    // Lookup functions
+    // Lookup API
     /////////
     
     /**
@@ -237,6 +244,12 @@ private:
     static Tables& get_tables();
     
     /**
+     * Get a single shared Protobuf resolver we will use for the duration of the program.
+     * The Protobuf docs say the resolver must be thread safe.
+     */
+    static ::google::protobuf::util::TypeResolver& get_resolver();
+    
+    /**
      * Register a load function for a tag. The empty tag means it can run on
      * untagged message groups.
      */
@@ -264,6 +277,9 @@ private:
 
 template<typename Message>
 void Registry::register_protobuf(const string& tag) {
+    // Limit tag length
+    assert(tag.size() <= MAX_TAG_LENGTH);
+
     // Get our state
     Tables& tables = get_tables();
 
@@ -278,6 +294,9 @@ void Registry::register_protobuf(const string& tag) {
 
 template<typename Handled>
 void Registry::register_loader(const string& tag, load_function_t loader) {
+    // Limit tag length
+    assert(tag.size() <= MAX_TAG_LENGTH);
+
     // Get our state
     Tables& tables = get_tables();
     
@@ -309,6 +328,9 @@ void Registry::register_bare_loader(bare_load_function_t loader) {
 
 template<typename Handled>
 void Registry::register_saver(const string& tag, save_function_t saver) {
+    // Limit tag length
+    assert(tag.size() <= MAX_TAG_LENGTH);
+
     // Prohibit the empty tag here.
     assert(!tag.empty());
     
@@ -333,6 +355,11 @@ void Registry::register_loader_saver(const vector<string>& tags, load_function_t
     // The first must be a real tag we can save with
     assert(!tags.front().empty());
     
+    for (auto tag : tags) {
+        // Limit tag length
+        assert(tag.size() <= MAX_TAG_LENGTH);
+    }
+    
     // The first tag gets the loader and saver
     register_loader<Handled>(tags.front(), loader);
     register_saver<Handled>(tags.front(), saver);
@@ -356,6 +383,12 @@ void Registry::register_bare_loader_saver(const string& tag, bare_load_function_
 
 template<typename Want>
 const load_function_t* Registry::find_loader(const string& tag) {
+    
+    if (tag.size() > MAX_TAG_LENGTH) {
+        // Too long to be correct, and definitely longer than we want to hash.
+        return nullptr;
+    }
+
     // Get our state
     Tables& tables = get_tables();
     
@@ -430,7 +463,12 @@ const string& Registry::get_protobuf_tag() {
 #ifdef debug
         cerr << "Tag not found for " << Message::descriptor()->full_name() << endl;
 #endif
-        return Message::descriptor()->full_name();
+        const string& tag = Message::descriptor()->full_name();
+        
+        // Limit tag length
+        assert(tag.size() <= MAX_TAG_LENGTH);
+        
+        return tag;
     }
 }
 
@@ -439,6 +477,11 @@ bool Registry::check_protobuf_tag(const string& tag) {
     if (tag.empty()) {
         // For reading old tagless files, "" is always a valid tag for Protobuf data.
         return true;
+    }
+    
+    if (tag.size() > MAX_TAG_LENGTH) {
+        // Too long to be correct, and definitely longer than we want to hash.
+        return false;
     }
 
     // Get our state

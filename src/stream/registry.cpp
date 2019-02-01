@@ -60,6 +60,12 @@ auto Registry::get_tables() -> Tables& {
 }
 
 auto Registry::is_valid_tag(const string& tag) -> bool {
+    
+    if (tag.size() > MAX_TAG_LENGTH) {
+        // Too long to be correct, and definitely longer than we want to hash.
+        return false;
+    }
+    
     // Get our state
     Tables& tables = get_tables();
     
@@ -73,28 +79,39 @@ auto Registry::is_valid_tag(const string& tag) -> bool {
         return true;
     }
     
+    // If not, it may be just a raw Protobuf type name, like "vg.Type".
+    if (tag.size() < 3 || tag[0] != 'v' || tag[1] != 'g' || tag[2] != '.') {
+        // All the auto-assigned tags start with "vg.". So reject this as not an auto-assigned tag.
+        return false;
+    }
+    
     // Sniff if it is known by Protobuf.
-    // See <https://stackoverflow.com/a/41651378>
-    // TODO: Don't allocate a new resolver constantly.
-    auto* resolver = ::google::protobuf::util::NewTypeResolverForDescriptorPool("", ::google::protobuf::DescriptorPool::generated_pool());
     
     ::google::protobuf::Type scratch;
-    
     // The returned status is not really documented.
     // See <https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/stubs/status.h>
     // We need a leading slash or it can't find it.
-    auto find_status = resolver->ResolveMessageType("/" + tag, &scratch);
+    auto find_status = get_resolver().ResolveMessageType("/" + tag, &scratch);
     
 #ifdef debug
     cerr << "Resolve " << tag << " status " << find_status.ok()  << " " << find_status.error_code() << " " << find_status.error_message() << endl;
 #endif
     
-    delete resolver;
-    
     // If we resolved it OK, it can be a tag.
     // Otherwise, it is new and suspicious. Treat it as a message.
     // If it's really some new thing we haven't heard of, we'll hopefully crash.
     return find_status.ok();
+}
+
+auto Registry::get_resolver() -> ::google::protobuf::util::TypeResolver& {
+    // We will have one shared resolver that we allocate here.
+    // The unique_ptr makes sure it gets destructed at the end of the program.
+    // And static local initialization is thread safe for free! See <https://stackoverflow.com/a/8102145>
+    // Also see <https://stackoverflow.com/a/41651378> for how you even make a resolver.
+    static unique_ptr<::google::protobuf::util::TypeResolver> resolver(
+        ::google::protobuf::util::NewTypeResolverForDescriptorPool("", ::google::protobuf::DescriptorPool::generated_pool()));
+        
+    return *resolver;
 }
 
 auto wrap_bare_loader(function<void*(istream&)> istream_loader) -> load_function_t {

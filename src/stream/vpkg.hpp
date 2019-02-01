@@ -116,6 +116,7 @@ public:
      * Load an object of the given type from a stream.
      * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
      * Tagged messages that can't be used to load the thing we are looking for are skipped.
+     * This doesn't work for Protobuf messages directly, but it will work for e.g. vg::VG.
      */
     template<typename Wanted>
     static unique_ptr<Wanted> try_load_one(istream& in) {
