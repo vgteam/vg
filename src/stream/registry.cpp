@@ -224,7 +224,7 @@ void with_function_calling_stream(const message_consumer_function_t& emit_messag
                 
                 // Collect chunks of a certain size
                 // TODO: What size is best?
-                string chunk(4096, 0);
+                string chunk(4096 * 1024, 0);
             
 #ifdef debug
                 #pragma omp critical (cerr)
