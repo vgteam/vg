@@ -6,7 +6,6 @@ var searchData=
   ['random_5fread',['random_read',['../classvg_1_1VG.html#aec84f7813f59a16b2d0c1bd72904ae5b',1,'vg::VG']]],
   ['random_5fsequence',['random_sequence',['../namespacevg.html#ab80fc8c8920c7ec53cfee81dc2fce852',1,'vg']]],
   ['random_5fsequence_5fgen',['random_sequence_gen',['../namespacevg.html#a4012afd56ccb35387121c71c2119e244',1,'vg']]],
-  ['range',['range',['../classvg_1_1stream_1_1ProtobufIterator.html#a6699759db236dbb71d604fc4c922012e',1,'vg::stream::ProtobufIterator']]],
   ['range_5fvector',['range_vector',['../namespacevg.html#a931d9271de88fc786030fdd0ab4bf534',1,'vg::range_vector(size_t begin, size_t end)'],['../namespacevg.html#a39adca1737de5d28d007d95b809deb7f',1,'vg::range_vector(size_t end)']]],
   ['rank_5fto_5fid',['rank_to_id',['../classxg_1_1XG.html#a8d19ce6227588602947bd8deff30ae6c',1,'xg::XG']]],
   ['rarevariantsimplifier',['RareVariantSimplifier',['../classvg_1_1RareVariantSimplifier.html#a08cf82d7c40db195176b9bf177a50e32',1,'vg::RareVariantSimplifier']]],

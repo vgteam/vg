@@ -1,7 +1,6 @@
 var searchData=
 [
   ['tail',['tail',['../structvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
-  ['target_5fprotobuf_5fsize',['TARGET_PROTOBUF_SIZE',['../namespacevg_1_1stream.html#a1c251c853915079cc6a23af49619db75',1,'vg::stream']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
   ['telomeres',['telomeres',['../classvg_1_1GenomeState.html#a2e1564254538fec6438c931a5263ab8a',1,'vg::GenomeState']]],

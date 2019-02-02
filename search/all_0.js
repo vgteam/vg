@@ -14,7 +14,6 @@ var searchData=
   ['_5fedge_5fpileups',['_edge_pileups',['../classvg_1_1Pileups.html#af6f3d0431209ade782e671be0ad84d4d',1,'vg::Pileups']]],
   ['_5fflush_5fop',['_flush_op',['../xdrop__aligner_8cpp.html#a3592941015e5430b738db9e882e0305d',1,'xdrop_aligner.cpp']]],
   ['_5ffor_5feach_5fkmer',['_for_each_kmer',['../classvg_1_1VG.html#aaf5016c5e5d28db6db32aa7626440238',1,'vg::VG']]],
-  ['_5ffp',['_fp',['../classvg_1_1stream_1_1JSONStreamHelper.html#ae00b849a5214cc22d3efb48581b83f28',1,'vg::stream::JSONStreamHelper']]],
   ['_5fgraph',['_graph',['../classvg_1_1Pileups.html#a57532ec0e7dba81c24a0d37352a1e218',1,'vg::Pileups::_graph()'],['../classvg_1_1PileupAugmenter.html#a74dd51ef08a8954c52b0be9f7cb9f972',1,'vg::PileupAugmenter::_graph()']]],
   ['_5finsert_5fcalls',['_insert_calls',['../classvg_1_1PileupAugmenter.html#a8bb9dca5ba4d5bf7d32878e135429ae6',1,'vg::PileupAugmenter']]],
   ['_5finsert_5fsupports',['_insert_supports',['../classvg_1_1PileupAugmenter.html#a5855b647bb5fb81067adfbaf745bf011',1,'vg::PileupAugmenter']]],

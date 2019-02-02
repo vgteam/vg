@@ -30,11 +30,10 @@ var searchData=
   ['kmer_5flength',['kmer_length',['../structPruningParameters.html#ae3cd0ffe16bbdd3d2d5092ef57f4219a',1,'PruningParameters']]],
   ['kmer_5fmatches',['kmer_matches',['../classvg_1_1Index.html#a2cf8b8ad22bf41d6a30ac488ead6b52c',1,'vg::Index']]],
   ['kmer_5fsize',['kmer_size',['../classvg_1_1VariantAdder.html#acda70938d1a3eb2eb5da18dd2805ae26',1,'vg::VariantAdder']]],
-  ['kmer_5ft',['kmer_t',['../structvg_1_1kmer__t.html#a83d1946c92dcdc9c6adbc03b4da30312',1,'vg::kmer_t']]],
   ['kmer_5ft',['kmer_t',['../structvg_1_1kmer__t.html',1,'vg']]],
+  ['kmer_5ft',['kmer_t',['../structvg_1_1kmer__t.html#a83d1946c92dcdc9c6adbc03b4da30312',1,'vg::kmer_t']]],
   ['kmer_5fto_5fgcsa_5fkmers',['kmer_to_gcsa_kmers',['../namespacevg.html#a661fc17618ee9ff7bd9d469c74c63369',1,'vg']]],
   ['kmermatch',['KmerMatch',['../structvg_1_1KmerMatch.html',1,'vg']]],
   ['kmerposition',['KmerPosition',['../structvg_1_1KmerPosition.html',1,'vg']]],
-  ['kmers_5fmain_2ecpp',['kmers_main.cpp',['../kmers__main_8cpp.html',1,'']]],
-  ['know_5foffset',['know_offset',['../classvg_1_1stream_1_1BlockedGzipInputStream.html#a117ec5e898ca5daf34ce77c77529d16e',1,'vg::stream::BlockedGzipInputStream::know_offset()'],['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#a3eebd2cabc4a006342ef16ef9b5786b2',1,'vg::stream::BlockedGzipOutputStream::know_offset()']]]
+  ['kmers_5fmain_2ecpp',['kmers_main.cpp',['../kmers__main_8cpp.html',1,'']]]
 ];

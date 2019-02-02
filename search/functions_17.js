@@ -18,11 +18,9 @@ var searchData=
   ['with_5fpath_5findex',['with_path_index',['../classvg_1_1GraphSynchronizer.html#a336f5828883adce86ee5e536f8c299ea',1,'vg::GraphSynchronizer']]],
   ['wrap_5ftext',['wrap_text',['../namespacevg.html#a57f111dda471f40192704110bae04a0f',1,'vg']]],
   ['wrap_5fwith_5fnull_5fnodes',['wrap_with_null_nodes',['../classvg_1_1VG.html#a2239c89d6ac7e9dec0d76325c2a68f97',1,'vg::VG']]],
-  ['write',['write',['../classvg_1_1stream_1_1JSONStreamHelper.html#abd054a531bed5ac236cb013635272893',1,'vg::stream::JSONStreamHelper::write()'],['../classvg_1_1Paths.html#a8a520b4d648c566f4297418025051784',1,'vg::Paths::write()'],['../classvg_1_1Pileups.html#a0585c8203f4755615d50f863ee69e4ae',1,'vg::Pileups::write()'],['../classvg_1_1stream_1_1ProtobufEmitter.html#a3dacd6e9b50fc9c1a021c7dc4ec5158f',1,'vg::stream::ProtobufEmitter::write()'],['../namespacevg_1_1stream.html#a4defc58b618bed6cdb900ec085dddf7f',1,'vg::stream::write(std::ostream &amp;out, size_t element_count, size_t chunk_elements, const std::function&lt; T(int64_t, size_t, size_t)&gt; &amp;lambda)'],['../namespacevg_1_1stream.html#ae5100b174cb72c3eca71446a5ee97f67',1,'vg::stream::write(std::ostream &amp;out, size_t element_count, size_t chunk_elements, const std::function&lt; T(size_t, size_t)&gt; &amp;lambda)'],['../namespacevg_1_1stream.html#a0d23af3495a1ad1f3f8ed7d86d30eae6',1,'vg::stream::write(std::ostream &amp;out, size_t count, const std::function&lt; T(int64_t, size_t)&gt; &amp;lambda)'],['../namespacevg_1_1stream.html#ae2ed959d1724cf4fc227d6f1be537c1d',1,'vg::stream::write(std::ostream &amp;out, size_t count, const std::function&lt; T(size_t)&gt; &amp;lambda)']]],
+  ['write',['write',['../classvg_1_1Paths.html#a8a520b4d648c566f4297418025051784',1,'vg::Paths::write()'],['../classvg_1_1Pileups.html#a0585c8203f4755615d50f863ee69e4ae',1,'vg::Pileups::write()']]],
   ['write_5falignment_5fto_5ffile',['write_alignment_to_file',['../namespacevg.html#a81c8bc6d3b973fd1a34c3457a9d2e401',1,'vg']]],
   ['write_5faugmented_5fgraph',['write_augmented_graph',['../classvg_1_1PileupAugmenter.html#a0dbfa77135d3ffcb9396450ff7d6626f',1,'vg::PileupAugmenter']]],
-  ['write_5fbuffered',['write_buffered',['../namespacevg_1_1stream.html#a2eba0608b9d08880e3c9fed398098eec',1,'vg::stream']]],
-  ['write_5fcopy',['write_copy',['../classvg_1_1stream_1_1ProtobufEmitter.html#ab5dbbe88bb104c31a5435d985aefed16',1,'vg::stream::ProtobufEmitter']]],
   ['write_5fedits',['write_edits',['../classvg_1_1Packer.html#ae7887294608eba5b47484182d657feb3',1,'vg::Packer::write_edits(vector&lt; ofstream * &gt; &amp;out) const '],['../classvg_1_1Packer.html#a956f82c4ff6fbd460a2b6201f051b5ae',1,'vg::Packer::write_edits(ostream &amp;out, size_t bin) const ']]],
   ['write_5fgcsa_5fkmers',['write_gcsa_kmers',['../namespacevg.html#a6d8c71ff9f77ddd4a366119e83122771',1,'vg']]],
   ['write_5fgcsa_5fkmers_5fascii',['write_gcsa_kmers_ascii',['../classvg_1_1VGset.html#a025bbf9c919cd28e16ca857d78bcc073',1,'vg::VGset']]],
@@ -33,6 +31,5 @@ var searchData=
   ['write_5fthread_5fdb',['write_thread_db',['../index__main_8cpp.html#a3e967d82afdc3e242c26338f354a96fc',1,'index_main.cpp']]],
   ['write_5ftranslations',['write_translations',['../structvg_1_1AugmentedGraph.html#a70ffd6eb24e80cfa265ae48cdde15a45',1,'vg::AugmentedGraph']]],
   ['write_5fvariant',['write_variant',['../classvg_1_1Genotyper.html#af5b580b6db4e727934f964d00b058038',1,'vg::Genotyper']]],
-  ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#a84ce0743c9a27e8b8ed32de37e4064fd',1,'vg::write_vcf_header()']]],
-  ['writealiasedraw',['WriteAliasedRaw',['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#ae773a258d6a13f7db22a372cc96857e9',1,'vg::stream::BlockedGzipOutputStream']]]
+  ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#a84ce0743c9a27e8b8ed32de37e4064fd',1,'vg::write_vcf_header()']]]
 ];

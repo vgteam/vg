@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['listener_5ft',['listener_t',['../classvg_1_1stream_1_1ProtobufEmitter.html#aceecdea84829185594ed2760aa2c176b',1,'vg::stream::ProtobufEmitter']]]
+  ['memcluster_5ft',['memcluster_t',['../classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be',1,'vg::MultipathMapper']]]
 ];

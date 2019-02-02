@@ -20,7 +20,6 @@ var searchData=
   ['out',['out',['../structhaplo_1_1haplo__DP__edge__memo.html#a5b237e3bd675f8f4c58dd21e3e704f95',1,'haplo::haplo_DP_edge_memo']]],
   ['outbase',['outbase',['../classvg_1_1ReadFilter.html#a5e3358d7278a3d929a44b4fd670f861b',1,'vg::ReadFilter']]],
   ['outfile',['outfile',['../classvg_1_1Viz.html#a78a53d3a62a503ff6c29e93cb9a12a88',1,'vg::Viz']]],
-  ['output',['output',['../structvg_1_1stream_1_1hFILE__cppstream.html#acca0c9b4147169d22d16bdf7f46f3872',1,'vg::stream::hFILE_cppstream']]],
   ['output_5fnames',['output_names',['../classVectorizer.html#aadb47085d4b369b1c9ea341b06311341',1,'Vectorizer']]],
   ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],
   ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],

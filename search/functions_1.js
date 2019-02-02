@@ -104,7 +104,6 @@ var searchData=
   ['allele',['allele',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#af46762040383505bac0cb80d4a9c2113',1,'haplo::linear_haplo_structure::SNVvector']]],
   ['allele_5fambiguity_5flog_5fprobs',['allele_ambiguity_log_probs',['../classvg_1_1Genotyper.html#aa46523cd1493686b28210136d9baf713',1,'vg::Genotyper']]],
   ['allele_5fto_5fstring',['allele_to_string',['../namespacevg.html#a3b46a0183527dc1713f3ab30ef85b185',1,'vg']]],
-  ['allowsaliasing',['AllowsAliasing',['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#a7876d2c5395d9a328931db4048872039',1,'vg::stream::BlockedGzipOutputStream']]],
   ['aln_5fto_5fbseq',['aln_to_bseq',['../classvg_1_1SRPE.html#a8e090b6736fa63156b2769dca493ed12',1,'vg::SRPE']]],
   ['alttracebackstack',['AltTracebackStack',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#ae5128be7ca84395630857db7e557883f',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['anchored_5ffilter',['anchored_filter',['../classvg_1_1Filter.html#a7e797bbf731c8120cf2df43e4355963a',1,'vg::Filter']]],

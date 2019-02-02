@@ -28,10 +28,5 @@ var searchData=
   ['graph_5frecord_5fsize',['GRAPH_RECORD_SIZE',['../classvg_1_1PackedGraph.html#ae2d329b354cd2c995cd12a2c73853167',1,'vg::PackedGraph']]],
   ['graph_5fstart_5fedges_5foffset',['GRAPH_START_EDGES_OFFSET',['../classvg_1_1PackedGraph.html#ab1ebc41729ec0a4515a179b6defddcb9',1,'vg::PackedGraph']]],
   ['greedy_5fpieces',['greedy_pieces',['../classvg_1_1Constructor.html#ac4dce51a25e5f773a0c53e8cd9f07628',1,'vg::Constructor']]],
-  ['group',['group',['../classvg_1_1stream_1_1ProtobufEmitter.html#aecd893eede4e55ddc642d7f2a09eab1a',1,'vg::stream::ProtobufEmitter']]],
-  ['group_5fcache',['group_cache',['../classvg_1_1IndexedVG.html#a0024489b3eb887d90d18af839722ce66',1,'vg::IndexedVG']]],
-  ['group_5fcount',['group_count',['../classvg_1_1stream_1_1ProtobufIterator.html#a9a52b48875dc138609f5a16c49a1165a',1,'vg::stream::ProtobufIterator']]],
-  ['group_5fhandlers',['group_handlers',['../classvg_1_1stream_1_1ProtobufEmitter.html#a627f6e99e3561f9f9224ddf623ae5f7c',1,'vg::stream::ProtobufEmitter']]],
-  ['group_5fidx',['group_idx',['../classvg_1_1stream_1_1ProtobufIterator.html#ab8251ad8904a0fe67cac48bcbd70c97b',1,'vg::stream::ProtobufIterator']]],
-  ['group_5fvo',['group_vo',['../classvg_1_1stream_1_1ProtobufIterator.html#af63bf484824efdc96a68c1e2baa6b0c5',1,'vg::stream::ProtobufIterator']]]
+  ['group_5fcache',['group_cache',['../classvg_1_1IndexedVG.html#a0024489b3eb887d90d18af839722ce66',1,'vg::IndexedVG']]]
 ];

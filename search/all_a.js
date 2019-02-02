@@ -8,8 +8,5 @@ var searchData=
   ['json2pb_2ecpp',['json2pb.cpp',['../json2pb_8cpp.html',1,'']]],
   ['json2pb_2eh',['json2pb.h',['../json2pb_8h.html',1,'']]],
   ['json_5fdump_5fstd_5fstring',['json_dump_std_string',['../json2pb_8cpp.html#a0160ee39ca4e6ff5e60c30fa6287df63',1,'json2pb.cpp']]],
-  ['json_5fstream_5fhelper_2ehpp',['json_stream_helper.hpp',['../json__stream__helper_8hpp.html',1,'']]],
-  ['jsonstreamhelper',['JSONStreamHelper',['../classvg_1_1stream_1_1JSONStreamHelper.html#a6fdd060856b83b5951b6276c14160f73',1,'vg::stream::JSONStreamHelper']]],
-  ['jsonstreamhelper',['JSONStreamHelper',['../classvg_1_1stream_1_1JSONStreamHelper.html',1,'vg::stream']]],
   ['jump_5falong_5fclosest_5fpath',['jump_along_closest_path',['../classxg_1_1XG.html#a63f6625b55f8b0a55dd23f143b6920f6',1,'xg::XG']]]
 ];

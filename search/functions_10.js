@@ -162,8 +162,6 @@ var searchData=
   ['prob_5fto_5fphred',['prob_to_phred',['../namespacevg.html#acb81881c0a3b7cf276097d8142ddb312',1,'vg']]],
   ['process_5fin_5fout_5fgrowth',['process_in_out_growth',['../classvg_1_1FlowSort.html#a31800555477d90ab371c08852c9cd05b',1,'vg::FlowSort']]],
   ['propose_5fdeflection',['propose_deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a662b5ce1fa402a6c8e7a5f20f92773b3',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
-  ['protobufemitter',['ProtobufEmitter',['../classvg_1_1stream_1_1ProtobufEmitter.html#a5bd5ceae0bfeca4c41f5e483f8947853',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(std::ostream &amp;out, size_t max_group_size=1000)'],['../classvg_1_1stream_1_1ProtobufEmitter.html#a9f1700cb2dd6d08e12fa627aa6161ea3',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(const ProtobufEmitter &amp;other)=delete'],['../classvg_1_1stream_1_1ProtobufEmitter.html#a3a34486b42eba8f065f14065d5274b4e',1,'vg::stream::ProtobufEmitter::ProtobufEmitter(ProtobufEmitter &amp;&amp;other)=default']]],
-  ['protobufiterator',['ProtobufIterator',['../classvg_1_1stream_1_1ProtobufIterator.html#ae3059225b6ff4b2c2745f357daf985e6',1,'vg::stream::ProtobufIterator']]],
   ['prune_5fcomplex',['prune_complex',['../classvg_1_1VG.html#ad4878ca3ebc2c14d008e57c7ae8d5845',1,'vg::VG']]],
   ['prune_5fcomplex_5fpaths',['prune_complex_paths',['../classvg_1_1VG.html#a4ea2fe244a857ff24d0176449bedd4ad',1,'vg::VG']]],
   ['prune_5fcomplex_5fwith_5fhead_5ftail',['prune_complex_with_head_tail',['../classvg_1_1VG.html#ae0765f466db760a9a450f4d4115a59bd',1,'vg::VG']]],

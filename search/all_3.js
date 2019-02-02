@@ -138,7 +138,7 @@ var searchData=
   ['collect_5fcoverage',['collect_coverage',['../classvg_1_1Packer.html#a6b814828a7b58a786da679cfc667f204',1,'vg::Packer']]],
   ['collect_5fsubgraph',['collect_subgraph',['../classvg_1_1VG.html#a688cbe42750d98695114ad4ad640c1d3',1,'vg::VG']]],
   ['collides',['collides',['../structvg_1_1IntervalBitfield.html#a2872f9d7663b9e0fd387e8d13d8e1a3d',1,'vg::IntervalBitfield']]],
-  ['colors',['colors',['../classvg_1_1Colors.html#a20b7cf0022c8e1340b82176e5715cd2f',1,'vg::Colors::colors()'],['../classvg_1_1Colors.html#a8bef9f7ce8512f3e800dded6a8470ac1',1,'vg::Colors::Colors(void)'],['../classvg_1_1Colors.html#a89032e6156425d236bcd721e3f1343d4',1,'vg::Colors::Colors(int seed_val)']]],
+  ['colors',['Colors',['../classvg_1_1Colors.html#a8bef9f7ce8512f3e800dded6a8470ac1',1,'vg::Colors::Colors(void)'],['../classvg_1_1Colors.html#a89032e6156425d236bcd721e3f1343d4',1,'vg::Colors::Colors(int seed_val)'],['../classvg_1_1Colors.html#a20b7cf0022c8e1340b82176e5715cd2f',1,'vg::Colors::colors()']]],
   ['colors',['Colors',['../classvg_1_1Colors.html',1,'vg']]],
   ['colors_2ehpp',['colors.hpp',['../colors_8hpp.html',1,'']]],
   ['column_5ffamily_5foptions',['column_family_options',['../classvg_1_1Index.html#a3b65ef8aecfa71ad34ecbe832a47e82e',1,'vg::Index']]],

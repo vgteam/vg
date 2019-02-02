@@ -1,13 +1,8 @@
 var searchData=
 [
   ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a47fbc525ed5e9f2a7b00c333f03fe6c8',1,'vg::VG::tail_nodes(vector&lt; Node * &gt; &amp;nodes)']]],
-  ['take',['take',['../classvg_1_1stream_1_1ProtobufIterator.html#a4897ff0f2a079e95cc0616df9ae993f3',1,'vg::stream::ProtobufIterator']]],
   ['target_5falignment',['target_alignment',['../classxg_1_1XG.html#a87dfe8567803bebf9409ab3c2aaea36f',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse) const '],['../classxg_1_1XG.html#a58bf34023594fe938008df643154ff39',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse, Mapping &amp;cigar_mapping) const ']]],
   ['targetvaluesearch',['TargetValueSearch',['../classvg_1_1TargetValueSearch.html#a7b5ec9882ca34d7883ced17ef219b1b4',1,'vg::TargetValueSearch::TargetValueSearch()=default'],['../classvg_1_1TargetValueSearch.html#a66c7161857ea38dab47c4da883435ac4',1,'vg::TargetValueSearch::TargetValueSearch(const HandleGraph &amp;handle_graph, DistanceHeuristic *upper_bound_heuristic, DistanceHeuristic *lower_bound_heuristic)']]],
-  ['tell',['Tell',['../classvg_1_1stream_1_1BlockedGzipInputStream.html#a78f08a4d410bfb252c74e212e0fa84db',1,'vg::stream::BlockedGzipInputStream::Tell()'],['../classvg_1_1stream_1_1BlockedGzipOutputStream.html#ae4dbb4d5c6b0b32d3c564774b423372f',1,'vg::stream::BlockedGzipOutputStream::Tell()']]],
-  ['tell_5fgroup',['tell_group',['../classvg_1_1stream_1_1ProtobufIterator.html#a5fa92aed30e3e73510023d7d9c8a8c43',1,'vg::stream::ProtobufIterator']]],
-  ['tell_5fitem',['tell_item',['../classvg_1_1stream_1_1ProtobufIterator.html#ac6eadec7fc9fa3eec10de230ef2711d0',1,'vg::stream::ProtobufIterator']]],
-  ['tell_5fraw',['tell_raw',['../classvg_1_1stream_1_1ProtobufIterator.html#aa1ee9b52645c5f9a30dcaf3d2a0762b5',1,'vg::stream::ProtobufIterator']]],
   ['thread_5fname',['thread_name',['../classxg_1_1XG.html#a7acb5d6ab8d2926b89f860a8cc3b1678',1,'xg::XG']]],
   ['thread_5fstart',['thread_start',['../classxg_1_1XG.html#a837a737f07c534593b631f288b1b24b5',1,'xg::XG::thread_start(int64_t thread_id) const '],['../classxg_1_1XG.html#abc6d0a25a4094f1ade6c045b54d2165b',1,'xg::XG::thread_start(int64_t thread_id, bool is_rev) const ']]],
   ['thread_5fstarting_5fat',['thread_starting_at',['../classxg_1_1XG.html#ac51979da4ceb765ba5ba47c93b14d112',1,'xg::XG']]],

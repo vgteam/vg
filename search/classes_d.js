@@ -1,16 +1,18 @@
 var searchData=
 [
-  ['namemapper',['NameMapper',['../classvg_1_1NameMapper.html',1,'vg']]],
-  ['nestedtraversalfinder',['NestedTraversalFinder',['../classvg_1_1NestedTraversalFinder.html',1,'vg']]],
-  ['netgraph',['NetGraph',['../classvg_1_1NetGraph.html',1,'vg']]],
-  ['ngssimulator',['NGSSimulator',['../classvg_1_1NGSSimulator.html',1,'vg']]],
-  ['noalignmentinbandexception',['NoAlignmentInBandException',['../classvg_1_1NoAlignmentInBandException.html',1,'vg']]],
-  ['node',['Node',['../structvg_1_1Node.html',1,'vg']]],
-  ['node_5ft',['node_t',['../structvg_1_1HashGraph_1_1node__t.html',1,'vg::HashGraph']]],
-  ['nodedivider',['NodeDivider',['../structvg_1_1NodeDivider.html',1,'vg']]],
-  ['nodepileup',['NodePileup',['../structvg_1_1NodePileup.html',1,'vg']]],
-  ['nodeside',['NodeSide',['../classvg_1_1NodeSide.html',1,'vg']]],
-  ['nodetraversal',['NodeTraversal',['../classvg_1_1NodeTraversal.html',1,'vg']]],
-  ['normal_5fdistribution',['normal_distribution',['../classvg_1_1normal__distribution.html',1,'vg']]],
-  ['normal_5fdistribution_3c_20double_20_3e',['normal_distribution&lt; double &gt;',['../classvg_1_1normal__distribution.html',1,'vg']]]
+  ['occurrence_5fhandle_5ft',['occurrence_handle_t',['../structvg_1_1occurrence__handle__t.html',1,'vg']]],
+  ['option',['Option',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20bool_20_3e',['Option&lt; bool &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20double_20_3e',['Option&lt; double &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20int64_5ft_20_3e',['Option&lt; int64_t &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20size_5ft_20_3e',['Option&lt; size_t &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20string_20_3e',['Option&lt; string &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20vector_3c_20item_20_3e_2c_20parser_20_3e',['Option&lt; vector&lt; Item &gt;, Parser &gt;',['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html',1,'vg']]],
+  ['option_3c_20vector_3c_20size_5ft_20_3e_20_3e',['Option&lt; vector&lt; size_t &gt; &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20vector_3c_20string_20_3e_20_3e',['Option&lt; vector&lt; string &gt; &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['optioninterface',['OptionInterface',['../classvg_1_1OptionInterface.html',1,'vg']]],
+  ['optionvalueparser',['OptionValueParser',['../classvg_1_1OptionValueParser.html',1,'vg']]],
+  ['optionvalueparser_3c_20vector_3c_20item_20_3e_20_3e',['OptionValueParser&lt; vector&lt; Item &gt; &gt;',['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html',1,'vg']]],
+  ['orienteddistanceclusterer',['OrientedDistanceClusterer',['../classvg_1_1OrientedDistanceClusterer.html',1,'vg']]],
+  ['orienteddistancemeasurer',['OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html',1,'vg']]]
 ];

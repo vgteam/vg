@@ -143,9 +143,9 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-types"></a>
 Private Types</h2></td></tr>
-<tr class="memitem:aae3c3b38be9f5288418aaaeb44418af1"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> = <a class="el" href="classvg_1_1stream_1_1ProtobufIterator.html">stream::ProtobufIterator</a>&lt; Message &gt;</td></tr>
+<tr class="memitem:aae3c3b38be9f5288418aaaeb44418af1"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> = stream::ProtobufIterator&lt; Message &gt;</td></tr>
 <tr class="separator:aae3c3b38be9f5288418aaaeb44418af1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a14c3a4f18cc2a9c88164668566bd563b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> = <a class="el" href="classvg_1_1stream_1_1ProtobufEmitter.html">stream::ProtobufEmitter</a>&lt; Message &gt;</td></tr>
+<tr class="memitem:a14c3a4f18cc2a9c88164668566bd563b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> = stream::ProtobufEmitter&lt; Message &gt;</td></tr>
 <tr class="separator:a14c3a4f18cc2a9c88164668566bd563b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
@@ -186,7 +186,7 @@ template&lt;typename Message &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> =  <a class="el" href="classvg_1_1stream_1_1ProtobufIterator.html">stream::ProtobufIterator</a>&lt;Message&gt;</td>
+          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> =  stream::ProtobufIterator&lt;Message&gt;</td>
         </tr>
       </table>
   </td>
@@ -208,7 +208,7 @@ template&lt;typename Message &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> =  <a class="el" href="classvg_1_1stream_1_1ProtobufEmitter.html">stream::ProtobufEmitter</a>&lt;Message&gt;</td>
+          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> =  stream::ProtobufEmitter&lt;Message&gt;</td>
         </tr>
       </table>
   </td>
@@ -272,7 +272,7 @@ template&lt;typename Message &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Sort a stream of <a class="el" href="stream_8hpp.html">stream.hpp</a>-format data, loading it all into memory and doing a single giant sort operation. Optionally index the sorted file into the given index. </p>
+<p>Sort a stream of stream/stream.hpp-format data, loading it all into memory and doing a single giant sort operation. Optionally index the sorted file into the given index. </p>
 
 </div>
 </div>
@@ -448,7 +448,7 @@ template&lt;typename Message &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Sort a stream of <a class="el" href="stream_8hpp.html">stream.hpp</a>-format data, using temporary files, limiting the number of simultaneously open input files and the size of in-memory data. Optionally index the sorted file into the given index. </p>
+<p>Sort a stream of stream/stream.hpp-format data, using temporary files, limiting the number of simultaneously open input files and the size of in-memory data. Optionally index the sorted file into the given index. </p>
 
 </div>
 </div>

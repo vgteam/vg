@@ -23,7 +23,6 @@ var searchData=
   ['index_5fedges_5fhead',['index_edges_head',['../classvg_1_1XdropAligner.html#a1c2e62b98c5a0dce8b82722891267a17',1,'vg::XdropAligner']]],
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
-  ['input',['input',['../structvg_1_1stream_1_1hFILE__cppstream.html#a5107e698bbf01885cba8cc0a9d989f96',1,'vg::stream::hFILE_cppstream']]],
   ['insert_5fcol',['insert_col',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9a17e99af8ce2b7992fddef79c4e8b18',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['insert_5fmean',['insert_mean',['../classvg_1_1Filter.html#ab8a36803dfa97e61678756f7b7a3a31c',1,'vg::Filter::insert_mean()'],['../classvg_1_1NGSSimulator.html#ae7110e5b235c8a69f66cba73a6570660',1,'vg::NGSSimulator::insert_mean()']]],
   ['insert_5frow',['insert_row',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ade4c512c3713ac162359ed6d9207537d',1,'vg::BandedGlobalAligner::BAMatrix']]],
@@ -45,7 +44,5 @@ var searchData=
   ['is_5freverse',['is_reverse',['../structvg_1_1Genotyper_1_1Affinity.html#ae1707128484386f3a20eb8c6a8f9ec95',1,'vg::Genotyper::Affinity::is_reverse()'],['../structvg_1_1Position.html#aeb715b329bd7371ca380a2f2abdcbd13',1,'vg::Position::is_reverse()'],['../structxg_1_1XG_1_1ThreadMapping.html#ad76b5bf95182c95540db5f99e449586f',1,'xg::XG::ThreadMapping::is_reverse()']]],
   ['is_5fsecondary',['is_secondary',['../structvg_1_1Alignment.html#a59a4b8c7367fb468e46bcf6ae292888f',1,'vg::Alignment']]],
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
-  ['item_5fbytes',['item_bytes',['../classvg_1_1stream_1_1ProtobufIterator.html#a13abfbcf453c4eb5aa09e868e64f9f33',1,'vg::stream::ProtobufIterator']]],
-  ['item_5fvo',['item_vo',['../classvg_1_1stream_1_1ProtobufIterator.html#ab0549ac199aa9111f05f562f4ce67673',1,'vg::stream::ProtobufIterator']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]]
 ];

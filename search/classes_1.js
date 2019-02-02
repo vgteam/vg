@@ -19,7 +19,5 @@ var searchData=
   ['bitstring',['BitString',['../classvg_1_1BitString.html',1,'vg']]],
   ['bitstringtree',['BitStringTree',['../classvg_1_1BitStringTree.html',1,'vg']]],
   ['bitstringtree_3c_20bin_5ft_20_3e',['BitStringTree&lt; bin_t &gt;',['../classvg_1_1BitStringTree.html',1,'vg']]],
-  ['blockedgzipinputstream',['BlockedGzipInputStream',['../classvg_1_1stream_1_1BlockedGzipInputStream.html',1,'vg::stream']]],
-  ['blockedgzipoutputstream',['BlockedGzipOutputStream',['../classvg_1_1stream_1_1BlockedGzipOutputStream.html',1,'vg::stream']]],
   ['breakpoint',['BREAKPOINT',['../structvg_1_1BREAKPOINT.html',1,'vg']]]
 ];
