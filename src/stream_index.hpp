@@ -3,7 +3,7 @@
 
 /**
  * \file stream_index.hpp
- * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted stream.hpp-formatted files.
+ * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted stream/stream.hpp-formatted files.
  */
  
 #include <iostream>
@@ -14,7 +14,7 @@
 
 #include "types.hpp"
 #include "vg.pb.h"
-#include "stream.hpp"
+#include "stream/protobuf_iterator.hpp"
 #include "scanner.hpp"
 
 namespace vg {
@@ -160,7 +160,7 @@ protected:
 };
 
 /**
- * An index for a node-ID-sorted stream.hpp-formatted file, such as GAM or VG.
+ * An index for a node-ID-sorted stream/stream.hpp-formatted file, such as GAM or VG.
  *
  * Works on a BAI-like concept of bins partitioning node ID space.
  *
@@ -641,7 +641,7 @@ auto StreamIndex<Message>::find(cursor_t& cursor, const vector<pair<id_t, id_t>>
 #endif
     
     // We need seek support
-    assert(cursor.tell_raw() != -1);
+    assert(cursor.tell_group() != -1);
     
     // Because a node in a later range may appear earlier in the file than a
     // node in an earlier range (but in a high-in-the-hierarchy bin), in
@@ -903,7 +903,7 @@ auto StreamIndex<Message>::index(cursor_t& cursor) -> void {
     
     if (!group.empty()) {
         // Record the final group. Use wherever the cursor landed at the end as its final virtual offset.
-        add_group(group, group_vo, cursor.tell_raw());
+        add_group(group, group_vo, cursor.tell_group());
     }
 }
 
@@ -912,8 +912,6 @@ auto StreamIndex<Message>::add_group(const vector<Message>& msgs, int64_t virtua
     // Find the min and max ID visited by any of the messages
     id_t min_id = numeric_limits<id_t>::max();
     id_t max_id = numeric_limits<id_t>::min();
-    
-    
     
     for (auto& msg : msgs) {
         // For each message

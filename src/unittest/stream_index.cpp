@@ -7,6 +7,7 @@
 #include <iostream>
 #include "catch.hpp"
 #include "../stream_index.hpp"
+#include "../stream/stream.hpp"
 #include "../utility.hpp"
 
 

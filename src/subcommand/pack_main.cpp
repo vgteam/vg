@@ -2,7 +2,8 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -103,18 +104,17 @@ int main_pack(int argc, char** argv) {
 
     omp_set_num_threads(thread_count);
 
-    xg::XG xgidx;
+    unique_ptr<xg::XG> xgidx;
     if (xg_name.empty()) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        ifstream in(xg_name.c_str());
-        xgidx.load(in);
+        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
     }
 
     // todo one packer per thread and merge
 
-    vg::Packer packer(&xgidx, bin_size);
+    vg::Packer packer(xgidx.get(), bin_size);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -127,7 +127,7 @@ int main_pack(int argc, char** argv) {
             packers.push_back(&packer);
         } else {
             for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(&xgidx, bin_size));
+                packers.push_back(new Packer(xgidx.get(), bin_size));
             }
         }
         std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
