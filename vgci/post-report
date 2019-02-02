@@ -208,18 +208,15 @@ cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
 if [ ! -z "${CI}" ]; then
     # On cloud CI, so actually post a comment
     
-    if [ -z "${CI_MERGE_REQUEST_IID}" ] && [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
+    # Comment on the commit we built.
+    # We don't have a good way to know if there is an open PR for it, and there might be more than one maybe.
+    vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true 
+    
+    if [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
         # Normal master build
-                
-        # Comment on the commit we built
-        vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true    
         
         # We grabbed the mutex, so we need to release it
         unlock_mutex "master_sync"    
-    elif [ ! -z "${CI_MERGE_REQUEST_IID}" ]; then
-        # PR build so we comment on the PR
-        # Won't work until GH_TOKEN env var is exposed on cloud CI 
-        vgci/post-comment.py vgteam/vg --in_file processed.md --pr "${CI_MERGE_REQUEST_IID}" || true
     fi
 fi
 

@@ -34,7 +34,7 @@ def parse_args(args):
         default=sys.stdin,
         help="File to read comment Markdown from (default: standard input)")
     parser.add_argument("--gh_token", default=os.environ.get("GH_TOKEN"),
-        help="Github token to use to log in (default: GH_TOKEN env var)")
+        help="Github token with public_repo permission to use to log in (default: GH_TOKEN env var)")
     parser.add_argument("repo",
         help="repo (user/repoName) to comment on things in")
     # Then we need either a PR number or a commmit hash to comment on
