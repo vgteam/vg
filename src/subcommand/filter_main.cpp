@@ -39,7 +39,6 @@ void help_filter(char** argv) {
          << "    -S, --drop-split           remove split reads taking nonexistent edges" << endl
          << "    -x, --xg-name FILE         use this xg index (required for -S and -D)" << endl
          << "    -A, --append-regions       append to alignments created with -RB" << endl
-         << "    -c, --context STEPS        expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose              print out statistics on numbers of reads filtered by what." << endl
          << "    -V, --no-output            print out statistics (as above) but do not write out filtered GAM." << endl
          << "    -q, --min-mapq N           filter alignments with mapping quality < N" << endl
@@ -47,6 +46,8 @@ void help_filter(char** argv) {
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
          << "    -C, --defray-count N       stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
          << "    -d, --downsample S.P       filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
+         << "    -i, --interleaved          assume interleaved input.  both ends will be filtered out if either fails filter" << endl
+         << "    -b, --min-base-quality Q:F filter reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
          << "    -t, --threads N            number of threads [1]" << endl;
 }
 
@@ -84,19 +85,20 @@ int main_filter(int argc, char** argv) {
                 {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"append-regions", no_argument, 0, 'A'},
-                {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
                 {"downsample", required_argument, 0, 'd'},
+                {"interleaved", required_argument, 0, 'i'},
+                {"min-base-quality", required_argument, 0, 'b'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:Ac:vVq:E:D:C:d:t:",
+        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:AvVq:E:D:C:d:ib:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -152,9 +154,6 @@ int main_filter(int argc, char** argv) {
             break;
         case 'A':
             filter.append_regions = true;
-            break;
-        case 'c':
-            filter.context_size = parse<int>(optarg);
             break;
         case 'q':
             filter.min_mapq = parse<double>(optarg);
@@ -213,6 +212,24 @@ int main_filter(int argc, char** argv) {
                 }
             }
             break;
+        case 'i':
+            filter.interleaved = true;
+            break;
+        case 'b':
+            {
+                vector<string> parts = split_delims(string(optarg), ":");
+                if (!parts.size() == 2) {
+                    cerr << "[vg filter] Error: -b expects value in form of <INT>:<FLOAT>" << endl;
+                    return 1;
+                }
+                filter.min_base_quality = parse<int>(parts[0]);
+                filter.min_base_quality_fraction = parse<double>(parts[1]);
+                if (filter.min_base_quality_fraction < 0 || filter.min_base_quality_fraction > 1) {
+                    cerr << "[vg filter] Error: second part of -b input must be between 0 and 1" << endl;
+                    return 1;
+                }
+            }
+            break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -248,13 +265,15 @@ int main_filter(int argc, char** argv) {
         // read the xg index
         xindex = stream::VPKG::load_one<xg::XG>(xg_name);
     }
+    filter.xindex = xindex.get();
     
+    // Read in the alignments and filter them.
     get_input_file(optind, argc, argv, [&](istream& in) {
         // Open up the alignment stream
         
         // Read in the alignments and filter them.
-        error_code = filter.filter(&in, xindex.get());
-    });
+        error_code = filter.filter(&in);
+      });
 
     return error_code;
 }
