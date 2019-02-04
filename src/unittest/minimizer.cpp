@@ -6,6 +6,7 @@
 
 #include "../minimizer.hpp"
 #include "../json2pb.h"
+#include "../position.hpp"
 #include "../utility.hpp"
 
 #include "catch.hpp"
@@ -137,7 +138,8 @@ void check_minimizer_index(const MinimizerIndex& index, const std::map<size_t, s
     for (auto iter = correct_values.begin(); iter != correct_values.end(); ++iter) {
         std::vector<pos_t> result = index.find(iter->first);
         std::vector<pos_t> correct(iter->second.begin(), iter->second.end());
-        REQUIRE(result == correct);
+        bool correct_result_or_empty_value = (result == correct || (correct.empty() && result.size() == 1 && is_empty(result.front())));
+        REQUIRE(correct_result_or_empty_value);
     }
 }
 
@@ -255,6 +257,14 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
     }
 }
 
+void check_empty_values(const MinimizerIndex& index, size_t keys, size_t step) {
+    for (size_t i = 1; i < keys; i += step) {
+        std::vector<pos_t> result = index.find(i);
+        bool empty_value = (result.size() == 1 && is_empty(result.front()));
+        REQUIRE(empty_value);
+    }
+}
+
 TEST_CASE("Setting max_values works", "[minimizer_index][indexing]") {
     constexpr size_t TOTAL_KEYS = 16;
 
@@ -284,6 +294,7 @@ TEST_CASE("Setting max_values works", "[minimizer_index][indexing]") {
             index.insert(i, pos);
         }
         check_minimizer_index(index, correct_values, keys, values, unique, frequent);
+        check_empty_values(index, TOTAL_KEYS, 2);
     }
 
     SECTION("max_values = 2") {
@@ -314,6 +325,7 @@ TEST_CASE("Setting max_values works", "[minimizer_index][indexing]") {
             index.insert(i, pos);
         }
         check_minimizer_index(index, correct_values, keys, values, unique, frequent);
+        check_empty_values(index, TOTAL_KEYS, 4);
     }
 
     SECTION("max_values = 3") {
@@ -346,6 +358,7 @@ TEST_CASE("Setting max_values works", "[minimizer_index][indexing]") {
             values -= 3; frequent++;
         }
         check_minimizer_index(index, correct_values, keys, values, unique, frequent);
+        check_empty_values(index, TOTAL_KEYS, 8);
     }
 }
 

@@ -129,6 +129,8 @@ public:
     void insert(key_type key, pos_t pos);
 
     /// Returns the sorted set of occurrences of the kmer encoded in the key.
+    /// If the occurrence limit has been exceeded, returns a vector containing an
+    /// empty position.
     /// Use minimizer() or minimizers() to get the key.
     std::vector<pos_t> find(key_type key) const;
 

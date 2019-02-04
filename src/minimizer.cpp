@@ -520,7 +520,7 @@ std::vector<pos_t> MinimizerIndex::find(key_type key) const {
             for (code_type pos : *(cell.second.pointer)) {
                 result.push_back(decode(pos));
             }
-        } else if (cell.second.value != NO_VALUE) {
+        } else {
             result.push_back(decode(cell.second.value));
         }
     }
