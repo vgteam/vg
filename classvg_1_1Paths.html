@@ -282,8 +282,9 @@ set&lt; <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> * &gt; &gt
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
 Static Public Attributes</h2></td></tr>
-<tr class="memitem:a77f8bccedce597f7a9e2a9e22e056f1b"><td class="memItemLeft" align="right" valign="top">static const std::regex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a77f8bccedce597f7a9e2a9e22e056f1b">is_alt</a></td></tr>
-<tr class="separator:a77f8bccedce597f7a9e2a9e22e056f1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3e8fd05a0a584cbae2f2919b5ab98e4d"><td class="memItemLeft" align="right" valign="top">static const function&lt; bool(const <br class="typebreak"/>
+string &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Paths.html#a3e8fd05a0a584cbae2f2919b5ab98e4d">is_alt</a></td></tr>
+<tr class="separator:a3e8fd05a0a584cbae2f2919b5ab98e4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -1943,7 +1944,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a77f8bccedce597f7a9e2a9e22e056f1b"></a>
+<a class="anchor" id="a3e8fd05a0a584cbae2f2919b5ab98e4d"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -1951,7 +1952,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">const std::regex vg::Paths::is_alt</td>
+          <td class="memname">const std::function&lt; bool(const string &amp;)&gt; vg::Paths::is_alt</td>
         </tr>
       </table>
   </td>
@@ -1960,7 +1961,34 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
+<b>Initial value:</b><div class="fragment"><div class="line">= [](<span class="keyword">const</span> <span class="keywordtype">string</span>&amp; path_name) {</div>
+<div class="line">    </div>
+<div class="line">    </div>
+<div class="line">    </div>
+<div class="line">    <span class="keywordtype">string</span> prefix(<span class="stringliteral">&quot;_alt_&quot;</span>);</div>
+<div class="line">    </div>
+<div class="line">    <span class="keywordflow">if</span> (path_name.length() &lt; prefix.length() || !std::equal(prefix.begin(), prefix.end(), path_name.begin())) {</div>
+<div class="line">        </div>
+<div class="line">        <span class="keywordflow">return</span> <span class="keyword">false</span>;</div>
+<div class="line">    }</div>
+<div class="line">    </div>
+<div class="line">    </div>
+<div class="line">    </div>
+<div class="line">    <span class="keywordtype">size_t</span> found_digits = 0;</div>
+<div class="line">    <span class="keywordflow">for</span> (<span class="keyword">auto</span> it = path_name.rbegin(); it != path_name.rend() &amp;&amp; *it != <span class="charliteral">&#39;_&#39;</span>; ++it) {</div>
+<div class="line">        </div>
+<div class="line">        <span class="keywordflow">if</span> (*it &lt; &#39;0&#39; || *it &gt; <span class="charliteral">&#39;9&#39;</span>) {</div>
+<div class="line">            </div>
+<div class="line">            <span class="keywordflow">return</span> <span class="keyword">false</span>;</div>
+<div class="line">        }</div>
+<div class="line">        found_digits++;</div>
+<div class="line">    }</div>
+<div class="line">    </div>
+<div class="line">    </div>
+<div class="line">    <span class="keywordflow">return</span> (found_digits &gt; 0);</div>
+<div class="line">    </div>
+<div class="line">}</div>
+</div><!-- fragment -->
 </div>
 </div>
 <a class="anchor" id="ae2bd0d7232fb84776841ac7c4bfea0d2"></a>

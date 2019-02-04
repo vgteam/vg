@@ -118,6 +118,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7d97b9849c89622d676848532be900cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a7d97b9849c89622d676848532be900cb">to_xg</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;index, bool store_threads=false)</td></tr>
 <tr class="memdesc:a7d97b9849c89622d676848532be900cb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transforms to a succinct, queryable representation.  <a href="#a7d97b9849c89622d676848532be900cb">More...</a><br/></td></tr>
 <tr class="separator:a7d97b9849c89622d676848532be900cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5754ef836d7417f9c30cdb7c9838412e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a5754ef836d7417f9c30cdb7c9838412e">to_xg</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;index, bool store_threads, const function&lt; bool(const string &amp;)&gt; &amp;paths_to_take, map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; *removed_paths=nullptr)</td></tr>
+<tr class="separator:a5754ef836d7417f9c30cdb7c9838412e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a31c22f753e170b8cbbdf004a00810135"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a31c22f753e170b8cbbdf004a00810135">to_xg</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;index, bool store_threads, const regex &amp;paths_to_take, map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; *removed_paths=nullptr)</td></tr>
 <tr class="separator:a31c22f753e170b8cbbdf004a00810135"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab5926c6ef9d77645c788bc61099f395"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#aab5926c6ef9d77645c788bc61099f395">store_in_index</a> (<a class="el" href="classvg_1_1Index.html">Index</a> &amp;index)</td></tr>
@@ -391,6 +393,45 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Transforms to a succinct, queryable representation. </p>
+
+</div>
+</div>
+<a class="anchor" id="a5754ef836d7417f9c30cdb7c9838412e"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VGset::to_xg </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classxg_1_1XG.html">xg::XG</a> &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>store_threads</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; bool(const string &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>paths_to_take</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">map&lt; string, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; *&#160;</td>
+          <td class="paramname"><em>removed_paths</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>As above, except paths with names matching the given predicate are removed. They are returned separately by inserting them into the provided map if not null. </p>
 
 </div>
 </div>

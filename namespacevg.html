@@ -1354,8 +1354,8 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:ad435098725ff21d822052abee009d2bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3aef5ee16ad883f8defeaa0f52fc342c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3aef5ee16ad883f8defeaa0f52fc342c">path_from_node_traversals</a> (const list&lt; <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a> &gt; &amp;traversals)</td></tr>
 <tr class="separator:a3aef5ee16ad883f8defeaa0f52fc342c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4bbc811a743bb67f5425058843f51f1c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4bbc811a743bb67f5425058843f51f1c">remove_paths</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph, const std::regex &amp;paths_to_take, std::list&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; *matching)</td></tr>
-<tr class="separator:a4bbc811a743bb67f5425058843f51f1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5e16e94675197650b9d6edb9e7a9081"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad5e16e94675197650b9d6edb9e7a9081">remove_paths</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph, const function&lt; bool(const string &amp;)&gt; &amp;paths_to_take, std::list&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; *matching)</td></tr>
+<tr class="separator:ad5e16e94675197650b9d6edb9e7a9081"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9fa6175557c33cd572b8726222cf6547"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9fa6175557c33cd572b8726222cf6547">increment_node_mapping_ids</a> (<a class="el" href="structvg_1_1Path.html">Path</a> &amp;p, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> inc)</td></tr>
 <tr class="separator:a9fa6175557c33cd572b8726222cf6547"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1b5ffc03255d72f1901a7b1ce34c058a"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1Paths.html">Paths</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1b5ffc03255d72f1901a7b1ce34c058a">paths_from_graph</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g)</td></tr>
@@ -9479,34 +9479,6 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a81357f8477c9ed2c3839489e0ada1ced"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">mapping_t&#160;</td>
-          <td class="paramname"><em>mapping</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
-
-</div>
-</div>
 <a class="anchor" id="ad1bdeb550c6f5fa632ad61454321e001"></a>
 <div class="memitem">
 <div class="memproto">
@@ -9540,6 +9512,34 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Print the given <a class="el" href="classvg_1_1NodeTraversal.html">NodeTraversal</a>. </p>
+
+</div>
+</div>
+<a class="anchor" id="a81357f8477c9ed2c3839489e0ada1ced"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">ostream &amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">mapping_t&#160;</td>
+          <td class="paramname"><em>mapping</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Allow a <a class="el" href="classvg_1_1mapping__t.html">mapping_t</a> to be printed, for debugging purposes. </p>
 
 </div>
 </div>
@@ -11815,7 +11815,7 @@ template&lt;class Decoder &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a4bbc811a743bb67f5425058843f51f1c"></a>
+<a class="anchor" id="ad5e16e94675197650b9d6edb9e7a9081"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -11828,7 +11828,7 @@ template&lt;class Decoder &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const std::regex &amp;&#160;</td>
+          <td class="paramtype">const function&lt; bool(const string &amp;)&gt; &amp;&#160;</td>
           <td class="paramname"><em>paths_to_take</em>, </td>
         </tr>
         <tr>

@@ -99,7 +99,6 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &lt;set&gt;</code><br/>
 <code>#include &lt;list&gt;</code><br/>
 <code>#include &lt;sstream&gt;</code><br/>
-<code>#include &lt;regex&gt;</code><br/>
 <code>#include &quot;<a class="el" href="json2pb_8h.html">json2pb.h</a>&quot;</code><br/>
 <code>#include &quot;vg.pb.h&quot;</code><br/>
 <code>#include &quot;<a class="el" href="edit_8hpp.html">edit.hpp</a>&quot;</code><br/>
@@ -238,8 +237,8 @@ Functions</h2></td></tr>
 <tr class="separator:ad435098725ff21d822052abee009d2bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3aef5ee16ad883f8defeaa0f52fc342c"><td class="memItemLeft" align="right" valign="top">Path&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3aef5ee16ad883f8defeaa0f52fc342c">vg::path_from_node_traversals</a> (const list&lt; NodeTraversal &gt; &amp;traversals)</td></tr>
 <tr class="separator:a3aef5ee16ad883f8defeaa0f52fc342c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4bbc811a743bb67f5425058843f51f1c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4bbc811a743bb67f5425058843f51f1c">vg::remove_paths</a> (Graph &amp;graph, const std::regex &amp;paths_to_take, std::list&lt; Path &gt; *matching)</td></tr>
-<tr class="separator:a4bbc811a743bb67f5425058843f51f1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5e16e94675197650b9d6edb9e7a9081"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad5e16e94675197650b9d6edb9e7a9081">vg::remove_paths</a> (Graph &amp;graph, const function&lt; bool(const string &amp;)&gt; &amp;paths_to_take, std::list&lt; Path &gt; *matching)</td></tr>
+<tr class="separator:ad5e16e94675197650b9d6edb9e7a9081"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
