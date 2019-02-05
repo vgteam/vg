@@ -37,6 +37,7 @@ var searchData=
   ['bs_5fseparator',['BS_SEPARATOR',['../classxg_1_1XG.html#aa456e28e5b3d0e9a232cc8b2b57daabd',1,'xg::XG']]],
   ['bs_5fsingle_5farray',['bs_single_array',['../classxg_1_1XG.html#a7e81b7bf83e6b8df96a150d854ce3ff9',1,'xg::XG']]],
   ['buffer',['buffer',['../classvg_1_1VcfBuffer.html#a92c8a919554e2a7dd2ca34fae94948fc',1,'vg::VcfBuffer']]],
+  ['buffer_5fsize',['buffer_size',['../classvg_1_1ReadFilter.html#ad5aa58e55aa8546d0e555a90b7b1ac1a',1,'vg::ReadFilter']]],
   ['build_5fhost',['BUILD_HOST',['../classvg_1_1Version.html#a6e1e33f37aa4d73f0a9038e03bbbaec7',1,'vg::Version']]],
   ['build_5fuser',['BUILD_USER',['../classvg_1_1Version.html#a0ed0401bd4a0b5d42c2c40048f67f66c',1,'vg::Version']]],
   ['bulk_5fload',['bulk_load',['../classvg_1_1Index.html#a060b892edbbac6f475d80510f50abda3',1,'vg::Index']]],

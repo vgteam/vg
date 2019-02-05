@@ -30,6 +30,7 @@ var searchData=
   ['insert_5fsd',['insert_sd',['../classvg_1_1Filter.html#ac302d7b67d23285ad615d864197a9e1b',1,'vg::Filter::insert_sd()'],['../classvg_1_1NGSSimulator.html#ad2b7308f35efc8c934357760d65b7ef5',1,'vg::NGSSimulator::insert_sd()']]],
   ['insertions',['insertions',['../structvg_1_1InsertHaplotypeCommand.html#a5dfd52deff7c8c3fc76fa7b4dee45032',1,'vg::InsertHaplotypeCommand::insertions()'],['../structvg_1_1ReplaceLocalHaplotypeCommand.html#a44ad82bbfa6098c648bc1a6fcd61d102',1,'vg::ReplaceLocalHaplotypeCommand::insertions()']]],
   ['int_5fis_5finc',['int_is_inc',['../structhaplo_1_1haplo__DP__rectangle.html#a45856786beeaa7213275fcaf3eaa6878',1,'haplo::haplo_DP_rectangle']]],
+  ['interleaved',['interleaved',['../classvg_1_1ReadFilter.html#a30a2dea40e9afefb8e7e4e1827a5c109',1,'vg::ReadFilter']]],
   ['intervals',['intervals',['../classvg_1_1SRPE.html#a5fc255cb93b3221c2b8a01ae7553ac7b',1,'vg::SRPE']]],
   ['inverse',['inverse',['../classvg_1_1Filter.html#a05e7274611008cdd5b89d1fa81605882',1,'vg::Filter']]],
   ['is_5falt',['is_alt',['../classvg_1_1Paths.html#a3e8fd05a0a584cbae2f2919b5ab98e4d',1,'vg::Paths']]],

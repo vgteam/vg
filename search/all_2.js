@@ -107,6 +107,7 @@ var searchData=
   ['bs_5fset',['bs_set',['../classxg_1_1XG.html#a535f78d7954843009652b2604817eb3f',1,'xg::XG']]],
   ['bs_5fsingle_5farray',['bs_single_array',['../classxg_1_1XG.html#a7e81b7bf83e6b8df96a150d854ce3ff9',1,'xg::XG']]],
   ['buffer',['buffer',['../classvg_1_1VcfBuffer.html#a92c8a919554e2a7dd2ca34fae94948fc',1,'vg::VcfBuffer']]],
+  ['buffer_5fsize',['buffer_size',['../classvg_1_1ReadFilter.html#ad5aa58e55aa8546d0e555a90b7b1ac1a',1,'vg::ReadFilter']]],
   ['bugs_5fmain_2ecpp',['bugs_main.cpp',['../bugs__main_8cpp.html',1,'']]],
   ['build',['build',['../classxg_1_1XG.html#a5155a32442f35372cb5c879802dc21ce',1,'xg::XG']]],
   ['build_5fedge_5findexes',['build_edge_indexes',['../classvg_1_1VG.html#a3fb2cb59474393ac822847033f185d17',1,'vg::VG']]],

@@ -76,6 +76,7 @@ var searchData=
   ['set_5foccurrence_5fprev',['set_occurrence_prev',['../classvg_1_1PackedGraph.html#a3229dc277ad5966800de82bb5f3a9165',1,'vg::PackedGraph']]],
   ['set_5foccurrence_5ftrav',['set_occurrence_trav',['../classvg_1_1PackedGraph.html#a5e9db7253450a93cb44420270442b1ba',1,'vg::PackedGraph']]],
   ['set_5foffset',['set_offset',['../structhaplo_1_1haplo__DP__rectangle.html#a9ca4ea25d72d1a40b9a0e1a170e88274',1,'haplo::haplo_DP_rectangle']]],
+  ['set_5fpaired',['set_paired',['../structvg_1_1ReadFilter_1_1Counts.html#aac9ed61730f66c87dff1c0ed03dfb282',1,'vg::ReadFilter::Counts']]],
   ['set_5fparent',['set_parent',['../classvg_1_1PackedSplayTree.html#a71a95bacf24a07c795c38971b5b9cf0a',1,'vg::PackedSplayTree']]],
   ['set_5fpath_5fposition',['set_path_position',['../classvg_1_1Surjector.html#a8809571de9ea2456f59958c1faf1e335',1,'vg::Surjector']]],
   ['set_5fprev_5fidx',['set_prev_idx',['../structhaplo_1_1haplo__DP__rectangle.html#ad1c78747473f9b8816c459949b8b8e8e',1,'haplo::haplo_DP_rectangle']]],

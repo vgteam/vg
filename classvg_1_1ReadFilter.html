@@ -107,8 +107,10 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:abd090d8ec4f6795bb99f30472b288d8c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#abd090d8ec4f6795bb99f30472b288d8c">filter</a> (istream *alignment_stream, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *xindex=nullptr)</td></tr>
-<tr class="separator:abd090d8ec4f6795bb99f30472b288d8c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a398d61417de9097c385315490b7034df"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1ReadFilter_1_1Counts.html">Counts</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a398d61417de9097c385315490b7034df">filter_alignment</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln)</td></tr>
+<tr class="separator:a398d61417de9097c385315490b7034df"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7fe8cb61ed8a2f376b0404e934af8b91"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a7fe8cb61ed8a2f376b0404e934af8b91">filter</a> (istream *alignment_stream)</td></tr>
+<tr class="separator:a7fe8cb61ed8a2f376b0404e934af8b91"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4cfa43ebe0d20d09262da65e5a7377a0"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a4cfa43ebe0d20d09262da65e5a7377a0">trim_ambiguous_ends</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *index, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, int k)</td></tr>
 <tr class="separator:a4cfa43ebe0d20d09262da65e5a7377a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -133,8 +135,6 @@ Public Attributes</h2></td></tr>
 <tr class="separator:ab73972404a3db8d8f902d3d47896857d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8848d4b66a515602fa38571b02667b51"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a8848d4b66a515602fa38571b02667b51">min_end_matches</a> = 0</td></tr>
 <tr class="separator:a8848d4b66a515602fa38571b02667b51"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5452d3494b272196ab5436109db6023c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a5452d3494b272196ab5436109db6023c">context_size</a> = 0</td></tr>
-<tr class="separator:a5452d3494b272196ab5436109db6023c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2ad1a1b72ee0b450fe79340451893cfa"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a2ad1a1b72ee0b450fe79340451893cfa">verbose</a> = false</td></tr>
 <tr class="separator:a2ad1a1b72ee0b450fe79340451893cfa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa1d1564e0834e1236d104da7045a4894"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#aa1d1564e0834e1236d104da7045a4894">min_mapq</a> = 0.</td></tr>
@@ -151,12 +151,20 @@ Public Attributes</h2></td></tr>
 <tr class="separator:af11c0f9ba830e35a5b92a041b0a24ded"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acad7bd40167b335fee96b0475a625aef"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#acad7bd40167b335fee96b0475a625aef">downsample_seed_mask</a> = 0</td></tr>
 <tr class="separator:acad7bd40167b335fee96b0475a625aef"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a22e4ebb26cce954d20deb7b0d7a31641"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a22e4ebb26cce954d20deb7b0d7a31641">threads</a> = 1</td></tr>
+<tr class="memitem:a22e4ebb26cce954d20deb7b0d7a31641"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a22e4ebb26cce954d20deb7b0d7a31641">threads</a> = -1</td></tr>
 <tr class="separator:a22e4ebb26cce954d20deb7b0d7a31641"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a588e66f7b5b4ba4ab86c8fd3651ab7c1"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a588e66f7b5b4ba4ab86c8fd3651ab7c1">regions_file</a></td></tr>
-<tr class="separator:a588e66f7b5b4ba4ab86c8fd3651ab7c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5e3358d7278a3d929a44b4fd670f861b"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a5e3358d7278a3d929a44b4fd670f861b">outbase</a></td></tr>
-<tr class="separator:a5e3358d7278a3d929a44b4fd670f861b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5aa58e55aa8546d0e555a90b7b1ac1a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ad5aa58e55aa8546d0e555a90b7b1ac1a">buffer_size</a> = 512</td></tr>
+<tr class="separator:ad5aa58e55aa8546d0e555a90b7b1ac1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5bab332dd50a2b84e4bb7798fabd349"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349">write_output</a> = true</td></tr>
+<tr class="separator:ad5bab332dd50a2b84e4bb7798fabd349"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a12f14eed67e334ea2c08ee5e1a2aaa3c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classxg_1_1XG.html">xg::XG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a12f14eed67e334ea2c08ee5e1a2aaa3c">xindex</a> = nullptr</td></tr>
+<tr class="separator:a12f14eed67e334ea2c08ee5e1a2aaa3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a30a2dea40e9afefb8e7e4e1827a5c109">interleaved</a> = false</td></tr>
+<tr class="separator:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52c77d9ed319e6f7cf3e38582621fce1"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a52c77d9ed319e6f7cf3e38582621fce1">min_base_quality</a> = 0</td></tr>
+<tr class="separator:a52c77d9ed319e6f7cf3e38582621fce1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6e494cd5be020669694244d1f3ffc4c6"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a6e494cd5be020669694244d1f3ffc4c6">min_base_quality_fraction</a> = 0.0</td></tr>
+<tr class="separator:a6e494cd5be020669694244d1f3ffc4c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a457e9fef8d1e19c78b4a72ff10d14260"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a457e9fef8d1e19c78b4a72ff10d14260">append_regions</a> = false</td></tr>
 <tr class="separator:a457e9fef8d1e19c78b4a72ff10d14260"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -172,7 +180,7 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a052c3d8dcfcf5b26d2180b37217159f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="abd090d8ec4f6795bb99f30472b288d8c"></a>
+<a class="anchor" id="a7fe8cb61ed8a2f376b0404e934af8b91"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -180,24 +188,29 @@ Private Member Functions</h2></td></tr>
           <td class="memname">int vg::ReadFilter::filter </td>
           <td>(</td>
           <td class="paramtype">istream *&#160;</td>
-          <td class="paramname"><em>alignment_stream</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramname"><em>alignment_stream</em></td><td>)</td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classxg_1_1XG.html">xg::XG</a> *&#160;</td>
-          <td class="paramname"><em>xindex</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p><a class="el" href="classvg_1_1Filter.html">Filter</a> the alignments available from the given stream, placing them on standard output or in the appropriate file. Returns 0 on success, exit code to use on error.</p>
-<p>If an XG index is required, use the specified one. If one is required and not provided, the function will complain and return nonzero.</p>
-<p>TODO: Refactor to be less CLI-aware and more modular-y. </p>
+<p><a class="el" href="classvg_1_1Filter.html">Filter</a> the alignments available from the given stream, placing them on standard output or in the appropriate file. Returns 0 on success, exit code to use on error. </p>
+
+</div>
+</div>
+<a class="anchor" id="a398d61417de9097c385315490b7034df"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1ReadFilter_1_1Counts.html">ReadFilter::Counts</a> vg::ReadFilter::filter_alignment </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Run all the filters on an alignment. The alignment may get modified in-place by the defray filter </p>
 
 </div>
 </div>
@@ -387,12 +400,12 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a5452d3494b272196ab5436109db6023c"></a>
+<a class="anchor" id="ad5aa58e55aa8546d0e555a90b7b1ac1a"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int vg::ReadFilter::context_size = 0</td>
+          <td class="memname">int vg::ReadFilter::buffer_size = 512</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -485,12 +498,48 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a30a2dea40e9afefb8e7e4e1827a5c109"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::ReadFilter::interleaved = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="ab73972404a3db8d8f902d3d47896857d"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">int vg::ReadFilter::max_overhang = 99999</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a52c77d9ed319e6f7cf3e38582621fce1"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::ReadFilter::min_base_quality = 0</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a6e494cd5be020669694244d1f3ffc4c6"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">double vg::ReadFilter::min_base_quality_fraction = 0.0</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -558,30 +607,6 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a5e3358d7278a3d929a44b4fd670f861b"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::ReadFilter::outbase</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a588e66f7b5b4ba4ab86c8fd3651ab7c1"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">string vg::ReadFilter::regions_file</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a4d1bcac75fda8d439384ba8c09c780cf"></a>
 <div class="memitem">
 <div class="memproto">
@@ -623,7 +648,7 @@ Private Member Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">int vg::ReadFilter::threads = 1</td>
+          <td class="memname">int vg::ReadFilter::threads = -1</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -636,6 +661,30 @@ Private Member Functions</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">bool vg::ReadFilter::verbose = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ad5bab332dd50a2b84e4bb7798fabd349"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::ReadFilter::write_output = true</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a12f14eed67e334ea2c08ee5e1a2aaa3c"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classxg_1_1XG.html">xg::XG</a>* vg::ReadFilter::xindex = nullptr</td>
         </tr>
       </table>
 </div><div class="memdoc">

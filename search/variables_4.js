@@ -11,8 +11,6 @@ var searchData=
   ['default_5fsequence_5fquality',['default_sequence_quality',['../classvg_1_1Genotyper.html#a3c40092b41694cacc7e531bf7f9fb8aa',1,'vg::Genotyper']]],
   ['default_5fvalue',['default_value',['../classvg_1_1BaseOption.html#ade40b0f856c10a12e3fc7847f4a33b7a',1,'vg::BaseOption']]],
   ['defrag_5ffactor',['defrag_factor',['../classvg_1_1PackedGraph.html#abd7e5dc4f51d971279498d333e135f11',1,'vg::PackedGraph']]],
-  ['defray',['defray',['../structvg_1_1ReadFilter_1_1Counts.html#a96b48377cdbf0c7f9ea92db210d92b7c',1,'vg::ReadFilter::Counts']]],
-  ['defray_5fall',['defray_all',['../structvg_1_1ReadFilter_1_1Counts.html#aca5d8a4d2ee752e0442a53cc38d416f4',1,'vg::ReadFilter::Counts']]],
   ['defray_5fcount',['defray_count',['../classvg_1_1ReadFilter.html#ac7397dca610aa815fd6a1abac7d67b5c',1,'vg::ReadFilter']]],
   ['defray_5flength',['defray_length',['../classvg_1_1ReadFilter.html#a0d85ffe55c3074f0b5f9664465fec883',1,'vg::ReadFilter']]],
   ['delay_5fpopulation_5fscoring',['delay_population_scoring',['../classvg_1_1MultipathMapper.html#a0435e272fb95a07554afacfaf9bd34c5',1,'vg::MultipathMapper']]],

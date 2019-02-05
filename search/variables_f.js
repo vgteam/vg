@@ -18,7 +18,6 @@ var searchData=
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
   ['out',['out',['../structhaplo_1_1haplo__DP__edge__memo.html#a5b237e3bd675f8f4c58dd21e3e704f95',1,'haplo::haplo_DP_edge_memo']]],
-  ['outbase',['outbase',['../classvg_1_1ReadFilter.html#a5e3358d7278a3d929a44b4fd670f861b',1,'vg::ReadFilter']]],
   ['outfile',['outfile',['../classvg_1_1Viz.html#a78a53d3a62a503ff6c29e93cb9a12a88',1,'vg::Viz']]],
   ['output_5fnames',['output_names',['../classVectorizer.html#aadb47085d4b369b1c9ea341b06311341',1,'Vectorizer']]],
   ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],

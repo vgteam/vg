@@ -59,12 +59,13 @@ var searchData=
   ['write_5fgcsa_5fkmers_5fto_5ftmpfile',['write_gcsa_kmers_to_tmpfile',['../namespacevg.html#a38d9326cbc013aed614bc052c8c224e6',1,'vg']]],
   ['write_5fmapping',['write_mapping',['../classvg_1_1PhaseUnfolder.html#a78c276c53410eebfadeafb72539c3f37',1,'vg::PhaseUnfolder']]],
   ['write_5foptions',['write_options',['../classvg_1_1Index.html#a785085834ced227c9a7182776e3126d0',1,'vg::Index']]],
+  ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349',1,'vg::ReadFilter']]],
   ['write_5fsupports',['write_supports',['../structvg_1_1SupportAugmentedGraph.html#a4f08f8c78bf0ffbfe7e364d4404b97a9',1,'vg::SupportAugmentedGraph']]],
   ['write_5fthread_5fdb',['write_thread_db',['../index__main_8cpp.html#a3e967d82afdc3e242c26338f354a96fc',1,'index_main.cpp']]],
   ['write_5ftranslations',['write_translations',['../structvg_1_1AugmentedGraph.html#a70ffd6eb24e80cfa265ae48cdde15a45',1,'vg::AugmentedGraph']]],
   ['write_5ftrivial_5fcalls',['write_trivial_calls',['../classvg_1_1SupportCaller.html#a216ee27f03698399b7ded8342d846ba1',1,'vg::SupportCaller']]],
   ['write_5fvariant',['write_variant',['../classvg_1_1Genotyper.html#af5b580b6db4e727934f964d00b058038',1,'vg::Genotyper']]],
   ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#a84ce0743c9a27e8b8ed32de37e4064fd',1,'vg::write_vcf_header()']]],
-  ['wrong_5fname',['wrong_name',['../structvg_1_1ReadFilter_1_1Counts.html#a666b42b9303430c83a61deef92fc7bbc',1,'vg::ReadFilter::Counts']]],
-  ['wrong_5frefpos',['wrong_refpos',['../structvg_1_1ReadFilter_1_1Counts.html#a442a70801675072979e8e09f5f87cb92',1,'vg::ReadFilter::Counts']]]
+  ['wrong_5fname',['wrong_name',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388aa701e41f77955abe2ab0987627df4d3f',1,'vg::ReadFilter::Counts']]],
+  ['wrong_5frefpos',['wrong_refpos',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388ae2aa11efa38f8a46410102500d80d28b',1,'vg::ReadFilter::Counts']]]
 ];

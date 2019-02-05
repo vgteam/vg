@@ -67,7 +67,6 @@ var searchData=
   ['source_5fnodes',['source_nodes',['../classvg_1_1BandedGlobalAligner.html#afc511ec6f85008cc1ff78141c0fce56d',1,'vg::BandedGlobalAligner']]],
   ['source_5fpaths',['source_paths',['../classvg_1_1Sampler.html#aea2c52dbdae36a6729621fe3279c2d61',1,'vg::Sampler::source_paths()'],['../classvg_1_1NGSSimulator.html#ac377f66a4c6d84f5cb660950d56022ff',1,'vg::NGSSimulator::source_paths()']]],
   ['source_5frev',['source_rev',['../classvg_1_1SourceSinkOverlay.html#a4ad14a56e07ef3fdc3a0346f4f6e0e05',1,'vg::SourceSinkOverlay']]],
-  ['split',['split',['../structvg_1_1ReadFilter_1_1Counts.html#a02ab34f657f57a613bef81baf4e306c0',1,'vg::ReadFilter::Counts']]],
   ['split_5fread_5flimit',['split_read_limit',['../classvg_1_1Filter.html#a0a0eca1fab7afdaec1d6311116dfe4a4',1,'vg::Filter']]],
   ['split_5fsupports',['split_supports',['../structvg_1_1BREAKPOINT.html#ad93eef0590346c5658ceb194c78204c5',1,'vg::BREAKPOINT']]],
   ['start',['start',['../classvg_1_1GraphSynchronizer_1_1Lock.html#af564269e9eaf8eb68f4c4c3ce1ba3932',1,'vg::GraphSynchronizer::Lock::start()'],['../structvg_1_1Region.html#a3905a368a833ae5f090f3faafa1b55bc',1,'vg::Region::start()'],['../classvg_1_1NetGraph.html#a2d7b0b659aae1f47312bb76aae43dda0',1,'vg::NetGraph::start()'],['../structvg_1_1BREAKPOINT.html#a624e7af692ef989d559a3e14e5075d4b',1,'vg::BREAKPOINT::start()'],['../structvg_1_1MultipathAlignment.html#a8003b8991108e99465d8fd80fc74cc03',1,'vg::MultipathAlignment::start()'],['../structvg_1_1Snarl.html#a2a35b60b251ab2d8429b6afcd387448f',1,'vg::Snarl::start()']]],

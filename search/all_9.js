@@ -103,6 +103,7 @@ var searchData=
   ['int_5fweighted_5fsum',['int_weighted_sum',['../namespacehaplo_1_1haploMath.html#a5bc2868874173d377a55c788f21796ef',1,'haplo::haploMath::int_weighted_sum(double *values, int64_t *counts, size_t n_values)'],['../namespacehaplo_1_1haploMath.html#ab17ccf8a6fa509f269bdaf1c69e4f6bc',1,'haplo::haploMath::int_weighted_sum(vector&lt; double &gt; values, vector&lt; int64_t &gt; counts)']]],
   ['integer_5fpower',['integer_power',['../namespacevg.html#aca4239af1a9e3eb1283f78bf5cc1411a',1,'vg::integer_power(uint64_t base, uint64_t exponent)'],['../namespacevg.html#aa7c32d1e90ec006624a7ee03655f3c35',1,'vg::integer_power(size_t x, size_t power)']]],
   ['interchromosomal_5ffilter',['interchromosomal_filter',['../classvg_1_1Filter.html#a1f1daa97b40d6ca6b2a3f37950f4f117',1,'vg::Filter']]],
+  ['interleaved',['interleaved',['../classvg_1_1ReadFilter.html#a30a2dea40e9afefb8e7e4e1827a5c109',1,'vg::ReadFilter']]],
   ['internal_5findex',['internal_index',['../classvg_1_1PackedDeque.html#a5578cfc59c41359b22d38eca8bec3cef',1,'vg::PackedDeque']]],
   ['intersection',['intersection',['../structhaplo_1_1int__itvl__t.html#ade4051b750fcce428be13a69663ec035',1,'haplo::int_itvl_t']]],
   ['interval_5fsize',['interval_size',['../structhaplo_1_1haplo__DP__rectangle.html#a6b3ef8d3d6e3f1f38fb462ab903c2bb1',1,'haplo::haplo_DP_rectangle']]],
@@ -161,6 +162,6 @@ var searchData=
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]],
   ['iterator',['iterator',['../structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482',1,'vg::PathIndex::iterator()'],['../classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096',1,'vg::ShuffledPairs::iterator::iterator(const iterator &amp;other)=default'],['../classvg_1_1ShuffledPairs_1_1iterator.html#a3b52dd39c46e409ef1bfd67ab8ee76e4',1,'vg::ShuffledPairs::iterator::iterator(const ShuffledPairs &amp;iteratee, size_t start_at)'],['../classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441',1,'vg::PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode *haplo_node)'],['../classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf',1,'vg::PhasedGenome::iterator::iterator()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a03bdcb94d8ed8b6e895ff003412185e4',1,'vg::PhasedGenome::iterator::iterator(const iterator &amp;other)']]],
-  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]],
-  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]]
+  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]],
+  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]]
 ];
