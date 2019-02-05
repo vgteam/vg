@@ -320,7 +320,6 @@ then
     pip install requests
     pip install timeout_decorator
     pip install pytest
-    pip install pygithub
 
     # Install Toil
     echo "Installing toil from ${TOIL_PACKAGE}"
@@ -435,6 +434,9 @@ then
     # Expose binaries to the PATH
     ln -snf ${PWD}/s3am/bin/s3am bin/
     export PATH=$PATH:${PWD}/bin
+    
+    # Make sure we have pygithub available
+    pip install pygithub
 
     #########
     # REPORT PHASE
