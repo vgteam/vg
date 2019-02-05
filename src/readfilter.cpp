@@ -493,203 +493,141 @@ bool ReadFilter::sample_read(const Alignment& aln) {
     return (sample < downsample_probability);
 }
 
-
-int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
-
-    // name helper for output
-    function<string(int)> chunk_name = [this](int num) -> string {
-        stringstream ss;
-        ss << outbase << "-" << num << ".gam";
-        return ss.str();
-    };
-
-    // index regions by their inclusive ranges
-    vector<Interval<int, int64_t> > interval_list;
-    vector<Region> regions;
-    // use strings instead of ofstreams because worried about too many handles
-    vector<string> chunk_names;
-    vector<bool> chunk_new; // flag if write or append
-
-    // parse a bed, for now this is only way to do regions.  note
-    // this operation converts from 0-based BED to 1-based inclusive VCF
-    if (!regions_file.empty()) {
-        if (outbase.empty()) {
-            cerr << "-B option required with -R" << endl;
-            return 1;
-        }
-        parse_bed_regions(regions_file, regions);
-        if (regions.empty()) {
-            cerr << "No regions read from BED file, doing whole graph" << endl;
-        }
-    }
-
-    if(defray_length > 0 && xindex == nullptr) {
-        cerr << "xg index required for end de-fraying" << endl;
-        return 1;
-    }
+ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
+    Counts counts;
     
-    if (regions.empty()) {
-        // empty region, do everything
-        // we handle empty intervals as special case when looking up, otherwise,
-        // need to insert giant interval here.
-        chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
-    } else {
-        // otherwise, need to extract regions with xg
-        if (xindex == nullptr) {
-            cerr << "xg index required for -R option" << endl;
-            return 1;
-        }
-    
-        // fill in the map using xg index
-        // relies entirely on the assumption that are path chunks
-        // are perfectly spanned by an id range
-        for (int i = 0; i < regions.size(); ++i) {
-            Graph graph;
-            int rank = xindex->path_rank(regions[i].seq);
-            int64_t path_size = rank == 0 ? 0 : xindex->path_length(regions[i].seq);
-
-            if (regions[i].start >= path_size) {
-                cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
-                     << "-" << regions[i].end << endl;
-            } else {
-                // clip region on end of path
-                regions[i].end = min(path_size - 1, regions[i].end);
-                // do path node query
-                xindex->get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
-                if (context_size > 0) {
-                    xindex->expand_context(graph, context_size);
-                }
-            }
-            // find node range of graph, without bothering to build vg indices..
-            int64_t min_id = numeric_limits<int64_t>::max();
-            int64_t max_id = 0;
-            for (int j = 0; j < graph.node_size(); ++j) {
-                min_id = min(min_id, (int64_t)graph.node(j).id());
-                max_id = max(max_id, (int64_t)graph.node(j).id());
-            }
-            // map the chunk id to a name
-            chunk_names.push_back(chunk_name(i));
-
-            // map the node range to the chunk id.
-            if (graph.node_size() > 0) {
-                interval_list.push_back(Interval<int, int64_t>(min_id, max_id, i));
-                assert(chunk_names.size() == i + 1);
-            }
-        }
+    double score = (double)aln.score();
+    double denom = aln.sequence().length();
+    // toggle substitution score
+    if (sub_score == true) {
+        // hack in ident to replace old counting logic.
+        score = aln.identity() * aln.sequence().length();
+        assert(score <= denom);
+    } else if (rescore == true) {
+        // We need to recalculate the score with the base aligner always
+        const static Aligner unadjusted;
+        BaseAligner* aligner = (BaseAligner*)&unadjusted;
+            
+        // Rescore and assign the score
+        aln.set_score(aligner->score_ungapped_alignment(aln));
+        // Also use the score
+        score = aln.score();
     }
 
-    // index chunk regions
-    IntervalTree<int, int64_t> region_map(std::move(interval_list));
-
-    // which chunk(s) does a gam belong to?
-    function<void(Alignment&, vector<int>&)> get_chunks = [&region_map, &regions](Alignment& aln, vector<int>& chunks) {
-        // speed up case where no chunking
-        if (regions.empty()) {
-            chunks.push_back(0);
+    // toggle absolute or fractional score
+    if (frac_score == true) {
+        if (denom > 0.) {
+            score /= denom;
+        }
+        else {
+            assert(score == 0.);
+        }
+    }
+        
+    ++counts.counts[Counts::FilterName::read];
+    bool keep = true;
+    // filter (current) alignment
+    if (!name_prefixes.empty()) {
+        // Make sure we match at least one name prefix
+            
+        bool found = false;
+            
+        // Do a binary search for the closest prefix and see if all of any prefix exists.
+        // We assume the prefixes are sorted.
+        size_t left_bound = 0;
+        size_t left_match = 0;
+        while (left_match < name_prefixes[left_bound].size() &&
+               left_match < aln.name().size() &&
+               name_prefixes[left_bound][left_match] == aln.name()[left_match]) {
+            // Scan all the matches at the start
+            left_match++;
+        }
+            
+        size_t right_bound = name_prefixes.size() - 1;
+        size_t right_match = 0;
+        while (right_match < name_prefixes[right_bound].size() &&
+               right_match < aln.name().size() &&
+               name_prefixes[right_bound][right_match] == aln.name()[right_match]) {
+            // Scan all the matches at the end
+            right_match++;
+        }
+            
+        if (left_match == name_prefixes[left_bound].size() || right_match == name_prefixes[right_bound].size()) {
+            // We found a match already
+            found = true;
         } else {
-            int64_t min_aln_id = numeric_limits<int64_t>::max();
-            int64_t max_aln_id = -1;
-            for (int i = 0; i < aln.path().mapping_size(); ++i) {
-                const Mapping& mapping = aln.path().mapping(i);
-                min_aln_id = min(min_aln_id, (int64_t)mapping.position().node_id());
-                max_aln_id = max(max_aln_id, (int64_t)mapping.position().node_id());
-            }
-            vector<Interval<int, int64_t> > found_ranges = region_map.findOverlapping(min_aln_id, max_aln_id);
-            for (auto& interval : found_ranges) {
-                chunks.push_back(interval.value);
-            }
-        }
-    };
-
-    // buffered output (one buffer per chunk), one set of chunks per thread
-    // buffer[THREAD][CHUNK] = vector<Alignment>
-    vector<vector<vector<Alignment> > > buffer(threads);
-    for (int i = 0; i < buffer.size(); ++i) {
-        buffer[i].resize(chunk_names.size());
-    }
-    
-    static const int buffer_size = 1000; // we let this be off by 1
-
-    // remember if write or append
-    vector<bool> chunk_append(chunk_names.size(), append_regions);
-
-    // flush a buffer specified by cur_buffer to target in chunk_names, and clear it.
-    // if end is true, write an EOF marker
-    function<void(int, int, bool)> flush_buffer = [&buffer, &chunk_names, &chunk_append](int tid, int cur_buffer, bool end) {
-        ofstream outfile;
-        auto& outbuf = chunk_names[cur_buffer] == "-" ? cout : outfile;
-        if (chunk_names[cur_buffer] != "-") {
-            outfile.open(chunk_names[cur_buffer], chunk_append[cur_buffer] ? ios::app : ios_base::out);
-            chunk_append[cur_buffer] = true;
-        }
-        function<Alignment&(size_t)> write_buffer = [&buffer, &tid, &cur_buffer](size_t i) -> Alignment& {
-            return buffer[tid][cur_buffer][i];
-        };
-        stream::write(outbuf, buffer[tid][cur_buffer].size(), write_buffer);
-        if (end) {
-            stream::finish(outbuf);
-        }
-        buffer[tid][cur_buffer].clear();
-    };
-
-    // add alignment to all appropriate buffers, flushing as necessary
-    function<void(int, Alignment&, const vector<int>&)> update_buffers = [
-        &buffer, &region_map, &get_chunks, &flush_buffer](int tid, Alignment& aln,
-                                                          const vector<int>& aln_chunks) {
-        for (auto chunk : aln_chunks) {
-            buffer[tid][chunk].push_back(aln);
-            if (buffer[tid][chunk].size() >= buffer_size) {
-                // flush buffer (could get fancier and allow parallel writes to different
-                // files, but unlikely to be worth effort as we're mostly trying to
-                // speed up defray and not write IO)
-#pragma omp critical (ReadFilter_flush_buffer)
-                {
-                    flush_buffer(tid, chunk, false);
+            while (left_bound + 1 < right_bound) {
+                // Until we run out of unexamined prefixes, do binary search
+                size_t center = (left_bound + right_bound) / 2;
+                // No need to re-check any common prefix
+                size_t center_match = min(left_match, right_match);
+                    
+                while (center_match < name_prefixes[center].size() &&
+                       center_match < aln.name().size() &&
+                       name_prefixes[center][center_match] == aln.name()[center_match]) {
+                    // Scan all the matches here
+                    center_match++;
+                }
+                    
+                if (center_match == name_prefixes[center].size()) {
+                    // We found a hit!
+                    found = true;
+                    break;
+                }
+                    
+                if (center_match < name_prefixes[center].size() && center_match < aln.name().size()) {
+                    // There's a character that differs
+                    if (name_prefixes[center][center_match] < aln.name()[center_match]) {
+                        // The match, if it exists, must be after us.
+                        left_bound = center;
+                        left_match = center_match;
+                    } else {
+                        // The match, if it exists, must be before us
+                        right_bound = center;
+                        right_match = center_match;
+                    }
                 }
             }
         }
-    };
-
-    // keep counts of what's filtered to report (in verbose mode)
-    vector<Counts> counts_vec(threads);
             
-    // we assume that every primary alignment has 0 or 1 secondary alignment
-    // immediately following in the stream
-    function<void(Alignment&)> lambda = [&](Alignment& aln) {
-#ifdef debug
-        cerr << "Encountered read named \"" << aln.name() << "\" with " << aln.sequence().size()
-            << " bp sequence and " << aln.quality().size() << " quality values" << endl;
-#endif
-    
-        int tid = omp_get_thread_num();        
-        Counts& counts = counts_vec[tid];
-        double score = (double)aln.score();
-        double denom = aln.sequence().length();
-        // toggle substitution score
-        if (sub_score == true) {
-            // hack in ident to replace old counting logic.
-            score = aln.identity() * aln.sequence().length();
-            assert(score <= denom);
-        } else if (rescore == true) {
-            // We need to recalculate the score with the base aligner always
-            const static Aligner unadjusted;
-            BaseAligner* aligner = (BaseAligner*)&unadjusted;
-            
-            // Rescore and assign the score
-            aln.set_score(aligner->score_ungapped_alignment(aln));
-            // Also use the score
-            score = aln.score();
+        if (!found) {
+            // There are prefixes and we don't match any, so drop the read.
+            ++counts.counts[Counts::FilterName::wrong_name];
+            keep = false;
         }
-
-        // toggle absolute or fractional score
-        if (frac_score == true) {
-            if (denom > 0.) {
-                score /= denom;
+    }
+    if ((keep || verbose) && !excluded_refpos_contigs.empty() && aln.refpos_size() != 0) {
+        // We have refpos exclusion filters and a refpos is set.
+        // We need to bang every refpos anme against every filter.
+            
+        bool found_match = false;
+        for (auto& expression : excluded_refpos_contigs) {
+            for (auto& refpos : aln.refpos()) {
+                if (regex_search(refpos.name(), expression)) {
+                    // We don't want this read because of this match
+                    found_match = true;
+                    break;
+                }
             }
-            else {
-                assert(score == 0.);
+            if (found_match) {
+                break;
             }
         }
+            
+        if (found_match) {
+            ++counts.counts[Counts::FilterName::wrong_refpos];
+            keep = false;    
+        }
+    }
+    if ((keep || verbose) && (!aln.is_secondary() && score < min_primary)) {
+        ++counts.counts[Counts::FilterName::min_score];
+        keep = false;
+    }
+    if ((keep || verbose) && (aln.is_secondary() && score < min_secondary)) {
+        ++counts.counts[Counts::FilterName::min_sec_score];
+        keep = false;
+    }
+    if (keep || verbose) {
         // compute overhang
         int overhang = 0;
         if (aln.path().mapping_size() > 0) {
@@ -705,6 +643,12 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         } else {
             overhang = aln.sequence().length();
         }
+        if (overhang > max_overhang) {
+            ++counts.counts[Counts::FilterName::max_overhang];
+            keep = false;
+        }
+    }        
+    if (keep || verbose) {
         // compute end matches.
         int end_matches = 0;
         // from the left
@@ -733,171 +677,114 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                     }
                 }
             }
-        }                
+        }                        
+        if (end_matches < min_end_matches) {
+            ++counts.counts[Counts::FilterName::min_end_matches];
+            keep = false;
+        }
+    }
+    if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
+        ++counts.counts[Counts::FilterName::min_mapq];
+        keep = false;
+    }
+    if ((keep || verbose) && min_base_quality > 0 && min_base_quality_fraction > 0.0) {
+        int mq_count = 0;
+        const string& base_qualities = aln.quality();
+        for (int i = 0; i < base_qualities.length(); ++i) {
+            if (short(base_qualities[i]) >= min_base_quality) {
+                ++mq_count;
+            }
+        }
+        if ((double)mq_count / (double)base_qualities.length() < min_base_quality_fraction) {
+            ++counts.counts[Counts::FilterName::min_base_qual];
+            keep = false;
+        }
+    }
+    if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
+        ++counts.counts[Counts::FilterName::split];
+        keep = false;
+    }
+    if ((keep || verbose) && has_repeat(aln, repeat_size)) {
+        ++counts.counts[Counts::FilterName::repeat];
+        keep = false;
+    }
+    if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
+        ++counts.counts[Counts::FilterName::defray];
+        // We keep these, because the alignments get modified.
+        // Unless the *entire* read gets trimmed
+        if (aln.sequence().size() == 0) {
+            keep = false;
+            ++counts.counts[Counts::FilterName::defray_all];
+        }
+    }
+    if ((keep || verbose) && downsample_probability != 1.0 && !sample_read(aln)) {
+        ++counts.counts[Counts::FilterName::random];
+        keep = false;
+    }
+    if (!keep) {
+        ++counts.counts[Counts::FilterName::filtered];
+    }
+    
+    return counts;
+}
 
-        // offset in count tuples
-        int co = aln.is_secondary() ? 1 : 0;
-        
-        ++counts.read[co];
-        bool keep = true;
-        // filter (current) alignment
-        if (!name_prefixes.empty()) {
-            // Make sure we match at least one name prefix
-            
-            bool found = false;
-            
-            // Do a binary search for the closest prefix and see if all of any prefix exists.
-            // We assume the prefixes are sorted.
-            size_t left_bound = 0;
-            size_t left_match = 0;
-            while (left_match < name_prefixes[left_bound].size() &&
-                left_match < aln.name().size() &&
-                name_prefixes[left_bound][left_match] == aln.name()[left_match]) {
-                // Scan all the matches at the start
-                left_match++;
-            }
-            
-            size_t right_bound = name_prefixes.size() - 1;
-            size_t right_match = 0;
-            while (right_match < name_prefixes[right_bound].size() &&
-                right_match < aln.name().size() &&
-                name_prefixes[right_bound][right_match] == aln.name()[right_match]) {
-                // Scan all the matches at the end
-                right_match++;
-            }
-            
-            if (left_match == name_prefixes[left_bound].size() || right_match == name_prefixes[right_bound].size()) {
-                // We found a match already
-                found = true;
-            } else {
-                while (left_bound + 1 < right_bound) {
-                    // Until we run out of unexamined prefixes, do binary search
-                    size_t center = (left_bound + right_bound) / 2;
-                    // No need to re-check any common prefix
-                    size_t center_match = min(left_match, right_match);
-                    
-                    while (center_match < name_prefixes[center].size() &&
-                        center_match < aln.name().size() &&
-                        name_prefixes[center][center_match] == aln.name()[center_match]) {
-                        // Scan all the matches here
-                        center_match++;
-                    }
-                    
-                    if (center_match == name_prefixes[center].size()) {
-                        // We found a hit!
-                        found = true;
-                        break;
-                    }
-                    
-                    if (center_match < name_prefixes[center].size() && center_match < aln.name().size()) {
-                        // There's a character that differs
-                        if (name_prefixes[center][center_match] < aln.name()[center_match]) {
-                            // The match, if it exists, must be after us.
-                            left_bound = center;
-                            left_match = center_match;
-                        } else {
-                            // The match, if it exists, must be before us
-                            right_bound = center;
-                            right_match = center_match;
-                        }
-                    }
-                }
-            }
-            
-            if (!found) {
-                // There are prefixes and we don't match any, so drop the read.
-                ++counts.wrong_name[co];
-                keep = false;
-            }
-        }
-        if ((keep || verbose) && !excluded_refpos_contigs.empty() && aln.refpos_size() != 0) {
-            // We have refpos exclusion filters and a refpos is set.
-            // We need to bang every refpos anme against every filter.
-            
-            bool found_match = false;
-            for (auto& expression : excluded_refpos_contigs) {
-                for (auto& refpos : aln.refpos()) {
-                    if (regex_search(refpos.name(), expression)) {
-                        // We don't want this read because of this match
-                        found_match = true;
-                        break;
-                    }
-                }
-                if (found_match) {
-                    break;
-                }
-            }
-            
-            if (found_match) {
-                ++counts.wrong_refpos[co];
-                keep = false;    
-            }
-        }
-        if ((keep || verbose) && ((aln.is_secondary() && score < min_secondary) ||
-            (!aln.is_secondary() && score < min_primary))) {
-            ++counts.min_score[co];
-            keep = false;
-        }
-        if ((keep || verbose) && overhang > max_overhang) {
-            ++counts.max_overhang[co];
-            keep = false;
-        }
-        if ((keep || verbose) && end_matches < min_end_matches) {
-            ++counts.min_end_matches[co];
-            keep = false;
-        }
-        if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
-            ++counts.min_mapq[co];
-            keep = false;
-        }
+int ReadFilter::filter(istream* alignment_stream) {
 
-        // do region check before heavier filters
-        vector<int> aln_chunks;
-        if (keep || verbose) {
-            get_chunks(aln, aln_chunks);
-            if (aln_chunks.empty()) {
-                keep = false;
-            }
-        }
-        
-        if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
-            ++counts.split[co];
-            keep = false;
-        }
-        if ((keep || verbose) && has_repeat(aln, repeat_size)) {
-            ++counts.repeat[co];
-            keep = false;
-        }
-        if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
-            ++counts.defray[co];
-            // We keep these, because the alignments get modified.
-            // Unless the *entire* read gets trimmed
-            if (aln.sequence().size() == 0) {
-                keep = false;
-                ++counts.defray_all[co];
-            }
-        }
-        if ((keep || verbose) && downsample_probability != 1.0 && !sample_read(aln)) {
-            ++counts.random[co];
-            keep = false;
-        }
-        if (!keep) {
-            ++counts.filtered[co];
-        }
+    if(defray_length > 0 && xindex == nullptr) {
+        cerr << "xg index required for end de-fraying" << endl;
+        return 1;
+    }
 
-        // add to write buffer
-        if (keep) {
-            update_buffers(tid, aln, aln_chunks);
+    // output buffers
+    vector<vector<Alignment> > output_buffer(threads);
+    
+    // keep counts of what's filtered to report (in verbose mode)
+    vector<Counts> counts_vec(threads);
+
+    auto output_alignment = [&](Alignment& aln) {
+        auto& output_buf = output_buffer[omp_get_thread_num()];
+        output_buf.emplace_back(move(aln));
+        stream::write_buffered(cout, output_buf, buffer_size);
+    };
+
+    auto flush_buffer = [&output_buffer]() {
+        for (auto& output_buf : output_buffer) {
+            stream::write_buffered(cout, output_buf, 0);
+        }
+        cout.flush();
+    };
+    
+    function<void(Alignment&)> lambda = [&](Alignment& aln) {
+#ifdef debug
+        cerr << "Encountered read named \"" << aln.name() << "\" with " << aln.sequence().size()
+            << " bp sequence and " << aln.quality().size() << " quality values" << endl;
+#endif    
+        Counts aln_counts = filter_alignment(aln);
+        counts_vec[omp_get_thread_num()] += aln_counts;
+        if (aln_counts.keep() && write_output) {
+            output_alignment(aln);
         }
     };
-    stream::for_each_parallel(*alignment_stream, lambda);
 
-    for (int tid = 0; tid < buffer.size(); ++tid) {
-        for (int chunk = 0; chunk < buffer[tid].size(); ++chunk) {
-            // Give every chunk, even those going to standard out or with no buffered reads, an EOF marker.
-            // This also makes sure empty chunks exist.
-            flush_buffer(tid, chunk, true);
+    function<void(Alignment&, Alignment&)> pair_lambda = [&](Alignment& aln1, Alignment& aln2) {
+        Counts aln_counts = filter_alignment(aln1);
+        aln_counts += filter_alignment(aln2);
+        // when running interleaved, if we filter out one end for any reason, we filter out the other as well
+        aln_counts.set_paired();
+        counts_vec[omp_get_thread_num()] += aln_counts;
+        if (aln_counts.keep() && write_output) {
+            output_alignment(aln1);
+            output_alignment(aln2);
         }
+    };
+    
+    if (interleaved) {
+        stream::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
+    } else {
+        stream::for_each_parallel(*alignment_stream, lambda);
+    }
+    if (write_output) {
+        flush_buffer();
     }
 
     if (verbose) {
@@ -905,39 +792,28 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
         for (int i = 1; i < counts_vec.size(); ++i) {
             counts += counts_vec[i];
         }
-        size_t tot_reads = counts.read[0] + counts.read[1];
-        size_t tot_filtered = counts.filtered[0] + counts.filtered[1];
-        cerr << "Total Filtered (primary):          " << counts.filtered[0] << " / "
-             << counts.read[0] << endl
-             << "Total Filtered (secondary):        " << counts.filtered[1] << " / "
-             << counts.read[1] << endl
-             << "Read Name Filter (primary):        " << counts.wrong_name[0] << endl
-             << "Read Name Filter (secondary):      " << counts.wrong_name[1] << endl
-             << "refpos Contig Filter (primary):    " << counts.wrong_refpos[0] << endl
-             << "refpos Contig Filter (secondary):  " << counts.wrong_refpos[1] << endl
-             << "Min Identity Filter (primary):     " << counts.min_score[0] << endl
-             << "Min Identity Filter (secondary):   " << counts.min_score[1] << endl
-             << "Max Overhang Filter (primary):     " << counts.max_overhang[0] << endl
-             << "Max Overhang Filter (secondary):   " << counts.max_overhang[1] << endl
-             << "Min End Match Filter (primary):    " << counts.min_end_matches[0] << endl
-             << "Min End Match Filter (secondary):  " << counts.min_end_matches[1] << endl            
-             << "Split Read Filter (primary):       " << counts.split[0] << endl
-             << "Split Read Filter (secondary):     " << counts.split[1] << endl
-             << "Repeat Ends Filter (primary):      " << counts.repeat[0] << endl
-             << "Repeat Ends Filter (secondary):    " << counts.repeat[1] << endl
-             << "All Defrayed Filter (primary):     " << counts.defray_all[0] << endl
-             << "All Defrayed Filter (secondary):   " << counts.defray_all[1] << endl
-             << "Min Quality Filter (primary):      " << counts.min_mapq[0] << endl
-             << "Min Quality Filter (secondary):    " << counts.min_mapq[1] << endl
-             << "Random Filter (primary):           " << counts.random[0] << endl
-             << "Random Filter (secondary):         " << counts.random[1] << endl
-                        
-            
-             << endl;
-    }
-    
+        cerr << counts;
+    }    
     return 0;
+}
 
+ostream& operator<<(ostream& os, const ReadFilter::Counts& counts) {
+    os << "Total Filtered:                " << counts.counts[ReadFilter::Counts::FilterName::filtered] << " / "
+       << counts.counts[ReadFilter::Counts::FilterName::read] << endl
+       << "Read Name Filter:              " << counts.counts[ReadFilter::Counts::FilterName::wrong_name] << endl
+       << "refpos Contig Filter:          " << counts.counts[ReadFilter::Counts::FilterName::wrong_refpos] << endl
+       << "Min Identity Filter:           " << counts.counts[ReadFilter::Counts::FilterName::min_score] << endl
+       << "Min Secondary Identity Filter: " << counts.counts[ReadFilter::Counts::FilterName::min_sec_score] << endl
+       << "Max Overhang Filter:           " << counts.counts[ReadFilter::Counts::FilterName::max_overhang] << endl
+       << "Min End Match Filter:          " << counts.counts[ReadFilter::Counts::FilterName::min_end_matches] << endl
+       << "Split Read Filter:             " << counts.counts[ReadFilter::Counts::FilterName::split] << endl
+       << "Repeat Ends Filter:            " << counts.counts[ReadFilter::Counts::FilterName::repeat] << endl
+       << "All Defrayed Filter:           " << counts.counts[ReadFilter::Counts::FilterName::defray_all] << endl
+       << "Min Quality Filter:            " << counts.counts[ReadFilter::Counts::FilterName::min_mapq] << endl
+       << "Min Base Quality Filter:       " << counts.counts[ReadFilter::Counts::FilterName::min_base_qual] << endl
+       << "Random Filter:                 " << counts.counts[ReadFilter::Counts::FilterName::random] << endl
+       << endl;
+    return os;
 }
 
 }
