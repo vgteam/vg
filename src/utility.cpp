@@ -336,6 +336,22 @@ vector<size_t> range_vector(size_t begin, size_t end) {
     return range;
 }
 
+bool have_input_file(int& optind, int argc, char** argv) {
+
+    if (optind >= argc) {
+        // Out of arguments
+        return false;
+    }
+    
+    if (argv[optind][0] == '\0') {
+        // File name is empty
+        return false;
+    }
+    
+    // Otherwise we found one
+    return true;
+}
+
 void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback) {
     
     // Just combine the two operations below in the way they're supposed to be used together    

@@ -15,7 +15,8 @@ namespace stream {
 using namespace std;
 
 void register_loader_saver_vg() {
-    Registry::register_loader_saver<VG>("VG", [](const message_sender_function_t& for_each_message) -> void* {
+    // We register for "" so we can handle untagged old-style vg files and make them into HandleGraphs
+    Registry::register_loader_saver<VG>(vector<string>{"VG", ""}, [](const message_sender_function_t& for_each_message) -> void* {
         // We have a bit of a control problem.
         // The source function wants to drive; we give it a function of strings, and it calls it with all the strings in turn.
         
