@@ -438,7 +438,7 @@ namespace vg {
         vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev());
         vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist,
-                                             reversing_walk_length);
+                                             num_alt_alns > 1 ? reversing_walk_length : 0);
         
 #ifdef debug_multipath_mapper
         cerr << "got rescue graph" << endl;
@@ -2594,8 +2594,8 @@ namespace vg {
             // extract the subgraph within the search distance
             
             HashGraph* cluster_graph = new HashGraph();
-            algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist,
-                                                 backward_max_dist, reversing_walk_length);
+            algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
+                                                 num_alt_alns > 1 ? reversing_walk_length : 0);
                                                  
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)

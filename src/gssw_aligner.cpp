@@ -13,36 +13,36 @@ BaseAligner::~BaseAligner(void) {
     free(score_matrix);
 }
 
-gssw_graph* BaseAligner::create_gssw_graph(Graph& g) {
+gssw_graph* BaseAligner::create_gssw_graph(const HandleGraph& g) {
     
-    // add a dummy sink node if we're pinning
     gssw_graph* graph = gssw_graph_create(g.node_size());
     unordered_map<int64_t, gssw_node*> nodes;
     
-    for (int i = 0; i < g.node_size(); ++i) {
-        Node* n = g.mutable_node(i);
-        // switch any non-ATGCN characters from the node sequence to N
-        auto cleaned_seq = nonATGCNtoN(n->sequence());
-        gssw_node* node = (gssw_node*)gssw_node_create(n, n->id(),
-                                                       cleaned_seq.c_str(),
-                                                       nt_table,
-                                                       score_matrix);
-        nodes[n->id()] = node;
+    // compute the topological order
+    for (const handle_t& handle : algorithms::lazier_topological_sort(&g)) {
+        auto cleaned_seq = nonATGCNtoN(g.get_sequence(handle));
+        gssw_node* node = gssw_node_create(nullptr,       // TODO: the ID should be enough, don't need Node* too
+                                           g.get_id(handle),
+                                           cleaned_seq.c_str(),
+                                           nt_table,
+                                           score_matrix); // TODO: this arg isn't used, could edit
+                                                          // in gssw
+        nodes[node->id] = node;
         gssw_graph_add_node(graph, node);
     }
     
-    for (int i = 0; i < g.edge_size(); ++i) {
-        // Convert all the edges
-        Edge* e = g.mutable_edge(i);
-        if(!e->from_start() && !e->to_end()) {
+    g.for_each_edge([&](const edge_t& edge) {
+        if(!g.get_is_reverse(edge.first) && !g.get_is_reverse(edge.second)) {
             // This is a normal end to start edge.
-            gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
-        } else if(e->from_start() && e->to_end()) {
+            gssw_nodes_add_edge(nodes[g.get_id(edge.first)], nodes[g.get_id(edge.second)]);
+        }
+        else if (g.get_is_reverse(edge.first) && g.get_is_reverse(edge.second)) {
             // This is a start to end edge, but isn't reversing and can be converted to a normal end to start edge.
             
             // Flip the start and end
-            gssw_nodes_add_edge(nodes[e->to()], nodes[e->from()]);
-        } else {
+            gssw_nodes_add_edge(nodes[g.get_id(edge.second)], nodes[g.get_id(edge.first)]);
+        }
+        else {
             // TODO: It's a reversing edge, which gssw doesn't support yet. What
             // we should really do is do a topological sort to break cycles, and
             // then flip everything at the lower-rank end of this edge around,
@@ -54,15 +54,14 @@ gssw_graph* BaseAligner::create_gssw_graph(Graph& g) {
                 // exceptions in multiple threads at once, leading to C++ trying
                 // to run termiante in parallel. This doesn't make it safe, just
                 // slightly safer.
-                cerr << "Can't gssw over reversing edge " <<e->from() << (e->from_start() ? " start" : " end") << " -> "
-                << e->to() << (e->to_end() ? " end" : " start")  << endl;
+                cerr << "Can't gssw over reversing edge " << g.get_id(edge.first) << (g.get_is_reverse(edge.first) ? "-" : "+") << " -> " << g.get_id(edge.second) << (g.get_is_reverse(edge.second) ? "-" : "+") << endl;
                 // TODO: there's no safe way to kill the program without a way
                 // to signal the master to do it, via a shared variable in the
                 // clause that made us parallel.
             }
             exit(1);
         }
-    }
+    });
     
     return graph;
     
@@ -211,55 +210,26 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
     alignment.set_identity(identity(alignment.path()));
 }
 
-void BaseAligner::reverse_graph(Graph& g, Graph& reversed_graph_out) {
+void BaseAligner::reverse_graph(const HandleGraph& g, MutableHandleGraph& reversed_graph_out) {
     if (reversed_graph_out.node_size()) {
         cerr << "error:[Aligner::reverse_graph] output graph is not empty" << endl;
         exit(EXIT_FAILURE);
     }
     
-    // add reversed nodes in reverse order (Graphs come in topologically sorted and gssw
-    // depends on this fact)
-    for (int64_t i = g.node_size() - 1; i >= 0; i--) {
-        const Node& original_node = g.node(i);
-        
-        Node* reversed_node = reversed_graph_out.add_node();
-        
-        // reverse the sequence
-        string* reversed_node_seq = reversed_node->mutable_sequence();
-        reversed_node_seq->resize(original_node.sequence().length());
-        reverse_copy(original_node.sequence().begin(), original_node.sequence().end(), reversed_node_seq->begin());
-        
-        // preserve ids for easier translation
-        reversed_node->set_id(original_node.id());
-    }
+    // add reversed (not complementd) nodes
+    g.for_each_handle([&](const handle_t& handle) {
+        string seq = g.get_sequence(handle);
+        reverse(seq.begin(), seq.end());
+        reversed_graph_out.create_handle(seq, g.get_id(handle));
+    });
     
     // add reversed edges
-    for (int64_t i = 0; i < g.edge_size(); i++) {
-        const Edge& original_edge = g.edge(i);
-        
-        Edge* reversed_edge = reversed_graph_out.add_edge();
-        
-        // reverse edge orientation
-        reversed_edge->set_from(original_edge.to());
-        reversed_edge->set_to(original_edge.from());
-        
-        // we will swap the 5'/3' labels of the node ends after reversing the sequence so that
-        // an edge leaving an end now enters a beginning and an edge entering a beginning now
-        // leaves an end
-        reversed_edge->set_from_start(original_edge.to_end());
-        reversed_edge->set_to_end(original_edge.from_start());
-    }
-    
-}
-
-void BaseAligner::unreverse_graph(Graph& graph) {
-    // this is only for getting correct reference-relative edits, so we can get away with only
-    // reversing the sequences and not paying attention to the edges
-    for (int64_t i = 0; i < graph.node_size(); i++) {
-        Node* node = graph.mutable_node(i);
-        string* node_seq = node->mutable_sequence();
-        reverse(node_seq->begin(), node_seq->end());
-    }
+    g.for_each_edge([&](const edge_t& edge) {
+        reversed_graph_out.create_edge(reversed_graph_out.get_handle(g.get_id(edge.first),
+                                                                     !g.get_is_reverse(edge.first)),
+                                       reversed_graph_out.get_handle(g.get_id(edge.second),
+                                                                     !g.get_is_reverse(edge.second)));
+    });
 }
 
 void BaseAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) {
@@ -898,26 +868,29 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
     
-    // create reversed graph if necessary
-    Graph reversed_graph;
-    if (pin_left) {
-        reverse_graph(g, reversed_graph);
-    }
+    // make a place to reverse the graph and sequence if necessary
+    HashGraph reversed_graph;
+    string reversed_sequence;
 
     // choose forward or reversed objects
-    // note: have to make a copy of the sequence because we will modify it to add a pinning point
-    Graph* align_graph = &g;
-    string align_sequence = alignment.sequence();
+    const HandleGraph* align_graph = &g;
+    const string* align_sequence = &alignment.sequence();
     if (pin_left) {
+        // make and assign the reversed graph
+        reverse_graph(g, reversed_graph);
         align_graph = &reversed_graph;
-        reverse(align_sequence.begin(), align_sequence.end());
+        
+        // make and assign the reversed sequence
+        reversed_sequence.resize(align_sequence->size());
+        reverse(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
+        align_sequence = &reversed_sequence;
     }
     
     // convert into gssw graph
     gssw_graph* graph = create_gssw_graph(*align_graph);
     
     // perform dynamic programming
-    gssw_graph_fill_pinned(graph, align_sequence.c_str(),
+    gssw_graph_fill_pinned(graph, align_sequence->c_str(),
                            nt_table, score_matrix,
                            gap_open, gap_extension, full_length_bonus,
                            pinned ? 0 : full_length_bonus, 15, 2, traceback_aln);
@@ -929,8 +902,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
                                                                            max_alt_alns,
                                                                            true,
-                                                                           align_sequence.c_str(),
-                                                                           align_sequence.size(),
+                                                                           align_sequence->c_str(),
+                                                                           align_sequence->size(),
                                                                            nt_table,
                                                                            score_matrix,
                                                                            gap_open,
@@ -939,8 +912,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                                                                            0);
         
             if (pin_left) {
-                // translate graph and mappings into original node space
-                unreverse_graph(reversed_graph);
+                // translate mappings into original node space
                 for (int32_t i = 0; i < max_alt_alns; i++) {
                     unreverse_graph_mapping(gms[i]);
                 }
@@ -1048,17 +1020,17 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // bench_end(bench);
 }
 
-void Aligner::align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices) {
+void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) {
     
     align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
 }
 
-void Aligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
+void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) {
     
     align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
 }
 
-void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                  bool pin_left, int32_t max_alt_alns) {
     
     if (alt_alignments.size() != 0) {
@@ -1069,7 +1041,7 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
     align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
 }
 
-void Aligner::align_global_banded(Alignment& alignment, Graph& g,
+void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                   int32_t band_padding, bool permissive_banding) {
     
     // We need to figure out what size ints we need to use.
@@ -1123,16 +1095,16 @@ void Aligner::align_global_banded(Alignment& alignment, Graph& g,
 
 }
 
-void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
                                         
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
     int64_t best_score = alignment.sequence().size() * match;
     size_t total_bases = 0;
-    for(size_t i = 0; i < g.node_size(); i++) {
-        total_bases += g.node(i).sequence().size();
-    }
+    g.for_each_handle([&](const handle_t& handle) {
+        total_bases += g.get_length(handle);
+    });
     int64_t worst_score = max(alignment.sequence().size(), total_bases) * -max(max(mismatch, gap_open), gap_extension);
     
     if (best_score <= numeric_limits<int8_t>::max() && worst_score >= numeric_limits<int8_t>::min()) {
@@ -1303,7 +1275,7 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
     BaseAligner::init_mapping_quality(gc_content);
 }
 
-void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
+void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                                     bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) {
     
     // check input integrity
@@ -1327,24 +1299,32 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     // alignment pinning algorithm is based on pinning in bottom right corner, if pinning in top
     // left we need to reverse all the sequences first and translate the alignment back later
     
-    // create reversed graph if necessary
-    Graph reversed_graph;
-    if (pin_left) {
-        reverse_graph(g, reversed_graph);
-    }
+    // make a place to reverse the graph and sequence if necessary
+    HashGraph reversed_graph;
+    string reversed_sequence;
+    string reversed_quality;
     
     // choose forward or reversed objects
-    // note: have to make copies of the strings because we will modify them to add a pinning point
-    Graph* align_graph = &g;
-    string align_sequence = alignment.sequence();
-    string align_quality = alignment.quality();
+    const HandleGraph* align_graph = &g;
+    const string* align_sequence = &alignment.sequence();
+    const string* align_quality = &alignment.quality();
     if (pin_left) {
+        // make and assign the reversed graph
+        reverse_graph(g, reversed_graph);
         align_graph = &reversed_graph;
-        reverse(align_sequence.begin(), align_sequence.end());
-        reverse(align_quality.begin(), align_quality.end());
+        
+        // make and assign the reversed sequence
+        reversed_sequence.resize(align_sequence->size());
+        reverse(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
+        align_sequence = &reversed_sequence;
+        
+        // make and assign the reversed quality
+        reversed_quality.resize(align_quality->size());
+        reverse(align_quality->begin(), align_quality->end(), reversed_quality.begin());
+        align_quality = &reversed_quality;
     }
     
-    if (align_quality.length() != align_sequence.length()) {
+    if (align_quality->size() != align_sequence->size()) {
         cerr << "error:[QualAdjAligner] Read " << alignment.name() << " has sequence and quality strings with different lengths. Cannot perform base quality adjusted alignment. Consider toggling off base quality adjusted alignment at the command line." << endl;
         exit(EXIT_FAILURE);
     }

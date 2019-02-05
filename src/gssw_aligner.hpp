@@ -52,10 +52,11 @@ namespace vg {
                         set<gssw_node*>& unmarked_nodes,
                         set<gssw_node*>& temporary_marks);
         
-        // create a reversed graph for left-pinned alignment
+        // create a reversed (not complemented) graph for left-pinned alignment
         void reverse_graph(Graph& g, Graph& reversed_graph_out);
         // reverse all node sequences (other aspects of graph object not unreversed)
         void unreverse_graph(Graph& graph);
+        // convert graph mapping back into unreversed node positions
         // convert graph mapping back into unreversed node positions
         void unreverse_graph_mapping(gssw_graph_mapping* gm);
         
