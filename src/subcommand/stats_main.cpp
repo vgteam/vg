@@ -404,11 +404,10 @@ int main_stats(int argc, char** argv) {
         // separately.
         map<vg::id_t, pair<string, string>> allele_path_for_node;
 
-        // This is what we really care about: for each pair of allele paths in
-        // the graph, we need to find out whether the coverage imbalance between
-        // them among primary alignments is statistically significant. For this,
-        // we need to track how many reads overlap the distinct parts of allele
-        // paths.
+        // For each pair of allele paths in the graph, we need to find out
+        // whether the coverage imbalance between them among primary alignments
+        // is statistically significant. For this, we need to track how many
+        // reads overlap the distinct parts of allele paths.
 
         // This is going to be indexed by site
         // ("_alt_f6d951572f9c664d5d388375aa8b018492224533") and then by allele
@@ -470,6 +469,8 @@ int main_stats(int argc, char** argv) {
         size_t total_aligned = 0;
         size_t total_primary = 0;
         size_t total_secondary = 0;
+        size_t total_perfect = 0; // Number of reads with no indels or substitutions relative to their paths
+        size_t total_gapless = 0; // Number of reads with no indels relative to their paths
 
         // These are for counting significantly allele-biased hets
         size_t total_hets = 0;
@@ -525,6 +526,10 @@ int main_stats(int argc, char** argv) {
                 // do something. Discard the read? Not just count it on both sides
                 // like we do now.
                 set<pair<string, string>> alleles_supported;
+                
+                // We check if the read has non-softclip indels, or any edits at all.
+                bool has_non_match_edits = false;
+                bool has_non_softclip_indel_edits = false;
 
                 for(size_t i = 0; i < aln.path().mapping_size(); i++) {
                     // For every mapping...
@@ -547,6 +552,8 @@ int main_stats(int argc, char** argv) {
                         auto& edit = mapping.edit(j);
 
                         if(edit.to_length() > edit.from_length()) {
+                            // This is an insert or softclip and not a match
+                            has_non_match_edits = true;
                             if((j == 0 && i == 0) || (j == mapping.edit_size() - 1 && i == aln.path().mapping_size() - 1)) {
                                 // We're at the very end of the path, so this is a soft clip.
                                 #pragma omp critical (total_softclipped_bases)
@@ -559,6 +566,9 @@ int main_stats(int argc, char** argv) {
                                     softclips.push_back(make_pair(node_id, edit));
                                 }
                             } else {
+                                // This is not a softclip
+                                has_non_softclip_indel_edits = true;
+                                
                                 // Record this insertion
                                 #pragma omp critical (total_inserted_bases)
                                 total_inserted_bases += edit.to_length() - edit.from_length();
@@ -572,6 +582,12 @@ int main_stats(int argc, char** argv) {
                             }
 
                         } else if(edit.from_length() > edit.to_length()) {
+                            // This is a deletion and not a match
+                            has_non_match_edits = true;
+                            
+                            // This is not a softclip either
+                            has_non_softclip_indel_edits = true;
+                            
                             // Record this deletion
                             #pragma omp critical (total_deleted_bases)
                             total_deleted_bases += edit.from_length() - edit.to_length();
@@ -583,6 +599,9 @@ int main_stats(int argc, char** argv) {
                                 deletions.push_back(make_pair(node_id, edit));
                             }
                         } else if(!edit.sequence().empty()) {
+                            // This is a substitution and not a match
+                            has_non_match_edits = true;
+                        
                             // Record this substitution
                             // TODO: a substitution might also occur as part of a deletion/insertion above!
                             #pragma omp critical (total_substituted_bases)
@@ -605,6 +624,15 @@ int main_stats(int argc, char** argv) {
                     #pragma omp critical (reads_on_allele)
                     reads_on_allele[site_and_allele.first][site_and_allele.second]++;
                 }
+            
+                // If there's no non-match edits, call it a perfect alignment
+                #pragma omp critical (total_perfect)
+                total_perfect += !has_non_match_edits;
+                
+                // If there's no non-softclip indel edits, the alignment is gapless
+                #pragma omp critical (total_gapless)
+                total_gapless += !has_non_softclip_indel_edits;
+            
             }
 
         };
@@ -698,6 +726,8 @@ int main_stats(int argc, char** argv) {
         cout << "Total primary: " << total_primary << endl;
         cout << "Total secondary: " << total_secondary << endl;
         cout << "Total aligned: " << total_aligned << endl;
+        cout << "Total perfect: " << total_perfect << endl;
+        cout << "Total gapless (softclips allowed): " << total_gapless << endl;
 
         cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
         if(verbose) {
