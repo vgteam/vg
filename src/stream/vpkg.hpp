@@ -101,15 +101,19 @@ public:
     /**
      * Allocate and load one or more objects from the given file on a single pass.
      * Returns a tuple of pointers to loaded objects, or null if they could not be found.
-     * Only works on VPKG-formatted files.
+     * Only works on VPKG-formatted files. Supports "-" for standard input.
      */
     template<typename... Wanted>
     static tuple<unique_ptr<Wanted>...> load_all(const string& filename) {
-        // Open the file
-        ifstream open_file(filename.c_str());
-        
-        // Read from it
-        return load_all<Wanted...>(open_file);
+        if (filename == "-") {
+            return load_all<Wanted...>(cin);
+        } else {
+            // Open the file
+            ifstream open_file(filename.c_str());
+            
+            // Read from it
+            return load_all<Wanted...>(open_file);
+        }
     }
     
     /**
@@ -181,7 +185,7 @@ public:
      * Load an object of the given type from a file by name.
      * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
      * Tagged messages that can't be used to load the thing we are looking for are skipped.
-     * Returns null if the object could not be found in the file.
+     * Returns null if the object could not be found in the file. Supports "-" for standard input.
      */
     template<typename Wanted>
     static unique_ptr<Wanted> try_load_one(const string& filename) {
@@ -190,11 +194,15 @@ public:
             return unique_ptr<Wanted>();
         }
         
-        // Open the file
-        ifstream open_file(filename.c_str());
-        
-        // Read from it
-        return try_load_one<Wanted>(open_file);
+        if (filename == "-") {
+            return try_load_one<Wanted>(cin);
+        } else {
+            // Open the file
+            ifstream open_file(filename.c_str());
+            
+            // Read from it
+            return try_load_one<Wanted>(open_file);
+        }
     }
     
     /**
@@ -225,7 +233,7 @@ public:
      * Load an object of the given type from a file by name.
      * The stream may be VPKG with the appropriate tag, or a bare non-VPKG stream understood by the loader.
      * Tagged messages that can't be used to load the thing we are looking for are skipped.
-     * Ends the program with an error if the object could not be found in the file.
+     * Ends the program with an error if the object could not be found in the file. Supports "-" for standard input.
      */
     template<typename Wanted>
     static unique_ptr<Wanted> load_one(const string& filename) {
@@ -234,11 +242,8 @@ public:
             exit(1);
         }
         
-        // Open the file
-        ifstream open_file(filename.c_str());
-        
-        // Read from it
-        auto result = try_load_one<Wanted>(open_file);
+        // Open and read the file.
+        auto result = try_load_one<Wanted>(filename);
         
         if (result.get() == nullptr) {
             cerr << "error[VPKG::load_one]: Could not find correct object " << typeid(Wanted).name() << " in " << filename << endl;
@@ -274,14 +279,19 @@ public:
     
     /*
      * Save an object to the given filename, using the appropriate saver.
+     * Supports "-" for standard output.
      */
     template<typename Have>
     static void save(const Have& have, const string& filename) {
-        // Open the file
-        ofstream open_file(filename.c_str());
-        
-        // Save to it
-        save<Have>(have, open_file);
+        if (filename == "-") {
+            save<Have>(have, cout);
+        } else {
+            // Open the file
+            ofstream open_file(filename.c_str());
+            
+            // Save to it
+            save<Have>(have, open_file);
+        }
     }
     
     /**
