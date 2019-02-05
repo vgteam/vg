@@ -385,16 +385,6 @@ int main_stats(int argc, char** argv) {
 
         // We need some allele parsing functions
 
-        // This one decided if a path is really an allele path
-        auto path_name_is_allele = [](const string path_name) -> bool {
-            string prefix = "_alt_";
-            // It needs to start with "_alt_" and have another separating
-            // underscore between site name and allele number
-            return(prefix.size() < path_name.size() &&
-                count(path_name.begin(), path_name.end(), '_') >= 3 &&
-                equal(prefix.begin(), prefix.end(), path_name.begin()));
-        };
-
         // This one gets the site name from an allele path name
         auto path_name_to_site = [](const string& path_name) -> string {
             auto last_underscore = path_name.rfind('_');
@@ -442,7 +432,7 @@ int main_stats(int argc, char** argv) {
             string allele_path;
             for(auto& name_and_mappings : graph.paths.get_node_mapping_by_path_name(node)) {
                 // For each path on it
-                if(path_name_is_allele(name_and_mappings.first)) {
+                if(Paths::is_alt(name_and_mappings.first)) {
                     // If it's an allele path
                     if(allele_path.empty()) {
                         // It's the first. Take it.
