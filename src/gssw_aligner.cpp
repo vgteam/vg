@@ -19,7 +19,7 @@ gssw_graph* BaseAligner::create_gssw_graph(const HandleGraph& g) {
     unordered_map<int64_t, gssw_node*> nodes;
     
     // compute the topological order
-    for (const handle_t& handle : algorithms::lazier_topological_sort(&g)) {
+    for (const handle_t& handle : algorithms::lazier_topological_order(&g)) {
         auto cleaned_seq = nonATGCNtoN(g.get_sequence(handle));
         gssw_node* node = gssw_node_create(nullptr,       // TODO: the ID should be enough, don't need Node* too
                                            g.get_id(handle),
@@ -843,7 +843,7 @@ Aligner::~Aligner()
 }
 */
 
-void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
+void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                              bool pinned, bool pin_left, int32_t max_alt_alns,
                              bool traceback_aln, bool print_score_matrices) {
     // bench_start(bench);
@@ -927,21 +927,24 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             }
             else if (g.node_size() > 0) {
                 // gssw will not identify mappings with 0 score, infer location based on pinning
-            
+                
+                // find an arbitrary source node or sink node as appropriate
+                handle_t pinning_point;
+                align_graph->for_each_handle([&](const handle_t& handle) {
+                    if (align_graph->get_degree(handle, pin_left) == 0) {
+                        pinning_point = handle;
+                        return false;
+                    }
+                    return true;
+                });
+                
                 Mapping* mapping = alignment.mutable_path()->add_mapping();
                 mapping->set_rank(1);
-            
 
-                // locate at a beginning of an arbitrary source node or end of an arbitrary sink node as appropriate
+                // locate at the beginning or end of the node
                 Position* position = mapping->mutable_position();
-                if (pin_left) {
-                    position->set_node_id(g.node(0).id());
-                    position->set_offset(0);
-                }
-                else {
-                    position->set_node_id(g.node(g.node_size() - 1).id());
-                    position->set_offset(g.node(g.node_size() - 1).sequence().length());
-                }
+                position->set_node_id(align_graph->get_id(pinning_point));
+                position->set_offset(pin_left ? 0 : align_graph->get_length(pinning_point));
             
                 // soft clip
                 Edit* edit = mapping->add_edit();
@@ -968,8 +971,6 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                 // convert the alternate alignments and store them at the back of the vector (this will not
                 // execute if we are doing single alignment)
                 for (int32_t i = 1; i < num_non_null; i++) {
-                    gssw_graph_mapping* gm = gms[i];
-                
                     // make new alignment object
                     multi_alignments->emplace_back();
                     Alignment& next_alignment = multi_alignments->back();
@@ -979,10 +980,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                     next_alignment.set_quality(alignment.quality());
                 
                     // get path of the alternate alignment
-                    gssw_mapping_to_alignment(graph, gm, next_alignment, pinned, pin_left, print_score_matrices);
-                
+                    gssw_mapping_to_alignment(graph, gms[i], next_alignment, pinned, pin_left, print_score_matrices);
                 }
-            
             }
         
             for (int32_t i = 0; i < max_alt_alns; i++) {
@@ -993,8 +992,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         else {
             // trace back local alignment
             gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
-                                                            align_sequence.c_str(),
-                                                            align_sequence.size(),
+                                                            align_sequence->c_str(),
+                                                            align_sequence->size(),
                                                             nt_table,
                                                             score_matrix,
                                                             gap_open,
@@ -1048,9 +1047,9 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
     int64_t best_score = alignment.sequence().size() * match;
     size_t total_bases = 0;
-    for(size_t i = 0; i < g.node_size(); i++) {
-        total_bases += g.node(i).sequence().size();
-    }
+    g.for_each_handle([&](const handle_t& handle) {
+        total_bases += g.get_length(handle);
+    });
     int64_t worst_score = max(alignment.sequence().size(), total_bases) * -max(max(mismatch, gap_open), gap_extension);
     
     // TODO: put this all into another template somehow?
@@ -1267,6 +1266,8 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
     score_matrix = gssw_dna_scaled_adjusted_qual_matrix(_max_scaled_score, max_qual_score, &gap_open,
                                                         &gap_extension, match, mismatch,
                                                         gc_content, 1e-12);
+    
+    // hacky way to update the stored match and mismatch scores, but it works
     scale_factor = gap_open / original_gap_open;
     match *= scale_factor;
     mismatch *= scale_factor;
@@ -1334,7 +1335,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
     // perform dynamic programming
     // offer a full length bonus on each end, or only on the left if the right end is pinned.
-    gssw_graph_fill_pinned_qual_adj(graph, align_sequence.c_str(), align_quality.c_str(),
+    gssw_graph_fill_pinned_qual_adj(graph, align_sequence->c_str(), align_quality->c_str(),
                                     nt_table, score_matrix,
                                     gap_open, gap_extension,
                                     full_length_bonus, pinned ? 0 : full_length_bonus, 15, 2, traceback_aln);
@@ -1358,7 +1359,6 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         
             if (pin_left) {
                 // translate graph and mappings into original node space
-                unreverse_graph(reversed_graph);
                 for (int32_t i = 0; i < max_alt_alns; i++) {
                     unreverse_graph_mapping(gms[i]);
                 }
@@ -1373,21 +1373,25 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
             }
             else if (g.node_size() > 0) {
                 // gssw will not identify mappings with 0 score, infer location based on pinning
-            
+                
+                // find an arbitrary source node or sink node as appropriate
+                handle_t pinning_point;
+                align_graph->for_each_handle([&](const handle_t& handle) {
+                    if (align_graph->get_degree(handle, pin_left) == 0) {
+                        pinning_point = handle;
+                        return false;
+                    }
+                    return true;
+                });
+                
                 Mapping* mapping = alignment.mutable_path()->add_mapping();
                 mapping->set_rank(1);
-            
-                // locate at a beginning of a source node or end of a sink node as appropriate
+                
+                // locate at the beginning or end of the node
                 Position* position = mapping->mutable_position();
-                if (pin_left) {
-                    position->set_node_id(g.node(0).id());
-                    position->set_offset(0);
-                }
-                else {
-                    position->set_node_id(g.node(g.node_size() - 1).id());
-                    position->set_offset(g.node(g.node_size() - 1).sequence().length());
-                }
-            
+                position->set_node_id(align_graph->get_id(pinning_point));
+                position->set_offset(pin_left ? 0 : align_graph->get_length(pinning_point));
+                
                 // soft clip
                 Edit* edit = mapping->add_edit();
                 edit->set_to_length(alignment.sequence().length());
@@ -1414,8 +1418,6 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                 // convert the alternate alignments and store them at the back of the vector (this will not
                 // execute if we are doing single alignment)
                 for (int32_t i = 1; i < num_non_null; i++) {
-                    gssw_graph_mapping* gm = gms[i];
-                
                     // make new alignment object
                     multi_alignments->emplace_back();
                     Alignment& next_alignment = multi_alignments->back();
@@ -1425,8 +1427,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                     next_alignment.set_quality(alignment.quality());
                 
                     // get path of the alternate alignment
-                    gssw_mapping_to_alignment(graph, gm, next_alignment, pinned, pin_left, print_score_matrices);
-                
+                    gssw_mapping_to_alignment(graph, gms[i], next_alignment, pinned, pin_left, print_score_matrices);
                 }
             }
         
@@ -1438,9 +1439,9 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         else {
             // trace back local alignment
             gssw_graph_mapping* gm = gssw_graph_trace_back_qual_adj (graph,
-                                                                     align_sequence.c_str(),
-                                                                     align_quality.c_str(),
-                                                                     align_sequence.size(),
+                                                                     align_sequence->c_str(),
+                                                                     align_quality->c_str(),
+                                                                     align_sequence->size(),
                                                                      nt_table,
                                                                      score_matrix,
                                                                      gap_open,
@@ -1466,23 +1467,23 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
 }
 
-void QualAdjAligner::align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices) {
+void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) {
     
     align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, Graph& g, bool pin_left) {
+void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) {
 
     align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
 
 }
 
-void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         bool pin_left, int32_t max_alt_alns) {
     align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
 }
 
-void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
+void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
                                          int32_t band_padding, bool permissive_banding) {
     
     BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
@@ -1494,7 +1495,7 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
 
-void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                                int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
     
     BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
@@ -1511,10 +1512,12 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 // X-drop aligner
 void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
 {
+    // TODO: implement?
 }
 
 void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns)
 {
+    // TODO: implement?
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {

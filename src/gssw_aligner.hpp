@@ -47,10 +47,6 @@ namespace vg {
         // for construction
         // needed when constructing an alignable graph from the nodes
         gssw_graph* create_gssw_graph(Graph& g);
-        void visit_node(gssw_node* node,
-                        list<gssw_node*>& sorted_nodes,
-                        set<gssw_node*>& unmarked_nodes,
-                        set<gssw_node*>& temporary_marks);
         
         // create a reversed (not complemented) graph for left-pinned alignment
         void reverse_graph(Graph& g, Graph& reversed_graph_out);
