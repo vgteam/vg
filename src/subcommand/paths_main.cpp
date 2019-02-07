@@ -303,12 +303,6 @@ int main_paths(int argc, char** argv) {
                 }
                 cout << endl;
             }
-        } else if (extract_as_gam) {
-            auto alns = xg_index->paths_as_alignments();
-            stream::ProtobufEmitter<Alignment> emitter(cout);
-            for (auto& aln : alns) {
-                emitter.write(std::move(aln));
-            }
         } else if (!path_prefix.empty()) {
             vector<Path> got = xg_index->paths_by_prefix(path_prefix);
             if (extract_as_gam) {
@@ -323,6 +317,12 @@ int main_paths(int argc, char** argv) {
                     vector<Graph> gb = { g };
                     stream::write_buffered(cout, gb, 0);
                 }
+            }            
+        } else if (extract_as_gam) {
+            auto alns = xg_index->paths_as_alignments();
+            stream::ProtobufEmitter<Alignment> emitter(cout);
+            for (auto& aln : alns) {
+                emitter.write(std::move(aln));
             }
         } else {
             cerr << "[vg paths] Error: specify an operation to perform" << endl;

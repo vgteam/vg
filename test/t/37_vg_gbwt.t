@@ -25,7 +25,7 @@ is $(vg gbwt -S x.gbwt) 1 "chromosome x: 1 sample"
 is $(vg paths -x x.xg -g x.gbwt -X -T | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
 
 # Query test
-is $(vg paths -x x.xg -g x.gbwt -X -Q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
+is $(vg paths -x x.xg -g x.gbwt -X -q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
 
 # Chromosome Y
 vg index -G y.gbwt -v small/xy2.vcf.gz y.vg
