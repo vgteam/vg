@@ -2,6 +2,8 @@ Total alignments: 100
 Total primary: 100
 Total secondary: 0
 Total aligned: 100
+Total perfect: 100
+Total gapless (softclips allowed): 100
 Insertions: 0 bp in 0 read events
 Deletions: 0 bp in 0 read events
 Substitutions: 0 bp in 0 read events

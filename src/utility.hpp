@@ -546,6 +546,9 @@ unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id
                                                     const unordered_map<id_t, id_t>& under);
     
 
+/// Return true if there's a command line argument (i.e. input file name) waiting to be processed. 
+bool have_input_file(int& optind, int argc, char** argv);
+
 /// Get a callback with an istream& to an open file if a file name argument is
 /// present after the parsed options, or print an error message and exit if one
 /// is not. Handles "-" as a filename as indicating standard input. The reference
