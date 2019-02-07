@@ -528,6 +528,28 @@ std::vector<pos_t> MinimizerIndex::find(key_type key) const {
     return result;
 }
 
+size_t MinimizerIndex::count(key_type key) const {
+    if (key == NO_KEY) {
+        return 0;
+    }
+
+    size_t offset = this->find_offset(key);
+    cell_type cell = this->hash_table[offset];
+    if (cell.first == key) {
+        if (this->is_pointer[offset]) {
+            return cell.second.pointer->size();
+        } else {
+            if (cell.second.value == NO_VALUE) {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 size_t MinimizerIndex::find_offset(key_type key) const {
     size_t offset = hash(key) & (this->capacity() - 1);
     for (size_t attempt = 0; attempt < this->capacity(); attempt++) {

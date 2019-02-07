@@ -134,6 +134,11 @@ public:
     /// Use minimizer() or minimizers() to get the key.
     std::vector<pos_t> find(key_type key) const;
 
+    /// Returns the occurrence count of the minimizer with the given key.
+    /// If the occurrence limit has been exceeded, returns 0.
+    /// Use minimizer() or minimizers() to get the key.
+    size_t count(key_type key) const;
+
 //------------------------------------------------------------------------------
 
     /// Length of the kmers in the index.
