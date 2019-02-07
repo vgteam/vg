@@ -73,7 +73,7 @@ usage() {
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run, or 'None' for no tests.\n"
     printf "\t-w WORKDIR\tOutput test result data to the given absolute or ./ path (also used for scratch)\n"
-    printf "\t-W WORKDIR\Load test result data to the given path instead of building or running tests\n"
+    printf "\t-W WORKDIR\Load test result data from the given path instead of building or running tests\n"
     printf "\t-j FILE\tSave the JUnit test report XML to the given file (default: test-report.xml)\n"
     printf "\t-J FILE\tLoad the JUnit test report from the given file instead of building or running tests\n"
     printf "\t-H\tSkip generating HTML report based on JUnit report\n"
@@ -389,6 +389,23 @@ then
         cp test-report.xml "${SAVE_JUNIT}" || touch "${SAVE_JUNIT}"
     fi
     
+    if [ ! -z "${CI}" ] && [ "${TEST_FAIL}" != 0 ]
+    then
+        # We are running on cloud CI (and not manually running the tests), so
+        # we probably have AWS and Github credentials and can upload stuff to S3.
+        # A test faled, so we should make sure we upload its outstore for debugging.
+        # TODO: If we get the report job to always run and include this, maybe we don't need individual uploads too.
+    
+        # Upload the results of this test in particular, as soon as it is done, instead of waiting for the final report job to do it.
+        tar czf "test_output.tar.gz" "${SAVE_WORK_DIR}/" test-report.xml
+        DEST_URL="${OUTPUT_DESTINATION}/vgci_output_archives/${VG_VERSION}/${CI_PIPELINE_ID}/${CI_JOB_ID}/test_output.tar.gz"
+        aws s3 cp --only-show-errors \
+            "test_output.tar.gz" "${DEST_URL}" \
+            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+        
+        echo "Test(s) failed. Output is available at ${DEST_URL}"
+    fi
+
     # Load from the work directory we saved to
     LOAD_WORK_DIR="${SAVE_WORK_DIR:-./vgci-work}"
 fi
@@ -472,8 +489,7 @@ then
             # Test the Dockerized vg
             VG_VERSION=`docker run ${DOCKER_TAG} vg version -s`
         fi
-            
-
+        
         # we publish the results to the archive
         tar czf "${VG_VERSION}_output.tar.gz" "${LOAD_WORK_DIR}/" test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
         aws s3 cp --only-show-errors \
