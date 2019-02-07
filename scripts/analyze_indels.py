@@ -38,6 +38,8 @@ def parse_args(args):
                         help="TSV of positions and counts to write")
     parser.add_argument("--lengths", required=True, type=argparse.FileType('w'),
                         help="TSV of lengths and counts to write")
+    parser.add_argument("--mapqs", required=True, type=argparse.FileType('w'),
+                        help="TSV of indel/gapless categories, MAPQs and counts to write")
     
     # The command line arguments start with the program name, which we don't
     # want to treat as an argument for argparse. So we remove it.
@@ -60,6 +62,8 @@ def main(args):
     indel_starts = collections.Counter()
     # How long is each indel?
     indel_lengths = collections.Counter()
+    # For reads with and without indels, what are your MAPQs?
+    read_mapqs = {'indel': collections.Counter(), 'gapless': collections.Counter()}
     
     for line in options.input:
         # Load each line
@@ -68,6 +72,9 @@ def main(args):
         # Parse the alignment using these counters
         read_offset = 0
         ref_offset = 0
+        
+        # Determine if the read is 'indel' or 'gapless'
+        status = 'gapless'
         
         mappings = alignment.get("path", {}).get("mapping", []) 
         
@@ -88,10 +95,15 @@ def main(args):
                     # Record this indel
                     indel_starts[read_offset] += 1
                     indel_lengths[to_length - from_length] += 1
+                    # Mark that the read has an indel
+                    status = 'indel'
                 
                 # Advance the position counters
                 read_offset += to_length
                 ref_offset += from_length
+                
+        # Record the read's MAPQ
+        read_mapqs[status][alignment.get("mapping_quality", 0)] += 1
                 
     # Now dump tables for plotting
     for value, count in indel_starts.iteritems():
@@ -99,6 +111,10 @@ def main(args):
         
     for value, count in indel_lengths.iteritems():
         options.lengths.write("{}\t{}\n".format(value, count))
+      
+    for status, counts in read_mapqs.iteritems():
+        for value, count in counts.iteritems():
+            options.mapqs.write("{}\t{}\t{}\n".format(status, value, count))
 
 
 def entrypoint():
