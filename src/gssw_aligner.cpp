@@ -14,12 +14,16 @@ BaseAligner::~BaseAligner(void) {
 }
 
 gssw_graph* BaseAligner::create_gssw_graph(const HandleGraph& g) {
+    return create_gssw_graph(g, algorithms::lazier_topological_order(&g));
+}
+
+gssw_graph* BaseAligner::create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) {
     
     gssw_graph* graph = gssw_graph_create(g.node_size());
     unordered_map<int64_t, gssw_node*> nodes;
     
     // compute the topological order
-    for (const handle_t& handle : algorithms::lazier_topological_order(&g)) {
+    for (const handle_t& handle : topological_order) {
         auto cleaned_seq = nonATGCNtoN(g.get_sequence(handle));
         gssw_node* node = gssw_node_create(nullptr,       // TODO: the ID should be enough, don't need Node* too
                                            g.get_id(handle),
@@ -61,6 +65,7 @@ gssw_graph* BaseAligner::create_gssw_graph(const HandleGraph& g) {
             }
             exit(1);
         }
+        return true;
     });
     
     return graph;
@@ -208,28 +213,6 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
     
     // compute and set identity
     alignment.set_identity(identity(alignment.path()));
-}
-
-void BaseAligner::reverse_graph(const HandleGraph& g, MutableHandleGraph& reversed_graph_out) {
-    if (reversed_graph_out.node_size()) {
-        cerr << "error:[Aligner::reverse_graph] output graph is not empty" << endl;
-        exit(EXIT_FAILURE);
-    }
-    
-    // add reversed (not complementd) nodes
-    g.for_each_handle([&](const handle_t& handle) {
-        string seq = g.get_sequence(handle);
-        reverse(seq.begin(), seq.end());
-        reversed_graph_out.create_handle(seq, g.get_id(handle));
-    });
-    
-    // add reversed edges
-    g.for_each_edge([&](const edge_t& edge) {
-        reversed_graph_out.create_edge(reversed_graph_out.get_handle(g.get_id(edge.first),
-                                                                     !g.get_is_reverse(edge.first)),
-                                       reversed_graph_out.get_handle(g.get_id(edge.second),
-                                                                     !g.get_is_reverse(edge.second)));
-    });
 }
 
 void BaseAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) {
@@ -844,8 +827,8 @@ Aligner::~Aligner()
 */
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
-                             bool pinned, bool pin_left, int32_t max_alt_alns,
-                             bool traceback_aln, bool print_score_matrices) {
+                             const vector<handle_t>* topological_order, bool pinned, bool pin_left,
+                             int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) {
     // bench_start(bench);
     // check input integrity
     if (pin_left && !pinned) {
@@ -869,25 +852,26 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // left we need to reverse all the sequences first and translate the alignment back later
     
     // make a place to reverse the graph and sequence if necessary
-    HashGraph reversed_graph;
+    BackwardsGraph reversed_graph(&g);
     string reversed_sequence;
 
     // choose forward or reversed objects
     const HandleGraph* align_graph = &g;
     const string* align_sequence = &alignment.sequence();
     if (pin_left) {
-        // make and assign the reversed graph
-        reverse_graph(g, reversed_graph);
+        // choose the reversed graph
         align_graph = &reversed_graph;
         
         // make and assign the reversed sequence
         reversed_sequence.resize(align_sequence->size());
-        reverse(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
+        reverse_copy(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
         align_sequence = &reversed_sequence;
     }
     
-    // convert into gssw graph
-    gssw_graph* graph = create_gssw_graph(*align_graph);
+    // convert into gssw graph either using the pre-made topological order or computing a
+    // topological order in the constructor
+    gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
+                                          : create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     gssw_graph_fill_pinned(graph, align_sequence->c_str(),
@@ -1021,12 +1005,23 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
 
 void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
+    align_internal(alignment, nullptr, g, nullptr, false, false, 1, traceback_aln, print_score_matrices);
+}
+
+void Aligner::align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                    bool traceback_aln, bool print_score_matrices) {
+    
+    align_internal(alignment, nullptr, g, &topological_order, false, false, 1, traceback_aln, print_score_matrices);
 }
 
 void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) {
     
-    align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
+    align_internal(alignment, nullptr, g, nullptr, true, pin_left, 1, true, false);
+}
+
+void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order, bool pin_left) {
+    
+    align_internal(alignment, nullptr, g, &topological_order, true, pin_left, 1, true, false);
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
@@ -1037,7 +1032,18 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
         exit(EXIT_FAILURE);
     }
     
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
+    align_internal(alignment, &alt_alignments, g, nullptr, true, pin_left, max_alt_alns, true, false);
+}
+
+void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
+                                 const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) {
+    
+    if (alt_alignments.size() != 0) {
+        cerr << "error:[Aligner::align_pinned_multi] output vector must be empty for pinned multi-aligning" << endl;
+        exit(EXIT_FAILURE);
+    }
+    
+    align_internal(alignment, &alt_alignments, g, &topological_order, true, pin_left, max_alt_alns, true, false);
 }
 
 void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
@@ -1277,7 +1283,8 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
 }
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
-                                    bool pinned, bool pin_left, int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) {
+                                    const vector<handle_t>* topological_order, bool pinned, bool pin_left,
+                                    int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) {
     
     // check input integrity
     if (pin_left && !pinned) {
@@ -1301,7 +1308,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     // left we need to reverse all the sequences first and translate the alignment back later
     
     // make a place to reverse the graph and sequence if necessary
-    HashGraph reversed_graph;
+    BackwardsGraph reversed_graph(&g);
     string reversed_sequence;
     string reversed_quality;
     
@@ -1310,18 +1317,17 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     const string* align_sequence = &alignment.sequence();
     const string* align_quality = &alignment.quality();
     if (pin_left) {
-        // make and assign the reversed graph
-        reverse_graph(g, reversed_graph);
+        // choose the reversed graph
         align_graph = &reversed_graph;
         
         // make and assign the reversed sequence
         reversed_sequence.resize(align_sequence->size());
-        reverse(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
+        reverse_copy(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
         align_sequence = &reversed_sequence;
         
         // make and assign the reversed quality
         reversed_quality.resize(align_quality->size());
-        reverse(align_quality->begin(), align_quality->end(), reversed_quality.begin());
+        reverse_copy(align_quality->begin(), align_quality->end(), reversed_quality.begin());
         align_quality = &reversed_quality;
     }
     
@@ -1330,8 +1336,10 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         exit(EXIT_FAILURE);
     }
     
-    // convert into gssw graph and get dummy pinned node (if pinning)
-    gssw_graph* graph = create_gssw_graph(*align_graph);
+    // convert into gssw graph either using the pre-made topological order or computing a
+    // topological order in the constructor
+    gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
+                                          : create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     // offer a full length bonus on each end, or only on the left if the right end is pinned.
@@ -1347,9 +1355,9 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
             gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_qual_adj_multi (graph,
                                                                                     max_alt_alns,
                                                                                     true,
-                                                                                    align_sequence.c_str(),
-                                                                                    align_quality.c_str(),
-                                                                                    align_sequence.size(),
+                                                                                    align_sequence->c_str(),
+                                                                                    align_quality->c_str(),
+                                                                                    align_sequence->size(),
                                                                                     nt_table,
                                                                                     score_matrix,
                                                                                     gap_open,
@@ -1469,18 +1477,35 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
 
 void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) {
     
-    align_internal(alignment, nullptr, g, false, false, 1, traceback_aln, print_score_matrices);
+    align_internal(alignment, nullptr, g, nullptr, false, false, 1, traceback_aln, print_score_matrices);
+}
+
+void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                           bool traceback_aln, bool print_score_matrices) {
+    
+    align_internal(alignment, nullptr, g, &topological_order, false, false, 1, traceback_aln, print_score_matrices);
 }
 
 void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) {
 
-    align_internal(alignment, nullptr, g, true, pin_left, 1, true, false);
+    align_internal(alignment, nullptr, g, nullptr, true, pin_left, 1, true, false);
 
+}
+
+void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order, bool pin_left) {
+    
+    align_internal(alignment, nullptr, g, &topological_order, true, pin_left, 1, true, false);
+    
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         bool pin_left, int32_t max_alt_alns) {
-    align_internal(alignment, &alt_alignments, g, true, pin_left, max_alt_alns, true, false);
+    align_internal(alignment, &alt_alignments, g, nullptr, true, pin_left, max_alt_alns, true, false);
+}
+
+void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
+                                        const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) {
+    align_internal(alignment, &alt_alignments, g, &topological_order, true, pin_left, max_alt_alns, true, false);
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
@@ -1513,11 +1538,15 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
 {
     // TODO: implement?
+    cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
+    exit(1);
 }
 
 void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns)
 {
     // TODO: implement?
+    cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
+    exit(1);
 }
 
 int32_t QualAdjAligner::score_exact_match(const Alignment& aln, size_t read_offset, size_t length) const {

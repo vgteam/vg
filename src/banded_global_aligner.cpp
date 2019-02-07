@@ -21,7 +21,7 @@ BandedGlobalAligner<IntType>::BABuilder::BABuilder(Alignment& alignment) :
                                                    alignment(alignment),
                                                    matrix_state(Match),
                                                    matching(false),
-                                                   current_node(nullptr),
+                                                   current_node_id(0),
                                                    edit_length(0),
                                                    edit_read_end_idx(0)
 {
@@ -234,7 +234,6 @@ BandedGlobalAligner<IntType>::BAMatrix::~BAMatrix() {
     free(match);
     free(insert_row);
     free(insert_col);
-    free(seeds);
 }
 
 template <class IntType>
@@ -307,7 +306,7 @@ void BandedGlobalAligner<IntType>::BAMatrix::fill_matrix(const HandleGraph& grap
     
     // we will allow the alignment to treat this node as a source if it has no seeds or if it
     // is connected to a source node by a length 0 path (which we will check later)
-    bool treat_as_source = (num_seeds == 0);
+    bool treat_as_source = seeds.empty();
     
     // initialize the queue with all of the predecessors
     vector<BAMatrix*> seed_queue = seeds;
@@ -1869,12 +1868,12 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
                 seeds.push_back(banded_matrices[node_id_to_idx[graph.get_id(prev)]]);
             });
             
-            banded_matrices[node_idx] = new BAMatrix(alignment,
-                                                     node,
-                                                     band_ends[node_idx].first,
-                                                     band_ends[node_idx].second,
-                                                     std::move(seeds),
-                                                     shortest_seqs[node_idx]);
+            banded_matrices[i] = new BAMatrix(alignment,
+                                              node,
+                                              band_ends[i].first,
+                                              band_ends[i].second,
+                                              std::move(seeds),
+                                              shortest_seqs[i]);
             
         }
     }
@@ -1997,12 +1996,12 @@ void BandedGlobalAligner<IntType>::find_banded_paths(bool permissive_banding, in
     else {
         // initialize with band ends beginning with source nodes
         for (const handle_t& handle : source_nodes) {
-            int64_t init_node_idx = node_id_to_idx.at(graph.get_id(init_node));
-            int64_t init_node_seq_len = graph.get_length(init_node);
+            int64_t init_node_idx = node_id_to_idx.at(graph.get_id(handle));
+            int64_t init_node_seq_len = graph.get_length(handle);
             band_ends[init_node_idx].first = -band_padding;
             band_ends[init_node_idx].second = band_padding;
 #ifdef debug_banded_aligner_graph_processing
-            cerr << "[BandedGlobalAligner::find_banded_paths]: initializing band path end at node " << graph.get_id(init_node) << " at index " << init_node_idx << " to top " << band_ends[init_node_idx].first << ", and bottom " << band_ends[init_node_idx].second << endl;
+            cerr << "[BandedGlobalAligner::find_banded_paths]: initializing band path end at node " << graph.get_id(handle) << " at index " << init_node_idx << " to top " << band_ends[init_node_idx].first << ", and bottom " << band_ends[init_node_idx].second << endl;
 #endif
         }
     }
@@ -2019,8 +2018,8 @@ void BandedGlobalAligner<IntType>::find_banded_paths(bool permissive_banding, in
         cerr << "[BandedGlobalAligner::find_banded_paths]: following edges out of node " << graph.get_id(node) << " at index " << i << " with sequence " << graph.get_sequence(node) << ", band of " << band_ends[i].first << ", " << band_ends[i].second << " extending to " << extended_band_top << ", " << extended_band_bottom << endl;
 #endif
         // can alignments from this node reach the bottom right corner within the band?
-        if (extended_band_top + shortest_path_to_sink[node_idx] > int64_t(alignment.sequence().size())
-            || extended_band_bottom + longest_path_to_sink[node_idx] < int64_t(alignment.sequence().size())) {
+        if (extended_band_top + shortest_path_to_sink[i] > int64_t(alignment.sequence().size())
+            || extended_band_bottom + longest_path_to_sink[i] < int64_t(alignment.sequence().size())) {
             
             node_masked[i] = true;
             
@@ -2073,7 +2072,7 @@ void BandedGlobalAligner<IntType>::shortest_seq_paths(vector<int64_t>& seq_lens_
         int64_t seq_len = graph.get_length(topological_order[i]) + seq_lens_out[i];
 
         graph.follow_edges(topological_order[i], false, [&](const handle_t& handle) {
-            int64_t target_idx = node_id_to_idx(graph.get_id(handle));
+            int64_t target_idx = node_id_to_idx.at(graph.get_id(handle));
             // find the shortest sequence that can reach the top left corner of the matrix
             if (seq_len < seq_lens_out[target_idx]) {
                 seq_lens_out[target_idx] = seq_len;
@@ -2112,7 +2111,7 @@ void BandedGlobalAligner<IntType>::align(int8_t* score_mat, int8_t* nt_table, in
         band_matrix->fill_matrix(graph, score_mat, nt_table, gap_open, gap_extend, adjust_for_base_quality, min_inf);
     }
     
-    traceback(graph, score_mat, nt_table, gap_open, gap_extend, min_inf);
+    traceback(score_mat, nt_table, gap_open, gap_extend, min_inf);
 }
 
 template <class IntType>
@@ -2132,7 +2131,7 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
     int32_t empty_score = read_length > 0 ? -gap_open - (read_length - 1) * gap_extend : 0;
     
     // find the optimal alignment(s) and initialize stack
-    AltTracebackStack traceback_stack(max_multi_alns, empty_score, source_node_matrices, sink_node_matrices,
+    AltTracebackStack traceback_stack(graph, max_multi_alns, empty_score, source_node_matrices, sink_node_matrices,
                                       gap_open, gap_extend, min_inf);
     
     while (traceback_stack.has_next()) {
@@ -2173,7 +2172,7 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
             
             // do traceback
             BABuilder builder(*next_alignment);
-            banded_matrices[end_node_idx]->traceback(builder, traceback_stack, end_matrix, score_mat, nt_table,
+            banded_matrices[end_node_idx]->traceback(graph, builder, traceback_stack, end_matrix, score_mat, nt_table,
                                                      gap_open, gap_extend, adjust_for_base_quality, min_inf);
             
             // construct the alignment path
@@ -2192,13 +2191,15 @@ void BandedGlobalAligner<IntType>::traceback(int8_t* score_mat, int8_t* nt_table
 }
 
 template <class IntType>
-BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_multi_alns,
+BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(const HandleGraph& graph,
+                                                                   int64_t max_multi_alns,
                                                                    int32_t empty_score,
                                                                    unordered_set<BAMatrix*>& source_node_matrices,
                                                                    unordered_set<BAMatrix*>& sink_node_matrices,
                                                                    int8_t gap_open,
                                                                    int8_t gap_extend,
                                                                    IntType min_inf) :
+                                                                   graph(graph),
                                                                    empty_score(empty_score),
                                                                    max_multi_alns(max_multi_alns)
 {
@@ -2244,8 +2245,7 @@ BandedGlobalAligner<IntType>::AltTracebackStack::AltTracebackStack(int64_t max_m
                     continue;
                 }
                 
-                for (int64_t i = 0; i < band_matrix->num_seeds; i++) {
-                    BAMatrix* seed = band_matrix->seeds[i];
+                for (auto seed : band_matrix->seeds) {
                     if (seed) {
                         band_stack.push_back(seed);
                     }

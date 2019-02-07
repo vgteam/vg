@@ -16,7 +16,9 @@
 #include <unordered_map>
 #include <list>
 #include <exception>
-#include "vg.pb.h"
+
+#include "handle.hpp"
+#include "algorithms/topological_sort.hpp"
 
 
 using namespace std;
@@ -125,7 +127,7 @@ namespace vg {
         vector<handle_t> sink_nodes;
         
         /// Internal constructor that the public constructors funnel into
-        BandedGlobalAligner(Alignment& alignment, Graph& g,
+        BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             vector<Alignment>* alt_alignments, int64_t max_multi_alns,
                             int64_t band_padding, bool permissive_banding = false,
                             bool adjust_for_base_quality = false);
@@ -134,14 +136,12 @@ namespace vg {
         void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, IntType min_inf);
         
         /// Constructor helper function: compute the longest and shortest path to a sink for each node
-        void path_lengths_to_sinks(const string& read, vector<vector<int64_t>>& node_edges_in,
-                                   vector<int64_t>& shortest_path_to_sink, vector<int64_t>& longest_path_to_sink);
+        void path_lengths_to_sinks(vector<int64_t>& shortest_path_to_sink, vector<int64_t>& longest_path_to_sink);
         /// Constructor helper function: compute which diagonals the bands cover on each node's matrix
-        void find_banded_paths(int64_t band_padding, vector<bool>& node_masked,
+        void find_banded_paths(bool permissive_banding, int64_t band_padding, vector<bool>& node_masked,
                                vector<pair<int64_t, int64_t>>& band_ends);
         /// Constructor helper function: compute the shortest path from a source to each node
-        void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, unordered_set<Node*>& source_nodes,
-                                vector<int64_t>& seq_lens_out);
+        void shortest_seq_paths(vector<int64_t>& seq_lens_out);
     };
 
     /**
@@ -216,7 +216,7 @@ namespace vg {
     template <class IntType>
     class BandedGlobalAligner<IntType>::AltTracebackStack {
     public:
-        AltTracebackStack(int64_t max_multi_alns, int32_t empty_score,
+        AltTracebackStack(const HandleGraph& graph, int64_t max_multi_alns, int32_t empty_score,
                           unordered_set<BAMatrix*>& source_node_matrices,
                           unordered_set<BAMatrix*>& sink_node_matrices,
                           int8_t gap_open,
@@ -271,6 +271,7 @@ namespace vg {
         /// All of the paths through the graph that take only empty nodes
         list<list<int64_t>> empty_full_paths;
         int32_t empty_score;
+        const HandleGraph& graph;
         
         /// Pointer to the traceback directions for the alignment we are currently tracing back
         typename list<tuple<vector<Deflection>, IntType, list<int64_t>>>::iterator curr_traceback;
@@ -336,7 +337,7 @@ namespace vg {
         int64_t edit_read_end_idx = 0;
         
         void finish_current_edit();
-        void finish_current_node(const HandleGraph& graph);
+        void finish_current_node();
     };
 
 }

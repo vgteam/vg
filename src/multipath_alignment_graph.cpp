@@ -3151,7 +3151,7 @@ namespace vg {
 #endif
                 
                 // extract the graph between the matches
-                VG connecting_graph;
+                HashGraph connecting_graph;
                 unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
                                                                                                &connecting_graph, // graph to extract into
                                                                                                max_dist,          // longest distance necessary
@@ -3194,7 +3194,7 @@ namespace vg {
                                                                                     dest_path_node.begin - src_path_node.end));
                     }
                 
-                    aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns,
+                    aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns,
                                                        band_padding_function(intervening_sequence, connecting_graph), true);
                 }
                 
@@ -3423,23 +3423,18 @@ namespace vg {
                     // want past-the-last instead of last index here
                     get_offset(end_pos)++;
                     
-                    VG tail_graph_extractor;
+                    HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               &tail_graph_extractor,
+                                                                                               &tail_graph,
                                                                                                target_length,
                                                                                                end_pos,
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) :
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                     
                     if (num_alt_alns > 0) {
-                    
-                        Graph& tail_graph = tail_graph_extractor.graph;
-                        
-                        // ensure invariants that gssw-based alignment expects
-                        groom_graph_for_gssw(tail_graph);
                         
                         // get the sequence remaining in the right tail
                         Alignment right_tail_sequence;
@@ -3536,22 +3531,18 @@ namespace vg {
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     
-                    VG tail_graph_extractor;
+                    HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               &tail_graph_extractor,
+                                                                                               &tail_graph,
                                                                                                target_length,
                                                                                                begin_pos,
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : 
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                             
                     if (num_alt_alns > 0) {
-                    
-                        Graph& tail_graph = tail_graph_extractor.graph;
-                        // ensure invariants that gssw-based alignment expects
-                        groom_graph_for_gssw(tail_graph);
                         
                         Alignment left_tail_sequence;
                         left_tail_sequence.set_sequence(alignment.sequence().substr(0, path_node.begin - alignment.sequence().begin()));

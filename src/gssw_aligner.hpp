@@ -17,6 +17,7 @@
 #include "banded_global_aligner.hpp"
 #include "xdrop_aligner.hpp"
 #include "handle.hpp"
+#include "backwards_graph.hpp"
 
 // #define BENCH
 // #include "bench.h"
@@ -46,12 +47,10 @@ namespace vg {
         
         // for construction
         // needed when constructing an alignable graph from the nodes
-        gssw_graph* create_gssw_graph(Graph& g);
+        gssw_graph* create_gssw_graph(const HandleGraph& g);
+        // for constructing an alignable graph when the topological order is already known
+        gssw_graph* create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order);
         
-        // create a reversed (not complemented) graph for left-pinned alignment
-        void reverse_graph(Graph& g, Graph& reversed_graph_out);
-        // reverse all node sequences (other aspects of graph object not unreversed)
-        void unreverse_graph(Graph& graph);
         // convert graph mapping back into unreversed node positions
         // convert graph mapping back into unreversed node positions
         void unreverse_graph_mapping(gssw_graph_mapping* gm);
@@ -93,8 +92,11 @@ namespace vg {
         
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
-        /// Assumes that graph is topologically sorted by node index.
-        virtual void align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices) = 0;
+        virtual void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) = 0;
+        
+        /// Same as previous, but takes advantage of a pre-computed topological order
+        virtual void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                           bool traceback_aln, bool print_score_matrices) = 0;
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -106,7 +108,11 @@ namespace vg {
         // Gives the full length bonus only on the non-pinned end of the alignment.
         //
         // assumes that graph is topologically sorted by node index
-        virtual void align_pinned(Alignment& alignment, Graph& g, bool pin_left) = 0;
+        virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) = 0;
+        
+        /// Same as previous, but takes advantage of a pre-computed topological order
+        virtual void align_pinned(Alignment& alignment, const HandleGraph& g,
+                                  const vector<handle_t>& topological_order, bool pin_left) = 0;
         
         // store the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -114,13 +120,18 @@ namespace vg {
         // will be stored in both the vector and in the main alignment object
         //
         // assumes that graph is topologically sorted by node index
-        virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+        virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         bool pin_left, int32_t max_alt_alns) = 0;
+        
+        
+        /// Same as previous, but takes advantage of a pre-computed topological order
+        virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
+                                        const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) = 0;
         
         // store optimal global alignment against a graph within a specified band in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
         // through every node in the graph
-        virtual void align_global_banded(Alignment& alignment, Graph& g,
+        virtual void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                          int32_t band_padding = 0, bool permissive_banding = true) = 0;
         
         // store top scoring global alignments in the vector in descending score order up to a maximum number
@@ -128,7 +139,7 @@ namespace vg {
         // number of alignments in the return value, then the vector contains all possible alignments. the
         // optimal alignment will be stored in both the vector and the original alignment object
         virtual void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments,
-                                               Graph& g, int32_t max_alt_alns, int32_t band_padding = 0,
+                                               const HandleGraph& g, int32_t max_alt_alns, int32_t band_padding = 0,
                                                bool permissive_banding = true) = 0;
         // xdrop aligner
         virtual void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded) = 0;
@@ -246,7 +257,8 @@ namespace vg {
     private:
         
         // internal function interacting with gssw for pinned and local alignment
-        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
+        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
+                            const vector<handle_t>* topological_order,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln,
                             bool print_score_matrices);
@@ -274,7 +286,9 @@ namespace vg {
         /// Store optimal local alignment against a graph in the Alignment object.
         /// Gives the full length bonus separately on each end of the alignment.
         /// Assumes that graph is topologically sorted by node index.
-        void align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices);
+        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices);
+        void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                   bool traceback_aln, bool print_score_matrices);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -286,7 +300,9 @@ namespace vg {
         // Gives the full length bonus only on the non-pinned end of the alignment.
         //
         // assumes that graph is topologically sorted by node index
-        void align_pinned(Alignment& alignment, Graph& g, bool pin_left);
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left);
+        void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                          bool pin_left);
                 
         // store the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
@@ -294,20 +310,22 @@ namespace vg {
         // will be stored in both the vector and in the main alignment object
         //
         // assumes that graph is topologically sorted by node index
-        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns);
+        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
+                                const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns);
         
         // store optimal global alignment against a graph within a specified band in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
         // through every node in the graph
-        void align_global_banded(Alignment& alignment, Graph& g,
+        void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
         
         // store top scoring global alignments in the vector in descending score order up to a maximum number
         // of alternate alignments (including the optimal alignment). if there are fewer than the maximum
         // number of alignments in the return value, then the vector contains all possible alignments. the
         // optimal alignment will be stored in both the vector and the original alignment object
-        void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+        void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
 
         // xdrop aligner
@@ -343,14 +361,20 @@ namespace vg {
         ~QualAdjAligner(void) = default;
 
         // base quality adjusted counterparts to functions of same name from Aligner
-        void align(Alignment& alignment, Graph& g, bool traceback_aln, bool print_score_matrices);
-        void align_global_banded(Alignment& alignment, Graph& g,
+        void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices);
+        void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                   bool traceback_aln, bool print_score_matrices);
+        void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
-        void align_pinned(Alignment& alignment, Graph& g, bool pin_left);
-        void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left);
+        void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                          bool pin_left);
+        void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
-        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns);
+        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
+                                const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns);
         // xdrop aligner
         void align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded);
         void align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns);
@@ -370,7 +394,8 @@ namespace vg {
         
     private:
 
-        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
+        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
+                            const vector<handle_t>* topological_order,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln,
                             bool print_score_matrices);

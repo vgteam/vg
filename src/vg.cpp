@@ -6757,7 +6757,7 @@ Alignment VG::align(const Alignment& alignment,
     vector<MaximalExactMatch> translated_mems;
     
     // trans is only required in the X-drop aligner; can be nullptr
-    auto do_align = [&](Graph& g) {
+    auto do_align = [&](VG& g) {
 #ifdef debug
         write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
         serialize_to_file(hash_alignment(alignment) + ".vg");
@@ -6793,7 +6793,7 @@ Alignment VG::align(const Alignment& alignment,
         } else if(xdrop_alignment) {
             // cerr << "X-drop alignment, (" << xdrop_alignment << ")" << endl;
             if (aligner && !qual_adj_aligner) {
-                aligner->align_xdrop(aln, g, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true, multithreaded_xdrop);
+                aligner->align_xdrop(aln, g.graph, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true, multithreaded_xdrop);
             } else {
                 /* qual_adj_aligner is not yet implemented, fallback */
                 qual_adj_aligner->align/*_xdrop*/(aln, g, traceback, print_score_matrices);
@@ -6815,7 +6815,7 @@ Alignment VG::align(const Alignment& alignment,
         cerr << "Graph is a non-inverting DAG, so just sort and align" << endl;
 #endif
         // run the alignment without id translation
-        do_align(this->graph);
+        do_align(*this);
     } else {
 #ifdef debug
         cerr << "Graph is complex, so dagify and unfold before alignment" << endl;
@@ -6847,7 +6847,7 @@ Alignment VG::align(const Alignment& alignment,
         algorithms::topological_sort(&dag);
         
         // run the alignment with id translation table
-        do_align(dag.graph);
+        do_align(dag);
 
 #ifdef debug
         auto check_aln = [&](VG& graph, const Alignment& a) {
