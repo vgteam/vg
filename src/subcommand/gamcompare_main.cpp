@@ -12,7 +12,7 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 
 using namespace std;
 using namespace vg;

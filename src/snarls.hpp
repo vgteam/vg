@@ -14,7 +14,8 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
-#include "stream.hpp"
+#include "stream/protobuf_emitter.hpp"
+#include "stream/protobuf_iterator.hpp"
 #include "vg.hpp"
 #include "handle.hpp"
 #include "vg.pb.h"
@@ -271,7 +272,10 @@ public:
              const vector<Snarl>& child_unary_snarls,
              const HandleGraph* graph,
              bool use_internal_connectivity = false);
-            
+
+    /// Method to check if a node exists by ID
+    virtual bool has_node(id_t node_id) const;
+    
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     // Copy over the visit version which would otherwise be shadowed.

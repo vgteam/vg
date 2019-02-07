@@ -3,7 +3,7 @@
 #include <regex>
 #include "json2pb.h"
 #include "pileup.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 
 using namespace std;
 

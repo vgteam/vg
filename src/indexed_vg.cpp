@@ -56,6 +56,25 @@ void IndexedVG::print_report() const {
     // here.
 }
 
+bool IndexedVG::has_node(id_t node_id) const {
+    bool id_in_graph = false;
+    find(node_id, [&](const CacheEntry& entry) -> bool {
+            // For each relevant entry (which may just have some edges to the node we are looking for)
+            auto found = entry.id_to_node_index.find(node_id);
+            if (found != entry.id_to_node_index.end()) {
+                // We found the node!
+                id_in_graph = true;
+                // Stop
+                return false;
+            }
+        
+            // Otherwise we don't have the node we want
+            return true;
+        });
+
+    return id_in_graph;
+}
+
 // TODO: We ought to use some kind of handle packing that relates to file offsets for graph chunks contasining nodes.
 // For now we just use the EasyHandlePacking and hit the index every time.
 
@@ -435,11 +454,10 @@ bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const Cac
         with_cursor([&](cursor_t& cursor) {
             // Try to get to the VO we are supposed to go to
             auto pre_seek_group = cursor.tell_group();
-            auto pre_seek_pos = cursor.tell_raw();
             if (!cursor.seek_group(group_vo)) {
                 cerr << "error[vg::IndexedVG]: Could not seek from group pos " << pre_seek_group
-                    << " and raw pos " << pre_seek_pos << " to group pos " << group_vo << endl;
-                cerr << "Current position: group " << cursor.tell_group() << " raw " << cursor.tell_raw()
+                    << " to group pos " << group_vo << endl;
+                cerr << "Current position: group " << cursor.tell_group()
                     << " has_next: " << cursor.has_next() << endl;
                 assert(false);
             }

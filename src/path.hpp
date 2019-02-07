@@ -7,7 +7,6 @@
 #include <set>
 #include <list>
 #include <sstream>
-#include <regex>
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "edit.hpp"
@@ -43,8 +42,9 @@ ostream& operator<<(ostream& out, mapping_t mapping);
 class Paths {
 public:
 
-    // This regex matches the names of alt paths.
-    const static std::regex is_alt;
+    // This predicate matches the names of alt paths.
+    // We used to use a regex but that's a very slow way to check a prefix.
+    const static function<bool(const string&)> is_alt;
 
     Paths(void);
 
@@ -160,6 +160,7 @@ public:
     bool has_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id);
+    const map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id) const;
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(Node* n);
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(id_t id);
     map<string, map<int, mapping_t*> > get_node_mappings_by_rank(id_t id);
@@ -322,9 +323,14 @@ double overlap(const Path& p1, const Path& p2);
 // helps estimate overapls quickly
 void decompose(const Path& path, map<pos_t, int>& ref_positions, map<pos_t, Edit>& edits);
 
-// switches the node ids in the path to the ones indicated by the translator
+/// Switches the node ids in the path to the ones indicated by the translator
 void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator);
-// switches the node ids and orientations in the path to the ones indicated by the translator
+/// Replaces the node IDs in the path with the ones indicated by the
+/// translator. Supports a single cut node in the source graph, where the given
+/// number of bases of the given node were removed from its left or right side
+/// when making the source graph from the destination graph.
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator, id_t cut_node, size_t bases_removed, bool from_right);
+/// Switches the node ids and orientations in the path to the ones indicated by the translator
 void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator);
     
 // the first position on the path
@@ -335,9 +341,9 @@ pos_t final_position(const Path& path);
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
-// Remove the paths with names matching the regex from the graph.
+// Remove the paths with names matching the predicate from the graph.
 // Store them in the list unless it is nullptr.
-void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching);
+void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching);
 
 }
 

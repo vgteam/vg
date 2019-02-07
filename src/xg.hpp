@@ -122,9 +122,10 @@ public:
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
     void load(istream& in);
+    // Save this XG index to a stream.
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
-                     std::string name = "");
+                     std::string name = "") const;
                      
     
     ////////////////////////////////////////////////////////////////////////////
@@ -276,9 +277,10 @@ public:
     virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns the 0-based ordinal rank of a occurrence on a pth
-    virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    
+    /// Returns a vector of all occurrences of a node on paths. Optionally restricts to
+    /// occurrences that match the handle in orientation.
+    virtual vector<occurrence_handle_t> occurrences_of_handle(const handle_t& handle,
+                                                              bool match_orientation = false) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -911,7 +913,7 @@ Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse
 void to_text(ostream& out, Graph& graph);
 
 // Serialize a rank_select_int_vector in an SDSL serialization compatible way. Returns the number of bytes written.
-size_t serialize(XG::rank_select_int_vector& to_serialize, ostream& out,
+size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name);
 
 // Deserialize a rank_select_int_vector in an SDSL serialization compatible way.

@@ -1,10 +1,36 @@
 #include "path.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "region.hpp"
 
 namespace vg {
 
-const std::regex Paths::is_alt("_alt_.+_[0-9]+");
+const std::function<bool(const string&)> Paths::is_alt = [](const string& path_name) {
+    // Really we want things that match the regex "_alt_.+_[0-9]+"
+    // But std::regex was taking loads and loads of time (probably matching .+) so we're replacing it with special-purpose code.
+    
+    string prefix("_alt_");
+    
+    if (path_name.length() < prefix.length() || !std::equal(prefix.begin(), prefix.end(), path_name.begin())) {
+        // We lack the prefix
+        return false;
+    }
+    
+    // Otherwise it's almost certainly an alt, but make sure it ends with numbers after '_' to be sure.
+    
+    size_t found_digits = 0;
+    for (auto it = path_name.rbegin(); it != path_name.rend() && *it != '_'; ++it) {
+        // Scan in reverse until '_' (which we know exists)
+        if (*it < '0' || *it > '9') {
+            // Out of range character
+            return false;
+        }
+        found_digits++;
+    }
+    
+    // If there were any digits, and ony digits, it matches.
+    return (found_digits > 0);
+    
+};
 
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
@@ -686,6 +712,10 @@ bool Paths::has_node_mapping(Node* n) {
 
 map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(id_t id) {
     return node_mapping[id];
+}
+    
+const map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(id_t id) const {
+    return node_mapping.at(id);
 }
 
 map<int64_t, set<mapping_t*>>& Paths::get_node_mapping(Node* n) {
@@ -2186,6 +2216,31 @@ void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator)
     }
 }
 
+void translate_node_ids(Path& path, const unordered_map<id_t, id_t>& translator, id_t cut_node, size_t bases_removed, bool from_right) {
+    // First just translate the IDs
+    translate_node_ids(path, translator);
+    
+    
+    for (size_t i = 0; i < path.mapping_size(); i++) {
+        // Scan the whole path again. We can't count on the cut node only being in the first and last mappings.
+        Position* position = path.mutable_mapping(i)->mutable_position();
+        if (position->node_id() == cut_node) {
+            // Then adjust offsets to account for the cut on the original node
+            
+            // If the position in the path is counting from the same end of the
+            // node that we didn't keep after the cut, we have to bump up its
+            // offset.
+            if ((!position->is_reverse() && !from_right) || // We cut off the left of the node, and we're counting from the left
+                (position->is_reverse() && from_right)) { // We cut off the right of the node, and we're counting from the right
+                // Update the offset to reflect the removed bases
+                position->set_offset(position->offset() + bases_removed);
+            }
+        }
+    }
+    
+    
+}
+
 void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t, bool>>& translator) {
     for (size_t i = 0; i < path.mapping_size(); i++) {
         Position* position = path.mutable_mapping(i)->mutable_position();
@@ -2241,11 +2296,11 @@ Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
     return toReturn;
 }
 
-void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching) {
+void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching) {
 
     std::list<Path> non_matching;
     for (size_t i = 0; i < graph.path_size(); i++) {
-        if (std::regex_match(graph.path(i).name(), paths_to_take)) {
+        if (paths_to_take(graph.path(i).name())) {
             if (matching != nullptr) {
                 matching->push_back(graph.path(i));
             }

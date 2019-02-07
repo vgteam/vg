@@ -1,5 +1,5 @@
 #include "vg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "gssw_aligner.hpp"
 #include "vg.pb.h"
 #include "flow_sort.hpp"

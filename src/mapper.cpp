@@ -1700,6 +1700,12 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
         bool path_valid;
         std::tie(haplotype_logprob, path_valid) = haplo_score_provider->score(aln->path(), haplo_memo);
         
+        if (std::isnan(haplotype_logprob) && path_valid) {
+            // This shouldn't happen. Bail out on haplotype adjustment for this read and warn.
+            cerr << "warning:[vg::Mapper]: NAN population score obtained for read with ostensibly successful query. Changing to failure." << endl;
+            path_valid = false;
+        }
+        
         if (!path_valid) {
             // Our path does something the scorer doesn't like.
             // Bail out of applying haplotype scores.
@@ -1727,10 +1733,12 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
             // We actually did rescore this one
             
             // This is a score "penalty" because it is usually negative. But positive = more score.
+            // Convert to points, raise to haplotype consistency exponent power.
             double score_penalty = haplotype_consistency_exponent * (haplotype_logprobs[i] / aligner->log_base);
-
-            // Convert to points, raise to haplotype consistency exponent power, and apply
-            alns[i]->set_score(max((int64_t) 0, alns[i]->score() + (int64_t) round(score_penalty)));
+            
+            // Apply "penalty"
+            int64_t old_score = alns[i]->score();
+            alns[i]->set_score(max((int64_t) 0, old_score + (int64_t) round(score_penalty)));
             // Note that we successfully corrected the score
             set_annotation(alns[i], "haplotype_score_used", true);
             // And save the score penalty/bonus
@@ -1738,8 +1746,9 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
 
             if (debug) {
                 cerr << "Alignment statring at " << alns[i]->path().mapping(0).position().node_id()
-                    << " got logprob " << haplotype_logprobs[i] << " moving score " << score_penalty
-                    << " from " << alns[i]->score() - score_penalty << " to " << alns[i]->score() << endl;
+                    << " got logprob " << haplotype_logprobs[i] << " vs " << haplotype_count
+                    << " haplotypes, moving score by " << score_penalty
+                    << " from " << old_score << " to " << alns[i]->score() << endl;
             }
         }
     }
@@ -2144,7 +2153,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried2 = true;
-            //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
+            //stream::write_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
@@ -2164,7 +2173,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried1 = true;
-            //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
+            //stream::write_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
@@ -3834,7 +3843,7 @@ bool Mapper::check_alignment(const Alignment& aln) {
                  << "expect:\t" << aln.sequence() << endl
                  << "got:\t" << seq << endl;
             // save alignment
-            write_alignment_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
+            stream::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
             // save graph, bigger fragment
             xindex->expand_context(sub, 5, true);
             VG gn; gn.extend(sub);
@@ -4267,7 +4276,8 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality,
                                                         max_mem_length,
                                                         min_mem_length,
                                                         mem_reseed_length,
-                                                        false, true, true, false);
+                                                        false, true, true, true); // Make sure to actually fill in the longest LCP.
+        
         // query mem hits
         alignments = align_mem_multi(aln, mems, cluster_mq, longest_lcp, fraction_filtered, max_mem_length, keep_multimaps, additional_multimaps_for_quality, xdrop_alignment);
     }

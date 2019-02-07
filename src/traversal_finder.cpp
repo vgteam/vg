@@ -1136,6 +1136,28 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
                 }
             } else {
                 cerr << "\tPath member " << visit << " is to a child snarl" << endl;
+                
+                auto found_start = index.find_in_orientation(visit.snarl().start().node_id(),
+                    visit.snarl().start().backward() != visit.backward());
+                    
+                if (found_start != index.end()) {
+                    cerr << "\t\tStart lives on backbone at "
+                         << found_start->first << endl;
+                } else {
+                    cerr << "\t\tStart does not live on backbone" << endl;
+                }
+                
+                auto found_end = index.find_in_orientation(visit.snarl().end().node_id(),
+                    visit.snarl().end().backward() != visit.backward());
+                
+                if (found_end != index.end()) {
+                    cerr << "\t\tEnd lives on backbone at "
+                         << found_end->first << endl;
+                } else {
+                    cerr << "\t\tEnd does not live on backbone" << endl;
+                }
+                    
+                
             }
         }
 #endif
@@ -1143,9 +1165,61 @@ vector<SnarlTraversal> RepresentativeTraversalFinder::find_traversals(const Snar
         for(auto& visit : path) {
             if (visit.node_id() != 0) {
                 // Make sure the site actually has the nodes we're visiting.
-                assert(contents.first.count(augmented.graph.get_node(visit.node_id())));
+                if (!contents.first.count(augmented.graph.get_node(visit.node_id()))) {
+                    cerr << "error[RepresentativeTraversalFinder::find_traversals]: Node "
+                        << visit.node_id() << " not in snarl " << pb2json(site) << " contents:" << endl;
+                    
+                    for (auto& node_ptr : contents.first) {
+                        cerr << "\t" << node_ptr->id() << endl;
+                    }
+                    
+                    cerr << "children:" << endl;
+                    
+                    for (auto& snarl_ptr : snarl_manager.children_of(&site)) {
+                        cerr << pb2json(*snarl_ptr) << endl;
+                    }
+                    
+                    cerr << "Input path: " << endl;
+                    for(auto& visit : path) {
+                        if(visit.node_id() != 0) {
+                            auto found = index.find_in_orientation(visit.node_id(), visit.backward());
+                            if (found != index.end()) {
+                                cerr << "\tPath member " << visit << " lives on backbone at "
+                                     << found->first << endl;
+                            } else {
+                                cerr << "\tPath member " << visit << " does not live on backbone" << endl;
+                            }
+                        } else {
+                            cerr << "\tPath member " << visit << " is to a child snarl" << endl;
+                            
+                            auto found_start = index.find_in_orientation(visit.snarl().start().node_id(),
+                                visit.snarl().start().backward() != visit.backward());
+                                
+                            if (found_start != index.end()) {
+                                cerr << "\t\tStart lives on backbone at "
+                                     << found_start->first << endl;
+                            } else {
+                                cerr << "\t\tStart does not live on backbone" << endl;
+                            }
+                            
+                            auto found_end = index.find_in_orientation(visit.snarl().end().node_id(),
+                                visit.snarl().end().backward() != visit.backward());
+                            
+                            if (found_end != index.end()) {
+                                cerr << "\t\tEnd lives on backbone at "
+                                     << found_end->first << endl;
+                            } else {
+                                cerr << "\t\tEnd does not live on backbone" << endl;
+                            }
+                                
+                            
+                        }
+                    }
+                
+                    assert(false);
+                }
             }
-            // Child snarls will have ownership of their end nodes, so they won't be part of our contents.
+            // Child snarl end nodes will still appear in our contents.
         }
         
         size_t ref_path_index = 0;
@@ -1548,12 +1622,14 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         left_visit = to_visit(edge->from(), edge->from_start());
         right_visit = to_visit(edge->to(), edge->to_end());
         
+        // Find any child snarls looking out form the edge
         const Snarl* right_child = snarl_manager.into_which_snarl(right_visit);
-        const Snarl* left_child = snarl_manager.into_which_snarl(left_visit);
+        const Snarl* left_child = snarl_manager.into_which_snarl(reverse(left_visit));
         
         if (right_child != nullptr && right_child != managed_site
             && snarl_manager.into_which_snarl(reverse(right_visit)) != managed_site) {
             // We're reading into a child snarl on the right.
+            // And we're not reading out of ourselves.
 #ifdef debug
             cerr << "Child to right of edge " << pb2json(*right_child) << endl;
 #endif
@@ -1571,8 +1647,9 @@ pair<Support, vector<Visit>> RepresentativeTraversalFinder::find_bubble(Node* no
         }
         
         if (left_child != nullptr && left_child != managed_site
-            && snarl_manager.into_which_snarl(reverse(left_visit)) != managed_site) {
+            && snarl_manager.into_which_snarl(left_visit) != managed_site) {
             // We're reading out of a child snarl on the left.
+            // And we're not reading into ourselves.
 #ifdef debug
             cerr << "Child to left of edge " << pb2json(*left_child) << endl;
 #endif
@@ -2000,6 +2077,11 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
     
 #ifdef debug
     cerr << "Start BFS left from " << visit << endl;
+    
+    if (in_snarl != nullptr) {
+        cerr << "Stay inside " << pb2json(*in_snarl) << endl;
+    }
+    
 #endif
 
     // Track how many options we have because size may be O(n).
@@ -2147,10 +2229,29 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
             }
         }
         
-        if (path_length <= max_depth && extend) {
+        
+        if (path_length >= max_depth) {
+#ifdef debug
+            cerr << "Path has reached max depth! Aborting!" << endl;
+#endif
+        } else if (!extend) {
+            // We chose not to extend.
+#ifdef debug
+            cerr << "Choosing not to extend" << endl;
+#endif
+        } else if (in_snarl != nullptr &&
+            ((node_id == in_snarl->start().node_id() && is_reverse == in_snarl->start().backward()) ||
+            (node_id == in_snarl->end().node_id() && is_reverse != in_snarl->end().backward()))) {
+            // We hit a boundary node of the snarl we are working on, and are
+            // headed out of the snarl (i.e. we're at the start or end in the
+            // into-snarl orientation).
+#ifdef debug
+            cerr << "Path has reached containing snarl boundary! Aborting!" << endl;
+#endif
+        } else {
             // We haven't hit the reference path yet in all orientations, but
-            // we also haven't hit the max depth. Extend with all the possible
-            // extensions.
+            // we also haven't hit the max depth or the snarl bounds. Extend
+            // with all the possible extensions.
             
             // Look left, possibly entering child snarls
             vector<Visit> prevVisits = snarl_manager.visits_left(path.front(), augmented.graph, in_snarl);
@@ -2247,17 +2348,7 @@ RepresentativeTraversalFinder::bfs_left(Visit visit,
                 // visit it other ways.
                 alreadyQueued.insert(prevVisit);
             }
-        } else if (path_length >= max_depth) {
-#ifdef debug
-            cerr << "Path has reached max depth! Aborting!" << endl;
-#endif
-        } else {
-            // We chose not to extend.
-#ifdef debug
-            cerr << "Choosing not to extend" << endl;
-#endif
-        }
-        
+        } 
     }
     
     return toReturn;

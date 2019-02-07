@@ -13,21 +13,24 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../alignment.hpp"
 
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
 void help_validate(char** argv) {
-    cerr << "usage: " << argv[0] << " validate [options] graph" << endl
-        << "Validate the graph." << endl
-        << endl
-        << "options:" << endl
-        << "    default: check all aspects of the graph, if options are specified do only those" << endl
-        << "    -n, --nodes    verify that we have the expected number of nodes" << endl
-        << "    -e, --edges    verify that the graph contains all nodes that are referred to by edges" << endl
-        << "    -p, --paths    verify that contiguous path segments are connected by edges" << endl
-        << "    -o, --orphans  verify that all nodes have edges" << endl;
+    cerr << "usage: " << argv[0] << " validate [options] [graph]" << endl
+         << "Validate the graph." << endl
+         << endl
+         << "options:" << endl
+         << "    default: check all aspects of the graph, if options are specified do only those" << endl
+         << "    -n, --nodes     verify that we have the expected number of nodes" << endl
+         << "    -e, --edges     verify that the graph contains all nodes that are referred to by edges" << endl
+         << "    -p, --paths     verify that contiguous path segments are connected by edges" << endl
+         << "    -o, --orphans   verify that all nodes have edges" << endl
+         << "    -a, --gam FILE  verify that edits in the alignment fit on nodes in the graph" << endl
+         << "    -x, --xg FILE   index to use for -a" << endl;
 }
 
 int main_validate(int argc, char** argv) {
@@ -41,6 +44,8 @@ int main_validate(int argc, char** argv) {
     bool check_edges = false;
     bool check_orphans = false;
     bool check_paths = false;
+    string xg_path;
+    string gam_path;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -52,11 +57,13 @@ int main_validate(int argc, char** argv) {
             {"edges", no_argument, 0, 'e'},
             {"paths", no_argument, 0, 'o'},
             {"orphans", no_argument, 0, 'p'},
+            {"gam", required_argument, 0, 'a'},
+            {"xg", required_argument, 0, 'x'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hneop",
+        c = getopt_long (argc, argv, "hneopa:x:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -82,6 +89,14 @@ int main_validate(int argc, char** argv) {
                 check_paths = true;
                 break;
 
+            case 'a':
+                gam_path = optarg;
+                break;
+
+            case 'x':
+                xg_path= optarg;
+                break;
+
             case 'h':
             case '?':
                 help_validate(argv);
@@ -93,26 +108,52 @@ int main_validate(int argc, char** argv) {
         }
     }
 
-    VG* graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = new VG(in);
-    });
+    if (!gam_path.empty() || !xg_path.empty()) {
+        // GAM validation is its entirely own thing
+        if (xg_path.empty()) {
+            cerr << "error:[vg validate] xg index (-x) required with (-a)" << endl;
+            return 1;
+        } else if (gam_path.empty()) {
+            cerr << "error:[vg validate] gam alignment (-a) required with (-x)" << endl;
+            return 1;
+        } else if (check_nodes || check_edges || check_orphans || check_paths) {
+            cerr << "error:[vg validate] -n, -e -o, -p cannot be used with -a and -x" << endl;
+            return 1;
+        }
+        xg::XG xindex;
+        ifstream in(xg_path.c_str());
+        xindex.load(in);
+        get_input_file(gam_path, [&](istream& in) {
+                stream::for_each<Alignment>(in, [&](Alignment& aln) {
+                        if (!alignment_is_valid(aln, &xindex)) {
+                            exit(1);
+                        }
+                    });
+            });
+        return 0;
+    } else {
 
-    // if we chose a specific subset, do just them
-    if (check_nodes || check_edges || check_orphans || check_paths) {
-        if (graph->is_valid(check_nodes, check_edges, check_orphans, check_paths)) {
+        VG* graph;
+        get_input_file(optind, argc, argv, [&](istream& in) {
+                graph = new VG(in);
+            });
+
+        // if we chose a specific subset, do just them
+        if (check_nodes || check_edges || check_orphans || check_paths) {
+            if (graph->is_valid(check_nodes, check_edges, check_orphans, check_paths)) {
+                return 0;
+            } else {
+                return 1;
+            }
+            // otherwise do everything
+        } else if (graph->is_valid()) {
             return 0;
         } else {
             return 1;
         }
-        // otherwise do everything
-    } else if (graph->is_valid()) {
-        return 0;
-    } else {
-        return 1;
     }
 }
 
 // Register subcommand
-static Subcommand vg_validate("validate", "validate the semantics of a graph", DEVELOPMENT, main_validate);
+static Subcommand vg_validate("validate", "validate the semantics of a graph or gam", DEVELOPMENT, main_validate);
 

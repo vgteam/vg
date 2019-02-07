@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 """
-Mine the Jenkins test log XML and the test output files and generate a report
+Mine the CI test log XML and the test output files and generate a report
 of how good VG is at various tasks.
 """
 from __future__ import unicode_literals
@@ -70,7 +70,7 @@ def load_mapeval_runtimes(map_times_path):
         
 def join_runtimes(mapeval_table, runtime_dict):
     """ Tack on some mapping runtimes that we mined above to the mapeval table that was printed 
-    by the jenkins tests """
+    by the vgci tests """
     mapeval_table[0].append("Map Time (s)")
     for i in range(1, len(mapeval_table)):
         row = mapeval_table[i]
@@ -221,24 +221,29 @@ def md_summary(xml_root):
     """
     Make a brief summary in Markdown of a testsuite
     """
-    build_number = os.getenv('BUILD_NUMBER')
     
-    if build_number:
-        md = '[Jenkins vg tests](http://jenkins.cgcloud.info/job/vg/{}/)'.format(
-            build_number)
+    # Get the URL of the pipeline being run, or None
+    pipeline_url = os.getenv('CI_PIPELINE_URL')
+    # And the branch being built
+    branch = os.getenv('CI_COMMIT_REF_NAME')
+    # Check if on CI
+    in_ci = bool(os.getenv('CI'))
+    
+    if pipeline_url:
+        md = '[vg CI tests]({})'.format(pipeline_url)
     else:
-        md = 'Jenkins vg tests'
+        md = 'vg CI tests'
     if xml_root:
         md += ' complete'
     else:
         md += ' never ran'
-        if build_number:
+        if pipeline_url:
             md += ' ([Check the logs for setup or build errors]'
-            md += '(http://jenkins.cgcloud.info/job/vg/{}/consoleFull))'.format(build_number)
+            md += '({}))'.format(pipeline_url)
     try:
-        if os.getenv('ghprbPullId'):
-            md += ' for [PR {}]({})'.format(os.getenv('ghprbPullId'), os.getenv('ghprbPullLink').decode('utf8'))
-        elif build_number:
+        if branch != 'master':
+            md += ' for branch {}'.format(escape(branch))
+        elif in_ci:
             md += ' for merge to master'
         md += '.  View the [full report here]({{REPORT_URL}}).\n\n'
 
@@ -293,7 +298,7 @@ def html_header(xml_root):
     report += '''
 <!DOCTYPE html><html><head>
 <meta charset="utf-8"/>
-<title>''' + escape(os.getenv('ghprbPullTitle', 'master').decode('utf8')) + ''': vg Test Report</title>
+<title>''' + escape(os.getenv('CI_COMMIT_REF_NAME', 'master')) + ''': vg Test Report</title>
 <style> table {
 font-family: arial, sans-serif; border-collapse: collapse; width: 100%;}
 td, dh { border: 1px solid #dddddd; text-align: left; padding: 8px;}
@@ -307,14 +312,17 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
     # will have to modify this if we ever add another test suite
     testsuite = xml_root
 
-    build_number = os.getenv('BUILD_NUMBER')
+    # Get the URL of the pipeline being run, or None
+    pipeline_url = os.getenv('CI_PIPELINE_URL')
+    # And the branch being built
+    branch = os.getenv('CI_COMMIT_REF_NAME')
+    # Check if on CI
+    in_ci = bool(os.getenv('CI'))
 
     report += '<h2>vg Test Report'
-    if os.getenv('ghprbPullId'):
-        report += ' for <a href={}>PR {}: {}</a>'.format(os.getenv('ghprbPullLink'),
-                                                         os.getenv('ghprbPullId'),
-                                                         escape(os.getenv('ghprbPullTitle').decode('utf8')))
-    elif build_number:
+    if branch != 'master':
+        report += ' for branch {}'.format(escape(branch))
+    elif in_ci:
         report += ' for merge to master'
 
     if testsuite:
@@ -340,13 +348,13 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
         report += ' 👿'
         report += '</h2>\n'
         report += '<p> tests never ran. </p>'
-        if build_number:
-            report += '<p><a href=http://jenkins.cgcloud.info/job/vg/{}/consoleFull>'.format(build_number)
+        if pipeline_url:
+            report += '<p><a href="{}">'.format(pipeline_url)
             report += 'Check the logs for setup or build errors. </a></p>\n'
 
-    if build_number:
-        report += '<p> <a href=http://jenkins.cgcloud.info/job/vg/{}/>'.format(build_number)
-        report += 'Jenkins test page </a></p>\n'
+    if pipeline_url:
+        report += '<p> <a href="{}">'.format(pipeline_url)
+        report += 'CI test page </a></p>\n'
 
     report += '<p> Report generated on {} </p>\n'.format(str(datetime.datetime.now()))
         
@@ -415,7 +423,7 @@ def html_testcase(tc, work_dir, report_dir, max_warnings = 10):
                     images.append(new_name)
                     captions.append(plot_name.upper())
                     baseline_images.append(os.path.join(
-                        'https://vg-data.s3.amazonaws.com/vg_ci/jenkins_regression_baseline',
+                        'https://vg-data.s3.amazonaws.com/vg_ci/vgci_regression_baseline',
                         os.path.basename(outstore),
                         os.path.basename(plot_path)))
 

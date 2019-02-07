@@ -336,6 +336,22 @@ vector<size_t> range_vector(size_t begin, size_t end) {
     return range;
 }
 
+bool have_input_file(int& optind, int argc, char** argv) {
+
+    if (optind >= argc) {
+        // Out of arguments
+        return false;
+    }
+    
+    if (argv[optind][0] == '\0') {
+        // File name is empty
+        return false;
+    }
+    
+    // Otherwise we found one
+    return true;
+}
+
 void get_input_file(int& optind, int argc, char** argv, function<void(istream&)> callback) {
     
     // Just combine the two operations below in the way they're supposed to be used together    
@@ -620,6 +636,48 @@ string replace_in_string(string subject,
 
 string percent_url_encode(const string& seq) {
     return replace_in_string(seq, "%", "%25");
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under) {
+    
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, pair<id_t, bool>>& node_trans : over) {
+        const pair<id_t, bool>& trans_thru = under.at(node_trans.second.first);
+        overlaid[node_trans.first] = make_pair(trans_thru.first, trans_thru.second != node_trans.second.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                                const unordered_map<id_t, pair<id_t, bool>>& under) {
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, id_t>& node_trans : over) {
+        overlaid[node_trans.first] = under.at(node_trans.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, pair<id_t, bool>> overlay_node_translations(const unordered_map<id_t, pair<id_t, bool>>& over,
+                                                                const unordered_map<id_t, id_t>& under) {
+    unordered_map<id_t, pair<id_t, bool>> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, pair<id_t, bool>>& node_trans : over) {
+        overlaid[node_trans.first] = make_pair(under.at(node_trans.second.first), node_trans.second.second);
+    }
+    return overlaid;
+}
+
+unordered_map<id_t, id_t> overlay_node_translations(const unordered_map<id_t, id_t>& over,
+                                                    const unordered_map<id_t, id_t>& under) {
+    unordered_map<id_t, id_t> overlaid;
+    overlaid.reserve(over.size());
+    for (const pair<id_t, id_t>& node_trans : over) {
+        overlaid[node_trans.first] = under.at(node_trans.second);
+    }
+    return overlaid;
 }
 
 }

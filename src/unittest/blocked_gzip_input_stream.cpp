@@ -2,9 +2,9 @@
 ///  
 /// Unit tests for BlockedGzipInputStream
 
-#include "../blocked_gzip_input_stream.hpp"
-#include "../blocked_gzip_output_stream.hpp"
-#include "../hfile_cppstream.hpp"
+#include "../stream/blocked_gzip_input_stream.hpp"
+#include "../stream/blocked_gzip_output_stream.hpp"
+#include "../stream/hfile_cppstream.hpp"
 #include "catch.hpp"
 
 #include <google/protobuf/io/coded_stream.h>

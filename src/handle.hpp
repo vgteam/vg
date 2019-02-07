@@ -214,7 +214,8 @@ public:
     // Interface that needs to be implemented
     ////////////////////////////////////////////////////////////////////////////
    
-    // TODO: Method to check if a node exists by ID?
+    // Method to check if a node exists by ID
+    virtual bool has_node(id_t node_id) const = 0;
    
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const = 0;
@@ -298,6 +299,7 @@ public:
         static_assert(!std::is_void<decltype(lambda(get_handle(0, false)))>::value, "can't take our own lambda");
     }
     
+    
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Works with void-returning iteratees.
     /// MUST be pulled into implementing classes with `using` in order to work!
@@ -345,6 +347,11 @@ public:
     /// Such a pair can be viewed from either inward end handle and produce the
     /// outward handle you would arrive at.
     handle_t traverse_edge_handle(const edge_t& edge, const handle_t& left) const;
+    
+    /// Loop over all edges in their canonical orientation (as returned by edge_handle) and
+    /// execute an iteratee on each one. Can stop early by returning false from the iteratee.
+    void for_each_edge(const function<bool(const edge_t&)>& iteratee, bool parallel = false) const;
+    
 };
     
 /**
@@ -403,8 +410,10 @@ public:
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
     
-    /// Returns the 0-based ordinal rank of a occurrence on a path
-    virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const = 0;
+    /// Returns a vector of all occurrences of a node on paths. Optionally restricts to
+    /// occurrences that match the handle in orientation.
+    virtual vector<occurrence_handle_t> occurrences_of_handle(const handle_t& handle,
+                                                              bool match_orientation = false) const = 0;
 
     ////////////////////////////////////////////////////////////////////////////
     // Additional optional interface with a default implementation
@@ -422,7 +431,7 @@ public:
 };
 
 /**
- * This is the interface for a handle graph that supports modification.
+ * This is the interface for a handle graph that supports addition of new graph material.
  */
 class MutableHandleGraph : virtual public HandleGraph {
 public:
@@ -436,14 +445,6 @@ public:
     /// Create a new node with the given id and sequence, then return the handle.
     virtual handle_t create_handle(const string& sequence, const id_t& id) = 0;
     
-    /// Remove the node belonging to the given handle and all of its edges.
-    /// Does not update any stored paths.
-    /// Invalidates the destroyed handle.
-    /// May be called during serial for_each_handle iteration **ONLY** on the node being iterated.
-    /// May **NOT** be called during parallel for_each_handle iteration.
-    /// May **NOT** be called on the node from which edges are being followed during follow_edges.
-    virtual void destroy_handle(const handle_t& handle) = 0;
-    
     /// Create an edge connecting the given handles in the given order and orientations.
     /// Ignores existing edges.
     virtual void create_edge(const handle_t& left, const handle_t& right) = 0;
@@ -452,19 +453,6 @@ public:
     inline void create_edge(const edge_t& edge) {
         create_edge(edge.first, edge.second);
     }
-    
-    /// Remove the edge connecting the given handles in the given order and orientations.
-    /// Ignores nonexistent edges.
-    /// Does not update any stored paths.
-    virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
-    
-    /// Convenient wrapper for destroy_edge.
-    inline void destroy_edge(const edge_t& edge) {
-        destroy_edge(edge.first, edge.second);
-    }
-    
-    /// Remove all nodes and edges. Does not update any stored paths.
-    virtual void clear() = 0;
     
     /// Swap the nodes corresponding to the given handles, in the ordering used
     /// by for_each_handle when looping over the graph. Other handles to the
@@ -499,6 +487,35 @@ public:
         auto parts = divide_handle(handle, vector<size_t>{offset});
         return make_pair(parts.front(), parts.back());
     }
+};
+  
+/**
+ * This is the interface for a handle graph that supports both addition of new nodes and edges
+ * as well as deletion of nodes and edges.
+ */
+class DeletableHandleGraph : virtual public MutableHandleGraph {
+public:
+    
+    /// Remove the node belonging to the given handle and all of its edges.
+    /// Does not update any stored paths.
+    /// Invalidates the destroyed handle.
+    /// May be called during serial for_each_handle iteration **ONLY** on the node being iterated.
+    /// May **NOT** be called during parallel for_each_handle iteration.
+    /// May **NOT** be called on the node from which edges are being followed during follow_edges.
+    virtual void destroy_handle(const handle_t& handle) = 0;
+    
+    /// Remove the edge connecting the given handles in the given order and orientations.
+    /// Ignores nonexistent edges.
+    /// Does not update any stored paths.
+    virtual void destroy_edge(const handle_t& left, const handle_t& right) = 0;
+    
+    /// Convenient wrapper for destroy_edge.
+    inline void destroy_edge(const edge_t& edge) {
+        destroy_edge(edge.first, edge.second);
+    }
+    
+    /// Remove all nodes and edges. Does not update any stored paths.
+    virtual void clear() = 0;
 };
 
 /**
@@ -536,7 +553,21 @@ public:
  * This is the interface for a graph which is mutable and which has paths which are also mutable.
  */
 class MutablePathMutableHandleGraph : virtual public MutablePathHandleGraph, virtual public MutableHandleGraph {
-    // No extra methods!
+    
+    // No extra methods. However, some additional semantics are assumed:
+    // - divide_handle() replaces the occurrence of the original handle with its subsegments
+    //   in all occurrences on all paths
+    // - apply_orientation() also applies the orientation to all occurrences of the handle
+    //   in all paths
+    
+};
+
+/**
+ * This is the interface for a graph which is deletable and which has paths which are also mutable.
+ */
+class MutablePathDeletableHandleGraph : virtual public MutablePathHandleGraph, virtual public DeletableHandleGraph {
+    
+    // No extra methods. Deleting a node or edge that is contained in a path is undefined behavior.
 };
 
 }

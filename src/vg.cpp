@@ -1,5 +1,5 @@
 #include "vg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "gssw_aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
@@ -85,24 +85,27 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
 }
 
 // construct from an arbitrary source of Graph protobuf messages
-VG::VG(function<bool(Graph&)>& get_next_graph, bool showp, bool warn_on_duplicates) {
+VG::VG(const function<void(const function<void(Graph&)>&)>& send_graphs, bool showp, bool warn_on_duplicates) {
     // set up uninitialized values
     init();
     show_progress = showp;
-
+    
     // We can't show loading progress since we don't know the total number of
     // subgraphs.
-
-    // Try to load the first graph
-    Graph subgraph;
-    bool got_subgraph = get_next_graph(subgraph);
-    while(got_subgraph) {
-        // If there is a valid subgraph, add it to ourselves.
+    
+    // Ask to be sent all the graph chunks
+    send_graphs([&](Graph& g) {
+        // Take each of them and extend.
+        
         // We usually expect these to not overlap in nodes or edges, so complain unless we've been told not to.
-        extend(subgraph, warn_on_duplicates);
-        // Try and load the next subgraph, if it exists.
-        got_subgraph = get_next_graph(subgraph);
-    }
+        extend(g, warn_on_duplicates);
+    });
+    
+    // Collate all the path mappings we got from all the different chunks. A
+    // mapping from any chunk might fall anywhere in a path (because paths may
+    // loop around cycles), so we need to sort on ranks.
+    paths.sort_by_mapping_rank();
+    paths.rebuild_mapping_aux();
 
     // store paths in graph
     paths.to_graph(graph);
@@ -338,9 +341,23 @@ occurrence_handle_t VG::get_previous_occurrence(const occurrence_handle_t& occur
 path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
-
-size_t VG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])->rank - 1;
+    
+vector<occurrence_handle_t> VG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
+    
+    vector<occurrence_handle_t> return_val;
+    const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
+    for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
+        for (const mapping_t* mapping : path_occs.second) {
+            if (!match_orientation || mapping->is_reverse() == get_is_reverse(handle)) {
+                occurrence_handle_t occurrence_handle;
+                as_integers(occurrence_handle)[0] = path_occs.first;
+                as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
+                return_val.push_back(occurrence_handle);
+            }
+        }
+    }
+    
+    return return_val;
 }
 
 handle_t VG::create_handle(const string& sequence) {
@@ -534,7 +551,7 @@ void VG::sync_paths(void) {
     paths.rebuild_mapping_aux();
 }
 
-void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+void VG::serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_size) {
 
     // This makes sure mapping ranks are updated to reflect their actual
     // positions along their paths.
@@ -602,11 +619,19 @@ void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chun
         update_progress(element_start);
         
         // Now the VG we made has a proper Graph; emit it.
-        emitter.write_copy(g.graph);
+        emit(g.graph);
     }
     
     // Now we are done
     destroy_progress();
+}
+
+
+void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+    // Serialize and make the emitter write every chunk
+    serialize_to_function([&emitter](const Graph& chunk) {
+        emitter.write_copy(chunk);
+    }, chunk_size);
 }
 
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
@@ -3237,13 +3262,16 @@ static
 void
 triple_to_vg(void* user_data, raptor_statement* triple)
 {
-    VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
-    Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
-    const string vg_ns ="<http://example.org/vg/";
+    auto tuple=(std::tuple<VG*, Paths*, string>*) user_data;
+    VG* vg = std::get<0>(*tuple);
+    Paths* paths = std::get<1>(*tuple);
+    const string base_uri = std::get<2>(*tuple);
+    const string vg_ns ="<http://biohackathon.org/resource/vg#";
     const string vg_node_p = vg_ns + "node>" ;
-    const string vg_rank_p = vg_ns + "rank>" ;
-    const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+    const string vg_step_p = vg_ns + "step>" ;
     const string vg_path_p = vg_ns + "path>" ;
+    const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+    const string vg_rank_p = vg_ns + "rank" ;
     const string vg_linkrr_p = vg_ns + "linksReverseToReverse>";
     const string vg_linkrf_p = vg_ns + "linksReverseToForward>";
     const string vg_linkfr_p = vg_ns + "linksForwardToReverse>";
@@ -3256,10 +3284,12 @@ triple_to_vg(void* user_data, raptor_statement* triple)
     if (pred == (vg_node_p) || reverse) {
         Node* node = vg->find_node_by_name_or_add_new(obj);
         Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
-        const string pathname = sub.substr(1, sub.find_last_of("/#"));
+        const string pathname = sub.substr(base_uri.length()+6, sub.length()-sub.find_last_of('-'));
 
         //TODO we are using a nasty trick here, which needs to be fixed.
         //We are using knowledge about the uri format to determine the rank of the step.
+#ifdef debug
+#endif
         try {
             int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
             mapping->set_rank(rank);
@@ -3294,7 +3324,7 @@ triple_to_vg(void* user_data, raptor_statement* triple)
     }
 }
 
-void VG::from_turtle(string filename, string baseuri, bool showp) {
+void VG::from_turtle(string filename, string base_uri, bool showp) {
     raptor_world* world;
     world = raptor_new_world();
     if(!world)
@@ -3314,7 +3344,7 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     rdf_parser = raptor_new_parser(world, "turtle");
     //We use a paths object with its convience methods to build up path objects.
     Paths* paths = new Paths();
-    std::pair<VG*, Paths*> user_data = make_pair(this, paths);
+    std::tuple<VG*, Paths*, string> user_data = make_tuple(this, paths, base_uri);
 
     //The user_data is cast in the triple_to_vg method.
     raptor_parser_set_statement_handler(rdf_parser, &user_data, triple_to_vg);
@@ -3323,7 +3353,7 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
     filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
     uri_file = raptor_new_uri(world, filename_uri_string);
-    uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
+    uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(base_uri.c_str()));
 
     // parse the file indicated by the uri, given an uir_base .
     raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
@@ -6337,17 +6367,17 @@ void VG::to_dot(ostream& out,
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
 
-    out << "@base <http://example.org/vg/> . " << endl;
+    out << "@prefix vg:<http://biohackathon.org/resource/vg#> . " << endl;
     if (precompress) {
-       out << "@prefix : <" <<  rdf_base_uri <<"node/> . " << endl;
-       out << "@prefix p: <" <<  rdf_base_uri <<"path/> . " << endl;
-       out << "@prefix s: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix : <" << rdf_base_uri << "node/> . " << endl;
+       out << "@prefix p: <" << rdf_base_uri << "path/> . " << endl;
+       out << "@prefix s: <" << rdf_base_uri << "step/> . " << endl;
        out << "@prefix r: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
 
     } else {
-       out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
-       out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
-       out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix node: <" << rdf_base_uri << "node/> . " << endl;
+       out << "@prefix path: <" << rdf_base_uri << "path/> . " << endl;
+       out << "@prefix step: <" << rdf_base_uri << "step/> . " << endl;
        out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
     }
     //Ensure that mappings are sorted by ranks
@@ -6383,24 +6413,24 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
         (const Path& path) {
             uint64_t offset=0; //We could have more than 2gigabases in a path
             for (auto &m : path.mapping()) {
-                string orientation = m.position().is_reverse() ? "<reverseOfNode>" : "<node>";
+                string orientation = m.position().is_reverse() ? "vg:reverseOfNode" : "vg:node";
                 if (precompress) {
                     out << "s:";
                     url_encode(path.name());
-                    out << "-" << m.rank() << " <rank> " << m.rank() << " ; " ;
+                    out << "-" << m.rank() << " vg:rank " << m.rank() << " ; " ;
                     out << orientation <<" :" << m.position().node_id() << " ;";
-                    out << " <path> p:";
+                    out << " vg:path p:";
                     url_encode(path.name());
                     out << " ; ";
-                    out << " <position> "<< offset<<" . ";
+                    out << " vg:position "<< offset<<" . ";
                 } else {
                     out << "step:";
                     url_encode(path.name());
-                    out << "-" << m.rank() << " <position> "<< offset<<" ; " << endl;
-                    out << " a <Step> ;" << endl ;
-                    out << " <rank> " << m.rank() << " ; "  << endl ;
+                    out << "-" << m.rank() << " vg:position "<< offset<<" ; " << endl;
+                    out << " a vg:Step ;" << endl ;
+                    out << " vg:rank " << m.rank() << " ; "  << endl ;
                     out << " " << orientation <<" node:" << m.position().node_id() << " ; " << endl;
-                    out << " <path> path:";
+                    out << " vg:path path:";
                     url_encode(path.name());
                     out  << " . " << endl;
                 }
@@ -6425,13 +6455,13 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
         }
 
         if (e->from_start() && e->to_end()) {
-            out << " <linksReverseToReverse> " ; // <--
+            out << " vg:linksReverseToReverse " ; // <--
         } else if (e->from_start() && !e->to_end()) {
-            out << " <linksReverseToForward> " ; // -+
+            out << " vg:linksReverseToForward " ; // -+
         } else if (e->to_end()) {
-            out << " <linksForwardToReverse> " ; //+-
+            out << " vg:linksForwardToReverse " ; //+-
         } else {
-            out << " <linksForwardToForward> " ; //++
+            out << " vg:linksForwardToForward " ; //++
         }
         if (precompress) {
              out << ":" << e->to();
@@ -6735,7 +6765,7 @@ Alignment VG::align(const Alignment& alignment,
     // trans is only required in the X-drop aligner; can be nullptr
     auto do_align = [&](Graph& g) {
 #ifdef debug
-        write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
+        stream::write_to_file(alignment, hash_alignment(alignment) + ".gam");
         serialize_to_file(hash_alignment(alignment) + ".vg");
 #endif
         if (aligner && qual_adj_aligner) {
@@ -6835,7 +6865,7 @@ Alignment VG::align(const Alignment& alignment,
                          << pb2json(a) << endl
                          << "expect:\t" << a.sequence() << endl
                          << "got:\t" << seq << endl;
-                    write_alignment_to_file(a, "fail.gam");
+                    stream::write_to_file(a, "fail.gam");
                     graph.serialize_to_file("fail.vg");
                     assert(false);
                 }

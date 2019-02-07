@@ -13,7 +13,7 @@
 #include "../vg.hpp"
 #include "vg.pb.h"
 #include "../traversal_finder.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 
 
 using namespace std;

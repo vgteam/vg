@@ -16,7 +16,8 @@
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
 #include "../gfa.hpp"
-#include "../json_stream_helper.hpp"
+#include "../stream/json_stream_helper.hpp"
+#include "../stream/message_iterator.hpp"
 
 using namespace std;
 using namespace vg;
@@ -80,6 +81,7 @@ void help_view(char** argv) {
          << "    -K, --multipath-in         input VG MultipathAlignment format (GAMP)" << endl
          << "    -k, --multipath            output VG MultipathAlignment format (GAMP)" << endl
          << "    -D, --expect-duplicates    don't warn if encountering the same node or edge multiple times" << endl
+         << "    -x, --extract-tag TAG      extract and concatenate messages with the given tag" << endl
          << "    --threads N                for parallel operations use this many threads [1]" << endl;
     
     // TODO: Can we regularize the option names for input and output types?
@@ -126,6 +128,7 @@ int main_view(int argc, char** argv) {
     bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
     bool expect_duplicates = false;
+    string extract_tag;
     bool ascii_labels = false;
     omp_set_num_threads(1); // default to 1 thread
 
@@ -139,7 +142,7 @@ int main_view(int argc, char** argv) {
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
                 {"turtle", no_argument, 0, 't'},
-                {"rdf-base-uri", no_argument, 0, 'r'},
+                {"rdf-base-uri", required_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
@@ -173,6 +176,7 @@ int main_view(int argc, char** argv) {
                 {"snarl-in", no_argument, 0, 'R'},
                 {"snarl-traversal-in", no_argument, 0, 'E'},
                 {"expect-duplicates", no_argument, 0, 'D'},
+                {"extract-tag", required_argument, 0, 'x'},
                 {"multipath", no_argument, 0, 'k'},
                 {"multipath-in", no_argument, 0, 'K'},
                 {"ascii-labels", no_argument, 0, 'e'},
@@ -181,7 +185,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDkKe7:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZYmqQ:zXREDx:kKe7:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -386,6 +390,10 @@ int main_view(int argc, char** argv) {
         case 'D':
             expect_duplicates = true;
             break;
+            
+        case 'x':
+            extract_tag = optarg;
+            break;
 
         case '7':
             omp_set_num_threads(parse<int>(optarg));
@@ -434,6 +442,24 @@ int main_view(int argc, char** argv) {
         exit(1);
     }
     string file_name = get_input_file_name(optind, argc, argv);
+    
+    // Tag extraction has to be handled specially.
+    // TODO: We can't dump just untagged messages.
+    if (!extract_tag.empty()) {
+        get_input_file(file_name, [&](istream& in) {
+            // Iterate over the input as tagged messages.
+            stream::MessageIterator it(in);
+            while(it.has_next()) {
+                if ((*it).first == extract_tag) {
+                    // We match the tag, so dump this message.
+                    cout << (*it).second;
+                }
+                ++it;
+            }
+        });
+        return 0;
+    }
+    
     if (input_type == "vg") {
         if (output_type == "stream") {
             function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
@@ -460,7 +486,13 @@ int main_view(int argc, char** argv) {
         assert(input_json);
         stream::JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
-        graph = new VG(get_next_graph, false, !expect_duplicates);
+        // TODO: This is less inversion of control and more putting control in the middle.
+        graph = new VG([&](const function<void(Graph&)> use_graph) {
+            Graph g;
+            while (get_next_graph(g)) {
+                use_graph(g);
+            }
+        }, false, !expect_duplicates);
     } else if(input_type == "turtle-in") {
         graph = new VG;
         bool pre_compress=color_variants;

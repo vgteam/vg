@@ -15,7 +15,8 @@
 #include "../vg.hpp"
 #include "../index.hpp"
 #include "../convert.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -129,7 +130,7 @@ int main_locify(int argc, char** argv){
         return 1;
     }
     ifstream xgstream(xg_idx_name);
-    xg::XG xgidx(xgstream);
+    unique_ptr<xg::XG> xgidx = stream::VPKG::load_one<xg::XG>(xgstream);
 
     std::function<vector<string>(string, char)> strsplit = [&](string x, char delim){
 
@@ -341,7 +342,7 @@ int main_locify(int argc, char** argv){
         if (forwardize) {
             if (aln.second.path().mapping_size() && aln.second.path().mapping(0).position().is_reverse()) {
                 output_buf.push_back(reverse_complement_alignment(aln.second,
-                                                                  [&xgidx](int64_t id) { return xgidx.node_length(id); }));
+                                                                  [&xgidx](int64_t id) { return xgidx->node_length(id); }));
             } else {
                 output_buf.push_back(aln.second);
             }
