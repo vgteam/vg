@@ -1085,7 +1085,10 @@ class VGCITest(TestCase):
         cmd = ['toil-vg', 'calleval', job_store, out_store]
         if self.vg_docker:
             cmd += ['--vg_docker', self.vg_docker]
-        cmd += ['--calling_cores', str(min(2, self.cores))]
+        cmd += ['--calling_cores', str(min(8, self.cores))]
+        # Test test_call_chr21_snp1kg has been running out of memory on 32 GB
+        # nodes, maybe due to multiple calling jobs running at once.
+        cmd += ['--calling_mem', '24G']
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
         cmd += ['--gam_index_cores', str(min(4, self.cores))]
         cmd += ['--maxCores', str(self.cores)]
