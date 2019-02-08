@@ -59,12 +59,12 @@ struct GBWTTraversal {
 };
 
 /// Traverse all haplotype-consistent kmers in the graph and call lambda() for each kmer.
-/// Uses multiple threads, so the lamda should be thread-safe.
+/// Uses multiple threads, so the lambda should be thread-safe.
 void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t k,
                    const function<void(const GBWTTraversal&)>& lambda);
 
 /// Traverse all haplotype-consistent window in the graph and call lambda() for each kmer.
-/// Uses multiple threads, so the lamda should be thread-safe.
+/// Uses multiple threads, so the lambda should be thread-safe.
 /// A window starts with the sequence of a node and is followed by window_size - 1 bases
 /// from subsequent nodes. If no extensions are possible, a shorter substring of
 /// length >= window_size also qualifies as a window.
