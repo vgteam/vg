@@ -53,9 +53,10 @@ void help_minimizer(char** argv) {
     std::cerr << "    -i, --index-name X     benchmark the minimizer index in file X (required)" << std::endl;
     std::cerr << "    -G, --gcsa-name X      also benchmark the GCSA2 index in file X" << std::endl;
     std::cerr << "    -L, --locate           locate the minimizer/MEM occurrences" << std::endl;
+    std::cerr << "    -m, --max-occs N       do not locate minimizers with more than N occurrences" << std::endl;
 }
 
-int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, bool progress);
+int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool progress);
 
 int main_minimizer(int argc, char** argv) {
 
@@ -151,7 +152,7 @@ int main_minimizer(int argc, char** argv) {
         return 1;
     }
     if (!reads_name.empty()) {
-        return query_benchmarks(index_name, reads_name, gcsa_name, locate, progress);
+        return query_benchmarks(index_name, reads_name, gcsa_name, locate, max_occs, progress);
     }
     if (gbwt_name.empty()) {
         std::cerr << "[vg minimizer]: option --gbwt-name is currently required" << std::endl;
@@ -268,7 +269,7 @@ int main_minimizer(int argc, char** argv) {
     return 0;
 }
 
-int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, bool progress) {
+int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool progress) {
 
     double start = gbwt::readTimer();
 
@@ -329,16 +330,18 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
             min_counts[thread] += result.size();
             if (locate) {
                 for (auto minimizer : result) {
-                    std::vector<pos_t> result = index.find(minimizer.first);
-                    if (result.size() != 1 || !vg::is_empty(result.front())) {
-                        occ_counts[thread] += result.size();
+                    if (index.count(minimizer.first) <= max_occs) {
+                        std::vector<pos_t> result = index.find(minimizer.first);
+                        if (result.size() != 1 || !vg::is_empty(result.front())) {
+                            occ_counts[thread] += result.size();
+                        }
                     }
                 }
             } else {
                 for (auto minimizer : result) {
                     occ_counts[thread] += index.count(minimizer.first);
+                }
             }
-        }
         }
         size_t min_count = 0, occ_count = 0;
         for (size_t i = 0; i < threads; i++) {
