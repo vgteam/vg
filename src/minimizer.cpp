@@ -327,7 +327,7 @@ bool load_bool_vector(std::istream& in, std::vector<bool>& v) {
         size_t word_size = (block_size + WORD_BITS - 1) / WORD_BITS;
         size_t byte_size = word_size * sizeof(std::uint64_t);
         std::vector<std::uint64_t> buffer(word_size, 0);
-        in.read(reinterpret_cast<char*>(buffer.data() + i), byte_size);
+        in.read(reinterpret_cast<char*>(buffer.data()), byte_size);
         if (in.gcount() != byte_size) {
             return false;
         }
