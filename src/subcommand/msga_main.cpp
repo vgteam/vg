@@ -154,7 +154,7 @@ int main_msga(int argc, char** argv) {
                 {"seq", required_argument, 0, 's'},
                 {"graph", required_argument, 0, 'g'},
                 {"fasta-order", no_argument, 0, 'a'},
-                {"positon-bed", required_argument, 0, 'R'},
+                {"position-bed", required_argument, 0, 'R'},
                 {"context", required_argument, 0, 'T'},
                 {"base", required_argument, 0, 'b'},
                 {"idx-kmer-size", required_argument, 0, 'K'},
