@@ -123,8 +123,7 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
         if (l == 0) continue;
         gssw_cigar_element* e = c->elements;
         
-        Node* from_node = (Node*) ncs[i].node->data;
-        string& from_seq = *from_node->mutable_sequence();
+        gssw_node* node = ncs[i].node;
         Mapping* mapping = path->add_mapping();
         
         if (i > 0) {
@@ -132,11 +131,11 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
             from_pos = 0;
         }
         
-        mapping->mutable_position()->set_node_id(ncs[i].node->id);
+        mapping->mutable_position()->set_node_id(node->id);
         mapping->mutable_position()->set_offset(from_pos);
         mapping->set_rank(path->mapping_size());
         
-        //cerr << from_node->id() << ":" << endl;
+        //cerr << node->id << ":" << endl;
         
         for (int j=0; j < l; ++j, ++e) {
             int32_t length = e->length;
@@ -147,14 +146,15 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
                 case 'M':
                 case 'X':
                 case 'N': {
+                    //cerr << "j = " << j << ", type = " << e->type << endl;
                     // do the sequences match?
                     // emit a stream of "SNPs" and matches
                     int h = from_pos;
                     int last_start = from_pos;
                     int k = to_pos;
                     for ( ; h < from_pos + length; ++h, ++k) {
-                        //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
-                        if (from_seq[h] != to_seq[k]) {
+                        //cerr << h << ":" << k << " " << node->seq[h] << " " << to_seq[k] << endl;
+                        if (node->seq[h] != to_seq[k]) {
                             // emit the last "match" region
                             if (h - last_start > 0) {
                                 edit = mapping->add_edit();
@@ -213,6 +213,18 @@ void BaseAligner::gssw_mapping_to_alignment(gssw_graph* graph,
     
     // compute and set identity
     alignment.set_identity(identity(alignment.path()));
+}
+
+void BaseAligner::unreverse_graph(gssw_graph* graph) {
+    // this is only for getting correct reference-relative edits, so we can get away with only
+    // reversing the sequences and not paying attention to the edges
+    
+    for (size_t i = 0; i < graph->size; i++) {
+        gssw_node* node = graph->nodes[i];
+        for (int j = 0, stop = node->len / 2; j < stop; j++) {
+            std::swap(node->seq[j], node->seq[node->len - j - 1]);
+        }
+    }
 }
 
 void BaseAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) {
@@ -896,7 +908,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                                                                            0);
         
             if (pin_left) {
-                // translate mappings into original node space
+                // translate nodes and mappings into original sequence
+                unreverse_graph(graph);
                 for (int32_t i = 0; i < max_alt_alns; i++) {
                     unreverse_graph_mapping(gms[i]);
                 }
@@ -1366,7 +1379,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                                                                                     0);
         
             if (pin_left) {
-                // translate graph and mappings into original node space
+                // translate graph and mappings into original node space// translate nodes and mappings into original sequence
+                unreverse_graph(graph);
                 for (int32_t i = 0; i < max_alt_alns; i++) {
                     unreverse_graph_mapping(gms[i]);
                 }

@@ -2447,7 +2447,7 @@ namespace vg {
                 REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
                 
                 aln.Clear();
-                read = "TGA";
+                read = "AGA";
                 qual = "HHH";
                 
                 aln.set_sequence(read);
@@ -2462,7 +2462,7 @@ namespace vg {
                 
                 // follows correct path
                 REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
-                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n2->id());
                 REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
                 
                 // has corrects edits

@@ -52,8 +52,9 @@ namespace vg {
         gssw_graph* create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order);
         
         // convert graph mapping back into unreversed node positions
-        // convert graph mapping back into unreversed node positions
         void unreverse_graph_mapping(gssw_graph_mapping* gm);
+        // convert from graph sequences back into unrereversed form
+        void unreverse_graph(gssw_graph* graph);
         
         // alignment functions
         void gssw_mapping_to_alignment(gssw_graph* graph,
