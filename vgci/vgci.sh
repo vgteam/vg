@@ -288,6 +288,20 @@ then
     # TEST PREP PHASE
     #########
 
+    # Make sure we have the aws command. We only need it in this case.
+    mkdir -p bin
+
+    # Create awscli venv
+    if [ ! "${REUSE_VENV}" == "1" ]; then
+        rm -rf awscli
+    fi
+    if [ ! -e awscli ]; then
+        virtualenv --never-download awscli && awscli/bin/pip install awscli
+    fi
+    # Expose binaries to the PATH
+    ln -snf ${PWD}/awscli/bin/aws bin/
+    export PATH=$PATH:${PWD}/bin
+
     # Create Toil venv
     if [ ! "${REUSE_VENV}" == "1" ]; then
         rm -rf .env
@@ -340,7 +354,7 @@ then
         echo "pip install toil-vg fail"
         exit 1
     fi
-
+    
     #########
     # TEST PHASE
     #########
@@ -395,7 +409,7 @@ then
         # we probably have AWS and Github credentials and can upload stuff to S3.
         # A test faled, so we should make sure we upload its outstore for debugging.
         # TODO: If we get the report job to always run and include this, maybe we don't need individual uploads too.
-    
+        
         # Upload the results of this test in particular, as soon as it is done, instead of waiting for the final report job to do it.
         tar czf "test_output.tar.gz" "${SAVE_WORK_DIR}/" test-report.xml
         DEST_URL="${OUTPUT_DESTINATION}/vgci_output_archives/${VG_VERSION}/${CI_PIPELINE_ID}/${CI_JOB_ID}/test_output.tar.gz"
@@ -428,17 +442,22 @@ then
     # We need a local bin directory to put on our path.
     # The vg build makes this but we may not have run it.
     mkdir -p bin
-
-    # Create awscli venv
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf awscli
+    
+    if [ "${DO_TEST}" == "0" ]; then
+        # We didn't get this installed already from the test prep phase.
+    
+        # Create awscli venv
+        if [ ! "${REUSE_VENV}" == "1" ]; then
+            rm -rf awscli
+        fi
+        if [ ! -e awscli ]; then
+            virtualenv --never-download awscli && awscli/bin/pip install awscli
+        fi
+        # Expose binaries to the PATH
+        ln -snf ${PWD}/awscli/bin/aws bin/
+        export PATH=$PATH:${PWD}/bin
+        
     fi
-    if [ ! -e awscli ]; then
-        virtualenv --never-download awscli && awscli/bin/pip install awscli
-    fi
-    # Expose binaries to the PATH
-    ln -snf ${PWD}/awscli/bin/aws bin/
-    export PATH=$PATH:${PWD}/bin
 
     # Create s3am venv
     if [ ! "${REUSE_VENV}" == "1" ]; then
