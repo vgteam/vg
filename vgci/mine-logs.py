@@ -147,18 +147,34 @@ def scrape_messages(text):
     return messages
     
 
-def parse_testsuite_xml(testsuite):
+def parse_all_testsuite_xml(xml_root):
     """
-    Flatten fields of interset from a TestSuite XML element into a dict
+    Flatten fields of interest from all <testsuite> elements in the document into a dict
     """
-    ts = dict()
-    ts['name'] = testsuite.get('name')
-    ts['tests'] = int(testsuite.get('tests', 0))
-    ts['fails'] = int(testsuite.get('failures', 0))
-    ts['skips'] = int(testsuite.get('skips', 0))
-    ts['errors'] = int(testsuite.get('errors', 0))
+   
+    # We want to aggregate test counts and times over all suites.
+    ts = {
+        'tests': 0,
+        'fails': 0,
+        'skips': 0,
+        'errors': 0,
+        'time': 0.0
+    }
+   
+    for testsuite in xml_root.iter('testsuite'):
+        # Add in each test suite
+        ts['tests'] += int(testsuite.get('tests', 0))
+        ts['fails'] += int(testsuite.get('failures', 0))
+        ts['skips'] += int(testsuite.get('skips', 0))
+        ts['errors'] += int(testsuite.get('errors', 0))
+        ts['time'] += float(testsuite.get('time', 0))
+       
+    # Compute passing test count
     ts['passes'] = ts['tests'] - ts['fails'] - ts['skips']
-    ts['time'] = int(float(testsuite.get('time', 0)))
+    
+    # Round off the time to integer seconds
+    ts['time'] = int(ts['time'])
+    
     return ts
         
     
@@ -241,16 +257,15 @@ def md_summary(xml_root):
             md += ' ([Check the logs for setup or build errors]'
             md += '({}))'.format(pipeline_url)
     try:
-        if branch != 'master':
-            md += ' for branch {}'.format(escape(branch))
+        if branch == 'master':
+            report += ' for merge to master'
+        elif branch is not None:
+            report += ' for branch {}'.format(escape(branch))
         elif in_ci:
-            md += ' for merge to master'
+            report += ' for no branch'
         md += '.  View the [full report here]({{REPORT_URL}}).\n\n'
 
-        # will have to modify this if we ever add another test suite
-        testsuite = xml_root
-        
-        ts = parse_testsuite_xml(testsuite)
+        ts = parse_testsuite_xml(xml_root)
 
         md += '{} tests passed, {} tests failed and {} tests skipped in {} seconds\n\n'.format(
             ts['passes'], ts['fails'], ts['skips'], ts['time'])
@@ -260,7 +275,7 @@ def md_summary(xml_root):
 
         warnings = []
         
-        for testcase in testsuite.iter('testcase'):
+        for testcase in xml_root.iter('testcase'):
             try:
                 tc = parse_testcase_xml(testcase)
                 if tc['failed']:
@@ -309,9 +324,6 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
 </style></head><body>
 '''
 
-    # will have to modify this if we ever add another test suite
-    testsuite = xml_root
-
     # Get the URL of the pipeline being run, or None
     pipeline_url = os.getenv('CI_PIPELINE_URL')
     # And the branch being built
@@ -320,17 +332,20 @@ h1, h2, h3, h4, h5, h6 { font-family: sans-serif; }
     in_ci = bool(os.getenv('CI'))
 
     report += '<h2>vg Test Report'
-    if branch != 'master':
+    if branch == 'master':
+        report += ' for merge to master'
+    elif branch is not None:
         report += ' for branch {}'.format(escape(branch))
     elif in_ci:
-        report += ' for merge to master'
+        report += ' for no branch'
 
-    if testsuite:
+    if xml_root:
         try:
-            ts = parse_testsuite_xml(testsuite)
+            ts = parse_all_testsuite_xml(xml_root)
         except:
             report += ' Error parsing Test Suite XML\n'
-
+            ts = defaultdict(lambda: None)
+            
         if ts['fails'] is not None and int(ts['fails']) >= 1:
             # Some tests failed
             report += ' 👿' + '🔥' * int(ts['fails'])

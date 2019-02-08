@@ -73,7 +73,7 @@ usage() {
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run, or 'None' for no tests.\n"
     printf "\t-w WORKDIR\tOutput test result data to the given absolute or ./ path (also used for scratch)\n"
-    printf "\t-W WORKDIR\Load test result data from the given path instead of building or running tests\n"
+    printf "\t-W WORKDIR\tLoad test result data from the given path instead of building or running tests\n"
     printf "\t-j FILE\tSave the JUnit test report XML to the given file (default: test-report.xml)\n"
     printf "\t-J FILE\tLoad the JUnit test report from the given file instead of building or running tests\n"
     printf "\t-H\tSkip generating HTML report based on JUnit report\n"
