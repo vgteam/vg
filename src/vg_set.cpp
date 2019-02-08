@@ -182,30 +182,6 @@ void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const k
     });
 }
 
-void VGset::for_each_kmer_parallel(const gbwt::GBWT& haplotypes, size_t kmer_size,
-                                   const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
-    for_each([&lambda, &haplotypes, kmer_size, this](VG* g) {
-        if (show_progress) {
-            cerr << "Processing " << g->name << std::endl;
-        }
-        for_each_kmer(*g, haplotypes, kmer_size, lambda);
-    });
-}
-
-void VGset::for_each_window_parallel(const gbwt::GBWT* haplotypes, size_t window_size,
-                                    const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
-    for_each([&lambda, &haplotypes, window_size, this](VG* g) {
-        if (show_progress) {
-            cerr << "Processing " << g->name << std::endl;
-        }
-        if (haplotypes == nullptr) {
-            for_each_window(*g, window_size, lambda);
-        } else {
-            for_each_window(*g, *haplotypes, window_size, lambda);
-        }
-    });
-}
-
 void VGset::write_gcsa_kmers_ascii(ostream& out, int kmer_size,
                                    id_t head_id, id_t tail_id) {
     if (filenames.size() > 1 && (head_id == 0 || tail_id == 0)) {

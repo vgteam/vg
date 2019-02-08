@@ -18,7 +18,6 @@
 
 #include "../gbwt_helper.hpp"
 #include "../minimizer.hpp"
-#include "../vg_set.hpp"
 #include "subcommand.hpp"
 
 #include <gcsa/gcsa.h>
@@ -36,8 +35,8 @@ using namespace vg::subcommand;
 
 
 void help_minimizer(char** argv) {
-    std::cerr << "usage: " << argv[0] << " minimizer [options] [graph1.vg [graph2.vg ...]]" << std::endl;
-    std::cerr << "Builds a minimizer index of the graph(s)." << std::endl;
+    std::cerr << "usage: " << argv[0] << " minimizer [options] graph.xg" << std::endl;
+    std::cerr << "Builds a minimizer index of the graph in the XG index." << std::endl;
     std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << MinimizerIndex::KMER_LENGTH << ")" << std::endl;
     std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << MinimizerIndex::WINDOW_LENGTH << ")" << std::endl;
     std::cerr << "    -m, --max-occs N       do not index minimizers with more than N occurrences" << std::endl;
@@ -45,7 +44,6 @@ void help_minimizer(char** argv) {
     std::cerr << "    -l, --load-index X     load the index from file X and insert the new kmers into it" << std::endl;
     std::cerr << "                           (overrides --kmer-length, --window-length, and --max-occs)" << std::endl;
     std::cerr << "    -g, --gbwt-name X      index only haplotype-consistent kmers using the GBWT index in file X" << std::endl;
-    std::cerr << "    -x, --xg-name X        use the XG index in file X instead of the input graphs" << std::endl;
     std::cerr << "    -p, --progress         show progress information" << std::endl;
     std::cerr << "    -t, --threads N        use N threads for index construction (default: " << omp_get_max_threads() << ")" << std::endl;
     std::cerr << "benchmark options:" << std::endl;
@@ -84,7 +82,6 @@ int main_minimizer(int argc, char** argv) {
             { "index-name", required_argument, 0, 'i' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-name", required_argument, 0, 'g' },
-            { "xg-name", required_argument, 0, 'x' },
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { "benchmark", required_argument, 0, 'b' },
@@ -94,7 +91,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:w:m:i:l:g:x:pt:hb:G:L", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:L", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -116,9 +113,6 @@ int main_minimizer(int argc, char** argv) {
             break;
         case 'g':
             gbwt_name = optarg;
-            break;
-        case 'x':
-            xg_name = optarg;
             break;
         case 'p':
             progress = true;
@@ -154,33 +148,20 @@ int main_minimizer(int argc, char** argv) {
     if (!reads_name.empty()) {
         return query_benchmarks(index_name, reads_name, gcsa_name, locate, max_occs, progress);
     }
+    if (optind + 1 != argc) {
+        help_minimizer(argv);
+        return 1;
+    }
+    xg_name = argv[optind];
 
     double start = gbwt::readTimer();
 
-    // Input graphs.
-    VGset graphs;
+    // Input graph.
     xg::XG xg_index;
-    if (xg_name.empty()) {
-        std::vector<std::string> file_names;
-        while (optind < argc) {
-            file_names.push_back(get_input_file_name(optind, argc, argv));
-        }
-        if (file_names.empty()) {
-            help_minimizer(argv);
-            return 1;
-        }
-        if (progress) {
-            std::cerr << "Input files: " << file_names.size() << std::endl;
-        }
-        graphs = VGset(file_names);
-        graphs.show_progress = progress;
-        graphs.progress_bars = false;
-    } else {
-        if (progress) {
-            std::cerr << "Loading XG index " << xg_name << std::endl;
-        }
-        sdsl::load_from_file(xg_index, xg_name);
+    if (progress) {
+        std::cerr << "Loading XG index " << xg_name << std::endl;
     }
+    sdsl::load_from_file(xg_index, xg_name);
 
     // Minimizer index.
     MinimizerIndex index(kmer_length, window_length, max_occs);
@@ -232,9 +213,7 @@ int main_minimizer(int argc, char** argv) {
             }
         }
     };
-    if (xg_name.empty()) {
-        graphs.for_each_window_parallel(gbwt_index, index.k() + index.w() - 1, lambda);
-    } else if (gbwt_name.empty()) {
+    if (gbwt_name.empty()) {
         for_each_window(xg_index, index.k() + index.w() - 1, lambda);
     } else {
         for_each_window(xg_index, *gbwt_index, index.k() + index.w() - 1, lambda);
