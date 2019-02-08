@@ -48,20 +48,10 @@ inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
     return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
 
-/// Stores haplotype-consistent traversal of the graph and the corresponding sequence.
-struct GBWTTraversal {
-    /// The traversal as a sequence of (begin, length) pairs.
-    std::vector<std::pair<pos_t, size_t>> traversal;
-    /// The sequence.
-    std::string seq;
-    /// GBWT search state at the end of the traversal.
-    gbwt::SearchState state;
-};
-
 /// Traverse all haplotype-consistent kmers in the graph and call lambda() for each kmer.
 /// Uses multiple threads, so the lambda should be thread-safe.
 void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t k,
-                   const function<void(const GBWTTraversal&)>& lambda);
+                   const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda);
 
 /// Traverse all haplotype-consistent window in the graph and call lambda() for each kmer.
 /// Uses multiple threads, so the lambda should be thread-safe.
@@ -69,7 +59,11 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
 /// from subsequent nodes. If no extensions are possible, a shorter substring of
 /// length >= window_size also qualifies as a window.
 void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t window_size,
-                     const function<void(const GBWTTraversal&)>& lambda);
+                     const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda);
+
+/// Iterate over all windows in the graph, running lambda on each.
+void for_each_window(const HandleGraph& graph, size_t window_size,
+                     const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda);
 
 /// Transform the paths into a GBWT index. Primarily for testing.
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);

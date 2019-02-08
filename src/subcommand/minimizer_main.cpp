@@ -154,10 +154,6 @@ int main_minimizer(int argc, char** argv) {
     if (!reads_name.empty()) {
         return query_benchmarks(index_name, reads_name, gcsa_name, locate, max_occs, progress);
     }
-    if (gbwt_name.empty()) {
-        std::cerr << "[vg minimizer]: option --gbwt-name is currently required" << std::endl;
-        return 1;
-    }
 
     double start = gbwt::readTimer();
 
@@ -186,15 +182,6 @@ int main_minimizer(int argc, char** argv) {
         sdsl::load_from_file(xg_index, xg_name);
     }
 
-    // GBWT index.
-    gbwt::GBWT gbwt_index;
-    if (!gbwt_name.empty()) {
-        if (progress) {
-            std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
-        }
-        sdsl::load_from_file(gbwt_index, gbwt_name);
-    }
-
     // Minimizer index.
     MinimizerIndex index(kmer_length, window_length, max_occs);
     if (!load_index.empty()) {
@@ -210,13 +197,23 @@ int main_minimizer(int argc, char** argv) {
         in.close();
     }
 
+    // GBWT index.
+    gbwt::GBWT* gbwt_index = nullptr;
+    if (!gbwt_name.empty()) {
+        if (progress) {
+            std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
+        }
+        gbwt_index = new gbwt::GBWT();
+        sdsl::load_from_file(*gbwt_index, gbwt_name);
+    }
+
     // Build the index.
     if (progress) {
         std::cerr << "Building the index" << std::endl;
     }
-    auto lambda = [&index](const GBWTTraversal& window) {
-        std::vector<MinimizerIndex::minimizer_type> minimizers = index.minimizers(window.seq.begin(), window.seq.end());
-        auto iter = window.traversal.begin();
+    auto lambda = [&index](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+        std::vector<MinimizerIndex::minimizer_type> minimizers = index.minimizers(seq.begin(), seq.end());
+        auto iter = traversal.begin();
         size_t starting_offset = 0;
 #pragma omp critical (minimizer_index)
         {
@@ -237,9 +234,13 @@ int main_minimizer(int argc, char** argv) {
     };
     if (xg_name.empty()) {
         graphs.for_each_window_parallel(gbwt_index, index.k() + index.w() - 1, lambda);
+    } else if (gbwt_name.empty()) {
+        for_each_window(xg_index, index.k() + index.w() - 1, lambda);
     } else {
-        for_each_window(xg_index, gbwt_index, index.k() + index.w() - 1, lambda);
+        for_each_window(xg_index, *gbwt_index, index.k() + index.w() - 1, lambda);
     }
+    delete gbwt_index;
+    gbwt_index = nullptr;
 
     // Index statistics.
     if (progress) {

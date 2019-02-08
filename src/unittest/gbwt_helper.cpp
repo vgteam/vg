@@ -163,8 +163,8 @@ TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper]") {
     std::set<kmer_type> found_kmers;
     int old_threads = omp_get_max_threads();
     omp_set_num_threads(1);
-    auto lambda = [&found_kmers](const GBWTTraversal& window) {
-        found_kmers.insert(kmer_type(window.traversal, window.seq));
+    auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+        found_kmers.insert(kmer_type(traversal, seq));
     };
     for_each_kmer(xg_index, gbwt_index, 3, lambda);
     omp_set_num_threads(old_threads);
@@ -182,7 +182,7 @@ TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper]") {
     }
 }
 
-TEST_CASE("for_each_window() finds the correct windows", "[gbwt_helper]") {
+TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper]") {
 
     // Build an XG index.
     Graph graph;
@@ -260,10 +260,122 @@ TEST_CASE("for_each_window() finds the correct windows", "[gbwt_helper]") {
     std::set<kmer_type> found_kmers;
     int old_threads = omp_get_max_threads();
     omp_set_num_threads(1);
-    auto lambda = [&found_kmers](const GBWTTraversal& window) {
-        found_kmers.insert(kmer_type(window.traversal, window.seq));
+    auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+        found_kmers.insert(kmer_type(traversal, seq));
     };
     for_each_window(xg_index, gbwt_index, 3, lambda);
+    omp_set_num_threads(old_threads);
+
+    // Check the number of kmers.
+    SECTION("the traversal should have found the correct number of kmers") {
+        REQUIRE(found_kmers.size() == correct_kmers.size());
+    }
+
+    // Check that each kmer was found.
+    SECTION("the traversal should have found the correct kmers") {
+        for (const kmer_type& kmer : correct_kmers) {
+            REQUIRE(found_kmers.find(kmer) != found_kmers.end());
+        }
+    }
+}
+
+TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_helper]") {
+
+    // Build an XG index.
+    Graph graph;
+    json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
+    xg::XG xg_index(graph);
+
+    // These are the windows the traversal should find.
+    typedef std::pair<std::vector<std::pair<pos_t, size_t>>, std::string> kmer_type;
+    std::set<kmer_type> correct_kmers {
+        // forward
+        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(2, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(3, false, 0), static_cast<size_t>(1) } }, "GAT" },
+        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(2, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(4, false, 0), static_cast<size_t>(1) } }, "GAG" },
+        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "GGG" },
+        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(7, false, 0), static_cast<size_t>(1) } }, "GAC" },
+        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(8, false, 0), static_cast<size_t>(1) } }, "GAA" },
+        { { { make_pos_t(2, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(3, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(5, false, 0), static_cast<size_t>(1) } }, "ATT" },
+        { { { make_pos_t(2, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "AGG" },
+        { { { make_pos_t(3, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "TTA" },
+        { { { make_pos_t(4, false, 0), static_cast<size_t>(3) },
+            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "GGGTA" },
+        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(7, false, 0), static_cast<size_t>(1) } }, "TAC" },
+        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(8, false, 0), static_cast<size_t>(1) } }, "TAA" },
+        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(7, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "ACA" },
+        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(8, false, 0), static_cast<size_t>(1) },
+            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "AAA" },
+
+        // reverse
+        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(8, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TTT" },
+        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(7, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TGT" },
+        { { { make_pos_t(8, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "TTA" },
+        { { { make_pos_t(8, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "TTC" },
+        { { { make_pos_t(7, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "GTA" },
+        { { { make_pos_t(7, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "GTC" },
+        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(4, true, 0), static_cast<size_t>(1) } }, "TAC" },
+        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(3, true, 0), static_cast<size_t>(1) } }, "TAA" },
+        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(4, true, 0), static_cast<size_t>(2) } }, "ACC" },
+        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(3, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(2, true, 0), static_cast<size_t>(1) } }, "AAT" },
+        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) },
+            { make_pos_t(2, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CCCTC" },
+        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) },
+            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CCCC" },
+        { { { make_pos_t(3, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(2, true, 0), static_cast<size_t>(1) },
+            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "ATC" }
+    };
+
+    // Extract all haplotype-consistent windows of length 3.
+    std::set<kmer_type> found_kmers;
+    int old_threads = omp_get_max_threads();
+    omp_set_num_threads(1);
+    auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+        found_kmers.insert(kmer_type(traversal, seq));
+    };
+    for_each_window(xg_index, 3, lambda);
     omp_set_num_threads(old_threads);
 
     // Check the number of kmers.

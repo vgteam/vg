@@ -52,14 +52,14 @@ public:
 
     /// Iterate over all haplotype-consistent kmers.
     void for_each_kmer_parallel(const gbwt::GBWT& haplotypes, size_t kmer_size,
-                                const function<void(const GBWTTraversal&)>& lambda);
+                                const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda);
 
-    /// Iterate over all haplotype-consistent windows. A window starts with the sequence
-    /// of a node and is followed by window_size - 1 bases from subsequent nodes. If no
-    /// extensions are possible, a shorter substring of length >= window_size also
-    /// qualifies as a window.
-    void for_each_window_parallel(const gbwt::GBWT& haplotypes, size_t window_size,
-                                  const function<void(const GBWTTraversal&)>& lambda);
+    /// Iterate over all windows, or over haplotype-consistent windows if a GBWT index is given.
+    /// A window starts with the sequence of a node and is followed by window_size - 1 bases from
+    /// subsequent nodes. If no extensions are possible, a shorter substring of length >= window_size
+    /// also qualifies as a window.
+    void for_each_window_parallel(const gbwt::GBWT* haplotypes, size_t window_size,
+                                  const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda);
 
     /**
      * Write out kmer lines to GCSA2.

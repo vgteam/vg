@@ -183,7 +183,7 @@ void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const k
 }
 
 void VGset::for_each_kmer_parallel(const gbwt::GBWT& haplotypes, size_t kmer_size,
-                                   const function<void(const GBWTTraversal&)>& lambda) {
+                                   const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
     for_each([&lambda, &haplotypes, kmer_size, this](VG* g) {
         if (show_progress) {
             cerr << "Processing " << g->name << std::endl;
@@ -192,13 +192,17 @@ void VGset::for_each_kmer_parallel(const gbwt::GBWT& haplotypes, size_t kmer_siz
     });
 }
 
-void VGset::for_each_window_parallel(const gbwt::GBWT& haplotypes, size_t window_size,
-                                    const function<void(const GBWTTraversal&)>& lambda) {
+void VGset::for_each_window_parallel(const gbwt::GBWT* haplotypes, size_t window_size,
+                                    const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
     for_each([&lambda, &haplotypes, window_size, this](VG* g) {
         if (show_progress) {
             cerr << "Processing " << g->name << std::endl;
         }
-        for_each_window(*g, haplotypes, window_size, lambda);
+        if (haplotypes == nullptr) {
+            for_each_window(*g, window_size, lambda);
+        } else {
+            for_each_window(*g, *haplotypes, window_size, lambda);
+        }
     });
 }
 
