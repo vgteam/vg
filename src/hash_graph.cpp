@@ -106,6 +106,12 @@ namespace vg {
         return max_id;
     }
     
+    size_t HashGraph::get_degree(const handle_t& handle, bool go_left) const {
+        auto& edge_list = get_is_reverse(handle) != go_left ? graph.at(get_id(handle)).left_edges
+                                                            : graph.at(get_id(handle)).right_edges;
+        return edge_list.size();
+    }
+    
     void HashGraph::for_each_handle(const std::function<bool(const handle_t&)>& iteratee,
                                     bool parallel) const {
         
