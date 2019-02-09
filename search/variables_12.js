@@ -37,6 +37,7 @@ var searchData=
   ['reserved',['reserved',['../structvg_1_1Alignment.html#a8374111b6348509e8e9ecca0cd1ac046',1,'vg::Alignment']]],
   ['retry_5fon_5fns',['retry_on_Ns',['../classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd',1,'vg::NGSSimulator']]],
   ['reverse',['reverse',['../structvg_1_1Support.html#acc2aa2a4b0278503817664600938c8a2',1,'vg::Support']]],
+  ['reversing_5fwalk_5flength',['reversing_walk_length',['../classvg_1_1MultipathMapper.html#af87eaae1274e33230fffe9dca05dbbec',1,'vg::MultipathMapper']]],
   ['rho',['rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7536987972e5d717ba43a951adcece82',1,'haplo::haploMath::RRMemo']]],
   ['right',['right',['../structvg_1_1Support.html#ab2fd7cba17f56ce67501f47fda6ae153',1,'vg::Support']]],
   ['right_5fchild_5foffset',['RIGHT_CHILD_OFFSET',['../classvg_1_1PackedSplayTree.html#a6914a8ae96ecfa00c2536e9a9dfe5afc',1,'vg::PackedSplayTree']]],

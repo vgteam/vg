@@ -157,6 +157,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a3751016fff6e1e38d154515a13949e74"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac1a8a09a49ea348f3714377b893319f6"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ac1a8a09a49ea348f3714377b893319f6">get_degree</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left) const </td></tr>
 <tr class="separator:ac1a8a09a49ea348f3714377b893319f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a150b452102319b93490e53b2dc62e920"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a150b452102319b93490e53b2dc62e920">has_edge</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;right) const </td></tr>
+<tr class="separator:a150b452102319b93490e53b2dc62e920"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86daea8c9c2ff784598512fff740bd2c"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a86daea8c9c2ff784598512fff740bd2c">has_path</a> (const string &amp;path_name) const </td></tr>
 <tr class="memdesc:a86daea8c9c2ff784598512fff740bd2c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a path name exists and is legal to get a path handle for.  <a href="#a86daea8c9c2ff784598512fff740bd2c">More...</a><br/></td></tr>
 <tr class="separator:a86daea8c9c2ff784598512fff740bd2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -732,18 +734,18 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5677da9ff22052f6c6a85bfe66e1256d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a53ff7033966852f5fb3852716cab21a9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a53ff7033966852f5fb3852716cab21a9">index_edge_by_node_sides</a> (<a class="el" href="structvg_1_1Edge.html">Edge</a> *edge)</td></tr>
 <tr class="separator:a53ff7033966852f5fb3852716cab21a9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5eecbad7b22574c0617ad9a3d0808a6e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5eecbad7b22574c0617ad9a3d0808a6e">has_edge</a> (const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;side1, const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;side2)</td></tr>
-<tr class="memdesc:a5eecbad7b22574c0617ad9a3d0808a6e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the edge between the given node sides, which can be in either order.  <a href="#a5eecbad7b22574c0617ad9a3d0808a6e">More...</a><br/></td></tr>
-<tr class="separator:a5eecbad7b22574c0617ad9a3d0808a6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a64d10f80caa0eea2f594c4a0d6ba8c6b"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a64d10f80caa0eea2f594c4a0d6ba8c6b">has_edge</a> (const pair&lt; <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &gt; &amp;sides)</td></tr>
-<tr class="memdesc:a64d10f80caa0eea2f594c4a0d6ba8c6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has an edge. This can take sides in any order.  <a href="#a64d10f80caa0eea2f594c4a0d6ba8c6b">More...</a><br/></td></tr>
-<tr class="separator:a64d10f80caa0eea2f594c4a0d6ba8c6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa6c01851e7e97fda9828383c6de4a765"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aa6c01851e7e97fda9828383c6de4a765">has_edge</a> (<a class="el" href="structvg_1_1Edge.html">Edge</a> *edge)</td></tr>
-<tr class="memdesc:aa6c01851e7e97fda9828383c6de4a765"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has an edge. This can take sides in any order.  <a href="#aa6c01851e7e97fda9828383c6de4a765">More...</a><br/></td></tr>
-<tr class="separator:aa6c01851e7e97fda9828383c6de4a765"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab50d35554acf27ab2883b160866c5161"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ab50d35554acf27ab2883b160866c5161">has_edge</a> (const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge)</td></tr>
-<tr class="memdesc:ab50d35554acf27ab2883b160866c5161"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has an edge. This can take sides in any order.  <a href="#ab50d35554acf27ab2883b160866c5161">More...</a><br/></td></tr>
-<tr class="separator:ab50d35554acf27ab2883b160866c5161"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a78f57fbc3cca245bce36c7bb1321333c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a78f57fbc3cca245bce36c7bb1321333c">has_edge</a> (const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;side1, const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;side2) const </td></tr>
+<tr class="memdesc:a78f57fbc3cca245bce36c7bb1321333c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the edge between the given node sides, which can be in either order.  <a href="#a78f57fbc3cca245bce36c7bb1321333c">More...</a><br/></td></tr>
+<tr class="separator:a78f57fbc3cca245bce36c7bb1321333c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a19fd9594b3b8092070ebe1b0ab430863"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a19fd9594b3b8092070ebe1b0ab430863">has_edge</a> (const pair&lt; <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &gt; &amp;sides) const </td></tr>
+<tr class="memdesc:a19fd9594b3b8092070ebe1b0ab430863"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has an edge. This can take sides in any order.  <a href="#a19fd9594b3b8092070ebe1b0ab430863">More...</a><br/></td></tr>
+<tr class="separator:a19fd9594b3b8092070ebe1b0ab430863"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6cccef0336502dcefd497b63a0e9f545"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a6cccef0336502dcefd497b63a0e9f545">has_edge</a> (<a class="el" href="structvg_1_1Edge.html">Edge</a> *edge) const </td></tr>
+<tr class="memdesc:a6cccef0336502dcefd497b63a0e9f545"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has an edge. This can take sides in any order.  <a href="#a6cccef0336502dcefd497b63a0e9f545">More...</a><br/></td></tr>
+<tr class="separator:a6cccef0336502dcefd497b63a0e9f545"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a04a8d5301a328b3046570bdf134b9194"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a04a8d5301a328b3046570bdf134b9194">has_edge</a> (const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;edge) const </td></tr>
+<tr class="memdesc:a04a8d5301a328b3046570bdf134b9194"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has an edge. This can take sides in any order.  <a href="#a04a8d5301a328b3046570bdf134b9194">More...</a><br/></td></tr>
+<tr class="separator:a04a8d5301a328b3046570bdf134b9194"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a49fb4de3494407b800c3efda254851cf"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a49fb4de3494407b800c3efda254851cf">has_inverting_edge</a> (<a class="el" href="structvg_1_1Node.html">Node</a> *n)</td></tr>
 <tr class="memdesc:a49fb4de3494407b800c3efda254851cf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the graph has an inverting edge on the given node.  <a href="#a49fb4de3494407b800c3efda254851cf">More...</a><br/></td></tr>
 <tr class="separator:a49fb4de3494407b800c3efda254851cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -956,6 +958,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a2d0856da0aa5c07e104ad067294c7214 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa93a545944215ba9654d3be7f716cad4 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#aa93a545944215ba9654d3be7f716cad4">get_handle</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit) const </td></tr>
 <tr class="separator:aa93a545944215ba9654d3be7f716cad4 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad38e1d543014e24bd5d85ef62dd3a1b2 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#ad38e1d543014e24bd5d85ef62dd3a1b2">has_edge</a> (const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;edge)</td></tr>
+<tr class="memdesc:ad38e1d543014e24bd5d85ef62dd3a1b2 inherit pub_methods_classvg_1_1HandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper of has_edge for edge_t argument.  <a href="#ad38e1d543014e24bd5d85ef62dd3a1b2">More...</a><br/></td></tr>
+<tr class="separator:ad38e1d543014e24bd5d85ef62dd3a1b2 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a89eb63ad01cbb2e816a808d617b4536c inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Visit.html">Visit</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a89eb63ad01cbb2e816a808d617b4536c">to_visit</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:a89eb63ad01cbb2e816a808d617b4536c inherit pub_methods_classvg_1_1HandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a Protobuf <a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl. ">Visit</a> from a handle.  <a href="#a89eb63ad01cbb2e816a808d617b4536c">More...</a><br/></td></tr>
 <tr class="separator:a89eb63ad01cbb2e816a808d617b4536c inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -5924,7 +5929,44 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a5eecbad7b22574c0617ad9a3d0808a6e"></a>
+<a class="anchor" id="a150b452102319b93490e53b2dc62e920"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VG::has_edge </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>left</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>right</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Efficiently check for the existence of an edge using <a class="el" href="classvg_1_1VG.html">VG</a> graph's internal index of node sides. </p>
+
+<p>Reimplemented from <a class="el" href="classvg_1_1HandleGraph.html#adfe22acadc4750062e2b64a49d55feb6">vg::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a78f57fbc3cca245bce36c7bb1321333c"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -5943,7 +5985,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -5952,7 +5994,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a64d10f80caa0eea2f594c4a0d6ba8c6b"></a>
+<a class="anchor" id="a19fd9594b3b8092070ebe1b0ab430863"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -5961,7 +6003,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td>(</td>
           <td class="paramtype">const pair&lt; <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>sides</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -5970,7 +6012,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="aa6c01851e7e97fda9828383c6de4a765"></a>
+<a class="anchor" id="a6cccef0336502dcefd497b63a0e9f545"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -5979,7 +6021,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Edge.html">Edge</a> *&#160;</td>
           <td class="paramname"><em>edge</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -5988,7 +6030,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="ab50d35554acf27ab2883b160866c5161"></a>
+<a class="anchor" id="a04a8d5301a328b3046570bdf134b9194"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -5997,7 +6039,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Edge.html">Edge</a> &amp;&#160;</td>
           <td class="paramname"><em>edge</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">

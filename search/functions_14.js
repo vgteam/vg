@@ -86,6 +86,7 @@ var searchData=
   ['trim_5fand_5fcheck_5ffor_5fempty',['trim_and_check_for_empty',['../classvg_1_1MultipathAlignmentGraph.html#aba6c4c7e8954cbe789393e5ced260a8d',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fhanging_5fends',['trim_hanging_ends',['../namespacevg.html#a990f54fb0e09dc439dace1519aff5e9f',1,'vg']]],
   ['trim_5fhanging_5findels',['trim_hanging_indels',['../classvg_1_1MultipathAlignmentGraph.html#a1709931c016b2126b6a9d909c2b1c725',1,'vg::MultipathAlignmentGraph']]],
+  ['trim_5fto_5fbranch_5fpoints',['trim_to_branch_points',['../classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fto_5fvariable',['trim_to_variable',['../classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02',1,'vg::Constructor']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a7a3ad443fda205c48013fc246bea552e',1,'vg::TrivialTraversalFinder']]],
   ['tv_5fpath',['tv_path',['../classvg_1_1TargetValueSearch.html#a9ab66a82967803031203885c18291c6f',1,'vg::TargetValueSearch']]],
