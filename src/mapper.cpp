@@ -1949,7 +1949,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             for (size_t i = 0; i < graph.node_size(); i++) {
                 topological_order[i] = proto_handle_graph.get_handle_by_index(i);
             }
-            get_aligner(!aln.quality().empty())->align_pinned(aligned, proto_handle_graph, pin_left);
+            get_aligner(!aln.quality().empty())->align_pinned(aligned, proto_handle_graph, topological_order, pin_left);
         } else if (xdrop_alignment) {
             // we'll still use the Protobuf graph for the X-drop aligner, which hasn't been transitioned
             // to HandleGraphs yet
@@ -1967,7 +1967,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             for (size_t i = 0; i < graph.node_size(); i++) {
                 topological_order[i] = proto_handle_graph.get_handle_by_index(i);
             }
-            get_aligner(!aln.quality().empty())->align(aligned, proto_handle_graph, traceback, false);
+            get_aligner(!aln.quality().empty())->align(aligned, proto_handle_graph, topological_order, traceback, false);
         }
     }
     if (traceback && !keep_bonuses && aligned.score()) {
