@@ -3151,7 +3151,7 @@ namespace vg {
 #endif
                 
                 // extract the graph between the matches
-                VG connecting_graph;
+                HashGraph connecting_graph;
                 unordered_map<id_t, id_t> connect_trans = algorithms::extract_connecting_graph(&align_graph,      // DAG with split strands
                                                                                                &connecting_graph, // graph to extract into
                                                                                                max_dist,          // longest distance necessary
@@ -3186,7 +3186,7 @@ namespace vg {
                                                                                   dest_path_node.begin - src_path_node.end));
                     
 #ifdef debug_multipath_alignment
-                    cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph: " << pb2json(connecting_graph.graph) << endl;
+                    cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
 #endif
                     
                     if (!alignment.quality().empty()) {
@@ -3194,7 +3194,7 @@ namespace vg {
                                                                                     dest_path_node.begin - src_path_node.end));
                     }
                 
-                    aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph.graph, num_alt_alns,
+                    aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns,
                                                        band_padding_function(intervening_sequence, connecting_graph), true);
                 }
                 
@@ -3423,23 +3423,21 @@ namespace vg {
                     // want past-the-last instead of last index here
                     get_offset(end_pos)++;
                     
-                    VG tail_graph_extractor;
+                    HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               &tail_graph_extractor,
+                                                                                               &tail_graph,
                                                                                                target_length,
                                                                                                end_pos,
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) :
+                    // remove the empty anchoring nodes that this algorithm sometimes creates
+                    groom_graph_for_gssw(tail_graph);
+                    
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                     
                     if (num_alt_alns > 0) {
-                    
-                        Graph& tail_graph = tail_graph_extractor.graph;
-                        
-                        // ensure invariants that gssw-based alignment expects
-                        groom_graph_for_gssw(tail_graph);
                         
                         // get the sequence remaining in the right tail
                         Alignment right_tail_sequence;
@@ -3451,7 +3449,7 @@ namespace vg {
                         }
                         
 #ifdef debug_multipath_alignment
-                        cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph: " << pb2json(tail_graph) << endl;
+                        cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
 #endif
                         
                         auto& alt_alignments = right_alignments[j];
@@ -3536,22 +3534,21 @@ namespace vg {
                     pos_t begin_pos = initial_position(path_node.path);
                     
                     
-                    VG tail_graph_extractor;
+                    HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
-                                                                                               &tail_graph_extractor,
+                                                                                               &tail_graph,
                                                                                                target_length,
                                                                                                begin_pos,
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph_extractor)) : 
+                    // remove the empty anchoring nodes that this algorithm sometimes creates
+                    groom_graph_for_gssw(tail_graph);
+                    
+                    size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                             
                     if (num_alt_alns > 0) {
-                    
-                        Graph& tail_graph = tail_graph_extractor.graph;
-                        // ensure invariants that gssw-based alignment expects
-                        groom_graph_for_gssw(tail_graph);
                         
                         Alignment left_tail_sequence;
                         left_tail_sequence.set_sequence(alignment.sequence().substr(0, path_node.begin - alignment.sequence().begin()));
@@ -3561,7 +3558,7 @@ namespace vg {
                         
                         
 #ifdef debug_multipath_alignment
-                        cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph: " << pb2json(tail_graph) << endl;
+                        cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
 #endif
                         
                         auto& alt_alignments = left_alignments[j];
@@ -3619,106 +3616,18 @@ namespace vg {
         return to_return;
     }
     
-    void MultipathAlignmentGraph::groom_graph_for_gssw(Graph& graph) {
+    void MultipathAlignmentGraph::groom_graph_for_gssw(DeletableHandleGraph& graph) {
         
-        // remove empty nodes
-        size_t end = graph.node_size();
-        size_t idx = 0;
-        unordered_set<id_t> removed_nodes;
-        while (idx < end) {
-            if (graph.node(idx).sequence().empty()) {
-                end--;
-                removed_nodes.insert(graph.node(idx).id());
-                std::swap(*graph.mutable_node(idx), *graph.mutable_node(end));
+        // collect all of the empty node IDs without doing any edits
+        vector<id_t> empty_nodes;
+        graph.for_each_handle([&](const handle_t& handle) {
+            if (graph.get_length(handle) == 0) {
+                empty_nodes.push_back(graph.get_id(handle));
             }
-            else {
-                idx++;
-            }
-        }
-        if (end != graph.node_size()) {
-            graph.mutable_node()->DeleteSubrange(end, graph.node_size() - end);
-            
-            // look for any edges connecting them and remove these too
-            end = graph.edge_size();
-            idx = 0;
-            while (idx < end) {
-                Edge* edge = graph.mutable_edge(idx);
-                if (removed_nodes.count(edge->from()) || removed_nodes.count(edge->to())) {
-                    end--;
-                    std::swap(*edge, *graph.mutable_edge(end));
-                }
-                else {
-                    idx++;
-                }
-            }
-            graph.mutable_edge()->DeleteSubrange(end, graph.edge_size() - end);
-        }
-        
-        // flip doubly reversing edges
-        for (size_t i = 0; i < graph.edge_size(); i++) {
-            Edge* edge = graph.mutable_edge(i);
-            if (edge->from_start() && edge->to_end()) {
-                id_t tmp = edge->from();
-                edge->set_from(edge->to());
-                edge->set_to(tmp);
-                edge->set_from_start(false);
-                edge->set_to_end(false);
-            }
-        }
-        
-        // associate node ids with their index
-        unordered_map<id_t, size_t> node_idx;
-        for (size_t i = 0; i < graph.node_size(); i++) {
-            node_idx[graph.node(i).id()] = i;
-        }
-        
-        // construct adjacency list and compute in degrees
-        vector<size_t> in_degree(graph.node_size(), 0);
-        vector<vector<size_t>> adj_list(graph.node_size());
-        for (size_t i = 0; i < graph.edge_size(); i++) {
-            const Edge& edge = graph.edge(i);
-            size_t to_idx = node_idx[edge.to()];
-            adj_list[node_idx[edge.from()]].push_back(to_idx);
-            in_degree[to_idx]++;
-        }
-        
-        // get the topological ordering of the graph (Kahn's algorithm)
-        vector<size_t> source_stack;
-        for (size_t i = 0; i < graph.node_size(); i++) {
-            if (in_degree[i] == 0) {
-                source_stack.push_back(i);
-            }
-        }
-        
-        vector<id_t> order(graph.node_size());
-        size_t next = 0;
-        while (!source_stack.empty()) {
-            size_t src = source_stack.back();
-            source_stack.pop_back();
-            
-            for (size_t dest : adj_list[src]) {
-                in_degree[dest]--;
-                if (in_degree[dest] == 0) {
-                    source_stack.push_back(dest);
-                }
-            }
-            
-            order[next] = src;
-            next++;
-        }
-        
-        // identify the index that we want each node to end up at
-        vector<size_t> index(order.size());
-        for (size_t i = 0; i < order.size(); i++) {
-            index[order[i]] = i;
-        }
-        
-        // in place permutation according to the topological order
-        for (size_t i = 0; i < graph.node_size(); i++) {
-            while (index[i] != i) {
-                std::swap(*graph.mutable_node(i), *graph.mutable_node(index[i]));
-                std::swap(index[i], index[index[i]]);
-            }
+        });
+        // go through and delete them now that we're done iterating
+        for (const id_t& node_id : empty_nodes) {
+            graph.destroy_handle(graph.get_handle(node_id));
         }
     }
     

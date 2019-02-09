@@ -215,10 +215,9 @@ namespace vg {
         /// ordering of their target nodes
         void reorder_adjacency_lists(const vector<size_t>& order);
         
-        /// Reorders the nodes of a Protobuf graph in topological order, flips doubly reversing edges,
-        /// and removes empty sequence nodes (invariants required for gssw alignment)
-        /// TODO: this is duplicative with VG::lazy_sort, but I don't want to construct a VG here
-        void groom_graph_for_gssw(Graph& graph);
+        /// Removes the empty anchoring nodes that are sometimes created by the graph extraction
+        /// algorithms, which is how gssw likes it
+        void groom_graph_for_gssw(DeletableHandleGraph& graph);
         
         /// Generate alignments of the tails of the query sequence, beyond the
         /// sources and sinks. The Alignment passed *must* be the one that owns

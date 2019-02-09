@@ -67,6 +67,9 @@ public:
     /// Return the largest ID in the graph, or some larger number if the
     /// largest ID is unavailable. Return value is unspecified if the graph is empty.
     virtual id_t max_node_id(void) const;
+    
+    /// Efficiently get the number of edges attached to one side of a handle.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
 
     /// Create a new node with the given sequence and return the handle.
     virtual handle_t create_handle(const std::string& sequence);

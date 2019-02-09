@@ -295,7 +295,7 @@ namespace vg {
         /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
         /// to create a multipath alignment with non-trivial topology.
         /// Guarantees that the resulting MultipathAlignment is in topological order.
-        void make_nontrivial_multipath_alignment(const Alignment& alignment, VG& subgraph,
+        void make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
                                                  unordered_map<id_t, pair<id_t, bool>>& translator,
                                                  SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const;
         

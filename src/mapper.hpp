@@ -23,10 +23,10 @@
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
+#include "proto_handle_graph.hpp"
 #include "translator.hpp"
 // TODO: pull out ScoreProvider into its own file
 #include "haplotypes.hpp"
-#include "algorithms/topological_sort.hpp"
 
 // #define BENCH
 // #include "bench.h"

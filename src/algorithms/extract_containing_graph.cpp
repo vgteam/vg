@@ -125,15 +125,15 @@ void extract_containing_graph(const HandleGraph* source,
 void extract_containing_graph(const HandleGraph* source, MutableHandleGraph* into, const vector<pos_t>& positions,
                               size_t max_dist, size_t reversing_walk_length) {
     
-    return extract_containing_graph(source, into, positions, vector<size_t>(positions.size(), max_dist),
-                                    reversing_walk_length);
+    extract_containing_graph(source, into, positions, vector<size_t>(positions.size(), max_dist),
+                             reversing_walk_length);
 }
 
 void extract_containing_graph(const HandleGraph* source, MutableHandleGraph* into, const vector<pos_t>& positions,
                               const vector<size_t>& position_max_dist, size_t reversing_walk_length) {
     
-    return extract_containing_graph(source, into, positions, position_max_dist, position_max_dist,
-                                    reversing_walk_length);
+    extract_containing_graph(source, into, positions, position_max_dist, position_max_dist,
+                             reversing_walk_length);
 }
 
 }

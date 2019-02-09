@@ -438,7 +438,7 @@ namespace vg {
         vector<size_t> backward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev());
         vector<size_t> forward_dist(jump_positions.size(), 6 * fragment_length_distr.stdev() + other_aln.sequence().size());
         algorithms::extract_containing_graph(xindex, &rescue_graph, jump_positions, backward_dist, forward_dist,
-                                             reversing_walk_length);
+                                             num_alt_alns > 1 ? reversing_walk_length : 0);
         
 #ifdef debug_multipath_mapper
         cerr << "got rescue graph" << endl;
@@ -451,12 +451,12 @@ namespace vg {
         size_t target_length = other_aln.sequence().size() + get_aligner()->longest_detectable_gap(other_aln);
         
         // convert from bidirected to directed
-        VG align_graph;
+        HashGraph align_graph;
         unordered_map<id_t, pair<id_t, bool> > node_trans = algorithms::split_strands(&rescue_graph, &align_graph);
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&rescue_graph)) {
             // make a dagified graph and translation
-            VG dagified;
+            HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
             
             // replace the original with the dagified ones
@@ -464,15 +464,12 @@ namespace vg {
             node_trans = overlay_node_translations(dagify_trans, node_trans);
         }
         
-        // gssw is going to want a topologically ordered Protobuf graph from us
-        algorithms::lazier_topological_sort(&align_graph);
-        
         // put local alignment here
         Alignment aln = other_aln;
         // in case we're realigning a GAM, get rid of the path
         aln.clear_path();
         
-        get_aligner()->align(aln, align_graph.graph, true, false);
+        get_aligner()->align(aln, align_graph, true, false);
         
         // get the IDs back into the space of the reference graph
         translate_oriented_node_ids(*aln.mutable_path(), node_trans);
@@ -2594,8 +2591,8 @@ namespace vg {
             // extract the subgraph within the search distance
             
             HashGraph* cluster_graph = new HashGraph();
-            algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist,
-                                                 backward_max_dist, reversing_walk_length);
+            algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
+                                                 num_alt_alns > 1 ? reversing_walk_length : 0);
                                                  
             // check if this subgraph overlaps with any previous subgraph (indicates a probable clustering failure where
             // one cluster was split into multiple clusters)
@@ -3030,7 +3027,7 @@ namespace vg {
 #endif
     }
             
-    void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, VG& subgraph,
+    void MultipathMapper::make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
                                                               unordered_map<id_t, pair<id_t, bool>>& translator,
                                                               SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const {
         
