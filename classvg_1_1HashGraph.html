@@ -159,6 +159,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a16a3cd1543c185ad84e656dda708bf0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8a1a36f27466b0c0183a7393954c834b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#a8a1a36f27466b0c0183a7393954c834b">max_node_id</a> (void) const </td></tr>
 <tr class="separator:a8a1a36f27466b0c0183a7393954c834b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae88d997bfa31592e712c87c620ac248e"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#ae88d997bfa31592e712c87c620ac248e">get_degree</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left) const </td></tr>
+<tr class="memdesc:ae88d997bfa31592e712c87c620ac248e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Efficiently get the number of edges attached to one side of a handle.  <a href="#ae88d997bfa31592e712c87c620ac248e">More...</a><br/></td></tr>
+<tr class="separator:ae88d997bfa31592e712c87c620ac248e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae88f9f307fa0b5a34c6cd96b5a0d1c84"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#ae88f9f307fa0b5a34c6cd96b5a0d1c84">create_handle</a> (const std::string &amp;sequence)</td></tr>
 <tr class="memdesc:ae88f9f307fa0b5a34c6cd96b5a0d1c84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given sequence and return the handle.  <a href="#ae88f9f307fa0b5a34c6cd96b5a0d1c84">More...</a><br/></td></tr>
 <tr class="separator:ae88f9f307fa0b5a34c6cd96b5a0d1c84"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -257,8 +260,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a2d0856da0aa5c07e104ad067294c7214 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa93a545944215ba9654d3be7f716cad4 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#aa93a545944215ba9654d3be7f716cad4">get_handle</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit) const </td></tr>
 <tr class="separator:aa93a545944215ba9654d3be7f716cad4 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7b3e0ec1c0ec12024897e8d04727e178 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a7b3e0ec1c0ec12024897e8d04727e178">get_degree</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left) const </td></tr>
-<tr class="separator:a7b3e0ec1c0ec12024897e8d04727e178 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adfe22acadc4750062e2b64a49d55feb6 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#adfe22acadc4750062e2b64a49d55feb6">has_edge</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;right) const </td></tr>
 <tr class="separator:adfe22acadc4750062e2b64a49d55feb6 inherit pub_methods_classvg_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad38e1d543014e24bd5d85ef62dd3a1b2 inherit pub_methods_classvg_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#ad38e1d543014e24bd5d85ef62dd3a1b2">has_edge</a> (const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;edge)</td></tr>
@@ -824,6 +825,44 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Execute a function on each path in the graph. </p>
+
+</div>
+</div>
+<a class="anchor" id="ae88d997bfa31592e712c87c620ac248e"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::HashGraph::get_degree </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>go_left</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Efficiently get the number of edges attached to one side of a handle. </p>
+
+<p>Reimplemented from <a class="el" href="classvg_1_1HandleGraph.html#a7b3e0ec1c0ec12024897e8d04727e178">vg::HandleGraph</a>.</p>
 
 </div>
 </div>

@@ -174,8 +174,8 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:aa9837be5f0b807534244afe266208448"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adba05a33bf075eb3eb7260e229245f06"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#adba05a33bf075eb3eb7260e229245f06">reorder_adjacency_lists</a> (const vector&lt; size_t &gt; &amp;order)</td></tr>
 <tr class="separator:adba05a33bf075eb3eb7260e229245f06"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a47eea302eef9f4501cee2ef871960dd2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a47eea302eef9f4501cee2ef871960dd2">groom_graph_for_gssw</a> (<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;graph)</td></tr>
-<tr class="separator:a47eea302eef9f4501cee2ef871960dd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1899bb3add8c07b8f54b555a4275a4be"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a1899bb3add8c07b8f54b555a4275a4be">groom_graph_for_gssw</a> (<a class="el" href="classvg_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;graph)</td></tr>
+<tr class="separator:a1899bb3add8c07b8f54b555a4275a4be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a99cb66dc90c4cb1612e581631e62d37f"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, <br class="typebreak"/>
 unordered_map&lt; size_t, vector<br class="typebreak"/>
 &lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a99cb66dc90c4cb1612e581631e62d37f">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
@@ -967,7 +967,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a47eea302eef9f4501cee2ef871960dd2"></a>
+<a class="anchor" id="a1899bb3add8c07b8f54b555a4275a4be"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -977,7 +977,7 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="memname">void vg::MultipathAlignmentGraph::groom_graph_for_gssw </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>graph</em></td><td>)</td>
           <td></td>
         </tr>
@@ -988,7 +988,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Reorders the nodes of a Protobuf graph in topological order, flips doubly reversing edges, and removes empty sequence nodes (invariants required for gssw alignment) TODO: this is duplicative with VG::lazy_sort, but I don't want to construct a <a class="el" href="classvg_1_1VG.html">VG</a> here </p>
+<p>Removes the empty anchoring nodes that are sometimes created by the graph extraction algorithms, which is how gssw likes it </p>
 
 </div>
 </div>

@@ -96,7 +96,6 @@ var searchData=
   ['reverse_5fcomplement_5fpath_5fin_5fplace',['reverse_complement_path_in_place',['../namespacevg.html#af2941a3c80481d02c65d9d72bd835807',1,'vg']]],
   ['reverse_5fedge',['reverse_edge',['../classvg_1_1FlowSort.html#a237e09746b80c67a96290eac62fbd2c8',1,'vg::FlowSort']]],
   ['reverse_5ffrom_5fstart_5fto_5fend_5fedge',['reverse_from_start_to_end_edge',['../classvg_1_1FlowSort.html#a095e96bd8ef6f016a600bdbc6af730ee',1,'vg::FlowSort']]],
-  ['reverse_5fgraph',['reverse_graph',['../classvg_1_1BaseAligner.html#aa69c33fbd1dbdcf33e8e6cf30a2eb5ff',1,'vg::BaseAligner']]],
   ['reversing_5ffilter',['reversing_filter',['../classvg_1_1Filter.html#a5ac9ddf9392d973aa726ad6ee4d53b9f',1,'vg::Filter']]],
   ['right_5fdegree',['right_degree',['../classvg_1_1VG.html#a23622195177dff4c7c8416edffb7fc93',1,'vg::VG']]],
   ['right_5frotate',['right_rotate',['../classvg_1_1PackedSplayTree.html#af35a500f9ccdb593a6eb004c9d60d371',1,'vg::PackedSplayTree']]],

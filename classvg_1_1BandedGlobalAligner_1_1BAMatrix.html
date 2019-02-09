@@ -102,33 +102,33 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:afce70c7a700e8ff5987afbb8b6e29b3d"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#afce70c7a700e8ff5987afbb8b6e29b3d">BAMatrix</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a389f62ad0c08ec025e72334c8840da9f">alignment</a>, <a class="el" href="structvg_1_1Node.html">Node</a> *<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5b46f3e11135080079e70cf93a10a712">node</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a76c5471f0be987920ff0076101367fbc">top_diag</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9814adda35066d761c279d543a2493a2">bottom_diag</a>, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> **<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a424a54453906dcd3697f09a9e4531c6d">seeds</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7ff6bfc495cad6fb62e7d4127ec0e956">num_seeds</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a60ef2a91471d83aaaa6d52cb13b800e8">cumulative_seq_len</a>)</td></tr>
-<tr class="separator:afce70c7a700e8ff5987afbb8b6e29b3d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5cbc56500929e0097ddc365901e5e628"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5cbc56500929e0097ddc365901e5e628">BAMatrix</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a389f62ad0c08ec025e72334c8840da9f">alignment</a>, <a class="el" href="structvg_1_1handle__t.html">handle_t</a> <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a15ee21b9bf2ed37f9892ca0291964d28">node</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a76c5471f0be987920ff0076101367fbc">top_diag</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9814adda35066d761c279d543a2493a2">bottom_diag</a>, const vector&lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> * &gt; &amp;<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7451a72162f19b00d1bd44fc62be0297">seeds</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a60ef2a91471d83aaaa6d52cb13b800e8">cumulative_seq_len</a>)</td></tr>
+<tr class="separator:a5cbc56500929e0097ddc365901e5e628"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac174727f3eb7d040f75bbb638e3ef585"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ac174727f3eb7d040f75bbb638e3ef585">~BAMatrix</a> ()</td></tr>
 <tr class="separator:ac174727f3eb7d040f75bbb638e3ef585"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a468c05d48b0e368a6b1e26e5239deaf2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a468c05d48b0e368a6b1e26e5239deaf2">fill_matrix</a> (int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
-<tr class="memdesc:a468c05d48b0e368a6b1e26e5239deaf2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use DP to fill the band with alignment scores.  <a href="#a468c05d48b0e368a6b1e26e5239deaf2">More...</a><br/></td></tr>
-<tr class="separator:a468c05d48b0e368a6b1e26e5239deaf2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a720586311ece94ad90385bff7f56370b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a720586311ece94ad90385bff7f56370b">traceback</a> (<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> start_mat, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
-<tr class="memdesc:a720586311ece94ad90385bff7f56370b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Traceback through the band after using DP to fill it.  <a href="#a720586311ece94ad90385bff7f56370b">More...</a><br/></td></tr>
-<tr class="separator:a720586311ece94ad90385bff7f56370b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2a01b5f673fb55dc0cd7d093947cfeb8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a2a01b5f673fb55dc0cd7d093947cfeb8">print_full_matrices</a> ()</td></tr>
-<tr class="memdesc:a2a01b5f673fb55dc0cd7d093947cfeb8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#a2a01b5f673fb55dc0cd7d093947cfeb8">More...</a><br/></td></tr>
-<tr class="separator:a2a01b5f673fb55dc0cd7d093947cfeb8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a13bb09acf7b2b9d1992deb10ee36044c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a13bb09acf7b2b9d1992deb10ee36044c">print_rectangularized_bands</a> ()</td></tr>
-<tr class="memdesc:a13bb09acf7b2b9d1992deb10ee36044c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#a13bb09acf7b2b9d1992deb10ee36044c">More...</a><br/></td></tr>
-<tr class="separator:a13bb09acf7b2b9d1992deb10ee36044c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a54be0f91b1460bbd03e87e6da6be6e32"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a54be0f91b1460bbd03e87e6da6be6e32">fill_matrix</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
+<tr class="memdesc:a54be0f91b1460bbd03e87e6da6be6e32"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use DP to fill the band with alignment scores.  <a href="#a54be0f91b1460bbd03e87e6da6be6e32">More...</a><br/></td></tr>
+<tr class="separator:a54be0f91b1460bbd03e87e6da6be6e32"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5aaf286d1b8f4fb70084cee02833c18d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5aaf286d1b8f4fb70084cee02833c18d">traceback</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> start_mat, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
+<tr class="memdesc:a5aaf286d1b8f4fb70084cee02833c18d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Traceback through the band after using DP to fill it.  <a href="#a5aaf286d1b8f4fb70084cee02833c18d">More...</a><br/></td></tr>
+<tr class="separator:a5aaf286d1b8f4fb70084cee02833c18d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a521dac0777a22cd632a45ad72f320810"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a521dac0777a22cd632a45ad72f320810">print_full_matrices</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>)</td></tr>
+<tr class="memdesc:a521dac0777a22cd632a45ad72f320810"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#a521dac0777a22cd632a45ad72f320810">More...</a><br/></td></tr>
+<tr class="separator:a521dac0777a22cd632a45ad72f320810"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c94c4cb68bf76d3b8531f004c17b26d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a6c94c4cb68bf76d3b8531f004c17b26d">print_rectangularized_bands</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>)</td></tr>
+<tr class="memdesc:a6c94c4cb68bf76d3b8531f004c17b26d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#a6c94c4cb68bf76d3b8531f004c17b26d">More...</a><br/></td></tr>
+<tr class="separator:a6c94c4cb68bf76d3b8531f004c17b26d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
-<tr class="memitem:a2aca7797c1bcb3c0150a9d91d3914421"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a2aca7797c1bcb3c0150a9d91d3914421">traceback_internal</a> (<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, int64_t start_row, int64_t start_col, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> start_mat, bool in_lead_gap, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
-<tr class="separator:a2aca7797c1bcb3c0150a9d91d3914421"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a40044bb3219d6ea4c6e8bdf9c333f5d5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a40044bb3219d6ea4c6e8bdf9c333f5d5">print_matrix</a> (<a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> which_mat)</td></tr>
-<tr class="memdesc:a40044bb3219d6ea4c6e8bdf9c333f5d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#a40044bb3219d6ea4c6e8bdf9c333f5d5">More...</a><br/></td></tr>
-<tr class="separator:a40044bb3219d6ea4c6e8bdf9c333f5d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e73399aefd1402a5f694776d64e8ed8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a8e73399aefd1402a5f694776d64e8ed8">print_band</a> (<a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> which_mat)</td></tr>
-<tr class="memdesc:a8e73399aefd1402a5f694776d64e8ed8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#a8e73399aefd1402a5f694776d64e8ed8">More...</a><br/></td></tr>
-<tr class="separator:a8e73399aefd1402a5f694776d64e8ed8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab96ec549cc9e77d5c7cdd919d69cb36e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab96ec549cc9e77d5c7cdd919d69cb36e">traceback_internal</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;builder, <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html">AltTracebackStack</a> &amp;traceback_stack, int64_t start_row, int64_t start_col, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> start_mat, bool in_lead_gap, int8_t *score_mat, int8_t *nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf)</td></tr>
+<tr class="separator:ab96ec549cc9e77d5c7cdd919d69cb36e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee399b25f2ed671ad8a17e6c55757671"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#aee399b25f2ed671ad8a17e6c55757671">print_matrix</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> which_mat)</td></tr>
+<tr class="memdesc:aee399b25f2ed671ad8a17e6c55757671"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#aee399b25f2ed671ad8a17e6c55757671">More...</a><br/></td></tr>
+<tr class="separator:aee399b25f2ed671ad8a17e6c55757671"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac248371cbaae3b95340035f88de09e0a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ac248371cbaae3b95340035f88de09e0a">print_band</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner.html#af5168385acfc1ca71f0757269452e5a7">graph</a>, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> which_mat)</td></tr>
+<tr class="memdesc:ac248371cbaae3b95340035f88de09e0a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Debugging function.  <a href="#ac248371cbaae3b95340035f88de09e0a">More...</a><br/></td></tr>
+<tr class="separator:ac248371cbaae3b95340035f88de09e0a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -137,18 +137,16 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a76c5471f0be987920ff0076101367fbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9814adda35066d761c279d543a2493a2"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9814adda35066d761c279d543a2493a2">bottom_diag</a></td></tr>
 <tr class="separator:a9814adda35066d761c279d543a2493a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5b46f3e11135080079e70cf93a10a712"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Node.html">Node</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5b46f3e11135080079e70cf93a10a712">node</a></td></tr>
-<tr class="separator:a5b46f3e11135080079e70cf93a10a712"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a15ee21b9bf2ed37f9892ca0291964d28"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a15ee21b9bf2ed37f9892ca0291964d28">node</a></td></tr>
+<tr class="separator:a15ee21b9bf2ed37f9892ca0291964d28"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a389f62ad0c08ec025e72334c8840da9f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a389f62ad0c08ec025e72334c8840da9f">alignment</a></td></tr>
 <tr class="separator:a389f62ad0c08ec025e72334c8840da9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a60ef2a91471d83aaaa6d52cb13b800e8"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a60ef2a91471d83aaaa6d52cb13b800e8">cumulative_seq_len</a></td></tr>
 <tr class="memdesc:a60ef2a91471d83aaaa6d52cb13b800e8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Length of shortest sequence leading to matrix from a source node.  <a href="#a60ef2a91471d83aaaa6d52cb13b800e8">More...</a><br/></td></tr>
 <tr class="separator:a60ef2a91471d83aaaa6d52cb13b800e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a424a54453906dcd3697f09a9e4531c6d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> **&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a424a54453906dcd3697f09a9e4531c6d">seeds</a></td></tr>
-<tr class="memdesc:a424a54453906dcd3697f09a9e4531c6d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Matrices for nodes with edges into this node.  <a href="#a424a54453906dcd3697f09a9e4531c6d">More...</a><br/></td></tr>
-<tr class="separator:a424a54453906dcd3697f09a9e4531c6d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7ff6bfc495cad6fb62e7d4127ec0e956"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7ff6bfc495cad6fb62e7d4127ec0e956">num_seeds</a></td></tr>
-<tr class="separator:a7ff6bfc495cad6fb62e7d4127ec0e956"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7451a72162f19b00d1bd44fc62be0297"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7451a72162f19b00d1bd44fc62be0297">seeds</a></td></tr>
+<tr class="memdesc:a7451a72162f19b00d1bd44fc62be0297"><td class="mdescLeft">&#160;</td><td class="mdescRight">Matrices for nodes with edges into this node.  <a href="#a7451a72162f19b00d1bd44fc62be0297">More...</a><br/></td></tr>
+<tr class="separator:a7451a72162f19b00d1bd44fc62be0297"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4fdc2b0adb79d04c4e928a61e891aa84"><td class="memItemLeft" align="right" valign="top">IntType *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a4fdc2b0adb79d04c4e928a61e891aa84">match</a></td></tr>
 <tr class="memdesc:a4fdc2b0adb79d04c4e928a61e891aa84"><td class="mdescLeft">&#160;</td><td class="mdescRight">DP matrix.  <a href="#a4fdc2b0adb79d04c4e928a61e891aa84">More...</a><br/></td></tr>
 <tr class="separator:a4fdc2b0adb79d04c4e928a61e891aa84"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -172,7 +170,7 @@ class vg::BandedGlobalAligner&lt; IntType &gt;::BAMatrix</h3>
 
 <p>Represents the band from the DP matrix for one node in the graph </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="afce70c7a700e8ff5987afbb8b6e29b3d"></a>
+<a class="anchor" id="a5cbc56500929e0097ddc365901e5e628"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -187,7 +185,7 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Node.html">Node</a> *&#160;</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td>
           <td class="paramname"><em>node</em>, </td>
         </tr>
         <tr>
@@ -205,14 +203,8 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> **&#160;</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> * &gt; &amp;&#160;</td>
           <td class="paramname"><em>seeds</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>num_seeds</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -248,7 +240,7 @@ template&lt;class IntType &gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="a468c05d48b0e368a6b1e26e5239deaf2"></a>
+<a class="anchor" id="a54be0f91b1460bbd03e87e6da6be6e32"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -257,6 +249,12 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::fill_matrix </td>
           <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">int8_t *&#160;</td>
           <td class="paramname"><em>score_mat</em>, </td>
         </tr>
@@ -302,7 +300,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a8e73399aefd1402a5f694776d64e8ed8"></a>
+<a class="anchor" id="ac248371cbaae3b95340035f88de09e0a"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -314,9 +312,19 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::print_band </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a>&#160;</td>
-          <td class="paramname"><em>which_mat</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a>&#160;</td>
+          <td class="paramname"><em>which_mat</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -330,7 +338,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a2a01b5f673fb55dc0cd7d093947cfeb8"></a>
+<a class="anchor" id="a521dac0777a22cd632a45ad72f320810"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -339,7 +347,8 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::print_full_matrices </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -349,7 +358,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a40044bb3219d6ea4c6e8bdf9c333f5d5"></a>
+<a class="anchor" id="aee399b25f2ed671ad8a17e6c55757671"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -361,9 +370,19 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::print_matrix </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a>&#160;</td>
-          <td class="paramname"><em>which_mat</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a>&#160;</td>
+          <td class="paramname"><em>which_mat</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -377,7 +396,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a13bb09acf7b2b9d1992deb10ee36044c"></a>
+<a class="anchor" id="a6c94c4cb68bf76d3b8531f004c17b26d"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -386,7 +405,8 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::print_rectangularized_bands </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -396,7 +416,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a720586311ece94ad90385bff7f56370b"></a>
+<a class="anchor" id="a5aaf286d1b8f4fb70084cee02833c18d"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -405,6 +425,12 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::traceback </td>
           <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;&#160;</td>
           <td class="paramname"><em>builder</em>, </td>
         </tr>
@@ -468,7 +494,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a2aca7797c1bcb3c0150a9d91d3914421"></a>
+<a class="anchor" id="ab96ec549cc9e77d5c7cdd919d69cb36e"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -480,6 +506,12 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::traceback_internal </td>
           <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BABuilder.html">BABuilder</a> &amp;&#160;</td>
           <td class="paramname"><em>builder</em>, </td>
         </tr>
@@ -750,7 +782,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a5b46f3e11135080079e70cf93a10a712"></a>
+<a class="anchor" id="a15ee21b9bf2ed37f9892ca0291964d28"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -760,7 +792,7 @@ template&lt;class IntType &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Node.html">Node</a>* <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::node</td>
+          <td class="memname"><a class="el" href="structvg_1_1handle__t.html">handle_t</a> <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::node</td>
         </tr>
       </table>
   </td>
@@ -772,7 +804,7 @@ template&lt;class IntType &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a7ff6bfc495cad6fb62e7d4127ec0e956"></a>
+<a class="anchor" id="a7451a72162f19b00d1bd44fc62be0297"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -782,29 +814,7 @@ template&lt;class IntType &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">int64_t <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::num_seeds</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a424a54453906dcd3697f09a9e4531c6d"></a>
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;class IntType &gt; </div>
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a>** <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::seeds</td>
+          <td class="memname">vector&lt;<a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a>*&gt; <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::BAMatrix::seeds</td>
         </tr>
       </table>
   </td>

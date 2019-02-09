@@ -19,6 +19,7 @@ var searchData=
   ['edge_5fnext_5foffset',['EDGE_NEXT_OFFSET',['../classvg_1_1PackedGraph.html#ac9378fc747024443b37b10601fa01624',1,'vg::PackedGraph']]],
   ['edge_5fpileups',['edge_pileups',['../structvg_1_1Pileup.html#af21485035738e0f7c01912f4416138b7',1,'vg::Pileup']]],
   ['edge_5frecord_5fsize',['EDGE_RECORD_SIZE',['../classvg_1_1PackedGraph.html#a9fb24cfbf0b50892939d200e5e93d7b1',1,'vg::PackedGraph']]],
+  ['edge_5fsize',['edge_size',['../classvg_1_1ProtoHandleGraph.html#a6d9e42219833d679934a9efd0e37e6c9',1,'vg::ProtoHandleGraph']]],
   ['edge_5fsupports',['edge_supports',['../structvg_1_1SupportAugmentedGraph.html#a24dadf651f02dc783640fbfa5a0616d0',1,'vg::SupportAugmentedGraph']]],
   ['edge_5ft',['edge_t',['../namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02',1,'vg']]],
   ['edge_5ftrav_5foffset',['EDGE_TRAV_OFFSET',['../classvg_1_1PackedGraph.html#affdd3120e81fd2ca8a4a4e4fa945890b',1,'vg::PackedGraph']]],

@@ -1,6 +1,7 @@
 var searchData=
 [
   ['babuilder',['BABuilder',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html',1,'vg::BandedGlobalAligner']]],
+  ['backwardsgraph',['BackwardsGraph',['../classvg_1_1BackwardsGraph.html',1,'vg']]],
   ['bamatrix',['BAMatrix',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html',1,'vg::BandedGlobalAligner']]],
   ['bandedglobalaligner',['BandedGlobalAligner',['../classvg_1_1BandedGlobalAligner.html',1,'vg']]],
   ['basealigner',['BaseAligner',['../classvg_1_1BaseAligner.html',1,'vg']]],

@@ -33,7 +33,7 @@ var searchData=
   ['top_5fborder',['top_border',['../classvg_1_1Viz.html#a9e044e100116d5fe502953643f07d2d2',1,'vg::Viz']]],
   ['top_5fdiag',['top_diag',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a76c5471f0be987920ff0076101367fbc',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['top_5ftracebacks',['top_tracebacks',['../classvg_1_1MultipathMapper.html#a122b1eaa39c84e9b18a971ebe6566030',1,'vg::MultipathMapper']]],
-  ['topological_5forder',['topological_order',['../classvg_1_1BandedGlobalAligner.html#aac77523cd3035ba643a213bc709270e9',1,'vg::BandedGlobalAligner']]],
+  ['topological_5forder',['topological_order',['../classvg_1_1BandedGlobalAligner.html#a45b4ad348f9232013df241afece68afc',1,'vg::BandedGlobalAligner']]],
   ['total_5fbits',['TOTAL_BITS',['../classvg_1_1BitString.html#a754714ef7b6c7a1951ae46b8e2594562',1,'vg::BitString']]],
   ['total_5fsupport',['total_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#af7917163fa9a4e17ef5e61c345f758cf',1,'vg::SupportCaller::PrimaryPath']]],
   ['transition_5fdistrs_5f1',['transition_distrs_1',['../classvg_1_1NGSSimulator.html#a571f3ff879e38077e8d7dad879157d55',1,'vg::NGSSimulator']]],

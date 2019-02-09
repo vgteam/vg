@@ -20,7 +20,7 @@ var searchData=
   ['next_5fpositions',['next_positions',['../structvg_1_1KmerPosition.html#ad6a841261ad5205e4dc10503f5ec8ba7',1,'vg::KmerPosition']]],
   ['next_5funused',['next_unused',['../classvg_1_1GFAToPinchTranslator.html#ac869eb8216dd3db932a72800f456a24d',1,'vg::GFAToPinchTranslator::next_unused()'],['../classvg_1_1PinchToVGTranslator.html#a7919769eadc990b922d7e225325d8e4e',1,'vg::PinchToVGTranslator::next_unused()']]],
   ['no_5fns',['no_Ns',['../classvg_1_1Sampler.html#aa71ef9078ed81b2406357f0dd4fdda3a',1,'vg::Sampler']]],
-  ['node',['node',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5b46f3e11135080079e70cf93a10a712',1,'vg::BandedGlobalAligner::BAMatrix::node()'],['../structvg_1_1CactusSide.html#a1e590f9e0956cdd491c9758a89bc4e1e',1,'vg::CactusSide::node()'],['../classvg_1_1NodeSide.html#a11a48024eddd85edf22b6e0748049fa0',1,'vg::NodeSide::node()'],['../classvg_1_1NodeTraversal.html#a73ca27b85d0f387740425dea434763ed',1,'vg::NodeTraversal::node()'],['../structvg_1_1PileupAugmenter_1_1InsertionRecord.html#a27370fc74f689c3905785bbb623ec533',1,'vg::PileupAugmenter::InsertionRecord::node()'],['../structvg_1_1Graph.html#ac16f6921068e2ae84b0d2166b2eb3b4e',1,'vg::Graph::node()']]],
+  ['node',['node',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a15ee21b9bf2ed37f9892ca0291964d28',1,'vg::BandedGlobalAligner::BAMatrix::node()'],['../structvg_1_1CactusSide.html#a1e590f9e0956cdd491c9758a89bc4e1e',1,'vg::CactusSide::node()'],['../classvg_1_1NodeSide.html#a11a48024eddd85edf22b6e0748049fa0',1,'vg::NodeSide::node()'],['../classvg_1_1NodeTraversal.html#a73ca27b85d0f387740425dea434763ed',1,'vg::NodeTraversal::node()'],['../structvg_1_1PileupAugmenter_1_1InsertionRecord.html#a27370fc74f689c3905785bbb623ec533',1,'vg::PileupAugmenter::InsertionRecord::node()'],['../structvg_1_1Graph.html#ac16f6921068e2ae84b0d2166b2eb3b4e',1,'vg::Graph::node()']]],
   ['node_5fby_5fid',['node_by_id',['../classvg_1_1VG.html#aaf9360fb7acb595296f55cb445f87543',1,'vg::VG']]],
   ['node_5fcache',['node_cache',['../classvg_1_1Sampler.html#a7fe30513fb778b219886100865cb33e8',1,'vg::Sampler::node_cache()'],['../classvg_1_1NGSSimulator.html#a04b75f1f9595a7b43f4f4ae0e94f3ed1',1,'vg::NGSSimulator::node_cache()']]],
   ['node_5fcount',['node_count',['../classxg_1_1XG.html#a8324b23c3162c729f8336df7355b13a1',1,'xg::XG']]],
@@ -60,6 +60,5 @@ var searchData=
   ['num_5fnodes',['num_nodes',['../classvg_1_1PackedSplayTree.html#aa10b7e02fded5a21712d8d20dc96c031',1,'vg::PackedSplayTree']]],
   ['num_5fpairs',['num_pairs',['../classvg_1_1ShuffledPairs.html#abf8913c70ff6595d8b288bdab3c88981',1,'vg::ShuffledPairs']]],
   ['num_5freads',['num_reads',['../structvg_1_1EdgePileup.html#aa95aa0337a5bc6229762abaa56dcdbff',1,'vg::EdgePileup']]],
-  ['num_5fseeds',['num_seeds',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7ff6bfc495cad6fb62e7d4127ec0e956',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['numcycles',['numCycles',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a4a0ca5f262321b665d0c09e1198395db',1,'vg::DistanceIndex::MaxDistanceIndex']]]
 ];

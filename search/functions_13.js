@@ -94,7 +94,7 @@ var searchData=
   ['shallow_5fcontents',['shallow_contents',['../classvg_1_1SnarlManager.html#ac2e33e1eb573d4f15cc73a681e33f241',1,'vg::SnarlManager']]],
   ['share_5fterminal_5fpositions',['share_terminal_positions',['../classvg_1_1MultipathMapper.html#ae152e4fca517f42655c1747e0abe10d0',1,'vg::MultipathMapper']]],
   ['short_5fmode_5fname',['short_mode_name',['../prune__main_8cpp.html#adf85e917657920f23dce6cefc2ecd2b9',1,'prune_main.cpp']]],
-  ['shortest_5fseq_5fpaths',['shortest_seq_paths',['../classvg_1_1BandedGlobalAligner.html#a32235c34a9085dc334af1fc543f1c021',1,'vg::BandedGlobalAligner']]],
+  ['shortest_5fseq_5fpaths',['shortest_seq_paths',['../classvg_1_1BandedGlobalAligner.html#a7156058732c9d6f40226609f650944a2',1,'vg::BandedGlobalAligner']]],
   ['show_5fstructure',['show_structure',['../classvg_1_1Packer.html#a4aacf109dc6290d39630e5b25020004e',1,'vg::Packer']]],
   ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs.html#a7143ff811c0359854ac091749b1f5642',1,'vg::ShuffledPairs']]],
   ['siblings_5ffrom',['siblings_from',['../classvg_1_1VG.html#ac684d17ffe4c85ce74a4677fdfaf7672',1,'vg::VG']]],

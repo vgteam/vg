@@ -20,7 +20,6 @@ var searchData=
   ['view_5fmultipath_5falignment',['view_multipath_alignment',['../namespacevg.html#a0b67eeb9262ee4034a35e068e25a26b1',1,'vg']]],
   ['view_5fmultipath_5falignment_5fas_5fdot',['view_multipath_alignment_as_dot',['../namespacevg.html#a23e5fc95fa04fafdfef347867f7d4aaa',1,'vg']]],
   ['visit_5fnext_5fnode',['visit_next_node',['../classvg_1_1ExhaustiveTraversalFinder.html#a97819cfccf220f9ddf9e649d5ebd1a8e',1,'vg::ExhaustiveTraversalFinder::visit_next_node()'],['../classvg_1_1SupportRestrictedTraversalFinder.html#a9cdb3b8f554e58cba6fea9c2ccb40e14',1,'vg::SupportRestrictedTraversalFinder::visit_next_node()']]],
-  ['visit_5fnode',['visit_node',['../classvg_1_1BaseAligner.html#a791cba0fe8a42b9a2ae7f74364f78dde',1,'vg::BaseAligner']]],
   ['visits_5fleft',['visits_left',['../classvg_1_1SnarlManager.html#a631de1bc1f9b33c291c4fcd450be6d21',1,'vg::SnarlManager']]],
   ['visits_5fright',['visits_right',['../classvg_1_1SnarlManager.html#ac51216998e9cd904b33b5bde7f4a94d9',1,'vg::SnarlManager']]],
   ['viz',['Viz',['../classvg_1_1Viz.html#a8e9440d6c67fde7f10fe9c0366759041',1,'vg::Viz::Viz(void)'],['../classvg_1_1Viz.html#a47c4c604a06f9ed354ad4cf98ea63a53',1,'vg::Viz::Viz(xg::XG *x, vector&lt; Packer &gt; *p, const vector&lt; string &gt; &amp;n, const string &amp;o, int w, int h, bool c, bool d, bool t)']]],

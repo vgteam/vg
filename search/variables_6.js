@@ -22,6 +22,7 @@ var searchData=
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t']]],
   ['format',['format',['../classvg_1_1SupportCaller.html#af9e9a4ecc2f56ea8fe5ac2cba6ddc42e',1,'vg::SupportCaller']]],
   ['forward',['forward',['../classvg_1_1GFAToPinchTranslator.html#aa2bde3e3f2d943225f23715afa4a2f6e',1,'vg::GFAToPinchTranslator::forward()'],['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support::forward()']]],
+  ['forward_5fgraph',['forward_graph',['../classvg_1_1BackwardsGraph.html#a9387c529c83c9868a84a1689ff873d55',1,'vg::BackwardsGraph']]],
   ['forward_5fonly',['forward_only',['../classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507',1,'vg::Sampler']]],
   ['frac_5fscore',['frac_score',['../classvg_1_1ReadFilter.html#a39086ef40e89b6b3733e5e9c42482e1e',1,'vg::ReadFilter']]],
   ['frag_5fstats',['frag_stats',['../classvg_1_1Mapper.html#a2574eba87f3d7e8e93bf3fee99dacf27',1,'vg::Mapper']]],

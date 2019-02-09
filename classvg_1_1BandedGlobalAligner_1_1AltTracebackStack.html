@@ -107,8 +107,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ae5128be7ca84395630857db7e557883f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#ae5128be7ca84395630857db7e557883f">AltTracebackStack</a> (int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9114c48d4516fb6115fe47e910624377">max_multi_alns</a>, int32_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a615b7711ad30debfdeee5441eae251e5">empty_score</a>, unordered_set&lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> * &gt; &amp;source_node_matrices, unordered_set&lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> * &gt; &amp;sink_node_matrices, int8_t gap_open, int8_t gap_extend, IntType min_inf)</td></tr>
-<tr class="separator:ae5128be7ca84395630857db7e557883f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add2f3215214bfdd33cd8ccc633275827"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#add2f3215214bfdd33cd8ccc633275827">AltTracebackStack</a> (const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;<a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9d4f47628b410f5639f985dae1b1b5e0">graph</a>, int64_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9114c48d4516fb6115fe47e910624377">max_multi_alns</a>, int32_t <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a615b7711ad30debfdeee5441eae251e5">empty_score</a>, unordered_set&lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> * &gt; &amp;source_node_matrices, unordered_set&lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1BAMatrix.html">BAMatrix</a> * &gt; &amp;sink_node_matrices, int8_t gap_open, int8_t gap_extend, IntType min_inf)</td></tr>
+<tr class="separator:add2f3215214bfdd33cd8ccc633275827"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7271beafb4fd9d7d993e7225d0289ee8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a7271beafb4fd9d7d993e7225d0289ee8">~AltTracebackStack</a> ()</td></tr>
 <tr class="separator:a7271beafb4fd9d7d993e7225d0289ee8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5790a8cfd26dd12a19d33fc11cb84933"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a5790a8cfd26dd12a19d33fc11cb84933">get_alignment_start</a> (int64_t &amp;node_id, <a class="el" href="classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2f">matrix_t</a> &amp;matrix)</td></tr>
@@ -164,6 +164,8 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a23e1eb082e5f26d87c43dfa1b7ec133d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a615b7711ad30debfdeee5441eae251e5"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a615b7711ad30debfdeee5441eae251e5">empty_score</a></td></tr>
 <tr class="separator:a615b7711ad30debfdeee5441eae251e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9d4f47628b410f5639f985dae1b1b5e0"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9d4f47628b410f5639f985dae1b1b5e0">graph</a></td></tr>
+<tr class="separator:a9d4f47628b410f5639f985dae1b1b5e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e2f8458aa7f547adda7154ef90a1c5c"><td class="memItemLeft" align="right" valign="top">list&lt; tuple&lt; vector<br class="typebreak"/>
 &lt; <a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html">Deflection</a> &gt;, IntType, list<br class="typebreak"/>
 &lt; int64_t &gt; &gt; &gt;::iterator&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a9e2f8458aa7f547adda7154ef90a1c5c">curr_traceback</a></td></tr>
@@ -179,7 +181,7 @@ class vg::BandedGlobalAligner&lt; IntType &gt;::AltTracebackStack</h3>
 
 <p>Specialized linked list stack that finds and keeps track of the top-scoring non-optimal alignments. Sub-optimal alignments are represented by the locations where their traceback deviates from the optimal traceback, with other steps of the traceback implicitly following the optimal path. New tracebacks can be discovered while performing any of the tracebacks and added to the stack. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="ae5128be7ca84395630857db7e557883f"></a>
+<a class="anchor" id="add2f3215214bfdd33cd8ccc633275827"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -188,6 +190,12 @@ template&lt;class IntType &gt; </div>
         <tr>
           <td class="memname"><a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::AltTracebackStack::AltTracebackStack </td>
           <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">int64_t&#160;</td>
           <td class="paramname"><em>max_multi_alns</em>, </td>
         </tr>
@@ -797,6 +805,28 @@ template&lt;class IntType &gt; </div>
       <table class="memname">
         <tr>
           <td class="memname">int32_t <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::AltTracebackStack::empty_score</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a9d4f47628b410f5639f985dae1b1b5e0"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;class IntType &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a>&amp; <a class="el" href="classvg_1_1BandedGlobalAligner.html">vg::BandedGlobalAligner</a>&lt; IntType &gt;::AltTracebackStack::graph</td>
         </tr>
       </table>
   </td>
