@@ -1794,7 +1794,6 @@ namespace vg {
             // Generate the best linearization with optimal_alignments
             auto alns = optimal_alignments(mpaln, 1);
             REQUIRE(alns.size() == 1);
-            cerr << pb2json(alns[0]) << endl;
             
             // Also generate it with just optimal_alignment;
             Alignment opt;

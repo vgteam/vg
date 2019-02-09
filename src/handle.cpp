@@ -22,6 +22,15 @@ size_t HandleGraph::get_degree(const handle_t& handle, bool go_left) const {
     return count;
 }
 
+bool HandleGraph::has_edge(const handle_t& left, const handle_t& right) const {
+    bool not_seen = true;
+    follow_edges(left, false, [&](const handle_t& next) {
+        not_seen = (next != right);
+        return not_seen;
+    });
+    return !not_seen;
+}
+
 Visit HandleGraph::to_visit(const handle_t& handle) const {
     return vg::to_visit(this->get_id(handle), this->get_is_reverse(handle));
 }

@@ -128,6 +128,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
+    int max_branch_trim_length = 1;
     bool suppress_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
@@ -197,6 +198,7 @@ int main_mpmap(int argc, char** argv) {
     int gap_open_score_arg = std::numeric_limits<int>::min();
     int gap_extension_score_arg = std::numeric_limits<int>::min();
     int full_length_bonus_arg = std::numeric_limits<int>::min();
+    int reversing_walk_length = 1;
     
     
     int c;
@@ -990,6 +992,7 @@ int main_mpmap(int argc, char** argv) {
     multipath_mapper.min_median_mem_coverage_for_split = min_median_mem_coverage_for_split;
     multipath_mapper.suppress_cluster_merging = suppress_cluster_merging;
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
+    multipath_mapper.reversing_walk_length = reversing_walk_length;
     
     // set pair rescue parameters
     multipath_mapper.max_rescue_attempts = max_rescue_attempts;
@@ -1002,6 +1005,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set multipath alignment topology parameters
     multipath_mapper.max_snarl_cut_size = snarl_cut_size;
+    multipath_mapper.max_branch_trim_length = max_branch_trim_length;
     multipath_mapper.suppress_tail_anchors = suppress_tail_anchors;
     multipath_mapper.num_alt_alns = num_alt_alns;
     multipath_mapper.dynamic_max_alt_alns = dynamic_max_alt_alns;

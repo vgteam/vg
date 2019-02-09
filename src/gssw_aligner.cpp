@@ -1222,7 +1222,7 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
     return score_exact_match(seq_begin, seq_end);
 }
 
-int32_t Aligner::score_partial_alignment(const Alignment& alignment, VG& graph, const Path& path,
+int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                          string::const_iterator seq_begin) const{
     
     int32_t score = 0;
@@ -1572,7 +1572,7 @@ int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, stri
     return score;
 }
 
-int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, VG& graph, const Path& path,
+int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                                 string::const_iterator seq_begin) const{
     
     int32_t score = 0;
@@ -1583,14 +1583,10 @@ int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, VG& 
         const Mapping& mapping = path.mapping(i);
         
         // get the sequence of this node on the proper strand
-        string rc_seq;
-        const string* node_seq = &(graph.get_node(mapping.position().node_id())->sequence());
-        if (mapping.position().is_reverse()) {
-            rc_seq = reverse_complement(*node_seq);
-            node_seq = &rc_seq;
-        }
+        string node_seq = graph.get_sequence(graph.get_handle(mapping.position().node_id(),
+                                                              mapping.position().is_reverse()));
         
-        auto ref_pos = node_seq->begin() + mapping.position().offset();
+        string::const_iterator ref_pos = node_seq.begin() + mapping.position().offset();
         
         for (size_t j = 0; j < mapping.edit_size(); j++) {
             const Edit& edit = mapping.edit(j);

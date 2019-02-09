@@ -330,6 +330,16 @@ public:
     /// information more efficiently can override this method.
     virtual size_t get_degree(const handle_t& handle, bool go_left) const;
     
+    /// Returns true if there is an edge that allows traversal from the left
+    /// handle to the right handle. By default O(n) in the number of edges
+    /// on left, but can be overridden with more efficient implementations.
+    virtual bool has_edge(const handle_t& left, const handle_t& right) const;
+    
+    /// Convenient wrapper of has_edge for edge_t argument.
+    inline bool has_edge(const edge_t& edge) {
+        return has_edge(edge.first, edge.second);
+    }
+    
     ////////////////////////////////////////////////////////////////////////////
     // Concrete utility methods
     ////////////////////////////////////////////////////////////////////////////
@@ -350,6 +360,7 @@ public:
     
     /// Loop over all edges in their canonical orientation (as returned by edge_handle) and
     /// execute an iteratee on each one. Can stop early by returning false from the iteratee.
+    /// Early stopping may not be immediate if executing in parallel.
     void for_each_edge(const function<bool(const edge_t&)>& iteratee, bool parallel = false) const;
     
 };

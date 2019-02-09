@@ -26,6 +26,7 @@
 #include "algorithms/a_star.hpp"
 #include "algorithms/eades_algorithm.hpp"
 #include "algorithms/shortest_cycle.hpp"
+#include "algorithms/reverse_complement.hpp"
 #include "unittest/random_graph.hpp"
 #include "vg.hpp"
 #include "json2pb.h"
@@ -5432,6 +5433,60 @@ namespace vg {
                 
                 REQUIRE(algorithms::shortest_cycle_length(&graph) == 2);
             }
+        }
+        
+        TEST_CASE("Reverse complementing graphs works correctly","[algorithms]") {
+            
+            VG graph;
+            
+            handle_t h1 = graph.create_handle("ACA");
+            handle_t h2 = graph.create_handle("T");
+            handle_t h3 = graph.create_handle("CT");
+            handle_t h4 = graph.create_handle("GTGGA");
+            
+            graph.create_edge(h1, h2);
+            graph.create_edge(h1, graph.flip(h3));
+            graph.create_edge(h2, h4);
+            graph.create_edge(graph.flip(h3), h4);
+            
+            VG rev_graph;
+            
+            auto trans = algorithms::reverse_complement_graph(&graph, &rev_graph);
+            
+            handle_t r1, r2, r3, r4;
+            bool found1 = false, found2 = false, found3 = false, found4 = false;
+            REQUIRE(rev_graph.node_size() == 4);
+            rev_graph.for_each_handle([&](const handle_t& h) {
+                if (rev_graph.get_sequence(h) == graph.get_sequence(graph.flip(h1))) {
+                    r1 = h;
+                    found1 = true;
+                }
+                else if (rev_graph.get_sequence(h) == graph.get_sequence(graph.flip(h2))) {
+                    r2 = h;
+                    found2 = true;
+                }
+                else if (rev_graph.get_sequence(h) == graph.get_sequence(graph.flip(h3))) {
+                    r3 = h;
+                    found3 = true;
+                }
+                else if (rev_graph.get_sequence(h) == graph.get_sequence(graph.flip(h4))) {
+                    r4 = h;
+                    found4 = true;
+                }
+                else {
+                    REQUIRE(false);
+                }
+            });
+            
+            REQUIRE(found1);
+            REQUIRE(found2);
+            REQUIRE(found3);
+            REQUIRE(found4);
+            
+            REQUIRE(rev_graph.has_edge(rev_graph.flip(r1), rev_graph.flip(r2)));
+            REQUIRE(rev_graph.has_edge(rev_graph.flip(r1), r3));
+            REQUIRE(rev_graph.has_edge(rev_graph.flip(r2), rev_graph.flip(r4)));
+            REQUIRE(rev_graph.has_edge(r3, rev_graph.flip(r4)));
         }
     }
 }
