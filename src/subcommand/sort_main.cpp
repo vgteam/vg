@@ -175,16 +175,24 @@ int main_sort(int argc, char *argv[]) {
             index = unique_ptr<StreamIndex<Graph>>(new StreamIndex<Graph>());
         }
         
-        {
+        // Maintain our own group buffer at a higher scope than the emitter.
+        vector<Graph> group_buffer;
         
+        {
             // Make our own emitter for serialization
             stream::ProtobufEmitter<Graph> emitter(std::cout);
             
             if (index) {
-                // Hook up the index to the emitter. This is legal because the index lives longer.
-                emitter.on_group([&](const vector<Graph>& group, int64_t start_vo, int64_t past_end_vo) {
-                    
-                    index->add_group(group, start_vo, past_end_vo);
+                emitter.on_message([&](const Graph& g) {
+                    // Copy every graph that is emitted.
+                    // TODO: Just compute indexing stats instead.
+                    group_buffer.push_back(g);
+                });
+            
+                emitter.on_group([&](int64_t start_vo, int64_t past_end_vo) {
+                    // On every group, tell the index to record the group stats, and clear the buffer.
+                    index->add_group(group_buffer, start_vo, past_end_vo);
+                    group_buffer.clear();
                 });
             }
             

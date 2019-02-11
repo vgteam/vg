@@ -1,5 +1,5 @@
 #include "vg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "gssw_aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
@@ -85,24 +85,27 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
 }
 
 // construct from an arbitrary source of Graph protobuf messages
-VG::VG(function<bool(Graph&)>& get_next_graph, bool showp, bool warn_on_duplicates) {
+VG::VG(const function<void(const function<void(Graph&)>&)>& send_graphs, bool showp, bool warn_on_duplicates) {
     // set up uninitialized values
     init();
     show_progress = showp;
-
+    
     // We can't show loading progress since we don't know the total number of
     // subgraphs.
-
-    // Try to load the first graph
-    Graph subgraph;
-    bool got_subgraph = get_next_graph(subgraph);
-    while(got_subgraph) {
-        // If there is a valid subgraph, add it to ourselves.
+    
+    // Ask to be sent all the graph chunks
+    send_graphs([&](Graph& g) {
+        // Take each of them and extend.
+        
         // We usually expect these to not overlap in nodes or edges, so complain unless we've been told not to.
-        extend(subgraph, warn_on_duplicates);
-        // Try and load the next subgraph, if it exists.
-        got_subgraph = get_next_graph(subgraph);
-    }
+        extend(g, warn_on_duplicates);
+    });
+    
+    // Collate all the path mappings we got from all the different chunks. A
+    // mapping from any chunk might fall anywhere in a path (because paths may
+    // loop around cycles), so we need to sort on ranks.
+    paths.sort_by_mapping_rank();
+    paths.rebuild_mapping_aux();
 
     // store paths in graph
     paths.to_graph(graph);
@@ -553,7 +556,7 @@ void VG::sync_paths(void) {
     paths.rebuild_mapping_aux();
 }
 
-void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+void VG::serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_size) {
 
     // This makes sure mapping ranks are updated to reflect their actual
     // positions along their paths.
@@ -621,11 +624,19 @@ void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chun
         update_progress(element_start);
         
         // Now the VG we made has a proper Graph; emit it.
-        emitter.write_copy(g.graph);
+        emit(g.graph);
     }
     
     // Now we are done
     destroy_progress();
+}
+
+
+void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+    // Serialize and make the emitter write every chunk
+    serialize_to_function([&emitter](const Graph& chunk) {
+        emitter.write_copy(chunk);
+    }, chunk_size);
 }
 
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
@@ -6759,7 +6770,7 @@ Alignment VG::align(const Alignment& alignment,
     // trans is only required in the X-drop aligner; can be nullptr
     auto do_align = [&](VG& g) {
 #ifdef debug
-        write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
+        stream::write_to_file(alignment, hash_alignment(alignment) + ".gam");
         serialize_to_file(hash_alignment(alignment) + ".vg");
 #endif
         if (aligner && qual_adj_aligner) {
@@ -6859,7 +6870,7 @@ Alignment VG::align(const Alignment& alignment,
                          << pb2json(a) << endl
                          << "expect:\t" << a.sequence() << endl
                          << "got:\t" << seq << endl;
-                    write_alignment_to_file(a, "fail.gam");
+                    stream::write_to_file(a, "fail.gam");
                     graph.serialize_to_file("fail.vg");
                     assert(false);
                 }

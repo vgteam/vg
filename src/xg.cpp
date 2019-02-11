@@ -1,5 +1,5 @@
 #include "xg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "alignment.hpp"
 
 #include <bitset>
@@ -468,7 +468,7 @@ id_t XGPath::external_id(id_t id) const {
     return id+min_node_id-1;
 }
 
-size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) {
+size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
 
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
     size_t written = 0;
@@ -5373,7 +5373,7 @@ XG::ThreadSearchState XG::select_continuing(const ThreadMapping& start) const {
 }
 
 
-size_t serialize(XG::rank_select_int_vector& to_serialize, ostream& out,
+size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name) {
 #if GPBWT_MODE == MODE_SDSL
     // Just delegate to the SDSL code

@@ -14,8 +14,11 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
+#include "../stream/vpkg.hpp"
+#include "../stream/stream.hpp"
+#include "../handle.hpp"
 
-#include "../vg.hpp"
+#include "../path.hpp"
 #include "../distributions.hpp"
 #include "../genotypekit.hpp"
 
@@ -25,7 +28,7 @@ using namespace vg::subcommand;
 using namespace vg::algorithms;
 
 void help_stats(char** argv) {
-    cerr << "usage: " << argv[0] << " stats [options] <graph.vg>" << endl
+    cerr << "usage: " << argv[0] << " stats [options] [<graph.vg>]" << endl
          << "options:" << endl
          << "    -z, --size            size of graph" << endl
          << "    -N, --node-count      number of nodes in graph" << endl
@@ -205,31 +208,47 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    VG graph;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-            graph.from_istream(in);
-    });
+    unique_ptr<VG> graph;
+    if (have_input_file(optind, argc, argv)) {
+        // We have an (optional, because we can just process alignments) graph input file.
+        // TODO: We can only handle vg until we route all the stats operations through HandleGraph.
+        graph = stream::VPKG::load_one<VG>(get_input_file_name(optind, argc, argv));
+    }
+    
+    // We have function to make sure the graph was passed and complain if not
+    auto require_graph = [&graph]() {
+        if (graph.get() == nullptr) {
+            cerr << "error[vg stats]: The selected operation requires passing a graph file to work on" << endl;
+            exit(1);
+        }
+    };
+    
 
     if (stats_size) {
-        cout << "nodes" << "\t" << graph.node_count() << endl
-            << "edges" << "\t" << graph.edge_count() << endl;
+        require_graph();
+        cout << "nodes" << "\t" << graph->node_count() << endl
+            << "edges" << "\t" << graph->edge_count() << endl;
     }
 
     if (node_count) {
-        cout << graph.node_count() << endl;
+        require_graph();
+        cout << graph->node_count() << endl;
     }
 
     if (edge_count) {
-        cout << graph.edge_count() << endl;
+        require_graph();
+        cout << graph->edge_count() << endl;
     }
 
     if (stats_length) {
-        cout << "length" << "\t" << graph.total_length_of_nodes() << endl;
+        require_graph();
+        cout << "length" << "\t" << graph->total_length_of_nodes() << endl;
     }
 
     if (stats_heads) {
+        require_graph();
         vector<Node*> heads;
-        graph.head_nodes(heads);
+        graph->head_nodes(heads);
         cout << "heads" << "\t";
         for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
             cout << (*h)->id() << " ";
@@ -238,8 +257,9 @@ int main_stats(int argc, char** argv) {
     }
 
     if (stats_tails) {
+        require_graph();
         vector<Node*> tails;
-        graph.tail_nodes(tails);
+        graph->tail_nodes(tails);
         cout << "tails" << "\t";
         for (vector<Node*>::iterator t = tails.begin(); t != tails.end(); ++t) {
             cout << (*t)->id() << " ";
@@ -248,8 +268,9 @@ int main_stats(int argc, char** argv) {
     }
 
     if (stats_subgraphs) {
+        require_graph();
         list<VG> subgraphs;
-        graph.disjoint_subgraphs(subgraphs);
+        graph->disjoint_subgraphs(subgraphs);
         // these are topologically-sorted
         for (list<VG>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
             VG& subgraph = *s;
@@ -264,22 +285,25 @@ int main_stats(int argc, char** argv) {
     }
 
     if (stats_range) {
-        cout << "node-id-range\t" << graph.min_node_id() << ":" << graph.max_node_id() << endl;
+        require_graph();
+        cout << "node-id-range\t" << graph->min_node_id() << ":" << graph->max_node_id() << endl;
     }
 
     if (show_sibs) {
-        graph.for_each_node([&graph](Node* n) {
-                for (auto trav : graph.full_siblings_to(NodeTraversal(n, false))) {
+        require_graph();
+        graph->for_each_node([&graph](Node* n) {
+                for (auto trav : graph->full_siblings_to(NodeTraversal(n, false))) {
                     cout << n->id() << "\t" << "to-sib" << "\t" << trav.node->id() << endl;
                 }
-                for (auto trav : graph.full_siblings_from(NodeTraversal(n, false))) {
+                for (auto trav : graph->full_siblings_from(NodeTraversal(n, false))) {
                     cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
                 }
             });
     }
 
     if (show_components) {
-        for (auto& c : graph.strongly_connected_components()) {
+        require_graph();
+        for (auto& c : graph->strongly_connected_components()) {
             for (auto& id : c) {
                 cout << id << ", ";
             }
@@ -288,7 +312,8 @@ int main_stats(int argc, char** argv) {
     }
 
     if (is_acyclic) {
-        if (graph.is_acyclic()) {
+        require_graph();
+        if (graph->is_acyclic()) {
             cout << "acyclic" << endl;
         } else {
             cout << "cyclic" << endl;
@@ -296,22 +321,26 @@ int main_stats(int argc, char** argv) {
     }
 
     if (head_distance) {
+        require_graph();
         for (auto id : ids) {
-            auto n = graph.get_handle(id, false);
+            auto n = graph->get_handle(id, false);
             cout << id << " to head:\t"
-                 << distance_to_head(n, 1000, &graph) << endl;
+                 << distance_to_head(n, 1000, graph.get()) << endl;
         }
     }
 
     if (tail_distance) {
+        require_graph();
         for (auto id : ids) {
-            auto n = graph.get_handle(id, false);
+            auto n = graph->get_handle(id, false);
             cout << id << " to tail:\t"
-                << distance_to_tail(n, 1000, &graph) << endl;
+                << distance_to_tail(n, 1000, graph.get()) << endl;
         }
     }
 
     if (!paths_to_overlap.empty() || overlap_all_paths) {
+        require_graph();
+    
         auto cb = [&](const Path& p1, const Path& p2) {
             // sparse storage of the correspondence matrix
             // map from ranks in first to ranks in second
@@ -363,17 +392,17 @@ int main_stats(int argc, char** argv) {
         cout << "comparison" << "\t" << "x" << "\t" << "y" << endl;
         vector<string> path_names;
         if (overlap_all_paths) {
-            path_names = graph.paths.all_path_names();
+            path_names = graph->paths.all_path_names();
         } else {
             path_names = paths_to_overlap;
         }
         for (auto& p1_name : path_names) {
-            Path p1 = graph.paths.path(p1_name);
+            Path p1 = graph->paths.path(p1_name);
             for (auto& p2_name : path_names) {
                 if (p1_name == p2_name) {
                     continue;
                 }
-                Path p2 = graph.paths.path(p2_name);
+                Path p2 = graph->paths.path(p2_name);
                 cb(p1, p2);
             }
         }
@@ -384,16 +413,6 @@ int main_stats(int argc, char** argv) {
         ifstream alignment_stream(alignments_filename);
 
         // We need some allele parsing functions
-
-        // This one decided if a path is really an allele path
-        auto path_name_is_allele = [](const string path_name) -> bool {
-            string prefix = "_alt_";
-            // It needs to start with "_alt_" and have another separating
-            // underscore between site name and allele number
-            return(prefix.size() < path_name.size() &&
-                count(path_name.begin(), path_name.end(), '_') >= 3 &&
-                equal(prefix.begin(), prefix.end(), path_name.begin()));
-        };
 
         // This one gets the site name from an allele path name
         auto path_name_to_site = [](const string& path_name) -> string {
@@ -414,65 +433,70 @@ int main_stats(int argc, char** argv) {
         // separately.
         map<vg::id_t, pair<string, string>> allele_path_for_node;
 
-        // This is what we really care about: for each pair of allele paths in
-        // the graph, we need to find out whether the coverage imbalance between
-        // them among primary alignments is statistically significant. For this,
-        // we need to track how many reads overlap the distinct parts of allele
-        // paths.
-
         // This is going to be indexed by site
         // ("_alt_f6d951572f9c664d5d388375aa8b018492224533") and then by allele
         // ("0"). A read only counts if it visits a node that's on one allele
         // and not any others in that site.
 
-        // We need to pre-populate it with 0s so we know which sites actually
-        // have 2 alleles and which only have 1 in the graph.
+        // We need to pre-populate it with 0s when we look at the alleles so we
+        // know which sites actually have 2 alleles and which only have 1 in
+        // the graph.
         map<string, map<string, size_t>> reads_on_allele;
 
-        graph.for_each_node_parallel([&](Node* node) {
-            // For every node
+        if (graph.get() != nullptr) {
+            // We have a graph to work on
 
-            if(!graph.paths.has_node_mapping(node)) {
-                // No paths to go over. If we try and get them we'll be
-                // modifying the paths in parallel, which will explode.
-                return;
-            }
+            // For each pair of allele paths in the graph, we need to find out
+            // whether the coverage imbalance between them among primary alignments
+            // is statistically significant. For this, we need to track how many
+            // reads overlap the distinct parts of allele paths.
 
-            // We want an allele path on it
-            string allele_path;
-            for(auto& name_and_mappings : graph.paths.get_node_mapping_by_path_name(node)) {
-                // For each path on it
-                if(path_name_is_allele(name_and_mappings.first)) {
-                    // If it's an allele path
-                    if(allele_path.empty()) {
-                        // It's the first. Take it.
-                        allele_path = name_and_mappings.first;
-                    } else {
-                        // It's a subsequent one. This node is not uniquely part
-                        // of any allele path.
-                        return;
+            graph->for_each_node_parallel([&](Node* node) {
+                // For every node
+
+                if(!graph->paths.has_node_mapping(node)) {
+                    // No paths to go over. If we try and get them we'll be
+                    // modifying the paths in parallel, which will explode.
+                    return;
+                }
+
+                // We want an allele path on it
+                string allele_path;
+                for(auto& name_and_mappings : graph->paths.get_node_mapping_by_path_name(node)) {
+                    // For each path on it
+                    if(Paths::is_alt(name_and_mappings.first)) {
+                        // If it's an allele path
+                        if(allele_path.empty()) {
+                            // It's the first. Take it.
+                            allele_path = name_and_mappings.first;
+                        } else {
+                            // It's a subsequent one. This node is not uniquely part
+                            // of any allele path.
+                            return;
+                        }
                     }
                 }
-            }
 
-            if(!allele_path.empty()) {
-                // We found an allele path for this node
+                if(!allele_path.empty()) {
+                    // We found an allele path for this node
 
-                // Get its site and allele so we can count it as a biallelic
-                // site. Note that sites where an allele has no unique nodes
-                // (pure indels, for example) can't be handled and will be
-                // ignored.
-                auto site = path_name_to_site(allele_path);
-                auto allele = path_name_to_allele(allele_path);
+                    // Get its site and allele so we can count it as a biallelic
+                    // site. Note that sites where an allele has no unique nodes
+                    // (pure indels, for example) can't be handled and will be
+                    // ignored.
+                    auto site = path_name_to_site(allele_path);
+                    auto allele = path_name_to_allele(allele_path);
 
 
-                #pragma omp critical (allele_path_for_node)
-                allele_path_for_node[node->id()] = make_pair(site, allele);
+                    #pragma omp critical (allele_path_for_node)
+                    allele_path_for_node[node->id()] = make_pair(site, allele);
 
-                #pragma omp critical (reads_on_allele)
-                reads_on_allele[site][allele] = 0;
-            }
-        });
+                    #pragma omp critical (reads_on_allele)
+                    reads_on_allele[site][allele] = 0;
+                }
+            });
+            
+        }
 
 
         // These are the general stats we will compute.
@@ -480,6 +504,8 @@ int main_stats(int argc, char** argv) {
         size_t total_aligned = 0;
         size_t total_primary = 0;
         size_t total_secondary = 0;
+        size_t total_perfect = 0; // Number of reads with no indels or substitutions relative to their paths
+        size_t total_gapless = 0; // Number of reads with no indels relative to their paths
 
         // These are for counting significantly allele-biased hets
         size_t total_hets = 0;
@@ -535,6 +561,10 @@ int main_stats(int argc, char** argv) {
                 // do something. Discard the read? Not just count it on both sides
                 // like we do now.
                 set<pair<string, string>> alleles_supported;
+                
+                // We check if the read has non-softclip indels, or any edits at all.
+                bool has_non_match_edits = false;
+                bool has_non_softclip_indel_edits = false;
 
                 for(size_t i = 0; i < aln.path().mapping_size(); i++) {
                     // For every mapping...
@@ -557,6 +587,8 @@ int main_stats(int argc, char** argv) {
                         auto& edit = mapping.edit(j);
 
                         if(edit.to_length() > edit.from_length()) {
+                            // This is an insert or softclip and not a match
+                            has_non_match_edits = true;
                             if((j == 0 && i == 0) || (j == mapping.edit_size() - 1 && i == aln.path().mapping_size() - 1)) {
                                 // We're at the very end of the path, so this is a soft clip.
                                 #pragma omp critical (total_softclipped_bases)
@@ -569,6 +601,9 @@ int main_stats(int argc, char** argv) {
                                     softclips.push_back(make_pair(node_id, edit));
                                 }
                             } else {
+                                // This is not a softclip
+                                has_non_softclip_indel_edits = true;
+                                
                                 // Record this insertion
                                 #pragma omp critical (total_inserted_bases)
                                 total_inserted_bases += edit.to_length() - edit.from_length();
@@ -582,6 +617,12 @@ int main_stats(int argc, char** argv) {
                             }
 
                         } else if(edit.from_length() > edit.to_length()) {
+                            // This is a deletion and not a match
+                            has_non_match_edits = true;
+                            
+                            // This is not a softclip either
+                            has_non_softclip_indel_edits = true;
+                            
                             // Record this deletion
                             #pragma omp critical (total_deleted_bases)
                             total_deleted_bases += edit.from_length() - edit.to_length();
@@ -593,6 +634,9 @@ int main_stats(int argc, char** argv) {
                                 deletions.push_back(make_pair(node_id, edit));
                             }
                         } else if(!edit.sequence().empty()) {
+                            // This is a substitution and not a match
+                            has_non_match_edits = true;
+                        
                             // Record this substitution
                             // TODO: a substitution might also occur as part of a deletion/insertion above!
                             #pragma omp critical (total_substituted_bases)
@@ -615,6 +659,15 @@ int main_stats(int argc, char** argv) {
                     #pragma omp critical (reads_on_allele)
                     reads_on_allele[site_and_allele.first][site_and_allele.second]++;
                 }
+            
+                // If there's no non-match edits, call it a perfect alignment
+                #pragma omp critical (total_perfect)
+                total_perfect += !has_non_match_edits;
+                
+                // If there's no non-softclip indel edits, the alignment is gapless
+                #pragma omp critical (total_gapless)
+                total_gapless += !has_non_softclip_indel_edits;
+            
             }
 
         };
@@ -622,45 +675,6 @@ int main_stats(int argc, char** argv) {
         // Actually go through all the reads and count stuff up.
         stream::for_each_parallel(alignment_stream, lambda);
 
-        // Calculate stats about the reads per allele data
-        for(auto& site_and_alleles : reads_on_allele) {
-            // For every site
-            if(site_and_alleles.second.size() == 2) {
-                // If it actually has 2 alleles with unique nodes in the
-                // graph (so we can use the binomial)
-
-                // We'll fill this with the counts for the two present alleles.
-                vector<size_t> counts;
-
-                for(auto& allele_and_count : site_and_alleles.second) {
-                    // Collect all the counts
-                    counts.push_back(allele_and_count.second);
-                }
-
-                if(counts[0] > counts[1]) {
-                    // We have a 50% underlying probability so we can just put
-                    // the rarer allele first.
-                    swap(counts[0], counts[1]);
-                }
-
-                // What's the log prob for the smaller tail?
-                auto tail_logprob = binomial_cmf_ln(prob_to_logprob(0.5),  counts[1] + counts[0], counts[0]);
-
-                // Double it to get the two-tailed test
-                tail_logprob += prob_to_logprob(2);
-
-#ifdef debug
-                cerr << "Site " << site_and_alleles.first << " has " << counts[0]
-                    << " and " << counts[1] << " p=" << logprob_to_prob(tail_logprob) << endl;
-#endif
-
-                if(tail_logprob < prob_to_logprob(0.05)) {
-                    significantly_biased_hets++;
-                }
-                total_hets++;
-
-            }
-        }
 
         // Go through all the nodes again and sum up unvisited nodes
         size_t unvisited_nodes = 0;
@@ -679,35 +693,82 @@ int main_stats(int argc, char** argv) {
         // as many times as their nodes are touched. Also note that we ignore
         // edge effects and a read that stops before the end of a node will
         // visit the whole node.
-        graph.for_each_node_parallel([&](Node* node) {
-            // For every node
-            if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
-                // If we never visited it with a read, count it.
-                #pragma omp critical (unvisited_nodes)
-                unvisited_nodes++;
-                #pragma omp critical (unvisited_node_bases)
-                unvisited_node_bases += node->sequence().size();
-                if(verbose) {
-                    #pragma omp critical (unvisited_ids)
-                    unvisited_ids.insert(node->id());
-                }
-            } else if(node_visit_counts.at(node->id()) == 1) {
-                // If we visited it with only one read, count it.
-                #pragma omp critical (single_visited_nodes)
-                single_visited_nodes++;
-                #pragma omp critical (single_visited_node_bases)
-                single_visited_node_bases += node->sequence().size();
-                if(verbose) {
-                    #pragma omp critical (single_visited_ids)
-                    single_visited_ids.insert(node->id());
+
+        if (graph.get() != nullptr) {
+
+            // Calculate stats about the reads per allele data
+            for(auto& site_and_alleles : reads_on_allele) {
+                // For every site
+                if(site_and_alleles.second.size() == 2) {
+                    // If it actually has 2 alleles with unique nodes in the
+                    // graph (so we can use the binomial)
+
+                    // We'll fill this with the counts for the two present alleles.
+                    vector<size_t> counts;
+
+                    for(auto& allele_and_count : site_and_alleles.second) {
+                        // Collect all the counts
+                        counts.push_back(allele_and_count.second);
+                    }
+
+                    if(counts[0] > counts[1]) {
+                        // We have a 50% underlying probability so we can just put
+                        // the rarer allele first.
+                        swap(counts[0], counts[1]);
+                    }
+
+                    // What's the log prob for the smaller tail?
+                    auto tail_logprob = binomial_cmf_ln(prob_to_logprob(0.5),  counts[1] + counts[0], counts[0]);
+
+                    // Double it to get the two-tailed test
+                    tail_logprob += prob_to_logprob(2);
+
+#ifdef debug
+                    cerr << "Site " << site_and_alleles.first << " has " << counts[0]
+                        << " and " << counts[1] << " p=" << logprob_to_prob(tail_logprob) << endl;
+#endif
+
+                    if(tail_logprob < prob_to_logprob(0.05)) {
+                        significantly_biased_hets++;
+                    }
+                    total_hets++;
+
                 }
             }
-        });
+
+            graph->for_each_node_parallel([&](Node* node) {
+                // For every node
+                if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
+                    // If we never visited it with a read, count it.
+                    #pragma omp critical (unvisited_nodes)
+                    unvisited_nodes++;
+                    #pragma omp critical (unvisited_node_bases)
+                    unvisited_node_bases += node->sequence().size();
+                    if(verbose) {
+                        #pragma omp critical (unvisited_ids)
+                        unvisited_ids.insert(node->id());
+                    }
+                } else if(node_visit_counts.at(node->id()) == 1) {
+                    // If we visited it with only one read, count it.
+                    #pragma omp critical (single_visited_nodes)
+                    single_visited_nodes++;
+                    #pragma omp critical (single_visited_node_bases)
+                    single_visited_node_bases += node->sequence().size();
+                    if(verbose) {
+                        #pragma omp critical (single_visited_ids)
+                        single_visited_ids.insert(node->id());
+                    }
+                }
+            });
+            
+        }
 
         cout << "Total alignments: " << total_alignments << endl;
         cout << "Total primary: " << total_primary << endl;
         cout << "Total secondary: " << total_secondary << endl;
         cout << "Total aligned: " << total_aligned << endl;
+        cout << "Total perfect: " << total_perfect << endl;
+        cout << "Total gapless (softclips allowed): " << total_gapless << endl;
 
         cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
         if(verbose) {
@@ -738,27 +799,29 @@ int main_stats(int argc, char** argv) {
             }
         }
 
-        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph.node_count()
-            << " (" << unvisited_node_bases << " bp)" << endl;
-        if(verbose) {
-            for(auto& id : unvisited_ids) {
-                cout << "\t" << id << endl;
+        if (graph.get() != nullptr) {
+            cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
+                << " (" << unvisited_node_bases << " bp)" << endl;
+            if(verbose) {
+                for(auto& id : unvisited_ids) {
+                    cout << "\t" << id << endl;
+                }
             }
-        }
 
-        cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph.node_count()
-            << " (" << single_visited_node_bases << " bp)" << endl;
-        if(verbose) {
-            for(auto& id : single_visited_ids) {
-                cout << "\t" << id << endl;
+            cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph->node_count()
+                << " (" << single_visited_node_bases << " bp)" << endl;
+            if(verbose) {
+                for(auto& id : single_visited_ids) {
+                    cout << "\t" << id << endl;
+                }
             }
-        }
 
-        cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
-        if(total_hets > 0) {
-            cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
+            cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
+            if(total_hets > 0) {
+                cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
+            }
+            cout << endl;
         }
-        cout << endl;
 
 
     }
@@ -766,8 +829,10 @@ int main_stats(int argc, char** argv) {
     if (snarl_stats) {
         // We will go through all the snarls and compute stats.
         
+        require_graph();
+        
         // First compute the snarls
-        auto manager = CactusSnarlFinder(graph).find_snarls();
+        auto manager = CactusSnarlFinder(*graph).find_snarls();
         
         // We will track depth for each snarl
         unordered_map<const Snarl*, size_t> depth;
@@ -804,7 +869,7 @@ int main_stats(int argc, char** argv) {
             
             // Net graph info
             // Internal connectivity not important, we just want the size.
-            auto netGraph = manager.net_graph_of(snarl, &graph, false);
+            auto netGraph = manager.net_graph_of(snarl, graph.get(), false);
             cout << "net-graph-size\t" << netGraph.node_size() << endl;
             
         });
@@ -816,5 +881,5 @@ int main_stats(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_stats("stats", "metrics describing graph properties", TOOLKIT, main_stats);
+static Subcommand vg_stats("stats", "metrics describing graph and alignment properties", TOOLKIT, main_stats);
 

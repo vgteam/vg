@@ -16,7 +16,8 @@
 #include "../vg.hpp"
 #include "../vectorizer.hpp"
 #include "../mapper.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -179,10 +180,9 @@ int main_vectorize(int argc, char** argv){
         }
     }
 
-    xg::XG* xg_index;
+    unique_ptr<xg::XG> xg_index;
     if (!xg_name.empty()) {
-        ifstream in(xg_name);
-        xg_index = new xg::XG(in);
+        xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
@@ -195,15 +195,14 @@ int main_vectorize(int argc, char** argv){
     // Configure its temp directory to the system temp directory
     gcsa::TempFile::setDirectory(temp_file::get_dir());
 
-    gcsa::GCSA gcsa_index;
-    gcsa::LCPArray lcp_index;
+    unique_ptr<gcsa::GCSA> gcsa_index;
+    unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
-        ifstream in_gcsa(gcsa_name.c_str());
-        gcsa_index.load(in_gcsa);
+        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        
         // default LCP is the gcsa base name +.lcp
-        string lcp_in = gcsa_name + ".lcp";
-        ifstream in_lcp(lcp_in.c_str());
-        lcp_index.load(in_lcp);
+        string lcp_name = gcsa_name + ".lcp";
+        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(lcp_name);
     }
 
     Mapper* mapper = nullptr;
@@ -212,14 +211,14 @@ int main_vectorize(int argc, char** argv){
             cerr << "[vg vectorize] error : an xg index and gcsa index are required when making MEM sketches" << endl;
             return 1;
         } else {
-            mapper = new Mapper(xg_index, &gcsa_index, &lcp_index);
+            mapper = new Mapper(xg_index.get(), gcsa_index.get(), lcp_index.get());
         }
         if (mem_hit_max) {
             mapper->hit_max = mem_hit_max;
         }
     }
 
-    Vectorizer vz(xg_index);
+    Vectorizer vz(xg_index.get());
 
     // write the header if needed
     if (format) {

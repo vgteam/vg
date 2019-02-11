@@ -18,7 +18,7 @@
 #include "path.hpp"
 #include "path_index.hpp"
 #include "support_caller.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "nested_traversal_finder.hpp"
 
 //#define debug

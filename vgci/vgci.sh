@@ -18,7 +18,9 @@ SAVE_DOCKER=""
 LOAD_DOCKER=""
 # What tag will our Docker use?
 # We need exclusive control of the Docker daemon for the duration of the test, so nobody moves it!
-DOCKER_TAG="vgci-docker-vg-local"
+DOCKER_TAG=""
+# If not specified, use this default
+DOCKER_TAG_DEFAULT="vgci-docker-vg-local"
 # Should we re-use and keep around the same virtualenv?
 REUSE_VENV=0
 # Should we keep our test output around after uploading the new baseline?
@@ -63,6 +65,7 @@ usage() {
     printf "\t\t\tNon-Python dependencies must be installed.\n"
     printf "\t-d FILE\tSave built Docker to the given file.\n"
     printf "\t-D FILE\tLoad a previously built Docker from a file instead of building.\n"
+    printf "\t-T TAG\tLoad a previously built Docker from the given tag/specifier instead of building.\n"
     printf "\t-r\t\tRe-use virtualenvs across script invocations. \n"
     printf "\t-k\t\tKeep on-disk output from tests. \n"
     printf "\t-i\t\tKeep intermediate on-disk output from tests. \n"
@@ -77,7 +80,7 @@ usage() {
     exit 1
 }
 
-while getopts "ld:D:rkisp:t:w:W:j:J:H" o; do
+while getopts "ld:D:T:rkisp:t:w:W:j:J:H" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
@@ -87,6 +90,9 @@ while getopts "ld:D:rkisp:t:w:W:j:J:H" o; do
             ;;
         D)
             LOAD_DOCKER="${OPTARG}"
+            ;;
+        T)
+            DOCKER_TAG="${OPTARG}"
             ;;
         r)
             REUSE_VENV=1
@@ -164,6 +170,15 @@ if [ ! -z "${LOAD_DOCKER}" ]
 then
     # Skip the build phase
     DO_BUILD=0
+fi
+
+if [ ! -z "${DOCKER_TAG}" ]
+then
+    # Skip build and use this tag
+    DO_BUILD=0
+else
+    # Use the default tag
+    DOCKER_TAG="${DOCKER_TAG_DEFAULT}"
 fi
 
 if [ "${PYTEST_TEST_SPEC}" == "None" ]
@@ -305,7 +320,6 @@ then
     pip install requests
     pip install timeout_decorator
     pip install pytest
-    pip install pygithub
 
     # Install Toil
     echo "Installing toil from ${TOIL_PACKAGE}"
@@ -420,6 +434,9 @@ then
     # Expose binaries to the PATH
     ln -snf ${PWD}/s3am/bin/s3am bin/
     export PATH=$PATH:${PWD}/bin
+    
+    # Make sure we have pygithub available
+    pip install pygithub
 
     #########
     # REPORT PHASE

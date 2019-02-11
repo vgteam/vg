@@ -1,10 +1,36 @@
 #include "path.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "region.hpp"
 
 namespace vg {
 
-const std::regex Paths::is_alt("_alt_.+_[0-9]+");
+const std::function<bool(const string&)> Paths::is_alt = [](const string& path_name) {
+    // Really we want things that match the regex "_alt_.+_[0-9]+"
+    // But std::regex was taking loads and loads of time (probably matching .+) so we're replacing it with special-purpose code.
+    
+    string prefix("_alt_");
+    
+    if (path_name.length() < prefix.length() || !std::equal(prefix.begin(), prefix.end(), path_name.begin())) {
+        // We lack the prefix
+        return false;
+    }
+    
+    // Otherwise it's almost certainly an alt, but make sure it ends with numbers after '_' to be sure.
+    
+    size_t found_digits = 0;
+    for (auto it = path_name.rbegin(); it != path_name.rend() && *it != '_'; ++it) {
+        // Scan in reverse until '_' (which we know exists)
+        if (*it < '0' || *it > '9') {
+            // Out of range character
+            return false;
+        }
+        found_digits++;
+    }
+    
+    // If there were any digits, and ony digits, it matches.
+    return (found_digits > 0);
+    
+};
 
 mapping_t::mapping_t(void) : traversal(0), length(0), rank(1) { }
 
@@ -2270,11 +2296,11 @@ Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
     return toReturn;
 }
 
-void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching) {
+void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching) {
 
     std::list<Path> non_matching;
     for (size_t i = 0; i < graph.path_size(); i++) {
-        if (std::regex_match(graph.path(i).name(), paths_to_take)) {
+        if (paths_to_take(graph.path(i).name())) {
             if (matching != nullptr) {
                 matching->push_back(graph.path(i));
             }

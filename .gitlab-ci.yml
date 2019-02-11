@@ -8,7 +8,8 @@ before_script:
   - sudo apt-get -q -y update
   # Make sure we have some curl stuff for pycurl which we need for some Python stuff
   # We also need Node >4 for junit merging (so we need to be on Ubuntu 18.04+)
-  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev
+  # And the CI report upload needs uuidgen from uuid-runtime
+  - sudo apt-get -q -y install docker.io python-pip python-virtualenv libcurl4-gnutls-dev python-dev npm nodejs node-gyp nodejs-dev libssl1.0-dev uuid-runtime
   - sudo npm install -g junit-merge
   - cat /etc/hosts
   - docker info
@@ -25,13 +26,11 @@ stages:
 build-job:
   stage: build
   script: 
-    - bash vgci/vgci.sh -t None -d vgci-docker-vg-local.tar.gz -H
-    - ls -lah vgci-docker-vg-local.tar.gz
-  artifacts:
-    paths:
-      - vgci-docker-vg-local.tar.gz
-    # This is huge and needs to expire fast
-    expire_in: 1 day
+    - bash vgci/vgci.sh -t None -H
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - docker tag vgci-docker-vg-local "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
+    - docker push "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
+    # No more artifacts here; we now use this deterministic name to get the container.
     
 # We define a second follow-on phase to run the tests
 # Note that WE ONLY RUN TESTS LISTED IN vgci/test-list.txt
@@ -41,10 +40,12 @@ test-job:
   # We will find our share of tests from vgci/test-list.txt and run them
   # We ought to run one job per test, but we can wrap around.
   parallel: 19 
-  # All artifacts from previous stages are available
-  script: 
+  script:
+    - docker pull "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
+    - docker tag "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
     - mkdir -p junit
-    - bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
+    # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
+    - vgci/blockify.py bash vgci/vgci-parallel-wrapper.sh vgci/test-list.txt vgci-docker-vg-local ${CI_NODE_INDEX} ${CI_NODE_TOTAL} ./junit ./test_output
   artifacts:
     # Let Gitlab see the junit report
     reports:
@@ -52,17 +53,22 @@ test-job:
     paths:
       - junit/*.xml
       - test_output/*
-    expire_in: 1 week
+    expire_in: 3 days
 
 # We have a final job in the last stage to compose an HTML report
 report-job:
   stage: report
   # All artifacts from previous stages are available
-  script: 
+  script:
+    # Get the Docker for version detection
+    - docker pull "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}"
+    - docker tag "quay.io/vgteam/vg:ci-${CI_PIPELINE_IID}-${CI_COMMIT_SHA}" vgci-docker-vg-local
     # Collect all the junit files from all the test jobs into one
     - junit-merge -o junit.all.xml junit/*.xml
     # All the test output folder artifacts should automatically merge.
     # Make the report and post it.
-    - bash vgci/vgci.sh -J junit.all.xml -D vgci-docker-vg-local.tar.gz -W test_output
+    # We still need the Docker for version detection.
+    # Make sure IO to Gitlab is in blocking mode so we can't swamp it and crash
+    - vgci/blockify.py bash vgci/vgci.sh -J junit.all.xml -T vgci-docker-vg-local -W test_output
    
   

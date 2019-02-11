@@ -14,7 +14,8 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
-#include "../stream.hpp"
+#include "../stream/vpkg.hpp"
+#include "../stream/stream.hpp"
 #include <gbwt/dynamic_gbwt.h>
 
 using namespace std;
@@ -162,18 +163,24 @@ int main_paths(int argc, char** argv) {
     unique_ptr<xg::XG> xg_index;
     if (!xg_file.empty()) {
         // We want an xg
-        xg_index = unique_ptr<xg::XG>(new xg::XG());
+        xg_index = unique_ptr<xg::XG>();
         // Load the xg
         get_input_file(xg_file, [&](istream& in) {
-            xg_index->load(in);
+            xg_index = stream::VPKG::load_one<xg::XG>(in);
         });
     }
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_file.empty()) {
         // We want a gbwt
-        gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
-        // Load the gbwt (TODO: support streams)
-        sdsl::load_from_file(*gbwt_index, gbwt_file);
+        
+        // Load the GBWT from its container
+        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+
+        if (gbwt_index.get() == nullptr) {
+          // Complain if we couldn't.
+          cerr << "error:[vg paths] unable to load gbwt index file" << endl;
+          exit(1);
+        }
     }
     
     
@@ -282,6 +289,7 @@ int main_paths(int argc, char** argv) {
             exit(1);
         } else {
             cerr << "[vg paths] Error: specify an operation to perform" << endl;
+            exit(1);
         }
     } else if (xg_index.get() != nullptr) {
         // Handle non-thread queries from xg
@@ -294,12 +302,6 @@ int main_paths(int argc, char** argv) {
                     cout << "\t" << xg_index->path_length(i);
                 }
                 cout << endl;
-            }
-        } else if (extract_as_gam) {
-            auto alns = xg_index->paths_as_alignments();
-            stream::ProtobufEmitter<Alignment> emitter(cout);
-            for (auto& aln : alns) {
-                emitter.write(std::move(aln));
             }
         } else if (!path_prefix.empty()) {
             vector<Path> got = xg_index->paths_by_prefix(path_prefix);
@@ -315,6 +317,12 @@ int main_paths(int argc, char** argv) {
                     vector<Graph> gb = { g };
                     stream::write_buffered(cout, gb, 0);
                 }
+            }            
+        } else if (extract_as_gam) {
+            auto alns = xg_index->paths_as_alignments();
+            stream::ProtobufEmitter<Alignment> emitter(cout);
+            for (auto& aln : alns) {
+                emitter.write(std::move(aln));
             }
         } else {
             cerr << "[vg paths] Error: specify an operation to perform" << endl;

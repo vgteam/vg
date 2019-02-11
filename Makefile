@@ -1,13 +1,15 @@
 DEP_DIR:=./deps
 SRC_DIR:=src
 ALGORITHMS_SRC_DIR:=$(SRC_DIR)/algorithms
-UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
+STREAM_SRC_DIR:=$(SRC_DIR)/stream
 SUBCOMMAND_SRC_DIR:=$(SRC_DIR)/subcommand
+UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
 BIN_DIR:=bin
 OBJ_DIR:=obj
 ALGORITHMS_OBJ_DIR:=$(OBJ_DIR)/algorithms
-UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
+STREAM_OBJ_DIR:=$(OBJ_DIR)/stream
 SUBCOMMAND_OBJ_DIR:=$(OBJ_DIR)/subcommand
+UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
 LIB_DIR:=lib
 # INC_DIR must be a relative path
 INC_DIR:=include
@@ -21,8 +23,9 @@ all: $(BIN_DIR)/$(EXE)
 # Magic dependencies (see <http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/#tldr>)
 include $(wildcard $(OBJ_DIR)/*.d)
 include $(wildcard $(ALGORITHMS_OBJ_DIR)/*.d)
-include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
+include $(wildcard $(STREAM_OBJ_DIR)/*.d)
 include $(wildcard $(SUBCOMMAND_OBJ_DIR)/*.d)
+include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 
 # We don't ask for -fopenmp here because how we get it can depend on the compiler
 CXXFLAGS := -O3 -Werror=return-type -std=c++11 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
@@ -125,12 +128,16 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-defin
 OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
 # And all the algorithms
 ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp))
+# And all the IO logic
+STREAM_OBJ = $(patsubst $(STREAM_SRC_DIR)/%.cpp,$(STREAM_OBJ_DIR)/%.o,$(wildcard $(STREAM_SRC_DIR)/*.cpp))
+
+# These aren't put into libvg, but they provide subcommand implementations for the vg bianry
+SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.o,$(wildcard $(SUBCOMMAND_SRC_DIR)/*.cpp))
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
 
-# These aren't put into libvg, but they provide subcommand implementations for the vg bianry
-SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.o,$(wildcard $(SUBCOMMAND_SRC_DIR)/*.cpp))
+
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -220,8 +227,8 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 
 ifneq ($(shell uname -s),Darwin)
-	DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
-	LD_LIB_FLAGS += -ltcmalloc_minimal
+	#DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
+	#LD_LIB_FLAGS += -ltcmalloc_minimal
 endif
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
@@ -232,9 +239,9 @@ $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND
 static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) -lvg $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
-$(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ) $(DEPS)
+$(LIB_DIR)/libvg.a: $(OBJ) $(ALGORITHMS_OBJ) $(STREAM_OBJ) $(DEP_OBJ) $(DEPS)
 	rm -f $@
-	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(DEP_OBJ)
+	ar rs $@ $(OBJ) $(ALGORITHMS_OBJ) $(STREAM_OBJ) $(DEP_OBJ)
 
 # We have system-level deps to install
 get-deps:
@@ -515,6 +522,9 @@ $(OBJ) $(OBJ_DIR)/main.o: $(OBJ_DIR)/%.o : $(SRC_DIR)/%.cpp $(OBJ_DIR)/%.d $(DEP
 $(ALGORITHMS_OBJ): $(ALGORITHMS_OBJ_DIR)/%.o : $(ALGORITHMS_SRC_DIR)/%.cpp $(ALGORITHMS_OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 	@touch $@
+$(STREAM_OBJ): $(STREAM_OBJ_DIR)/%.o : $(STREAM_SRC_DIR)/%.cpp $(STREAM_OBJ_DIR)/%.d $(DEPS)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
+	@touch $@
 $(SUBCOMMAND_OBJ): $(SUBCOMMAND_OBJ_DIR)/%.o : $(SUBCOMMAND_SRC_DIR)/%.cpp $(SUBCOMMAND_OBJ_DIR)/%.d $(DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 	@touch $@
@@ -529,11 +539,12 @@ $(CPP_DIR)/%.o : $(CPP_DIR)/%.cc $(DEPS)
 # Use a fake rule to build .d files, so we don't complain if they don't exist.
 $(OBJ_DIR)/%.d: ;
 $(ALGORITHMS_OBJ_DIR)/%.d: ;
+$(STREAM_OBJ_DIR)/%.d: ;
 $(SUBCOMMAND_OBJ_DIR)/%.d: ;
 $(UNITTEST_OBJ_DIR)/%.d: ;
 
 # Don't delete them.
-.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d
+.PRECIOUS: $(OBJ_DIR)/%.d $(ALGORITHMS_OBJ_DIR)/%.d $(STREAM_OBJ_DIR)/%.d $(SUBCOMMAND_OBJ_DIR)/%.d $(UNITTEST_OBJ_DIR)/%.d
 
 # Use no implicit rules
 .SUFFIXES:
@@ -549,8 +560,9 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
 	@if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
 	@if [ ! -d $(ALGORITHMS_OBJ_DIR) ]; then mkdir -p $(ALGORITHMS_OBJ_DIR); fi
-	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
+	@if [ ! -d $(STREAM_OBJ_DIR) ]; then mkdir -p $(STREAM_OBJ_DIR); fi
 	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
+	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
 	@if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
 
@@ -571,6 +583,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	$(RM) -r $(LIB_DIR)
 	$(RM) -r $(UNITTEST_OBJ_DIR)
 	$(RM) -r $(SUBCOMMAND_OBJ_DIR)
+	$(RM) -r $(STREAM_OBJ_DIR)
 	$(RM) -r $(ALGORITHMS_OBJ_DIR)
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)

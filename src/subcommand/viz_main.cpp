@@ -1,7 +1,8 @@
 #include "subcommand.hpp"
 #include "../utility.hpp"
 #include "../viz.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -109,13 +110,12 @@ int main_viz(int argc, char** argv) {
         }
     }
 
-    xg::XG xgidx;
+    unique_ptr<xg::XG> xgidx;
     if (xg_name.empty()) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        ifstream in(xg_name.c_str());
-        xgidx.load(in);
+        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
     }
 
     // todo one packer per thread and merge
@@ -131,7 +131,7 @@ int main_viz(int argc, char** argv) {
         pack_names = packs_in;
     }
 
-    Viz viz(&xgidx, &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna, show_paths);
+    Viz viz(xgidx.get(), &packs, pack_names, image_out, image_width, image_height, show_cnv, show_dna, show_paths);
     viz.draw();
 
     return 0;

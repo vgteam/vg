@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # vgci-parallel-wrapper.sh: run a subset of the available tests with vgci.sh
-# Usage: vgci-paralell-wrapper.sh vgci/test-list.txt vgci-docker-vg-local.tar.gz $CI_NODE_INDEX $CI_NODE_TOTAL junit test_output
+# Usage: vgci-paralell-wrapper.sh vgci/test-list.txt vgci-docker-vg-local $CI_NODE_INDEX $CI_NODE_TOTAL junit test_output
 # Finds our share of the tests in the test list, given our 0-based index and the total node count.
-# Runs each of them with the given loadable Docker image and drops a unique junit xml for the test in the given output 
+# Runs each of them with the given Docker tag and drops a unique junit xml for the test in the given output 
 # directory, while keeping the test output in the other given output directory in per-test folders.
 # If we have to run more than 1 test we will duplicate vgci.sh's setup work creating venvs and so on.
 # Meant to be run fromn the vg project root.
@@ -16,7 +16,7 @@ set -x
 # Parse arguments
 TEST_LIST="${1}"
 shift
-DOCKER_ARCHIVE="${1}"
+DOCKER_TAG="${1}"
 shift
 NODE_INDEX="${1}"
 shift
@@ -37,7 +37,7 @@ do
     # And for each
    
     # Run the main vgci script for that test
-    vgci/vgci.sh -D "${DOCKER_ARCHIVE}" -t "${TEST_SPEC}" -j "${JUNIT_OUT_DIR}/junit.${NODE_INDEX}.${TEST_NUMBER}.xml" -w "${TEST_OUT_DIR}" -H
+    vgci/vgci.sh -T "${DOCKER_TAG}" -t "${TEST_SPEC}" -j "${JUNIT_OUT_DIR}/junit.${NODE_INDEX}.${TEST_NUMBER}.xml" -w "${TEST_OUT_DIR}" -H
     TEST_EXIT="${?}"
     
     if [ "${TEST_EXIT}" != "0" ]

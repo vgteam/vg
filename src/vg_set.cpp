@@ -1,5 +1,5 @@
 #include "vg_set.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "source_sink_overlay.hpp"
 
 namespace vg {
@@ -75,12 +75,20 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::to_xg(xg::XG& index, bool store_threads) {
-    // Nothing matches the default-constructed regex, so nothing will ever be
-    // sent to the map.
-    to_xg(index, store_threads, regex());
+    // Send a predicate to match nothing
+    to_xg(index, store_threads, [](const string& ignored) {
+        return false;
+    });
 }
 
 void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths) {
+    to_xg(index, store_threads, [&](const string& path_name) -> bool {
+        // Take paths that match the regex.
+        return std::regex_match(path_name, paths_to_take);
+    }, removed_paths);
+}
+
+void VGset::to_xg(xg::XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them

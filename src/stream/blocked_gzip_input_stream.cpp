@@ -254,6 +254,53 @@ bool BlockedGzipInputStream::Seek(int64_t virtual_offset) {
     // We won't find out if there's actually data there until we try to read...
 }
 
+bool BlockedGzipInputStream::IsBGZF() const {
+    // If we are compressed and not plain GZIP, we are BGZF.
+    return handle->is_compressed && !handle->is_gzip;
+}
+
+bool BlockedGzipInputStream::SmellsLikeGzip(std::istream& in) {
+    // TODO: We also assume that we can sniff the magic number bytes
+    // from the input stream and then put them both back. The C spec
+    // guarantees only 1 byte of pushback, and C++ seems to not
+    // guarantee any pushback, but Linux and MacOS seem to provide
+    // enough pushback in practice. Not doing this would involve
+    // implementing our own buffered isteam and wrapping everything.
+    
+    if (!in) {
+        // It's 0 bytes or otherwise unreadable.
+        return false;
+    }
+    
+    if (in.peek() == 0x1F) {
+        int magic1 = in.get();
+        assert(magic1 == 0x1F);
+        
+        if (!in) {
+            // It's 1 byte
+            in.unget();
+            assert(in.peek() == 0x1F);
+            return false;
+        }
+        
+        if (in.peek() == 0x8B) {
+            // This is probably BGZF.
+            in.unget();
+            assert(in.peek() == 0x1F);
+            return true;
+        }
+        
+        // It doesn't have the second magic byte.
+        in.unget();
+        assert(in.peek() == 0x1F);
+        return false;
+    } else {
+        // It doesn't even have the first magic byte
+        return false;
+    }
+    
+}
+
 }
 
 }
