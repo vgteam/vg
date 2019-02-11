@@ -170,7 +170,7 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "Loading XG index " << xg_name << std::endl;
     }
     if (!sdsl::load_from_file(xg_index, xg_name)) {
-        std::cerr << "error: [vg minimizer] Cannot open XG file " << xg_name << " for reading" << std::endl;
+        std::cerr << "error: [vg minimizer] cannot open XG file " << xg_name << " for reading" << std::endl;
         return 1;
     }
 
@@ -182,7 +182,7 @@ int main_minimizer(int argc, char** argv) {
         }
         std::ifstream in(load_index, std::ios_base::binary);
         if (!in) {
-            std::cerr << "error: [vg minimizer] Cannot open index file " << load_index << " for reading" << std::endl;
+            std::cerr << "error: [vg minimizer] cannot open index file " << load_index << " for reading" << std::endl;
             return 1;
         }
         index.load(in);
@@ -197,7 +197,7 @@ int main_minimizer(int argc, char** argv) {
         }
         gbwt_index = new gbwt::GBWT();
         if (!sdsl::load_from_file(*gbwt_index, gbwt_name)) {
-            std::cerr << "error: [vg minimizer] Cannot open GBWT file " << gbwt_name << " for reading" << std::endl;
+            std::cerr << "error: [vg minimizer] cannot open GBWT file " << gbwt_name << " for reading" << std::endl;
             delete gbwt_index; gbwt_index = nullptr;
             return 1;
         }
@@ -249,7 +249,7 @@ int main_minimizer(int argc, char** argv) {
     }
     std::ofstream out(index_name, std::ios_base::binary);
     if (!out) {
-        std::cerr << "error: [vg minimizer] Cannot open index file " << index_name << " for writing" << std::endl;
+        std::cerr << "error: [vg minimizer] cannot open index file " << index_name << " for writing" << std::endl;
         return 1;
     }
     index.serialize(out);
@@ -275,7 +275,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
     }
     std::ifstream in(index_name, std::ios_base::binary);
     if (!in) {
-        std::cerr << "error: [vg minimizer] Cannot open index file " << index_name << " for reading" << std::endl;
+        std::cerr << "error: [vg minimizer] cannot open index file " << index_name << " for reading" << std::endl;
         return 1;
     }
     index.load(in);
@@ -291,10 +291,10 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
         }
         std::string lcp_name = gcsa_name + gcsa::LCPArray::EXTENSION;
         if (!sdsl::load_from_file(gcsa_index, gcsa_name)) {
-            std::cerr << "error: [vg minimizer] Cannot open GCSA file " << gcsa_name << " for reading" << std::endl;
+            std::cerr << "error: [vg minimizer] cannot open GCSA file " << gcsa_name << " for reading" << std::endl;
             benchmark_gcsa = false;
         } else if(sdsl::load_from_file(lcp_index, lcp_name)) {
-            std::cerr << "error: [vg minimizer] Cannot open LCP file " << lcp_name << " for reading" << std::endl;
+            std::cerr << "error: [vg minimizer] cannot open LCP file " << lcp_name << " for reading" << std::endl;
             benchmark_gcsa = false;
         }
     }

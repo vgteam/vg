@@ -162,11 +162,11 @@ int main_gbwt(int argc, char** argv)
         size_t input_files = argc - optind;
         size_t total_inserted = 0;
         if (input_files <= 1) {
-            cerr << "[vg gbwt] error: at least two input gbwt files required to merge" << endl;
+            cerr << "error: [vg gbwt] at least two input gbwt files required to merge" << endl;
             return 1;
         }
         if (gbwt_output.empty()) {
-            cerr << "[vg gbwt] error: output file must be specified with -o" << endl;
+            cerr << "error: [vg gbwt] output file must be specified with -o" << endl;
         }
         if (show_progress) {
             gbwt::printHeader("Algorithm"); cout << (fast_merging ? "fast" : "insert") << endl;
@@ -183,14 +183,20 @@ int main_gbwt(int argc, char** argv)
             for(int i = optind; i < argc; i++)
             {
                 string input_name = argv[i];
-                sdsl::load_from_file(indexes[i - optind], input_name);
+                if (!sdsl::load_from_file(indexes[i - optind], input_name)) {
+                    cerr << "error: [vg gbwt] cannot open GBWT file " << input_name << endl;
+                    return 1;
+                }
                 if (show_progress) {
                     gbwt::printStatistics(indexes[i - optind], input_name);
                 }
                 total_inserted += indexes[i - optind].size();
             }
             gbwt::GBWT merged(indexes);
-            sdsl::store_to_file(merged, gbwt_output);
+            if (!sdsl::store_to_file(merged, gbwt_output)) {
+                cerr << "error: [vg gbwt] cannot write GBWT file " << gbwt_output << endl;
+                return 1;
+            }
             if (show_progress) {
                 gbwt::printStatistics(merged, gbwt_output);
             }
@@ -200,7 +206,10 @@ int main_gbwt(int argc, char** argv)
             gbwt::DynamicGBWT index;
             {
                 string input_name = argv[optind];
-                sdsl::load_from_file(index, input_name);
+                if (sdsl::load_from_file(index, input_name)) {
+                    cerr << "error: [vg gbwt] cannot open GBWT file " << input_name << endl;
+                    return 1;
+                }
                 if (show_progress) {
                     gbwt::printStatistics(index, input_name);
                 }
@@ -209,14 +218,20 @@ int main_gbwt(int argc, char** argv)
             {
                 string input_name = argv[curr];
                 gbwt::GBWT next;
-                sdsl::load_from_file(next, input_name);
+                if (!sdsl::load_from_file(next, input_name)) {
+                    cerr << "error: [vg gbwt] cannot open GBWT file " << input_name << endl;
+                    return 1;
+                }
                 if (show_progress) {
                     gbwt::printStatistics(next, input_name);
                 }
                 index.merge(next);
                 total_inserted += next.size();
             }
-            sdsl::store_to_file(index, gbwt_output);
+            if (!sdsl::store_to_file(index, gbwt_output)) {
+                cerr << "error: [vg gbwt] cannot write GBWT file " << gbwt_output << endl;
+                return 1;
+            }
             if (show_progress) { 
                 gbwt::printStatistics(index, gbwt_output);
             }
@@ -239,26 +254,35 @@ int main_gbwt(int argc, char** argv)
     // Remove threads before extracting or counting them.
     if (!to_remove.empty()) {
         if (optind + 1 != argc) {
-            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
+            cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
             return 1;
         }
         gbwt::DynamicGBWT index;
-        sdsl::load_from_file(index, argv[optind]);
+        if (!sdsl::load_from_file(index, argv[optind])) {
+            cerr << "error: [vg gbwt] cannot open GBWT file " << argv[optind] << endl;
+            return 1;
+        }
         gbwt::size_type total_length = index.remove(to_remove);
         if (total_length > 0) {
             std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
-            sdsl::store_to_file(index, output);
+            if (!sdsl::store_to_file(index, output)) {
+                cerr << "error: [vg gbwt] cannot write GBWT file " << output << endl;
+                return 1;
+            }
         }
     }
 
     // Other non-merge options.
     if (load_index) {
         if (optind + 1 != argc) {
-            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
+            cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
             return 1;
         }
         gbwt::GBWT index;
-        sdsl::load_from_file(index, argv[optind]);
+        if (!sdsl::load_from_file(index, argv[optind])) {
+            cerr << "error: [vg gbwt] cannot open GBWT file " << argv[optind] << endl;
+            return 1;
+        }
 
         // Extract threads in SDSL format.
         if (!thread_output.empty()) {

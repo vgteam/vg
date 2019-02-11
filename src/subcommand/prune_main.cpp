@@ -195,7 +195,7 @@ int main_prune(int argc, char** argv) {
             verify_paths = true;
             break;
         case 'x': // no longer needed
-            std::cerr << "[vg prune]: option --xg-name is no longer needed" << std::endl;
+            std::cerr << "warning: [vg prune] option --xg-name is no longer needed" << std::endl;
             break;
         case 'g':
             gbwt_name = optarg;
@@ -238,28 +238,28 @@ int main_prune(int argc, char** argv) {
         subgraph_min = PruningParameters::subgraph_min[mode];
     }
     if (!(kmer_length > 0 && edge_max > 0)) {
-        std::cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << std::endl;
+        std::cerr << "error: [vg prune] --kmer-length and --edge-max must be positive" << std::endl;
         return 1;
     }
     if (append_mapping && mapping_name.empty()) {
-        std::cerr << "[vg prune]: parameter --append-mapping requires --mapping" << std::endl;
+        std::cerr << "error: [vg prune] parameter --append-mapping requires --mapping" << std::endl;
         return 1;
     }
 
     // Mode-specific checks.
     if (mode == mode_prune) {
         if (verify_paths) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
+            std::cerr << "error: [vg prune] mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
             return 1;
         }
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
+            std::cerr << "error: [vg prune] mode " << mode_name(mode) << " does not use additional files" << std::endl;
             return 1;
         }
     }
     if (mode == mode_restore) {
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
+            std::cerr << "error: [vg prune] mode " << mode_name(mode) << " does not use additional files" << std::endl;
             return 1;
         }
     }
@@ -342,7 +342,7 @@ int main_prune(int argc, char** argv) {
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                std::cerr << "[vg prune]: verification failed for " << failures << " paths" << std::endl;
+                std::cerr << "warning: [vg prune] verification failed for " << failures << " paths" << std::endl;
             }
         }
     }
@@ -365,7 +365,7 @@ int main_prune(int argc, char** argv) {
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                std::cerr << "[vg prune]: verification failed for " << failures << " paths" << std::endl;
+                std::cerr << "warning: [vg prune] verification failed for " << failures << " paths" << std::endl;
             }
         }
     }

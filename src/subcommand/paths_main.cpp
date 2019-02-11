@@ -140,12 +140,12 @@ int main_paths(int argc, char** argv) {
     }
 
     if (!vg_file.empty() && !xg_file.empty()) {
-        cerr << "[vg paths] Error: both vg and xg index given" << endl;
+        cerr << "error: [vg paths] both vg and xg index given" << endl;
         exit(1);
     }
     
     if (!thread_prefix.empty() && extract_threads) {
-        cerr << "[vg paths] Error: cannot extract all threads (-T) and also prefixed threads (-q)" << endl;
+        cerr << "error: [vg paths] cannot extract all threads (-T) and also prefixed threads (-q)" << endl;
         exit(1);
     }
     
@@ -173,7 +173,10 @@ int main_paths(int argc, char** argv) {
         // We want a gbwt
         gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
         // Load the gbwt (TODO: support streams)
-        sdsl::load_from_file(*gbwt_index, gbwt_file);
+        if (!sdsl::load_from_file(*gbwt_index, gbwt_file)) {
+            cerr << "error: [vg paths] cannot open GBWT file " << gbwt_file << endl;
+            exit(1);
+        }
     }
     
     
@@ -181,15 +184,15 @@ int main_paths(int argc, char** argv) {
         // We are looking for threads, so we need the GBWT and the xg (which holds the thread name metadata)
         
         if (xg_index.get() == nullptr) {
-            cerr << "[vg paths] Error: thread extraction requires an XG for thread metadata" << endl;
+            cerr << "error: [vg paths] thread extraction requires an XG for thread metadata" << endl;
             exit(1);
         }
         if (gbwt_index.get() == nullptr) {
-            cerr << "[vg paths] Error: thread extraction requires a GBWT" << endl;
+            cerr << "error: [vg paths] thread extraction requires a GBWT" << endl;
             exit(1);
         }
         if (extract_as_gam == extract_as_vg && extract_as_vg == list_names) {
-            cerr << "[vg paths] Error: thread extraction requires -V, -X, or -L to specifiy output format" << endl;
+            cerr << "error: [vg paths] thread extraction requires -V, -X, or -L to specifiy output format" << endl;
             exit(1);
         }
         vector<int64_t> thread_ids;
@@ -259,7 +262,7 @@ int main_paths(int argc, char** argv) {
         // Handle non-thread queries from vg
         
         if (!path_prefix.empty()) {
-            cerr << "[vg paths] Error: path prefix not supported for extracting from vg, only for extracting from xg" << endl;
+            cerr << "error: [vg paths] path prefix not supported for extracting from vg, only for extracting from xg" << endl;
             exit(1);
         }
         
@@ -278,10 +281,10 @@ int main_paths(int argc, char** argv) {
                 emitter.write(std::move(aln));
             }
         } else if (extract_as_vg) {
-            cerr << "[vg paths] Error: vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
+            cerr << "error: [vg paths] vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
             exit(1);
         } else {
-            cerr << "[vg paths] Error: specify an operation to perform" << endl;
+            cerr << "error: [vg paths] specify an operation to perform" << endl;
         }
     } else if (xg_index.get() != nullptr) {
         // Handle non-thread queries from xg
@@ -317,10 +320,10 @@ int main_paths(int argc, char** argv) {
                 }
             }
         } else {
-            cerr << "[vg paths] Error: specify an operation to perform" << endl;
+            cerr << "error: [vg paths] specify an operation to perform" << endl;
         }
     } else {
-        cerr << "[vg paths] Error: an xg (-x) or vg (-v) file is required" << endl;
+        cerr << "error: [vg paths] an xg (-x) or vg (-v) file is required" << endl;
         exit(1);
     }
     

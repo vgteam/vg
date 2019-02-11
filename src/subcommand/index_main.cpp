@@ -548,7 +548,7 @@ int main_index(int argc, char** argv) {
     if (index_haplotypes || index_paths || index_gam) {
 
         if (!build_gbwt && !(parse_only && index_haplotypes) && !write_threads && !build_gpbwt) {
-            cerr << "error: [vg index] No output format specified for the threads" << endl;
+            cerr << "error: [vg index] no output format specified for the threads" << endl;
             return 1;
         }
 
@@ -677,7 +677,7 @@ int main_index(int argc, char** argv) {
             // How many samples are there?
             size_t num_samples = variant_file.sampleNames.size();
             if (num_samples == 0) {
-                cerr << "error: [vg index] The variant file does not contain phasings" << endl;
+                cerr << "error: [vg index] the variant file does not contain phasings" << endl;
                 return 1;
             }
 
@@ -771,7 +771,7 @@ int main_index(int argc, char** argv) {
                         ref_path = path_to_gbwt(ref_path_iter->second);
                         ref_pos = variants.firstOccurrence(ref_path.front());
                         if (ref_pos == variants.invalid_position()) {
-                            cerr << "warning: [vg index] Invalid ref path for " << var_name << " at "
+                            cerr << "warning: [vg index] invalid ref path for " << var_name << " at "
                                  << var.sequenceName << ":" << var.position << endl;
                             continue;
                         }
@@ -810,7 +810,7 @@ int main_index(int argc, char** argv) {
 
                             if (warn_on_missing_variants) {
                                 // The user might not know it. Warn them in case they mixed up their VCFs.
-                                cerr << "warning: [vg index] Alt and ref paths for " << var_name
+                                cerr << "warning: [vg index] alt and ref paths for " << var_name
                                      << " at " << var.sequenceName << ":" << var.position
                                      << " missing/empty! Was the variant skipped during construction?" << endl;
                             }
@@ -876,7 +876,10 @@ int main_index(int argc, char** argv) {
 
                 // Save the VCF parse or generate the haplotypes.
                 if (parse_only) {
-                    sdsl::store_to_file(variants, parse_file);
+                    if (!sdsl::store_to_file(variants, parse_file)) {
+                        cerr << "error: [vg index] cannot write parse file " << parse_file << endl;
+                        return 1;
+                    }
                 } else {
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         gbwt::generateHaplotypes(variants, phasings[batch],
@@ -917,7 +920,9 @@ int main_index(int argc, char** argv) {
                     cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
                     cerr << "Saving GBWT to disk..." << endl;
                 }
-                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+                if (!sdsl::store_to_file(gbwt_builder->index, gbwt_name)) {
+                    cerr << "error: [vg index] cannot write GBWT file " << gbwt_name << endl;
+                }
                 delete gbwt_builder; gbwt_builder = nullptr;
             }
             if (write_threads) {
@@ -1022,7 +1027,7 @@ int main_index(int argc, char** argv) {
                 
                 });
             } else {
-                cerr << "error[vg index]: Can't generate GCSA index without either a vg or an xg" << endl;
+                cerr << "error: [vg index] cannot generate GCSA index without either a vg or an xg" << endl;
                 exit(1);
             }
         }
@@ -1046,8 +1051,14 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving the index to disk..." << endl;
         }
-        sdsl::store_to_file(gcsa_index, gcsa_name);
-        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
+        if (!sdsl::store_to_file(gcsa_index, gcsa_name)) {
+            cerr << "error: [vg index] cannot write GCSA file " << gcsa_name << endl;
+            return 1;
+        }
+        if (!sdsl::store_to_file(lcp_array, gcsa_name + ".lcp")) {
+            cerr << "error: [vg index] cannot write LCP file " << (gcsa_name + ".lcp") << endl;
+            return 1;
+        }
 
         // Verify the index
         if (verify_gcsa) {
