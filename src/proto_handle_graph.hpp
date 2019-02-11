@@ -94,6 +94,11 @@ using namespace std;
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
         virtual id_t max_node_id() const;
         
+        /// Loop over all edges in their canonical orientation (as returned by edge_handle) and
+        /// execute an iteratee on each one. Can stop early by returning false from the iteratee.
+        /// Early stopping may not be immediate if executing in parallel.
+        virtual void for_each_edge(const function<bool(const edge_t&)>& iteratee, bool parallel = false) const;
+        
     private:
         /// The Protobuf graph we're wrapping
         const Graph* graph = nullptr;

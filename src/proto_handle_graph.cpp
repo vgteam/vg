@@ -119,6 +119,34 @@ using namespace std;
         }
         return max_id;
     }
-
+    
+    void ProtoHandleGraph::for_each_edge(const function<bool(const edge_t&)>& iteratee,
+                                         bool parallel) const {
+        
+        // we need to be able to map IDs to indexes to make handles efficiently
+        unordered_map<id_t, size_t> node_idx;
+        node_idx.reserve(graph->node_size());
+        for (size_t i = 0; i < graph->node_size(); i++) {
+            node_idx[graph->node(i).id()] = i;
+        }
+        
+        if (parallel) {
+            // ignore early stopping in parallel execution
+#pragma omp parallel for
+            for (size_t i = 0; i < graph->edge_size(); i++) {
+                const Edge& edge = graph->edge(i);
+                iteratee(edge_t(EasyHandlePacking::pack(node_idx[edge.from()], edge.from_start()),
+                                EasyHandlePacking::pack(node_idx[edge.to()], edge.to_end())));
+            }
+        }
+        else {
+            bool keep_going = true;
+            for (size_t i = 0; i < graph->edge_size() && keep_going; i++) {
+                const Edge& edge = graph->edge(i);
+                keep_going = iteratee(edge_t(EasyHandlePacking::pack(node_idx[edge.from()], edge.from_start()),
+                                             EasyHandlePacking::pack(node_idx[edge.to()], edge.to_end())));
+            }
+        }
+    }
 }
 
