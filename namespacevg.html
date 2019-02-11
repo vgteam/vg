@@ -1466,8 +1466,8 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:a8dad8aaa23b1f822b9877f1d6c4acb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a253257615743a1cfb948b749be7700e2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a253257615743a1cfb948b749be7700e2">parse_region</a> (const string &amp;target, string &amp;name, int64_t &amp;start, int64_t &amp;end)</td></tr>
 <tr class="separator:a253257615743a1cfb948b749be7700e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9b06b5a51ac3e6f4567852020354732b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9b06b5a51ac3e6f4567852020354732b">parse_bed_regions</a> (const string &amp;bed_path, vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;out_regions)</td></tr>
-<tr class="separator:a9b06b5a51ac3e6f4567852020354732b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8fd1e3436d98304996aaecece048cb45"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8fd1e3436d98304996aaecece048cb45">parse_bed_regions</a> (const string &amp;bed_path, vector&lt; <a class="el" href="structvg_1_1Region.html">Region</a> &gt; &amp;out_regions, vector&lt; string &gt; *out_names)</td></tr>
+<tr class="separator:a8fd1e3436d98304996aaecece048cb45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af0a3beb8908adf7a6e4d641243937830"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af0a3beb8908adf7a6e4d641243937830">parse_region</a> (string &amp;region, <a class="el" href="structvg_1_1Region.html">Region</a> &amp;out_region)</td></tr>
 <tr class="separator:af0a3beb8908adf7a6e4d641243937830"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaca76d456a115d68ea096528468e0f77"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaca76d456a115d68ea096528468e0f77">position_at</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *xgidx, const string &amp;path_name, const size_t &amp;path_offset, bool is_reverse)</td></tr>
@@ -10780,7 +10780,7 @@ template&lt;&gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a9b06b5a51ac3e6f4567852020354732b"></a>
+<a class="anchor" id="a8fd1e3436d98304996aaecece048cb45"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -10794,7 +10794,13 @@ template&lt;&gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">vector&lt; Region &gt; &amp;&#160;</td>
-          <td class="paramname"><em>out_regions</em>&#160;</td>
+          <td class="paramname"><em>out_regions</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; string &gt; *&#160;</td>
+          <td class="paramname"><em>out_names</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
