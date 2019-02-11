@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 14
 
 
 # Exercise the GBWT
@@ -68,4 +68,24 @@ is "$(vg view -aj output.gam | jq -c 'select(.fragment_next == null and .fragmen
 
 rm -f graphs/refonly-lrc_kir.vg.xg graphs/refonly-lrc_kir.vg.gcsa graphs/refonly-lrc_kir.vg.gcsa.lcp input.gam output.gam
 
+# Test the anchor trimming
 
+vg construct -m 1000 -r tiny/tiny.fa -v tiny/tiny.vcf.gz > t.vg
+vg index -x t.xg -g t.gcsa -k 16 t.vg
+
+echo "@read1
+CAAATAAGG
++
+HHHHHHHHH
+@read2
+AAAATTTTCT
++
+HHHHHHHHHH
+@read3
+CAAATAAGGT
++
+HHHHHHHHHH" > t.fq
+
+is "$(vg mpmap -B -x t.xg -g t.gcsa -f t.fq | vg view -Kj - | wc -l)" "3" "multipath mapping works in scenarios that trigger branch point trimming"
+
+rm t.vg t.xg t.gcsa t.gcsa.lcp t.fq

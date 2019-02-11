@@ -12,7 +12,7 @@
 
 #include "../vg.hpp"
 #include "../cactus.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../utility.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
@@ -410,9 +410,9 @@ int main_mod(int argc, char** argv) {
         // We need to throw out the parts of the graph that are on alt paths,
         // but not on alt paths for alts used by the first sample in the VCF.
 
-        // This is matched against the entire path name string to detect alt
+        // This is called with the entire path name string to detect alt
         // paths.
-        const regex& is_alt = Paths::is_alt;
+        const function<bool(const string&)>& is_alt = Paths::is_alt;
 
         // This holds the VCF file we read the variants from. It needs to be the
         // same one used to construct the graph.
@@ -436,7 +436,7 @@ int main_mod(int argc, char** argv) {
         graph->paths.for_each_name([&](const string& alt_path_name) {
             // For every path name in the graph
 
-            if(regex_match(alt_path_name, is_alt)) {
+            if(is_alt(alt_path_name)) {
                 // If it's an alt path
 
                 for(auto& mapping : graph->paths.get_path(alt_path_name)) {

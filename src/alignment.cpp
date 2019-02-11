@@ -1,6 +1,6 @@
 #include "alignment.hpp"
-#include "stream.hpp"
 
+#include <sstream>
 #include <regex>
 
 namespace vg {
@@ -1355,13 +1355,6 @@ Alignment simplify(const Alignment& a, bool trim_internal_deletions) {
         aln.clear_path();
     }
     return aln;
-}
-
-void write_alignment_to_file(const Alignment& aln, const string& filename) {
-    ofstream out(filename);
-    vector<Alignment> alnz = { aln };
-    stream::write_buffered(out, alnz, 1);
-    out.close();
 }
 
 map<id_t, int> alignment_quality_per_node(const Alignment& aln) {

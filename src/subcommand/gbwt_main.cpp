@@ -14,6 +14,7 @@
 
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -163,10 +164,16 @@ int main_gbwt(int argc, char** argv)
         size_t total_inserted = 0;
         if (input_files <= 1) {
             cerr << "error: [vg gbwt] at least two input gbwt files required to merge" << endl;
-            return 1;
+            exit(1);
         }
         if (gbwt_output.empty()) {
             cerr << "error: [vg gbwt] output file must be specified with -o" << endl;
+            exit(1);
+            cerr << "[vg gbwt] error: at least two input gbwt files required to merge" << endl;
+        }
+        if (gbwt_output.empty()) {
+            cerr << "[vg gbwt] error: output file must be specified with -o" << endl;
+            exit(1);
         }
         if (show_progress) {
             gbwt::printHeader("Algorithm"); cout << (fast_merging ? "fast" : "insert") << endl;
@@ -183,57 +190,73 @@ int main_gbwt(int argc, char** argv)
             for(int i = optind; i < argc; i++)
             {
                 string input_name = argv[i];
-                if (!sdsl::load_from_file(indexes[i - optind], input_name)) {
-                    cerr << "error: [vg gbwt] cannot open GBWT file " << input_name << endl;
-                    return 1;
+                
+                // Try loading the GBWT
+                unique_ptr<gbwt::GBWT> loaded = stream::VPKG::load_one<gbwt::GBWT>(input_name);
+                if (loaded.get() == nullptr) {
+                    cerr << "error: [vg gbwt] could not load GBWT " << input_name << endl;
+                    exit(1);
                 }
+                
+                // Move out of the unique_ptr and into the vector that the GBWT library needs.
+                indexes[i - optind] = std::move(*loaded);
+                
                 if (show_progress) {
                     gbwt::printStatistics(indexes[i - optind], input_name);
                 }
                 total_inserted += indexes[i - optind].size();
             }
+            
+            // Merge the GBWT
             gbwt::GBWT merged(indexes);
-            if (!sdsl::store_to_file(merged, gbwt_output)) {
-                cerr << "error: [vg gbwt] cannot write GBWT file " << gbwt_output << endl;
-                return 1;
-            }
+            
+            // Save to a file in VPKG-encapsulated format.
+            stream::VPKG::save(merged, gbwt_output);
+            
             if (show_progress) {
                 gbwt::printStatistics(merged, gbwt_output);
             }
         }
         else
         {
-            gbwt::DynamicGBWT index;
+            unique_ptr<gbwt::DynamicGBWT> index;
             {
                 string input_name = argv[optind];
-                if (!sdsl::load_from_file(index, input_name)) {
-                    cerr << "error: [vg gbwt] cannot open GBWT file " << input_name << endl;
-                    return 1;
+                
+                // Try to load the first GBWT as a dynamic one
+                index = stream::VPKG::load_one<gbwt::DynamicGBWT>(input_name);
+                
+                if (index.get() == nullptr) {
+                    cerr << "error: [vg gbwt] could not load dynamic GBWT " << input_name << endl;
+                    exit(1);
                 }
+                
                 if (show_progress) {
-                    gbwt::printStatistics(index, input_name);
+                    gbwt::printStatistics(*index, input_name);
                 }
             }
             for (int curr = optind + 1; curr < argc; curr++)
             {
                 string input_name = argv[curr];
-                gbwt::GBWT next;
-                if (!sdsl::load_from_file(next, input_name)) {
-                    cerr << "error: [vg gbwt] cannot open GBWT file " << input_name << endl;
-                    return 1;
+                unique_ptr<gbwt::GBWT> next = stream::VPKG::load_one<gbwt::GBWT>(input_name);
+                
+                if (next.get() == nullptr) {
+                    cerr << "error: [vg gbwt]: could not load GBWT " << input_name << endl;
+                    exit(1);
                 }
+                
                 if (show_progress) {
-                    gbwt::printStatistics(next, input_name);
+                    gbwt::printStatistics(*next, input_name);
                 }
-                index.merge(next);
-                total_inserted += next.size();
+                index->merge(*next);
+                total_inserted += next->size();
             }
-            if (!sdsl::store_to_file(index, gbwt_output)) {
-                cerr << "error: [vg gbwt] cannot write GBWT file " << gbwt_output << endl;
-                return 1;
-            }
+            
+            // Save to a file in VPKG-encapsulated format.
+            stream::VPKG::save(*index, gbwt_output);
+            
             if (show_progress) { 
-                gbwt::printStatistics(index, gbwt_output);
+                gbwt::printStatistics(*index, gbwt_output);
             }
         }
         
@@ -257,18 +280,21 @@ int main_gbwt(int argc, char** argv)
             cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
             return 1;
         }
-        gbwt::DynamicGBWT index;
-        if (!sdsl::load_from_file(index, argv[optind])) {
-            cerr << "error: [vg gbwt] cannot open GBWT file " << argv[optind] << endl;
-            return 1;
+        
+        // Try to load the GBWT as a dynamic one
+        unique_ptr<gbwt::DynamicGBWT> index = stream::VPKG::load_one<gbwt::DynamicGBWT>(argv[optind]);
+        
+        if (index.get() == nullptr) {
+            cerr << "error: [vg gbwt]: could not load dynamic GBWT " << argv[optind] << endl;
+            exit(1);
         }
-        gbwt::size_type total_length = index.remove(to_remove);
+        
+        gbwt::size_type total_length = index->remove(to_remove);
         if (total_length > 0) {
             std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
-            if (!sdsl::store_to_file(index, output)) {
-                cerr << "error: [vg gbwt] cannot write GBWT file " << output << endl;
-                return 1;
-            }
+            
+            // Save as an encapsulated file
+            stream::VPKG::save(*index, output);
         }
     }
 
@@ -278,18 +304,19 @@ int main_gbwt(int argc, char** argv)
             cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
             return 1;
         }
-        gbwt::GBWT index;
-        if (!sdsl::load_from_file(index, argv[optind])) {
-            cerr << "error: [vg gbwt] cannot open GBWT file " << argv[optind] << endl;
-            return 1;
+        unique_ptr<gbwt::GBWT> index = stream::VPKG::load_one<gbwt::GBWT>(argv[optind]);
+
+        if (index.get() == nullptr) {
+            cerr << "error: [vg gbwt]: could not load GBWT " << argv[optind] << endl;
+            exit(1);
         }
 
         // Extract threads in SDSL format.
         if (!thread_output.empty()) {
-            gbwt::size_type node_width = gbwt::bit_length(index.sigma() - 1);
+            gbwt::size_type node_width = gbwt::bit_length(index->sigma() - 1);
             gbwt::text_buffer_type out(thread_output, std::ios::out, gbwt::MEGABYTE, node_width);
-            for (gbwt::size_type id = 0; id < index.sequences(); id += 2) { // Ignore reverse complements.
-                gbwt::vector_type sequence = index.extract(id);
+            for (gbwt::size_type id = 0; id < index->sequences(); id += 2) { // Ignore reverse complements.
+                gbwt::vector_type sequence = index->extract(id);
                 for (auto node : sequence) {
                     out.push_back(node);
                 }
@@ -300,34 +327,34 @@ int main_gbwt(int argc, char** argv)
 
         // There are two sequences for each thread.
         if (count_threads) {
-            cout << (index.sequences() / 2) << endl;
+            cout << (index->sequences() / 2) << endl;
         }
 
         if (metadata) {
-            if (index.hasMetadata()) {
-                gbwt::operator<<(cout, index.metadata) << endl;
+            if (index->hasMetadata()) {
+                gbwt::operator<<(cout, index->metadata) << endl;
             }
         }
 
         if (contigs) {
-            if (index.hasMetadata()) {
-                cout << index.metadata.contigs() << endl;
+            if (index->hasMetadata()) {
+                cout << index->metadata.contigs() << endl;
             } else {
                 cout << -1 << endl;
             }
         }
 
         if (haplotypes) {
-            if (index.hasMetadata()) {
-                cout << index.metadata.haplotypes() << endl;
+            if (index->hasMetadata()) {
+                cout << index->metadata.haplotypes() << endl;
             } else {
                 cout << -1 << endl;
             }
         }
 
         if (samples) {
-            if (index.hasMetadata()) {
-                cout << index.metadata.samples() << endl;
+            if (index->hasMetadata()) {
+                cout << index->metadata.samples() << endl;
             } else {
                 cout << -1 << endl;
             }

@@ -18,6 +18,7 @@
  */
 
 #include "../phase_unfolder.hpp"
+#include "../stream/vpkg.hpp"
 #include "subcommand.hpp"
 
 #include <gbwt/gbwt.h>
@@ -300,7 +301,7 @@ int main_prune(int argc, char** argv) {
     // Handle the input.
     VG* graph;
     xg::XG xg_index;
-    gbwt::GBWT gbwt_index;
+    unique_ptr<gbwt::GBWT> gbwt_index;
     get_input_file(optind, argc, argv, [&](std::istream& in) {
         graph = new VG(in);
     });
@@ -337,7 +338,9 @@ int main_prune(int argc, char** argv) {
 
     // Restore the non-alt paths.
     if (mode == mode_restore) {
-        PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
+        // Make an empty GBWT index to pass along
+        gbwt::GBWT empty_gbwt;
+        PhaseUnfolder unfolder(xg_index, empty_gbwt, max_node_id + 1);
         unfolder.restore_paths(*graph, show_progress);
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
@@ -351,10 +354,18 @@ int main_prune(int argc, char** argv) {
     if (mode == mode_unfold) {
         if (!gbwt_name.empty()) {
             get_input_file(gbwt_name, [&](std::istream& in) {
-               gbwt_index.load(in);
+                gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(in);
+                if (gbwt_index.get() == nullptr) {
+                    std::cerr << "[vg prune]: could not load GBWT" << std::endl;
+                    exit(1);
+                }
             });
+        } else {
+            // The PhaseUnfolder can't deal with having no GBWT at all; we need to give it an empty one.
+            gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
+            // TODO: Let us pass in null pointers instead.
         }
-        PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
+        PhaseUnfolder unfolder(xg_index, *gbwt_index, max_node_id + 1);
         if (append_mapping) {
             unfolder.read_mapping(mapping_name);
         }

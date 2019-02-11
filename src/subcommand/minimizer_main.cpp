@@ -28,6 +28,9 @@
 #include "../minimizer.hpp"
 #include "subcommand.hpp"
 
+#include "../stream/vpkg.hpp"
+#include "../stream/stream.hpp"
+
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
 
@@ -165,14 +168,11 @@ int main_minimizer(int argc, char** argv) {
     double start = gbwt::readTimer();
 
     // Input graph.
-    xg::XG xg_index;
     if (progress) {
         std::cerr << "Loading XG index " << xg_name << std::endl;
     }
-    if (!sdsl::load_from_file(xg_index, xg_name)) {
-        std::cerr << "error: [vg minimizer] cannot open XG file " << xg_name << " for reading" << std::endl;
-        return 1;
-    }
+    std::unique_ptr<xg::XG> xg_index;
+    xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
 
     // Minimizer index.
     MinimizerIndex index(kmer_length, window_length, max_occs);
@@ -190,17 +190,12 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // GBWT index.
-    gbwt::GBWT* gbwt_index = nullptr;
+    std::unique_ptr<gbwt::GBWT> gbwt_index;
     if (!gbwt_name.empty()) {
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
-        gbwt_index = new gbwt::GBWT();
-        if (!sdsl::load_from_file(*gbwt_index, gbwt_name)) {
-            std::cerr << "error: [vg minimizer] cannot open GBWT file " << gbwt_name << " for reading" << std::endl;
-            delete gbwt_index; gbwt_index = nullptr;
-            return 1;
-        }
+        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name);
     }
 
     // Build the index.
@@ -229,12 +224,11 @@ int main_minimizer(int argc, char** argv) {
         }
     };
     if (gbwt_name.empty()) {
-        for_each_window(xg_index, index.k() + index.w() - 1, lambda);
+        for_each_window(*xg_index, index.k() + index.w() - 1, lambda);
     } else {
-        for_each_window(xg_index, *gbwt_index, index.k() + index.w() - 1, lambda);
+        for_each_window(*xg_index, *gbwt_index, index.k() + index.w() - 1, lambda);
     }
-    delete gbwt_index;
-    gbwt_index = nullptr;
+    gbwt_index.reset(nullptr);
 
     // Index statistics.
     if (progress) {
@@ -283,20 +277,15 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
 
     // Load the GCSA index.
     bool benchmark_gcsa = !(gcsa_name.empty());
-    gcsa::GCSA gcsa_index;
-    gcsa::LCPArray lcp_index;
+    std::unique_ptr<gcsa::GCSA> gcsa_index;
+    std::unique_ptr<gcsa::LCPArray> lcp_index;
     if (benchmark_gcsa) {
         if (progress) {
             std::cerr << "Loading the GCSA index from " << gcsa_name << std::endl;
         }
+        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         std::string lcp_name = gcsa_name + gcsa::LCPArray::EXTENSION;
-        if (!sdsl::load_from_file(gcsa_index, gcsa_name)) {
-            std::cerr << "error: [vg minimizer] cannot open GCSA file " << gcsa_name << " for reading" << std::endl;
-            benchmark_gcsa = false;
-        } else if(!sdsl::load_from_file(lcp_index, lcp_name)) {
-            std::cerr << "error: [vg minimizer] cannot open LCP file " << lcp_name << " for reading" << std::endl;
-            benchmark_gcsa = false;
-        }
+        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(lcp_name);
     }
 
     // Load the reads.
@@ -368,22 +357,22 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
             size_t thread = omp_get_thread_num();
             const std::string& read = reads[i];
             auto iter = read.rbegin();
-            gcsa::range_type full(0, gcsa_index.size() - 1);
+            gcsa::range_type full(0, gcsa_index->size() - 1);
             gcsa::range_type curr = full;
             std::vector<gcsa::node_type> occurrences;
             while (iter != read.rend()) {
                 gcsa::range_type prev = curr;
-                curr = gcsa_index.LF(curr, gcsa_index.alpha.char2comp[*iter]);
+                curr = gcsa_index->LF(curr, gcsa_index->alpha.char2comp[*iter]);
                 if (gcsa::Range::empty(curr)) {
                     if (prev != full) {
                         mem_counts[thread]++;
                         if (locate) {
-                            gcsa_index.locate(prev, occurrences);
+                            gcsa_index->locate(prev, occurrences);
                             mem_lengths[thread] += occurrences.size();
                         } else {
                             mem_lengths[thread] += gcsa::Range::length(prev);
                         }
-                        gcsa::STNode parent = lcp_index.parent(prev);
+                        gcsa::STNode parent = lcp_index->parent(prev);
                         curr = parent.range();
                     } else {
                         curr = full;
@@ -392,7 +381,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
                     if (prev != full) {
                         mem_counts[thread]++;
                         if (locate) {
-                            gcsa_index.locate(prev, occurrences);
+                            gcsa_index->locate(prev, occurrences);
                             mem_lengths[thread] += occurrences.size();
                         } else {
                             mem_lengths[thread] += gcsa::Range::length(prev);

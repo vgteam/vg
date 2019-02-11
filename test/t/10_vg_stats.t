@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 10
+plan tests 11
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -40,6 +40,8 @@ vg construct -m 1000 -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg map -x x.xg -g x.gcsa -T small/x-s1337-n100.reads >x.gam
 is "$(vg stats -a x.gam x.vg | md5sum | cut -f 1 -d\ )" "$(md5sum correct/10_vg_stats/15.txt | cut -f 1 -d\ )" "aligned read stats are computed correctly"
+
+is "$(vg stats -a x.gam | grep 'Total alignments')" "Total alignments: 100" "stats can be computed for GAM files without graphs"
 rm -f x.vg x.xg x.gcsa x.gam
 
 vg msga -g <(vg msga -f msgas/cycle.fa -b s1 -w 16 -t 1 | vg mod -D - | vg mod -U 10 -) -f msgas/cycle.fa -t 1 | vg mod -N - | vg mod -U 10 - >c.vg

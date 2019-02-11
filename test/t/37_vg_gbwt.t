@@ -25,7 +25,7 @@ is $(vg gbwt -S x.gbwt) 1 "chromosome x: 1 sample"
 is $(vg paths -x x.xg -g x.gbwt -X -T | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
 
 # Query test
-is $(vg paths -x x.xg -g x.gbwt -X -Q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
+is $(vg paths -x x.xg -g x.gbwt -X -q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
 
 # Chromosome Y
 vg index -G y.gbwt -v small/xy2.vcf.gz y.vg
@@ -50,10 +50,12 @@ is $(vg gbwt -C xy2.gbwt) 2 "fast merge: 2 contigs"
 is $(vg gbwt -H xy2.gbwt) 2 "fast merge: 2 haplotypes"
 is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 
-# Remove metadata from the merged indexes and compare them
-../deps/gbwt/metadata -r xy > /dev/null
-../deps/gbwt/metadata -r xy2 > /dev/null
-cmp xy.gbwt xy2.gbwt
+# Unpackage the indexes, remove metadata from the merged indexes and compare them
+vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
+vg view --extract-tag GBWT xy2.gbwt > xy2.bare.gbwt
+../deps/gbwt/metadata -r xy.bare > /dev/null
+../deps/gbwt/metadata -r xy2.bare > /dev/null
+cmp xy.bare.gbwt xy2.bare.gbwt
 is $? 0 "the merged indexes are identical"
 
 # Remove threads from a GBWT
@@ -61,7 +63,7 @@ vg gbwt -r 1 -r 2 xy.gbwt
 is $? 0 "threads can be removed from a GBWT index"
 is $(vg gbwt -c xy.gbwt) 2 "remove: 2 threads"
 
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt xy.bare.gbwt xy2.bare.gbwt x.xg
 
 
 # Build a GBWT for paths

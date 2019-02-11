@@ -1,4 +1,5 @@
 #include "stream.hpp"
+#include "blocked_gzip_output_stream.hpp"
 
 namespace vg {
 

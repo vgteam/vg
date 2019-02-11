@@ -12,7 +12,8 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -156,6 +157,8 @@ int main_index(int argc, char** argv) {
 
     // GBWT
     bool warn_on_missing_variants = true;
+    size_t found_missing_variants = 0; // Track the number of variants in the phasing VCF that aren't found in the graph
+    size_t max_missing_variant_warnings = 10; // Only report up to this many of them
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     bool parse_only = false;
     vector<string> gam_file_names;
@@ -662,6 +665,7 @@ int main_index(int argc, char** argv) {
 
         // Generate haplotypes
         if (index_haplotypes) {
+            size_t total_variants_processed = 0;
             vcflib::VariantCallFile variant_file;
             variant_file.parseSamples = false; // vcflib parsing is very slow if there are many samples.
             variant_file.open(vcf_name);
@@ -808,11 +812,18 @@ int main_index(int argc, char** argv) {
                         if (!found) {
                             // This variant from the VCF is just not in the graph
 
+                            found_missing_variants++;
+
                             if (warn_on_missing_variants) {
-                                // The user might not know it. Warn them in case they mixed up their VCFs.
-                                cerr << "warning: [vg index] alt and ref paths for " << var_name
-                                     << " at " << var.sequenceName << ":" << var.position
-                                     << " missing/empty! Was the variant skipped during construction?" << endl;
+                                if (found_missing_variants <= max_missing_variant_warnings) {
+                                    // The user might not know it. Warn them in case they mixed up their VCFs.
+                                    cerr << "warning: [vg index] alt and ref paths for " << var_name
+                                         << " at " << var.sequenceName << ":" << var.position
+                                         << " missing/empty! Was the variant skipped during construction?" << endl;
+                                    if (found_missing_variants == max_missing_variant_warnings) {
+                                        cerr << "warning: [vg index] suppressing further missing variant warnings" << endl;
+                                    }
+                                }
                             }
 
                             // Skip this variant and move on to the next as if it never appeared.
@@ -902,9 +913,18 @@ int main_index(int argc, char** argv) {
                         }
                     }
                 } // End of haplotype generation for the current contig.
+            
+                // Record the number of variants we saw on this contig
+                total_variants_processed += variants_processed;
+            
             } // End of contigs.
+            
+            if (warn_on_missing_variants && found_missing_variants > 0) {
+                cerr << "warning: [vg index] Found " << found_missing_variants << "/" << total_variants_processed
+                    << " variants in phasing VCF but not in graph! Do your graph and VCF match?" << endl;
+            }
         } // End of haplotypes.
-
+        
         // Store the thread database. Write it to disk if a filename is given,
         // or store it in the XG index if building gPBWT or if the XG index
         // will be written to disk.
@@ -920,9 +940,10 @@ int main_index(int argc, char** argv) {
                     cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
                     cerr << "Saving GBWT to disk..." << endl;
                 }
-                if (!sdsl::store_to_file(gbwt_builder->index, gbwt_name)) {
-                    cerr << "error: [vg index] cannot write GBWT file " << gbwt_name << endl;
-                }
+                
+                // Save encapsulated in a VPKG
+                stream::VPKG::save(gbwt_builder->index, gbwt_name);
+                
                 delete gbwt_builder; gbwt_builder = nullptr;
             }
             if (write_threads) {
@@ -968,9 +989,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving XG index to disk..." << endl;
         }
-        ofstream db_out(xg_name);
-        xg_index->serialize(db_out);
-        db_out.close();
+        // Save encapsulated in a VPKG
+        stream::VPKG::save(*xg_index, xg_name); 
     }
     delete xg_index; xg_index = nullptr;
 
@@ -1007,11 +1027,11 @@ int main_index(int argc, char** argv) {
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
-                    xg::XG xg(xg_stream);
+                    auto xg = stream::VPKG::load_one<xg::XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
-                    SourceSinkOverlay overlay(&xg, kmer_size);
+                    SourceSinkOverlay overlay(xg.get(), kmer_size);
                     
                     // Get the size limit
                     size_t kmer_bytes = params.getLimitBytes();
@@ -1051,14 +1071,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving the index to disk..." << endl;
         }
-        if (!sdsl::store_to_file(gcsa_index, gcsa_name)) {
-            cerr << "error: [vg index] cannot write GCSA file " << gcsa_name << endl;
-            return 1;
-        }
-        if (!sdsl::store_to_file(lcp_array, gcsa_name + ".lcp")) {
-            cerr << "error: [vg index] cannot write LCP file " << (gcsa_name + ".lcp") << endl;
-            return 1;
-        }
+        stream::VPKG::save(gcsa_index, gcsa_name);
+        stream::VPKG::save(lcp_array, gcsa_name + ".lcp");
 
         // Verify the index
         if (verify_gcsa) {

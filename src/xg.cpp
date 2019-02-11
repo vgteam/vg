@@ -1,5 +1,5 @@
 #include "xg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "alignment.hpp"
 
 #include <bitset>
@@ -468,7 +468,7 @@ id_t XGPath::external_id(id_t id) const {
     return id+min_node_id-1;
 }
 
-size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) {
+size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
 
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
     size_t written = 0;
@@ -1855,7 +1855,7 @@ void XG::for_each_path_handle(const function<void(const path_handle_t&)>& iterat
 
 handle_t XG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
     const auto& xgpath = *paths[as_integer(get_path_handle_of_occurrence(occurrence_handle)) - 1];
-    size_t idx = get_ordinal_rank_of_occurrence(occurrence_handle);
+    size_t idx = as_integers(occurrence_handle)[1];
     return get_handle(xgpath.node(idx), xgpath.is_reverse(idx));
 }
 
@@ -1900,8 +1900,23 @@ path_handle_t XG::get_path_handle_of_occurrence(const occurrence_handle_t& occur
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
     
-size_t XG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return as_integers(occurrence_handle)[1];
+vector<occurrence_handle_t> XG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
+    vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths = oriented_paths_of_node(get_id(handle));
+    
+    vector<occurrence_handle_t> return_val;
+    for (const pair<size_t, vector<pair<size_t, bool>>>& path_occs : oriented_paths) {
+        for (const pair<size_t, bool>& oriented_occ : path_occs.second) {
+            if (!match_orientation || oriented_occ.second == get_is_reverse(handle)) {
+                
+                occurrence_handle_t occurrence_handle;
+                as_integers(occurrence_handle)[0] = path_occs.first;
+                as_integers(occurrence_handle)[1] = oriented_occ.first;
+                return_val.push_back(occurrence_handle);
+            }
+        }
+    }
+    
+    return return_val;
 }
 
 size_t XG::node_size() const {
@@ -5358,7 +5373,7 @@ XG::ThreadSearchState XG::select_continuing(const ThreadMapping& start) const {
 }
 
 
-size_t serialize(XG::rank_select_int_vector& to_serialize, ostream& out,
+size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name) {
 #if GPBWT_MODE == MODE_SDSL
     // Just delegate to the SDSL code

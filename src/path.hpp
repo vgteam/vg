@@ -7,7 +7,6 @@
 #include <set>
 #include <list>
 #include <sstream>
-#include <regex>
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "edit.hpp"
@@ -43,8 +42,9 @@ ostream& operator<<(ostream& out, mapping_t mapping);
 class Paths {
 public:
 
-    // This regex matches the names of alt paths.
-    const static std::regex is_alt;
+    // This predicate matches the names of alt paths.
+    // We used to use a regex but that's a very slow way to check a prefix.
+    const static function<bool(const string&)> is_alt;
 
     Paths(void);
 
@@ -160,6 +160,7 @@ public:
     bool has_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(Node* n);
     map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id);
+    const map<int64_t, set<mapping_t*> >& get_node_mapping(id_t id) const;
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(Node* n);
     map<string, set<mapping_t*> > get_node_mapping_by_path_name(id_t id);
     map<string, map<int, mapping_t*> > get_node_mappings_by_rank(id_t id);
@@ -340,9 +341,9 @@ pos_t final_position(const Path& path);
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
-// Remove the paths with names matching the regex from the graph.
+// Remove the paths with names matching the predicate from the graph.
 // Store them in the list unless it is nullptr.
-void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching);
+void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching);
 
 }
 

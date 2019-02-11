@@ -1,5 +1,5 @@
 #include "vg.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "gssw_aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
@@ -85,24 +85,27 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
 }
 
 // construct from an arbitrary source of Graph protobuf messages
-VG::VG(function<bool(Graph&)>& get_next_graph, bool showp, bool warn_on_duplicates) {
+VG::VG(const function<void(const function<void(Graph&)>&)>& send_graphs, bool showp, bool warn_on_duplicates) {
     // set up uninitialized values
     init();
     show_progress = showp;
-
+    
     // We can't show loading progress since we don't know the total number of
     // subgraphs.
-
-    // Try to load the first graph
-    Graph subgraph;
-    bool got_subgraph = get_next_graph(subgraph);
-    while(got_subgraph) {
-        // If there is a valid subgraph, add it to ourselves.
+    
+    // Ask to be sent all the graph chunks
+    send_graphs([&](Graph& g) {
+        // Take each of them and extend.
+        
         // We usually expect these to not overlap in nodes or edges, so complain unless we've been told not to.
-        extend(subgraph, warn_on_duplicates);
-        // Try and load the next subgraph, if it exists.
-        got_subgraph = get_next_graph(subgraph);
-    }
+        extend(g, warn_on_duplicates);
+    });
+    
+    // Collate all the path mappings we got from all the different chunks. A
+    // mapping from any chunk might fall anywhere in a path (because paths may
+    // loop around cycles), so we need to sort on ranks.
+    paths.sort_by_mapping_rank();
+    paths.rebuild_mapping_aux();
 
     // store paths in graph
     paths.to_graph(graph);
@@ -260,7 +263,12 @@ size_t VG::get_degree(const handle_t& handle, bool go_left) const {
     // Otherwise there can be no edges
     return 0;
 }
-    
+
+bool VG::has_edge(const handle_t& left, const handle_t& right) const {
+    return has_edge(NodeSide(get_id(left), !get_is_reverse(left)),
+                    NodeSide(get_id(right), get_is_reverse(right)));
+}
+
 bool VG::has_path(const string& path_name) const {
     return paths.has_path(path_name);
 }
@@ -338,9 +346,23 @@ occurrence_handle_t VG::get_previous_occurrence(const occurrence_handle_t& occur
 path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
-
-size_t VG::get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])->rank - 1;
+    
+vector<occurrence_handle_t> VG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
+    
+    vector<occurrence_handle_t> return_val;
+    const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
+    for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
+        for (const mapping_t* mapping : path_occs.second) {
+            if (!match_orientation || mapping->is_reverse() == get_is_reverse(handle)) {
+                occurrence_handle_t occurrence_handle;
+                as_integers(occurrence_handle)[0] = path_occs.first;
+                as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
+                return_val.push_back(occurrence_handle);
+            }
+        }
+    }
+    
+    return return_val;
 }
 
 handle_t VG::create_handle(const string& sequence) {
@@ -534,7 +556,7 @@ void VG::sync_paths(void) {
     paths.rebuild_mapping_aux();
 }
 
-void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+void VG::serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_size) {
 
     // This makes sure mapping ranks are updated to reflect their actual
     // positions along their paths.
@@ -602,11 +624,19 @@ void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chun
         update_progress(element_start);
         
         // Now the VG we made has a proper Graph; emit it.
-        emitter.write_copy(g.graph);
+        emit(g.graph);
     }
     
     // Now we are done
     destroy_progress();
+}
+
+
+void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+    // Serialize and make the emitter write every chunk
+    serialize_to_function([&emitter](const Graph& chunk) {
+        emitter.write_copy(chunk);
+    }, chunk_size);
 }
 
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
@@ -2549,19 +2579,19 @@ Node* VG::find_node_by_name_or_add_new(string name) {
     }
 }
 
-bool VG::has_edge(Edge* edge) {
+bool VG::has_edge(Edge* edge) const {
     return edge && has_edge(*edge);
 }
 
-bool VG::has_edge(const Edge& edge) {
+bool VG::has_edge(const Edge& edge) const {
     return edge_by_sides.find(NodeSide::pair_from_edge(edge)) != edge_by_sides.end();
 }
 
-bool VG::has_edge(const NodeSide& side1, const NodeSide& side2) {
+bool VG::has_edge(const NodeSide& side1, const NodeSide& side2) const {
     return edge_by_sides.find(minmax(side1, side2)) != edge_by_sides.end();
 }
 
-bool VG::has_edge(const pair<NodeSide, NodeSide>& sides) {
+bool VG::has_edge(const pair<NodeSide, NodeSide>& sides) const {
     return has_edge(sides.first, sides.second);
 }
 
@@ -6738,9 +6768,9 @@ Alignment VG::align(const Alignment& alignment,
     vector<MaximalExactMatch> translated_mems;
     
     // trans is only required in the X-drop aligner; can be nullptr
-    auto do_align = [&](Graph& g) {
+    auto do_align = [&](VG& g) {
 #ifdef debug
-        write_alignment_to_file(alignment, hash_alignment(alignment) + ".gam");
+        stream::write_to_file(alignment, hash_alignment(alignment) + ".gam");
         serialize_to_file(hash_alignment(alignment) + ".vg");
 #endif
         if (aligner && qual_adj_aligner) {
@@ -6774,7 +6804,7 @@ Alignment VG::align(const Alignment& alignment,
         } else if(xdrop_alignment) {
             // cerr << "X-drop alignment, (" << xdrop_alignment << ")" << endl;
             if (aligner && !qual_adj_aligner) {
-                aligner->align_xdrop(aln, g, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true, multithreaded_xdrop);
+                aligner->align_xdrop(aln, g.graph, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true, multithreaded_xdrop);
             } else {
                 /* qual_adj_aligner is not yet implemented, fallback */
                 qual_adj_aligner->align/*_xdrop*/(aln, g, traceback, print_score_matrices);
@@ -6796,7 +6826,7 @@ Alignment VG::align(const Alignment& alignment,
         cerr << "Graph is a non-inverting DAG, so just sort and align" << endl;
 #endif
         // run the alignment without id translation
-        do_align(this->graph);
+        do_align(*this);
     } else {
 #ifdef debug
         cerr << "Graph is complex, so dagify and unfold before alignment" << endl;
@@ -6828,7 +6858,7 @@ Alignment VG::align(const Alignment& alignment,
         algorithms::topological_sort(&dag);
         
         // run the alignment with id translation table
-        do_align(dag.graph);
+        do_align(dag);
 
 #ifdef debug
         auto check_aln = [&](VG& graph, const Alignment& a) {
@@ -6840,7 +6870,7 @@ Alignment VG::align(const Alignment& alignment,
                          << pb2json(a) << endl
                          << "expect:\t" << a.sequence() << endl
                          << "got:\t" << seq << endl;
-                    write_alignment_to_file(a, "fail.gam");
+                    stream::write_to_file(a, "fail.gam");
                     graph.serialize_to_file("fail.vg");
                     assert(false);
                 }

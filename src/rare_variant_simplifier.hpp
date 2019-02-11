@@ -24,7 +24,7 @@ class RareVariantSimplifier : public Progressive {
 public:
     /// Make a simplifier that simplifies the given graph in place, using
     /// variants read using the given buffer.
-    RareVariantSimplifier(MutablePathMutableHandleGraph& graph, VcfBuffer& variant_source);
+    RareVariantSimplifier(MutablePathDeletableHandleGraph& graph, VcfBuffer& variant_source);
     
     /// Simplify the graph.
     void simplify();
@@ -39,7 +39,7 @@ public:
 protected:
 
     /// Holds a reference to the graph we're simplifying
-    MutablePathMutableHandleGraph& graph;
+    MutablePathDeletableHandleGraph& graph;
 
     /// Holds a reference to the variant buffer we are getting avriants from.
     VcfBuffer& variant_source;

@@ -1,5 +1,5 @@
 #include "translator.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 
 namespace vg {
 

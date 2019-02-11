@@ -22,7 +22,10 @@
 #include "haplotypes.hpp"
 #include "distance.hpp"
 #include "utility.hpp"
+#include "hash_graph.hpp"
+#include "annotation.hpp"
 
+#include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"
 #include "algorithms/extract_connecting_graph.hpp"
 #include "algorithms/extract_extending_graph.hpp"
@@ -33,6 +36,8 @@
 #include "algorithms/split_strands.hpp"
 #include "algorithms/count_walks.hpp"
 #include "algorithms/dagify.hpp"
+#include "algorithms/reverse_complement.hpp"
+#include "algorithms/extend.hpp"
 
 #include <structures/union_find.hpp>
 #include <gbwt/gbwt.h>
@@ -42,8 +47,6 @@ using namespace haplo;
 using namespace structures;
 
 namespace vg {
-
-    
     
     class MultipathMapper : public BaseMapper  {
     public:
@@ -91,6 +94,7 @@ namespace vg {
         
         // parameters
         
+        size_t max_branch_trim_length = 1;
         int64_t max_snarl_cut_size = 5;
         bool suppress_tail_anchors = false;
         double band_padding_multiplier = 1.0;
@@ -138,6 +142,8 @@ namespace vg {
         bool simplify_topologies = false;
         bool delay_population_scoring = false;
         bool use_tvs_clusterer = false;
+        // length of reversing walks during graph extraction
+        size_t reversing_walk_length = 0;
         
         //static size_t PRUNE_COUNTER;
         //static size_t SUBGRAPH_TOTAL;
@@ -152,7 +158,7 @@ namespace vg {
         /// actual extracted graph, a list of assigned MEMs, and the number of
         /// bases of read coverage that that MEM cluster provides (which serves
         /// as a priority).
-        using clustergraph_t = tuple<VG*, memcluster_t, size_t>;
+        using clustergraph_t = tuple<HashGraph*, memcluster_t, size_t>;
         
     protected:
         
@@ -282,14 +288,14 @@ namespace vg {
         /// Make a multipath alignment of the read against the indicated graph and add it to
         /// the list of multimappings.
         /// Does NOT necessarily produce a MultipathAlignment in topological order.
-        void multipath_align(const Alignment& alignment, VG* vg,
+        void multipath_align(const Alignment& alignment, const HashGraph* graph,
                              memcluster_t& graph_mems,
                              MultipathAlignment& multipath_aln_out) const;
         
         /// Removes the sections of an Alignment's path within snarls and re-aligns them with multiple traceback
         /// to create a multipath alignment with non-trivial topology.
         /// Guarantees that the resulting MultipathAlignment is in topological order.
-        void make_nontrivial_multipath_alignment(const Alignment& alignment, VG& subgraph,
+        void make_nontrivial_multipath_alignment(const Alignment& alignment, const HandleGraph& subgraph,
                                                  unordered_map<id_t, pair<id_t, bool>>& translator,
                                                  SnarlManager& snarl_manager, MultipathAlignment& multipath_aln_out) const;
         
