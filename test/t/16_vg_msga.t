@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 13
+plan tests 14
 
 #is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 -k 16 | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
@@ -28,6 +28,7 @@ vg msga -f msgas/s.fa -w 16 | vg mod -U 10 - | vg mod -c - | vg view -j -
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
 is $(vg msga -g t.vg -s CAAATTTTCTGGAGTTCTAT -k 8 -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (start) are included correctly"
 is $(vg msga -g t.vg -s TTCTATAATATG -k 8 -N | vg stats -s - | wc -l) 1 "soft clips at node boundaries (end) are included correctly"
+is $(vg msga -g t.vg -f msgas/t.fa -k 8 -N | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -g t.vg -f msgas/t.fa -R msgas/t.bed -T 1 -k 8 -N | vg mod -U 10 - | vg mod -c - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) "region hints (-p) produce same graph" 
 rm t.vg
 
 vg msga -f msgas/s.fa -b s1 -w 20 | vg mod -U 10 - | vg mod -c - >s.vg

@@ -6,6 +6,7 @@
 #include "../kmer.hpp"
 #include "../build_index.hpp"
 #include "../algorithms/topological_sort.hpp"
+#include "../chunker.hpp"
 
 #include <unistd.h>
 #include <getopt.h>
@@ -28,6 +29,8 @@ void help_msga(char** argv) {
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
          << "    -a, --fasta-order       build the graph in the order the sequences are seen in the FASTA (default: bigger first)" << endl
+         << "    -R, --position-bed FILE BED file mapping sequence names (col 4) to positions on reference path (cols 1-3)" << endl
+         << "    -T, --context STEPS     expand context around BED regions (-R) by this many steps [50]" << endl
          << "alignment:" << endl
          << "    -k, --min-mem INT       minimum MEM length (if 0 estimate via -e) [0]" << endl
          << "    -e, --mem-chance FLOAT  set {-k} such that this fraction of {-k} length hits will by chance [5e-4]" << endl
@@ -89,6 +92,8 @@ int main_msga(int argc, char** argv) {
     vector<string> sequences;
     vector<string> graph_files;
     string base_seq_name;
+    string position_bed_file;
+    int context_steps = 50;
     int idx_kmer_size = 16;
     int hit_max = 2048;
     // if we set this above 1, we use a dynamic programming process to determine the
@@ -148,6 +153,9 @@ int main_msga(int argc, char** argv) {
                 {"name", required_argument, 0, 'n'},
                 {"seq", required_argument, 0, 's'},
                 {"graph", required_argument, 0, 'g'},
+                {"fasta-order", no_argument, 0, 'a'},
+                {"position-bed", required_argument, 0, 'R'},
+                {"context", required_argument, 0, 'T'},
                 {"base", required_argument, 0, 'b'},
                 {"idx-kmer-size", required_argument, 0, 'K'},
                 {"idx-doublings", required_argument, 0, 'X'},
@@ -191,7 +199,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:I:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a8",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:I:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a8R:T:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -363,6 +371,14 @@ int main_msga(int argc, char** argv) {
             bigger_first = false;
             break;
 
+        case 'R':
+            position_bed_file = optarg;
+            break;
+
+        case 'T':
+            context_steps = parse<int>(optarg);
+            break;
+            
         case '8':
             patch_alignments = false;
             break;
@@ -445,6 +461,17 @@ int main_msga(int argc, char** argv) {
         }
     }
 
+    // read in our bed file of positions for the input sequences    
+    unordered_map<string, Region> position_hints;
+    if (!position_bed_file.empty()) {
+        vector<Region> regions;
+        vector<string> region_names;
+        parse_bed_regions(position_bed_file, regions, &region_names);
+        for (size_t i = 0; i < regions.size(); ++i) {
+            position_hints[region_names[i]] = regions[i];
+        }
+    }
+
     // give a label to sequences passed on the command line
     // use the sha1sum, take the head
     // collision avoidance with nonce ensures we get the same names for the same sequences across multiple runs
@@ -520,11 +547,15 @@ int main_msga(int argc, char** argv) {
     // Configure GCSA temp directory to the system temp directory
     gcsa::TempFile::setDirectory(temp_file::get_dir());
 
-    auto rebuild = [&](VG* graph) {
-        if (mapper) delete mapper;
-        if (xgidx) delete xgidx;
-        if (gcsaidx) delete gcsaidx;
-        if (lcpidx) delete lcpidx;
+    auto rebuild = [&](VG* graph, int name_idx) {
+        delete mapper;
+        mapper = nullptr;
+        delete xgidx;
+        xgidx = nullptr;
+        delete gcsaidx;
+        gcsaidx = nullptr;
+        delete lcpidx;
+        lcpidx = nullptr;
     
         //stringstream s; s << iter++ << ".vg";
         algorithms::topological_sort(graph);
@@ -532,6 +563,11 @@ int main_msga(int argc, char** argv) {
         graph->graph.clear_path();
         graph->paths.to_graph(graph->graph);
         graph->rebuild_indexes();
+
+        if (name_idx >= names_in_order.size()) {
+            // nothing to align to next, so don't bother making mapping indexes
+            return;
+        }
 
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
@@ -542,6 +578,28 @@ int main_msga(int argc, char** argv) {
         
         // Configure its temp directory to the system temp directory
         gcsa::TempFile::setDirectory(temp_file::get_dir());
+
+        // Replace "graph" with a subsetted graph, and use it below when creating
+        // the GCSA index.
+        VG* region_graph = nullptr;
+        if (name_idx < names_in_order.size() && position_hints.count(names_in_order[name_idx])) {
+            Region region = position_hints[names_in_order[name_idx]];
+            if (!xgidx->has_path(region.seq) || xgidx->get_path_length(xgidx->get_path_handle(region.seq)) <=
+                region.end) {
+                stringstream err_msg;
+                err_msg << "[vg msga] Error: Target region for \"" << names_in_order[name_idx] << "\" ("
+                     << region.seq << ":" << region.start << "-" << region.end << ") not found in graph." << endl;
+                throw runtime_error(err_msg.str());
+            }
+            region_graph = new VG();
+            Region out_region;
+            PathChunker chunker(xgidx);
+            if (debug) cerr << "Subsetting graph to " << region.seq << ":" << region.start << "-" << region.end
+                            << " for sequence " << names_in_order[name_idx] << " using " << context_steps
+                            << " context steps." << endl;
+            chunker.extract_subgraph(region, context_steps, 0, false, *region_graph, out_region);
+            graph = region_graph;
+        }
 
         if (idx_path_only) {
             // make the index from only the kmers in the embedded paths
@@ -580,6 +638,10 @@ int main_msga(int argc, char** argv) {
             // if no complexity reduction is requested, just build the index
             build_gcsa_lcp(*graph, gcsaidx, lcpidx, idx_kmer_size, doubling_steps);
         }
+        
+        delete region_graph;
+        graph = nullptr;
+        
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
             mapper->hit_max = hit_max;
@@ -617,7 +679,7 @@ int main_msga(int argc, char** argv) {
     };
 
     // set up the graph for mapping
-    rebuild(graph);
+    rebuild(graph, 0);
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
@@ -712,7 +774,7 @@ int main_msga(int argc, char** argv) {
             graph->graph.clear_path();
             graph->paths.to_graph(graph->graph);
             // and rebuild the indexes
-            rebuild(graph);
+            rebuild(graph, i);
             //graph->serialize_to_file(convert(i) + "-" + name + "-post.vg");
 
             // verfy validity of path
@@ -738,6 +800,11 @@ int main_msga(int argc, char** argv) {
             exit(1);
         }
     }
+
+    delete mapper;
+    delete xgidx;
+    delete gcsaidx;
+    delete lcpidx;    
 
     // auto include_paths = [&mapper,
     //      kmer_size,
