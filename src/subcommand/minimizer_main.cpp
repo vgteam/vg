@@ -11,9 +11,17 @@
  * --max-occs can be used to specify the maximum number of occurrences for
  * a kmer. Kmers more frequent than that will be removed from the index.
  *
- * At the moment, it is only possible to index haplotype-consistent kmers
- * by specifying --gbwt-name. The support for indexing all kmers in a graph
- * will be added later.
+ * The index contains either all minimizers or haplotype-consistent minimizers
+ * (option --gbwt-name). Indexing all minimizers from complex graph regions
+ * can take a long time (e.g. 65 hours vs 30 minutes for 1000GP), because many
+ * windows have the same minimizer. As the total number of minimizers is
+ * manageable (e.g. 2.1 billion vs. 1.4 billion for 1000GP), it should be
+ * possible to develop a better algorithm for finding the minimizers.
+ *
+ * A quick idea:
+ * - For each node v, extract the subgraph for the windows starting in v.
+ * - Extract all k'-mers from the subgraph and use them to determine where the
+ *   minimizers can start.
  */
 
 #include "../gbwt_helper.hpp"
@@ -161,7 +169,10 @@ int main_minimizer(int argc, char** argv) {
     if (progress) {
         std::cerr << "Loading XG index " << xg_name << std::endl;
     }
-    sdsl::load_from_file(xg_index, xg_name);
+    if (!sdsl::load_from_file(xg_index, xg_name)) {
+        std::cerr << "error: [vg minimizer] Cannot open XG file " << xg_name << " for reading" << std::endl;
+        return 1;
+    }
 
     // Minimizer index.
     MinimizerIndex index(kmer_length, window_length, max_occs);
@@ -185,7 +196,11 @@ int main_minimizer(int argc, char** argv) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
         gbwt_index = new gbwt::GBWT();
-        sdsl::load_from_file(*gbwt_index, gbwt_name);
+        if (!sdsl::load_from_file(*gbwt_index, gbwt_name)) {
+            std::cerr << "error: [vg minimizer] Cannot open GBWT file " << gbwt_name << " for reading" << std::endl;
+            delete gbwt_index; gbwt_index = nullptr;
+            return 1;
+        }
     }
 
     // Build the index.
@@ -193,7 +208,7 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "Building the index" << std::endl;
     }
     auto lambda = [&index](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
-        std::vector<MinimizerIndex::minimizer_type> minimizers = index.minimizers(seq.begin(), seq.end());
+        std::vector<MinimizerIndex::minimizer_type> minimizers = index.minimizers(seq);
         auto iter = traversal.begin();
         size_t starting_offset = 0;
 #pragma omp critical (minimizer_index)
@@ -274,8 +289,14 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
         if (progress) {
             std::cerr << "Loading the GCSA index from " << gcsa_name << std::endl;
         }
-        sdsl::load_from_file(gcsa_index, gcsa_name);
-        sdsl::load_from_file(lcp_index, gcsa_name + gcsa::LCPArray::EXTENSION);
+        std::string lcp_name = gcsa_name + gcsa::LCPArray::EXTENSION;
+        if (!sdsl::load_from_file(gcsa_index, gcsa_name)) {
+            std::cerr << "error: [vg minimizer] Cannot open GCSA file " << gcsa_name << " for reading" << std::endl;
+            benchmark_gcsa = false;
+        } else if(sdsl::load_from_file(lcp_index, lcp_name)) {
+            std::cerr << "error: [vg minimizer] Cannot open LCP file " << lcp_name << " for reading" << std::endl;
+            benchmark_gcsa = false;
+        }
     }
 
     // Load the reads.
@@ -306,7 +327,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
             size_t thread = omp_get_thread_num();
-            std::vector<MinimizerIndex::minimizer_type> result = index.minimizers(reads[i].begin(), reads[i].end());
+            std::vector<MinimizerIndex::minimizer_type> result = index.minimizers(reads[i]);
             min_counts[thread] += result.size();
             if (locate) {
                 for (auto minimizer : result) {

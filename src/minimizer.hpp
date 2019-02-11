@@ -123,6 +123,12 @@ public:
     /// characters.
     std::vector<minimizer_type> minimizers(std::string::const_iterator begin, std::string::const_iterator end) const;
 
+    /// Returns all minimizers in the string. The return value is a vector of
+    /// (key, offset) pairs. A minimizer cannot contain invalid characters.
+    std::vector<minimizer_type> minimizers(const std::string& str) const {
+        return this->minimizers(str.begin(), str.end());
+    }
+
     /// Inserts the minimizer encoded in the key at the given position into the index.
     /// Minimizers with key NO_KEY or a position encoded as NO_VALUE are not inserted.
     /// Use minimizer() or minimizers() to get the key.
