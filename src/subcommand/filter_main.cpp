@@ -282,5 +282,5 @@ int main_filter(int argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_vectorize("filter", "filter reads", main_filter);
+static Subcommand vg_filter("filter", "filter reads", main_filter);
 
