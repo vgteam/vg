@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 6
+plan tests 8
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -27,7 +27,6 @@ fi
 
 is "${OUT_OF_RANGE}" "0" "vg filter downsamples correctly"
 
-rm -f x.gam filter_chunk*.gam chunks.bed
 
 cp small/x-s1-l100-n100-p50.gam paired.gam
 cp small/x-s1-l100-n100.gam single.gam
@@ -62,5 +61,10 @@ vg annotate -p -x x.xg -a paired.gam > paired.annotated.gam
 is "$(vg filter -X "[a-f]" paired.annotated.gam | vg view -aj - | wc -l)" "200" "reads with refpos annotations not matching an exclusion regex are let through"
 is "$(vg filter -X "[w-z]" paired.annotated.gam | vg view -aj - | wc -l)" "0" "reads with refpos annotations matching an exclusion regex are removed"
 
+is "$(vg filter -U x.gam | vg view -aj - | wc -l)" "0" "negating a non-filter results in no reads"
+
+is "$(cat <(vg filter -U -d 123.5 -t 10 paired.gam | vg view -aj -) <(vg filter -d 123.5 -t 10 paired.gam | vg view -aj -)  | wc -l)" "$(vg view -aj paired.gam | wc -l)" "a filter and its complement should form the entire file"
+
+rm -f x.gam filter_chunk*.gam chunks.bed
 rm -f x.vg x.xg paired.gam paired.sam paired.annotated.gam single.gam single.sam filtered.gam filtered.sam
                                                                
