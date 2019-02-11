@@ -159,6 +159,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad38e1d543014e24bd5d85ef62dd3a1b2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#ad38e1d543014e24bd5d85ef62dd3a1b2">has_edge</a> (const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;edge)</td></tr>
 <tr class="memdesc:ad38e1d543014e24bd5d85ef62dd3a1b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper of has_edge for edge_t argument.  <a href="#ad38e1d543014e24bd5d85ef62dd3a1b2">More...</a><br/></td></tr>
 <tr class="separator:ad38e1d543014e24bd5d85ef62dd3a1b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a65b8e2e73873e73dd0448949dd09f795"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a65b8e2e73873e73dd0448949dd09f795">for_each_edge</a> (const function&lt; bool(const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
+<tr class="separator:a65b8e2e73873e73dd0448949dd09f795"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a89eb63ad01cbb2e816a808d617b4536c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Visit.html">Visit</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a89eb63ad01cbb2e816a808d617b4536c">to_visit</a> (const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:a89eb63ad01cbb2e816a808d617b4536c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a Protobuf <a class="el" href="structvg_1_1Visit.html" title="Describes a step of a walk through a Snarl either on a node or through a child Snarl. ">Visit</a> from a handle.  <a href="#a89eb63ad01cbb2e816a808d617b4536c">More...</a><br/></td></tr>
 <tr class="separator:a89eb63ad01cbb2e816a808d617b4536c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -169,8 +171,6 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a1745a25509fdc440bbd4aa5438419464"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afa615a87264a5dca19767805ed39758d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#afa615a87264a5dca19767805ed39758d">traverse_edge_handle</a> (const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;edge, const <a class="el" href="structvg_1_1handle__t.html">handle_t</a> &amp;left) const </td></tr>
 <tr class="separator:afa615a87264a5dca19767805ed39758d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a65b8e2e73873e73dd0448949dd09f795"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html#a65b8e2e73873e73dd0448949dd09f795">for_each_edge</a> (const function&lt; bool(const <a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">edge_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
-<tr class="separator:a65b8e2e73873e73dd0448949dd09f795"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>This is the interface that a graph that uses handles needs to support. It is also the interface that users should code against. </p>
@@ -319,6 +319,9 @@ template&lt;typename T &gt; </div>
 <a class="anchor" id="a65b8e2e73873e73dd0448949dd09f795"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void vg::HandleGraph::for_each_edge </td>
@@ -338,8 +341,15 @@ template&lt;typename T &gt; </div>
           <td></td><td> const</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 <p>Loop over all edges in their canonical orientation (as returned by edge_handle) and execute an iteratee on each one. Can stop early by returning false from the iteratee. Early stopping may not be immediate if executing in parallel. </p>
+
+<p>Reimplemented in <a class="el" href="classvg_1_1ProtoHandleGraph.html#a4da860c14631551c0441b9e27299e4e8">vg::ProtoHandleGraph</a>.</p>
 
 </div>
 </div>
