@@ -206,7 +206,7 @@ int main_gbwt(int argc, char** argv)
             gbwt::DynamicGBWT index;
             {
                 string input_name = argv[optind];
-                if (sdsl::load_from_file(index, input_name)) {
+                if (!sdsl::load_from_file(index, input_name)) {
                     cerr << "error: [vg gbwt] cannot open GBWT file " << input_name << endl;
                     return 1;
                 }

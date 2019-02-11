@@ -293,7 +293,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
         if (!sdsl::load_from_file(gcsa_index, gcsa_name)) {
             std::cerr << "error: [vg minimizer] cannot open GCSA file " << gcsa_name << " for reading" << std::endl;
             benchmark_gcsa = false;
-        } else if(sdsl::load_from_file(lcp_index, lcp_name)) {
+        } else if(!sdsl::load_from_file(lcp_index, lcp_name)) {
             std::cerr << "error: [vg minimizer] cannot open LCP file " << lcp_name << " for reading" << std::endl;
             benchmark_gcsa = false;
         }
