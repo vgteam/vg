@@ -34,7 +34,6 @@
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
 
-#include <fstream>
 #include <iostream>
 #include <vector>
 
@@ -175,18 +174,12 @@ int main_minimizer(int argc, char** argv) {
     xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
 
     // Minimizer index.
-    MinimizerIndex index(kmer_length, window_length, max_occs);
+    std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length, max_occs));
     if (!load_index.empty()) {
         if (progress) {
             std::cerr << "Loading the index from " << load_index << std::endl;
         }
-        std::ifstream in(load_index, std::ios_base::binary);
-        if (!in) {
-            std::cerr << "error: [vg minimizer] cannot open index file " << load_index << " for reading" << std::endl;
-            return 1;
-        }
-        index.load(in);
-        in.close();
+        index = stream::VPKG::load_one<MinimizerIndex>(load_index);
     }
 
     // GBWT index.
@@ -203,7 +196,7 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "Building the index" << std::endl;
     }
     auto lambda = [&index](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
-        std::vector<MinimizerIndex::minimizer_type> minimizers = index.minimizers(seq);
+        std::vector<MinimizerIndex::minimizer_type> minimizers = index->minimizers(seq);
         auto iter = traversal.begin();
         size_t starting_offset = 0;
 #pragma omp critical (minimizer_index)
@@ -219,35 +212,29 @@ int main_minimizer(int argc, char** argv) {
                 }
                 pos_t pos = iter->first;
                 get_offset(pos) += minimizer.second - starting_offset;
-                index.insert(minimizer.first, pos);
+                index->insert(minimizer.first, pos);
             }
         }
     };
     if (gbwt_name.empty()) {
-        for_each_window(*xg_index, index.k() + index.w() - 1, lambda);
+        for_each_window(*xg_index, index->k() + index->w() - 1, lambda);
     } else {
-        for_each_window(*xg_index, *gbwt_index, index.k() + index.w() - 1, lambda);
+        for_each_window(*xg_index, *gbwt_index, index->k() + index->w() - 1, lambda);
     }
     gbwt_index.reset(nullptr);
 
     // Index statistics.
     if (progress) {
-        std::cerr << index.size() << " keys (" << index.unique_keys() << " unique, " << index.frequent_keys() << " too frequent)" << std::endl;
-        std::cerr << "Minimizer occurrences: " << index.values() << std::endl;
-        std::cerr << "Load factor: " << index.load_factor() << std::endl;
+        std::cerr << index->size() << " keys (" << index->unique_keys() << " unique, " << index->frequent_keys() << " too frequent)" << std::endl;
+        std::cerr << "Minimizer occurrences: " << index->values() << std::endl;
+        std::cerr << "Load factor: " << index->load_factor() << std::endl;
     }
 
     // Serialize the index.
     if (progress) {
         std::cerr << "Writing the index to " << index_name << std::endl;
     }
-    std::ofstream out(index_name, std::ios_base::binary);
-    if (!out) {
-        std::cerr << "error: [vg minimizer] cannot open index file " << index_name << " for writing" << std::endl;
-        return 1;
-    }
-    index.serialize(out);
-    out.close();
+    stream::VPKG::save(*index, index_name);
 
     double seconds = gbwt::readTimer() - start;
     if (progress) {
@@ -263,17 +250,10 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
     double start = gbwt::readTimer();
 
     // Load the minimizer index.
-    MinimizerIndex index;
     if (progress) {
         std::cerr << "Loading the minimizer index from " << index_name << std::endl;
     }
-    std::ifstream in(index_name, std::ios_base::binary);
-    if (!in) {
-        std::cerr << "error: [vg minimizer] cannot open index file " << index_name << " for reading" << std::endl;
-        return 1;
-    }
-    index.load(in);
-    in.close();
+    std::unique_ptr<MinimizerIndex> index(stream::VPKG::load_one<MinimizerIndex>(index_name));
 
     // Load the GCSA index.
     bool benchmark_gcsa = !(gcsa_name.empty());
@@ -316,12 +296,12 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
 #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
             size_t thread = omp_get_thread_num();
-            std::vector<MinimizerIndex::minimizer_type> result = index.minimizers(reads[i]);
+            std::vector<MinimizerIndex::minimizer_type> result = index->minimizers(reads[i]);
             min_counts[thread] += result.size();
             if (locate) {
                 for (auto minimizer : result) {
-                    if (index.count(minimizer.first) <= max_occs) {
-                        std::vector<pos_t> result = index.find(minimizer.first);
+                    if (index->count(minimizer.first) <= max_occs) {
+                        std::vector<pos_t> result = index->find(minimizer.first);
                         if (result.size() != 1 || !vg::is_empty(result.front())) {
                             occ_counts[thread] += result.size();
                         }
@@ -329,7 +309,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
                 }
             } else {
                 for (auto minimizer : result) {
-                    occ_counts[thread] += index.count(minimizer.first);
+                    occ_counts[thread] += index->count(minimizer.first);
                 }
             }
         }

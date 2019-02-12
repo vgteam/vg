@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 18
+plan tests 17
 
 
 # Indexing a single graph
@@ -15,27 +15,26 @@ vg index -x x.xg -G x.gbwt -v small/xy2.vcf.gz x.vg
 # Default construction
 vg minimizer -i x.mi x.xg
 is $? 0 "default parameters"
-is $(cat x.mi | wc -c) 16616 "index size is correct"
 
 # Single-threaded
 vg minimizer -t 1 -i x.mi x.xg
 is $? 0 "single-threaded construction"
-is $(md5sum x.mi | cut -f 1 -d\ ) 2bc00df65505c097f1cd644e38ec8b0a "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) b31ba27e61452bae522a6fc296965ed4 "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer -t 1 -k 7 -w 3 -i x.mi x.xg
 is $? 0 "minimizer parameters"
-is $(md5sum x.mi | cut -f 1 -d\ ) d108ae613718117d14e5e7c7915264b8 "setting -k -w works correctly"
+is $(md5sum x.mi | cut -f 1 -d\ ) 727a7990d534c13498833e9da63d6360 "setting -k -w works correctly"
 
 # Max occs (-k 7 -w 3 -m 2)
 vg minimizer -t 1 -k 7 -w 3 -m 2 -i x.mi x.xg
 is $? 0 "max occurrences"
-is $(md5sum x.mi | cut -f 1 -d\ ) 887db863baf05ecebce7bb1edfb63c09 "frequent minimizers can be excluded"
+is $(md5sum x.mi | cut -f 1 -d\ ) f03f948f9ed0428d188f8c491a44e32f "frequent minimizers can be excluded"
 
 # Haplotype-consistent minimizers
 vg minimizer -t 1 -g x.gbwt -i x.mi x.xg
 is $? 0 "haplotype-consistent minimizers"
-is $(md5sum x.mi | cut -f 1 -d\ ) 519fe0a241360286ab3a92cdef597f93 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) cc839bb44d8047e1ba60b1e0f4d193e8 "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.mi
 
