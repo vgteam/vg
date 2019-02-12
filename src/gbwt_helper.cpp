@@ -64,7 +64,7 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
                    bool parallel) {
 
     // Traverse all starting nodes in parallel.
-    graph.for_each_handle([&](const handle_t& h) {
+    graph.for_each_handle([&](const handle_t& h) -> bool {
         // Initialize the stack with all starting positions in the current node.
         std::stack<GBWTTraversal> kmers;
         for (bool is_reverse : { false, true }) {
@@ -88,6 +88,7 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
 
         // Extend with target length and minimum length k.
         extend_traversals(graph, haplotypes, kmers, k, k, lambda);
+        return true;
     }, parallel);
 }
 
@@ -96,7 +97,7 @@ void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, siz
                     bool parallel) {
 
     // Traverse all starting nodes in parallel.
-    graph.for_each_handle([&](const handle_t& h) {
+    graph.for_each_handle([&](const handle_t& h) -> bool {
         // Initialize the stack with both orientations.
         std::stack<GBWTTraversal> kmers;
         id_t id = graph.get_id(h);
@@ -116,6 +117,7 @@ void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, siz
 
         // Extend the windows.
         extend_traversals(graph, haplotypes, kmers, node_length + window_size - 1, window_size, lambda);
+        return true;
     }, parallel);
 }
 
@@ -124,7 +126,7 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
                      bool parallel) {
 
     // Traverse all starting nodes in parallel.
-    graph.for_each_handle([&](const handle_t& h) {
+    graph.for_each_handle([&](const handle_t& h) -> bool {
         // Initialize the stack with both orientations.
         std::stack<GBWTTraversal> windows;
         id_t id = graph.get_id(h);
@@ -166,6 +168,8 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
                 lambda(window.traversal, window.seq);
             }
         }
+
+        return true;
     }, parallel);
 }
 
