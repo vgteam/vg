@@ -562,7 +562,7 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
         // Edges don't contribute much to total support.  We keep a separate tally to make sure we don't
         // have too many unsupported edges in any called traversals. 
         total_edges += 1;
-        supported_edges += total(augmented.get_support(edge)) > 0. ? 1 : 0;
+        supported_edges += support_val(augmented.get_support(edge)) > 0. ? 1 : 0;
         
     }, [&](size_t i, Snarl child, bool is_reverse) {
         // This is a child snarl, so get its max support.
@@ -695,6 +695,8 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
             // the min_edge_support_frac is a heuristic cutoff to avoid this, though it may be
             // better to try weigting edges by the bases they delete in a primary path
             avg_support = total_support / total_size;
+        } else {
+            avg_support = min_support;
         }
         average_supports.push_back(avg_support);
         
