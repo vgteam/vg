@@ -258,11 +258,11 @@ def md_summary(xml_root):
             md += '({}))'.format(pipeline_url)
     try:
         if branch == 'master':
-            report += ' for merge to master'
+            md += ' for merge to master'
         elif branch is not None:
-            report += ' for branch {}'.format(escape(branch))
+            md += ' for branch {}'.format(escape(branch))
         elif in_ci:
-            report += ' for no branch'
+            md += ' for no branch'
         md += '.  View the [full report here]({{REPORT_URL}}).\n\n'
 
         ts = parse_all_testsuite_xml(xml_root)
