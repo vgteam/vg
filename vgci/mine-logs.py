@@ -265,7 +265,7 @@ def md_summary(xml_root):
             report += ' for no branch'
         md += '.  View the [full report here]({{REPORT_URL}}).\n\n'
 
-        ts = parse_testsuite_xml(xml_root)
+        ts = parse_all_testsuite_xml(xml_root)
 
         md += '{} tests passed, {} tests failed and {} tests skipped in {} seconds\n\n'.format(
             ts['passes'], ts['fails'], ts['skips'], ts['time'])
