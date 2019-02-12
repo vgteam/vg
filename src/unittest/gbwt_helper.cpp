@@ -11,8 +11,6 @@
 #include <set>
 #include <vector>
 
-#include <omp.h>
-
 namespace vg {
 namespace unittest {
 
@@ -161,13 +159,10 @@ TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper]") {
 
     // Extract all haplotype-consistent 3-mers.
     std::set<kmer_type> found_kmers;
-    int old_threads = omp_get_max_threads();
-    omp_set_num_threads(1);
     auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
         found_kmers.insert(kmer_type(traversal, seq));
     };
-    for_each_kmer(xg_index, gbwt_index, 3, lambda);
-    omp_set_num_threads(old_threads);
+    for_each_kmer(xg_index, gbwt_index, 3, lambda, false);
 
     // Check the number of kmers.
     SECTION("the traversal should have found the correct number of kmers") {
@@ -258,13 +253,10 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
 
     // Extract all haplotype-consistent windows of length 3.
     std::set<kmer_type> found_kmers;
-    int old_threads = omp_get_max_threads();
-    omp_set_num_threads(1);
     auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
         found_kmers.insert(kmer_type(traversal, seq));
     };
-    for_each_window(xg_index, gbwt_index, 3, lambda);
-    omp_set_num_threads(old_threads);
+    for_each_window(xg_index, gbwt_index, 3, lambda, false);
 
     // Check the number of kmers.
     SECTION("the traversal should have found the correct number of kmers") {
@@ -370,13 +362,10 @@ TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_hel
 
     // Extract all haplotype-consistent windows of length 3.
     std::set<kmer_type> found_kmers;
-    int old_threads = omp_get_max_threads();
-    omp_set_num_threads(1);
     auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
         found_kmers.insert(kmer_type(traversal, seq));
     };
-    for_each_window(xg_index, 3, lambda);
-    omp_set_num_threads(old_threads);
+    for_each_window(xg_index, 3, lambda, false);
 
     // Check the number of kmers.
     SECTION("the traversal should have found the correct number of kmers") {

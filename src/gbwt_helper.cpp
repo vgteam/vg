@@ -60,7 +60,8 @@ void extend_traversals(const HandleGraph& graph, const gbwt::GBWT& haplotypes,
 }
 
 void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t k,
-                   const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
+                   const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                   bool parallel) {
 
     // Traverse all starting nodes in parallel.
     graph.for_each_handle([&](const handle_t& h) {
@@ -87,11 +88,12 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
 
         // Extend with target length and minimum length k.
         extend_traversals(graph, haplotypes, kmers, k, k, lambda);
-    }, true);
+    }, parallel);
 }
 
 void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t window_size,
-                    const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
+                    const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                    bool parallel) {
 
     // Traverse all starting nodes in parallel.
     graph.for_each_handle([&](const handle_t& h) {
@@ -114,11 +116,12 @@ void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, siz
 
         // Extend the windows.
         extend_traversals(graph, haplotypes, kmers, node_length + window_size - 1, window_size, lambda);
-    }, true);
+    }, parallel);
 }
 
 void for_each_window(const HandleGraph& graph, size_t window_size,
-                     const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
+                     const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                     bool parallel) {
 
     // Traverse all starting nodes in parallel.
     graph.for_each_handle([&](const handle_t& h) {
@@ -163,7 +166,7 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
                 lambda(window.traversal, window.seq);
             }
         }
-    }, true);
+    }, parallel);
 }
 
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {

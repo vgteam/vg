@@ -79,7 +79,7 @@ int main_minimizer(int argc, char** argv) {
     size_t max_occs = MinimizerIndex::MAX_OCCS;
     std::string index_name, load_index, gbwt_name, xg_name, reads_name, gcsa_name;
     bool progress = false, locate = false;
-    int threads;
+    int threads = omp_get_max_threads();
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -217,9 +217,9 @@ int main_minimizer(int argc, char** argv) {
         }
     };
     if (gbwt_name.empty()) {
-        for_each_window(*xg_index, index->k() + index->w() - 1, lambda);
+        for_each_window(*xg_index, index->k() + index->w() - 1, lambda, (threads > 1));
     } else {
-        for_each_window(*xg_index, *gbwt_index, index->k() + index->w() - 1, lambda);
+        for_each_window(*xg_index, *gbwt_index, index->k() + index->w() - 1, lambda, (threads > 1));
     }
     gbwt_index.reset(nullptr);
 
