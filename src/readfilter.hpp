@@ -23,6 +23,9 @@ class ReadFilter{
 public:
     
     // Filtering parameters
+    
+    /// Actually take the complement of the filter
+    bool complement_filter = false;
     /// Read name must have one of these prefixes, if any are present.
     /// TODO: This should be a trie but I don't have one handy.
     /// Must be sorted for vaguely efficient search.
