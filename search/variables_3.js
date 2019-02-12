@@ -33,6 +33,7 @@ var searchData=
   ['compare',['compare',['../classvg_1_1XdropAligner.html#a5090116005c979770c34703c71c02beb',1,'vg::XdropAligner']]],
   ['compiler',['COMPILER',['../classvg_1_1Version.html#a20177da26bdbb15b48bae0c20b02b273',1,'vg::Version']]],
   ['complement',['complement',['../structvg_1_1ChainIterator.html#a6699e092f944e1c311b4bbdf2e2cbe38',1,'vg::ChainIterator']]],
+  ['complement_5ffilter',['complement_filter',['../classvg_1_1ReadFilter.html#a7a22a82c55e23fca581060934d03935e',1,'vg::ReadFilter']]],
   ['component_5fpath_5fset_5fof_5fpath',['component_path_set_of_path',['../classxg_1_1XG.html#adb9df2318f649627ed9f5db2a375f3fa',1,'xg::XG']]],
   ['component_5fpath_5fsets',['component_path_sets',['../classxg_1_1XG.html#a9fb43a0e9fb12e895232e1208aae93c3',1,'xg::XG']]],
   ['cond_5fdistrs',['cond_distrs',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a8bef106a51ae52b02b3cf9ea9179dc69',1,'vg::NGSSimulator::MarkovDistribution']]],

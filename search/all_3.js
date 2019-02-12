@@ -160,6 +160,7 @@ var searchData=
   ['complement',['complement',['../structvg_1_1ChainIterator.html#a6699e092f944e1c311b4bbdf2e2cbe38',1,'vg::ChainIterator']]],
   ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#aa9f017a0cd422c1229edd25c0235e17a',1,'vg::PhaseUnfolder']]],
   ['complement_5fencoded_5fnucleotide',['complement_encoded_nucleotide',['../classvg_1_1PackedGraph.html#af47116e32d103cb77f2e771d79ba2491',1,'vg::PackedGraph']]],
+  ['complement_5ffilter',['complement_filter',['../classvg_1_1ReadFilter.html#a7a22a82c55e23fca581060934d03935e',1,'vg::ReadFilter']]],
   ['component_5fpath_5fset_5fof_5fpath',['component_path_set_of_path',['../classxg_1_1XG.html#adb9df2318f649627ed9f5db2a375f3fa',1,'xg::XG']]],
   ['component_5fpath_5fsets',['component_path_sets',['../classxg_1_1XG.html#a9fb43a0e9fb12e895232e1208aae93c3',1,'xg::XG']]],
   ['component_5ftopological_5forder',['component_topological_order',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a3d781e43df99ad3ce2b7e65af456f5f6',1,'vg::MEMClusterer::HitGraph']]],
