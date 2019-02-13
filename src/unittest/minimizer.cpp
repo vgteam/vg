@@ -49,8 +49,8 @@ TEST_CASE("MinimizerIndex construction, assignment, and serialization", "[minimi
 
     SECTION("index contents can be swapped") {
         MinimizerIndex first, second;
-        first.insert(1, { 1, false, 3 });
-        second.insert(2, { 2, false, 3});
+        first.insert(1, MinimizerIndex::make_pos_t(1, false, 3));
+        second.insert(2, MinimizerIndex::make_pos_t(2, false, 3));
 
         MinimizerIndex first_copy(first), second_copy(second);
         first.swap(second);
