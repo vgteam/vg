@@ -59,7 +59,7 @@ public:
         size_t        values, max_occs;
         size_t        unique, frequent;
 
-        constexpr static std::uint32_t TAG = 31513151;
+        constexpr static std::uint32_t TAG = 0x31513151;
         constexpr static std::uint32_t VERSION = 1;
         constexpr static std::uint32_t MIN_VERSION = 1;
 
