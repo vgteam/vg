@@ -41,7 +41,7 @@ var searchData=
   ['find_5fmems_5fsimple',['find_mems_simple',['../classvg_1_1BaseMapper.html#a4dd3272837211543ba461472833734a9',1,'vg::BaseMapper']]],
   ['find_5fnode_5fby_5fname_5for_5fadd_5fnew',['find_node_by_name_or_add_new',['../classvg_1_1VG.html#a04774a86b07508e9e5955abfba2171ff',1,'vg::VG']]],
   ['find_5fnon_5fref_5ftips',['find_non_ref_tips',['../classvg_1_1Homogenizer.html#a8b6ba61dfa468727d090ed7ba9b8b490',1,'vg::Homogenizer']]],
-  ['find_5fpath',['find_path',['../classvg_1_1SupportCaller.html#af71092920f5b02ba09285d071a3d3059',1,'vg::SupportCaller']]],
+  ['find_5fpath',['find_path',['../classvg_1_1SupportCaller.html#a2e0c3c04b02b50a8dd7aa2f17891ea05',1,'vg::SupportCaller']]],
   ['find_5fposition',['find_position',['../structvg_1_1PathIndex.html#a667b5c7837718a9fe7b0904868148478',1,'vg::PathIndex']]],
   ['find_5fsnarls',['find_snarls',['../classvg_1_1SnarlFinder.html#a28d2aa85a748836df818c8c4ac8a8fd9',1,'vg::SnarlFinder::find_snarls()'],['../classvg_1_1CactusSnarlFinder.html#a3060bcff3b01e21176f17ebb74d31452',1,'vg::CactusSnarlFinder::find_snarls()']]],
   ['find_5fsub_5fmems',['find_sub_mems',['../classvg_1_1BaseMapper.html#a77079f609cab775e59ff0750ef9e84d9',1,'vg::BaseMapper']]],

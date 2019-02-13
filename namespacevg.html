@@ -1574,8 +1574,6 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:aad98d082285cd6dcc92302924095d666"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a41a22f4c38561e62e9c752b5dbb9ee12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a41a22f4c38561e62e9c752b5dbb9ee12">trace_traversal</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, function&lt; void(size_t, <a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>, bool)&gt; handle_node, function&lt; void(size_t, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>)&gt; handle_edge, function&lt; void(size_t, <a class="el" href="structvg_1_1Snarl.html">Snarl</a>, bool)&gt; handle_child)</td></tr>
 <tr class="separator:a41a22f4c38561e62e9c752b5dbb9ee12"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a75b6437e6aec966fbcd92fbaa48f98da"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1Support.html">Support</a>, <a class="el" href="structvg_1_1Support.html">Support</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a75b6437e6aec966fbcd92fbaa48f98da">get_traversal_support</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> *already_used=nullptr)</td></tr>
-<tr class="separator:a75b6437e6aec966fbcd92fbaa48f98da"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52292dfd3869a811170f7c5c0d9da564"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a52292dfd3869a811170f7c5c0d9da564">is_match</a> (const <a class="el" href="structvg_1_1Translation.html">Translation</a> &amp;translation)</td></tr>
 <tr class="separator:a52292dfd3869a811170f7c5c0d9da564"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa65de7dea52585f07bee6ae7f762eb95"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa65de7dea52585f07bee6ae7f762eb95">reverse_complement</a> (const char &amp;c)</td></tr>
@@ -6397,51 +6395,6 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>Given a path (which may run either direction through a snarl, or not touch the ends at all), collect a list of NodeTraversals in order for the part of the path that is inside the snarl, in the same orientation as the path. </p>
-
-</div>
-</div>
-<a class="anchor" id="a75b6437e6aec966fbcd92fbaa48f98da"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">tuple&lt;<a class="el" href="structvg_1_1Support.html">Support</a>, <a class="el" href="structvg_1_1Support.html">Support</a>, size_t&gt; vg::get_traversal_support </td>
-          <td>(</td>
-          <td class="paramtype">SupportAugmentedGraph &amp;&#160;</td>
-          <td class="paramname"><em>augmented</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">SnarlManager &amp;&#160;</td>
-          <td class="paramname"><em>snarl_manager</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const Snarl &amp;&#160;</td>
-          <td class="paramname"><em>site</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const SnarlTraversal &amp;&#160;</td>
-          <td class="paramname"><em>traversal</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const SnarlTraversal *&#160;</td>
-          <td class="paramname"><em>already_used</em> = <code>nullptr</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Get the min support, total support, bp size (to divide total by for average support), and min likelihood for a traversal, optionally special-casing the material used by another traversal. Material used by another traversal only makes half its coverage available to this traversal. </p>
 
 </div>
 </div>

@@ -76,6 +76,7 @@ var searchData=
   ['previous_5fsum',['previous_sum',['../structhaplo_1_1haplo__DP__column.html#a474364179d091eda8dd0684d4d86afa8',1,'haplo::haplo_DP_column']]],
   ['previous_5fvalues',['previous_values',['../structhaplo_1_1haplo__DP__column.html#a5e1664796c443719bd4e775f503ab8ad',1,'haplo::haplo_DP_column']]],
   ['primary',['primary',['../classvg_1_1MaximalExactMatch.html#a2e34dcded590361daf8ca3a9ed3fb62f',1,'vg::MaximalExactMatch']]],
+  ['primary_5fpaths',['primary_paths',['../classvg_1_1SupportCaller.html#a8dab4df2537ef96e9803d630f5920aec',1,'vg::SupportCaller']]],
   ['primitive_5froot',['primitive_root',['../classvg_1_1ShuffledPairs.html#a78c948366b8eec98b8393ae2ac75f86a',1,'vg::ShuffledPairs']]],
   ['print_5fupdates',['print_updates',['../classvg_1_1VariantAdder.html#af52ce72b2446132042df93857eb12b63',1,'vg::VariantAdder']]],
   ['priority',['priority',['../classvg_1_1subcommand_1_1Subcommand.html#a3f995aec9b4e2367530e1a6bcccb2e53',1,'vg::subcommand::Subcommand']]],

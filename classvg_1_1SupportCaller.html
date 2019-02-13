@@ -123,15 +123,20 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7e7d15eed023928433d5a6c3f7097939"><td class="memItemLeft" align="right" valign="top">tuple&lt; vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt;<br class="typebreak"/>
 , vector&lt; size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a7e7d15eed023928433d5a6c3f7097939">get_traversal_supports_and_sizes</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> *minus_traversal=NULL)</td></tr>
 <tr class="separator:a7e7d15eed023928433d5a6c3f7097939"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af1703c798d3346fa95f68ebdd64e7f10"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1Support.html">Support</a>, <a class="el" href="structvg_1_1Support.html">Support</a>, <br class="typebreak"/>
+size_t, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#af1703c798d3346fa95f68ebdd64e7f10">get_traversal_support</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> *already_used=nullptr)</td></tr>
+<tr class="separator:af1703c798d3346fa95f68ebdd64e7f10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac01e7eacc46cd32095b49f6b4ac1916f"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#ac01e7eacc46cd32095b49f6b4ac1916f">find_best_traversals</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> *finder, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;baseline_support, size_t copy_budget, function&lt; void(const <a class="el" href="structvg_1_1Locus.html">Locus</a> &amp;, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; emit_locus)</td></tr>
 <tr class="separator:ac01e7eacc46cd32095b49f6b4ac1916f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a122bc21c6e3795bf018cacf541ab6d6e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a122bc21c6e3795bf018cacf541ab6d6e">is_reference</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, <a class="el" href="structvg_1_1AugmentedGraph.html">AugmentedGraph</a> &amp;augmented)</td></tr>
 <tr class="separator:a122bc21c6e3795bf018cacf541ab6d6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa6d58daaa5f0c090e934d0dbaaa14ce8"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#aa6d58daaa5f0c090e934d0dbaaa14ce8">is_reference</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, <a class="el" href="structvg_1_1AugmentedGraph.html">AugmentedGraph</a> &amp;augmented)</td></tr>
 <tr class="separator:aa6d58daaa5f0c090e934d0dbaaa14ce8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af71092920f5b02ba09285d071a3d3059"><td class="memItemLeft" align="right" valign="top">map&lt; string, <a class="el" href="classvg_1_1SupportCaller_1_1PrimaryPath.html">PrimaryPath</a> &gt;<br class="typebreak"/>
-::iterator&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#af71092920f5b02ba09285d071a3d3059">find_path</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, map&lt; string, <a class="el" href="classvg_1_1SupportCaller_1_1PrimaryPath.html">PrimaryPath</a> &gt; &amp;primary_paths)</td></tr>
-<tr class="separator:af71092920f5b02ba09285d071a3d3059"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e0c3c04b02b50a8dd7aa2f17891ea05"><td class="memItemLeft" align="right" valign="top">map&lt; string, <a class="el" href="classvg_1_1SupportCaller_1_1PrimaryPath.html">PrimaryPath</a> &gt;<br class="typebreak"/>
+::iterator&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a2e0c3c04b02b50a8dd7aa2f17891ea05">find_path</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site)</td></tr>
+<tr class="separator:a2e0c3c04b02b50a8dd7aa2f17891ea05"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abcc97bc5517cf93bc14083509746d3c7"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#abcc97bc5517cf93bc14083509746d3c7">get_deletion_length</a> (const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;end1, const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;end2, <a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented)</td></tr>
+<tr class="separator:abcc97bc5517cf93bc14083509746d3c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1Configurable"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1Configurable')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1Configurable.html">vg::Configurable</a></td></tr>
 <tr class="memitem:afa7bba48c6289ea9b9095acd79a5658e inherit pub_methods_classvg_1_1Configurable"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Configurable.html#afa7bba48c6289ea9b9095acd79a5658e">register_option</a> (<a class="el" href="classvg_1_1OptionInterface.html">OptionInterface</a> *option)</td></tr>
 <tr class="separator:afa7bba48c6289ea9b9095acd79a5658e inherit pub_methods_classvg_1_1Configurable"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -147,6 +152,8 @@ Static Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
+<tr class="memitem:a8dab4df2537ef96e9803d630f5920aec"><td class="memItemLeft" align="right" valign="top">map&lt; string, <a class="el" href="classvg_1_1SupportCaller_1_1PrimaryPath.html">PrimaryPath</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a8dab4df2537ef96e9803d630f5920aec">primary_paths</a></td></tr>
+<tr class="separator:a8dab4df2537ef96e9803d630f5920aec"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abc8b8ec1ae50ef22ec1bb7f9307edcdd"><td class="memItemLeft" align="right" valign="top">function&lt; double(const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;)&gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#abc8b8ec1ae50ef22ec1bb7f9307edcdd">support_val</a></td></tr>
 <tr class="separator:abc8b8ec1ae50ef22ec1bb7f9307edcdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3793a603d54a9274ed8e2b0e3abc5dc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; bool &gt; convert_to_vcf&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#af3793a603d54a9274ed8e2b0e3abc5dc">this</a></td></tr>
@@ -231,6 +238,8 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
 <tr class="separator:a2310ebac3bb08de54267e7f7aa1b06d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3251426f491b2efad76f0db8f28512f4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a3251426f491b2efad76f0db8f28512f4">leave_shared_ends</a></td></tr>
 <tr class="separator:a3251426f491b2efad76f0db8f28512f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92ef69bbb47e596369c913d355088b47"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a92ef69bbb47e596369c913d355088b47">min_edge_support_frac</a></td></tr>
+<tr class="separator:a92ef69bbb47e596369c913d355088b47"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a16284074baabe10886ae5e33b2d0e165"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a16284074baabe10886ae5e33b2d0e165">verbose</a> = false</td></tr>
 <tr class="memdesc:a16284074baabe10886ae5e33b2d0e165"><td class="mdescLeft">&#160;</td><td class="mdescRight">print warnings etc. to stderr  <a href="#a16284074baabe10886ae5e33b2d0e165">More...</a><br/></td></tr>
 <tr class="separator:a16284074baabe10886ae5e33b2d0e165"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -353,7 +362,7 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
 
 </div>
 </div>
-<a class="anchor" id="af71092920f5b02ba09285d071a3d3059"></a>
+<a class="anchor" id="a2e0c3c04b02b50a8dd7aa2f17891ea05"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -361,13 +370,37 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
           <td class="memname">map&lt; string, <a class="el" href="classvg_1_1SupportCaller_1_1PrimaryPath.html">SupportCaller::PrimaryPath</a> &gt;::iterator vg::SupportCaller::find_path </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
-          <td class="paramname"><em>site</em>, </td>
+          <td class="paramname"><em>site</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find the primary path, if any, that the given site is threaded onto.</p>
+<p>TODO: can only work by brute-force search. </p>
+
+</div>
+</div>
+<a class="anchor" id="abcc97bc5517cf93bc14083509746d3c7"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::SupportCaller::get_deletion_length </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;&#160;</td>
+          <td class="paramname"><em>end1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">map&lt; string, <a class="el" href="classvg_1_1SupportCaller_1_1PrimaryPath.html">PrimaryPath</a> &gt; &amp;&#160;</td>
-          <td class="paramname"><em>primary_paths</em>&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &amp;&#160;</td>
+          <td class="paramname"><em>end2</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>augmented</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -376,8 +409,52 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Find the primary path, if any, that the given site is threaded onto.</p>
-<p>TODO: can only work by brute-force search. </p>
+<p>Find the lenght of a deletion deletion edge along (the first found) primary path. If no path found or not a deletion edge, return 0. </p>
+
+</div>
+</div>
+<a class="anchor" id="af1703c798d3346fa95f68ebdd64e7f10"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tuple&lt; <a class="el" href="structvg_1_1Support.html">Support</a>, <a class="el" href="structvg_1_1Support.html">Support</a>, size_t, double &gt; vg::SupportCaller::get_traversal_support </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>augmented</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>snarl_manager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
+          <td class="paramname"><em>site</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;&#160;</td>
+          <td class="paramname"><em>traversal</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> *&#160;</td>
+          <td class="paramname"><em>already_used</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the min support, total support, bp size (to divide total by for average support), and fraction of unsupported edges for a traversal, optionally special-casing the material used by another traversal. Material used by another traversal only makes half its coverage available to this traversal. </p>
 
 </div>
 </div>
@@ -423,7 +500,7 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
       </table>
 </div><div class="memdoc">
 <p>Get the support and size for each traversal in a list. Discount support of minus_traversal if it's specified. Use average_support_switch_threshold and use_average_support to decide whether to return min or avg supports</p>
-<p>Get the support for each traversal in a list, using average_support_switch_threshold to decide if we use the minimum or average </p>
+<p>Get the support for each traversal in a list, using average_support_switch_threshold to decide if we use the minimum or average. Apply the min_supported_edges cutoff to set support to 0 if not enough edges were supported. </p>
 
 </div>
 </div>
@@ -794,6 +871,21 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
 
 </div>
 </div>
+<a class="anchor" id="a92ef69bbb47e596369c913d355088b47"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Option.html">Option</a>&lt;double&gt; vg::SupportCaller::min_edge_support_frac</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">{<span class="keyword">this</span>, <span class="stringliteral">&quot;min-edge-support-frac&quot;</span>, <span class="stringliteral">&quot;e&quot;</span>, 0.8,</div>
+<div class="line">            <span class="stringliteral">&quot;Traversal must have at least this proportion of supported edges to be counted&quot;</span>}</div>
+</div><!-- fragment --><p>Don't call a traversal with more than this proportion of unsupported edges. Only relevant when using average support with minimum support 0. </p>
+
+</div>
+</div>
 <a class="anchor" id="a65abecae63da2cabc9a3bc4f7a710ded"></a>
 <div class="memitem">
 <div class="memproto">
@@ -836,6 +928,18 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
 <b>Initial value:</b><div class="fragment"><div class="line">{<span class="keyword">this</span>, <span class="stringliteral">&quot;min-count&quot;</span>, <span class="stringliteral">&quot;n&quot;</span>, 1, </div>
 <div class="line">        <span class="stringliteral">&quot;min total supporting read count to call a variant&quot;</span>}</div>
 </div><!-- fragment --><p>What's the minimum integer number of reads that must support a call? We don't necessarily want to call a SNP as het because we have a single </p>
+
+</div>
+</div>
+<a class="anchor" id="a8dab4df2537ef96e9803d630f5920aec"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">map&lt;string, <a class="el" href="classvg_1_1SupportCaller_1_1PrimaryPath.html">PrimaryPath</a>&gt; vg::SupportCaller::primary_paths</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
