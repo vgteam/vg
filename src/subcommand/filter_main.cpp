@@ -48,6 +48,7 @@ void help_filter(char** argv) {
          << "    -d, --downsample S.P       filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
          << "    -i, --interleaved          assume interleaved input.  both ends will be filtered out if either fails filter" << endl
          << "    -b, --min-base-quality Q:F filter reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
+         << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -t, --threads N            number of threads [1]" << endl;
 }
 
@@ -93,12 +94,13 @@ int main_filter(int argc, char** argv) {
                 {"downsample", required_argument, 0, 'd'},
                 {"interleaved", required_argument, 0, 'i'},
                 {"min-base-quality", required_argument, 0, 'b'},
+                {"complement", no_argument, 0, 'U'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:AvVq:E:D:C:d:ib:t:",
+        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:AvVq:E:D:C:d:ib:Ut:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -230,6 +232,9 @@ int main_filter(int argc, char** argv) {
                 }
             }
             break;
+        case 'U':
+            filter.complement_filter = true;
+            break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
             break;
@@ -273,11 +278,11 @@ int main_filter(int argc, char** argv) {
         
         // Read in the alignments and filter them.
         error_code = filter.filter(&in);
-      });
+    });
 
     return error_code;
 }
 
 // Register subcommand
-static Subcommand vg_vectorize("filter", "filter reads", main_filter);
+static Subcommand vg_filter("filter", "filter reads", main_filter);
 

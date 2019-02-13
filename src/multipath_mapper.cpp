@@ -2471,7 +2471,7 @@ namespace vg {
             auto prev_2 = previous_multipath_alns_2.find(cluster_pair.first.second);
             if (prev_2 == previous_multipath_alns_2.end()) {
                 // we haven't done this alignment yet, so we have to complete it for the first time
-                HashGraph* graph2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
+                auto graph2 = get<0>(cluster_graphs2[cluster_pair.first.second]);
                 memcluster_t& graph_mems2 = get<1>(cluster_graphs2[cluster_pair.first.second]);
                 
 #ifdef debug_multipath_mapper
@@ -2590,7 +2590,7 @@ namespace vg {
             
             // extract the subgraph within the search distance
             
-            HashGraph* cluster_graph = new HashGraph();
+            auto cluster_graph = new HashGraph();
             algorithms::extract_containing_graph(xindex, cluster_graph, positions, forward_max_dist, backward_max_dist,
                                                  num_alt_alns > 1 ? reversing_walk_length : 0);
                                                  
@@ -2684,7 +2684,7 @@ namespace vg {
         unordered_map<size_t, vector<size_t>> multicomponent_splits;
         
         size_t max_graph_idx = 0;
-        for (const pair<size_t, HashGraph*> cluster_graph : cluster_graphs) {
+        for (const auto& cluster_graph : cluster_graphs) {
             vector<unordered_set<id_t>> connected_components = algorithms::weakly_connected_components(cluster_graph.second);
             if (connected_components.size() > 1) {
                 multicomponent_graphs.emplace_back(cluster_graph.first, std::move(connected_components));

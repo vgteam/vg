@@ -228,7 +228,7 @@ int main_index(int argc, char** argv) {
             {"exclude", required_argument, 0, 'E'},
 
             // GCSA
-            {"gcsa-name", required_argument, 0, 'g'},
+            {"gcsa-out", required_argument, 0, 'g'},
             {"dbg-in", required_argument, 0, 'i'},
             {"mapping", required_argument, 0, 'f'},
             {"kmer-size", required_argument, 0, 'k'},
