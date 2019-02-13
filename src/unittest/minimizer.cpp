@@ -35,11 +35,11 @@ TEST_CASE("MinimizerIndex construction, assignment, and serialization", "[minimi
         MinimizerIndex default_copy(default_index);
 
         // Different contents.
-        default_index.insert(1, { 1, false, 3 });
+        default_index.insert(1, MinimizerIndex::make_pos_t(1, false, 3));
         REQUIRE(default_index != default_copy);
 
         // Same key, different value.
-        default_copy.insert(1, { 2, false, 3 });
+        default_copy.insert(1, MinimizerIndex::make_pos_t(2, false, 3));
         REQUIRE(default_index != default_copy);
 
         // Same contents.
@@ -62,9 +62,9 @@ TEST_CASE("MinimizerIndex construction, assignment, and serialization", "[minimi
 
     SECTION("serialization preserves parameters and contents") {
         MinimizerIndex index(15, 6);
-        index.insert(1, { 1, false, 3 });
-        index.insert(2, { 1, false, 3 });
-        index.insert(2, { 2, false, 3 });
+        index.insert(1, MinimizerIndex::make_pos_t(1, false, 3));
+        index.insert(2, MinimizerIndex::make_pos_t(1, false, 3));
+        index.insert(2, MinimizerIndex::make_pos_t(2, false, 3));
 
         std::string filename = temp_file::create("minimizer");
         std::ofstream out(filename, std::ios_base::binary);
