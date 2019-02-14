@@ -612,6 +612,13 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
         alignment_name = alignment.name();
     }
+
+    if (mapped && paired && !refseq.empty() && refseq == mateseq) {
+        // properly paired if both mates mapped to same sequence
+        // TODO: bwa is more strict, and additionally requires that the mates are in forward-reverse orientation
+        // and the distance between them is proporitinal to the estimated insert length.   
+        flags |= BAM_FPROPER_PAIR;
+    }
     
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
@@ -927,11 +934,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
-    } else if (flag & BAM_FPAIRED) {
-        // Aligned and in a pair, so assume it's properly paired.
-        // TODO: this relies on us not emitting improperly paired reads
-        flag |= BAM_FPROPER_PAIR;
-    }
+    } 
     if (on_reverse_strand) {
         flag |= BAM_FREVERSE;
     }
