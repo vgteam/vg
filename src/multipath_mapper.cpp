@@ -9,6 +9,7 @@
 //#define debug_validate_multipath_alignments
 //#define debug_report_startup_training
 //#define debug_pretty_print_alignments
+#define distance_eval
 
 #include "multipath_mapper.hpp"
 #include "multipath_alignment_graph.hpp"
@@ -58,6 +59,48 @@ namespace vg {
         double dummy1; double dummy2;
         vector<MaximalExactMatch> mems = find_mems_deep(alignment.sequence().begin(), alignment.sequence().end(), dummy1, dummy2,
                                                         0, min_mem_length, mem_reseed_length, false, true, true, false);
+
+#ifdef distance_eval
+//print out distances between mems for evaluation
+
+cerr << pb2json(alignment) << "|" ;
+for (MaximalExactMatch mem : mems) {
+    //For each of the mems, find position in the graph
+    id_t id = gcsa::Node::id(mem.nodes[0]);
+    size_t offset = gcsa::Node::offset(mem.nodes[0]);
+    bool is_rev = gcsa::Node::rc(mem.nodes[0]);
+    size_t read_offset = mem.begin - alignment.sequence().begin();
+
+    //pos_t graph_pos = make_pos_t(id, is_rev, offset); //Position of mem in graph
+
+
+    cerr << read_offset << "," << id << "," << offset << "," << is_rev << ";";
+    //print out offset of mem in read, node id, node offset, node orientation
+}
+cerr << endl;
+
+for (MaximalExactMatch mem1 : mems) {
+    //For each of the mems, find position in the graph
+    int read_offset1 = mem1.begin - alignment.sequence().begin();
+
+    pos_t graph_pos1 = make_pos_t(mem1.nodes[0]); //Position of mem in graph
+    
+    cerr << "/";
+    for (MaximalExactMatch mem2 : mems) {
+        int read_offset2 = mem2.begin - alignment.sequence().begin();
+
+        pos_t graph_pos2 = make_pos_t(mem2.nodes[0]);
+        
+        cerr << mem2.begin - mem1.begin << "." 
+             << distance_index->minDistance(graph_pos1, graph_pos2) << "." 
+             << xindex->closest_shared_path_oriented_distance(id(graph_pos1), 
+                         offset(graph_pos1), is_rev(graph_pos1), id(graph_pos2),
+                         offset(graph_pos2), is_rev(graph_pos2) ) ;
+        cerr << ",";
+    }
+}
+cerr << endl;
+#endif
         
 #ifdef debug_multipath_mapper
         cerr << "obtained MEMs:" << endl;
