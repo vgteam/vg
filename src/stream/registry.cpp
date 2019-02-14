@@ -11,6 +11,7 @@
 #include "register_loader_saver_gbwt.hpp"
 #include "register_loader_saver_xg.hpp"
 #include "register_loader_saver_vg.hpp"
+#include "register_loader_saver_minimizer.hpp"
 
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/descriptor.h>
@@ -46,6 +47,7 @@ auto Registry::register_everything() -> bool {
     register_loader_saver_gbwt();
     register_loader_saver_xg();
     register_loader_saver_vg();
+    register_loader_saver_minimizer();
     
     return true;
 }
