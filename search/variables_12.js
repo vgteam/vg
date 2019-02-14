@@ -36,6 +36,8 @@ var searchData=
   ['rescue_5fonly_5fmin',['rescue_only_min',['../classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378',1,'vg::MultipathMapper']]],
   ['reserved',['reserved',['../structvg_1_1Alignment.html#a8374111b6348509e8e9ecca0cd1ac046',1,'vg::Alignment']]],
   ['retry_5fon_5fns',['retry_on_Ns',['../classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd',1,'vg::NGSSimulator']]],
+  ['rev_5fmask',['REV_MASK',['../classvg_1_1MinimizerIndex.html#aa63d83b6faa4dbd090bce4c203450f7a',1,'vg::MinimizerIndex']]],
+  ['rev_5foffset',['REV_OFFSET',['../classvg_1_1MinimizerIndex.html#afb0c45406bb1374ae4f48a4e4905bb44',1,'vg::MinimizerIndex']]],
   ['reverse',['reverse',['../structvg_1_1Support.html#acc2aa2a4b0278503817664600938c8a2',1,'vg::Support']]],
   ['reversing_5fwalk_5flength',['reversing_walk_length',['../classvg_1_1MultipathMapper.html#af87eaae1274e33230fffe9dca05dbbec',1,'vg::MultipathMapper']]],
   ['rho',['rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7536987972e5d717ba43a951adcece82',1,'haplo::haploMath::RRMemo']]],

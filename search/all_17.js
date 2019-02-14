@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['w',['w',['../structvg_1_1MinimizerIndex_1_1Header.html#a3036e50ff07a2dcc03404fcbcf698cda',1,'vg::MinimizerIndex::Header::w()'],['../classvg_1_1MinimizerIndex.html#a5630bef68a98414984b8d8dcaa58520e',1,'vg::MinimizerIndex::w()']]],
   ['wabbit_5fmap',['wabbit_map',['../classVectorizer.html#abc8fdb5dcd0ccc39c2b042633ef6820e',1,'Vectorizer']]],
   ['wabbitize',['wabbitize',['../classVectorizer.html#ae4c3627b5c8ec7b066f5735ca6dfb3f1',1,'Vectorizer']]],
   ['wait_5ffor_5fregion',['wait_for_region',['../classvg_1_1GraphSynchronizer.html#a7f9e68c4e2172bc4a5c7040272a59d38',1,'vg::GraphSynchronizer']]],
@@ -35,7 +36,7 @@ var searchData=
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html#a5437179a5230df00551a618df6bc4c53',1,'vg::WideningPRNG']]],
   ['wideningprng',['WideningPRNG',['../classvg_1_1WideningPRNG.html',1,'vg']]],
   ['widget',['WIDGET',['../namespacevg_1_1subcommand.html#a98d12492502a2d7f7c46386d2faed838afa639842a4d69790c890c94b80e27792',1,'vg::subcommand']]],
-  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter']]],
+  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter::window_length()'],['../classvg_1_1MinimizerIndex.html#a5c8618f8d827022b935857a360e8d054',1,'vg::MinimizerIndex::WINDOW_LENGTH()']]],
   ['window_5fof_5fid',['window_of_id',['../classvg_1_1StreamIndexBase.html#a320b27d89fbc1a74574cc00befe1e7fe',1,'vg::StreamIndexBase']]],
   ['window_5fshift',['WINDOW_SHIFT',['../classvg_1_1StreamIndexBase.html#abfcccdbb508967165d185181eb95588a',1,'vg::StreamIndexBase']]],
   ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer']]],
@@ -55,7 +56,7 @@ var searchData=
   ['write_5fedits',['write_edits',['../classvg_1_1Packer.html#ae7887294608eba5b47484182d657feb3',1,'vg::Packer::write_edits(vector&lt; ofstream * &gt; &amp;out) const '],['../classvg_1_1Packer.html#a956f82c4ff6fbd460a2b6201f051b5ae',1,'vg::Packer::write_edits(ostream &amp;out, size_t bin) const ']]],
   ['write_5fgcsa_5fkmers',['write_gcsa_kmers',['../namespacevg.html#a6d8c71ff9f77ddd4a366119e83122771',1,'vg']]],
   ['write_5fgcsa_5fkmers_5fascii',['write_gcsa_kmers_ascii',['../classvg_1_1VGset.html#a025bbf9c919cd28e16ca857d78bcc073',1,'vg::VGset']]],
-  ['write_5fgcsa_5fkmers_5fbinary',['write_gcsa_kmers_binary',['../classvg_1_1VGset.html#aa48a0bc96e1707b148c43f07a1855c08',1,'vg::VGset::write_gcsa_kmers_binary(ostream &amp;out, int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)'],['../classvg_1_1VGset.html#a9bcfc1213bc9125e0e05f7ca83afb903',1,'vg::VGset::write_gcsa_kmers_binary(int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)']]],
+  ['write_5fgcsa_5fkmers_5fbinary',['write_gcsa_kmers_binary',['../classvg_1_1VGset.html#aa48a0bc96e1707b148c43f07a1855c08',1,'vg::VGset::write_gcsa_kmers_binary(ostream &amp;out, int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)'],['../classvg_1_1VGset.html#a1ea836f101958b7ceae6fa0e8f2f0e70',1,'vg::VGset::write_gcsa_kmers_binary(int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)']]],
   ['write_5fgcsa_5fkmers_5fto_5ftmpfile',['write_gcsa_kmers_to_tmpfile',['../namespacevg.html#a38d9326cbc013aed614bc052c8c224e6',1,'vg']]],
   ['write_5fmapping',['write_mapping',['../classvg_1_1PhaseUnfolder.html#a78c276c53410eebfadeafb72539c3f37',1,'vg::PhaseUnfolder']]],
   ['write_5foptions',['write_options',['../classvg_1_1Index.html#a785085834ced227c9a7182776e3126d0',1,'vg::Index']]],

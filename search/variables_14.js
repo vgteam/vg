@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
   ['tail',['tail',['../structvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
@@ -40,7 +41,7 @@ var searchData=
   ['transition_5fdistrs_5f2',['transition_distrs_2',['../classvg_1_1NGSSimulator.html#ad3d0c480b5ecd2fa7c5209d86b41911d',1,'vg::NGSSimulator']]],
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],
   ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
-  ['traversal',['traversal',['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t']]],
+  ['traversal',['traversal',['../structvg_1_1GBWTTraversal.html#a5ff51a765699b367bea6287a536d9fd0',1,'vg::GBWTTraversal::traversal()'],['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t::traversal()']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5ffinder',['traversal_finder',['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier']]],
   ['tree',['tree',['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree']]],

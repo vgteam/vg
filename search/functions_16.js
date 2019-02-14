@@ -6,6 +6,7 @@ var searchData=
   ['value_5fcast_3c_20bool_20_3e',['value_cast&lt; bool &gt;',['../namespacevg.html#ac90d23f22ad3ec78da4e03dc011cabf8',1,'vg::value_cast&lt; bool &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ab572dfa4b65db43984f1572d74a94036',1,'vg::value_cast&lt; bool &gt;(const bool &amp;wrap)']]],
   ['value_5fcast_3c_20double_20_3e',['value_cast&lt; double &gt;',['../namespacevg.html#a13a0cc45e4277281efeedb821c1444f6',1,'vg::value_cast&lt; double &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ac16fdb4078f95e252450a80a1e9e14f2',1,'vg::value_cast&lt; double &gt;(const double &amp;wrap)']]],
   ['value_5fcast_3c_20string_20_3e',['value_cast&lt; string &gt;',['../namespacevg.html#a16575a017d153499fe4a0976e801be61',1,'vg::value_cast&lt; string &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#a51e6a112ff1115272420d46ca4316f63',1,'vg::value_cast&lt; string &gt;(const string &amp;wrap)']]],
+  ['values',['values',['../classvg_1_1MinimizerIndex.html#a8f84a51b6125c7228200333298b97d22',1,'vg::MinimizerIndex']]],
   ['variant_5frecall',['variant_recall',['../namespacevg.html#a0c0ad28109d9eb8efa2bf1ff97fe8e92',1,'vg']]],
   ['variantadder',['VariantAdder',['../classvg_1_1VariantAdder.html#a267056ae90838d3aef2ddfe992a045ff',1,'vg::VariantAdder']]],
   ['vcf_5fto_5ffasta',['vcf_to_fasta',['../classvg_1_1NameMapper.html#a4d7e1bab054326c0eb30f96b0ac285ce',1,'vg::NameMapper']]],

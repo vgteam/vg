@@ -13,6 +13,7 @@ var searchData=
   ['quality_5fshort_5fto_5fchar',['quality_short_to_char',['../namespacevg.html#a3fa98c788fa60695c20994ddeb008afe',1,'vg']]],
   ['queried_5fcount',['queried_count',['../classvg_1_1MaximalExactMatch.html#a538bd4e79e6c025d41031bcc46b3a516',1,'vg::MaximalExactMatch']]],
   ['query',['query',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a11fa76ab1311c3953bcb4030010aa2a5',1,'vg::IndexedVG::CacheEntry']]],
+  ['query_5fbenchmarks',['query_benchmarks',['../minimizer__main_8cpp.html#a1f199449c7725a847383286124d13553',1,'minimizer_main.cpp']]],
   ['query_5fcluster_5fgraphs',['query_cluster_graphs',['../classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d',1,'vg::MultipathMapper']]],
   ['query_5foffset',['query_offset',['../structvg_1_1graph__pos__s.html#a4db36b489d1f4d9b2e1f0e5067d575cc',1,'vg::graph_pos_s']]],
   ['query_5foverlap',['query_overlap',['../namespacevg.html#acffe466a3ca83097eceac30a09b9a010',1,'vg']]],

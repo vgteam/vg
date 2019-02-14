@@ -110,7 +110,7 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa12aa040bdc56fe794138ec736c59860"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4d44ab7bf8f0a221de478e64d8e5cd24"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a4d44ab7bf8f0a221de478e64d8e5cd24">for_each_graph_chunk</a> (std::function&lt; void(<a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;)&gt; lamda)</td></tr>
 <tr class="separator:a4d44ab7bf8f0a221de478e64d8e5cd24"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a31691223aa51fca983dd145b5896cad7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a31691223aa51fca983dd145b5896cad7">max_node_id</a> (void)</td></tr>
+<tr class="memitem:a31691223aa51fca983dd145b5896cad7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#afaaa41b5e934258713bacec20c683499">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a31691223aa51fca983dd145b5896cad7">max_node_id</a> (void)</td></tr>
 <tr class="memdesc:a31691223aa51fca983dd145b5896cad7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Stream through the files and determine the max node id.  <a href="#a31691223aa51fca983dd145b5896cad7">More...</a><br/></td></tr>
 <tr class="separator:a31691223aa51fca983dd145b5896cad7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a968fb68f13f91ea8ded32d02c6ea683a"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a968fb68f13f91ea8ded32d02c6ea683a">merge_id_space</a> (void)</td></tr>
@@ -126,16 +126,15 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aab5926c6ef9d77645c788bc61099f395"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af737e61ea5978f6d0c4ad5513eea9f36"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#af737e61ea5978f6d0c4ad5513eea9f36">store_paths_in_index</a> (<a class="el" href="classvg_1_1Index.html">Index</a> &amp;index)</td></tr>
 <tr class="separator:af737e61ea5978f6d0c4ad5513eea9f36"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a52951674cccaae3b780a35fdfcff080d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a52951674cccaae3b780a35fdfcff080d">index_kmers</a> (<a class="el" href="classvg_1_1Index.html">Index</a> &amp;index, int kmer_size, bool path_only, int edge_max, int stride=1, bool allow_negatives=false)</td></tr>
-<tr class="separator:a52951674cccaae3b780a35fdfcff080d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2896bdaa314bf6c0563cdb94d4a899d5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a2896bdaa314bf6c0563cdb94d4a899d5">for_each_kmer_parallel</a> (int kmer_size, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda)</td></tr>
-<tr class="separator:a2896bdaa314bf6c0563cdb94d4a899d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8018547ffd3175ab28ebd8fb92b8f842"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a8018547ffd3175ab28ebd8fb92b8f842">for_each_kmer_parallel</a> (size_t kmer_size, const function&lt; void(const <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> &amp;)&gt; &amp;lambda)</td></tr>
+<tr class="memdesc:a8018547ffd3175ab28ebd8fb92b8f842"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all kmers in the graph.  <a href="#a8018547ffd3175ab28ebd8fb92b8f842">More...</a><br/></td></tr>
+<tr class="separator:a8018547ffd3175ab28ebd8fb92b8f842"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a025bbf9c919cd28e16ca857d78bcc073"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a025bbf9c919cd28e16ca857d78bcc073">write_gcsa_kmers_ascii</a> (ostream &amp;out, int kmer_size, int64_t head_id=0, int64_t tail_id=0)</td></tr>
 <tr class="separator:a025bbf9c919cd28e16ca857d78bcc073"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa48a0bc96e1707b148c43f07a1855c08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#aa48a0bc96e1707b148c43f07a1855c08">write_gcsa_kmers_binary</a> (ostream &amp;out, int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)</td></tr>
 <tr class="separator:aa48a0bc96e1707b148c43f07a1855c08"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9bcfc1213bc9125e0e05f7ca83afb903"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a9bcfc1213bc9125e0e05f7ca83afb903">write_gcsa_kmers_binary</a> (int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)</td></tr>
-<tr class="separator:a9bcfc1213bc9125e0e05f7ca83afb903"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1ea836f101958b7ceae6fa0e8f2f0e70"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#a1ea836f101958b7ceae6fa0e8f2f0e70">write_gcsa_kmers_binary</a> (int kmer_size, size_t &amp;size_limit, int64_t head_id=0, int64_t tail_id=0)</td></tr>
+<tr class="separator:a1ea836f101958b7ceae6fa0e8f2f0e70"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -143,6 +142,8 @@ Public Attributes</h2></td></tr>
 <tr class="separator:a49cf0bee988a30fb024218dd4f4eed56"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa848e2230f2d5c016c0a816cfa14501e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#aa848e2230f2d5c016c0a816cfa14501e">show_progress</a> = false</td></tr>
 <tr class="separator:aa848e2230f2d5c016c0a816cfa14501e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc491d0a5c0a54c6bbd0636fa44431b7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGset.html#acc491d0a5c0a54c6bbd0636fa44431b7">progress_bars</a> = true</td></tr>
+<tr class="separator:acc491d0a5c0a54c6bbd0636fa44431b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a class="anchor" id="a5ff9a6c4fa0223bcee7072f86a657751"></a>
@@ -225,14 +226,14 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a2896bdaa314bf6c0563cdb94d4a899d5"></a>
+<a class="anchor" id="a8018547ffd3175ab28ebd8fb92b8f842"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">void vg::VGset::for_each_kmer_parallel </td>
           <td>(</td>
-          <td class="paramtype">int&#160;</td>
+          <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>kmer_size</em>, </td>
         </tr>
         <tr>
@@ -249,55 +250,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-</div>
-</div>
-<a class="anchor" id="a52951674cccaae3b780a35fdfcff080d"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VGset::index_kmers </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1Index.html">Index</a> &amp;&#160;</td>
-          <td class="paramname"><em>index</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>kmer_size</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>path_only</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>edge_max</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>stride</em> = <code>1</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>allow_negatives</em> = <code>false</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
+<p>Iterate over all kmers in the graph. </p>
 
 </div>
 </div>
@@ -306,7 +259,7 @@ Public Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#a4bc2511884a0496ff2193e1a1151350a">id_t</a> vg::VGset::max_node_id </td>
+          <td class="memname"><a class="el" href="namespacevg.html#afaaa41b5e934258713bacec20c683499">id_t</a> vg::VGset::max_node_id </td>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
@@ -573,12 +526,12 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a9bcfc1213bc9125e0e05f7ca83afb903"></a>
+<a class="anchor" id="a1ea836f101958b7ceae6fa0e8f2f0e70"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; string &gt; vg::VGset::write_gcsa_kmers_binary </td>
+          <td class="memname">vector&lt;string&gt; vg::VGset::write_gcsa_kmers_binary </td>
           <td>(</td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>kmer_size</em>, </td>
@@ -618,6 +571,18 @@ Public Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">vector&lt;string&gt; vg::VGset::filenames</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="acc491d0a5c0a54c6bbd0636fa44431b7"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VGset::progress_bars = true</td>
         </tr>
       </table>
 </div><div class="memdoc">

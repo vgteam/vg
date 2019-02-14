@@ -19,6 +19,8 @@ var searchData=
   ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html#aaa8046adecf3b01e7e702df2e4fe3abd',1,'vg::uniform_real_distribution']]],
   ['uniform_5freal_5fdistribution_3c_20double_20_3e',['uniform_real_distribution&lt; double &gt;',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
   ['unindex_5fedge_5fby_5fnode_5fsides',['unindex_edge_by_node_sides',['../classvg_1_1VG.html#a1c0b7db8d3043747e8b9a44cba4eaac9',1,'vg::VG::unindex_edge_by_node_sides(const NodeSide &amp;side1, const NodeSide &amp;side2)'],['../classvg_1_1VG.html#a5677da9ff22052f6c6a85bfe66e1256d',1,'vg::VG::unindex_edge_by_node_sides(Edge *edge)']]],
+  ['unique',['unique',['../structvg_1_1MinimizerIndex_1_1Header.html#aa5db6819039be258d22ea6c203f513ca',1,'vg::MinimizerIndex::Header']]],
+  ['unique_5fkeys',['unique_keys',['../classvg_1_1MinimizerIndex.html#a3473d5cadcf2434ec13c626e84cbb259',1,'vg::MinimizerIndex']]],
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
   ['unlock',['unlock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1cfc8d66ced1ef3d435f99579ac44ca6',1,'vg::GraphSynchronizer::Lock']]],
   ['unmapped_5ffilter',['unmapped_filter',['../classvg_1_1Filter.html#a3a02d37cb7cf0b042aa5933186a76061',1,'vg::Filter']]],

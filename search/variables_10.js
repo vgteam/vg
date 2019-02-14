@@ -1,7 +1,10 @@
 var searchData=
 [
   ['p_5fvalue_5fmemo',['p_value_memo',['../classvg_1_1MultipathMapper.html#aa6e45b752367bcc299b3427d2edd3e54',1,'vg::MultipathMapper']]],
+  ['pack_5fmask',['PACK_MASK',['../classvg_1_1MinimizerIndex.html#a5e7d888f5dd043d63d59d40daacfff62',1,'vg::MinimizerIndex']]],
   ['pack_5fnames',['pack_names',['../classvg_1_1Viz.html#abb3fd61d416351930f2e7399e6f6001b',1,'vg::Viz']]],
+  ['pack_5fto_5fchar',['PACK_TO_CHAR',['../classvg_1_1MinimizerIndex.html#a206d19a5b294cba9fff2942d8078ab7c',1,'vg::MinimizerIndex']]],
+  ['pack_5fwidth',['PACK_WIDTH',['../classvg_1_1MinimizerIndex.html#aab58139bacde30cd243acb542f658885',1,'vg::MinimizerIndex']]],
   ['packs',['packs',['../classvg_1_1Viz.html#a350ea478ececb5f19170b16cf1539726',1,'vg::Viz']]],
   ['page_5fsize',['page_size',['../classvg_1_1PagedVector.html#aed31f4d366519b0fc2bb19e1ba9fa23c',1,'vg::PagedVector']]],
   ['page_5fwidth',['PAGE_WIDTH',['../classvg_1_1PackedGraph.html#a2448556d94acc07aa90b1e4b548f16e2',1,'vg::PackedGraph']]],
@@ -49,6 +52,7 @@ var searchData=
   ['pn_5fbv_5fselect',['pn_bv_select',['../classxg_1_1XG.html#a2e61e80fc038eb31714fe7d38d47d1b3',1,'xg::XG']]],
   ['pn_5fcsa',['pn_csa',['../classxg_1_1XG.html#a5f64aa73007619feb2abece0fd07d73a',1,'xg::XG']]],
   ['pn_5fiv',['pn_iv',['../classxg_1_1XG.html#ad28835c1778e2b0719bfe6378b0d2afc',1,'xg::XG']]],
+  ['pointer',['pointer',['../unionvg_1_1MinimizerIndex_1_1value__type.html#aa20d8fc11156ab5456b36f7127cc3422',1,'vg::MinimizerIndex::value_type']]],
   ['polyploid_5fprior_5fsuccess_5flogprob',['polyploid_prior_success_logprob',['../classvg_1_1Genotyper.html#a97aef0fe84f0514e17e2ec8e00162225',1,'vg::Genotyper']]],
   ['population_5fmax_5fpaths',['population_max_paths',['../classvg_1_1MultipathMapper.html#adfb100b024b23e3e94a31ea41d0b1ac8',1,'vg::MultipathMapper']]],
   ['population_5fsize',['population_size',['../structhaplo_1_1haploMath_1_1RRMemo.html#adbcb32fa9395d32959b7c0006f25855c',1,'haplo::haploMath::RRMemo']]],
@@ -83,6 +87,7 @@ var searchData=
   ['prng',['prng',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a1452b78239d8d8256d5de172e648a3c0',1,'vg::NGSSimulator::MarkovDistribution::prng()'],['../classvg_1_1NGSSimulator.html#a5f51639901d929d02716db6b2cced7f7',1,'vg::NGSSimulator::prng()']]],
   ['prob_5fsampler',['prob_sampler',['../classvg_1_1NGSSimulator.html#a36ca291ed15a9a3942809d21d0574bc1',1,'vg::NGSSimulator']]],
   ['progress',['progress',['../classvg_1_1Progressive.html#af78e64e28b252828a0ba86439125fea4',1,'vg::Progressive']]],
+  ['progress_5fbars',['progress_bars',['../classvg_1_1VGset.html#acc491d0a5c0a54c6bbd0636fa44431b7',1,'vg::VGset']]],
   ['progress_5fcount',['progress_count',['../classvg_1_1Progressive.html#a71e61fe99d71d23542d2d7387c23fd4d',1,'vg::Progressive']]],
   ['progress_5fmessage',['progress_message',['../classvg_1_1Progressive.html#a4bb04fe23ceb41467dd14cdf8cc01a71',1,'vg::Progressive']]],
   ['progress_5fseen',['progress_seen',['../classvg_1_1Progressive.html#ac6745d7e07b4b271f9510cd40f06d18e',1,'vg::Progressive']]],

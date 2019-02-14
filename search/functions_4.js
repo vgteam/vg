@@ -1,6 +1,7 @@
 var searchData=
 [
   ['dagify',['dagify',['../classvg_1_1VG.html#a7958e987d875acb903acabf9903a8a88',1,'vg::VG']]],
+  ['decode',['decode',['../classvg_1_1MinimizerIndex.html#a8289fce8ea5ab8819f7c6095d0f95dfc',1,'vg::MinimizerIndex']]],
   ['decode_5fnucleotide',['decode_nucleotide',['../classvg_1_1PackedGraph.html#a18ccd8da2c15a7f3f60f76985938e08c',1,'vg::PackedGraph']]],
   ['decode_5ftraversal',['decode_traversal',['../classvg_1_1PackedGraph.html#a3fe84c2d3f394d8c27990aa8288cb187',1,'vg::PackedGraph']]],
   ['decompose',['decompose',['../namespacevg.html#a90fe8f4de1196dd902ac05f7567b9b7b',1,'vg']]],

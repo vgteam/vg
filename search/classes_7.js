@@ -40,6 +40,7 @@ var searchData=
   ['hashgraph',['HashGraph',['../classvg_1_1HashGraph.html',1,'vg']]],
   ['hdp_5fgbwt_5fgraph_5faccessor',['hDP_gbwt_graph_accessor',['../classhaplo_1_1hDP__gbwt__graph__accessor.html',1,'haplo']]],
   ['hdp_5fgraph_5faccessor',['hDP_graph_accessor',['../classhaplo_1_1hDP__graph__accessor.html',1,'haplo']]],
+  ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html',1,'vg::MinimizerIndex']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html',1,'vg::MEMClusterer']]],

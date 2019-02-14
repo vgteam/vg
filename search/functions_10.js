@@ -123,6 +123,7 @@ var searchData=
   ['pos_5fchar',['pos_char',['../classvg_1_1BaseMapper.html#a301ccfdf585635471e03efde26ff162a',1,'vg::BaseMapper::pos_char()'],['../classvg_1_1Sampler.html#a72d922b802775f51f2b02046398d3417',1,'vg::Sampler::pos_char()'],['../classxg_1_1XG.html#a1d5e762a9cade94b8c0ece4790966d68',1,'xg::XG::pos_char()']]],
   ['pos_5fkey',['pos_key',['../classvg_1_1Packer.html#a02857b5e1d63a4910fb35bf260035939',1,'vg::Packer']]],
   ['pos_5fsubstr',['pos_substr',['../classxg_1_1XG.html#adff93084e51119fb812404aba6915c9b',1,'xg::XG']]],
+  ['pos_5fto_5fgbwt',['pos_to_gbwt',['../namespacevg.html#ae1296fd4e352a120122d4be0a0007819',1,'vg']]],
   ['position',['position',['../classvg_1_1Sampler.html#a3d983fa5e24b8802ed2516bf0bb362bf',1,'vg::Sampler']]],
   ['position_5fassuming_5facyclic',['position_assuming_acyclic',['../structhaplo_1_1linear__haplo__structure.html#ae409ab8763c24ce6dea362328d7bfea5',1,'haplo::linear_haplo_structure']]],
   ['position_5fat',['position_at',['../namespacevg.html#aaca76d456a115d68ea096528468e0f77',1,'vg']]],

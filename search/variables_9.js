@@ -1,6 +1,7 @@
 var searchData=
 [
   ['id',['id',['../structvg_1_1Node.html#af886497fd0ba196f651b5d8f9678b52d',1,'vg::Node']]],
+  ['id_5foffset',['ID_OFFSET',['../classvg_1_1MinimizerIndex.html#a2ce9731fee8d027304209006d2e28c18',1,'vg::MinimizerIndex']]],
   ['id_5fto_5fedge_5findices',['id_to_edge_indices',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a75ad6266609d35ec42e64abb2a29c7c8',1,'vg::IndexedVG::CacheEntry']]],
   ['id_5fto_5fgraph_5fiv',['id_to_graph_iv',['../classvg_1_1PackedGraph.html#a513189c05c6f624f996fe5b045477512',1,'vg::PackedGraph']]],
   ['id_5fto_5findex',['id_to_index',['../classvg_1_1XdropAligner.html#a5f85612e0c2b4ce232f8459ab106da74',1,'vg::XdropAligner']]],
@@ -22,6 +23,7 @@ var searchData=
   ['index_5fedges',['index_edges',['../classvg_1_1XdropAligner.html#ad9d341e5789910c47a7cfd32ae355de4',1,'vg::XdropAligner']]],
   ['index_5fedges_5fhead',['index_edges_head',['../classvg_1_1XdropAligner.html#a1c2e62b98c5a0dce8b82722891267a17',1,'vg::XdropAligner']]],
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
+  ['initial_5fcapacity',['INITIAL_CAPACITY',['../classvg_1_1MinimizerIndex.html#a044a3cf2e5a0bf7ac29e195ee6e97513',1,'vg::MinimizerIndex']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
   ['insert_5fcol',['insert_col',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9a17e99af8ce2b7992fddef79c4e8b18',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['insert_5fmean',['insert_mean',['../classvg_1_1Filter.html#ab8a36803dfa97e61678756f7b7a3a31c',1,'vg::Filter::insert_mean()'],['../classvg_1_1NGSSimulator.html#ae7110e5b235c8a69f66cba73a6570660',1,'vg::NGSSimulator::insert_mean()']]],
@@ -41,6 +43,7 @@ var searchData=
   ['is_5fend',['is_end',['../structvg_1_1CactusSide.html#a960c0e9a2c2dc004aac017030f6ad805',1,'vg::CactusSide::is_end()'],['../classvg_1_1NodeSide.html#a1493cac020ed0c9b1cbd37e2a99eb9b5',1,'vg::NodeSide::is_end()']]],
   ['is_5ffixed',['is_fixed',['../classvg_1_1FragmentLengthDistribution.html#adcfca733e40d173dcbaf2e8c617c74ec',1,'vg::FragmentLengthDistribution']]],
   ['is_5fphased',['is_phased',['../structvg_1_1Genotype.html#a7aceacf9d5e3def3d6e675ef34906aab',1,'vg::Genotype']]],
+  ['is_5fpointer',['is_pointer',['../classvg_1_1MinimizerIndex.html#a6fb194d3538dc02b76aa1da6c4ccef23',1,'vg::MinimizerIndex']]],
   ['is_5frend',['is_rend',['../structvg_1_1ChainIterator.html#adb9db0a0ea4cac8bca359c97d293aaa9',1,'vg::ChainIterator']]],
   ['is_5freverse',['is_reverse',['../structvg_1_1Genotyper_1_1Affinity.html#ae1707128484386f3a20eb8c6a8f9ec95',1,'vg::Genotyper::Affinity::is_reverse()'],['../structvg_1_1Position.html#aeb715b329bd7371ca380a2f2abdcbd13',1,'vg::Position::is_reverse()'],['../structxg_1_1XG_1_1ThreadMapping.html#ad76b5bf95182c95540db5f99e449586f',1,'xg::XG::ThreadMapping::is_reverse()']]],
   ['is_5fsecondary',['is_secondary',['../structvg_1_1Alignment.html#a59a4b8c7367fb468e46bcf6ae292888f',1,'vg::Alignment']]],
