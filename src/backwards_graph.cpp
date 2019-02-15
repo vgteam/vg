@@ -45,14 +45,14 @@ using namespace std;
         return sequence;
     }
     
-    bool BackwardsGraph::follow_edges(const handle_t& handle, bool go_left,
-                                      const function<bool(const handle_t&)>& iteratee) const {
+    bool BackwardsGraph::follow_edges_impl(const handle_t& handle, bool go_left,
+                                           const function<bool(const handle_t&)>& iteratee) const {
         // the left and right side have been switched, so reverse the direction
         return forward_graph->follow_edges(handle, !go_left, iteratee);
     }
     
-    void BackwardsGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
-        forward_graph->for_each_handle(iteratee);
+    bool BackwardsGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+        return forward_graph->for_each_handle(iteratee);
     }
     
     size_t BackwardsGraph::node_size() const {
