@@ -46,13 +46,6 @@ struct wang_hash<handle_t> {
     }
 };
 
-/**
- * Define get_handle for Visits.
- */
-inline handlegraph::handle_t get_handle(const handlegraph::HandleGraph& graph, const Visit& visit) {
-    return graph.get_handle(visit.node_id(), visit.backward());
-}
-
 }
 
 #endif
