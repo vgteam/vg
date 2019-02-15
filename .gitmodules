@@ -97,3 +97,6 @@
 [submodule "deps/dozeu"]
 	path = deps/dozeu
 	url = https://github.com/ocxtal/dozeu.git
+[submodule "deps/libhandlegraph"]
+	path = deps/libhandlegraph
+	url = https://github.com/vgteam/libhandlegraph.git
