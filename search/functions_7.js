@@ -198,7 +198,7 @@ var searchData=
   ['get_5ftotal_5fsupport',['get_total_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a62917a2bc3453a52f3409e685963634a',1,'vg::SupportCaller::PrimaryPath']]],
   ['get_5ftranslation',['get_translation',['../classvg_1_1Translator.html#ac76452dc0c74164d2bcfa25f53ca9828',1,'vg::Translator']]],
   ['get_5ftraversal_5fof_5fsnarl',['get_traversal_of_snarl',['../namespacevg.html#a871d5cdd29e1806636314021d0b6d451',1,'vg']]],
-  ['get_5ftraversal_5fsupport',['get_traversal_support',['../classvg_1_1SupportCaller.html#af1703c798d3346fa95f68ebdd64e7f10',1,'vg::SupportCaller']]],
+  ['get_5ftraversal_5fsupport',['get_traversal_support',['../classvg_1_1SupportCaller.html#aab7dabc56eec19202fa1ced866a87152',1,'vg::SupportCaller']]],
   ['get_5ftraversal_5fsupports_5fand_5fsizes',['get_traversal_supports_and_sizes',['../classvg_1_1SupportCaller.html#a7e7d15eed023928433d5a6c3f7097939',1,'vg::SupportCaller']]],
   ['get_5ftype',['get_type',['../structhaplo_1_1linear__haplo__structure.html#aed7cfca22f97454bcd9301a803b58633',1,'haplo::linear_haplo_structure']]],
   ['get_5funique_5fhaplotypes',['get_unique_haplotypes',['../classvg_1_1VariantAdder.html#a2c56f824eb35db6f39b470637c972f54',1,'vg::VariantAdder']]],

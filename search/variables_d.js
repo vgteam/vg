@@ -105,7 +105,6 @@ var searchData=
   ['min_5fcov',['min_cov',['../classvg_1_1Filter.html#a77f731ad12fc655130808337452ba734',1,'vg::Filter']]],
   ['min_5fdepth',['min_depth',['../classvg_1_1Filter.html#a941f203667435234a1e08cce0358d8c6',1,'vg::Filter']]],
   ['min_5fedge_5fsupport',['min_edge_support',['../classvg_1_1SupportRestrictedTraversalFinder.html#aabc81064635f9311af46bf2b5f1417aa',1,'vg::SupportRestrictedTraversalFinder::min_edge_support()'],['../classvg_1_1RepresentativeTraversalFinder.html#a16cd92c3b27a0b6be9d9154a7d9da77a',1,'vg::RepresentativeTraversalFinder::min_edge_support()']]],
-  ['min_5fedge_5fsupport_5ffrac',['min_edge_support_frac',['../classvg_1_1SupportCaller.html#a92ef69bbb47e596369c913d355088b47',1,'vg::SupportCaller']]],
   ['min_5fend_5fmatches',['min_end_matches',['../classvg_1_1ReadFilter.html#a8848d4b66a515602fa38571b02667b51',1,'vg::ReadFilter']]],
   ['min_5ffraction_5ffor_5fcall',['min_fraction_for_call',['../classvg_1_1SupportCaller.html#a65abecae63da2cabc9a3bc4f7a710ded',1,'vg::SupportCaller']]],
   ['min_5ffrequency_5fto_5fkeep',['min_frequency_to_keep',['../classvg_1_1RareVariantSimplifier.html#a7aca3c00c47d8a8c6261536952fd96d8',1,'vg::RareVariantSimplifier']]],
