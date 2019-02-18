@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../alignment.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -120,12 +121,12 @@ int main_validate(int argc, char** argv) {
             cerr << "error:[vg validate] -n, -e -o, -p cannot be used with -a and -x" << endl;
             return 1;
         }
-        xg::XG xindex;
         ifstream in(xg_path.c_str());
-        xindex.load(in);
+        unique_ptr<xg::XG> xindex = stream::VPKG::load_one<xg::XG>(in);
+        in.close();
         get_input_file(gam_path, [&](istream& in) {
                 stream::for_each<Alignment>(in, [&](Alignment& aln) {
-                        if (!alignment_is_valid(aln, &xindex)) {
+                        if (!alignment_is_valid(aln, xindex.get())) {
                             exit(1);
                         }
                     });
