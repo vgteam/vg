@@ -1,38 +1,34 @@
-#ifndef VG_SUBGRAPH_HPP_INCLUDED
-#define VG_SUBGRAPH_HPP_INCLUDED
+#ifndef VG_REVERSE_GRAPH_HPP_INCLUDED
+#define VG_REVERSE_GRAPH_HPP_INCLUDED
 
 /** \file
- * subgraph.hpp: defines a handle graph implementation of a subgraph
+ * reverse_graph.hpp: defines a handle graph implementation that reverses the sequences
+ * of some other graph
  */
 
-#include <unordered_map>
 #include "handle.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
 using namespace std;
 
     /**
-     * A HandleGraph implementation that acts as a subgraph of some other HandleGraph
-     * using a layer of indirection. Only subsets based on nodes; all edges between
-     * the nodes in the super graph are considered part of the subgraph. Subgraph
-     * handles can also be used by the super graph.
+     * A HandleGraph implementation that wraps some other handle graph and reverses
+     * and optionally complements the sequences.
      */
-    class SubHandleGraph : public ExpandingOverlayGraph {
+    class ReverseGraph : public ExpandingOverlayGraph {
     public:
         
-        /// Initialize with a super graph and nodes returned by iterators to handles
-        /// from the super graph
-        template<typename HandleIter>
-        SubHandleGraph(const HandleGraph* super, HandleIter begin, HandleIter end);
+        /// Initialize as the reverse version of another graph, optionally also
+        /// complementing
+        ReverseGraph(const HandleGraph* forward_graph, bool complement);
         
-        /// Initialize as empty subgraph of a super graph
-        SubHandleGraph(const HandleGraph* super);
+        /// Default constructor -- not actually functional
+        ReverseGraph() = default;
         
-        /// Add a node from the super graph to the subgraph. Must be a handle to the
-        /// super graph. No effect if the node is already included in the subgraph.
-        /// Generally invalidates the results of any previous algorithms.
-        void add_handle(const handle_t& handle);
+        /// Default destructor
+        ~ReverseGraph() = default;
         
         //////////////////////////
         /// HandleGraph interface
@@ -73,6 +69,7 @@ using namespace std;
         virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
         /// Return the number of nodes in the graph
+        /// TODO: can't be node_count because XG has a field named node_count.
         virtual size_t node_size() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the
@@ -94,22 +91,12 @@ using namespace std;
         virtual handle_t get_underlying_handle(const handle_t& handle) const;
         
     private:
-        const HandleGraph* super = nullptr;
-        unordered_set<id_t> contents;
-        // keep track of these separately rather than use an ordered set
-        id_t min_id = numeric_limits<id_t>::max();
-        id_t max_id = numeric_limits<id_t>::min();
+        /// The forward version of the graph we're making backwards
+        const HandleGraph* forward_graph = nullptr;
         
+        /// Complement the sequences?
+        bool complement = false;
     };
-
-    
-    // Template constructor
-    template<typename HandleIter>
-    SubHandleGraph::SubHandleGraph(const HandleGraph* super, HandleIter begin, HandleIter end) : super(super) {
-        for (auto iter = begin; iter != end; ++iter) {
-            add_handle(*iter);
-        }
-    }
 }
 
 #endif

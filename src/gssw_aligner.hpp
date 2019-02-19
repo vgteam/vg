@@ -17,7 +17,7 @@
 #include "banded_global_aligner.hpp"
 #include "xdrop_aligner.hpp"
 #include "handle.hpp"
-#include "backwards_graph.hpp"
+#include "reverse_graph.hpp"
 
 // #define BENCH
 // #include "bench.h"

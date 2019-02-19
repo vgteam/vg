@@ -1,33 +1,35 @@
-#ifndef VG_BACKWARDS_GRAPH_HPP_INCLUDED
-#define VG_BACKWARDS_GRAPH_HPP_INCLUDED
+#ifndef VG_SPLIT_STRAND_GRAPH_HPP_INCLUDED
+#define VG_SPLIT_STRAND_GRAPH_HPP_INCLUDED
 
 /** \file
- * backwards_graph.hpp: defines a handle graph implementation that reverses the sequences
- * of some other graph
+ * split_strand_graph.hpp: defines a handle graph overlay that duplicates nodes
+ * and edges so that both the forward and reverse strand of the underlying graph
+ * are now on the forward strand
  */
 
-#include <unordered_map>
 #include "handle.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
 using namespace std;
 
     /**
-     * A HandleGraph implementation that wraps some other handle graph and reverses
-     * but does *NOT* complement the sequences.
+     * A HandleGraph implementation that overlays some other handle graph and splits
+     * the two strands of its nodes into separate nodes
      */
-    class BackwardsGraph : public HandleGraph {
+    class StrandSplitGraph : public ExpandingOverlayGraph {
     public:
         
-        /// Initialize as the backwards version of another graph
-        BackwardsGraph(const HandleGraph* forward_graph);
+        /// Initialize as the reverse version of another graph, optionally also
+        /// complementing
+        StrandSplitGraph(const HandleGraph* graph);
         
         /// Default constructor -- not actually functional
-        BackwardsGraph() = default;
+        StrandSplitGraph() = default;
         
         /// Default destructor
-        ~BackwardsGraph() = default;
+        ~StrandSplitGraph() = default;
         
         //////////////////////////
         /// HandleGraph interface
@@ -79,9 +81,19 @@ using namespace std;
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
         virtual id_t max_node_id() const;
         
+        ///////////////////////////////////
+        /// ExpandingOverlayGraph interface
+        ///////////////////////////////////
+        
+        /**
+         * Returns the handle in the underlying graph that corresponds to a handle in the
+         * overlay
+         */
+        virtual handle_t get_underlying_handle(const handle_t& handle) const;
+        
     private:
-        /// The forward version of the graph we're making backwards
-        const HandleGraph* forward_graph = nullptr;
+        /// The underlying graph we're making splitting
+        const HandleGraph* graph = nullptr;
     };
 }
 

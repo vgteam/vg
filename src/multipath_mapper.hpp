@@ -22,8 +22,12 @@
 #include "haplotypes.hpp"
 #include "distance.hpp"
 #include "utility.hpp"
-#include "hash_graph.hpp"
 #include "annotation.hpp"
+
+#include "identity_overlay.hpp"
+#include "reverse_graph.hpp"
+#include "split_strand_graph.hpp"
+#include "hash_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"

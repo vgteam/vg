@@ -864,7 +864,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // left we need to reverse all the sequences first and translate the alignment back later
     
     // make a place to reverse the graph and sequence if necessary
-    BackwardsGraph reversed_graph(&g);
+    ReverseGraph reversed_graph(&g, false);
     string reversed_sequence;
 
     // choose forward or reversed objects
@@ -1321,7 +1321,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     // left we need to reverse all the sequences first and translate the alignment back later
     
     // make a place to reverse the graph and sequence if necessary
-    BackwardsGraph reversed_graph(&g);
+    ReverseGraph reversed_graph(&g, false);
     string reversed_sequence;
     string reversed_quality;
     

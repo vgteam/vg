@@ -1,0 +1,91 @@
+/**
+ * \file split_strand_graph.cpp: contains the implementation of StrandSplitGraph
+ */
+
+
+#include "split_strand_graph.hpp"
+
+
+namespace vg {
+
+using namespace std;
+
+    StrandSplitGraph::StrandSplitGraph(const HandleGraph* graph) : graph(graph){
+        // nothing to do
+    }
+    
+    bool StrandSplitGraph::has_node(id_t node_id) const {
+        return graph->has_node(node_id / 2);
+    }
+    
+    handle_t StrandSplitGraph::get_handle(const id_t& node_id, bool is_reverse) const {
+        return EasyHandlePacking::pack(node_id, is_reverse);
+    }
+    
+    id_t StrandSplitGraph::get_id(const handle_t& handle) const {
+        return EasyHandlePacking::unpack_number(handle);
+    }
+    
+    bool StrandSplitGraph::get_is_reverse(const handle_t& handle) const {
+        return EasyHandlePacking::unpack_bit(handle);
+    }
+    
+    handle_t StrandSplitGraph::flip(const handle_t& handle) const {
+        return EasyHandlePacking::toggle_bit(handle);
+    }
+    
+    size_t StrandSplitGraph::get_length(const handle_t& handle) const {
+        return graph->get_length(graph->get_handle(get_id(handle) / 2));
+    }
+    
+    string StrandSplitGraph::get_sequence(const handle_t& handle) const {
+        string sequence = graph->get_sequence(handle);
+        if (get_id(handle) % 2) {
+            reverse_complement_in_place(sequence);
+        }
+        return sequence;
+    }
+    
+    bool StrandSplitGraph::follow_edges(const handle_t& handle, bool go_left,
+                                        const function<bool(const handle_t&)>& iteratee) const {
+        
+        bool did_all_edges = graph->follow_edges(get_underlying_handle(handle), go_left,
+                                                 [&](const handle_t& next) {
+            return iteratee(get_handle(2 * graph->get_id(next) + graph->get_is_reverse(next),
+                                       get_is_reverse(handle)));
+        });
+        return did_all_edges;
+    }
+    
+    void StrandSplitGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee,
+                                           bool parallel) const {
+        graph->for_each_handle([&](const handle_t& underlying_handle) {
+            id_t node_id = graph->get_id(underlying_handle);
+            // forward version of the node
+            bool keep_going = iteratee(get_handle(2 * node_id));
+            // reverse version of the node
+            if (keep_going) {
+                keep_going = iteratee(get_handle(2 * node_id + 1));
+            }
+            return keep_going;
+        }, parallel);
+    }
+    
+    size_t StrandSplitGraph::node_size() const {
+        return graph->node_size() * 2;
+    }
+    
+    id_t StrandSplitGraph::min_node_id() const {
+        return graph->min_node_id() * 2;
+    }
+    
+    id_t StrandSplitGraph::max_node_id() const {
+        return graph->max_node_id() * 2 + 1;
+    }
+
+    handle_t StrandSplitGraph::get_underlying_handle(const handle_t& handle) const {
+        return graph->get_handle(get_id(handle) / 2,
+                                 (get_id(handle) % 2 == 1) != get_is_reverse(handle));
+    }
+}
+
