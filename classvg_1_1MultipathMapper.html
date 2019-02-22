@@ -355,7 +355,7 @@ size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom
 <tr class="separator:a75e3181768ba99553c33a8a6a0331ebd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af687472b369fe14e9b06ca81aa3ff841"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#af687472b369fe14e9b06ca81aa3ff841">multipath_align</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1HashGraph.html">HashGraph</a> *graph, <a class="el" href="classvg_1_1MultipathMapper.html#a781815d148571276e536c7a7780017be">memcluster_t</a> &amp;graph_mems, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const </td></tr>
 <tr class="separator:af687472b369fe14e9b06ca81aa3ff841"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a38334bfa61a9939db4e4a1cae9bdd1bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a38334bfa61a9939db4e4a1cae9bdd1bb">make_nontrivial_multipath_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;subgraph, unordered_map&lt; <a class="el" href="namespacevg.html#afaaa41b5e934258713bacec20c683499">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaaa41b5e934258713bacec20c683499">id_t</a>, bool &gt;&gt; &amp;translator, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const </td></tr>
+<tr class="memitem:a38334bfa61a9939db4e4a1cae9bdd1bb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#a38334bfa61a9939db4e4a1cae9bdd1bb">make_nontrivial_multipath_alignment</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;subgraph, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;translator, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;<a class="el" href="classvg_1_1MultipathMapper.html#a82e1a1af4b8ba0170cf7817cd44f1008">snarl_manager</a>, <a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln_out) const </td></tr>
 <tr class="separator:a38334bfa61a9939db4e4a1cae9bdd1bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad33bea3e28eb96db7e15f374ae9949fa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html#ad33bea3e28eb96db7e15f374ae9949fa">strip_full_length_bonuses</a> (<a class="el" href="structvg_1_1MultipathAlignment.html">MultipathAlignment</a> &amp;multipath_aln) const </td></tr>
 <tr class="memdesc:ad33bea3e28eb96db7e15f374ae9949fa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove the full length bonus from all source or sink subpaths that received it.  <a href="#ad33bea3e28eb96db7e15f374ae9949fa">More...</a><br/></td></tr>
@@ -1645,13 +1645,13 @@ size_t &gt;, double &gt;&#160;</td><td class="memItemRight" valign="bottom"><a c
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const <a class="el" href="classvg_1_1HandleGraph.html">HandleGraph</a> &amp;&#160;</td>
+          <td class="paramtype">const <a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">HandleGraph</a> &amp;&#160;</td>
           <td class="paramname"><em>subgraph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">unordered_map&lt; <a class="el" href="namespacevg.html#afaaa41b5e934258713bacec20c683499">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaaa41b5e934258713bacec20c683499">id_t</a>, bool &gt;&gt; &amp;&#160;</td>
+          <td class="paramtype">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;&#160;</td>
           <td class="paramname"><em>translator</em>, </td>
         </tr>
         <tr>

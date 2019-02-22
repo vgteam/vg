@@ -88,117 +88,60 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
-<a href="#typedef-members">Typedefs</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#typedef-members">Typedefs</a>  </div>
   <div class="headertitle">
 <div class="title">handle.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="types_8hpp.html">types.hpp</a>&quot;</code><br/>
-<code>#include &quot;vg.pb.h&quot;</code><br/>
+<div class="textblock"><code>#include &lt;handlegraph/handle_graph.hpp&gt;</code><br/>
+<code>#include &lt;handlegraph/mutable_handle_graph.hpp&gt;</code><br/>
+<code>#include &lt;handlegraph/path_handle_graph.hpp&gt;</code><br/>
+<code>#include &lt;handlegraph/mutable_path_handle_graph.hpp&gt;</code><br/>
+<code>#include &lt;handlegraph/mutable_path_mutable_handle_graph.hpp&gt;</code><br/>
+<code>#include &lt;handlegraph/deletable_handle_graph.hpp&gt;</code><br/>
+<code>#include &lt;handlegraph/mutable_path_deletable_handle_graph.hpp&gt;</code><br/>
+<code>#include &lt;handlegraph/util.hpp&gt;</code><br/>
 <code>#include &quot;<a class="el" href="hash__map_8hpp.html">hash_map.hpp</a>&quot;</code><br/>
-<code>#include &lt;functional&gt;</code><br/>
-<code>#include &lt;cstdint&gt;</code><br/>
-<code>#include &lt;vector&gt;</code><br/>
+<code>#include &quot;vg.pb.h&quot;</code><br/>
+<code>#include &quot;<a class="el" href="types_8hpp.html">types.hpp</a>&quot;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1handle__t.html">vg::handle_t</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1EasyHandlePacking.html">vg::EasyHandlePacking</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1wang__hash_3_01handle__t_01_4.html">vg::wang_hash&lt; handle_t &gt;</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1path__handle__t.html">vg::path_handle_t</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A path handle is an opaque reference to a named path in a graph.  <a href="structvg_1_1path__handle__t.html#details">More...</a><br/></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1occurrence__handle__t.html">vg::occurrence_handle_t</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01vg_1_1handle__t_01_4.html">std::hash&lt; vg::handle_t &gt;</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structstd_1_1hash_3_01vg_1_1path__handle__t_01_4.html">std::hash&lt; vg::path_handle_t &gt;</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HandleGraph.html">vg::HandleGraph</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathHandleGraph.html">vg::PathHandleGraph</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutableHandleGraph.html">vg::MutableHandleGraph</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DeletableHandleGraph.html">vg::DeletableHandleGraph</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutablePathHandleGraph.html">vg::MutablePathHandleGraph</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutablePathMutableHandleGraph.html">vg::MutablePathMutableHandleGraph</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MutablePathDeletableHandleGraph.html">vg::MutablePathDeletableHandleGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacestd"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacestd.html">std</a></td></tr>
-<tr class="memdesc:namespacestd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Hash functor to hash <code>NodeSide</code>s using std::hash. <br/></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:a6225846768d2b6dbbbefab9e240a9e02"><td class="memItemLeft" align="right" valign="top">typedef pair&lt; handle_t, handle_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a6225846768d2b6dbbbefab9e240a9e02">vg::edge_t</a></td></tr>
-<tr class="separator:a6225846768d2b6dbbbefab9e240a9e02"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:a5371479058860d693988710d54156e2f"><td class="memItemLeft" align="right" valign="top">uint64_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a5371479058860d693988710d54156e2f">vg::as_integer</a> (handle_t &amp;handle)</td></tr>
-<tr class="memdesc:a5371479058860d693988710d54156e2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a handle as an integer.  <a href="#a5371479058860d693988710d54156e2f">More...</a><br/></td></tr>
-<tr class="separator:a5371479058860d693988710d54156e2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a929e2dd773c4903310e2aa66e583bbf5"><td class="memItemLeft" align="right" valign="top">const uint64_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a929e2dd773c4903310e2aa66e583bbf5">vg::as_integer</a> (const handle_t &amp;handle)</td></tr>
-<tr class="memdesc:a929e2dd773c4903310e2aa66e583bbf5"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a const handle as a const integer.  <a href="#a929e2dd773c4903310e2aa66e583bbf5">More...</a><br/></td></tr>
-<tr class="separator:a929e2dd773c4903310e2aa66e583bbf5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa4a42fa986c71fc55eac583efbb06099"><td class="memItemLeft" align="right" valign="top">handle_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa4a42fa986c71fc55eac583efbb06099">vg::as_handle</a> (uint64_t &amp;value)</td></tr>
-<tr class="memdesc:aa4a42fa986c71fc55eac583efbb06099"><td class="mdescLeft">&#160;</td><td class="mdescRight">View an integer as a handle.  <a href="#aa4a42fa986c71fc55eac583efbb06099">More...</a><br/></td></tr>
-<tr class="separator:aa4a42fa986c71fc55eac583efbb06099"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3489366dd7da532de38d699f14c8b8ac"><td class="memItemLeft" align="right" valign="top">const handle_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3489366dd7da532de38d699f14c8b8ac">vg::as_handle</a> (const uint64_t &amp;value)</td></tr>
-<tr class="memdesc:a3489366dd7da532de38d699f14c8b8ac"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a const integer as a const handle.  <a href="#a3489366dd7da532de38d699f14c8b8ac">More...</a><br/></td></tr>
-<tr class="separator:a3489366dd7da532de38d699f14c8b8ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaf943805c4b8a16e5852d9168faa2558"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaf943805c4b8a16e5852d9168faa2558">vg::operator==</a> (const handle_t &amp;a, const handle_t &amp;b)</td></tr>
-<tr class="memdesc:aaf943805c4b8a16e5852d9168faa2558"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define equality on handles.  <a href="#aaf943805c4b8a16e5852d9168faa2558">More...</a><br/></td></tr>
-<tr class="separator:aaf943805c4b8a16e5852d9168faa2558"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a67330944ed89a02074373b18253ea603"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a67330944ed89a02074373b18253ea603">vg::operator!=</a> (const handle_t &amp;a, const handle_t &amp;b)</td></tr>
-<tr class="memdesc:a67330944ed89a02074373b18253ea603"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define inequality on handles.  <a href="#a67330944ed89a02074373b18253ea603">More...</a><br/></td></tr>
-<tr class="separator:a67330944ed89a02074373b18253ea603"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a24378aaa280058f30fba353c35838672"><td class="memItemLeft" align="right" valign="top">int64_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24378aaa280058f30fba353c35838672">vg::as_integer</a> (path_handle_t &amp;path_handle)</td></tr>
-<tr class="memdesc:a24378aaa280058f30fba353c35838672"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a path handle as an integer.  <a href="#a24378aaa280058f30fba353c35838672">More...</a><br/></td></tr>
-<tr class="separator:a24378aaa280058f30fba353c35838672"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad3d0323f2d1456730663d3ccd69f533c"><td class="memItemLeft" align="right" valign="top">const int64_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad3d0323f2d1456730663d3ccd69f533c">vg::as_integer</a> (const path_handle_t &amp;path_handle)</td></tr>
-<tr class="memdesc:ad3d0323f2d1456730663d3ccd69f533c"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a const path handle as a const integer.  <a href="#ad3d0323f2d1456730663d3ccd69f533c">More...</a><br/></td></tr>
-<tr class="separator:ad3d0323f2d1456730663d3ccd69f533c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad5ec713923bfa35f80558524ed024c78"><td class="memItemLeft" align="right" valign="top">path_handle_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad5ec713923bfa35f80558524ed024c78">vg::as_path_handle</a> (int64_t &amp;value)</td></tr>
-<tr class="memdesc:ad5ec713923bfa35f80558524ed024c78"><td class="mdescLeft">&#160;</td><td class="mdescRight">View an integer as a path handle.  <a href="#ad5ec713923bfa35f80558524ed024c78">More...</a><br/></td></tr>
-<tr class="separator:ad5ec713923bfa35f80558524ed024c78"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af3b3d74458047408bc21360ebe36d06d"><td class="memItemLeft" align="right" valign="top">const path_handle_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af3b3d74458047408bc21360ebe36d06d">vg::as_path_handle</a> (const int64_t &amp;value)</td></tr>
-<tr class="memdesc:af3b3d74458047408bc21360ebe36d06d"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a const integer as a const path handle.  <a href="#af3b3d74458047408bc21360ebe36d06d">More...</a><br/></td></tr>
-<tr class="separator:af3b3d74458047408bc21360ebe36d06d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a422ed05af6be2bde2cce68a45e60b664"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a422ed05af6be2bde2cce68a45e60b664">vg::operator==</a> (const path_handle_t &amp;a, const path_handle_t &amp;b)</td></tr>
-<tr class="memdesc:a422ed05af6be2bde2cce68a45e60b664"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define equality on path handles.  <a href="#a422ed05af6be2bde2cce68a45e60b664">More...</a><br/></td></tr>
-<tr class="separator:a422ed05af6be2bde2cce68a45e60b664"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a996b75a4d8bfba1de1d286ec91e9d63a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a996b75a4d8bfba1de1d286ec91e9d63a">vg::operator!=</a> (const path_handle_t &amp;a, const path_handle_t &amp;b)</td></tr>
-<tr class="memdesc:a996b75a4d8bfba1de1d286ec91e9d63a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define inequality on path handles.  <a href="#a996b75a4d8bfba1de1d286ec91e9d63a">More...</a><br/></td></tr>
-<tr class="separator:a996b75a4d8bfba1de1d286ec91e9d63a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a452168726a0c91d15efd88b3b67f227a"><td class="memItemLeft" align="right" valign="top">int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a452168726a0c91d15efd88b3b67f227a">vg::as_integers</a> (occurrence_handle_t &amp;occurrence_handle)</td></tr>
-<tr class="memdesc:a452168726a0c91d15efd88b3b67f227a"><td class="mdescLeft">&#160;</td><td class="mdescRight">View an occurrence handle as an integer.  <a href="#a452168726a0c91d15efd88b3b67f227a">More...</a><br/></td></tr>
-<tr class="separator:a452168726a0c91d15efd88b3b67f227a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a31278b67bd98569e13f12dca47ebec79"><td class="memItemLeft" align="right" valign="top">const int64_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a31278b67bd98569e13f12dca47ebec79">vg::as_integers</a> (const occurrence_handle_t &amp;occurrence_handle)</td></tr>
-<tr class="memdesc:a31278b67bd98569e13f12dca47ebec79"><td class="mdescLeft">&#160;</td><td class="mdescRight">View a const occurrence handle as a const integer.  <a href="#a31278b67bd98569e13f12dca47ebec79">More...</a><br/></td></tr>
-<tr class="separator:a31278b67bd98569e13f12dca47ebec79"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a198a65c2e7235bb674a9e13485d0db8a"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a198a65c2e7235bb674a9e13485d0db8a">vg::operator==</a> (const occurrence_handle_t &amp;a, const occurrence_handle_t &amp;b)</td></tr>
-<tr class="memdesc:a198a65c2e7235bb674a9e13485d0db8a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define equality on occurrence handles.  <a href="#a198a65c2e7235bb674a9e13485d0db8a">More...</a><br/></td></tr>
-<tr class="separator:a198a65c2e7235bb674a9e13485d0db8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab079eab67b88bbf3c28e43d3dcf5690f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ab079eab67b88bbf3c28e43d3dcf5690f">vg::operator!=</a> (const occurrence_handle_t &amp;a, const occurrence_handle_t &amp;b)</td></tr>
-<tr class="memdesc:ab079eab67b88bbf3c28e43d3dcf5690f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Define inequality on occurrence handles.  <a href="#ab079eab67b88bbf3c28e43d3dcf5690f">More...</a><br/></td></tr>
-<tr class="separator:ab079eab67b88bbf3c28e43d3dcf5690f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaed4a2b7bc668cf2e076733ee26e036a"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a">vg::handle_t</a> = handlegraph::handle_t</td></tr>
+<tr class="separator:aaed4a2b7bc668cf2e076733ee26e036a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaf7aeec04909c1aac0ad991764d48e24"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaf7aeec04909c1aac0ad991764d48e24">vg::path_handle_t</a> = handlegraph::path_handle_t</td></tr>
+<tr class="separator:aaf7aeec04909c1aac0ad991764d48e24"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d6d387b606d4709a7e6abbb50b563eb"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3d6d387b606d4709a7e6abbb50b563eb">vg::occurrence_handle_t</a> = handlegraph::occurrence_handle_t</td></tr>
+<tr class="separator:a3d6d387b606d4709a7e6abbb50b563eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3de8fe5f38b1730a36af4ad9c4258963"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963">vg::edge_t</a> = handlegraph::edge_t</td></tr>
+<tr class="separator:a3de8fe5f38b1730a36af4ad9c4258963"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad5781c55c25f1446e1fc74c72c051c62"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad5781c55c25f1446e1fc74c72c051c62">vg::HandleGraph</a> = handlegraph::HandleGraph</td></tr>
+<tr class="separator:ad5781c55c25f1446e1fc74c72c051c62"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a293aa7465cc63a2581914d6a85a0e4b8"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a293aa7465cc63a2581914d6a85a0e4b8">vg::MutableHandleGraph</a> = handlegraph::MutableHandleGraph</td></tr>
+<tr class="separator:a293aa7465cc63a2581914d6a85a0e4b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abeb2636bd0db3101259ef6803cb4e591"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abeb2636bd0db3101259ef6803cb4e591">vg::PathHandleGraph</a> = handlegraph::PathHandleGraph</td></tr>
+<tr class="separator:abeb2636bd0db3101259ef6803cb4e591"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24350c08e6d69244e6930f41fee00e1f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24350c08e6d69244e6930f41fee00e1f">vg::MutablePathHandleGraph</a> = handlegraph::MutablePathHandleGraph</td></tr>
+<tr class="separator:a24350c08e6d69244e6930f41fee00e1f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa2f83c48d4ecdcfd8f2604f10e863aea"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa2f83c48d4ecdcfd8f2604f10e863aea">vg::MutablePathMutableHandleGraph</a> = handlegraph::MutablePathMutableHandleGraph</td></tr>
+<tr class="separator:aa2f83c48d4ecdcfd8f2604f10e863aea"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa6df851edf21daea75fc6dc1dd81a78f"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa6df851edf21daea75fc6dc1dd81a78f">vg::DeletableHandleGraph</a> = handlegraph::DeletableHandleGraph</td></tr>
+<tr class="separator:aa6df851edf21daea75fc6dc1dd81a78f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2f0cc7bac7a4f92b2b523357f8940aa5"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2f0cc7bac7a4f92b2b523357f8940aa5">vg::MutablePathDeletableHandleGraph</a> = handlegraph::MutablePathDeletableHandleGraph</td></tr>
+<tr class="separator:a2f0cc7bac7a4f92b2b523357f8940aa5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Defines a handle type that can refer to oriented nodes of, and be used to traverse, any backing graph implementation. Not just an ID or a pos_t because XG (and maybe other implementations) provide more efficient local traversal mechanisms if you can skip ID lookups. </p>
+<div class="textblock"><p>One stop shop for libhandlegraph types and things we need to work with them. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

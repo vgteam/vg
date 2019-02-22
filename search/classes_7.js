@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['handle_5ft',['handle_t',['../structvg_1_1handle__t.html',1,'vg']]],
-  ['handlegraph',['HandleGraph',['../classvg_1_1HandleGraph.html',1,'vg']]],
   ['handler',['Handler',['../structvg_1_1temp__file_1_1Handler.html',1,'vg::temp_file']]],
   ['haplo_5fdp',['haplo_DP',['../structhaplo_1_1haplo__DP.html',1,'haplo']]],
   ['haplo_5fdp_5fcolumn',['haplo_DP_column',['../structhaplo_1_1haplo__DP__column.html',1,'haplo']]],
@@ -12,10 +10,8 @@ var searchData=
   ['hash_3c_20const_20vg_3a_3asnarl_20_3e',['hash&lt; const vg::Snarl &gt;',['../structstd_1_1hash_3_01const_01vg_1_1Snarl_01_4.html',1,'std']]],
   ['hash_3c_20pair_3c_20a_2c_20b_20_3e_20_3e',['hash&lt; pair&lt; A, B &gt; &gt;',['../structstd_1_1hash_3_01pair_3_01A_00_01B_01_4_01_4.html',1,'std']]],
   ['hash_3c_20std_3a_3atuple_3c_20tt_2e_2e_2e_3e_20_3e',['hash&lt; std::tuple&lt; TT...&gt; &gt;',['../structstd_1_1hash_3_01std_1_1tuple_3_01TT_8_8_8_4_01_4.html',1,'std']]],
-  ['hash_3c_20vg_3a_3ahandle_5ft_20_3e',['hash&lt; vg::handle_t &gt;',['../structstd_1_1hash_3_01vg_1_1handle__t_01_4.html',1,'std']]],
   ['hash_3c_20vg_3a_3anodeside_20_3e',['hash&lt; vg::NodeSide &gt;',['../structstd_1_1hash_3_01vg_1_1NodeSide_01_4.html',1,'std']]],
   ['hash_3c_20vg_3a_3anodetraversal_20_3e',['hash&lt; vg::NodeTraversal &gt;',['../structstd_1_1hash_3_01vg_1_1NodeTraversal_01_4.html',1,'std']]],
-  ['hash_3c_20vg_3a_3apath_5fhandle_5ft_20_3e',['hash&lt; vg::path_handle_t &gt;',['../structstd_1_1hash_3_01vg_1_1path__handle__t_01_4.html',1,'std']]],
   ['hash_5fambiguous_5fallele_5fset',['hash_ambiguous_allele_set',['../structvg_1_1Genotyper_1_1hash__ambiguous__allele__set.html',1,'vg::Genotyper']]],
   ['hash_5fmap',['hash_map',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20const_20vg_3a_3amapping_5ft_20_2a_2c_20pair_3c_20list_3c_20vg_3a_3amapping_5ft_20_3e_3a_3aiterator_2c_20int64_5ft_20_3e_20_3e',['hash_map&lt; const vg::mapping_t *, pair&lt; list&lt; vg::mapping_t &gt;::iterator, int64_t &gt; &gt;',['../classvg_1_1hash__map.html',1,'vg']]],

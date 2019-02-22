@@ -6,7 +6,6 @@ var searchData=
   ['edge_5ffilter',['edge_filter',['../classxg_1_1XG.html#a34beedf245a2926ff94bd3599c9399eb',1,'xg::XG']]],
   ['edge_5ffrom_5fencoding',['edge_from_encoding',['../classxg_1_1XG.html#acf419abd0e15bbb8dfe71d3606f6052e',1,'xg::XG']]],
   ['edge_5fgraph_5fidx',['edge_graph_idx',['../classxg_1_1XG.html#a573b29b1acc221928ea868b92b724956',1,'xg::XG']]],
-  ['edge_5fhandle',['edge_handle',['../classvg_1_1HandleGraph.html#a1745a25509fdc440bbd4aa5438419464',1,'vg::HandleGraph']]],
   ['edge_5fsize',['edge_size',['../classvg_1_1ProtoHandleGraph.html#a6d9e42219833d679934a9efd0e37e6c9',1,'vg::ProtoHandleGraph']]],
   ['edge_5ftype',['edge_type',['../classxg_1_1XG.html#a32daaa0697f12b306a853b1a7fec8f99',1,'xg::XG::edge_type(bool from_start, bool to_end) const '],['../classxg_1_1XG.html#ad4a394cb022752942b00f3d742d4610a',1,'xg::XG::edge_type(const Edge &amp;edge) const ']]],
   ['edges_5fend',['edges_end',['../classvg_1_1VG.html#acdabb41079406d955795f2cfb72b496d',1,'vg::VG::edges_end(Node *node)'],['../classvg_1_1VG.html#aec901943e03aeae91638bce6952efc14',1,'vg::VG::edges_end(id_t id)']]],

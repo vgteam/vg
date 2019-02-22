@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['handle_2ecpp',['handle.cpp',['../handle_8cpp.html',1,'']]],
   ['handle_2ehpp',['handle.hpp',['../handle_8hpp.html',1,'']]],
   ['handle_5fto_5fvg_2ecpp',['handle_to_vg.cpp',['../handle__to__vg_8cpp.html',1,'']]],
   ['handle_5fto_5fvg_2ehpp',['handle_to_vg.hpp',['../handle__to__vg_8hpp.html',1,'']]],
