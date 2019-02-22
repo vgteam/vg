@@ -582,7 +582,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  bool materev,
                                  const int32_t tlen,
                                  bool paired) {
-                        
+
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
    
@@ -727,7 +727,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const int32_t matepos,
                         bool materev,
                         const int32_t tlen) {
-    
+
     return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true);
 
 }
