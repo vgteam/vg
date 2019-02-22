@@ -5,11 +5,15 @@
 #include <bitset>
 #include <arpa/inet.h>
 
+#include <handlegraph/util.hpp>
+
 //#define VERBOSE_DEBUG
 //#define debug_algorithms
 //#define debug_component_index
 
 namespace xg {
+
+using namespace handlegraph;
 
 id_t side_id(const side_t& side) {
     return abs(side);
@@ -1628,24 +1632,24 @@ handle_t XG::get_handle(const id_t& node_id, bool is_reverse) const {
     // Where in the g vector do we need to be
     uint64_t g = g_bv_select(id_to_rank(node_id));
     // And set the high bit if it's reverse
-    return EasyHandlePacking::pack(g, is_reverse);
+    return handlegraph::number_bool_packing::pack(g, is_reverse);
 }
 
 id_t XG::get_id(const handle_t& handle) const {
     // Go get the g offset and then look up the noder ID
-    return g_iv[EasyHandlePacking::unpack_number(handle) + G_NODE_ID_OFFSET];
+    return g_iv[handlegraph::number_bool_packing::unpack_number(handle) + G_NODE_ID_OFFSET];
 }
 
 bool XG::get_is_reverse(const handle_t& handle) const {
-    return EasyHandlePacking::unpack_bit(handle);
+    return handlegraph::number_bool_packing::unpack_bit(handle);
 }
 
 handle_t XG::flip(const handle_t& handle) const {
-    return EasyHandlePacking::toggle_bit(handle);
+    return handlegraph::number_bool_packing::toggle_bit(handle);
 }
 
 size_t XG::get_length(const handle_t& handle) const {
-    return g_iv[EasyHandlePacking::unpack_number(handle) + G_NODE_LENGTH_OFFSET];
+    return g_iv[handlegraph::number_bool_packing::unpack_number(handle) + G_NODE_LENGTH_OFFSET];
 }
 
 string XG::get_sequence(const handle_t& handle) const {
@@ -1655,7 +1659,7 @@ string XG::get_sequence(const handle_t& handle) const {
     // Allocate the sequence string
     string sequence(sequence_size, '\0');
     // Extract the node record start
-    size_t g = EasyHandlePacking::unpack_number(handle);
+    size_t g = handlegraph::number_bool_packing::unpack_number(handle);
     // Figure out where the sequence starts
     size_t sequence_start = g_iv[g + G_NODE_SEQ_START_OFFSET];
     for (int64_t i = 0; i < sequence_size; i++) {
@@ -1663,7 +1667,7 @@ string XG::get_sequence(const handle_t& handle) const {
         sequence[i] = revdna3bit(s_iv[sequence_start + i]);
     }
     
-    if (EasyHandlePacking::unpack_bit(handle)) {
+    if (handlegraph::number_bool_packing::unpack_bit(handle)) {
         return reverse_complement(sequence);
     } else {
         return sequence;
@@ -1720,7 +1724,7 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             bool new_reverse = is_reverse != (type == 2 || type == 3);
             
             // Compose the handle for where we are going
-            handle_t next_handle = EasyHandlePacking::pack(g + offset, new_reverse);
+            handle_t next_handle = handlegraph::number_bool_packing::pack(g + offset, new_reverse);
             
             // We want this edge
             
@@ -1733,18 +1737,18 @@ bool XG::do_edges(const size_t& g, const size_t& start, const size_t& count, boo
             // TODO: delete this after using it to debug
             int64_t offset = g_iv[start + i * G_EDGE_LENGTH + G_EDGE_OFFSET_OFFSET];
             bool new_reverse = is_reverse != (type == 2 || type == 3);
-            handle_t next_handle = EasyHandlePacking::pack(g + offset, new_reverse);
+            handle_t next_handle = handlegraph::number_bool_packing::pack(g + offset, new_reverse);
         }
     }
     // Iteratee didn't stop us.
     return true;
 }
 
-bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool XG::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
 
     // Unpack the handle
-    size_t g = EasyHandlePacking::unpack_number(handle);
-    bool is_reverse = EasyHandlePacking::unpack_bit(handle);
+    size_t g = handlegraph::number_bool_packing::unpack_number(handle);
+    bool is_reverse = handlegraph::number_bool_packing::unpack_bit(handle);
 
     // How many edges are there of each type?
     size_t edges_to_count = g_iv[g + G_NODE_TO_COUNT_OFFSET];
@@ -1763,7 +1767,7 @@ bool XG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     }
 }
 
-void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool XG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // This shared flag lets us bail early even when running in parallel
     bool stop_early = false;
     if (parallel) {
@@ -1774,7 +1778,7 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
                 // We need to do a serial scan of the g vector because each entry is variable size.
                 for (size_t g = 0; g < g_iv.size() && !stop_early;) {
                     // Make it into a handle, packing it as the node ID and using 0 for orientation
-                    handle_t handle = EasyHandlePacking::pack(g, false);
+                    handle_t handle = handlegraph::number_bool_packing::pack(g, false);
                 
                     #pragma omp task firstprivate(handle)
                     {
@@ -1801,7 +1805,7 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
     } else {
         for (size_t g = 0; g < g_iv.size() && !stop_early;) {
             // Make it into a handle, packing it as the node ID and using 0 for orientation
-            handle_t handle = EasyHandlePacking::pack(g, false);
+            handle_t handle = handlegraph::number_bool_packing::pack(g, false);
             
             // Run the iteratee in-line
             if (!iteratee(handle)) {
@@ -1818,6 +1822,8 @@ void XG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool p
             g += G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * (edges_to_count + edges_from_count);
         }
     }
+    
+    return !stop_early;
 }
 
 bool XG::has_path(const string& path_name) const {
@@ -1844,13 +1850,16 @@ size_t XG::get_path_count() const {
     return paths.size();
 }
     
-void XG::for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const {
+bool XG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const {
     for (size_t i = 0; i < paths.size(); i++) {
         // convert to 1-based rank
         path_handle_t path_handle = as_path_handle(i + 1);
         // execute function
-        iteratee(path_handle);
+        if (!iteratee(path_handle)) {
+            return false;
+        }
     }
+    return true;
 }
 
 handle_t XG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
@@ -1899,24 +1908,22 @@ occurrence_handle_t XG::get_previous_occurrence(const occurrence_handle_t& occur
 path_handle_t XG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
-    
-vector<occurrence_handle_t> XG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
+
+bool XG::for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const {
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths = oriented_paths_of_node(get_id(handle));
     
-    vector<occurrence_handle_t> return_val;
     for (const pair<size_t, vector<pair<size_t, bool>>>& path_occs : oriented_paths) {
         for (const pair<size_t, bool>& oriented_occ : path_occs.second) {
-            if (!match_orientation || oriented_occ.second == get_is_reverse(handle)) {
-                
-                occurrence_handle_t occurrence_handle;
-                as_integers(occurrence_handle)[0] = path_occs.first;
-                as_integers(occurrence_handle)[1] = oriented_occ.first;
-                return_val.push_back(occurrence_handle);
+            occurrence_handle_t occurrence_handle;
+            as_integers(occurrence_handle)[0] = path_occs.first;
+            as_integers(occurrence_handle)[1] = oriented_occ.first;
+            if (!iteratee(occurrence_handle)) {
+                return false;
             }
         }
     }
     
-    return return_val;
+    return true;
 }
 
 size_t XG::node_size() const {

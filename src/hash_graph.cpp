@@ -4,7 +4,11 @@
 
 #include "hash_graph.hpp"
 
+#include <handlegraph/util.hpp>
+
 namespace vg {
+    
+    using namespace handlegraph;
     
     HashGraph::HashGraph() {
         
@@ -52,19 +56,19 @@ namespace vg {
     }
     
     handle_t HashGraph::get_handle(const id_t& node_id, bool is_reverse) const {
-        return EasyHandlePacking::pack(node_id, is_reverse);
+        return handlegraph::number_bool_packing::pack(node_id, is_reverse);
     }
     
     id_t HashGraph::get_id(const handle_t& handle) const {
-        return EasyHandlePacking::unpack_number(handle);
+        return handlegraph::number_bool_packing::unpack_number(handle);
     }
     
     bool HashGraph::get_is_reverse(const handle_t& handle) const {
-        return EasyHandlePacking::unpack_bit(handle);;
+        return handlegraph::number_bool_packing::unpack_bit(handle);;
     }
     
     handle_t HashGraph::flip(const handle_t& handle) const {
-        return EasyHandlePacking::toggle_bit(handle);
+        return handlegraph::number_bool_packing::toggle_bit(handle);
     }
     
     size_t HashGraph::get_length(const handle_t& handle) const {
@@ -81,8 +85,8 @@ namespace vg {
         // TODO: implement?
     }
     
-    bool HashGraph::follow_edges(const handle_t& handle, bool go_left,
-                                 const std::function<bool(const handle_t&)>& iteratee) const {
+    bool HashGraph::follow_edges_impl(const handle_t& handle, bool go_left,
+                                      const std::function<bool(const handle_t&)>& iteratee) const {
         
         auto& edge_list = get_is_reverse(handle) != go_left ? graph.at(get_id(handle)).left_edges
                                                             : graph.at(get_id(handle)).right_edges;
@@ -112,8 +116,8 @@ namespace vg {
         return edge_list.size();
     }
     
-    void HashGraph::for_each_handle(const std::function<bool(const handle_t&)>& iteratee,
-                                    bool parallel) const {
+    bool HashGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee,
+                                         bool parallel) const {
         
         bool keep_going = true;
         if (parallel) {
@@ -138,6 +142,8 @@ namespace vg {
                 keep_going = iteratee(get_handle(it->first));
             }
         }
+        
+        return keep_going;
     }
     
     handle_t HashGraph::apply_orientation(const handle_t& handle) {
@@ -343,10 +349,13 @@ namespace vg {
         return paths.size();
     }
     
-    void HashGraph::for_each_path_handle(const std::function<void(const path_handle_t&)>& iteratee) const {
+    bool HashGraph::for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const {
         for (auto it = paths.begin(); it != paths.end(); it++) {
-            iteratee(as_path_handle(it->first));
+            if (!iteratee(as_path_handle(it->first))) {
+                return false;
+            }
         }
+        return true;
     }
     
     handle_t HashGraph::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
@@ -393,19 +402,21 @@ namespace vg {
         return as_path_handle(as_integers(occurrence_handle)[0]);
     }
     
-    vector<occurrence_handle_t> HashGraph::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
-        vector<occurrence_handle_t> to_return;
+    bool HashGraph::for_each_occurrence_on_handle_impl(const handle_t& handle,
+                                                       const function<bool(const occurrence_handle_t&)>& iteratee) const {
         auto it = occurrences.find(get_id(handle));
         if (it != occurrences.end()) {
             for (path_mapping_t* mapping : it->second) {
-                if (!match_orientation || mapping->handle == handle) {
-                    to_return.emplace_back();
-                    as_integers(to_return.back())[0] = mapping->path_id;
-                    as_integers(to_return.back())[1] = intptr_t(mapping);
+                occurrence_handle_t occ;
+                as_integers(occ)[0] = mapping->path_id;
+                as_integers(occ)[1] = intptr_t(mapping);
+                
+                if (!iteratee(occ)) {
+                    return false;
                 }
             }
         }
-        return to_return;
+        return true;
     }
     
     void HashGraph::destroy_path(const path_handle_t& path) {
