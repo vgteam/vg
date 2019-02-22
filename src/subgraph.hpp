@@ -44,6 +44,9 @@ using namespace std;
         /// Look up the handle for the node with the given ID in the given orientation
         virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
         
+        // Copy over the visit version which would otherwise be shadowed.
+        using HandleGraph::get_handle;
+
         /// Get the ID from a handle
         virtual id_t get_id(const handle_t& handle) const;
         
@@ -65,12 +68,18 @@ using namespace std;
         /// continue. Returns true if we finished and false if we stopped early.
         virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
         
+        // Copy over the template for nice calls
+        using HandleGraph::follow_edges;
+
         /// Loop over all the nodes in the graph in their local forward
         /// orientations, in their internal stored order. Stop if the iteratee
         /// returns false. Can be told to run in parallel, in which case stopping
         /// after a false return value is on a best-effort basis and iteration
         /// order is not defined.
         virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+
+        // Copy over the template for nice calls
+        using HandleGraph::for_each_handle;
         
         /// Return the number of nodes in the graph
         /// TODO: can't be node_count because XG has a field named node_count.

@@ -17,6 +17,9 @@
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
 
+#include "../algorithms/0_demo_extract_subgraph.cpp"
+#include "../algorithms/0_demo_snarl_to_strings.cpp"
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -79,7 +82,8 @@ void help_mod(char** argv) {
          << "    -a, --cactus            convert to cactus graph representation" << endl
          << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl
          << "    -G, --sample-graph FILE subset an augmented graph to a sample graph using a Locus file" << endl
-         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
+         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl
+         << "    -F, --demo_0 N          TO BE REMOVED: add six adenosines to the front of start of a given node N" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -131,6 +135,7 @@ int main_mod(int argc, char** argv) {
     string vcf_filename;
     string loci_filename;
     int max_degree = 0;
+    string demo_0 = "";
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -182,11 +187,12 @@ int main_mod(int argc, char** argv) {
             {"sample-vcf", required_argument, 0, 'v'},
             {"sample-graph", required_argument, 0, 'G'},
             {"max-degree", required_argument, 0, 'M'},
+            {"demo_0", required_argument, 0, 'F'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:CDr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNAf:CDr:Ig:x:RTU:Bbd:Ow:L:y:Z:Eav:G:M:F:",
                 long_options, &option_index);
 
 
@@ -373,6 +379,10 @@ int main_mod(int argc, char** argv) {
 
         case 'M':
             max_degree = parse<int>(optarg);
+            break;
+
+        case 'F':
+            demo_0 = optarg;
             break;
 
         case 'h':
@@ -849,6 +859,24 @@ int main_mod(int argc, char** argv) {
         *graph = cactusify(*graph);
         // no paths survive, make sure they are erased
         graph->paths = Paths();
+    }
+
+    if ( demo_0.length() > 0 ) {
+        vector<int> snarl_nodes = split_at_space(demo_0);
+        vg::id_t start_id = 220;
+        vg::id_t end_id = 218;
+        // tag_all_snarl_nodes(*graph, snarl_nodes[0], snarl_nodes[1]);
+        // vg::SubHandleGraph snarl = extract_subgraph(*graph, start_id, end_id);
+        vector<string> walks = get_walks(*graph, start_id, end_id);
+        cout << endl << endl << endl;
+
+        for (string walk : walks){
+            cout << walk << endl;
+        }
+
+        cout << endl << endl << endl;
+        // list<string> walks get_walks(snarl);
+
     }
 
     graph->serialize_to_ostream(std::cout);
