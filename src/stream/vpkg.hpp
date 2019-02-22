@@ -4,8 +4,7 @@
 /**
  * \file vpkg.hpp: frontend load/save interface for multi-type type-tagged files
  */
-
-
+ 
 #include "registry.hpp"
 #include "message_iterator.hpp"
 #include "message_emitter.hpp"
@@ -14,6 +13,9 @@
 #include <tuple>
 #include <vector>
 #include <deque>
+
+// We use this for fancy type-name demangling. Hopefully the compiler has it.
+#include <cxxabi.h>
 
 namespace vg {
 
@@ -132,33 +134,52 @@ public:
         // Check if the thing we want can be loaded from a bare stream
         auto* bare_loader = Registry::find_bare_loader<Wanted>();
         
+#ifdef debug
+        cerr << "Bare loader for " << describe<Wanted>() << ": " << bare_loader << endl;
+#endif
+        
         if (bare_loader != nullptr) {
         
             // If so, sniff out whether this is actually a BGZF-compressed
             // type-tagged message file.
             
             if (!BlockedGzipInputStream::SmellsLikeGzip(in)) {
-                // If it is not BGZF-compressed, try loading it directly with the loader.
+#ifdef debug
+                cerr << "Data does not smell compressed; try loading with the bare loader" << endl;
+#endif
+                // If it is not GZIP-compressed, try loading it directly with the loader.
                 return unique_ptr<Wanted>((Wanted*)(*bare_loader)(in));
             }
             
             // TODO: We assume that if it starts with the GZIP magic number
-            // (0x1F 0x8B) it is GZIP and therefore BGZF type-tagged message
+            // (0x1F 0x8B) it is GZIP'd (possibly BGZF) type-tagged message
             // data. For some of our old formats that didn't include their own
             // leading magic numbers (GCSA, LCP), this assumption may break
             // down for some files!
-        
+            
         }
         
-        // If it is BGZF-compressed, or we don't have a loader from a bare stream, then make the MessageIterator.
+        // If it is compressed, or we don't have a loader from a bare stream, then make the MessageIterator.
         MessageIterator it(in);
+        
+#ifdef debug
+        cerr << "Iterator has a first item? " << it.has_next() << endl;
+#endif
         
         while (it.has_next()) {
             // Scan through kinds of tagged messages
             string current_tag = (*it).first;
             
+#ifdef debug
+            cerr << "Iterator found tag \"" << current_tag << "\"" << endl;
+#endif
+            
             // See if we have one that has a registered loader for this type.
             auto* loader = Registry::find_loader<Wanted>(current_tag);
+            
+#ifdef debug
+            cerr << "Loader for " << describe<Wanted>() << " from that tag: " << loader << endl;
+#endif
             
             if (loader == nullptr) {
                 // Skip all these messages with this tag
@@ -214,7 +235,7 @@ public:
     template<typename Wanted>
     static unique_ptr<Wanted> load_one(istream& in) {
         if (!in) {
-            cerr << "error[VPKG::load_one]: Could not load " << typeid(Wanted).name() << " from unreadable stream" << endl;
+            cerr << "error[VPKG::load_one]: Unreadable stream while loading " << describe<Wanted>() << endl;
             exit(1);
         }
         
@@ -222,7 +243,7 @@ public:
         auto result = try_load_one<Wanted>(in);
         
         if (result.get() == nullptr) {
-            cerr << "error[VPKG::load_one]: Could not find correct object " << typeid(Wanted).name() << " in stream" << endl;
+            cerr << "error[VPKG::load_one]: Correct input type not found while loading " << describe<Wanted>() << endl;
             exit(1);
         }
         
@@ -238,15 +259,24 @@ public:
     template<typename Wanted>
     static unique_ptr<Wanted> load_one(const string& filename) {
         if (filename.empty()) {
-            cerr << "error[VPKG::load_one]: Could not load " << typeid(Wanted).name() << " because file name was not specified" << endl;
+            cerr << "error[VPKG::load_one]: File name missing wile loading " << describe<Wanted>() << endl;
             exit(1);
         }
         
-        // Open and read the file.
-        auto result = try_load_one<Wanted>(filename);
+        // Open the file
+        ifstream in(filename);
+        
+        if (!in) {
+            // We can't even open the file
+            cerr << "error[VPKG::load_one]: Could not open " << filename << " while loading " << describe<Wanted>() << endl;
+            exit(1);
+        }
+        
+        // Read the file.
+        auto result = try_load_one<Wanted>(in);
         
         if (result.get() == nullptr) {
-            cerr << "error[VPKG::load_one]: Could not find correct object " << typeid(Wanted).name() << " in " << filename << endl;
+            cerr << "error[VPKG::load_one]: Correct input type not found in " << filename << " while loading " << describe<Wanted>() << endl;
             exit(1);
         }
         
@@ -381,6 +411,38 @@ private:
         
         // Say we loaded something
         return LOAD_SUCCESS;
+    }
+    
+    /**
+     * Return a string to represent the given type. Should be demangled and human-readable.
+     */
+    template <typename T>
+    static string describe() {
+        // Get the (probably mangled) type name
+        string mangled = typeid(T).name();
+        
+        // TODO: unify this demangling with crash.cpp
+        int status;
+            
+        // Do the demangling
+        char* demangledName = abi::__cxa_demangle(mangled.c_str(), NULL, NULL, &status);
+        
+        string demangled;
+        if (status == 0) {
+            // Demangling worked.
+            // Wrap the char* in a string.
+            demangled = string(demangledName);
+        } else {
+            // Demangling failed. Use mangled name.
+            demangled = mangled;
+        }
+        
+        if (demangledName != nullptr) {
+            // Clean up the char*
+            free(demangledName);
+        }
+        
+        return demangled;
     }
 };
 
