@@ -263,24 +263,45 @@ public:
             exit(1);
         }
         
-        // Open the file
-        ifstream in(filename);
+        // We branch into two completely different flows here for better error reporting.
         
-        if (!in) {
-            // We can't even open the file
-            cerr << "error[VPKG::load_one]: Could not open " << filename << " while loading " << describe<Wanted>() << endl;
-            exit(1);
+        if (filename == "-") {
+            // Load from cin
+            if (!cin) {
+                cerr << "error[VPKG::load_one]: Could not access standard input while loading " << describe<Wanted>() << endl;
+                exit(1);
+            }
+            
+            // Read the stream.
+            auto result = try_load_one<Wanted>(cin);
+            
+            if (result.get() == nullptr) {
+                cerr << "error[VPKG::load_one]: Correct input type not found in standard input while loading " << describe<Wanted>() << endl;
+                exit(1);
+            }
+            
+            return result;
+            
+        } else {
+            // Load from a real file
+            ifstream in(filename);
+            
+            if (!in) {
+                // We can't even open the file
+                cerr << "error[VPKG::load_one]: Could not open " << filename << " while loading " << describe<Wanted>() << endl;
+                exit(1);
+            }
+            
+            // Read the file.
+            auto result = try_load_one<Wanted>(in);
+            
+            if (result.get() == nullptr) {
+                cerr << "error[VPKG::load_one]: Correct input type not found in " << filename << " while loading " << describe<Wanted>() << endl;
+                exit(1);
+            }
+            
+            return result;
         }
-        
-        // Read the file.
-        auto result = try_load_one<Wanted>(in);
-        
-        if (result.get() == nullptr) {
-            cerr << "error[VPKG::load_one]: Correct input type not found in " << filename << " while loading " << describe<Wanted>() << endl;
-            exit(1);
-        }
-        
-        return result;
     }
     
     
