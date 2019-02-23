@@ -11,8 +11,8 @@ var searchData=
   ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a58f0d57a45dd09927cfa2cb5dbc9115f',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#afc568712b6d4aa3b6dc965f37cc769a7',1,'vg::VG::unfold()']]],
   ['unfold_5fcomponent',['unfold_component',['../classvg_1_1PhaseUnfolder.html#a1ac274b029b11fb5e049701eff948d7b',1,'vg::PhaseUnfolder']]],
   ['unfold_5fmax_5flength',['unfold_max_length',['../classvg_1_1Genotyper.html#ab3e4270419b361c9455125ca305709e2',1,'vg::Genotyper']]],
-  ['uniform_5fint_5fdistribution',['uniform_int_distribution',['../classvg_1_1uniform__int__distribution.html',1,'vg']]],
   ['uniform_5fint_5fdistribution',['uniform_int_distribution',['../classvg_1_1uniform__int__distribution.html#ab8d23ee7f2beacc01804f3206c3bc663',1,'vg::uniform_int_distribution']]],
+  ['uniform_5fint_5fdistribution',['uniform_int_distribution',['../classvg_1_1uniform__int__distribution.html',1,'vg']]],
   ['uniform_5fint_5fdistribution_3c_20size_5ft_20_3e',['uniform_int_distribution&lt; size_t &gt;',['../classvg_1_1uniform__int__distribution.html',1,'vg']]],
   ['uniform_5fint_5fdistribution_3c_20uint8_5ft_20_3e',['uniform_int_distribution&lt; uint8_t &gt;',['../classvg_1_1uniform__int__distribution.html',1,'vg']]],
   ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
@@ -24,6 +24,8 @@ var searchData=
   ['uniqueness',['uniqueness',['../structvg_1_1Alignment.html#a2d744ce39b375cdeb8adfc3721a18eb0',1,'vg::Alignment']]],
   ['unlock',['unlock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1cfc8d66ced1ef3d435f99579ac44ca6',1,'vg::GraphSynchronizer::Lock']]],
   ['unmapped_5ffilter',['unmapped_filter',['../classvg_1_1Filter.html#a3a02d37cb7cf0b042aa5933186a76061',1,'vg::Filter']]],
+  ['unpack_5fbit',['unpack_bit',['../structhandlegraph_1_1number__bool__packing.html#a52f57c83e66ad6f09b519dff55be71d9',1,'handlegraph::number_bool_packing']]],
+  ['unpack_5fnumber',['unpack_number',['../structhandlegraph_1_1number__bool__packing.html#a5f2f610bc0e6819ff0ae3d91d2aff9fc',1,'handlegraph::number_bool_packing']]],
   ['unpack_5fsuccinct_5fcomponent_5fpath_5fsets',['unpack_succinct_component_path_sets',['../classxg_1_1XG.html#a2b1f25454ebfef9f8ac08056225cb842',1,'xg::XG']]],
   ['unpaired_5ffor_5feach_5fparallel',['unpaired_for_each_parallel',['../namespacevg.html#ad9d7a5ca192b47b922e17a717774ff66',1,'vg']]],
   ['unpaired_5fpenalty',['unpaired_penalty',['../classvg_1_1BaseMapper.html#ad20ea9a68bcaca157350595f03b4601c',1,'vg::BaseMapper']]],
@@ -55,6 +57,7 @@ var searchData=
   ['use_5ftvs_5fclusterer',['use_tvs_clusterer',['../classvg_1_1MultipathMapper.html#afaa33d747ce1393304aa96bc5245a4f8',1,'vg::MultipathMapper']]],
   ['used',['used',['../classvg_1_1PinchToVGTranslator.html#a4ba24f45298b6e67662245b22d0bef3f',1,'vg::PinchToVGTranslator::used()'],['../structvg_1_1IntervalBitfield.html#a4ce87a0c028df95b777075fb8b378c25',1,'vg::IntervalBitfield::used()']]],
   ['used_5fbins_5fof_5frange',['used_bins_of_range',['../classvg_1_1StreamIndexBase.html#a5fe0982b8a0927205b3e57d65d642aa3',1,'vg::StreamIndexBase']]],
+  ['util_2ehpp',['util.hpp',['../util_8hpp.html',1,'']]],
   ['utility_2ecpp',['utility.cpp',['../utility_8cpp.html',1,'']]],
   ['utility_2ehpp',['utility.hpp',['../utility_8hpp.html',1,'']]]
 ];

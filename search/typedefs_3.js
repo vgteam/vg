@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['edge_5ft',['edge_t',['../namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963',1,'vg']]],
+  ['edge_5ft',['edge_t',['../namespacevg.html#a3de8fe5f38b1730a36af4ad9c4258963',1,'vg::edge_t()'],['../namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b',1,'handlegraph::edge_t()']]],
   ['edgehash',['EdgeHash',['../classvg_1_1PileupAugmenter.html#aa26aa2c1a545e7652c1fca7557429987',1,'vg::PileupAugmenter']]],
   ['edgemapping',['EdgeMapping',['../namespacevg.html#a7a29090bbc6b842c2362f9da44a4a57c',1,'vg']]],
   ['edgepileuphash',['EdgePileupHash',['../classvg_1_1Pileups.html#a78543be08ac7141b012fb89dd04d3c87',1,'vg::Pileups']]],

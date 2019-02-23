@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['pack',['pack',['../structhandlegraph_1_1number__bool__packing.html#af5082dc39a2f308585402bd19de0caa8',1,'handlegraph::number_bool_packing']]],
   ['packeddeque',['PackedDeque',['../classvg_1_1PackedDeque.html#a8e09c28147377e03d2cb2735ca8e065b',1,'vg::PackedDeque::PackedDeque(void)'],['../classvg_1_1PackedDeque.html#a9458ca69aa2faa3fef2187fed6e1f0e5',1,'vg::PackedDeque::PackedDeque(PackedDeque &amp;&amp;other)=default']]],
   ['packedgraph',['PackedGraph',['../classvg_1_1PackedGraph.html#a132c63e64b953aea4d5ed4732e832931',1,'vg::PackedGraph']]],
   ['packedpath',['PackedPath',['../structvg_1_1PackedGraph_1_1PackedPath.html#ac52a4cb434acc0107fca1083eeaa7b20',1,'vg::PackedGraph::PackedPath']]],

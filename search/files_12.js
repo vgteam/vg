@@ -7,5 +7,6 @@ var searchData=
   ['translator_2ehpp',['translator.hpp',['../translator_8hpp.html',1,'']]],
   ['traversal_5ffinder_2ecpp',['traversal_finder.cpp',['../traversal__finder_8cpp.html',1,'']]],
   ['traversal_5ffinder_2ehpp',['traversal_finder.hpp',['../traversal__finder_8hpp.html',1,'']]],
-  ['types_2ehpp',['types.hpp',['../types_8hpp.html',1,'']]]
+  ['types_2ehpp',['types.hpp',['../src_2types_8hpp.html',1,'']]],
+  ['types_2ehpp',['types.hpp',['../deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html',1,'']]]
 ];
