@@ -17,7 +17,6 @@ using namespace std;
             // Create a handle in mutable graph using the graph id and sequence
             converted->create_handle(converting_seq, converting_id);
         });
-        cerr << "finished with nodes" << endl;
         // add any edges that are not yet present
         converting->for_each_edge([&](const edge_t& edge) {
             edge_t converted_edge(converted->get_handle(converting->get_id(edge.first), converting->get_is_reverse(edge.first)),
@@ -25,26 +24,31 @@ using namespace std;
             if (!converted->has_edge(converted_edge)) {
                 converted->create_edge(converted_edge);
             }
-            cerr<< converting->get_id(edge.first) <<" "<< converting->get_is_reverse(edge.first) <<endl;
-            cerr<< converting->get_id(edge.second) <<" "<< converting->get_is_reverse(edge.second) <<endl;
             // always keep going
             return true;
         });
-        
-        cerr << "finished with edges" << endl;
     }
 
-    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathMutableHandleGraph* converted) {
+    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathDeletableHandleGraph* converted) {
         assert(converted->get_path_count() == 0);
         
         // Must convert nodes and edges before converting paths.
         convert_handle_graph(converting, converted);
-        
         converting->for_each_path_handle([&](const path_handle_t& path) {
             string path_name = converting->get_path_name(path);
-            converted->create_path_handle(path_name);
+            path_handle_t converted_path = converted->create_path_handle(path_name);
+            if (converting->get_occurrence_count(path) > 0){
+                occurrence_handle_t converting_occurence = converting->get_first_occurrence(path);
+                handle_t converting_handle = converting->get_occurrence(converting_occurence);
+                handle_t converted_handle = converted->get_handle(converting->get_id(converting_handle), converting->get_is_reverse(converting_handle));
+                occurrence_handle_t converted_occurance_handle = converted->append_occurrence(converted_path, converted_handle);
+                while (converting->has_next_occurrence(converting_occurence)){
+                    converting_occurence = converting->get_next_occurrence(converting_occurence);
+                    converting_handle = converting->get_occurrence(converting_occurence);
+                    converted_handle = converted->get_handle(converting->get_id(converting_handle), converting->get_is_reverse(converting_handle));
+                    occurrence_handle_t converted_occurance_handle = converted->append_occurrence(converted_path, converted_handle);
+                }
+            }
         });
-        
-        
     }
 }

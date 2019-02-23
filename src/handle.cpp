@@ -94,7 +94,7 @@ void HandleGraph::for_each_edge(const function<bool(const edge_t&)>& iteratee, b
             // self-loop
             follow_edges(handle, true, [&](const handle_t& prev) {
                 if (get_id(handle) < get_id(prev) ||
-                    (get_id(handle) == get_id(prev) && !get_is_reverse(prev))) {
+                    (get_id(handle) == get_id(prev) && get_is_reverse(prev))) {
                     keep_going = iteratee(edge_handle(prev, handle));
                 }
                 return keep_going;

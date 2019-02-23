@@ -14,7 +14,7 @@ namespace vg {
     void convert_handle_graph(const HandleGraph* converting, MutableHandleGraph* converted);
     
     // Change paths to a mutable path.
-    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathMutableHandleGraph* converted);
+    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathDeletableHandleGraph* converted);
 
 }
 
