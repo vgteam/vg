@@ -165,6 +165,7 @@ int main_mod(int argc, char** argv) {
             {"orient-forward", no_argument, 0, 'O'},
             {"unfold", required_argument, 0, 'f'},
             {"retain-path", required_argument, 0, 'r'},
+            {"retain-complement", no_argument, 0, 'I'},
             {"subgraph", required_argument, 0, 'g'},
             {"context", required_argument, 0, 'x'},
             {"remove-null", no_argument, 0, 'R'},

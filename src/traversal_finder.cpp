@@ -472,7 +472,8 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                 
                     // We are going left in the read but right in the snarl, so
                     // we want to enter the snarl's start node
-                    bool enter_start = mapping_enters_side(mapping->to_mapping(), graph.get_handle(site.start()), &graph);
+                    bool enter_start = mapping_enters_side(mapping->to_mapping(),
+                        graph.get_handle(site.start().node_id(), site.start().backward()), &graph);
 
 #ifdef debug
 #pragma omp critical (cerr)
@@ -487,7 +488,8 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                 } else {
                     // We are going right, so we want to exit the snarl's start
                     // node
-                    bool exit_start = mapping_exits_side(mapping->to_mapping(), graph.get_handle(site.start()), &graph);
+                    bool exit_start = mapping_exits_side(mapping->to_mapping(),
+                        graph.get_handle(site.start().node_id(), site.start().backward()), &graph);
                     
 #ifdef debug
 #pragma omp critical (cerr)
@@ -529,9 +531,11 @@ vector<SnarlTraversal> PathRestrictedTraversalFinder::find_traversals(const Snar
                         // node, depending on which way in the read we read. And
                         // if it doesn't we try again.
                         if (!traversal_direction &&
-                            !mapping_enters_side(mapping->to_mapping(), graph.get_handle(site.end()), &graph) ||
+                            !mapping_enters_side(mapping->to_mapping(),
+                                graph.get_handle(site.end().node_id(), site.end().backward()), &graph) ||
                             traversal_direction && 
-                            !mapping_exits_side(mapping->to_mapping(), graph.get_handle(site.end()), &graph)) {
+                            !mapping_exits_side(mapping->to_mapping(),
+                                graph.get_handle(site.end().node_id(), site.end().backward()), &graph)) {
                             break;
                         }
 

@@ -9,6 +9,7 @@
 #include "vg.hpp"
 #include "xg.hpp"
 #include "hash_map.hpp"
+#include "gbwt_helper.hpp"
 
 #include <algorithm>
 #include <list>
@@ -16,7 +17,6 @@
 #include <utility>
 #include <vector>
 
-#include <gbwt/gbwt.h>
 #include <gcsa/support.h>
 
 namespace vg {

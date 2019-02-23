@@ -13,6 +13,7 @@
 #include "subcommand.hpp"
 
 #include "../xg.hpp"
+#include "../gbwt_helper.hpp"
 #include "../stream/vpkg.hpp"
 
 using namespace std;
@@ -20,8 +21,6 @@ using namespace vg;
 using namespace vg::subcommand;
 
 #include <unistd.h>
-
-#include <gbwt/dynamic_gbwt.h>
 
 
 void help_gbwt(char** argv) {
@@ -164,8 +163,13 @@ int main_gbwt(int argc, char** argv)
         size_t input_files = argc - optind;
         size_t total_inserted = 0;
         if (input_files <= 1) {
-            cerr << "[vg gbwt] error: at least two input gbwt files required to merge" << endl;
+            cerr << "error: [vg gbwt] at least two input gbwt files required to merge" << endl;
             exit(1);
+        }
+        if (gbwt_output.empty()) {
+            cerr << "error: [vg gbwt] output file must be specified with -o" << endl;
+            exit(1);
+            cerr << "[vg gbwt] error: at least two input gbwt files required to merge" << endl;
         }
         if (gbwt_output.empty()) {
             cerr << "[vg gbwt] error: output file must be specified with -o" << endl;
@@ -190,7 +194,7 @@ int main_gbwt(int argc, char** argv)
                 // Try loading the GBWT
                 unique_ptr<gbwt::GBWT> loaded = stream::VPKG::load_one<gbwt::GBWT>(input_name);
                 if (loaded.get() == nullptr) {
-                    cerr << "[vg gbwt] error: ocould not load GBWT " << input_name << endl;
+                    cerr << "error: [vg gbwt] could not load GBWT " << input_name << endl;
                     exit(1);
                 }
                 
@@ -223,7 +227,7 @@ int main_gbwt(int argc, char** argv)
                 index = stream::VPKG::load_one<gbwt::DynamicGBWT>(input_name);
                 
                 if (index.get() == nullptr) {
-                    cerr << "[vg gbwt] error: ocould not load dynamic GBWT " << input_name << endl;
+                    cerr << "error: [vg gbwt] could not load dynamic GBWT " << input_name << endl;
                     exit(1);
                 }
                 
@@ -237,7 +241,7 @@ int main_gbwt(int argc, char** argv)
                 unique_ptr<gbwt::GBWT> next = stream::VPKG::load_one<gbwt::GBWT>(input_name);
                 
                 if (next.get() == nullptr) {
-                    cerr << "[vg gbwt] error: ocould not load GBWT " << input_name << endl;
+                    cerr << "error: [vg gbwt]: could not load GBWT " << input_name << endl;
                     exit(1);
                 }
                 
@@ -273,7 +277,7 @@ int main_gbwt(int argc, char** argv)
     // Remove threads before extracting or counting them.
     if (!to_remove.empty()) {
         if (optind + 1 != argc) {
-            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
+            cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
             return 1;
         }
         
@@ -281,7 +285,7 @@ int main_gbwt(int argc, char** argv)
         unique_ptr<gbwt::DynamicGBWT> index = stream::VPKG::load_one<gbwt::DynamicGBWT>(argv[optind]);
         
         if (index.get() == nullptr) {
-            cerr << "[vg gbwt] error: ocould not load dynamic GBWT " << argv[optind] << endl;
+            cerr << "error: [vg gbwt]: could not load dynamic GBWT " << argv[optind] << endl;
             exit(1);
         }
         
@@ -297,13 +301,13 @@ int main_gbwt(int argc, char** argv)
     // Other non-merge options.
     if (load_index) {
         if (optind + 1 != argc) {
-            cerr << "[vg gbwt] error: non-merge options require one input file" << endl;
+            cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
             return 1;
         }
         unique_ptr<gbwt::GBWT> index = stream::VPKG::load_one<gbwt::GBWT>(argv[optind]);
 
         if (index.get() == nullptr) {
-            cerr << "[vg gbwt] error: ocould not load GBWT " << argv[optind] << endl;
+            cerr << "error: [vg gbwt]: could not load GBWT " << argv[optind] << endl;
             exit(1);
         }
 

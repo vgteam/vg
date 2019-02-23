@@ -427,21 +427,92 @@ int main_stats(int argc, char** argv) {
             assert(last_underscore != string::npos);
             return path_name.substr(last_underscore + 1);
         };
+        
+        // In order to do stats across multiple threads, we define these add-able bundles of stats.
+        struct ReadStats {
+            // These are the general stats we will compute.
+            size_t total_alignments = 0;
+            size_t total_aligned = 0;
+            size_t total_primary = 0;
+            size_t total_secondary = 0;
+            size_t total_perfect = 0; // Number of reads with no indels or substitutions relative to their paths
+            size_t total_gapless = 0; // Number of reads with no indels relative to their paths
+
+            // These are for tracking which nodes are covered and which are not
+            map<vg::id_t, size_t> node_visit_counts;
+
+            // And for counting indels
+            // Inserted bases also counts softclips
+            size_t total_insertions = 0;
+            size_t total_inserted_bases = 0;
+            size_t total_deletions = 0;
+            size_t total_deleted_bases = 0;
+            // And substitutions
+            size_t total_substitutions = 0;
+            size_t total_substituted_bases = 0;
+            // And softclips
+            size_t total_softclips = 0;
+            size_t total_softclipped_bases = 0;
+
+            // In verbose mode we want to report details of insertions, deletions,
+            // and substitutions, and soft clips.
+            vector<pair<vg::id_t, Edit>> insertions;
+            vector<pair<vg::id_t, Edit>> deletions;
+            vector<pair<vg::id_t, Edit>> substitutions;
+            vector<pair<vg::id_t, Edit>> softclips;
+            
+            // This is going to be indexed by site
+            // ("_alt_f6d951572f9c664d5d388375aa8b018492224533") and then by allele
+            // ("0"). A read only counts if it visits a node that's on one allele
+            // and not any others in that site.
+            map<string, map<string, size_t>> reads_on_allele;
+        
+            inline ReadStats& operator+=(const ReadStats& other) {
+                total_alignments += other.total_alignments;
+                total_aligned += other.total_aligned;
+                total_primary += other.total_primary;
+                total_secondary += other.total_secondary;
+                total_perfect += other.total_perfect;
+                total_gapless += other.total_gapless;
+                
+                for (auto& kv : other.node_visit_counts) {
+                    node_visit_counts[kv.first] += kv.second;
+                }
+                
+                total_insertions += other.total_insertions;
+                total_inserted_bases += other.total_inserted_bases;
+                total_deletions += other.total_deletions;
+                total_deleted_bases += other.total_deleted_bases;
+                total_substitutions += other.total_substitutions;
+                total_substituted_bases += other.total_substituted_bases;
+                total_softclips += other.total_softclips;
+                total_softclipped_bases += other.total_softclipped_bases;
+                
+                std::copy(other.insertions.begin(), other.insertions.end(), std::back_inserter(insertions));
+                std::copy(other.deletions.begin(), other.deletions.end(), std::back_inserter(deletions));
+                std::copy(other.substitutions.begin(), other.substitutions.end(), std::back_inserter(substitutions));
+                std::copy(other.softclips.begin(), other.softclips.end(), std::back_inserter(softclips));
+                
+                for (auto& kv : other.reads_on_allele) {
+                    auto& dest = reads_on_allele[kv.first];
+                    for (auto& kv2 : kv.second) {
+                        dest[kv2.first] += kv2.second;
+                    }
+                }
+                
+                return *this;
+            }
+        };
 
         // Before we go over the reads, we need to make a map that tells us what
         // nodes are unique to what allele paths. Stores site and allele parts
         // separately.
         map<vg::id_t, pair<string, string>> allele_path_for_node;
 
-        // This is going to be indexed by site
-        // ("_alt_f6d951572f9c664d5d388375aa8b018492224533") and then by allele
-        // ("0"). A read only counts if it visits a node that's on one allele
-        // and not any others in that site.
-
-        // We need to pre-populate it with 0s when we look at the alleles so we
-        // know which sites actually have 2 alleles and which only have 1 in
-        // the graph.
-        map<string, map<string, size_t>> reads_on_allele;
+        // Create a combined ReadStats accumulator. We need to pre-populate its
+        // reads_on_allele with 0s when we look at the alleles so we know which
+        // sites actually have 2 alleles and which only have 1 in the graph.
+        ReadStats combined;
 
         if (graph.get() != nullptr) {
             // We have a graph to work on
@@ -492,68 +563,34 @@ int main_stats(int argc, char** argv) {
                     allele_path_for_node[node->id()] = make_pair(site, allele);
 
                     #pragma omp critical (reads_on_allele)
-                    reads_on_allele[site][allele] = 0;
+                    combined.reads_on_allele[site][allele] = 0;
                 }
             });
             
         }
 
+        // Allocate per-thread storage for stats
+        size_t thread_count = get_thread_count();
+        vector<ReadStats> read_stats;
+        read_stats.resize(thread_count); 
 
-        // These are the general stats we will compute.
-        size_t total_alignments = 0;
-        size_t total_aligned = 0;
-        size_t total_primary = 0;
-        size_t total_secondary = 0;
-        size_t total_perfect = 0; // Number of reads with no indels or substitutions relative to their paths
-        size_t total_gapless = 0; // Number of reads with no indels relative to their paths
-
-        // These are for counting significantly allele-biased hets
-        size_t total_hets = 0;
-        size_t significantly_biased_hets = 0;
-
-        // These are for tracking which nodes are covered and which are not
-        map<vg::id_t, size_t> node_visit_counts;
-
-        // And for counting indels
-        // Inserted bases also counts softclips
-        size_t total_insertions = 0;
-        size_t total_inserted_bases = 0;
-        size_t total_deletions = 0;
-        size_t total_deleted_bases = 0;
-        // And substitutions
-        size_t total_substitutions = 0;
-        size_t total_substituted_bases = 0;
-        // And softclips
-        size_t total_softclips = 0;
-        size_t total_softclipped_bases = 0;
-
-        // In verbose mode we want to report details of insertions, deletions,
-        // and substitutions, and soft clips.
-        vector<pair<vg::id_t, Edit>> insertions;
-        vector<pair<vg::id_t, Edit>> deletions;
-        vector<pair<vg::id_t, Edit>> substitutions;
-        vector<pair<vg::id_t, Edit>> softclips;
-
+        // when we get each read, process it into the current thread's stats
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
-
+            auto& stats = read_stats.at(tid);
             // We ought to be able to do many stats on the alignments.
 
             // Now do all the non-mapping stats
-            #pragma omp critical (total_alignments)
-            total_alignments++;
+            stats.total_alignments++;
             if(aln.is_secondary()) {
-                #pragma omp critical (total_secondary)
-                total_secondary++;
+                stats.total_secondary++;
             } else {
-                #pragma omp critical (total_primary)
-                total_primary++;
+                stats.total_primary++;
                 if(aln.score() > 0) {
                     // We only count aligned primary reads in "total aligned";
                     // the primary can't be unaligned if the secondary is
                     // aligned.
-                    #pragma omp critical (total_aligned)
-                    total_aligned++;
+                    stats.total_aligned++;
                 }
 
                 // Which sites and alleles does this read support. TODO: if we hit
@@ -579,8 +616,7 @@ int main_stats(int argc, char** argv) {
                     }
 
                     // Record that there was a visit to this node.
-                    #pragma omp critical (node_visit_counts)
-                    node_visit_counts[node_id]++;
+                    stats.node_visit_counts[node_id]++;
 
                     for(size_t j = 0; j < mapping.edit_size(); j++) {
                         // Go through edits and look for each type.
@@ -591,28 +627,22 @@ int main_stats(int argc, char** argv) {
                             has_non_match_edits = true;
                             if((j == 0 && i == 0) || (j == mapping.edit_size() - 1 && i == aln.path().mapping_size() - 1)) {
                                 // We're at the very end of the path, so this is a soft clip.
-                                #pragma omp critical (total_softclipped_bases)
-                                total_softclipped_bases += edit.to_length() - edit.from_length();
-                                #pragma omp critical (total_softclips)
-                                total_softclips++;
+                                stats.total_softclipped_bases += edit.to_length() - edit.from_length();
+                                stats.total_softclips++;
                                 if(verbose) {
                                     // Record the actual insertion
-                                    #pragma omp critical (softclips)
-                                    softclips.push_back(make_pair(node_id, edit));
+                                    stats.softclips.push_back(make_pair(node_id, edit));
                                 }
                             } else {
                                 // This is not a softclip
                                 has_non_softclip_indel_edits = true;
                                 
                                 // Record this insertion
-                                #pragma omp critical (total_inserted_bases)
-                                total_inserted_bases += edit.to_length() - edit.from_length();
-                                #pragma omp critical (total_insertions)
-                                total_insertions++;
+                                stats.total_inserted_bases += edit.to_length() - edit.from_length();
+                                stats.total_insertions++;
                                 if(verbose) {
                                     // Record the actual insertion
-                                    #pragma omp critical (insertions)
-                                    insertions.push_back(make_pair(node_id, edit));
+                                    stats.insertions.push_back(make_pair(node_id, edit));
                                 }
                             }
 
@@ -624,14 +654,11 @@ int main_stats(int argc, char** argv) {
                             has_non_softclip_indel_edits = true;
                             
                             // Record this deletion
-                            #pragma omp critical (total_deleted_bases)
-                            total_deleted_bases += edit.from_length() - edit.to_length();
-                            #pragma omp critical (total_deletions)
-                            total_deletions++;
+                            stats.total_deleted_bases += edit.from_length() - edit.to_length();
+                            stats.total_deletions++;
                             if(verbose) {
                                 // Record the actual deletion
-                                #pragma omp critical (deletions)
-                                deletions.push_back(make_pair(node_id, edit));
+                                stats.deletions.push_back(make_pair(node_id, edit));
                             }
                         } else if(!edit.sequence().empty()) {
                             // This is a substitution and not a match
@@ -639,14 +666,11 @@ int main_stats(int argc, char** argv) {
                         
                             // Record this substitution
                             // TODO: a substitution might also occur as part of a deletion/insertion above!
-                            #pragma omp critical (total_substituted_bases)
-                            total_substituted_bases += edit.from_length();
-                            #pragma omp critical (total_substitutions)
-                            total_substitutions++;
+                            stats.total_substituted_bases += edit.from_length();
+                            stats.total_substitutions++;
                             if(verbose) {
                                 // Record the actual substitution
-                                #pragma omp critical (substitutions)
-                                substitutions.push_back(make_pair(node_id, edit));
+                                stats.substitutions.push_back(make_pair(node_id, edit));
                             }
                         }
 
@@ -656,17 +680,14 @@ int main_stats(int argc, char** argv) {
                 for(auto& site_and_allele : alleles_supported) {
                     // This read is informative for an allele of a site.
                     // Up the reads on that allele of that site.
-                    #pragma omp critical (reads_on_allele)
-                    reads_on_allele[site_and_allele.first][site_and_allele.second]++;
+                    stats.reads_on_allele[site_and_allele.first][site_and_allele.second]++;
                 }
             
                 // If there's no non-match edits, call it a perfect alignment
-                #pragma omp critical (total_perfect)
-                total_perfect += !has_non_match_edits;
+                stats.total_perfect += !has_non_match_edits;
                 
                 // If there's no non-softclip indel edits, the alignment is gapless
-                #pragma omp critical (total_gapless)
-                total_gapless += !has_non_softclip_indel_edits;
+                stats.total_gapless += !has_non_softclip_indel_edits;
             
             }
 
@@ -674,7 +695,12 @@ int main_stats(int argc, char** argv) {
 
         // Actually go through all the reads and count stuff up.
         stream::for_each_parallel(alignment_stream, lambda);
-
+        
+        // Now combine into a single ReadStats object (for which we pre-populated reads_on_allele with 0s).
+        for (auto& per_thread : read_stats) {
+            combined += per_thread;
+        }
+        read_stats.clear();
 
         // Go through all the nodes again and sum up unvisited nodes
         size_t unvisited_nodes = 0;
@@ -693,11 +719,15 @@ int main_stats(int argc, char** argv) {
         // as many times as their nodes are touched. Also note that we ignore
         // edge effects and a read that stops before the end of a node will
         // visit the whole node.
+        
+        // These are for counting significantly allele-biased hets
+        size_t total_hets = 0;
+        size_t significantly_biased_hets = 0;
 
         if (graph.get() != nullptr) {
 
             // Calculate stats about the reads per allele data
-            for(auto& site_and_alleles : reads_on_allele) {
+            for(auto& site_and_alleles : combined.reads_on_allele) {
                 // For every site
                 if(site_and_alleles.second.size() == 2) {
                     // If it actually has 2 alleles with unique nodes in the
@@ -738,7 +768,7 @@ int main_stats(int argc, char** argv) {
 
             graph->for_each_node_parallel([&](Node* node) {
                 // For every node
-                if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
+                if(!combined.node_visit_counts.count(node->id()) || combined.node_visit_counts.at(node->id()) == 0) {
                     // If we never visited it with a read, count it.
                     #pragma omp critical (unvisited_nodes)
                     unvisited_nodes++;
@@ -748,7 +778,7 @@ int main_stats(int argc, char** argv) {
                         #pragma omp critical (unvisited_ids)
                         unvisited_ids.insert(node->id());
                     }
-                } else if(node_visit_counts.at(node->id()) == 1) {
+                } else if(combined.node_visit_counts.at(node->id()) == 1) {
                     // If we visited it with only one read, count it.
                     #pragma omp critical (single_visited_nodes)
                     single_visited_nodes++;
@@ -763,37 +793,37 @@ int main_stats(int argc, char** argv) {
             
         }
 
-        cout << "Total alignments: " << total_alignments << endl;
-        cout << "Total primary: " << total_primary << endl;
-        cout << "Total secondary: " << total_secondary << endl;
-        cout << "Total aligned: " << total_aligned << endl;
-        cout << "Total perfect: " << total_perfect << endl;
-        cout << "Total gapless (softclips allowed): " << total_gapless << endl;
+        cout << "Total alignments: " << combined.total_alignments << endl;
+        cout << "Total primary: " << combined.total_primary << endl;
+        cout << "Total secondary: " << combined.total_secondary << endl;
+        cout << "Total aligned: " << combined.total_aligned << endl;
+        cout << "Total perfect: " << combined.total_perfect << endl;
+        cout << "Total gapless (softclips allowed): " << combined.total_gapless << endl;
 
-        cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
+        cout << "Insertions: " << combined.total_inserted_bases << " bp in " << combined.total_insertions << " read events" << endl;
         if(verbose) {
-            for(auto& id_and_edit : insertions) {
+            for(auto& id_and_edit : combined.insertions) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }
         }
-        cout << "Deletions: " << total_deleted_bases << " bp in " << total_deletions << " read events" << endl;
+        cout << "Deletions: " << combined.total_deleted_bases << " bp in " << combined.total_deletions << " read events" << endl;
         if(verbose) {
-            for(auto& id_and_edit : deletions) {
+            for(auto& id_and_edit : combined.deletions) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.to_length()
                     << " on " << id_and_edit.first << endl;
             }
         }
-        cout << "Substitutions: " << total_substituted_bases << " bp in " << total_substitutions << " read events" << endl;
+        cout << "Substitutions: " << combined.total_substituted_bases << " bp in " << combined.total_substitutions << " read events" << endl;
         if(verbose) {
-            for(auto& id_and_edit : substitutions) {
+            for(auto& id_and_edit : combined.substitutions) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }
         }
-        cout << "Softclips: " << total_softclipped_bases << " bp in " << total_softclips << " read events" << endl;
+        cout << "Softclips: " << combined.total_softclipped_bases << " bp in " << combined.total_softclips << " read events" << endl;
         if(verbose) {
-            for(auto& id_and_edit : softclips) {
+            for(auto& id_and_edit : combined.softclips) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }

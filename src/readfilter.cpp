@@ -761,7 +761,7 @@ int ReadFilter::filter(istream* alignment_stream) {
 #endif    
         Counts aln_counts = filter_alignment(aln);
         counts_vec[omp_get_thread_num()] += aln_counts;
-        if (aln_counts.keep() && write_output) {
+        if ((aln_counts.keep() != complement_filter) && write_output) {
             output_alignment(aln);
         }
     };
@@ -772,7 +772,7 @@ int ReadFilter::filter(istream* alignment_stream) {
         // when running interleaved, if we filter out one end for any reason, we filter out the other as well
         aln_counts.set_paired();
         counts_vec[omp_get_thread_num()] += aln_counts;
-        if (aln_counts.keep() && write_output) {
+        if ((aln_counts.keep() != complement_filter) && write_output) {
             output_alignment(aln1);
             output_alignment(aln2);
         }

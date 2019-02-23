@@ -19,31 +19,6 @@
 namespace vg {
 namespace unittest {
 
-gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
-    gbwt::size_type node_width = 1, total_length = 0;
-    for (auto& path : paths) {
-        for (auto node : path) {
-            node_width = std::max(node_width, gbwt::bit_length(gbwt::Node::encode(node, true)));
-        }
-        total_length += 2 * (path.size() + 1);
-    }
-
-    gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
-    gbwt::GBWTBuilder builder(node_width, total_length);
-    for (auto& path : paths) {
-        builder.insert(path, true);
-    }
-    builder.finish();
-
-    std::string filename = temp_file::create("gbwt");
-    sdsl::store_to_file(builder.index, filename);
-    gbwt::GBWT gbwt_index;
-    sdsl::load_from_file(gbwt_index, filename);
-    temp_file::remove(filename);
-
-    return gbwt_index;
-}
-
 void check_unfolded_nodes(VG& vg_graph,
                           const xg::XG& xg_index,
                           const PhaseUnfolder& unfolder,

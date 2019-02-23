@@ -4,7 +4,12 @@
 
 #include "packed_graph.hpp"
 
+#include <handlegraph/util.hpp>
+#include <atomic>
+
 namespace vg {
+
+    using namespace handlegraph;
     
     const double PackedGraph::defrag_factor = .2;
     
@@ -128,19 +133,19 @@ namespace vg {
     }
     
     handle_t PackedGraph::get_handle(const id_t& node_id, bool is_reverse) const {
-        return EasyHandlePacking::pack(node_id, is_reverse);
+        return handlegraph::number_bool_packing::pack(node_id, is_reverse);
     }
     
     id_t PackedGraph::get_id(const handle_t& handle) const {
-        return EasyHandlePacking::unpack_number(handle);
+        return handlegraph::number_bool_packing::unpack_number(handle);
     }
     
     bool PackedGraph::get_is_reverse(const handle_t& handle) const {
-        return EasyHandlePacking::unpack_bit(handle);;
+        return handlegraph::number_bool_packing::unpack_bit(handle);;
     }
     
     handle_t PackedGraph::flip(const handle_t& handle) const {
-        return EasyHandlePacking::toggle_bit(handle);
+        return handlegraph::number_bool_packing::toggle_bit(handle);
     }
     
     size_t PackedGraph::get_length(const handle_t& handle) const {
@@ -199,8 +204,8 @@ namespace vg {
         id_to_graph_iv.set(id_b - min_id, g_iv_index_a / GRAPH_RECORD_SIZE + 1);
     }
     
-    bool PackedGraph::follow_edges(const handle_t& handle, bool go_left,
-                                                    const std::function<bool(const handle_t&)>& iteratee) const {
+    bool PackedGraph::follow_edges_impl(const handle_t& handle, bool go_left,
+                                        const std::function<bool(const handle_t&)>& iteratee) const {
         // toward start = true, toward end = false
         bool direction = get_is_reverse(handle) != go_left;
         // get the head of the linked list from the graph vector
@@ -235,24 +240,31 @@ namespace vg {
         return max_id;
     }
     
-    void PackedGraph::for_each_handle(const std::function<bool(const handle_t&)>& iteratee,
-                                      bool parallel) const {
+    bool PackedGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee,
+                                           bool parallel) const {
         
         if (parallel) {
             // TODO: would task based parallelism be better?
+            atomic<bool> keep_going(true);
 #pragma omp parallel for
             for (size_t i = 0; i < id_to_graph_iv.size(); i++) {
-                if (id_to_graph_iv.get(i)) {
-                    iteratee(get_handle(i + min_id));
+                if (keep_going && id_to_graph_iv.get(i)) {
+                    if (!iteratee(get_handle(i + min_id))) {
+                        keep_going = false;
+                    }
                 }
             }
+            return keep_going;
         }
         else {
             for (size_t i = 0; i < id_to_graph_iv.size(); i++) {
                 if (id_to_graph_iv.get(i)) {
-                    iteratee(get_handle(i + min_id));
+                    if (!iteratee(get_handle(i + min_id))) {
+                        return false;
+                    }
                 }
             }
+            return true;
         }
         
     }
@@ -729,10 +741,13 @@ namespace vg {
         return path_id.size();
     }
     
-    void PackedGraph::for_each_path_handle(const std::function<void(const path_handle_t&)>& iteratee) const {
+    bool PackedGraph::for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const {
         for (const auto& path_id_record : path_id) {
-            iteratee(as_path_handle(path_id_record.second));
+            if (!iteratee(as_path_handle(path_id_record.second))) {
+                return false;
+            }
         }
+        return true;
     }
     
     handle_t PackedGraph::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
@@ -784,8 +799,9 @@ namespace vg {
         return as_path_handle(as_integers(occurrence_handle)[0]);
     }
     
-    vector<occurrence_handle_t> PackedGraph::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
-        vector<occurrence_handle_t> return_val;
+    
+    bool PackedGraph::for_each_occurrence_on_handle_impl(const handle_t& handle,
+                                                         const function<bool(const occurrence_handle_t&)>& iteratee) const {
         
         size_t path_membership = path_membership_node_iv.get(graph_index_to_node_member_index(graph_iv_index(handle)));
         while (path_membership) {
@@ -798,19 +814,19 @@ namespace vg {
             size_t occ_idx = get_membership_occurrence(path_membership);
             handle_t trav = decode_traversal(get_occurrence_trav(packed_path, occ_idx));
             
-            // add this occurrence to the return value if we're supposed to
-            if (!match_orientation || get_is_reverse(trav) == get_is_reverse(handle)) {
-                occurrence_handle_t occ_handle;
-                as_integers(occ_handle)[0] = path_id;
-                as_integers(occ_handle)[1] = occ_idx;
-                return_val.push_back(occ_handle);
+            // send along this occurrence
+            occurrence_handle_t occ_handle;
+            as_integers(occ_handle)[0] = path_id;
+            as_integers(occ_handle)[1] = occ_idx;
+            if (!iteratee(occ_handle)) {
+                return false;
             }
             
             // move to the next membership record
             path_membership = get_next_membership(path_membership);
         }
         
-        return return_val;
+        return true;
     }
     
     void PackedGraph::destroy_path(const path_handle_t& path) {

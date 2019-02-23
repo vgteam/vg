@@ -387,7 +387,7 @@ int main_chunk(int argc, char** argv) {
             delete range_stream;
         }
     }
-    else {
+    else if (xindex != nullptr) {
         // every path
         size_t max_rank = xindex->max_path_rank();
         for (size_t rank = 1; rank <= max_rank; ++rank) {
