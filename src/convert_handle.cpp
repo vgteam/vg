@@ -34,14 +34,19 @@ using namespace std;
         
         // Must convert nodes and edges before converting paths.
         convert_handle_graph(converting, converted);
+        
+        // Iterate through paths and add paths from converting to converted
         converting->for_each_path_handle([&](const path_handle_t& path) {
+            // create path
             string path_name = converting->get_path_name(path);
             path_handle_t converted_path = converted->create_path_handle(path_name);
             if (converting->get_occurrence_count(path) > 0){
+                // find first occurence in path
                 occurrence_handle_t converting_occurence = converting->get_first_occurrence(path);
                 handle_t converting_handle = converting->get_occurrence(converting_occurence);
                 handle_t converted_handle = converted->get_handle(converting->get_id(converting_handle), converting->get_is_reverse(converting_handle));
                 occurrence_handle_t converted_occurance_handle = converted->append_occurrence(converted_path, converted_handle);
+                // iterate through path and add each handle to converted graph
                 while (converting->has_next_occurrence(converting_occurence)){
                     converting_occurence = converting->get_next_occurrence(converting_occurence);
                     converting_handle = converting->get_occurrence(converting_occurence);
