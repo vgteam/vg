@@ -11,13 +11,40 @@ namespace vg {
         
         using namespace std;
         
-        TEST_CASE("convert_handle converter works on empty graph", "[handle][vg][xg]") {
+        TEST_CASE("convert_handle converter works on empty graph, xg to vg", "[handle][vg][xg]") {
             xg::XG xg;
             VG vg;
             convert_handle_graph(&xg, &vg);
             REQUIRE(vg.node_count() == 0);
             REQUIRE(vg.edge_count() == 0);
         }
+        TEST_CASE("convert_handle converter works on empty graph, xg to pg", "[handle][pg][xg]") {
+            xg::XG xg;
+            PackedGraph pg;
+            convert_handle_graph(&xg, &pg);
+            REQUIRE(pg.node_size() == 0);
+            
+            int edge_count = 0;
+            pg.for_each_edge([&](const edge_t& edge) {
+                edge_count += 1;
+                return true;
+            });
+            REQUIRE(edge_count == 0);
+        }
+        TEST_CASE("convert_handle converter works on empty graph, xg to hg", "[handle][hg][xg]") {
+            xg::XG xg;
+            HashGraph hg;
+            convert_handle_graph(&xg, &hg);
+            REQUIRE(hg.node_size() == 0);
+            
+            int edge_count = 0;
+            hg.for_each_edge([&](const edge_t& edge) {
+                edge_count += 1;
+                return true;
+            });
+            REQUIRE(edge_count == 0);
+        }
+        
         TEST_CASE("convert_handle converter works on graphs with one node, xg to vg", "[handle][vg][xg]") {
             string graph_json = R"(
             {
