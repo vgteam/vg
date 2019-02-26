@@ -30,7 +30,7 @@ inline pos_t gbwt_to_pos(gbwt::node_type node, size_t offset) {
 
 /// Convert gbwt::node_type to xg::XG:ThreadMapping.
 inline xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
-    return { (int64_t)(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
+    return { static_cast<int64_t>(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
 }
 
 /// Convert handle_t to gbwt::node_type.
@@ -134,17 +134,19 @@ public:
 
 //------------------------------------------------------------------------------
 
-    /// Convert handle_t to gbwt::SearchState.
-    gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(as_integer(handle)); }
-
-    /// Convert handle_t to gbwt::BidirectionalState.
-    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index.bdFind(as_integer(handle)); }
+    // GBWTGraph specific interface.
 
     /// Convert gbwt::node_type to handle_t.
     static handle_t node_to_handle(gbwt::node_type node) { return as_handle(node); }
 
     /// Convert handle_t to gbwt::node_type.
     static gbwt::node_type handle_to_node(const handle_t& handle) { return as_integer(handle); }
+
+    /// Convert handle_t to gbwt::SearchState.
+    gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(as_integer(handle)); }
+
+    /// Convert handle_t to gbwt::BidirectionalState.
+    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index.bdFind(as_integer(handle)); }
 
     /// Visit all successor states of this state and call iteratee for the state.
     /// Stop and return false if the iteratee returns false.
