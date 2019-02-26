@@ -13,7 +13,17 @@
 
 #include <omp.h>
 
+
 namespace vg {
+
+namespace {
+
+bool operator<(handle_t a, handle_t b) {
+    return (as_integer(a) < as_integer(b));
+}
+
+} // anonymous namespace
+
 namespace unittest {
 
 namespace {
@@ -296,113 +306,6 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
     }
 }
 
-TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper]") {
-
-    // Build an XG index.
-    Graph graph;
-    json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    xg::XG xg_index(graph);
-
-    // Build a GBWT with three threads including a duplicate.
-    gbwt::GBWT gbwt_index = build_gbwt_index();
-
-   // Build a GBWT-backed graph.
-    GBWTGraph gbwt_graph(gbwt_index, xg_index);
-
-    // These are the 3-mers the traversal should find.
-    typedef std::pair<std::vector<std::pair<pos_t, size_t>>, std::string> kmer_type;
-    std::set<kmer_type> correct_kmers {
-        // alt_path forward
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(1) } }, "GAG" },
-        { { { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "AGG" },
-        { { { make_pos_t(4, false, 0), static_cast<size_t>(3) } }, "GGG" },
-        { { { make_pos_t(4, false, 1), static_cast<size_t>(2) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) } }, "GGT" },
-        { { { make_pos_t(4, false, 2), static_cast<size_t>(1) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "GTA" },
-        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, false, 0), static_cast<size_t>(1) } }, "TAA" },
-        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "AAA" },
-
-        // alt_path reverse
-        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TTT" },
-        { { { make_pos_t(8, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "TTA" },
-        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(2) } }, "ACC" },
-        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) } }, "CCC" },
-        { { { make_pos_t(4, true, 1), static_cast<size_t>(2) },
-            { make_pos_t(2, true, 0), static_cast<size_t>(1) } }, "CCT" },
-        { { { make_pos_t(4, true, 2), static_cast<size_t>(1) },
-            { make_pos_t(2, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CTC" },
-
-        // short_path forward
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "GGG" },
-        { { { make_pos_t(4, false, 0), static_cast<size_t>(3) } }, "GGG" },
-        { { { make_pos_t(4, false, 1), static_cast<size_t>(2) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) } }, "GGT" },
-        { { { make_pos_t(4, false, 2), static_cast<size_t>(1) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "GTA" },
-        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, false, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "ACA" },
-
-        // short_path reverse
-        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TGT" },
-        { { { make_pos_t(7, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "GTA" },
-        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(2) } }, "ACC" },
-        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) } }, "CCC" },
-        { { { make_pos_t(4, true, 1), static_cast<size_t>(2) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CCC" }
-    };
-
-    // Extract all haplotype-consistent 3-mers.
-    std::set<kmer_type> found_kmers;
-    auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
-        found_kmers.insert(kmer_type(traversal, seq));
-    };
-    for_each_kmer(gbwt_graph, 3, lambda, false);
-
-    // Check the number of kmers.
-    SECTION("the traversal should have found the correct number of kmers") {
-        REQUIRE(found_kmers.size() == correct_kmers.size());
-    }
-
-    // Check that each kmer was found.
-    SECTION("the traversal should have found the correct kmers") {
-        for (const kmer_type& kmer : correct_kmers) {
-            REQUIRE(found_kmers.find(kmer) != found_kmers.end());
-        }
-    }
-}
-
 TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper]") {
 
     // Build an XG index.
@@ -417,72 +320,39 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
     GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
     // These are the windows the traversal should find.
-    typedef std::pair<std::vector<std::pair<pos_t, size_t>>, std::string> kmer_type;
+    typedef std::pair<std::vector<handle_t>, std::string> kmer_type;
     std::set<kmer_type> correct_kmers {
         // alt_path forward
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(1) } }, "GAG" },
-        { { { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "AGG" },
-        { { { make_pos_t(4, false, 0), static_cast<size_t>(3) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "GGGTA" },
-        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, false, 0), static_cast<size_t>(1) } }, "TAA" },
-        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "AAA" },
+        { { gbwt_graph.get_handle(1, false), gbwt_graph.get_handle(2, false), gbwt_graph.get_handle(4, false) }, "GAG" },
+        { { gbwt_graph.get_handle(2, false), gbwt_graph.get_handle(4, false) }, "AGG" },
+        { { gbwt_graph.get_handle(4, false), gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false) }, "GGGTA" },
+        { { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(8, false) }, "TAA" },
+        { { gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(8, false), gbwt_graph.get_handle(9, false) }, "AAA" },
 
         // alt_path reverse
-        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TTT" },
-        { { { make_pos_t(8, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "TTA" },
-        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(2) } }, "ACC" },
-        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) },
-            { make_pos_t(2, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CCCTC" },
+        { { gbwt_graph.get_handle(9, true), gbwt_graph.get_handle(8, true), gbwt_graph.get_handle(6, true) }, "TTT" },
+        { { gbwt_graph.get_handle(8, true), gbwt_graph.get_handle(6, true), gbwt_graph.get_handle(5, true) }, "TTA" },
+        { { gbwt_graph.get_handle(6, true), gbwt_graph.get_handle(5, true), gbwt_graph.get_handle(4, true) }, "TAC" },
+        { { gbwt_graph.get_handle(5, true), gbwt_graph.get_handle(4, true) }, "ACC" },
+        { { gbwt_graph.get_handle(4, true), gbwt_graph.get_handle(2, true), gbwt_graph.get_handle(1, true) }, "CCCTC" },
 
         // short_path forward
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "GGG" },
-        { { { make_pos_t(4, false, 0), static_cast<size_t>(3) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "GGGTA" },
-        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, false, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "ACA" },
+        { { gbwt_graph.get_handle(1, false), gbwt_graph.get_handle(4, false) }, "GGG" },
+        { { gbwt_graph.get_handle(4, false), gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false) }, "GGGTA" },
+        { { gbwt_graph.get_handle(5, false), gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false) }, "TAC" },
+        { { gbwt_graph.get_handle(6, false), gbwt_graph.get_handle(7, false), gbwt_graph.get_handle(9, false) }, "ACA" },
 
         // short_path reverse
-        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TGT" },
-        { { { make_pos_t(7, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "GTA" },
-        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(2) } }, "ACC" },
-        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CCCC" }
+        { { gbwt_graph.get_handle(9, true), gbwt_graph.get_handle(7, true), gbwt_graph.get_handle(6, true) }, "TGT" },
+        { { gbwt_graph.get_handle(7, true), gbwt_graph.get_handle(6, true), gbwt_graph.get_handle(5, true) }, "GTA" },
+        { { gbwt_graph.get_handle(6, true), gbwt_graph.get_handle(5, true), gbwt_graph.get_handle(4, true) }, "TAC" },
+        { { gbwt_graph.get_handle(5, true), gbwt_graph.get_handle(4, true) }, "ACC" },
+        { { gbwt_graph.get_handle(4, true), gbwt_graph.get_handle(1, true) }, "CCCC" }
     };
 
     // Extract all haplotype-consistent windows of length 3.
     std::set<kmer_type> found_kmers;
-    auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+    auto lambda = [&found_kmers](const std::vector<handle_t>& traversal, const std::string& seq) {
         found_kmers.insert(kmer_type(traversal, seq));
     };
     for_each_haplotype_window(gbwt_graph, 3, lambda, false);
@@ -508,90 +378,42 @@ TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_hel
     xg::XG xg_index(graph);
 
     // These are the windows the traversal should find.
-    typedef std::pair<std::vector<std::pair<pos_t, size_t>>, std::string> kmer_type;
+    typedef std::pair<std::vector<handle_t>, std::string> kmer_type;
     std::set<kmer_type> correct_kmers {
         // forward
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(3, false, 0), static_cast<size_t>(1) } }, "GAT" },
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(1) } }, "GAG" },
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "GGG" },
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, false, 0), static_cast<size_t>(1) } }, "GAC" },
-        { { { make_pos_t(1, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, false, 0), static_cast<size_t>(1) } }, "GAA" },
-        { { { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(3, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) } }, "ATT" },
-        { { { make_pos_t(2, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, false, 0), static_cast<size_t>(2) } }, "AGG" },
-        { { { make_pos_t(3, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "TTA" },
-        { { { make_pos_t(4, false, 0), static_cast<size_t>(3) },
-            { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) } }, "GGGTA" },
-        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, false, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(5, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, false, 0), static_cast<size_t>(1) } }, "TAA" },
-        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "ACA" },
-        { { { make_pos_t(6, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, false, 0), static_cast<size_t>(1) },
-            { make_pos_t(9, false, 0), static_cast<size_t>(1) } }, "AAA" },
+        { { xg_index.get_handle(1, false), xg_index.get_handle(2, false), xg_index.get_handle(3, false) }, "GAT" },
+        { { xg_index.get_handle(1, false), xg_index.get_handle(2, false), xg_index.get_handle(4, false) }, "GAG" },
+        { { xg_index.get_handle(1, false), xg_index.get_handle(4, false) }, "GGG" },
+        { { xg_index.get_handle(1, false), xg_index.get_handle(6, false), xg_index.get_handle(7, false) }, "GAC" },
+        { { xg_index.get_handle(1, false), xg_index.get_handle(6, false), xg_index.get_handle(8, false) }, "GAA" },
+        { { xg_index.get_handle(2, false), xg_index.get_handle(3, false), xg_index.get_handle(5, false) }, "ATT" },
+        { { xg_index.get_handle(2, false), xg_index.get_handle(4, false) }, "AGG" },
+        { { xg_index.get_handle(3, false), xg_index.get_handle(5, false), xg_index.get_handle(6, false) }, "TTA" },
+        { { xg_index.get_handle(4, false), xg_index.get_handle(5, false), xg_index.get_handle(6, false) }, "GGGTA" },
+        { { xg_index.get_handle(5, false), xg_index.get_handle(6, false), xg_index.get_handle(7, false) }, "TAC" },
+        { { xg_index.get_handle(5, false), xg_index.get_handle(6, false), xg_index.get_handle(8, false) }, "TAA" },
+        { { xg_index.get_handle(6, false), xg_index.get_handle(7, false), xg_index.get_handle(9, false) }, "ACA" },
+        { { xg_index.get_handle(6, false), xg_index.get_handle(8, false), xg_index.get_handle(9, false) }, "AAA" },
 
         // reverse
-        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(8, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TTT" },
-        { { { make_pos_t(9, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(7, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) } }, "TGT" },
-        { { { make_pos_t(8, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "TTA" },
-        { { { make_pos_t(8, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "TTC" },
-        { { { make_pos_t(7, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) } }, "GTA" },
-        { { { make_pos_t(7, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "GTC" },
-        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(1) } }, "TAC" },
-        { { { make_pos_t(6, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(3, true, 0), static_cast<size_t>(1) } }, "TAA" },
-        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(4, true, 0), static_cast<size_t>(2) } }, "ACC" },
-        { { { make_pos_t(5, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(3, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(2, true, 0), static_cast<size_t>(1) } }, "AAT" },
-        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) },
-            { make_pos_t(2, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CCCTC" },
-        { { { make_pos_t(4, true, 0), static_cast<size_t>(3) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "CCCC" },
-        { { { make_pos_t(3, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(2, true, 0), static_cast<size_t>(1) },
-            { make_pos_t(1, true, 0), static_cast<size_t>(1) } }, "ATC" }
+        { { xg_index.get_handle(9, true), xg_index.get_handle(8, true), xg_index.get_handle(6, true) }, "TTT" },
+        { { xg_index.get_handle(9, true), xg_index.get_handle(7, true), xg_index.get_handle(6, true) }, "TGT" },
+        { { xg_index.get_handle(8, true), xg_index.get_handle(6, true), xg_index.get_handle(5, true) }, "TTA" },
+        { { xg_index.get_handle(8, true), xg_index.get_handle(6, true), xg_index.get_handle(1, true) }, "TTC" },
+        { { xg_index.get_handle(7, true), xg_index.get_handle(6, true), xg_index.get_handle(5, true) }, "GTA" },
+        { { xg_index.get_handle(7, true), xg_index.get_handle(6, true), xg_index.get_handle(1, true) }, "GTC" },
+        { { xg_index.get_handle(6, true), xg_index.get_handle(5, true), xg_index.get_handle(4, true) }, "TAC" },
+        { { xg_index.get_handle(6, true), xg_index.get_handle(5, true), xg_index.get_handle(3, true) }, "TAA" },
+        { { xg_index.get_handle(5, true), xg_index.get_handle(4, true) }, "ACC" },
+        { { xg_index.get_handle(5, true), xg_index.get_handle(3, true), xg_index.get_handle(2, true) }, "AAT" },
+        { { xg_index.get_handle(4, true), xg_index.get_handle(2, true), xg_index.get_handle(1, true) }, "CCCTC" },
+        { { xg_index.get_handle(4, true), xg_index.get_handle(1, true) }, "CCCC" },
+        { { xg_index.get_handle(3, true), xg_index.get_handle(2, true), xg_index.get_handle(1, true) }, "ATC" }
     };
 
     // Extract all haplotype-consistent windows of length 3.
     std::set<kmer_type> found_kmers;
-    auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+    auto lambda = [&found_kmers](const std::vector<handle_t>& traversal, const std::string& seq) {
         found_kmers.insert(kmer_type(traversal, seq));
     };
     for_each_window(xg_index, 3, lambda, false);

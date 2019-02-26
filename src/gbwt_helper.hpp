@@ -136,6 +136,9 @@ public:
 
     // GBWTGraph specific interface.
 
+    /// Get node sequence as an iterator and length.
+    std::pair<std::vector<char>::const_iterator, size_t> get_sequence_view(const handle_t& handle) const;
+
     /// Convert gbwt::node_type to handle_t.
     static handle_t node_to_handle(gbwt::node_type node) { return as_handle(node); }
 
@@ -168,25 +171,21 @@ private:
 
 //------------------------------------------------------------------------------
 
-/// Traverse all haplotype-consistent kmers in the graph and call lambda() for each kmer.
-/// Uses multiple threads, so the lambda should be thread-safe.
-void for_each_kmer(const GBWTGraph& graph, size_t k,
-                   const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
-                   bool parallel);
-
-/// Traverse all haplotype-consistent window in the graph and call lambda() for each kmer.
+/// Traverse all haplotype-consistent windows in the graph and call lambda() for each window.
 /// Uses multiple threads, so the lambda should be thread-safe.
 /// A window starts with the sequence of a node and is followed by window_size - 1 bases
 /// from subsequent nodes. If no extensions are possible, a shorter substring of
 /// length >= window_size also qualifies as a window.
 void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
-                               const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                               const std::function<void(const std::vector<handle_t>&, const std::string&)>& lambda,
                                bool parallel);
 
 /// Iterate over all windows in the graph, running lambda on each.
 void for_each_window(const HandleGraph& graph, size_t window_size,
-                     const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                     const std::function<void(const std::vector<handle_t>&, const std::string&)>& lambda,
                      bool parallel);
+
+//------------------------------------------------------------------------------
 
 /// Transform the paths into a GBWT index. Primarily for testing.
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);

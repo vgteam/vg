@@ -24,7 +24,7 @@ using namespace std;
 /// A handle refers to an oriented node.
 /// Two handles are equal iff they refer to the same orientation of the same node.
 /// Only handles in the same graph may be compared.
-/// Handles have no ordering, but can be hashed.
+/// Handles can be ordered and hashed, though the ordering is arbitrary.
 /// Bit usage should be right-justified in machine endian order (i.e. a graph
 /// implementation must use the lowest bits of the lowest byte first, and must
 /// only use other bits of other bytes when the number of nodes/handles is
@@ -68,6 +68,26 @@ inline bool operator==(const handle_t& a, const handle_t& b) {
 /// Define inequality on handles
 inline bool operator!=(const handle_t& a, const handle_t& b) {
     return as_integer(a) != as_integer(b);
+}
+
+/// Define an ordering on handles.
+inline bool operator<(const handle_t& a, const handle_t& b) {
+    return (as_integer(a) < as_integer(b));
+}
+
+/// Define an ordering on handles.
+inline bool operator<=(const handle_t& a, const handle_t& b) {
+    return (as_integer(a) <= as_integer(b));
+}
+
+/// Define an ordering on handles.
+inline bool operator>=(const handle_t& a, const handle_t& b) {
+    return (as_integer(a) >= as_integer(b));
+}
+
+/// Define an ordering on handles.
+inline bool operator>(const handle_t& a, const handle_t& b) {
+    return (as_integer(a) > as_integer(b));
 }
 
 /// Define a way to pack an integer and an orientation bit into a handle_t. XG

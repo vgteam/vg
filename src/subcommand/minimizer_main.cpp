@@ -201,10 +201,13 @@ int main_minimizer(int argc, char** argv) {
     if (progress) {
         std::cerr << "Building the index" << std::endl;
     }
-    auto lambda = [&index](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+    const HandleGraph& graph = *(gbwt_name.empty() ?
+                                 static_cast<const HandleGraph*>(xg_index.get()) :
+                                 static_cast<const HandleGraph*>(gbwt_graph.get()));
+    auto lambda = [&index, &graph](const std::vector<handle_t>& traversal, const std::string& seq) {
         std::vector<MinimizerIndex::minimizer_type> minimizers = index->minimizers(seq);
         auto iter = traversal.begin();
-        size_t starting_offset = 0;
+        size_t node_start = 0;
 #pragma omp critical (minimizer_index)
         {
             for (MinimizerIndex::minimizer_type minimizer : minimizers) {
@@ -212,12 +215,13 @@ int main_minimizer(int argc, char** argv) {
                     continue;
                 }
                 // Find the node covering minimizer starting position.
-                while (starting_offset + iter->second <= minimizer.second) {
-                    starting_offset += iter->second;
+                size_t node_length = graph.get_length(*iter);
+                while (node_start + node_length <= minimizer.second) {
+                    node_start += node_length;
                     ++iter;
+                    node_length = graph.get_length(*iter);
                 }
-                pos_t pos = iter->first;
-                get_offset(pos) += minimizer.second - starting_offset;
+                pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.second - node_start };
                 index->insert(minimizer.first, pos);
             }
         }
@@ -236,6 +240,8 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << index->size() << " keys (" << index->unique_keys() << " unique, " << index->frequent_keys() << " too frequent)" << std::endl;
         std::cerr << "Minimizer occurrences: " << index->values() << std::endl;
         std::cerr << "Load factor: " << index->load_factor() << std::endl;
+        double seconds = gbwt::readTimer() - start;
+        std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;
     }
 
     // Serialize the index.
@@ -244,8 +250,8 @@ int main_minimizer(int argc, char** argv) {
     }
     stream::VPKG::save(*index, index_name);
 
-    double seconds = gbwt::readTimer() - start;
     if (progress) {
+        double seconds = gbwt::readTimer() - start;
         std::cerr << "Time usage: " << seconds << " seconds" << std::endl;
         std::cerr << "Memory usage: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
     }

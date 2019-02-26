@@ -162,6 +162,11 @@ id_t GBWTGraph::max_node_id() const {
 
 //------------------------------------------------------------------------------
 
+std::pair<std::vector<char>::const_iterator, size_t> GBWTGraph::get_sequence_view(const handle_t& handle) const {
+    size_t offset = this->node_offset(handle);
+    return std::make_pair(this->sequences.begin() + this->offsets[offset], this->offsets[offset + 1] - this->offsets[offset]);
+}
+
 // Using undocumented parts of the GBWT interface. --Jouni
 bool GBWTGraph::follow_edges(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
     gbwt::CompressedRecord record = this->index.record(state.node);
@@ -211,105 +216,41 @@ bool GBWTGraph::follow_edges(gbwt::BidirectionalState state, bool backward, cons
 //------------------------------------------------------------------------------
 
 // Stores haplotype-consistent traversal of the graph and the corresponding sequence.
+// The traversal always starts at the beginning of a node, but it may end in the
+// middle of a node.
 struct GBWTTraversal {
-    // The traversal as a sequence of (begin, length) pairs.
-    std::vector<std::pair<pos_t, size_t>> traversal;
-    // Length of the traversal.
+    std::vector<handle_t> traversal;
     size_t length;
-    // GBWT search state at the end of the traversal.
-    gbwt::SearchState state;
-
-    GBWTTraversal() : length(0) {}
+    gbwt::SearchState state; // GBWT search state at the end of the traversal.
 
     std::string get_sequence(const HandleGraph& graph) const {
         std::string result;
         result.reserve(this->length);
-        for (auto& node : this->traversal) {
-            handle_t handle = graph.get_handle(id(node.first), is_rev(node.first));
-            result.append(graph.get_sequence(handle), offset(node.first), node.second);
+        for (handle_t handle : this->traversal) {
+            result.append(graph.get_sequence(handle), 0, this->length - result.length());
+        }
+        return result;
+    }
+
+    std::string get_sequence(const GBWTGraph& graph) const {
+        std::string result;
+        result.reserve(this->length);
+        for (handle_t handle : this->traversal) {
+            auto view = graph.get_sequence_view(handle);
+            result.append(view.first, view.first + std::min(view.second, this->length - result.length()));
         }
         return result;
     }
 };
 
-void extend_traversals(const GBWTGraph& graph,
-                       std::stack<GBWTTraversal>& kmers, size_t target_length, size_t minimum_length,
-                       const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
-    while (!kmers.empty()) {
-        GBWTTraversal curr = kmers.top(); kmers.pop();
-        // Report the full kmer.
-        if (curr.length >= target_length) {
-            lambda(curr.traversal, curr.get_sequence(graph));
-            continue;
-        }
-
-        // Try to extend the kmer to all successor nodes.
-        bool extend_success = false;
-        graph.follow_edges(curr.state, [&](const gbwt::SearchState& next_state) -> bool {
-            if (next_state.empty()) {
-                return true;
-            }
-            size_t node_length = graph.get_length(GBWTGraph::node_to_handle(next_state.node));
-            pos_t begin = make_pos_t(gbwt::Node::id(next_state.node), gbwt::Node::is_reverse(next_state.node), 0);
-            size_t length = std::min(node_length, target_length - curr.length);
-            GBWTTraversal next = curr;
-            next.traversal.emplace_back(begin, length);
-            next.length += length;
-            next.state = next_state;
-            kmers.push(next);
-            extend_success = true;
-            return true;
-        });
-
-        // Report sufficiently long kmers that cannot be extended.
-        if (!extend_success && curr.length >= minimum_length) {
-            lambda(curr.traversal, curr.get_sequence(graph));
-        }
-    }
-}
-
-void for_each_kmer(const GBWTGraph& graph, size_t k,
-                   const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
-                   bool parallel) {
-
-    // Traverse all starting nodes in parallel.
-    graph.for_each_handle([&](const handle_t& h) -> bool {
-        // Initialize the stack with all starting positions in the current node.
-        std::stack<GBWTTraversal> kmers;
-        for (bool is_reverse : { false, true }) {
-            handle_t handle = (is_reverse ? graph.flip(h) : h);
-            gbwt::SearchState state = graph.get_state(handle);
-            if (state.empty()) {
-                continue;
-            }
-            id_t id = graph.get_id(handle);
-            size_t node_length = graph.get_length(handle);
-            for (size_t i = 0; i < node_length; i++) {
-                pos_t begin = make_pos_t(id, is_reverse, i);
-                size_t length = std::min(node_length - i, k);
-                GBWTTraversal kmer;
-                kmer.traversal.emplace_back(begin, length);
-                kmer.length = length;
-                kmer.state = state;
-                kmers.push(kmer);
-            }
-        }
-
-        // Extend with target length and minimum length k.
-        extend_traversals(graph, kmers, k, k, lambda);
-        return true;
-    }, parallel);
-}
-
 void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
-                               const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                               const std::function<void(const std::vector<handle_t>&, const std::string&)>& lambda,
                                bool parallel) {
 
     // Traverse all starting nodes in parallel.
     graph.for_each_handle([&](const handle_t& h) -> bool {
         // Initialize the stack with both orientations.
-        std::stack<GBWTTraversal> kmers;
-        id_t id = graph.get_id(h);
+        std::stack<GBWTTraversal> windows;
         size_t node_length = graph.get_length(h);
         for (bool is_reverse : { false, true }) {
             handle_t handle = (is_reverse ? graph.flip(h) : h);
@@ -317,35 +258,58 @@ void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
             if (state.empty()) {
                 continue;
             }
-            GBWTTraversal kmer;
-            kmer.traversal.emplace_back(make_pos_t(id, is_reverse, 0), node_length);
-            kmer.length = graph.get_length(handle);
-            kmer.state = state;
-            kmers.push(kmer);
+            GBWTTraversal window { { handle }, node_length, state };
+            windows.push(window);
         }
 
         // Extend the windows.
         size_t target_length = node_length + window_size - 1;
-        extend_traversals(graph, kmers, target_length, window_size, lambda);
+        while (!windows.empty()) {
+            GBWTTraversal curr = windows.top(); windows.pop();
+            // Report the full window.
+            if (curr.length >= target_length) {
+                lambda(curr.traversal, curr.get_sequence(graph));
+                continue;
+            }
+
+            // Try to extend the window to all successor nodes.
+            bool extend_success = false;
+            graph.follow_edges(curr.state, [&](const gbwt::SearchState& next_state) -> bool {
+                if (next_state.empty()) {
+                    return true;
+                }
+                handle_t handle = GBWTGraph::node_to_handle(next_state.node);
+                GBWTTraversal next = curr;
+                next.traversal.push_back(handle);
+                next.length += std::min(graph.get_length(handle), target_length - curr.length);
+                next.state = next_state;
+                windows.push(next);
+                extend_success = true;
+                return true;
+            });
+
+            // Report sufficiently long kmers that cannot be extended.
+            if (!extend_success && curr.length >= window_size) {
+                lambda(curr.traversal, curr.get_sequence(graph));
+            }
+        }
+
         return true;
     }, parallel);
 }
 
 void for_each_window(const HandleGraph& graph, size_t window_size,
-                     const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                     const std::function<void(const std::vector<handle_t>&, const std::string&)>& lambda,
                      bool parallel) {
 
     // Traverse all starting nodes in parallel.
     graph.for_each_handle([&](const handle_t& h) -> bool {
         // Initialize the stack with both orientations.
         std::stack<GBWTTraversal> windows;
-        id_t id = graph.get_id(h);
         size_t node_length = graph.get_length(h);
         for (bool is_reverse : { false, true }) {
             handle_t handle = (is_reverse ? graph.flip(h) : h);
-            GBWTTraversal window;
-            window.traversal.emplace_back(std::make_pair(make_pos_t(id, is_reverse, 0), node_length));
-            window.length = graph.get_length(handle);
+            GBWTTraversal window { { handle }, node_length, gbwt::SearchState() };
             windows.push(window);
         }
 
@@ -361,14 +325,10 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
 
             // Extend the window to all successors.
             bool extend_success = false;
-            handle_t curr = graph.get_handle(vg::id(window.traversal.back().first), is_rev(window.traversal.back().first));
-            graph.follow_edges(curr, false, [&](const handle_t& next) {
-                size_t node_length = graph.get_length(next);
-                pos_t begin = make_pos_t(graph.get_id(next), graph.get_is_reverse(next), 0);
-                size_t length = std::min(node_length, target_length - window.length);
+            graph.follow_edges(window.traversal.back(), false, [&](const handle_t& next) {
                 GBWTTraversal next_window = window;
-                next_window.traversal.emplace_back(std::make_pair(begin, length));
-                next_window.length += length;
+                next_window.traversal.push_back(next);
+                next_window.length += std::min(graph.get_length(next), target_length - window.length);
                 windows.push(next_window);
                 extend_success = true;
             });
@@ -382,6 +342,8 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
         return true;
     }, parallel);
 }
+
+//------------------------------------------------------------------------------
 
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths) {
     gbwt::size_type node_width = 1, total_length = 0;
