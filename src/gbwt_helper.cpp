@@ -16,16 +16,17 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
     // Node n is real, if real_nodes[node_offset(n) / 2] is true.
     size_t total_length = 0, potential_nodes = this->index.sigma() - this->index.firstNode();
     this->real_nodes = std::vector<bool>(potential_nodes / 2, false);
+    std::vector<handle_t> handle_cache(potential_nodes); // Getting handles from XG is slow.
     for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
         if (this->index.empty(node)) {
             continue;
         }
-        this->real_nodes[this->node_offset(node) / 2] = true;
-        id_t id = gbwt::Node::id(node);
-        assert(sequence_source.has_node(id));
+        size_t offset = this->node_offset(node);
+        this->real_nodes[offset / 2] = true;
         this->total_nodes++;
-        handle_t source_handle = sequence_source.get_handle(id, false);
+        handle_t source_handle = sequence_source.get_handle(gbwt::Node::id(node), false);
         total_length += sequence_source.get_length(source_handle);
+        handle_cache[offset] = source_handle;
     }
     this->sequences.reserve(2 * total_length);
     this->offsets = sdsl::int_vector<0>(potential_nodes + 1, 0, gbwt::bit_length(this->sequences.capacity()));
@@ -34,12 +35,10 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
     // Given GBWT node n, the sequence is sequences[node_offset(n)] to sequences[node_offset(n + 1) - 1].
     for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
         std::string seq;
-        if (this->is_real(node)) {
-            id_t id = gbwt::Node::id(node);
-            handle_t source_handle = sequence_source.get_handle(id, false);
-            seq = sequence_source.get_sequence(source_handle);
-        }
         size_t offset = this->node_offset(node);
+        if (this->real_nodes[offset / 2]) {
+            seq = sequence_source.get_sequence(handle_cache[offset]);
+        }
         this->sequences.insert(this->sequences.end(), seq.begin(), seq.end());
         this->offsets[offset + 1] = this->sequences.size();
         seq = reverse_complement(seq);
@@ -67,8 +66,8 @@ GBWTGraph::GBWTGraph(GBWTGraph&& source) :
 //------------------------------------------------------------------------------
 
 bool GBWTGraph::has_node(id_t node_id) const {
-    gbwt::node_type node = gbwt::Node::encode(node_id, false);
-    return (node != gbwt::ENDMARKER && this->index.contains(node) && this->is_real(node));
+    size_t offset = this->node_offset(gbwt::Node::encode(node_id, false)) / 2;
+    return (offset < this->real_nodes.size() && this->real_nodes[offset]);
 }
 
 handle_t GBWTGraph::get_handle(const id_t& node_id, bool is_reverse) const {
@@ -129,7 +128,7 @@ void GBWTGraph::for_each_handle(const std::function<bool(const handle_t&)>& iter
     if (parallel) {
 #pragma omp parallel for schedule(static)
         for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
-            if (!(this->is_real(node))) {
+            if (!(this->real_nodes[this->node_offset(node) / 2])) {
                 continue;
             }
             if (!iteratee(as_handle(node))) {
@@ -138,7 +137,7 @@ void GBWTGraph::for_each_handle(const std::function<bool(const handle_t&)>& iter
         }
     } else {
         for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
-            if (!(this->is_real(node))) {
+            if (!(this->real_nodes[this->node_offset(node) / 2])) {
                 continue;
             }
             if (!iteratee(as_handle(node))) {
@@ -215,10 +214,22 @@ bool GBWTGraph::follow_edges(gbwt::BidirectionalState state, bool backward, cons
 struct GBWTTraversal {
     // The traversal as a sequence of (begin, length) pairs.
     std::vector<std::pair<pos_t, size_t>> traversal;
-    // The sequence.
-    std::string seq;
+    // Length of the traversal.
+    size_t length;
     // GBWT search state at the end of the traversal.
     gbwt::SearchState state;
+
+    GBWTTraversal() : length(0) {}
+
+    std::string get_sequence(const HandleGraph& graph) const {
+        std::string result;
+        result.reserve(this->length);
+        for (auto& node : this->traversal) {
+            handle_t handle = graph.get_handle(id(node.first), is_rev(node.first));
+            result.append(graph.get_sequence(handle), offset(node.first), node.second);
+        }
+        return result;
+    }
 };
 
 void extend_traversals(const GBWTGraph& graph,
@@ -227,8 +238,8 @@ void extend_traversals(const GBWTGraph& graph,
     while (!kmers.empty()) {
         GBWTTraversal curr = kmers.top(); kmers.pop();
         // Report the full kmer.
-        if (curr.seq.length() >= target_length) {
-            lambda(curr.traversal, curr.seq);
+        if (curr.length >= target_length) {
+            lambda(curr.traversal, curr.get_sequence(graph));
             continue;
         }
 
@@ -238,12 +249,12 @@ void extend_traversals(const GBWTGraph& graph,
             if (next_state.empty()) {
                 return true;
             }
-            std::string seq = graph.get_sequence(GBWTGraph::node_to_handle(next_state.node));
+            size_t node_length = graph.get_length(GBWTGraph::node_to_handle(next_state.node));
             pos_t begin = make_pos_t(gbwt::Node::id(next_state.node), gbwt::Node::is_reverse(next_state.node), 0);
-            size_t length = std::min(seq.length(), target_length - curr.seq.length());
+            size_t length = std::min(node_length, target_length - curr.length);
             GBWTTraversal next = curr;
             next.traversal.emplace_back(begin, length);
-            next.seq.append(seq, offset(begin), length);
+            next.length += length;
             next.state = next_state;
             kmers.push(next);
             extend_success = true;
@@ -251,8 +262,8 @@ void extend_traversals(const GBWTGraph& graph,
         });
 
         // Report sufficiently long kmers that cannot be extended.
-        if (!extend_success && curr.seq.length() >= minimum_length) {
-            lambda(curr.traversal, curr.seq);
+        if (!extend_success && curr.length >= minimum_length) {
+            lambda(curr.traversal, curr.get_sequence(graph));
         }
     }
 }
@@ -272,13 +283,13 @@ void for_each_kmer(const GBWTGraph& graph, size_t k,
                 continue;
             }
             id_t id = graph.get_id(handle);
-            std::string seq = graph.get_sequence(handle);
-            for (size_t i = 0; i < seq.length(); i++) {
+            size_t node_length = graph.get_length(handle);
+            for (size_t i = 0; i < node_length; i++) {
                 pos_t begin = make_pos_t(id, is_reverse, i);
-                size_t length = std::min(seq.length() - i, k);
+                size_t length = std::min(node_length - i, k);
                 GBWTTraversal kmer;
                 kmer.traversal.emplace_back(begin, length);
-                kmer.seq = seq.substr(offset(begin), length);
+                kmer.length = length;
                 kmer.state = state;
                 kmers.push(kmer);
             }
@@ -308,13 +319,14 @@ void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
             }
             GBWTTraversal kmer;
             kmer.traversal.emplace_back(make_pos_t(id, is_reverse, 0), node_length);
-            kmer.seq = graph.get_sequence(handle);
+            kmer.length = graph.get_length(handle);
             kmer.state = state;
             kmers.push(kmer);
         }
 
         // Extend the windows.
-        extend_traversals(graph, kmers, node_length + window_size - 1, window_size, lambda);
+        size_t target_length = node_length + window_size - 1;
+        extend_traversals(graph, kmers, target_length, window_size, lambda);
         return true;
     }, parallel);
 }
@@ -333,7 +345,7 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
             handle_t handle = (is_reverse ? graph.flip(h) : h);
             GBWTTraversal window;
             window.traversal.emplace_back(std::make_pair(make_pos_t(id, is_reverse, 0), node_length));
-            window.seq = graph.get_sequence(handle);
+            window.length = graph.get_length(handle);
             windows.push(window);
         }
 
@@ -342,8 +354,8 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
         while (!windows.empty()) {
             GBWTTraversal window = windows.top(); windows.pop();
             // Report the full window.
-            if (window.seq.length() >= target_length) {
-                lambda(window.traversal, window.seq);
+            if (window.length >= target_length) {
+                lambda(window.traversal, window.get_sequence(graph));
                 continue;
             }
 
@@ -351,19 +363,19 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
             bool extend_success = false;
             handle_t curr = graph.get_handle(vg::id(window.traversal.back().first), is_rev(window.traversal.back().first));
             graph.follow_edges(curr, false, [&](const handle_t& next) {
-                std::string seq = graph.get_sequence(next);
+                size_t node_length = graph.get_length(next);
                 pos_t begin = make_pos_t(graph.get_id(next), graph.get_is_reverse(next), 0);
-                size_t length = std::min(seq.length(), target_length - window.seq.length());
+                size_t length = std::min(node_length, target_length - window.length);
                 GBWTTraversal next_window = window;
                 next_window.traversal.emplace_back(std::make_pair(begin, length));
-                next_window.seq.append(seq, offset(begin), length);
+                next_window.length += length;
                 windows.push(next_window);
                 extend_success = true;
             });
 
             // Report sufficiently long windows that cannot be extended.
-            if (!extend_success && window.seq.length() >= window_size) {
-                lambda(window.traversal, window.seq);
+            if (!extend_success && window.length >= window_size) {
+                lambda(window.traversal, window.get_sequence(graph));
             }
         }
 

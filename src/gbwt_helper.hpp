@@ -83,7 +83,7 @@ public:
 
     // Standard HandleGraph interface.
 
-    // Method to check if a node exists by ID
+    /// Method to check if a node exists by ID.
     virtual bool has_node(id_t node_id) const;
 
     /// Look up the handle for the node with the given ID in the given orientation.
@@ -164,7 +164,6 @@ public:
 private:
     size_t node_offset(gbwt::node_type node) const { return node - this->index.firstNode(); }
     size_t node_offset(const handle_t& handle) const { return this->node_offset(as_integer(handle)); }
-    bool is_real(gbwt::node_type node) const { return this->real_nodes[this->node_offset(node) / 2]; }
 };
 
 //------------------------------------------------------------------------------
