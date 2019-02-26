@@ -127,7 +127,7 @@ bool GBWTGraph::follow_edges(const handle_t& handle, bool go_left, const std::fu
 
 void GBWTGraph::for_each_handle(const std::function<bool(const handle_t&)>& iteratee, bool parallel) const {
     if (parallel) {
-#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(static)
         for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
             if (!(this->is_real(node))) {
                 continue;
@@ -221,7 +221,7 @@ struct GBWTTraversal {
     gbwt::SearchState state;
 };
 
-void extend_traversals(const HandleGraph& graph, const gbwt::GBWT& haplotypes,
+void extend_traversals(const GBWTGraph& graph,
                        std::stack<GBWTTraversal>& kmers, size_t target_length, size_t minimum_length,
                        const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda) {
     while (!kmers.empty()) {
@@ -233,31 +233,22 @@ void extend_traversals(const HandleGraph& graph, const gbwt::GBWT& haplotypes,
         }
 
         // Try to extend the kmer to all successor nodes.
-        // We are using undocumented parts of the GBWT interface --Jouni
         bool extend_success = false;
-        gbwt::CompressedRecord record = haplotypes.record(curr.state.node);
-        for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
-            gbwt::node_type next_node = record.successor(outrank);
-            if (next_node == gbwt::ENDMARKER) {
-                continue;
+        graph.follow_edges(curr.state, [&](const gbwt::SearchState& next_state) -> bool {
+            if (next_state.empty()) {
+                return true;
             }
-            gbwt::range_type range = record.LF(curr.state.range, next_node);
-            if (gbwt::Range::empty(range)) {
-                continue;
-            }
-            id_t id = gbwt::Node::id(next_node);
-            bool is_reverse = gbwt::Node::is_reverse(next_node);
-            std::string seq = graph.get_sequence(gbwt_to_handle(graph, next_node));
-            pos_t begin = make_pos_t(id, is_reverse, 0);
+            std::string seq = graph.get_sequence(GBWTGraph::node_to_handle(next_state.node));
+            pos_t begin = make_pos_t(gbwt::Node::id(next_state.node), gbwt::Node::is_reverse(next_state.node), 0);
             size_t length = std::min(seq.length(), target_length - curr.seq.length());
             GBWTTraversal next = curr;
-            next.traversal.emplace_back(std::make_pair(begin, length));
+            next.traversal.emplace_back(begin, length);
             next.seq.append(seq, offset(begin), length);
-            next.state.node = next_node;
-            next.state.range = range;
+            next.state = next_state;
             kmers.push(next);
             extend_success = true;
-        }
+            return true;
+        });
 
         // Report sufficiently long kmers that cannot be extended.
         if (!extend_success && curr.seq.length() >= minimum_length) {
@@ -266,7 +257,7 @@ void extend_traversals(const HandleGraph& graph, const gbwt::GBWT& haplotypes,
     }
 }
 
-void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t k,
+void for_each_kmer(const GBWTGraph& graph, size_t k,
                    const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
                    bool parallel) {
 
@@ -276,7 +267,7 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
         std::stack<GBWTTraversal> kmers;
         for (bool is_reverse : { false, true }) {
             handle_t handle = (is_reverse ? graph.flip(h) : h);
-            gbwt::SearchState state = haplotypes.find(handle_to_gbwt(graph, handle));
+            gbwt::SearchState state = graph.get_state(handle);
             if (state.empty()) {
                 continue;
             }
@@ -286,7 +277,7 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
                 pos_t begin = make_pos_t(id, is_reverse, i);
                 size_t length = std::min(seq.length() - i, k);
                 GBWTTraversal kmer;
-                kmer.traversal.emplace_back(std::make_pair(begin, length));
+                kmer.traversal.emplace_back(begin, length);
                 kmer.seq = seq.substr(offset(begin), length);
                 kmer.state = state;
                 kmers.push(kmer);
@@ -294,14 +285,14 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
         }
 
         // Extend with target length and minimum length k.
-        extend_traversals(graph, haplotypes, kmers, k, k, lambda);
+        extend_traversals(graph, kmers, k, k, lambda);
         return true;
     }, parallel);
 }
 
-void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t window_size,
-                    const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
-                    bool parallel) {
+void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
+                               const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                               bool parallel) {
 
     // Traverse all starting nodes in parallel.
     graph.for_each_handle([&](const handle_t& h) -> bool {
@@ -311,19 +302,19 @@ void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, siz
         size_t node_length = graph.get_length(h);
         for (bool is_reverse : { false, true }) {
             handle_t handle = (is_reverse ? graph.flip(h) : h);
-            gbwt::SearchState state = haplotypes.find(handle_to_gbwt(graph, handle));
+            gbwt::SearchState state = graph.get_state(handle);
             if (state.empty()) {
                 continue;
             }
             GBWTTraversal kmer;
-            kmer.traversal.emplace_back(std::make_pair(make_pos_t(id, is_reverse, 0), node_length));
+            kmer.traversal.emplace_back(make_pos_t(id, is_reverse, 0), node_length);
             kmer.seq = graph.get_sequence(handle);
             kmer.state = state;
             kmers.push(kmer);
         }
 
         // Extend the windows.
-        extend_traversals(graph, haplotypes, kmers, node_length + window_size - 1, window_size, lambda);
+        extend_traversals(graph, kmers, node_length + window_size - 1, window_size, lambda);
         return true;
     }, parallel);
 }

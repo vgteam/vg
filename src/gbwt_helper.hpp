@@ -171,7 +171,7 @@ private:
 
 /// Traverse all haplotype-consistent kmers in the graph and call lambda() for each kmer.
 /// Uses multiple threads, so the lambda should be thread-safe.
-void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t k,
+void for_each_kmer(const GBWTGraph& graph, size_t k,
                    const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
                    bool parallel);
 
@@ -180,9 +180,9 @@ void for_each_kmer(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_
 /// A window starts with the sequence of a node and is followed by window_size - 1 bases
 /// from subsequent nodes. If no extensions are possible, a shorter substring of
 /// length >= window_size also qualifies as a window.
-void for_each_window(const HandleGraph& graph, const gbwt::GBWT& haplotypes, size_t window_size,
-                     const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
-                     bool parallel);
+void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
+                               const function<void(const std::vector<std::pair<pos_t, size_t>>&, const std::string&)>& lambda,
+                               bool parallel);
 
 /// Iterate over all windows in the graph, running lambda on each.
 void for_each_window(const HandleGraph& graph, size_t window_size,

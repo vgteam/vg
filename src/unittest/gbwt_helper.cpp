@@ -306,6 +306,9 @@ TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper]") {
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
 
+   // Build a GBWT-backed graph.
+    GBWTGraph gbwt_graph(gbwt_index, xg_index);
+
     // These are the 3-mers the traversal should find.
     typedef std::pair<std::vector<std::pair<pos_t, size_t>>, std::string> kmer_type;
     std::set<kmer_type> correct_kmers {
@@ -385,7 +388,7 @@ TEST_CASE("for_each_kmer() finds the correct kmers", "[gbwt_helper]") {
     auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
         found_kmers.insert(kmer_type(traversal, seq));
     };
-    for_each_kmer(xg_index, gbwt_index, 3, lambda, false);
+    for_each_kmer(gbwt_graph, 3, lambda, false);
 
     // Check the number of kmers.
     SECTION("the traversal should have found the correct number of kmers") {
@@ -409,6 +412,9 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
+
+   // Build a GBWT-backed graph.
+    GBWTGraph gbwt_graph(gbwt_index, xg_index);
 
     // These are the windows the traversal should find.
     typedef std::pair<std::vector<std::pair<pos_t, size_t>>, std::string> kmer_type;
@@ -479,7 +485,7 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
     auto lambda = [&found_kmers](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
         found_kmers.insert(kmer_type(traversal, seq));
     };
-    for_each_window(xg_index, gbwt_index, 3, lambda, false);
+    for_each_haplotype_window(gbwt_graph, 3, lambda, false);
 
     // Check the number of kmers.
     SECTION("the traversal should have found the correct number of kmers") {

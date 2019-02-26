@@ -182,13 +182,19 @@ int main_minimizer(int argc, char** argv) {
         index = stream::VPKG::load_one<MinimizerIndex>(load_index);
     }
 
-    // GBWT index.
+    // GBWT-backed graph.
     std::unique_ptr<gbwt::GBWT> gbwt_index;
+    std::unique_ptr<GBWTGraph> gbwt_graph;
     if (!gbwt_name.empty()) {
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
         gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+        if (progress) {
+            std::cerr << "Building GBWT-backed graph" << std::endl;
+        }
+        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
+        xg_index.reset(nullptr); // The XG index is no longer needed.
     }
 
     // Build the index.
@@ -219,8 +225,10 @@ int main_minimizer(int argc, char** argv) {
     if (gbwt_name.empty()) {
         for_each_window(*xg_index, index->k() + index->w() - 1, lambda, (threads > 1));
     } else {
-        for_each_window(*xg_index, *gbwt_index, index->k() + index->w() - 1, lambda, (threads > 1));
+        for_each_haplotype_window(*gbwt_graph, index->k() + index->w() - 1, lambda, (threads > 1));
     }
+    xg_index.reset(nullptr);
+    gbwt_graph.reset(nullptr);
     gbwt_index.reset(nullptr);
 
     // Index statistics.
