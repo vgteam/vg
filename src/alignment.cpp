@@ -630,11 +630,15 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Set the flag for the mate being reversed
         flags |= BAM_FMREVERSE;
     }
+
+    // We apply the convention of unmapped reads getting their mate's coordinates
+    // See section 2.4.1 https://samtools.github.io/hts-specs/SAMv1.pdf
+    bool use_mate_loc = !mapped && paired && !mateseq.empty();
     
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
-        << (mapped ? refseq : "*") << "\t"
-        << refpos + 1 << "\t"
+        << (mapped ? refseq : use_mate_loc ? mateseq : "*") << "\t"
+        << (use_mate_loc ? matepos + 1 : refpos + 1) << "\t"
         << (mapped ? alignment.mapping_quality() : 0) << "\t"
         << (mapped ? cigar : "*") << "\t"
         << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
