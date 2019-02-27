@@ -179,13 +179,16 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;
     }
 
-    gbwt::GBWT haplotype_index;
+    unique_ptr<gbwt::GBWT> haplotype_index;
 
     if (!haplotypes_filename.empty()) {
 
         if (show_progress) { cerr << "[vg rna] Parsing haplotype GBWT index file ..." << endl; }
+        haplotype_index = stream::VPKG::load_one<gbwt::GBWT>(haplotypes_filename);
+    
+    } else {
 
-        sdsl::load_from_file(haplotype_index, haplotypes_filename);
+        haplotype_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
     }
 
     Transcriptome transcriptome;
@@ -203,9 +206,11 @@ int32_t main_rna(int32_t argc, char** argv) {
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
-                   transcriptome.add_transcripts(transcript_stream, *graph, haplotype_index);
+                   transcriptome.add_transcripts(transcript_stream, *graph, *haplotype_index);
         });
     }
+
+    haplotype_index.reset();
 
     auto time2 = std::chrono::system_clock::now();
     cerr << "Time (s): " << std::chrono::duration_cast<std::chrono::seconds>(time2 - time1).count() << endl;
@@ -232,7 +237,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         // gbwt_builder.index.metadata.setSamples();
         // gbwt_builder.index.metadata.setContigs();
 
-        sdsl::store_to_file(gbwt_builder.index, gbwt_out_filename);
+        stream::VPKG::save(gbwt_builder.index, gbwt_out_filename);
     }    
 
     auto time4 = std::chrono::system_clock::now();
