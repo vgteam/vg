@@ -20,7 +20,7 @@
 #include "../cpp/vg.pb.h"
 #include "../xg.hpp"
 #include "../region.hpp"
-#include "../handle_to_vg.hpp"
+#include "../convert_handle.hpp"
 
 using namespace std;
 using namespace vg;
@@ -281,21 +281,22 @@ int main_xg(int argc, char** argv) {
              return 1;
         }
         
+        VG converted;
         // Convert the xg graph to vg format
-        VG converted = handle_to_vg(graph.get());
+        convert_handle_graph(graph.get(), &converted);
         
-        // TODO: The converter doesn't copy paths yet. When it does, we can
-        // remove all this path copying code.
-        
+        // TODO: The converter doesn't copy circular paths yet.
+        // When it does, we can remove all this path copying code.
+
         // Make a raw Proto Graph to hold Path objects
         Graph path_graph;
-        
+
         // Since paths are not copied, copy the paths.
         for (size_t rank = 1; rank <= graph->max_path_rank(); rank++) {
             // Extract each path into the path graph
             *path_graph.add_path() = graph->path(graph->path_name(rank));
         }
-        
+
         // Merge in all the paths
         converted.extend(path_graph);
         
