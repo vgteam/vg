@@ -83,6 +83,7 @@ public:
 
 //------------------------------------------------------------------------------
 
+public:
     // Standard HandleGraph interface.
 
     /// Method to check if a node exists by ID.
@@ -90,9 +91,6 @@ public:
 
     /// Look up the handle for the node with the given ID in the given orientation.
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
-
-    // Copy over the visit version which would otherwise be shadowed.
-    using HandleGraph::get_handle;
 
     /// Get the ID from a handle.
     virtual id_t get_id(const handle_t& handle) const;
@@ -110,31 +108,35 @@ public:
     /// orientation.
     virtual std::string get_sequence(const handle_t& handle) const;
 
-    /// Loop over all the handles to next/previous (right/left) nodes. Passes
-    /// them to a callback which returns false to stop iterating and true to
-    /// continue. Returns false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
-
-    // Copy over the template version.
-    using HandleGraph::follow_edges;
-
-    /// Loop over all the nodes in the graph in their local forward
-    /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-
-    // Copy over the template version.
-    using HandleGraph::for_each_handle;
-
     /// Return the number of nodes in the graph.
     virtual size_t node_size() const;
 
-    /// Get the minimum node ID used in the graph, if any are used.
+    /// Return the smallest ID in the graph, or some smaller number if the
+    /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
     virtual id_t min_node_id() const;
 
-    /// Get the maximum node ID used in the graph, if any are used.
+    /// Return the largest ID in the graph, or some larger number if the
+    /// largest ID is unavailable. Return value is unspecified if the graph is empty.
     virtual id_t max_node_id() const;
 
+protected:
+
+    /// Loop over all the handles to next/previous (right/left) nodes. Passes
+    /// them to a callback which returns false to stop iterating and true to
+    /// continue. Returns true if we finished and false if we stopped early.
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
+
+    /// Loop over all the nodes in the graph in their local forward
+    /// orientations, in their internal stored order. Stop if the iteratee
+    /// returns false. Can be told to run in parallel, in which case stopping
+    /// after a false return value is on a best-effort basis and iteration
+    /// order is not defined. Returns true if we finished and false if we 
+    /// stopped early.
+    virtual bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+
 //------------------------------------------------------------------------------
+
+public:
 
     // GBWTGraph specific interface.
 
@@ -142,33 +144,33 @@ public:
     std::pair<const char*, size_t> get_sequence_view(const handle_t& handle) const;
 
     /// Convert gbwt::node_type to handle_t.
-    static handle_t node_to_handle(gbwt::node_type node) { return as_handle(node); }
+    static handle_t node_to_handle(gbwt::node_type node) { return handlegraph::as_handle(node); }
 
     /// Convert handle_t to gbwt::node_type.
-    static gbwt::node_type handle_to_node(const handle_t& handle) { return as_integer(handle); }
+    static gbwt::node_type handle_to_node(const handle_t& handle) { return handlegraph::as_integer(handle); }
 
     /// Convert handle_t to gbwt::SearchState.
-    gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(as_integer(handle)); }
+    gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(handle_to_node(handle)); }
 
     /// Convert handle_t to gbwt::BidirectionalState.
-    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index.bdFind(as_integer(handle)); }
+    gbwt::BidirectionalState get_bd_state(const handle_t& handle) const { return this->index.bdFind(handle_to_node(handle)); }
 
     /// Visit all successor states of this state and call iteratee for the state.
     /// Stop and return false if the iteratee returns false.
     /// Note that the state may be empty if no path continues to that node.
-    bool follow_edges(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const;
+    bool follow_paths(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const;
 
     /// Visit all predecessor/successor states of this state and call iteratee for the state.
     /// Stop and return false if the iteratee returns false.
     /// Note that the state may be empty if no path continues to that node.
     /// Each state corresponds to a path. Going backward extends the path left, while going
     /// extends it right.
-    bool follow_edges(gbwt::BidirectionalState state, bool backward,
+    bool follow_paths(gbwt::BidirectionalState state, bool backward,
                       const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const;
 
 private:
     size_t node_offset(gbwt::node_type node) const { return node - this->index.firstNode(); }
-    size_t node_offset(const handle_t& handle) const { return this->node_offset(as_integer(handle)); }
+    size_t node_offset(const handle_t& handle) const { return this->node_offset(handle_to_node(handle)); }
 };
 
 //------------------------------------------------------------------------------

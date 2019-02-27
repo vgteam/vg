@@ -144,7 +144,7 @@ public:
     /** 
      * Get the support and size for each traversal in a list. Discount support
      * of minus_traversal if it's specified.  Use average_support_switch_threshold and
-     * use_average_support to decide whether to return min or avg supports
+     * use_average_support to decide whether to return min or avg supports.
      */
     tuple<vector<Support>, vector<size_t> > get_traversal_supports_and_sizes(
         SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
@@ -153,13 +153,16 @@ public:
 
     /**
      * Get the min support, total support, bp size (to divide total by for average
-     * support), and fraction of unsupported edges for a traversal, optionally special-casing the
-     * material used by another traversal. Material used by another traversal only
-     * makes half its coverage available to this traversal.
+     * support), optionally special-casing the material used by another traversal. 
+     * Material used by another traversal only makes half its coverage available to this traversal.
+     * If ref_traversal specified (and not same as traversal), its contents will be forbidden from
+     * boosting the average support to avoid the actual variation from getting
+     * diluted by shared reference.
      */
-    tuple<Support, Support, size_t, double> get_traversal_support(
+    tuple<Support, Support, size_t> get_traversal_support(
         SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
-        const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr);
+        const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr,
+        const SnarlTraversal* ref_traversal = nullptr);
 
     /**
      * For the given snarl, find the reference traversal, the best traversal,
@@ -358,11 +361,6 @@ public:
     /// in an output VCF line.  This is mostly for debugging.
     Option<bool> leave_shared_ends{this, "leave-shared-ends", "X", false,
             "don't collapse shared prefix and suffix of alleles in VCF output"};
-
-    /// Don't call a traversal with more than this proportion of unsupported edges.
-    /// Only relevant when using average support with minimum support 0.
-    Option<double> min_edge_support_frac{this, "min-edge-support-frac", "e", 0.8,
-            "Traversal must have at least this proportion of supported edges to be counted"};
 
     /// print warnings etc. to stderr
     bool verbose = false;

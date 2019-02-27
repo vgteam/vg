@@ -849,6 +849,7 @@ int main_map(int argc, char** argv) {
                                               cigar1,
                                               path_name2,
                                               path_pos2,
+                                              path_reverse2,
                                               template_length);
                 bam1_t* b2 = alignment_to_bam(sam_header,
                                               surj2,
@@ -858,6 +859,7 @@ int main_map(int argc, char** argv) {
                                               cigar2,
                                               path_name1,
                                               path_pos1,
+                                              path_reverse1,
                                               template_length);
                 
                 // Write the records

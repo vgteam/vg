@@ -1,11 +1,14 @@
 #include "source_sink_overlay.hpp"
 #include "algorithms/weakly_connected_components.hpp"
 
+#include <handlegraph/util.hpp>
+
 //#define debug
 
 namespace vg {
 
 using namespace std;
+using namespace handlegraph;
 
 SourceSinkOverlay::SourceSinkOverlay(const HandleGraph* backing, size_t length, id_t source_id, id_t sink_id,
     bool break_disconnected) : node_length(length), backing(backing), source_id(source_id), sink_id(sink_id) {
@@ -157,7 +160,7 @@ string SourceSinkOverlay::get_sequence(const handle_t& handle) const {
     }
 }
 
-bool SourceSinkOverlay::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool SourceSinkOverlay::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     if (is_ours(handle)) {
         // We only care about the right of the source and the left of the sink
         if ((handle == source_fwd && !go_left) || (handle == source_rev && go_left)) {
@@ -216,20 +219,20 @@ bool SourceSinkOverlay::follow_edges(const handle_t& handle, bool go_left, const
     }
 }
 
-void SourceSinkOverlay::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool SourceSinkOverlay::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     
     // First do the sourece and sink we added
     if (!iteratee(source_fwd)) {
-        return;
+        return false;
     }
     if (!iteratee(sink_fwd)) {
-        return;
+        return false;
     }
     
 #ifdef debug
     cerr << "Try backing graph " << (parallel ? "in parallel" : "") << endl;
 #endif
-    backing->for_each_handle([&](const handle_t& backing_handle) -> bool {
+    return backing->for_each_handle([&](const handle_t& backing_handle) -> bool {
         // Now do each backing node, possibly in parallel.
 #ifdef debug
         cerr << "Invoke iteratee on " << backing->get_id(backing_handle) << endl;

@@ -832,7 +832,11 @@ int main_msga(int argc, char** argv) {
 
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
-        graph->remove_non_path();
+        if (graph_files.empty()) {
+            // shouldn't be any reason to do this, but if we are going to do it,
+            // only try if graph was made entirely of msga'd sequences.
+            graph->remove_non_path();
+        }
         graph->normalize();
         graph->dice_nodes(node_max);
         algorithms::topological_sort(graph);

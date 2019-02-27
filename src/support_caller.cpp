@@ -451,9 +451,9 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
  * material used by another traversal. Material used by another traversal only
  * makes half its coverage available to this traversal.
  */
-tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(SupportAugmentedGraph& augmented,
+tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
-    const SnarlTraversal* already_used) {
+    const SnarlTraversal* already_used, const SnarlTraversal* ref_traversal) {
 
 #ifdef debug
     cerr << "Evaluate traversal: " << endl;
@@ -482,7 +482,21 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
             shared_children.insert(child);
         });
     }
-    
+
+    // And the reference stuff we want to average out separately
+    set<id_t> ref_nodes;
+    set<Snarl> ref_children;
+    set<Edge*> ref_edges;
+    if (ref_traversal != nullptr && ref_traversal != &traversal) {
+        // Mark all the nodes and edges that the ref traverasl uses.
+        trace_traversal(*ref_traversal, site, [&](size_t i, id_t node, bool is_reverse) {
+            ref_nodes.insert(node);
+        }, [&](size_t i, NodeSide end1, NodeSide end2) {
+            ref_edges.insert(augmented.graph.get_edge(end1, end2));
+        }, [&](size_t i, Snarl child, bool is_reverse) {
+            ref_children.insert(child);
+        });
+    }    
     
     // Compute min and total supports, and bp sizes, for all the visits by
     // number.
@@ -495,10 +509,9 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
     vector<Support> total_supports(record_count, Support());
     // And the bp size of each visit
     vector<size_t> visit_sizes(record_count, 0);
-    // Number of visited edges
-    size_t total_edges = 0;
-    // Number of supported edges
-    size_t supported_edges = 0;
+    // Keep reference-overlapping support separate
+    vector<Support> total_ref_supports(record_count, Support());
+    vector<size_t> ref_visit_sizes(record_count, 0);
     
     // Don't count nodes shared between child snarls more than once.
     set<Node*> coverage_counted;
@@ -520,10 +533,15 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
         cerr << "From node " << node->id() << " get " << got_support << endl;
 #endif
 
-        total_supports[i] += got_support;
-        
-        // And its size
-        visit_sizes[i] += node->sequence().size();
+        if (!ref_nodes.count(node_id)) {
+            // update totals for averaging
+            total_supports[i] += got_support;
+            visit_sizes[i] += node->sequence().size();
+        } else {
+            // reference-overlapping support kept separate for later filters
+            total_ref_supports[i] += got_support;
+            ref_visit_sizes[i] += node->sequence().size();
+        }
         
         // And update its min support
         min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * (shared_nodes.count(node_id) ? 0.5 : 1.0));
@@ -553,17 +571,16 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
             << edge->to() << " " << edge->to_end() << " get " << got_support << endl;
 #endif
 
-        total_supports[i] += got_support;
-        
-        visit_sizes[i] += edge_size;
+        if (!ref_edges.count(edge)) {
+            total_supports[i] += got_support;
+            visit_sizes[i] += edge_size;
+        } else {
+            total_ref_supports[i] += got_support;
+            ref_visit_sizes[i] += edge_size;
+        }
         
         // Min in its support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));
-        // Edges don't contribute much to total support.  We keep a separate tally to make sure we don't
-        // have too many unsupported edges in any called traversals. 
-        total_edges += 1;
-        supported_edges += support_val(augmented.get_support(edge)) > 0. ? 1 : 0;
-        
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));        
     }, [&](size_t i, Snarl child, bool is_reverse) {
         // This is a child snarl, so get its max support.
         
@@ -607,8 +624,13 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
         }
         
         // Smoosh support over the whole child
-        total_supports[i] += child_max * child_size;
-        visit_sizes[i] += child_size;
+        if (!ref_children.count(child)) {
+            total_supports[i] += child_max * child_size;
+            visit_sizes[i] += child_size;
+        } else {
+            total_ref_supports[i] += child_max * child_size;
+            ref_visit_sizes[i] += child_size;
+        }            
         
         if (child_size != 0) {
             // We actually have some nodes to our name.
@@ -630,6 +652,27 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
     for (auto& size : visit_sizes) {
         total_size += size;
     }
+
+    // If we are looking at a non-ref traversal, we ignore the reference support
+    // if it's higher than the non-reference support for the purposes of computing
+    // average support.  This is to prevent spurious calls when the actual variant
+    // has low support, but most of the bases in the traversal are shared with the
+    // well-supported reference. 
+    if (!ref_nodes.empty() || !ref_edges.empty() || !ref_children.empty()) {
+        Support total_ref_support;
+        for (auto& support : total_ref_supports) {
+            total_ref_support += support;
+        }
+        size_t total_ref_size = 0;
+        for (auto& size : ref_visit_sizes) {
+            total_ref_size += size;
+        }
+        if (support_val(total_ref_support) / total_ref_size <=
+            support_val(total_support) / total_size) {
+            total_support += total_ref_support;
+            total_size += total_ref_size;
+        }
+    }
     
     // And the min support?
     Support min_support = make_support(INFINITY, INFINITY, INFINITY);
@@ -641,11 +684,9 @@ tuple<Support, Support, size_t, double> SupportCaller::get_traversal_support(Sup
         // If we have actually no material, say we have actually no support
         min_support = Support();
     }
-
-    double frac_supported_edges = (double)supported_edges / (double)total_edges;
         
     // Spit out the supports, the size in bases observed.
-    return tie(min_support, total_support, total_size, frac_supported_edges);
+    return tie(min_support, total_support, total_size);
         
 }
 
@@ -677,28 +718,14 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
         size_t total_size;
         // And the min support?
         Support min_support;
-        // And the supported edges
-        double frac_supported_edges;
         // Trace the traversal and get its support
-        tie(min_support, total_support, total_size, frac_supported_edges) = get_traversal_support(
-            augmented, snarl_manager, site, traversal, minus_traversal);
+        tie(min_support, total_support, total_size) = get_traversal_support(
+            augmented, snarl_manager, site, traversal, minus_traversal, &traversals.front());
             
         // Add average and min supports to vectors. Note that average support
         // ignores edges.
         min_supports.push_back(min_support);
-
-        Support avg_support;
-        if (total_size != 0 && frac_supported_edges >= min_edge_support_frac) {
-            // When using average support to call larger variants, we may be okay with a
-            // few patches of 0-support.  But this can lead to calling a deletion with no edge
-            // support just because some of the flanking nodes in the snarl are supported.
-            // the min_edge_support_frac is a heuristic cutoff to avoid this, though it may be
-            // better to try weigting edges by the bases they delete in a primary path
-            avg_support = total_support / total_size;
-        } else {
-            avg_support = min_support;
-        }
-        average_supports.push_back(avg_support);
+        average_supports.push_back(total_size != 0 ? total_support / total_size : Support());
         
 #ifdef debug
         cerr << "Min: " << min_support << " Total: " << total_support << " Average: " << average_supports.back() << endl;

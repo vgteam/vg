@@ -14,15 +14,16 @@
 #include <omp.h>
 
 
-namespace vg {
+namespace handlegraph {
 
-namespace {
-
-bool operator<(handle_t a, handle_t b) {
+// It's convenient to have an ordering on handles.
+bool operator<(const handle_t& a, const handle_t& b) {
     return (as_integer(a) < as_integer(b));
 }
 
-} // anonymous namespace
+}
+
+namespace vg {
 
 namespace unittest {
 
@@ -236,7 +237,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
             state_type curr = states.top();
             states.pop();
             bool extend_success = false;
-            gbwt_graph.follow_edges(curr.first, [&](const gbwt::SearchState& next_search) -> bool {
+            gbwt_graph.follow_paths(curr.first, [&](const gbwt::SearchState& next_search) -> bool {
                 if (!next_search.empty()) {
                     extend_success = true;
                     gbwt::vector_type next_path = curr.second;
@@ -267,7 +268,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
             state_type curr = fw_states.top();
             fw_states.pop();
             bool extend_success = false;
-            gbwt_graph.follow_edges(curr.first, false, [&](const gbwt::BidirectionalState& next_search) -> bool {
+            gbwt_graph.follow_paths(curr.first, false, [&](const gbwt::BidirectionalState& next_search) -> bool {
                 if (!next_search.empty()) {
                     extend_success = true;
                     gbwt::vector_type next_path = curr.second;
@@ -284,7 +285,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
             state_type curr = rev_states.top();
             rev_states.pop();
             bool extend_success = false;
-            gbwt_graph.follow_edges(curr.first, true, [&](const gbwt::BidirectionalState& next_search) -> bool {
+            gbwt_graph.follow_paths(curr.first, true, [&](const gbwt::BidirectionalState& next_search) -> bool {
                 if (!next_search.empty()) {
                     extend_success = true;
                     gbwt::vector_type next_path {

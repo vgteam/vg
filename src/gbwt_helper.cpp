@@ -71,19 +71,19 @@ bool GBWTGraph::has_node(id_t node_id) const {
 }
 
 handle_t GBWTGraph::get_handle(const id_t& node_id, bool is_reverse) const {
-    return as_handle(gbwt::Node::encode(node_id, is_reverse));
+    return node_to_handle(gbwt::Node::encode(node_id, is_reverse));
 }
 
 id_t GBWTGraph::get_id(const handle_t& handle) const {
-    return gbwt::Node::id(as_integer(handle));
+    return gbwt::Node::id(handle_to_node(handle));
 }
 
 bool GBWTGraph::get_is_reverse(const handle_t& handle) const {
-    return gbwt::Node::is_reverse(as_integer(handle));
+    return gbwt::Node::is_reverse(handle_to_node(handle));
 }
 
 handle_t GBWTGraph::flip(const handle_t& handle) const {
-    return as_handle(gbwt::Node::reverse(as_integer(handle)));
+    return node_to_handle(gbwt::Node::reverse(handle_to_node(handle)));
 }
 
 size_t GBWTGraph::get_length(const handle_t& handle) const {
@@ -94,57 +94,6 @@ size_t GBWTGraph::get_length(const handle_t& handle) const {
 std::string GBWTGraph::get_sequence(const handle_t& handle) const {
     size_t offset = this->node_offset(handle);
     return std::string(this->sequences.begin() + this->offsets[offset], this->sequences.begin() + this->offsets[offset + 1]);
-}
-
-// Using undocumented parts of the GBWT interface. --Jouni
-bool GBWTGraph::follow_edges(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const {
-
-    // Incoming edges correspond to the outgoing edges of the reverse node.
-    gbwt::node_type curr = as_integer(handle);
-    if (go_left) {
-        curr = gbwt::Node::reverse(curr);
-    }
-
-    gbwt::CompressedRecord record = this->index.record(curr);
-    for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
-        gbwt::node_type next = record.successor(outrank);
-        if (next == gbwt::ENDMARKER) {
-            continue;
-        }
-        // If we started from the reverse node, we must reverse the successor nodes to get
-        // the predecessor nodes of the original node.
-        if (go_left) {
-            next = gbwt::Node::reverse(next);
-        }
-        if (!iteratee(as_handle(next))) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-void GBWTGraph::for_each_handle(const std::function<bool(const handle_t&)>& iteratee, bool parallel) const {
-    if (parallel) {
-        #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
-        for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
-            if (!(this->real_nodes[this->node_offset(node) / 2])) {
-                continue;
-            }
-            if (!iteratee(as_handle(node))) {
-                // We should stop early but it's not worth the effort.
-            }
-        }
-    } else {
-        for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
-            if (!(this->real_nodes[this->node_offset(node) / 2])) {
-                continue;
-            }
-            if (!iteratee(as_handle(node))) {
-                return;
-            }
-        }
-    }
 }
 
 size_t GBWTGraph::node_size() const {
@@ -160,6 +109,59 @@ id_t GBWTGraph::max_node_id() const {
     return next_id - 1;
 }
 
+// Using undocumented parts of the GBWT interface. --Jouni
+bool GBWTGraph::follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const {
+
+    // Incoming edges correspond to the outgoing edges of the reverse node.
+    gbwt::node_type curr = handle_to_node(handle);
+    if (go_left) {
+        curr = gbwt::Node::reverse(curr);
+    }
+
+    gbwt::CompressedRecord record = this->index.record(curr);
+    for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
+        gbwt::node_type next = record.successor(outrank);
+        if (next == gbwt::ENDMARKER) {
+            continue;
+        }
+        // If we started from the reverse node, we must reverse the successor nodes to get
+        // the predecessor nodes of the original node.
+        if (go_left) {
+            next = gbwt::Node::reverse(next);
+        }
+        if (!iteratee(node_to_handle(next))) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool GBWTGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel) const {
+    if (parallel) {
+        #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
+        for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+            if (!(this->real_nodes[this->node_offset(node) / 2])) {
+                continue;
+            }
+            if (!iteratee(node_to_handle(node))) {
+                // We should stop early but it's not worth the effort.
+            }
+        }
+    } else {
+        for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
+            if (!(this->real_nodes[this->node_offset(node) / 2])) {
+                continue;
+            }
+            if (!iteratee(node_to_handle(node))) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 //------------------------------------------------------------------------------
 
 std::pair<const char*, size_t> GBWTGraph::get_sequence_view(const handle_t& handle) const {
@@ -168,7 +170,7 @@ std::pair<const char*, size_t> GBWTGraph::get_sequence_view(const handle_t& hand
 }
 
 // Using undocumented parts of the GBWT interface. --Jouni
-bool GBWTGraph::follow_edges(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
+bool GBWTGraph::follow_paths(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
     gbwt::CompressedRecord record = this->index.record(state.node);
     for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
         gbwt::node_type next_node = record.successor(outrank);
@@ -185,7 +187,7 @@ bool GBWTGraph::follow_edges(gbwt::SearchState state, const std::function<bool(c
 }
 
 // Using undocumented parts of the GBWT interface. --Jouni
-bool GBWTGraph::follow_edges(gbwt::BidirectionalState state, bool backward, const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const {
+bool GBWTGraph::follow_paths(gbwt::BidirectionalState state, bool backward, const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const {
     if (backward) {
         state.flip();
     }

@@ -360,9 +360,9 @@ int main_surject(int argc, char** argv) {
                                     
                                     // Create and write paired BAM records referencing each other
                                     write_bam_record(alignment_to_bam(header, surj1, name1, pos1, reverse1, cigar1,
-                                        name2, pos2, template_length));
+                                        name2, pos2, reverse2, template_length));
                                     write_bam_record(alignment_to_bam(header, surj2, name2, pos2, reverse2, cigar2,
-                                        name1, pos1, template_length));
+                                        name1, pos1, reverse1, template_length));
                                 
                                 }
                                 
