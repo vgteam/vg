@@ -162,9 +162,9 @@ id_t GBWTGraph::max_node_id() const {
 
 //------------------------------------------------------------------------------
 
-std::pair<std::vector<char>::const_iterator, size_t> GBWTGraph::get_sequence_view(const handle_t& handle) const {
+std::pair<const char*, size_t> GBWTGraph::get_sequence_view(const handle_t& handle) const {
     size_t offset = this->node_offset(handle);
-    return std::make_pair(this->sequences.begin() + this->offsets[offset], this->offsets[offset + 1] - this->offsets[offset]);
+    return std::make_pair(this->sequences.data() + this->offsets[offset], this->offsets[offset + 1] - this->offsets[offset]);
 }
 
 // Using undocumented parts of the GBWT interface. --Jouni
@@ -237,7 +237,7 @@ struct GBWTTraversal {
         result.reserve(this->length);
         for (handle_t handle : this->traversal) {
             auto view = graph.get_sequence_view(handle);
-            result.append(view.first, view.first + std::min(view.second, this->length - result.length()));
+            result.append(view.first, std::min(view.second, this->length - result.length()));
         }
         return result;
     }

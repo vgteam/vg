@@ -138,8 +138,8 @@ public:
 
     // GBWTGraph specific interface.
 
-    /// Get node sequence as an iterator and length.
-    std::pair<std::vector<char>::const_iterator, size_t> get_sequence_view(const handle_t& handle) const;
+    /// Get node sequence as a pointer and length.
+    std::pair<const char*, size_t> get_sequence_view(const handle_t& handle) const;
 
     /// Convert gbwt::node_type to handle_t.
     static handle_t node_to_handle(gbwt::node_type node) { return as_handle(node); }
