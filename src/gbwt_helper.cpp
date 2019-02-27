@@ -126,7 +126,7 @@ bool GBWTGraph::follow_edges(const handle_t& handle, bool go_left, const std::fu
 
 void GBWTGraph::for_each_handle(const std::function<bool(const handle_t&)>& iteratee, bool parallel) const {
     if (parallel) {
-#pragma omp parallel for schedule(static)
+        #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
         for (gbwt::node_type node = this->index.firstNode(); node < this->index.sigma(); node += 2) {
             if (!(this->real_nodes[this->node_offset(node) / 2])) {
                 continue;

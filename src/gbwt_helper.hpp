@@ -79,6 +79,8 @@ public:
     std::vector<bool>   real_nodes;
     size_t              total_nodes;
 
+    constexpr static size_t CHUNK_SIZE = 1024; // For parallel for_each_handle().
+
 //------------------------------------------------------------------------------
 
     // Standard HandleGraph interface.
