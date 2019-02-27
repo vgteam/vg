@@ -197,6 +197,20 @@ int main_minimizer(int argc, char** argv) {
         xg_index.reset(nullptr); // The XG index is no longer needed.
     }
 
+    // Minimizer caching.
+    std::vector<std::vector<std::pair<MinimizerIndex::key_type, pos_t>>> cache(threads);
+    constexpr size_t MINIMIZER_CACHE_SIZE = 1024;
+    auto flush_cache = [&](int thread_id) {
+        gbwt::removeDuplicates(cache[thread_id], false);
+        #pragma omp critical (minimizer_index)
+        {
+            for (auto& minimizer : cache[thread_id]) {
+                index->insert(minimizer.first, minimizer.second);
+            }
+        }
+        cache[thread_id].clear();
+    };
+
     // Build the index.
     if (progress) {
         std::cerr << "Building the index" << std::endl;
@@ -204,32 +218,36 @@ int main_minimizer(int argc, char** argv) {
     const HandleGraph& graph = *(gbwt_name.empty() ?
                                  static_cast<const HandleGraph*>(xg_index.get()) :
                                  static_cast<const HandleGraph*>(gbwt_graph.get()));
-    auto lambda = [&index, &graph](const std::vector<handle_t>& traversal, const std::string& seq) {
+    auto lambda = [&](const std::vector<handle_t>& traversal, const std::string& seq) {
         std::vector<MinimizerIndex::minimizer_type> minimizers = index->minimizers(seq);
         auto iter = traversal.begin();
         size_t node_start = 0;
-#pragma omp critical (minimizer_index)
-        {
-            for (MinimizerIndex::minimizer_type minimizer : minimizers) {
-                if (minimizer.first == MinimizerIndex::NO_KEY) {
-                    continue;
-                }
-                // Find the node covering minimizer starting position.
-                size_t node_length = graph.get_length(*iter);
-                while (node_start + node_length <= minimizer.second) {
-                    node_start += node_length;
-                    ++iter;
-                    node_length = graph.get_length(*iter);
-                }
-                pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.second - node_start };
-                index->insert(minimizer.first, pos);
+        int thread_id = omp_get_thread_num();
+        for (MinimizerIndex::minimizer_type minimizer : minimizers) {
+            if (minimizer.first == MinimizerIndex::NO_KEY) {
+                continue;
             }
+            // Find the node covering minimizer starting position.
+            size_t node_length = graph.get_length(*iter);
+            while (node_start + node_length <= minimizer.second) {
+                node_start += node_length;
+                ++iter;
+                node_length = graph.get_length(*iter);
+            }
+            pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.second - node_start };
+            cache[thread_id].emplace_back(minimizer.first, pos);
+        }
+        if (cache[thread_id].size() >= MINIMIZER_CACHE_SIZE) {
+            flush_cache(thread_id);
         }
     };
     if (gbwt_name.empty()) {
         for_each_window(*xg_index, index->k() + index->w() - 1, lambda, (threads > 1));
     } else {
         for_each_haplotype_window(*gbwt_graph, index->k() + index->w() - 1, lambda, (threads > 1));
+    }
+    for (int thread_id = 0; thread_id < threads; thread_id++) {
+        flush_cache(thread_id);
     }
     xg_index.reset(nullptr);
     gbwt_graph.reset(nullptr);

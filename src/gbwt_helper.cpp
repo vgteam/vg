@@ -265,32 +265,39 @@ void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
         // Extend the windows.
         size_t target_length = node_length + window_size - 1;
         while (!windows.empty()) {
-            GBWTTraversal curr = windows.top(); windows.pop();
+            GBWTTraversal window = windows.top(); windows.pop();
             // Report the full window.
-            if (curr.length >= target_length) {
-                lambda(curr.traversal, curr.get_sequence(graph));
+            if (window.length >= target_length) {
+                lambda(window.traversal, window.get_sequence(graph));
                 continue;
             }
 
             // Try to extend the window to all successor nodes.
+            // We are using undocumented parts of the GBWT interface. --Jouni
             bool extend_success = false;
-            graph.follow_edges(curr.state, [&](const gbwt::SearchState& next_state) -> bool {
-                if (next_state.empty()) {
-                    return true;
+            gbwt::CompressedRecord record = graph.index.record(window.state.node);
+            for (gbwt::rank_type outrank = 0; outrank < record.outdegree(); outrank++) {
+                gbwt::node_type next_node = record.successor(outrank);
+                if (next_node == gbwt::ENDMARKER) {
+                    continue;
                 }
-                handle_t handle = GBWTGraph::node_to_handle(next_state.node);
-                GBWTTraversal next = curr;
-                next.traversal.push_back(handle);
-                next.length += std::min(graph.get_length(handle), target_length - curr.length);
-                next.state = next_state;
-                windows.push(next);
+                gbwt::range_type next_range = record.LF(window.state.range, next_node);
+                if (gbwt::Range::empty(next_range)) {
+                    continue;
+                }
+                handle_t next_handle = GBWTGraph::node_to_handle(next_node);
+                GBWTTraversal next_window = window;
+                next_window.traversal.push_back(next_handle);
+                next_window.length += std::min(graph.get_length(next_handle), target_length - window.length);
+                next_window.state.node = next_node;
+                next_window.state.range = next_range;
+                windows.push(next_window);
                 extend_success = true;
-                return true;
-            });
+            }
 
             // Report sufficiently long kmers that cannot be extended.
-            if (!extend_success && curr.length >= window_size) {
-                lambda(curr.traversal, curr.get_sequence(graph));
+            if (!extend_success && window.length >= window_size) {
+                lambda(window.traversal, window.get_sequence(graph));
             }
         }
 
