@@ -34,6 +34,8 @@ void help_surject(char** argv) {
          << "    -c, --cram-output       write CRAM to stdout" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
+         << "    -N, --sample NAME       set this sample name for all reads" << endl
+         << "    -R, --read-group NAME   set this read group for all reads" << endl
          << "    -C, --compression N     level for compression [0-9]" << endl;
 }
 
@@ -50,6 +52,8 @@ int main_surject(int argc, char** argv) {
     string output_type = "gam";
     string input_type = "gam";
     bool interleaved = false;
+    string sample_name;
+    string read_group;
     int compress_level = 9;
     bool subpath_global = true; // force full length alignments in mpmap resolution
 
@@ -68,12 +72,14 @@ int main_surject(int argc, char** argv) {
             {"cram-output", no_argument, 0, 'c'},
             {"bam-output", no_argument, 0, 'b'},
             {"sam-output", no_argument, 0, 's'},
+            {"sample", required_argument, 0, 'N'},
+            {"read-group", required_argument, 0, 'R'},
             {"compress", required_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:licbsC:t:",
+        c = getopt_long (argc, argv, "hx:p:F:licbsN:R:C:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -116,12 +122,20 @@ int main_surject(int argc, char** argv) {
             output_type = "sam";
             break;
 
-        case 't':
-            omp_set_num_threads(parse<int>(optarg));
+        case 'N':
+            sample_name = optarg;
+            break;
+            
+        case 'R':
+            read_group = optarg;
             break;
 
         case 'C':
             compress_level = parse<int>(optarg);
+            break;
+            
+        case 't':
+            omp_set_num_threads(parse<int>(optarg));
             break;
 
         case 'h':
@@ -135,6 +149,16 @@ int main_surject(int argc, char** argv) {
         }
     }
 
+    // Create a preprocessor to apply read group and sample name overrides in place
+    auto set_metadata = [&](Alignment& update) {
+        if (!sample_name.empty()) {
+            update.set_sample_name(sample_name);
+        }
+        if (!read_group.empty()) {
+            update.set_read_group(read_group);
+        }
+    };
+
     string file_name = get_input_file_name(optind, argc, argv);
 
     if (!path_file.empty()){
@@ -142,6 +166,7 @@ int main_surject(int argc, char** argv) {
         ifstream in(path_file);
         string line;
         while (std::getline(in,line)) {
+            // Load up all the paths to surject into from the file
             path_names.insert(line);
         }
     }
@@ -162,6 +187,7 @@ int main_surject(int argc, char** argv) {
         }
     }
 
+    // Get the lengths of all the paths in the XG to populate the HTS headers
     map<string, int64_t> path_length;
     int num_paths = xgidx->max_path_rank();
     for (int i = 1; i <= num_paths; ++i) {
@@ -169,6 +195,9 @@ int main_surject(int argc, char** argv) {
         path_length[name] = xgidx->path_length(name);
     }
     
+    // Make Surjectors for all the threads. TODO: There's no good reason to
+    // need one of these per thread. They and BaseAligner ought to be made
+    // thread safe.
     int thread_count = get_thread_count();
     vector<Surjector*> surjectors(thread_count);
     for (int i = 0; i < surjectors.size(); i++) {
@@ -181,6 +210,10 @@ int main_surject(int argc, char** argv) {
             buffer.resize(thread_count);
             function<void(Alignment&)> lambda = [&](Alignment& src) {
                 int tid = omp_get_thread_num();
+                
+                // Preprocess read to set metadata before surjection
+                set_metadata(src);
+                
                 // Since we're outputting full GAM, we ignore all this info
                 // about where on the path the alignment falls. But we need to
                 // provide the space to the surject call anyway.
@@ -224,6 +257,11 @@ int main_surject(int argc, char** argv) {
             // To generate the header, we need to know the read group for each sample name.
             map<string, string> rg_sample;
             
+            if (!sample_name.empty() && !read_group.empty()) {
+                // Feed in our override read group and sample name in advance
+                rg_sample[read_group] = sample_name;
+            }
+            
             samFile* out = nullptr;
             int buffer_limit = 100;
 
@@ -242,7 +280,6 @@ int main_surject(int argc, char** argv) {
             
             // We define a basic surject function, which also fills in the read group info we need to make the header
             auto surject_alignment = [&](const Alignment& src) {
-                
                 // Set out some variables to populate with the linear position
                 // info we need for SAM/BAM/CRAM
                 string path_name;
@@ -258,6 +295,9 @@ int main_surject(int argc, char** argv) {
                                                                       path_reverse,
                                                                       subpath_global);
                 // Always use the surjected alignment, even if it surjects to unmapped.
+                
+                // Set sample metadata after surjection, since input read is const.
+                set_metadata(surj);
                 
                 if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
                     // There's no header yet (although we race its
