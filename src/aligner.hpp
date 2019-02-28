@@ -1,5 +1,5 @@
-#ifndef VG_GSSW_ALIGNER_HPP_INCLUDED
-#define VG_GSSW_ALIGNER_HPP_INCLUDED
+#ifndef VG_ALIGNER_HPP_INCLUDED
+#define VG_ALIGNER_HPP_INCLUDED
 
 #include <algorithm>
 #include <utility>

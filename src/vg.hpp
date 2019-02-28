@@ -17,7 +17,7 @@
 #include "gssw.h"
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "ssw_aligner.hpp"
 #include "region.hpp"
 #include "path.hpp"

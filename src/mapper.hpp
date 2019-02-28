@@ -19,7 +19,7 @@
 #include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"

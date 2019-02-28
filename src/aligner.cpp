@@ -1,4 +1,4 @@
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "xdrop_aligner.hpp"
 #include "json2pb.h"
 

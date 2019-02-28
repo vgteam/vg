@@ -1,6 +1,6 @@
 #include "vg.hpp"
 #include "stream/stream.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"

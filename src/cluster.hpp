@@ -5,7 +5,7 @@
 #include <gcsa/lcp.h>
 #include <structures/union_find.hpp>
 #include "position.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
 #include "xg.hpp"

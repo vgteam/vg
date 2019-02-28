@@ -8,7 +8,7 @@
 #include <string>
 #include "../json2pb.h"
 #include "../vg.pb.h"
-#include "../gssw_aligner.hpp"
+#include "../aligner.hpp"
 #include "catch.hpp"
 
 namespace vg {
