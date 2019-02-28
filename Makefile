@@ -329,7 +329,7 @@ $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
-	+cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
+	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
 
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
 	+cd $(LIBDEFLATE_DIR) && $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
