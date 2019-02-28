@@ -12,8 +12,12 @@
 
 #include "handle.hpp"
 
+#include <handlegraph/util.hpp>
+
 
 namespace vg {
+
+using namespace handlegraph;
 
 /**
  * Present a HandleGraph that is a backing HandleGraph with all its head nodes
@@ -58,9 +62,6 @@ public:
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse) const;
     
-    // Copy over the visit version which would otherwise be shadowed.
-    using HandleGraph::get_handle;
-    
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
     
@@ -80,17 +81,11 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
-    
-    // Copy over the template for nice calls
-    using HandleGraph::follow_edges;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-    
-    // Copy over the template for nice calls
-    using HandleGraph::for_each_handle;
+    virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;

@@ -81,6 +81,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const string& cigar,
                          const string& mateseq,
                          const int32_t matepos,
+                         bool materev,
                          const int32_t tlen);
                          
 /**
@@ -112,6 +113,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
+                        bool materev,
                         const int32_t tlen);
                         
 /**

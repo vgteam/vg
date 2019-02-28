@@ -12,6 +12,8 @@
 #include "../hash_graph.hpp"
 #include "../json2pb.h"
 
+#include <handlegraph/util.hpp>
+
 #include <iostream>
 #include <limits>
 #include <algorithm>
@@ -22,6 +24,7 @@ namespace vg {
 namespace unittest {
 
 using namespace std;
+using namespace handlegraph;
 
 TEST_CASE( "Handle utility functions work", "[handle]" ) {
 

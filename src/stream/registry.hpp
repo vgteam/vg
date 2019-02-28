@@ -366,7 +366,7 @@ void Registry::register_loader_saver(const vector<string>& tags, load_function_t
     
     for (size_t i = 1; i < tags.size(); i++) {
         // Other tags just get loaders
-        register_loader<Handled>(tags.front(), loader);
+        register_loader<Handled>(tags[i], loader);
     }
 }
 

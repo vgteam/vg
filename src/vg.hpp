@@ -91,9 +91,6 @@ public:
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     
-    // Copy over the visit version which would otherwise be shadowed.
-    using HandleGraph::get_handle;
-    
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
     
@@ -113,17 +110,11 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
-    
-    // Copy over the template for nice calls
-    using HandleGraph::follow_edges;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-    
-    // Copy over the template for nice calls
-    using HandleGraph::for_each_handle;
+    virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
@@ -161,7 +152,7 @@ public:
     virtual size_t get_path_count() const;
     
     /// Execute a function on each path in the graph
-    virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const;
+    virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
     
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
     virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
@@ -187,10 +178,9 @@ public:
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
-    /// Returns a vector of all occurrences of a node on paths. Optionally restricts to
-    /// occurrences that match the handle in orientation.
-    virtual vector<occurrence_handle_t> occurrences_of_handle(const handle_t& handle,
-                                                              bool match_orientation = false) const;
+    /// Loop over the occurrences of a handle in paths.
+    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle,
+                                                    const function<bool(const occurrence_handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Mutable handle-based interface

@@ -579,9 +579,10 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const string& cigar,
                                  const string& mateseq,
                                  const int32_t matepos,
+                                 bool materev,
                                  const int32_t tlen,
                                  bool paired) {
-                        
+
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
    
@@ -619,11 +620,25 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // and the distance between them is proporitinal to the estimated insert length.   
         flags |= BAM_FPROPER_PAIR;
     }
+
+    if (paired && mateseq.empty()) {
+        // Set the flag for the mate being unmapped
+        flags |= BAM_FMUNMAP;
+    }
+
+    if (paired && materev) {
+        // Set the flag for the mate being reversed
+        flags |= BAM_FMREVERSE;
+    }
+
+    // We apply the convention of unmapped reads getting their mate's coordinates
+    // See section 2.4.1 https://samtools.github.io/hts-specs/SAMv1.pdf
+    bool use_mate_loc = !mapped && paired && !mateseq.empty();
     
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
-        << (mapped ? refseq : "*") << "\t"
-        << refpos + 1 << "\t"
+        << (mapped ? refseq : use_mate_loc ? mateseq : "*") << "\t"
+        << (use_mate_loc ? matepos + 1 : refpos + 1) << "\t"
         << (mapped ? alignment.mapping_quality() : 0) << "\t"
         << (mapped ? cigar : "*") << "\t"
         << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
@@ -656,9 +671,10 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
+                        bool materev,
                         const int32_t tlen) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true);
 
 }
 
@@ -668,7 +684,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const bool refrev,
                         const string& cigar) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
 
 }
 
@@ -681,6 +697,7 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
                                   const string& cigar,
                                   const string& mateseq,
                                   const int32_t matepos,
+                                  bool materev,
                                   const int32_t tlen,
                                   bool paired) {
 
@@ -688,7 +705,7 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
     
     // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
     string sam_file = "data:," + percent_url_encode(sam_header +
-        alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, paired));
+       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired));
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -712,9 +729,10 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
+                        bool materev,
                         const int32_t tlen) {
-    
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true);
 
 }
 
@@ -725,7 +743,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const bool refrev,
                         const string& cigar) {
     
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
 
 }
 

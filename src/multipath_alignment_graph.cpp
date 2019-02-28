@@ -2276,7 +2276,7 @@ namespace vg {
 #endif
                         }
                         
-                        for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
+                        for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.first]) {
                             start_queue.push_or_reprioritize(start_next.first, start_here.second + start_next.second);
                         }
                     }

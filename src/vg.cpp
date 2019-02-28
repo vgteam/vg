@@ -7,6 +7,8 @@
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
+#include <handlegraph/util.hpp>
+
 #include <stack>
 
 //#define debug
@@ -14,6 +16,7 @@
 namespace vg {
 
 using namespace std;
+using namespace handlegraph;
 
 // construct from a stream of protobufs
 VG::VG(istream& in, bool showp, bool warn_on_duplicates) {
@@ -126,19 +129,19 @@ VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
     
 
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
-    return EasyHandlePacking::pack(node_id, is_reverse);
+    return handlegraph::number_bool_packing::pack(node_id, is_reverse);
 }
 
 id_t VG::get_id(const handle_t& handle) const {
-    return EasyHandlePacking::unpack_number(handle);
+    return handlegraph::number_bool_packing::unpack_number(handle);
 }
 
 bool VG::get_is_reverse(const handle_t& handle) const {
-    return EasyHandlePacking::unpack_bit(handle);
+    return handlegraph::number_bool_packing::unpack_bit(handle);
 }
 
 handle_t VG::flip(const handle_t& handle) const {
-    return EasyHandlePacking::toggle_bit(handle);
+    return handlegraph::number_bool_packing::toggle_bit(handle);
 }
 
 size_t VG::get_length(const handle_t& handle) const {
@@ -174,7 +177,7 @@ string VG::get_sequence(const handle_t& handle) const {
     
 }
 
-bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool VG::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // Are we reverse?
     bool is_reverse = get_is_reverse(handle);
     
@@ -198,24 +201,27 @@ bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     return true;
 }
 
-void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool VG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     if (parallel) {
+        std::atomic<bool> keep_going(true);
 #pragma omp parallel for schedule(dynamic,1)
         for (id_t i = 0; i < graph.node_size(); ++i) {
             // For each node in the backing graph
             // Get its ID and make a handle to it forward
             // And pass it to the iteratee
-            if (!iteratee(get_handle(graph.node(i).id(), false))) {
-                // Iteratee stopped, but we can't do anything if we want to run this in parallel
-                //return;
+            if (keep_going && !iteratee(get_handle(graph.node(i).id(), false))) {
+                // Iteratee stopped, so try and set the global flag.
+                keep_going = false;
             }
         }
+        return keep_going;
     } else { // same but serial
         for (id_t i = 0; i < graph.node_size(); ++i) {
             if (!iteratee(get_handle(graph.node(i).id(), false))) {
-                return;
+                return false;
             }
         }
+        return true;
     }
 }
 
@@ -289,9 +295,9 @@ size_t VG::get_path_count() const {
     return paths._paths.size();
 }
 
-void VG::for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const {
-    paths.for_each_name([&](const string& name) {
-        iteratee(get_path_handle(name));
+bool VG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const {
+    return paths.for_each_name_stoppable([&](const string& name) {
+        return iteratee(get_path_handle(name));
     });
 }
 
@@ -347,22 +353,19 @@ path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occur
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
     
-vector<occurrence_handle_t> VG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
-    
-    vector<occurrence_handle_t> return_val;
+bool VG::for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const {
     const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
     for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
         for (const mapping_t* mapping : path_occs.second) {
-            if (!match_orientation || mapping->is_reverse() == get_is_reverse(handle)) {
-                occurrence_handle_t occurrence_handle;
-                as_integers(occurrence_handle)[0] = path_occs.first;
-                as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
-                return_val.push_back(occurrence_handle);
+            occurrence_handle_t occurrence_handle;
+            as_integers(occurrence_handle)[0] = path_occs.first;
+            as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
+            if (!iteratee(occurrence_handle)) {
+                return false;
             }
         }
     }
-    
-    return return_val;
+    return true;
 }
 
 handle_t VG::create_handle(const string& sequence) {

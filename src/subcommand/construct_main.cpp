@@ -36,7 +36,7 @@ void help_construct(char** argv) {
          << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
          << "construct from a multiple sequence alignment:" << endl
          << "    -M, --msa FILE         input multiple sequence alignment" << endl
-         << "    -F, --msa-format       format of the MSA file (options: fasta, maf, clustal; default fasta)" << endl
+         << "    -F, --msa-format       format of the MSA file (options: fasta, clustal; default fasta)" << endl
          << "    -d, --drop-msa-paths   don't add paths for the MSA sequences into the graph" << endl
          << "shared construction options:" << endl
          << "    -m, --node-max N       limit the maximum allowable node sequence size (defaults to 32)" << endl

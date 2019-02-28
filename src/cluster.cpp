@@ -1598,7 +1598,7 @@ MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment
             size_t pivot_idx = sorted_pos[i].second;
             HitNode& pivot = hit_graph.nodes[pivot_idx];
             int64_t pivot_length = pivot.mem->end - pivot.mem->begin;
-            int64_t suffix_length = alignment.sequence().end() - pivot.mem->end;
+            int64_t suffix_length = alignment.sequence().end() - pivot.mem->begin;
             
             // the limits of how far away we might detect edges to add to the clustering graph
             int64_t target_hi_pos, target_low_pos;
