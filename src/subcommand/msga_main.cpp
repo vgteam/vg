@@ -135,7 +135,6 @@ int main_msga(int argc, char** argv) {
     int maybe_mq_threshold = 0;
     int min_banded_mq = 0;
     bool use_fast_reseed = true;
-    bool show_align_progress = false;
     bool bigger_first = true;
     bool patch_alignments = true;
     int max_sub_mem_recursion_depth = 2;
@@ -190,7 +189,6 @@ int main_msga(int argc, char** argv) {
                 {"try-up-to", required_argument, 0, 'u'},
                 {"try-at-least", required_argument, 0, 'l'},
                 {"drop-chain", required_argument, 0, 'C'},
-                {"align-progress", no_argument, 0, 'S'},
                 {"bigger-first", no_argument, 0, 'a'},
                 {"no-patch-aln", no_argument, 0, '8'},
                 {"max-gap-length", required_argument, 0, 1},
@@ -199,7 +197,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:I:i:o:y:ZW:z:k:L:e:r:u:l:C:F:SJ:B:a8R:T:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:w:DAc:P:E:Q:NY:H:t:m:M:q:O:I:i:o:y:ZW:z:k:L:e:r:u:l:C:F:J:B:a8R:T:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -292,10 +290,6 @@ int main_msga(int argc, char** argv) {
 
         case 'A':
             debug_align = true;
-            break;
-
-        case 'S':
-            show_align_progress = true;
             break;
 
         case 'X':
@@ -673,7 +667,6 @@ int main_msga(int argc, char** argv) {
             mapper->max_mapping_quality = max_mapping_quality;
             // set up the multi-threaded alignment interface
             mapper->set_alignment_threads(alignment_threads);
-            mapper->show_progress = show_align_progress;
             mapper->patch_alignments = patch_alignments;
         }
     };

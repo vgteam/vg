@@ -148,12 +148,21 @@ private:
     void estimate_distribution();
 };
     
-class BaseMapper : public Progressive {
+/**
+ * Base class for basic mapping functionality shared between the Mapper, MultipathMapper, Surjector, etc.
+ * Handles holding on to the random access and text indexes needed for mapping operations.
+ * Provides a get_aligner() method to get ahold of a useful, possibly quality-adjusted Aligner.
+ */
+class BaseMapper {
     
 public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer
-    // index + LCP array, and which can score reads against haplotypes using
-    // the given ScoreProvider.
+    /**
+     * Make a BaseMapper that pulls from an XG succinct graph and a GCSA2 kmer
+     * index + LCP array, and which can score reads against haplotypes using
+     * the given ScoreProvider.
+     *
+     * If the GCSA and LCPArray are null, cannot do search, only alignment.
+     */
     BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     BaseMapper(void);
     ~BaseMapper(void);
