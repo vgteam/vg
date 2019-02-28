@@ -470,7 +470,10 @@ public:
     /// Move assignment operator.
     VG& operator=(VG&& other) noexcept {
         std::swap(graph, other.graph);
-        rebuild_indexes();
+        clear_indexes_no_resize();
+        build_indexes_no_init_size();
+        paths.clear();
+        paths.append(graph);
         return *this;
     }
 
