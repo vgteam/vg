@@ -147,6 +147,7 @@ class DistanceIndex {
 
 
         friend class DistanceIndex;
+        friend class SnarlSeedClusterer;
         friend class TestDistanceIndex;
     };
 
@@ -231,6 +232,7 @@ class DistanceIndex {
             DistanceIndex* distIndex; 
 
         friend class DistanceIndex;   
+        friend class SnarlSeedClusterer;
         friend class TestDistanceIndex;
     }; 
  
@@ -343,6 +345,7 @@ class DistanceIndex {
     int64_t checkChainLoopRev(id_t snarl, size_t index);
     friend class SnarlIndex;
     friend class ChainIndex;
+    friend class SnarlSeedClusterer;
     friend class TestDistanceIndex;
 
 
