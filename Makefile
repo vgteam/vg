@@ -38,7 +38,7 @@ LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo)
 
 
 ifeq ($(shell uname -s),Darwin)
-	# We may need libraries from Macports
+    # We may need libraries from Macports
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
         # Use /opt/local/lib if present
@@ -49,11 +49,17 @@ ifeq ($(shell uname -s),Darwin)
         # Use /usr/local/lib if present.
         LD_LIB_FLAGS += -L/usr/local/lib
     endif
+    
+    ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
+        # Use /usr/local/include as system-level (to avoid overriding our Protobuf) if present.
+        # One might expect this to already be there but see https://github.com/vgteam/vg/issues/2133
+        LD_LIB_FLAGS += -isystem /usr/local/include
+    endif
 
     # Our compiler might be clang that lacks -fopenmp support.
     # Sniff that
     ifeq ($(strip $(shell $(CXX) -fopenmp /dev/null -o/dev/null 2>&1 | grep fopenmp | wc -l)), 1)
-		# The compiler complained about fopenmp instead of its nonsense input file.
+        # The compiler complained about fopenmp instead of its nonsense input file.
         # We need to use the hard way of getting OpenMP not bundled with the compiler.
         # The compiler only needs to do the preprocessing
         CXXFLAGS += -Xpreprocessor -fopenmp
@@ -77,14 +83,14 @@ ifeq ($(shell uname -s),Darwin)
 
 else
     # We are not running on OS X
-	# We can also have a normal Unix rpath
-	LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
-	# Make sure to allow backtrace access to all our symbols, even those which are not exported.
-	# Absolutely no help in a static build.
-	LD_LIB_FLAGS += -rdynamic
+    # We can also have a normal Unix rpath
+    LD_LIB_FLAGS += -Wl,-rpath,$(CWD)/$(LIB_DIR)
+    # Make sure to allow backtrace access to all our symbols, even those which are not exported.
+    # Absolutely no help in a static build.
+    LD_LIB_FLAGS += -rdynamic
 
-	# We want to link against the elfutils libraries
-	LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
+    # We want to link against the elfutils libraries
+    LD_LIB_FLAGS += -ldwfl -ldw -ldwelf -lelf -lebl
 
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
@@ -205,13 +211,13 @@ LIB_DEPS += $(LIB_DIR)/libboost_program_options.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 ifneq ($(shell uname -s),Darwin)
-	# On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
-	# backward-cpp will use.
-	LIB_DEPS += $(LIB_DIR)/libdw.a
-	LIB_DEPS += $(LIB_DIR)/libdwfl.a
-	LIB_DEPS += $(LIB_DIR)/libdwelf.a
-	LIB_DEPS += $(LIB_DIR)/libebl.a
-	LIB_DEPS += $(LIB_DIR)/libelf.a
+    # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
+    # backward-cpp will use.
+    LIB_DEPS += $(LIB_DIR)/libdw.a
+    LIB_DEPS += $(LIB_DIR)/libdwfl.a
+    LIB_DEPS += $(LIB_DIR)/libdwelf.a
+    LIB_DEPS += $(LIB_DIR)/libebl.a
+    LIB_DEPS += $(LIB_DIR)/libelf.a
 endif
 
 # common dependencies to build before all vg src files
@@ -229,8 +235,8 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 
 ifneq ($(shell uname -s),Darwin)
-	#DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
-	#LD_LIB_FLAGS += -ltcmalloc_minimal
+    #DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
+    #LD_LIB_FLAGS += -ltcmalloc_minimal
 endif
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
