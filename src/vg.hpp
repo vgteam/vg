@@ -27,7 +27,8 @@
 #include "mem.hpp"
 
 #include "vg.pb.h"
-#include "stream.hpp"
+#include "stream/stream.hpp"
+#include "stream/protobuf_emitter.hpp"
 #include "hash_map.hpp"
 
 #include "progressive.hpp"
@@ -90,9 +91,6 @@ public:
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     
-    // Copy over the visit version which would otherwise be shadowed.
-    using HandleGraph::get_handle;
-    
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
     
@@ -112,17 +110,11 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
-    
-    // Copy over the template for nice calls
-    using HandleGraph::follow_edges;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-    
-    // Copy over the template for nice calls
-    using HandleGraph::for_each_handle;
+    virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
@@ -135,6 +127,10 @@ public:
     /// Efficiently get the number of edges attached to one side of a handle.
     /// Uses the VG graph's internal degree index.
     virtual size_t get_degree(const handle_t& handle, bool go_left) const;
+    
+    /// Efficiently check for the existence of an edge using VG graph's internal
+    /// index of node sides.
+    virtual bool has_edge(const handle_t& left, const handle_t& right) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
@@ -156,7 +152,7 @@ public:
     virtual size_t get_path_count() const;
     
     /// Execute a function on each path in the graph
-    virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const;
+    virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
     
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
     virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
@@ -182,8 +178,9 @@ public:
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
-    /// Returns the 0-based ordinal rank of a occurrence on a path
-    virtual size_t get_ordinal_rank_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    /// Loop over the occurrences of a handle in paths.
+    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle,
+                                                    const function<bool(const occurrence_handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Mutable handle-based interface
@@ -316,13 +313,14 @@ public:
     /// Default constructor.
     VG(void);
 
-    /// Construct from protobufs.
+    /// Construct from Graph objects serialized in a tagged group stream.
     VG(istream& in, bool showp = false, bool warn_on_duplicates = true);
     void from_istream(istream& in, bool showp = false, bool warn_on_duplicates = true);
 
-    /// Construct from an arbitrary source of Graph protobuf messages (which
-    /// populates the given Graph and returns a flag for whether it's valid).
-    VG(function<bool(Graph&)>& get_next_graph, bool showp = false, bool warn_on_duplicates = true);
+    /// Construct from an arbitrary source of Graph protobuf messages, with the message source in control of execution.
+    /// Takes a function that takes a callback to call with each Graph object to incorporate.
+    /// The Graph object may be moved by the VG.
+    VG(const function<void(const function<void(Graph&)>&)>& send_graphs, bool showp = false, bool warn_on_duplicates = true);
 
     /// Construct from a single Protobuf graph. The same as making an empty VG and using extend().
     VG(const Graph& from, bool showp = false, bool warn_on_duplicates = true);
@@ -518,6 +516,12 @@ public:
     void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
     void prune_short_subgraphs(size_t min_size);
 
+    /// Send chunked graphs to a function that will write them somewhere.
+    /// Used to internally implement saving to many destinations.
+    /// Graph will be serialized in internal storage order.
+    /// This is NOT const because it synchronizes path ranks before saving!
+    /// We allow the emitted Graph to move.
+    void serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_size = 1000);
     /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
     /// Use when combining multiple VG objects in a stream.
     /// Graph will be serialized in internal storage order.
@@ -941,13 +945,13 @@ public:
     /// node pairs or the graph; those must be updated seperately.
     void index_edge_by_node_sides(Edge* edge);
     /// Get the edge between the given node sides, which can be in either order.
-    bool has_edge(const NodeSide& side1, const NodeSide& side2);
+    bool has_edge(const NodeSide& side1, const NodeSide& side2) const;
     /// Determine if the graph has an edge. This can take sides in any order.
-    bool has_edge(const pair<NodeSide, NodeSide>& sides);
+    bool has_edge(const pair<NodeSide, NodeSide>& sides) const;
     /// Determine if the graph has an edge. This can take sides in any order.
-    bool has_edge(Edge* edge);
+    bool has_edge(Edge* edge) const;
     /// Determine if the graph has an edge. This can take sides in any order.
-    bool has_edge(const Edge& edge);
+    bool has_edge(const Edge& edge) const;
     /// Determine if the graph has an inverting edge on the given node.
     bool has_inverting_edge(Node* n);
     /// Determine if the graph has an inverting edge from the given node.

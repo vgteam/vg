@@ -42,7 +42,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -91,7 +91,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -140,7 +140,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                                 
                 const Path& path = aln.path();
                 
@@ -193,7 +193,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -250,7 +250,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);;
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);;
                 
                 const Path& path = aln.path();
                 
@@ -307,7 +307,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -364,7 +364,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -421,7 +421,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -479,7 +479,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -534,7 +534,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -587,7 +587,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);;
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);;
                 
                 const Path& path = aln.path();
                 
@@ -640,7 +640,7 @@ namespace vg {
                 
                 int band_width = 2;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);;
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);;
                 
                 const Path& path = aln.path();
                 
@@ -693,7 +693,7 @@ namespace vg {
                 
                 int band_width = 3;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -742,7 +742,7 @@ namespace vg {
                 
                 int band_padding = 1;
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding);
+                aligner.align_global_banded(aln, graph, band_padding);
                 
                 const Path& path = aln.path();
                 
@@ -783,7 +783,7 @@ namespace vg {
                 
                 int band_padding = 1;
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding);
+                aligner.align_global_banded(aln, graph, band_padding);
                 
                 const Path& path = aln.path();
                 
@@ -832,7 +832,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -873,7 +873,7 @@ namespace vg {
                 
                 int band_padding = 1;
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding);
+                aligner.align_global_banded(aln, graph, band_padding);
                 
                 const Path& path = aln.path();
                 
@@ -914,7 +914,7 @@ namespace vg {
                 
                 int band_padding = 1;
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding);
+                aligner.align_global_banded(aln, graph, band_padding);
                 
                 const Path& path = aln.path();
                                 
@@ -963,7 +963,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1009,7 +1009,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1050,7 +1050,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1095,7 +1095,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1142,7 +1142,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1191,7 +1191,7 @@ namespace vg {
                 
                 int band_width = 20;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1240,7 +1240,7 @@ namespace vg {
                 
                 int band_width = 0;
                 bool permissive_banding = false;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1292,7 +1292,7 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_padding = 1;
-                aligner.align_global_banded(aln, graph.graph, band_padding);
+                aligner.align_global_banded(aln, graph, band_padding);
                 
                 const Path& path = aln.path();
                 
@@ -1332,7 +1332,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1381,7 +1381,7 @@ namespace vg {
                 
                 int band_width = 0;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1445,7 +1445,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1497,7 +1497,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 const Path& path = aln.path();
                 
@@ -1548,8 +1548,8 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln_full, graph.graph, band_width, permissive_banding);
-                aligner.align_global_banded(aln_reduced, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln_full, graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln_reduced, graph, band_width, permissive_banding);
                 
                 const Path& path_full = aln_full.path();
                 const Path& path_reduced = aln_reduced.path();
@@ -1626,7 +1626,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 const Path& path = aln.path();
@@ -1671,7 +1671,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 REQUIRE(aln.sequence() == multi_alns[0].sequence());
@@ -1715,7 +1715,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool found_first_opt = false;
@@ -1811,7 +1811,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool took_alternate_path = false;
@@ -1863,7 +1863,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool found_first_opt = false;
@@ -1970,7 +1970,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool found_first_opt = false;
@@ -2073,7 +2073,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool found_first_opt = false;
@@ -2191,7 +2191,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool found_first_opt = false;
@@ -2274,7 +2274,7 @@ namespace vg {
                 bool permissive_banding = true;
                 vector<Alignment> multi_alns;
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 unordered_set<string> alns_seen;
@@ -2311,7 +2311,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 SECTION("alignment ends in full-length matches/mismatches") {
                     REQUIRE(aln.path().mapping_size() == 3);
@@ -2345,7 +2345,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 SECTION("alignment ends in full-length matches/mismatches") {
                     REQUIRE(aln.path().mapping_size() == 3);
@@ -2379,7 +2379,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph.graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
                 
                 SECTION("alignment ends in full-length matches/mismatches") {
                     REQUIRE(aln.path().mapping_size() == 3);
@@ -2422,7 +2422,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2447,14 +2447,14 @@ namespace vg {
                 REQUIRE(aln.path().mapping(2).edit(0).sequence().empty());
                 
                 aln.Clear();
-                read = "TGA";
+                read = "AGA";
                 qual = "HHH";
                 
                 aln.set_sequence(read);
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2462,7 +2462,7 @@ namespace vg {
                 
                 // follows correct path
                 REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
-                REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+                REQUIRE(aln.path().mapping(1).position().node_id() == n2->id());
                 REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
                 
                 // has corrects edits
@@ -2511,7 +2511,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2562,7 +2562,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2617,7 +2617,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2670,7 +2670,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2712,7 +2712,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2745,7 +2745,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2798,7 +2798,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2846,7 +2846,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2883,7 +2883,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2926,7 +2926,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2955,7 +2955,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -2996,7 +2996,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool found_first_opt = false;
@@ -3072,7 +3072,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 REQUIRE(multi_alns.size() <= 3);
@@ -3156,7 +3156,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -3209,7 +3209,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -3267,7 +3267,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -3323,7 +3323,7 @@ namespace vg {
                 aln.set_quality(qual);
                 alignment_quality_char_to_short(aln);
                 
-                aligner.align_global_banded(aln, graph.graph, band_padding, permissive_banding);
+                aligner.align_global_banded(aln, graph, band_padding, permissive_banding);
                 
                 // is a global alignment
                 REQUIRE(aln.path().mapping(0).position().offset() == 0);
@@ -3369,7 +3369,7 @@ namespace vg {
                 alignment_quality_char_to_short(aln);
                 
                 vector<Alignment> multi_alns;
-                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                aligner.align_global_banded_multi(aln, multi_alns, graph, max_multi_alns,
                                                   band_padding, permissive_banding);
                 
                 bool found_first_opt = false, found_second_opt = false;
@@ -3416,6 +3416,7 @@ namespace vg {
                 
                 Graph graph;
                 json2pb(graph, graph_json.c_str(), graph_json.size());
+                VG vg_graph(graph);
                 
                 Aligner aligner;
                 
@@ -3425,7 +3426,7 @@ namespace vg {
                 
                 int band_width = 1;
                 bool permissive_banding = true;
-                aligner.align_global_banded(aln, graph, band_width, permissive_banding);
+                aligner.align_global_banded(aln, vg_graph, band_width, permissive_banding);
                 
                 const Path& p = aln.path();
                 for (int i = 0; i < p.mapping_size();i++) {

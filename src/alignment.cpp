@@ -1,6 +1,6 @@
 #include "alignment.hpp"
-#include "stream.hpp"
 
+#include <sstream>
 #include <regex>
 
 namespace vg {
@@ -579,9 +579,10 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const string& cigar,
                                  const string& mateseq,
                                  const int32_t matepos,
+                                 bool materev,
                                  const int32_t tlen,
                                  bool paired) {
-                        
+
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
    
@@ -612,11 +613,32 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
         alignment_name = alignment.name();
     }
+
+    if (mapped && paired && !refseq.empty() && refseq == mateseq) {
+        // properly paired if both mates mapped to same sequence
+        // TODO: bwa is more strict, and additionally requires that the mates are in forward-reverse orientation
+        // and the distance between them is proporitinal to the estimated insert length.   
+        flags |= BAM_FPROPER_PAIR;
+    }
+
+    if (paired && mateseq.empty()) {
+        // Set the flag for the mate being unmapped
+        flags |= BAM_FMUNMAP;
+    }
+
+    if (paired && materev) {
+        // Set the flag for the mate being reversed
+        flags |= BAM_FMREVERSE;
+    }
+
+    // We apply the convention of unmapped reads getting their mate's coordinates
+    // See section 2.4.1 https://samtools.github.io/hts-specs/SAMv1.pdf
+    bool use_mate_loc = !mapped && paired && !mateseq.empty();
     
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
-        << (mapped ? refseq : "*") << "\t"
-        << refpos + 1 << "\t"
+        << (mapped ? refseq : use_mate_loc ? mateseq : "*") << "\t"
+        << (use_mate_loc ? matepos + 1 : refpos + 1) << "\t"
         << (mapped ? alignment.mapping_quality() : 0) << "\t"
         << (mapped ? cigar : "*") << "\t"
         << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
@@ -649,9 +671,10 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
+                        bool materev,
                         const int32_t tlen) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true);
 
 }
 
@@ -661,7 +684,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const bool refrev,
                         const string& cigar) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
 
 }
 
@@ -674,6 +697,7 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
                                   const string& cigar,
                                   const string& mateseq,
                                   const int32_t matepos,
+                                  bool materev,
                                   const int32_t tlen,
                                   bool paired) {
 
@@ -681,7 +705,7 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
     
     // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
     string sam_file = "data:," + percent_url_encode(sam_header +
-        alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, paired));
+       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired));
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -705,9 +729,10 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
+                        bool materev,
                         const int32_t tlen) {
-    
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true);
 
 }
 
@@ -718,7 +743,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const bool refrev,
                         const string& cigar) {
     
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
 
 }
 
@@ -927,11 +952,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
-    } else if (flag & BAM_FPAIRED) {
-        // Aligned and in a pair, so assume it's properly paired.
-        // TODO: this relies on us not emitting improperly paired reads
-        flag |= BAM_FPROPER_PAIR;
-    }
+    } 
     if (on_reverse_strand) {
         flag |= BAM_FREVERSE;
     }
@@ -1355,13 +1376,6 @@ Alignment simplify(const Alignment& a, bool trim_internal_deletions) {
         aln.clear_path();
     }
     return aln;
-}
-
-void write_alignment_to_file(const Alignment& aln, const string& filename) {
-    ofstream out(filename);
-    vector<Alignment> alnz = { aln };
-    stream::write_buffered(out, alnz, 1);
-    out.close();
 }
 
 map<id_t, int> alignment_quality_per_node(const Alignment& aln) {

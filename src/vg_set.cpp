@@ -1,5 +1,5 @@
 #include "vg_set.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "source_sink_overlay.hpp"
 
 namespace vg {
@@ -10,11 +10,11 @@ void VGset::transform(std::function<void(VG*)> lambda) {
         // load
         VG* g = NULL;
         if (name == "-") {
-            g = new VG(std::cin, show_progress);
+            g = new VG(std::cin, show_progress & progress_bars);
         } else {
             ifstream in(name.c_str());
             if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress);
+            g = new VG(in, show_progress & progress_bars);
             in.close();
         }
         g->name = name;
@@ -33,11 +33,11 @@ void VGset::for_each(std::function<void(VG*)> lambda) {
         // load
         VG* g = NULL;
         if (name == "-") {
-            g = new VG(std::cin, show_progress);
+            g = new VG(std::cin, show_progress & progress_bars);
         } else {
             ifstream in(name.c_str());
             if (!in) throw ifstream::failure("failed to open " + name);
-            g = new VG(in, show_progress);
+            g = new VG(in, show_progress & progress_bars);
             in.close();
         }
         g->name = name;
@@ -75,12 +75,20 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::to_xg(xg::XG& index, bool store_threads) {
-    // Nothing matches the default-constructed regex, so nothing will ever be
-    // sent to the map.
-    to_xg(index, store_threads, regex());
+    // Send a predicate to match nothing
+    to_xg(index, store_threads, [](const string& ignored) {
+        return false;
+    });
 }
 
 void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths) {
+    to_xg(index, store_threads, [&](const string& path_name) -> bool {
+        // Take paths that match the regex.
+        return std::regex_match(path_name, paths_to_take);
+    }, removed_paths);
+}
+
+void VGset::to_xg(xg::XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them
@@ -173,9 +181,9 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take,
     });
 }
 
-void VGset::for_each_kmer_parallel(int kmer_size, const function<void(const kmer_t&)>& lambda) {
+void VGset::for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda) {
     for_each([&lambda, kmer_size, this](VG* g) {
-        g->show_progress = show_progress;
+        g->show_progress = show_progress & progress_bars;
         g->preload_progress("processing kmers of " + g->name);
         //g->for_each_kmer_parallel(kmer_size, path_only, edge_max, lambda, stride, allow_dups, allow_negatives);
         for_each_kmer(*g, kmer_size, lambda);

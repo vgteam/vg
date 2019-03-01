@@ -23,6 +23,9 @@ class ReadFilter{
 public:
     
     // Filtering parameters
+    
+    /// Actually take the complement of the filter
+    bool complement_filter = false;
     /// Read name must have one of these prefixes, if any are present.
     /// TODO: This should be a trie but I don't have one handy.
     /// Must be sorted for vaguely efficient search.
@@ -38,7 +41,6 @@ public:
     bool sub_score = false;
     int max_overhang = 99999;
     int min_end_matches = 0;
-    int context_size = 0;
     bool verbose = false;
     double min_mapq = 0.;
     int repeat_size = 0;
@@ -53,66 +55,63 @@ public:
     double downsample_probability = 1.0;
     // Samtools-compatible internal seed mask, for deciding which read pairs to keep.
     // To be generated with rand() after srand() from the user-visible seed.
-    uint32_t downsample_seed_mask = 0;        
-    // default to 1 thread (as opposed to all)
-    int threads = 1;
-
+    uint32_t downsample_seed_mask = 0;
+    // number of threads from omp
+    int threads = -1;
+    // GAM output buffer size
+    int buffer_size = 512;
+    // Sometimes we only want a report, and not a filtered gam.  toggling off output
+    // speeds things up considerably.
+    bool write_output = true;
+    // An XG index is required for some filters (Note: ReadFilter doesn't own/free this)
+    xg::XG* xindex = nullptr;
+    // Interleaved input
+    bool interleaved = false;
+    // minimum base quality as PHRED score
+    int min_base_quality = 0;
+    // minimum fraction of bases in reads that must have quality at least <min_base_quality>
+    double min_base_quality_fraction = 0.0;
+                     
     // Keep some basic counts for when verbose mode is enabled
     struct Counts {
-        vector<size_t> read;
-        vector<size_t> filtered;
-        vector<size_t> wrong_name;
-        vector<size_t> wrong_refpos;
-        vector<size_t> min_score;
-        vector<size_t> max_overhang;
-        vector<size_t> min_end_matches;
-        vector<size_t> min_mapq;
-        vector<size_t> split;
-        vector<size_t> repeat;
-        vector<size_t> defray;
-        vector<size_t> defray_all;
-        vector<size_t> random;
-        Counts() : read(2, 0), filtered(2, 0), wrong_name(2, 0), wrong_refpos(2, 0),
-                   min_score(2, 0), max_overhang(2, 0), min_end_matches(2, 0),
-                   min_mapq(2, 0), split(2, 0), repeat(2, 0), defray(2, 0),
-                   defray_all(2, 0), random(2, 0) {}
+        enum FilterName { read = 0, wrong_name, wrong_refpos, min_score, min_sec_score, max_overhang, min_end_matches,
+                          min_mapq, split, repeat, defray, defray_all, random, filtered, min_base_qual, last };
+        vector<size_t> counts;
+        Counts () : counts(FilterName::last, 0) {}
         Counts& operator+=(const Counts& other) {
-            for (int i = 0; i < 2; ++i) {
-                read[i] += other.read[i];
-                filtered[i] += other.filtered[i];
-                wrong_name[i] += other.wrong_name[i];
-                wrong_refpos[i] += other.wrong_refpos[i];
-                min_score[i] += other.min_score[i];
-                max_overhang[i] += other.max_overhang[i];
-                min_end_matches[i] += other.min_end_matches[i];
-                min_mapq[i] += other.min_mapq[i];
-                split[i] += other.split[i];
-                repeat[i] += other.repeat[i];
-                defray[i] += other.defray[i];
-                defray_all[i] += other.defray_all[i];
-                random[i] += other.random[i];
+            for (int i = 0; i < FilterName::last; ++i) {
+                counts[i] += other.counts[i];
             }
             return *this;
         }
+        Counts& set_paired() {
+            for (int i = 0; i < FilterName::last; ++i) {
+                counts[i] = counts[i] == 1 ? 2 : counts[i];
+            }
+            return *this;
+        }
+        void reset() {
+            std::fill(counts.begin(), counts.end(), 0);
+        }
+        bool keep() {
+            return counts[FilterName::filtered] == 0;
+        }
     };
     
-    // Extra filename things we need for chunking. TODO: refactor that somehow
-    // to maybe be a different class?
-    string regions_file;
-    string outbase;
     bool append_regions = false;
+
+    /**
+     * Run all the filters on an alignment. The alignment may get modified in-place by the defray filter
+     */
+    Counts filter_alignment(Alignment& aln);
     
     /**
      * Filter the alignments available from the given stream, placing them on
      * standard output or in the appropriate file. Returns 0 on success, exit
      * code to use on error.
      *
-     * If an XG index is required, use the specified one. If one is required and
-     * not provided, the function will complain and return nonzero.
-     *
-     * TODO: Refactor to be less CLI-aware and more modular-y.
      */
-    int filter(istream* alignment_stream, xg::XG* xindex = nullptr);
+    int filter(istream* alignment_stream);
     
     /**
      * Look at either end of the given alignment, up to k bases in from the end.
@@ -163,6 +162,7 @@ private:
     bool sample_read(const Alignment& read); 
     
 };
+ostream& operator<<(ostream& os, const ReadFilter::Counts& counts);
 }
 
 #endif

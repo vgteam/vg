@@ -13,7 +13,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"
@@ -269,7 +270,7 @@ int main_chunk(int argc, char** argv) {
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
 
     // Load our index
-    xg::XG xindex;
+    unique_ptr<xg::XG> xindex;
     if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0)) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] xg index (-x) required" << endl;
@@ -281,7 +282,8 @@ int main_chunk(int argc, char** argv) {
             cerr << "error:[vg chunk] unable to load xg index file " << xg_file << endl;
             return 1;
         }
-        xindex.load(in);
+        
+        xindex = stream::VPKG::load_one<xg::XG>(in);
         in.close();
     }
 
@@ -289,17 +291,15 @@ int main_chunk(int argc, char** argv) {
     unique_ptr<gbwt::GBWT> gbwt_index;
     if (trace && !gbwt_file.empty()) {
         // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
-        gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
-        
-        // Open up the index
-        ifstream in(gbwt_file.c_str());
-        if (!in) {
-            cerr << "error:[vg chunk] unable to load gbwt index file " << gbwt_file << endl;
-            return 1;
-        }
+    
+        // Load the GBWT from its container
+        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
-        // And load it
-        gbwt_index->load(in);
+        if (gbwt_index.get() == nullptr) {
+          // Complain if we couldn't.
+          cerr << "error:[vg chunk] unable to load gbwt index file " << gbwt_file << endl;
+          exit(1);
+        }
     }
 
     
@@ -342,15 +342,15 @@ int main_chunk(int argc, char** argv) {
         if (n_chunks) {
             // determine the ranges from the xg index itself
             // how many nodes per range?
-            int nodes_per_chunk = xindex.node_count / n_chunks;
+            int nodes_per_chunk = xindex->node_count / n_chunks;
             size_t i = 1;
             // iterate through the node ranks to build the regions
-            while (i < xindex.node_count) {
+            while (i < xindex->node_count) {
                 // make a range from i to i+nodeS_per_range
-                vg::id_t a = xindex.rank_to_id(i);
+                vg::id_t a = xindex->rank_to_id(i);
                 size_t j = i + nodes_per_chunk;
-                if (j > xindex.node_count) j = xindex.node_count;
-                vg::id_t b = xindex.rank_to_id(j);
+                if (j > xindex->node_count) j = xindex->node_count;
+                vg::id_t b = xindex->rank_to_id(j);
                 Region region;
                 region.start = a;
                 region.end = b;
@@ -387,12 +387,12 @@ int main_chunk(int argc, char** argv) {
             delete range_stream;
         }
     }
-    else {
+    else if (xindex != nullptr) {
         // every path
-        size_t max_rank = xindex.max_path_rank();
+        size_t max_rank = xindex->max_path_rank();
         for (size_t rank = 1; rank <= max_rank; ++rank) {
             Region region;
-            region.seq = xindex.path_name(rank);
+            region.seq = xindex->path_name(rank);
             regions.push_back(region);
         }
     }
@@ -400,18 +400,18 @@ int main_chunk(int argc, char** argv) {
     // validate and fill in sizes for regions that span entire path
     if (!id_range) {
         for (auto& region : regions) {
-            size_t rank = xindex.path_rank(region.seq);
+            size_t rank = xindex->path_rank(region.seq);
             if (rank == 0) {
                 cerr << "error[vg chunk]: input path " << region.seq << " not found in xg index" << endl;
                 return 1;
             }
             region.start = max((int64_t)0, region.start);
             if (region.end == -1) {    
-                region.end = xindex.path_length(rank) - 1;
+                region.end = xindex->path_length(rank) - 1;
             } else if (!id_range) {
-                if (region.start < 0 || region.end >= xindex.path_length(rank)) {
+                if (region.start < 0 || region.end >= xindex->path_length(rank)) {
                     cerr << "error[vg chunk]: input region " << region.seq << ":" << region.start << "-" << region.end
-                         << " is out of bounds of path " << region.seq << " which has length "<< xindex.path_length(rank)
+                         << " is out of bounds of path " << region.seq << " which has length "<< xindex->path_length(rank)
                          << endl;
                     return -1;
                 }
@@ -471,7 +471,7 @@ int main_chunk(int argc, char** argv) {
     // initialize chunkers
     vector<PathChunker> chunkers(threads);
     for (auto& chunker : chunkers) {
-        chunker.xg = &xindex;
+        chunker.xg = xindex.get();
     }
     
     // When chunking GAMs, every thread gets its own cursor to seek into the input GAM.
@@ -528,14 +528,14 @@ int main_chunk(int argc, char** argv) {
                 trace_start = output_regions[i].start;
                 trace_end = output_regions[i].end;
             } else {
-                trace_start = xindex.node_at_path_position(output_regions[i].seq,
+                trace_start = xindex->node_at_path_position(output_regions[i].seq,
                                                            output_regions[i].start);
-                trace_end = xindex.node_at_path_position(output_regions[i].seq,
+                trace_end = xindex->node_at_path_position(output_regions[i].seq,
                                                          output_regions[i].end);
             }
             int64_t trace_steps = trace_end - trace_start;
             Graph g;
-            trace_haplotypes_and_paths(xindex, gbwt_index.get(), trace_start, trace_steps,
+            trace_haplotypes_and_paths(*xindex, gbwt_index.get(), trace_start, trace_steps,
                                        g, trace_thread_frequencies, false);
             subgraph->paths.for_each([&trace_thread_frequencies](const Path& path) {
                     trace_thread_frequencies[path.name()] = 1;});            

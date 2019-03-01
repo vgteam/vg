@@ -3,6 +3,7 @@
 
 #include <set>
 #include <regex>
+#include <functional>
 #include <stdlib.h>
 #include <gcsa/gcsa.h>
 #include "vg.hpp"
@@ -38,6 +39,10 @@ public:
 
     /// Transforms to a succinct, queryable representation
     void to_xg(xg::XG& index, bool store_threads = false);
+    /// As above, except paths with names matching the given predicate are removed.
+    /// They are returned separately by inserting them into the provided map if not null.
+    void to_xg(xg::XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take,
+        map<string, Path>* removed_paths = nullptr);
     /// As above, except paths with names matching the given regex are removed.
     /// They are returned separately by inserting them into the provided map if not null.
     void to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths = nullptr);
@@ -46,11 +51,9 @@ public:
     void store_in_index(Index& index);
     void store_paths_in_index(Index& index);
 
-    // stores kmers of size kmer_size with stride over paths in graphs in the index
-    void index_kmers(Index& index, int kmer_size, bool path_only, int edge_max, int stride = 1, 
-                     bool allow_negatives = false);
-    void for_each_kmer_parallel(int kmer_size, const function<void(const kmer_t&)>& lambda);
-    
+    /// Iterate over all kmers in the graph.
+    void for_each_kmer_parallel(size_t kmer_size, const function<void(const kmer_t&)>& lambda);
+
     /**
      * Write out kmer lines to GCSA2.
      * size_limit is the maximum space usage for the kmer files in bytes. When the
@@ -66,6 +69,8 @@ public:
     // Should we show our progress running through each graph?             
     bool show_progress = false;
 
+    // Use progress bars if show_progress is true?
+    bool progress_bars = true;
 };
 
 }

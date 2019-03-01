@@ -18,6 +18,7 @@
  */
 
 #include "../phase_unfolder.hpp"
+#include "../stream/vpkg.hpp"
 #include "subcommand.hpp"
 
 #include <gbwt/gbwt.h>
@@ -195,7 +196,7 @@ int main_prune(int argc, char** argv) {
             verify_paths = true;
             break;
         case 'x': // no longer needed
-            std::cerr << "[vg prune]: option --xg-name is no longer needed" << std::endl;
+            std::cerr << "warning: [vg prune] option --xg-name is no longer needed" << std::endl;
             break;
         case 'g':
             gbwt_name = optarg;
@@ -238,28 +239,28 @@ int main_prune(int argc, char** argv) {
         subgraph_min = PruningParameters::subgraph_min[mode];
     }
     if (!(kmer_length > 0 && edge_max > 0)) {
-        std::cerr << "[vg prune]: --kmer-length and --edge-max must be positive" << std::endl;
+        std::cerr << "error: [vg prune] --kmer-length and --edge-max must be positive" << std::endl;
         return 1;
     }
     if (append_mapping && mapping_name.empty()) {
-        std::cerr << "[vg prune]: parameter --append-mapping requires --mapping" << std::endl;
+        std::cerr << "error: [vg prune] parameter --append-mapping requires --mapping" << std::endl;
         return 1;
     }
 
     // Mode-specific checks.
     if (mode == mode_prune) {
         if (verify_paths) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
+            std::cerr << "error: [vg prune] mode " << mode_name(mode) << " does not have paths to verify" << std::endl;
             return 1;
         }
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
+            std::cerr << "error: [vg prune] mode " << mode_name(mode) << " does not use additional files" << std::endl;
             return 1;
         }
     }
     if (mode == mode_restore) {
         if (!(gbwt_name.empty() && mapping_name.empty())) {
-            std::cerr << "[vg prune]: mode " << mode_name(mode) << " does not use additional files" << std::endl;
+            std::cerr << "error: [vg prune] mode " << mode_name(mode) << " does not use additional files" << std::endl;
             return 1;
         }
     }
@@ -300,7 +301,7 @@ int main_prune(int argc, char** argv) {
     // Handle the input.
     VG* graph;
     xg::XG xg_index;
-    gbwt::GBWT gbwt_index;
+    unique_ptr<gbwt::GBWT> gbwt_index;
     get_input_file(optind, argc, argv, [&](std::istream& in) {
         graph = new VG(in);
     });
@@ -337,12 +338,14 @@ int main_prune(int argc, char** argv) {
 
     // Restore the non-alt paths.
     if (mode == mode_restore) {
-        PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
+        // Make an empty GBWT index to pass along
+        gbwt::GBWT empty_gbwt;
+        PhaseUnfolder unfolder(xg_index, empty_gbwt, max_node_id + 1);
         unfolder.restore_paths(*graph, show_progress);
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                std::cerr << "[vg prune]: verification failed for " << failures << " paths" << std::endl;
+                std::cerr << "warning: [vg prune] verification failed for " << failures << " paths" << std::endl;
             }
         }
     }
@@ -351,10 +354,18 @@ int main_prune(int argc, char** argv) {
     if (mode == mode_unfold) {
         if (!gbwt_name.empty()) {
             get_input_file(gbwt_name, [&](std::istream& in) {
-               gbwt_index.load(in);
+                gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(in);
+                if (gbwt_index.get() == nullptr) {
+                    std::cerr << "[vg prune]: could not load GBWT" << std::endl;
+                    exit(1);
+                }
             });
+        } else {
+            // The PhaseUnfolder can't deal with having no GBWT at all; we need to give it an empty one.
+            gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
+            // TODO: Let us pass in null pointers instead.
         }
-        PhaseUnfolder unfolder(xg_index, gbwt_index, max_node_id + 1);
+        PhaseUnfolder unfolder(xg_index, *gbwt_index, max_node_id + 1);
         if (append_mapping) {
             unfolder.read_mapping(mapping_name);
         }
@@ -365,7 +376,7 @@ int main_prune(int argc, char** argv) {
         if (verify_paths) {
             size_t failures = unfolder.verify_paths(*graph, show_progress);
             if (failures > 0) {
-                std::cerr << "[vg prune]: verification failed for " << failures << " paths" << std::endl;
+                std::cerr << "warning: [vg prune] verification failed for " << failures << " paths" << std::endl;
             }
         }
     }

@@ -129,7 +129,10 @@ public:
         /// What's the total Support over every bin?
         Support total_support;
     };
-    
+
+    // We'll fill this in with a PrimaryPath for every primary reference path
+    // that is specified or detected.
+    map<string, PrimaryPath> primary_paths;
     
     /**
      * Produce calls for the given annotated augmented graph. If a
@@ -141,13 +144,25 @@ public:
     /** 
      * Get the support and size for each traversal in a list. Discount support
      * of minus_traversal if it's specified.  Use average_support_switch_threshold and
-     * use_average_support to decide whether to return min or avg supports
+     * use_average_support to decide whether to return min or avg supports.
      */
     tuple<vector<Support>, vector<size_t> > get_traversal_supports_and_sizes(
         SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
         const vector<SnarlTraversal>& traversals,
         const SnarlTraversal* minus_traversal = NULL);
 
+    /**
+     * Get the min support, total support, bp size (to divide total by for average
+     * support), optionally special-casing the material used by another traversal. 
+     * Material used by another traversal only makes half its coverage available to this traversal.
+     * If ref_traversal specified (and not same as traversal), its contents will be forbidden from
+     * boosting the average support to avoid the actual variation from getting
+     * diluted by shared reference.
+     */
+    tuple<Support, Support, size_t> get_traversal_support(
+        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+        const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr,
+        const SnarlTraversal* ref_traversal = nullptr);
 
     /**
      * For the given snarl, find the reference traversal, the best traversal,
@@ -203,7 +218,13 @@ public:
      *
      * TODO: can only work by brute-force search.
      */
-    map<string, PrimaryPath>::iterator find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths);
+    map<string, PrimaryPath>::iterator find_path(const Snarl& site);
+
+    /**
+     * Find the lenght of a deletion deletion edge along (the first found) primary path.  If no path found
+     * or not a deletion edge, return 0.
+     */
+    size_t get_deletion_length(const NodeSide& end1, const NodeSide& end2, SupportAugmentedGraph& augmented);
 
     /** 
      * Get the amount of support.  Can use this function to toggle between unweighted (total from genotypekit)

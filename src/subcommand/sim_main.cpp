@@ -16,7 +16,8 @@
 #include "../vg.hpp"
 #include "../mapper.hpp"
 #include "../sampler.hpp"
-#include "../stream.hpp"
+#include "../stream/protobuf_emitter.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -243,16 +244,11 @@ int main_sim(int argc, char** argv) {
         transcript_expressions = parse_rsem_expression_file(rsem_in);
     }
 
-    xg::XG* xgidx = nullptr;
-    ifstream xg_stream(xg_name);
-    if(xg_stream) {
-        xgidx = new xg::XG(xg_stream);
+    unique_ptr<xg::XG> xgidx;
+    if (!xg_name.empty()) {
+        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
     }
-    if (!xg_stream || xgidx == nullptr) {
-        cerr << "[vg sim] error: could not open xg index" << endl;
-        return 1;
-    }
-
+    
     for (auto& path_name : path_names) {
         if (xgidx->path_rank(path_name) == 0) {
             cerr << "[vg sim] error: path \""<< path_name << "\" not found in index" << endl;
@@ -266,9 +262,15 @@ int main_sim(int argc, char** argv) {
             return 1;
         }
     }
+    
+    unique_ptr<stream::ProtobufEmitter<Alignment>> aln_emitter;
+    if (align_out && !json_out) {
+        // Make an emitter to emit Alignments
+        aln_emitter = unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+    }
 
     // Make a Mapper to score reads, with the default parameters
-    Mapper rescorer(xgidx, nullptr, nullptr);
+    Mapper rescorer(xgidx.get(), nullptr, nullptr);
     // We define a function to score a generated alignment under the mapper
     auto rescore = [&] (Alignment& aln) {
         // Score using exact distance.
@@ -279,10 +281,10 @@ int main_sim(int argc, char** argv) {
         // Use the fixed error rate sampler
         
         // Make a sample to sample reads with
-        Sampler sampler(xgidx, seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
+        Sampler sampler(xgidx.get(), seed_val, forward_only, reads_may_contain_Ns, path_names, transcript_expressions);
         
         // Make a Mapper to score reads, with the default parameters
-        Mapper rescorer(xgidx, nullptr, nullptr);
+        Mapper rescorer(xgidx.get(), nullptr, nullptr);
         // Override the "default" full length bonus, just like every other subcommand that uses a mapper ends up doing.
         // TODO: is it safe to change the default?
         rescorer.set_alignment_scores(default_match, default_mismatch, default_gap_open, default_gap_extension, default_full_length_bonus);
@@ -325,8 +327,8 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(alns.front()) << endl;
                         cout << pb2json(alns.back()) << endl;
                     } else {
-                        function<Alignment(size_t)> lambda = [&alns](size_t n) { return alns[n]; };
-                        stream::write(cout, 2, lambda);
+                        aln_emitter->write_copy(alns.front());
+                        aln_emitter->write_copy(alns.back());
                     }
                 } else {
                     cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
@@ -358,8 +360,7 @@ int main_sim(int argc, char** argv) {
                     if (json_out) {
                         cout << pb2json(aln) << endl;
                     } else {
-                        function<Alignment(size_t)> lambda = [&aln](size_t n) { return aln; };
-                        stream::write(cout, 1, lambda);
+                        aln_emitter->write_copy(aln);
                     }
                 } else {
                     cout << aln.sequence() << endl;
@@ -399,10 +400,8 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(read_pair.second) << endl;
                     }
                     else {
-                        function<Alignment(size_t)> lambda = [&read_pair](size_t n) {
-                            return n % 2 == 0 ? read_pair.first : read_pair.second;
-                        };
-                        stream::write(cout, 2, lambda);
+                        aln_emitter->write_copy(read_pair.first);
+                        aln_emitter->write_copy(read_pair.second);
                     }
                 }
                 else {
@@ -420,10 +419,7 @@ int main_sim(int argc, char** argv) {
                         cout << pb2json(read) << endl;
                     }
                     else {
-                        function<Alignment(size_t)> lambda = [&read](size_t n) {
-                            return read;
-                        };
-                        stream::write(cout, 1, lambda);
+                        aln_emitter->write_copy(read);
                     }
                 }
                 else {
@@ -433,11 +429,6 @@ int main_sim(int argc, char** argv) {
         }
     }
     
-    if (align_out && !json_out) {
-        // We wrote alignment data, so write an EOF
-        stream::finish(cout);
-    }
-
     return 0;
 }
 

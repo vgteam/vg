@@ -1,12 +1,11 @@
 
 #include <getopt.h>
 #include "subcommand.hpp"
-#include "index.hpp"
-#include "stream.hpp"
-#include "genotyper.hpp"
-#include "genotypekit.hpp"
-#include "variant_recall.hpp"
-#include "stream.hpp"
+#include "../index.hpp"
+#include "../stream/stream.hpp"
+#include "../genotyper.hpp"
+#include "../genotypekit.hpp"
+#include "../variant_recall.hpp"
 /**
 * GAM sort main
 */

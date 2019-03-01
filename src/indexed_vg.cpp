@@ -7,6 +7,8 @@
 #include "utility.hpp"
 #include "json2pb.h"
 
+#include <handlegraph/util.hpp>
+
 #include <atomic>
 
 namespace vg {
@@ -76,22 +78,22 @@ bool IndexedVG::has_node(id_t node_id) const {
 }
 
 // TODO: We ought to use some kind of handle packing that relates to file offsets for graph chunks contasining nodes.
-// For now we just use the EasyHandlePacking and hit the index every time.
+// For now we just use the handlegraph::number_bool_packing and hit the index every time.
 
 handle_t IndexedVG::get_handle(const id_t& node_id, bool is_reverse) const {
-    return EasyHandlePacking::pack(node_id, is_reverse);
+    return handlegraph::number_bool_packing::pack(node_id, is_reverse);
 }
 
 id_t IndexedVG::get_id(const handle_t& handle) const {
-    return EasyHandlePacking::unpack_number(handle);
+    return handlegraph::number_bool_packing::unpack_number(handle);
 }
 
 bool IndexedVG::get_is_reverse(const handle_t& handle) const {
-    return EasyHandlePacking::unpack_bit(handle);
+    return handlegraph::number_bool_packing::unpack_bit(handle);
 }
 
 handle_t IndexedVG::flip(const handle_t& handle) const {
-    return EasyHandlePacking::toggle_bit(handle);
+    return handlegraph::number_bool_packing::toggle_bit(handle);
 }
 
 size_t IndexedVG::get_length(const handle_t& handle) const {
@@ -130,7 +132,7 @@ string IndexedVG::get_sequence(const handle_t& handle) const {
     return found_sequence;
 }
 
-bool IndexedVG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool IndexedVG::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // TODO: implement stopping early in the backing index!
     
 #ifdef debug
@@ -227,7 +229,7 @@ bool IndexedVG::follow_edges(const handle_t& handle, bool go_left, const functio
     return keep_going;
 }
 
-void IndexedVG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool IndexedVG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // We have to scan the whole graph for this
     
     int64_t group_vo = 0;
@@ -273,6 +275,8 @@ void IndexedVG::for_each_handle(const function<bool(const handle_t&)>& iteratee,
             break;
         }
     }
+    
+    return keep_going;
 }
 
 size_t IndexedVG::node_size() const {
@@ -454,11 +458,10 @@ bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const Cac
         with_cursor([&](cursor_t& cursor) {
             // Try to get to the VO we are supposed to go to
             auto pre_seek_group = cursor.tell_group();
-            auto pre_seek_pos = cursor.tell_raw();
             if (!cursor.seek_group(group_vo)) {
                 cerr << "error[vg::IndexedVG]: Could not seek from group pos " << pre_seek_group
-                    << " and raw pos " << pre_seek_pos << " to group pos " << group_vo << endl;
-                cerr << "Current position: group " << cursor.tell_group() << " raw " << cursor.tell_raw()
+                    << " to group pos " << group_vo << endl;
+                cerr << "Current position: group " << cursor.tell_group()
                     << " has_next: " << cursor.has_next() << endl;
                 assert(false);
             }

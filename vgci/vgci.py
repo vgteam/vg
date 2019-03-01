@@ -58,7 +58,7 @@ class VGCITest(TestCase):
         self.container = None # Use default in toil-vg, which is Docker
         self.verify = True
         self.do_teardown = True
-        self.baseline = 's3://vg-data/vg_ci/jenkins_regression_baseline'
+        self.baseline = 's3://vg-data/vg_ci/vgci_regression_baseline'
         self.cores = 8
         self.sim_chunk_size = 100000
         self.force_outstore = False
@@ -151,8 +151,9 @@ class VGCITest(TestCase):
                 connection = urllib2.urlopen(url)
                 return unicode(connection.read())
             except urllib2.HTTPError as e:
-                if e.code == 404:
+                if e.code == 404 or e.code == 403:
                     # Baseline file doesn't yet exist. Give an empty string.
+                    # Nonexistent things give 403 to prevent enumeration.
                     return ""
                 else:
                     # Something else is wrong
@@ -662,7 +663,8 @@ class VGCITest(TestCase):
                                      None,
                                      plan.reads_fastq_file_ids,
                                      plan.fasta_file_id, 
-                                     plan.bwa_index_ids, 
+                                     plan.bwa_index_ids,
+                                     None,
                                      plan.bam_file_ids,
                                      plan.pe_bam_file_ids, 
                                      plan.true_read_stats_file_id)
@@ -1084,7 +1086,13 @@ class VGCITest(TestCase):
         cmd = ['toil-vg', 'calleval', job_store, out_store]
         if self.vg_docker:
             cmd += ['--vg_docker', self.vg_docker]
-        cmd += ['--calling_cores', str(min(2, self.cores))]
+        cmd += ['--calling_cores', str(min(8, self.cores))]
+        # Test test_call_chr21_snp1kg has been running out of memory on 32 GB
+        # nodes, maybe due to too many calling jobs running at once. The
+        # default memory limit is 4 GB, so we double that to 8 GB so we retain
+        # some parallelism while hopefully not going way over the limits and
+        # OOM-ing.
+        cmd += ['--calling_mem', '8G']
         cmd += ['--call_chunk_cores', str(min(6, self.cores))]
         cmd += ['--gam_index_cores', str(min(4, self.cores))]
         cmd += ['--maxCores', str(self.cores)]
@@ -1266,7 +1274,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(1200)
     def test_sim_brca2_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
-        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        so vgci doesn't report failures.  vg is run only in single ended with multipath on
         and off. 
         """
         log.info("Test start at {}".format(datetime.now()))
@@ -1280,7 +1288,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(2400)
     def test_sim_chr21_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
-        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        so vgci doesn't report failures.  vg is run only in single ended with multipath on
         and off.
         """
         self._test_mapeval(100000, 'CHR21', 'snp1kg',
@@ -1294,7 +1302,7 @@ class VGCITest(TestCase):
     @timeout_decorator.timeout(3000)
     def test_sim_mhc_snp1kg_mpmap(self):
         """ multipath mapper test, which is a smaller version of above.  we catch all errors
-        so jenkins doesn't report failures.  vg is run only in single ended with multipath on
+        so vgci doesn't report failures.  vg is run only in single ended with multipath on
         and off.
         """
         log.info("Test start at {}".format(datetime.now()))
