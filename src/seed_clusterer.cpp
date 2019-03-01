@@ -1,5 +1,7 @@
 #include "seed_clusterer.hpp"
 
+#define DEBUG 
+
 namespace vg {
     //TODO: Put this somewhere else???
     SnarlSeedClusterer::SnarlSeedClusterer() {
@@ -25,18 +27,31 @@ namespace vg {
             const Snarl* snarl = dist_index.snarlOf(id);
             auto s = node_to_seed.find(id);
             if (s != node_to_seed.end()) {
-                vector<size_t> new_seeds = s->second;
-                new_seeds.push_back(i);
+                s->second.push_back(i);
+            } else {
+#ifdef DEBUG
+cerr << "Node " << id << "has seed " << pos << endl;
+#endif
+                vector<size_t> new_seeds({i});
                 node_to_seed.emplace(id, new_seeds);
             }
             while (snarl != NULL && snarls_with_seeds.count(snarl) == 0) {
                 snarls_with_seeds.insert(snarl);
+#ifdef DEBUG
+cerr << "Snarl " << snarl->start() << " has seed " << pos << endl;
+#endif
                 if (snarl_manager.in_nontrivial_chain(snarl)) {
                     const Chain* chain = snarl_manager.chain_of(snarl);
                     chains_with_seeds.insert(chain);
+#ifdef DEBUG
+cerr << "Chain " << get_start_of(*chain) << " has seed " << pos << endl;
+#endif
                 }
             }
         }
+#ifdef DEBUG
+cerr << endl;
+#endif
   
         const vector<const Snarl*>& top_snarls = 
                                                snarl_manager.top_level_snarls();
@@ -82,6 +97,9 @@ namespace vg {
                              size_t distance_limit, SnarlManager& snarl_manager,
                              DistanceIndex& dist_index, id_t root, bool rev,
                              int64_t node_length) {
+#ifdef DEBUG 
+cerr << "Finding clusters on node " << root << endl;
+#endif
         /*Find clusters of seeds in this node. rev is true if the left and right
          * distances should be reversed */ 
         vector<size_t> seed_indices = node_to_seed[root];                
@@ -166,6 +184,16 @@ namespace vg {
             }
             clusters.push_back(curr_cluster);
         }
+#ifdef DEBUG 
+cerr << "Found clusters on node " << root << endl;
+for (cluster_t c : clusters) {
+cerr << "\tcluster : ";
+    for (size_t s : c.seeds) {
+        cerr << seeds[s] << "\t";
+    }
+    cerr << endl;
+}
+#endif
         return clusters;
         
     };
@@ -178,6 +206,9 @@ namespace vg {
                              hash_map< id_t, vector<size_t> >& node_to_seed,
                              size_t distance_limit, SnarlManager& snarl_manager,
                              DistanceIndex& dist_index, const Chain* root) {
+        #ifdef DEBUG 
+        cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
+        #endif
     
         vector<SnarlSeedClusterer::cluster_t> chain_clusters;
 
@@ -239,15 +270,21 @@ namespace vg {
                 //<cluster indices of node, cluster indices of snarl>
                 vector<pair<hash_set<size_t>, hash_set<size_t>>> 
                                                      new_cluster_indices;
+                for (size_t b = 0; b < boundary_clusters.size() ; b++) {
+                    hash_set<size_t> s ;
+                    s.insert(b);
+                    new_cluster_indices.push_back(make_pair(s, hash_set<size_t>()));
+                }
                 for (size_t i = 0; i < snarl_clusters.size(); i++) {
                     /* Loop through each of the snarl's clusters and find 
-                     * which boundary node clusters it belongs to, combining 
+                     * which boundary node clusters it belongs with, combining 
                      * clusters at each loop */
 
                     SnarlSeedClusterer::cluster_t cluster = snarl_clusters[i]; 
                     /* The shortest distance to the start node could actually be
                      * the shortest distance to the end node plus the distance 
                      * to loop in the chain back to the start node */ 
+//TODO: This is getting the wrong distance to the ends of the snarl
                     int64_t loop_dist_start = chain_index.loopFd[
                                             chain_index.snarlToIndex[end_node]] 
                                + snarl_index.snarlLength() - end_length;
@@ -278,6 +315,13 @@ namespace vg {
                                                            boundary_clusters[k];
                             //Check current seed against seeds in cluster
                             if (!in_this_cluster) {
+cerr << "Boundary cluster: " << endl;
+cerr << boundary_cluster.dist_left << " " << boundary_cluster.dist_right << " Seeds: ";
+for (size_t x : boundary_cluster.seeds) {cerr << seeds[x] << " ";} cerr << endl;
+cerr << "Snarl cluster: " << endl; 
+cerr << cluster.dist_left << " " << cluster.dist_right << " Seeds: ";
+for (size_t x : cluster.seeds) {cerr << seeds[x] << " ";} cerr << endl;
+cerr << "HERE: " << start_node << " " << end_length - cluster.dist_right << " " << boundary_cluster.dist_left << endl;
 
                                 if (abs((end_length - cluster.dist_right) -
                                         boundary_cluster.dist_left) 
@@ -287,33 +331,77 @@ namespace vg {
                                 } 
                             }
                         }
-                        pair<hash_set<size_t>, hash_set<size_t>> comb_cluster;
-                        comb_cluster.second.insert(i);
-                        if (curr_cluster_assignments.size() == 0) {
-                              new_cluster_indices.push_back(comb_cluster); 
-                        } else {
-                            vector<pair<hash_set<size_t>, hash_set<size_t>>>
-                                                      combined_cluster_indices;
-                            for (size_t j = 0 ; j < new_cluster_indices.size(); j++) {
+                    }
+                    //For each of the boundary clusters that this snarl cluster
+                    //belongs to, combine the clusters
+#ifdef DEBUG
+cerr << "\t at snarl " << start_node << ", clusters:" << endl;
+#endif 
+                    pair<hash_set<size_t>, hash_set<size_t>> comb_cluster;
+                    comb_cluster.second.insert(i);
+                    if (curr_cluster_assignments.size() == 0) {
+                          //If this snarl clusters is on its own,
+                          //create new cluster
+                          new_cluster_indices.push_back(comb_cluster); 
+#ifdef DEBUG
+for (auto c : new_cluster_indices) {
 
-                                pair<hash_set<size_t>, hash_set<size_t>> 
-                                     old_cluster = new_cluster_indices[j];
-                                if (curr_cluster_assignments.count(j) != 0) {
-                                    //If this seed belongs to this cluster
-                                    comb_cluster.first.insert(
+    cerr << "\t \t";
+    for (size_t c_index : c.first){
+        for (size_t pos : boundary_clusters[c_index].seeds) {
+            cerr << seeds[pos] << " ";
+        }
+    }
+    for (size_t c_index : c.second){
+        for (size_t pos : snarl_clusters[c_index].seeds) {
+            cerr << seeds[pos] << " ";
+        }
+    }
+    
+    cerr << endl;
+}
+#endif
+                    } else {
+                        vector<pair<hash_set<size_t>, hash_set<size_t>>>
+                                                      combined_cluster_indices;
+                        for (size_t j = 0 ; j < new_cluster_indices.size();j++){
+
+                            pair<hash_set<size_t>, hash_set<size_t>> 
+                                 old_cluster = new_cluster_indices[j];
+                            if (curr_cluster_assignments.count(j) != 0) {
+                                //If this seed belongs to this cluster
+                                comb_cluster.first.insert(
                                                     old_cluster.first.begin(), 
                                                     old_cluster.first.end());
-                                    comb_cluster.second.insert(
+                                comb_cluster.second.insert(
                                                     old_cluster.second.begin(), 
                                                     old_cluster.second.end());
-                                 } else {
-                                    combined_cluster_indices.push_back(old_cluster);
-                                }
+                             } else {
+                                combined_cluster_indices.push_back(old_cluster);
                             }
-                            new_cluster_indices = combined_cluster_indices;
                         }
+                        combined_cluster_indices.push_back(comb_cluster);
+                        new_cluster_indices = combined_cluster_indices;
+
+#ifdef DEBUG
+
+    cerr << "\t \t";
+    for (size_t c_index : comb_cluster.first){
+        for (size_t pos : boundary_clusters[c_index].seeds) {
+            cerr << seeds[pos] << " ";
+        }
+    }
+    for (size_t c_index : comb_cluster.second){
+        for (size_t pos : snarl_clusters[c_index].seeds) {
+            cerr << seeds[pos] << " ";
+        }
+    }
+    
+    cerr << endl;
+#endif
                     }
                 }  
+
                 //Build new clusters for this snarl that include boundary seeds
                 vector<SnarlSeedClusterer::cluster_t> new_snarl_clusters;
                 for (pair<hash_set<size_t>, hash_set<size_t>> cluster_indices :
@@ -485,6 +573,17 @@ namespace vg {
             
         }
          
+#ifdef DEBUG 
+cerr << "Found clusters on chain " << get_start_of(*root).node_id() << endl;
+for (cluster_t c : chain_clusters) {
+cerr << "\tcluster : ";
+    for (size_t s : c.seeds) {
+        cerr << seeds[s] << "\t";
+    }
+    cerr << endl;
+}
+#endif
+
         return chain_clusters; 
     };
 
@@ -496,6 +595,9 @@ namespace vg {
                              size_t distance_limit, SnarlManager& snarl_manager,
                              DistanceIndex& dist_index, const Snarl* root,
                              bool include_boundaries) {
+        #ifdef DEBUG 
+        cerr << "Finding clusters on snarl " << root->start() << endl;
+        #endif
     
         DistanceIndex::SnarlIndex& snarl_index = dist_index.snarlDistances.at(
                            make_pair(root->start().node_id(),
@@ -512,11 +614,13 @@ namespace vg {
                 snarl = snarl_manager.into_which_snarl(visit, true);
             }
             if (snarl == NULL) {
-                //If this is a node and 
-                //if not including boundary nodes, not a boundary node
-                if ( include_boundaries || 
-                               (visit != snarl_index.snarlStart.first &&
-                                   visit != snarl_index.snarlEnd.first)) {
+                //If this is a node
+                child_nodes.push_back(visit);
+                
+            } else if ( visit == snarl_index.snarlStart.first ||
+                        visit == snarl_index.snarlEnd.first ) {
+                //If this is a boundary node
+                if ( include_boundaries ) {
                     child_nodes.push_back(visit);
                 }
             } else {
@@ -667,14 +771,6 @@ namespace vg {
                         }
                     }
                 }
-                //Combine clusters that child cluster belongs to
-                vector<pair<vector<hash_set<size_t>>, pair<int64_t, int64_t>>>
-                                                     new_cluster_indices;
-                vector<hash_set<size_t>> combined_cluster;
-                for (size_t j = 0; j < i-1 ; j++) {
-                    hash_set<size_t> set;
-                    combined_cluster.push_back(set);
-                }
                 //find distances to ends of snarl for this cluster 
                 int64_t dist_s_l = snarl_index.distances[
                                       snarl_index.index(snarl_index.snarlStart,
@@ -700,10 +796,19 @@ namespace vg {
                          DistanceIndex::minPos({dist_s_l, dist_s_r}), 
                          DistanceIndex::minPos({dist_e_l,dist_e_r}));
 
+                //Combine clusters that child cluster belongs to
+                vector<pair<vector<hash_set<size_t>>, pair<int64_t, int64_t>>>
+                                                     new_cluster_indices;
+                vector<hash_set<size_t>> combined_cluster;
+                for (size_t j = 0; j < i+1 ; j++) {
+                    hash_set<size_t> set;
+                    combined_cluster.push_back(set);
+                }
                 //Combine clusters
                 for (size_t k = 0; k < combined_clusters_indices.size() ; k++){
                
                     if (assignments.count(k) > 0) {
+                        //If this cluster belongs with the current cluster
                         vector<hash_set<size_t>> old_cluster_indices =
                                       combined_clusters_indices[k].first;
                         pair<int64_t, int64_t> old_cluster_dists = 
@@ -750,6 +855,16 @@ namespace vg {
 
             snarl_clusters.push_back(cluster); 
         }
+#ifdef DEBUG 
+cerr << "Found clusters on snarl " << root->start() << endl;
+for (cluster_t c : snarl_clusters) {
+cerr << "\tcluster : ";
+    for (size_t s : c.seeds) {
+        cerr << seeds[s] << "\t";
+    }
+    cerr << endl;
+}
+#endif
         return snarl_clusters;
     };
 }
