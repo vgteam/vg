@@ -364,6 +364,11 @@ public:
 
     /// print warnings etc. to stderr
     bool verbose = false;
+
+    /// inversion or deletion edges greater than this length with 0 support
+    /// will clamp average support down to 0.  this is primarily to prevent
+    /// FP inversions when using average support
+    int max_unsupported_edge_size = 20;
     
 };
 
