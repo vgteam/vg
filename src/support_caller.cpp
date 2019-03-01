@@ -1461,6 +1461,7 @@ void SupportCaller::call(
             return nullptr;
         }
     });
+    traversal_finder.other_orientation_timeout = max_inversion_size;
     
     // We're going to remember what nodes and edges are covered by sites, so we
     // will know which nodes/edges aren't in any sites and may need generic
