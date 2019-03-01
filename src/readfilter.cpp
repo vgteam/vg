@@ -506,7 +506,7 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
     } else if (rescore == true) {
         // We need to recalculate the score with the base aligner always
         const static Aligner unadjusted;
-        BaseAligner* aligner = (BaseAligner*)&unadjusted;
+        GSSWAligner* aligner = (GSSWAligner*)&unadjusted;
             
         // Rescore and assign the score
         aln.set_score(aligner->score_ungapped_alignment(aln));

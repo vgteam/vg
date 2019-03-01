@@ -360,7 +360,7 @@ protected:
     /// adjust_alignments_for_base_quality. By setting have_qualities to false,
     /// you can force the non-quality-adjusted aligner, for reads that lack
     /// quality scores.
-    BaseAligner* get_aligner(bool have_qualities = true) const;
+    GSSWAligner* get_aligner(bool have_qualities = true) const;
     
     // Sometimes you really do need the two kinds of aligners, to pass to code
     // that expects one or the other.

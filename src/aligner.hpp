@@ -38,12 +38,28 @@ namespace vg {
     class VG; // forward declaration
 
     /**
-     * The interface that any Aligner should implement, with some default implementations.
+     * The abstract interface that any Aligner should implement.
      */
     class BaseAligner {
+    public:
+        
+        /// Store optimal local alignment against a graph in the Alignment object.
+        /// Gives the full length bonus separately on each end of the alignment.
+        virtual void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) = 0;
+        
+        /// Same as previous, but takes advantage of a pre-computed topological order
+        virtual void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                           bool traceback_aln, bool print_score_matrices) = 0;
+        
+    };
+
+    /**
+     * The basic GSSW-based core aligner implementation, which can then be quality-adjusted or not.
+     */
+    class GSSWAligner : public BaseAligner {
     protected:
-        BaseAligner() = default;
-        ~BaseAligner();
+        GSSWAligner() = default;
+        ~GSSWAligner();
         
         // for construction
         // needed when constructing an alignable graph from the nodes
@@ -90,14 +106,6 @@ namespace vg {
 
         double max_possible_mapping_quality(int length);
         double estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs);
-        
-        /// Store optimal local alignment against a graph in the Alignment object.
-        /// Gives the full length bonus separately on each end of the alignment.
-        virtual void align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) = 0;
-        
-        /// Same as previous, but takes advantage of a pre-computed topological order
-        virtual void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                           bool traceback_aln, bool print_score_matrices) = 0;
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // guaranteed to align to a source/sink node
@@ -254,7 +262,7 @@ namespace vg {
     /**
      * An ordinary aligner.
      */
-    class Aligner : public BaseAligner {
+    class Aligner : public GSSWAligner {
     private:
         
         // internal function interacting with gssw for pinned and local alignment
@@ -347,7 +355,7 @@ namespace vg {
     /**
      * An aligner that uses read base qualities to adjust its scores and alignments.
      */
-    class QualAdjAligner : public BaseAligner {
+    class QualAdjAligner : public GSSWAligner {
     public:
         
         QualAdjAligner(int8_t _match = default_match,

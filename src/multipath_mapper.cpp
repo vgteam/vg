@@ -2538,7 +2538,7 @@ namespace vg {
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
         // Figure out the aligner to use
-        BaseAligner* aligner = get_aligner();
+        GSSWAligner* aligner = get_aligner();
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
@@ -3143,9 +3143,9 @@ namespace vg {
         // We should never actually compute a MAPQ with the None method. If we try, it means something has gonbe wrong.
         assert(mapq_method != None);
    
-        // TODO: BaseAligner's mapping quality computation insists on sometimes appending a 0 to your score list.
+        // TODO: GSSWAligner's mapping quality computation insists on sometimes appending a 0 to your score list.
         // We don't want to take a mutable score list, so we copy it here.
-        // This can be removed when BaseAligner is fixed to take const score lists.
+        // This can be removed when GSSWAligner is fixed to take const score lists.
         vector<double> mutable_scores(scores.begin(), scores.end());
    
         int32_t raw_mapq;
