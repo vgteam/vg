@@ -6750,7 +6750,6 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
 
     auto aln = alignment;
@@ -6807,7 +6806,7 @@ Alignment VG::align(const Alignment& alignment,
         } else if(xdrop_alignment) {
             // cerr << "X-drop alignment, (" << xdrop_alignment << ")" << endl;
             if (aligner && !qual_adj_aligner) {
-                aligner->align_xdrop(aln, g.graph, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true, multithreaded_xdrop);
+                aligner->align_xdrop(aln, g.graph, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true);
             } else {
                 /* qual_adj_aligner is not yet implemented, fallback */
                 qual_adj_aligner->align/*_xdrop*/(aln, g, traceback, print_score_matrices);
@@ -6911,11 +6910,10 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
@@ -6930,12 +6928,11 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     const vector<MaximalExactMatch> mems;
     return align(alignment, aligner, nullptr, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6950,13 +6947,12 @@ Alignment VG::align(const string& sequence,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
@@ -6970,12 +6966,11 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6989,13 +6984,12 @@ Alignment VG::align(const string& sequence,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 
@@ -7012,11 +7006,10 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   size_t max_span,
                                   size_t unroll_length,
                                   int xdrop_alignment,
-                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
@@ -7031,12 +7024,11 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   size_t max_span,
                                   size_t unroll_length,
                                   int xdrop_alignment,
-                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
     const vector<MaximalExactMatch> mems;
     return align(alignment, nullptr, qual_adj_aligner, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
@@ -7051,13 +7043,12 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   size_t max_span,
                                   size_t unroll_length,
                                   int xdrop_alignment,
-                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                                pinned_alignment, pin_left, banded_global, band_padding_override,
-                               max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                               max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 const string VG::hash(void) {

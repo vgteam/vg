@@ -1896,7 +1896,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             
             // directly call alignment function without node translation
             // cerr << "X-drop alignment, (" << xdrop_alignment << "), rev(" << ((xdrop_alignment == 1) ? false : true) << ")" << endl;
-            get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true, alignment_threads > 1);
+            get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true);
         } else {
             // local alignment is based on gssw, which takes a HandleGraph, but only uses it for sorting and
             // for constructing its own graph representation. we can improve efficiency by taking advantage of

@@ -274,7 +274,8 @@ void GSSWAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) const {
     }
 }
 
-string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) {
+string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) const {
+
     stringstream s;
     gssw_graph_cigar* gc = &gm->cigar;
     gssw_node_cigar* nc = gc->elements;
@@ -303,7 +304,7 @@ void GSSWAligner::init_mapping_quality(double gc_content) {
     log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
 }
 
-int32_t GSSWAligner::score_gap(size_t gap_length) {
+int32_t GSSWAligner::score_gap(size_t gap_length) const {
     return gap_length ? -gap_open - (gap_length - 1) * gap_extension : 0;
 }
 
@@ -429,7 +430,7 @@ double GSSWAligner::maximum_mapping_quality_approx(vector<double>& scaled_scores
     return max(0.0, quality_scale_factor * (max_score - next_score - (next_count > 1 ? log(next_count) : 0.0)));
 }
 
-double GSSWAligner::group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group) {
+double GSSWAligner::group_mapping_quality_exact(vector<double>& scaled_scores, vector<size_t>& group) const {
     
     // if necessary, assume a null alignment of 0.0 for comparison since this is local
     if (scaled_scores.size() == 1) {
@@ -464,7 +465,7 @@ void GSSWAligner::compute_mapping_quality(vector<Alignment>& alignments,
                                           int overlap_count,
                                           double mq_estimate,
                                           double maybe_mq_threshold,
-                                          double identity_weight) {
+                                          double identity_weight) const {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -523,7 +524,7 @@ void GSSWAligner::compute_mapping_quality(vector<Alignment>& alignments,
     }
 }
 
-int32_t GSSWAligner::compute_mapping_quality(vector<double>& scores, bool fast_approximation) {
+int32_t GSSWAligner::compute_mapping_quality(vector<double>& scores, bool fast_approximation) const {
     
     vector<double> scaled_scores(scores.size(), 0.0);
     for (size_t i = 0; i < scores.size(); i++) {
@@ -534,7 +535,7 @@ int32_t GSSWAligner::compute_mapping_quality(vector<double>& scores, bool fast_a
                                          : maximum_mapping_quality_exact(scaled_scores, &idx));
 }
 
-int32_t GSSWAligner::compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group) {
+int32_t GSSWAligner::compute_group_mapping_quality(vector<double>& scores, vector<size_t>& group) const {
     
     // ensure that group is in sorted order as following function expects
     if (!is_sorted(group.begin(), group.end())) {
@@ -560,7 +561,7 @@ void GSSWAligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<
                                                  double mq_estimate1,
                                                  double mq_estimate2,
                                                  double maybe_mq_threshold,
-                                                 double identity_weight) {
+                                                 double identity_weight) const {
     
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call init_mapping_quality before computing mapping qualities" << endl;
@@ -660,18 +661,18 @@ double GSSWAligner::mapping_quality_score_diff(double mapping_quality) const {
     return mapping_quality / (quality_scale_factor * log_base);
 }
 
-double GSSWAligner::estimate_next_best_score(int length, double min_diffs) {
+double GSSWAligner::estimate_next_best_score(int length, double min_diffs) const {
     return ((length - min_diffs) * match - min_diffs * mismatch);
 }
 
-double GSSWAligner::max_possible_mapping_quality(int length) {
+double GSSWAligner::max_possible_mapping_quality(int length) const {
     double max_score = log_base * length * match;
     vector<double> v = { max_score };
     size_t max_idx;
     return maximum_mapping_quality_approx(v, &max_idx);
 }
 
-double GSSWAligner::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) {
+double GSSWAligner::estimate_max_possible_mapping_quality(int length, double min_diffs, double next_min_diffs) const {
     double max_score = log_base * ((length - min_diffs) * match - min_diffs * mismatch);
     double next_max_score = log_base * ((length - next_min_diffs) * match - next_min_diffs * mismatch);
     vector<double> v = { max_score, next_max_score };
@@ -679,7 +680,7 @@ double GSSWAligner::estimate_max_possible_mapping_quality(int length, double min
     return maximum_mapping_quality_approx(v, &max_idx);
 }
 
-double GSSWAligner::score_to_unnormalized_likelihood_ln(double score) {
+double GSSWAligner::score_to_unnormalized_likelihood_ln(double score) const {
     // Log base needs to be set, or this can't work. It's set by default in
     // QualAdjAligner but needs to be set up manually in the normal Aligner.
     assert(log_base != 0);
@@ -1016,29 +1017,29 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // bench_end(bench);
 }
 
-void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) {
+void Aligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const {
     
     align_internal(alignment, nullptr, g, nullptr, false, false, 1, traceback_aln, print_score_matrices);
 }
 
 void Aligner::align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                    bool traceback_aln, bool print_score_matrices) {
+                    bool traceback_aln, bool print_score_matrices) const {
     
     align_internal(alignment, nullptr, g, &topological_order, false, false, 1, traceback_aln, print_score_matrices);
 }
 
-void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) {
+void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const {
     
     align_internal(alignment, nullptr, g, nullptr, true, pin_left, 1, true, false);
 }
 
-void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order, bool pin_left) {
+void Aligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order, bool pin_left) const {
     
     align_internal(alignment, nullptr, g, &topological_order, true, pin_left, 1, true, false);
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                 bool pin_left, int32_t max_alt_alns) {
+                                 bool pin_left, int32_t max_alt_alns) const {
     
     if (alt_alignments.size() != 0) {
         cerr << "error:[Aligner::align_pinned_multi] output vector must be empty for pinned multi-aligning" << endl;
@@ -1049,7 +1050,7 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                 const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) {
+                                 const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const {
     
     if (alt_alignments.size() != 0) {
         cerr << "error:[Aligner::align_pinned_multi] output vector must be empty for pinned multi-aligning" << endl;
@@ -1060,7 +1061,7 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
 }
 
 void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
-                                  int32_t band_padding, bool permissive_banding) {
+                                  int32_t band_padding, bool permissive_banding) const {
     
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
@@ -1114,7 +1115,7 @@ void Aligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
 }
 
 void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                        int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
+                                        int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
                                         
     // We need to figure out what size ints we need to use.
     // Get upper and lower bounds on the scores. TODO: if these overflow int64 we're out of luck
@@ -1173,18 +1174,14 @@ void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>&
 }
 
 // X-drop aligner
-void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
+void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
 {
-    // cerr << "X-drop aligner" << endl;
-    if (multithreaded) {
-        auto xdrop_copy = xdrop; // make thread safe
-        xdrop_copy.align(alignment, g, mems, reverse_complemented);
-    } else {
-        xdrop.align(alignment, g, mems, reverse_complemented);
-    }
+    // Make a single-problem aligner, so we don't modify ourselves and are thread-safe.
+    auto xdrop_copy = xdrop;
+    xdrop_copy.align(alignment, g, mems, reverse_complemented);
 }
 
-void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns)
+void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
 }
 
@@ -1213,7 +1210,7 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
 }
 
 int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                         string::const_iterator seq_begin) const{
+                                         string::const_iterator seq_begin) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;
@@ -1297,7 +1294,7 @@ QualAdjAligner::QualAdjAligner(int8_t _match,
 
 void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                                     const vector<handle_t>* topological_order, bool pinned, bool pin_left,
-                                    int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) {
+                                    int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) const {
     
     // check input integrity
     if (pin_left && !pinned) {
@@ -1489,41 +1486,41 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
 }
 
-void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) {
+void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, bool traceback_aln, bool print_score_matrices) const {
     
     align_internal(alignment, nullptr, g, nullptr, false, false, 1, traceback_aln, print_score_matrices);
 }
 
 void QualAdjAligner::align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
-                           bool traceback_aln, bool print_score_matrices) {
+                           bool traceback_aln, bool print_score_matrices) const {
     
     align_internal(alignment, nullptr, g, &topological_order, false, false, 1, traceback_aln, print_score_matrices);
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) {
+void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const {
 
     align_internal(alignment, nullptr, g, nullptr, true, pin_left, 1, true, false);
 
 }
 
-void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order, bool pin_left) {
+void QualAdjAligner::align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order, bool pin_left) const {
     
     align_internal(alignment, nullptr, g, &topological_order, true, pin_left, 1, true, false);
     
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                        bool pin_left, int32_t max_alt_alns) {
+                                        bool pin_left, int32_t max_alt_alns) const {
     align_internal(alignment, &alt_alignments, g, nullptr, true, pin_left, max_alt_alns, true, false);
 }
 
 void QualAdjAligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                        const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) {
+                                        const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const {
     align_internal(alignment, &alt_alignments, g, &topological_order, true, pin_left, max_alt_alns, true, false);
 }
 
 void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph& g,
-                                         int32_t band_padding, bool permissive_banding) {
+                                         int32_t band_padding, bool permissive_banding) const {
     
     BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
                                                                            g,
@@ -1535,7 +1532,7 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, const HandleGraph
 }
 
 void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
-                                               int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
+                                               int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) const {
     
     BandedGlobalAligner<int16_t> band_graph = BandedGlobalAligner<int16_t>(alignment,
                                                                            g,
@@ -1549,14 +1546,14 @@ void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alig
 }
 
 // X-drop aligner
-void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, bool multithreaded)
+void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented) const
 {
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
     exit(1);
 }
 
-void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns)
+void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
@@ -1599,7 +1596,7 @@ int32_t QualAdjAligner::score_exact_match(string::const_iterator seq_begin, stri
 }
 
 int32_t QualAdjAligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
-                                                string::const_iterator seq_begin) const{
+                                                string::const_iterator seq_begin) const {
     
     int32_t score = 0;
     string::const_iterator read_pos = seq_begin;

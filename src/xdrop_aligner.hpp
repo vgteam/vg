@@ -31,6 +31,7 @@ namespace vg {
 		uint32_t ref_offset, query_offset;
 	};
 
+    /// Non-thread-safe alignment problem, to be solved using the x-drop algorithm.
 	class XdropAligner {
 	private:
 		// context (contains memory arena and constants) and working buffers
