@@ -149,50 +149,6 @@ private:
 };
 
 /**
- * Holds a set of alignment scores, and has methods to produce aligners of various types on demand, using those scores.
- * Provides a get_aligner() method to get ahold of a useful, possibly quality-adjusted Aligner.
- * Base functionality that is shared between alignment and surjections
- */
-class AlignerClient {
-protected:
-
-    /// Create an AlignerClient, which creates the default aligner instances,
-    /// which can depend on a GC content estimate.
-    AlignerClient(double gc_content_estimate = vg::default_gc_content);
-    
-    /// Get the appropriate aligner to use, based on
-    /// adjust_alignments_for_base_quality. By setting have_qualities to false,
-    /// you can force the non-quality-adjusted aligner, for reads that lack
-    /// quality scores.
-    GSSWAligner* get_aligner(bool have_qualities = true) const;
-    
-    // Sometimes you really do need the two kinds of aligners, to pass to code
-    // that expects one or the other.
-    QualAdjAligner* get_qual_adj_aligner() const;
-    Aligner* get_regular_aligner() const;
-    
-public:
-    /// Set all the aligner scoring parameters and create the stored aligner instances.
-    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-                              uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length);
-                              
-    /// Load a scoring amtrix from a file to set scores
-    void load_scoring_matrix(std::ifstream& matrix_stream);
-    
-    bool adjust_alignments_for_base_quality = false; // use base quality adjusted alignments
-
-private:
-    // GSSW aligners
-    unique_ptr<QualAdjAligner> qual_adj_aligner;
-    unique_ptr<Aligner> regular_aligner;
-    
-    // GC content estimate that we need for building the aligners.
-    double gc_content_estimate;
-    
-
-};
-    
-/**
  * Base class for basic mapping functionality shared between the Mapper, MultipathMapper, etc.
  * Handles holding on to the random access and text indexes needed for mapping operations.
  */

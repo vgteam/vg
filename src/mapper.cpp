@@ -11,55 +11,6 @@ namespace vg {
 // init the static memo
 thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
-AlignerClient::AlignerClient(double gc_content_estimate) :
-    gc_content_estimate(gc_content_estimate) {
-    
-    // Adopt the default scoring parameters and make the aligners
-    set_alignment_scores(default_match, default_mismatch, default_gap_open,
-                         default_gap_extension, default_full_length_bonus, default_xdrop_max_gap_length);
-}
-
-GSSWAligner* AlignerClient::get_aligner(bool have_qualities) const {
-    return (have_qualities && adjust_alignments_for_base_quality) ?
-        (GSSWAligner*) get_qual_adj_aligner() :
-        (GSSWAligner*) get_regular_aligner();
-}
-
-QualAdjAligner* AlignerClient::get_qual_adj_aligner() const {
-    assert(qual_adj_aligner.get() != nullptr);
-    return qual_adj_aligner.get();
-}
-
-Aligner* AlignerClient::get_regular_aligner() const {
-    assert(regular_aligner.get() != nullptr);
-    return regular_aligner.get();
-}
-
-void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, 
-                                         int8_t full_length_bonus, uint32_t xdrop_max_gap_length) {
-    
-    // hacky, find max score so that scaling doesn't change score
-    int8_t max_score = match;
-    if (mismatch > max_score) max_score = mismatch;
-    if (gap_open > max_score) max_score = gap_open;
-    if (gap_extend > max_score) max_score = gap_extend;
-    
-    qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(match, mismatch, gap_open, gap_extend,
-                                                                     full_length_bonus, max_score, 255, gc_content_estimate));
-    regular_aligner = unique_ptr<Aligner>(new Aligner(match, mismatch, gap_open, gap_extend,
-                                                      full_length_bonus, gc_content_estimate, xdrop_max_gap_length));
-                  
-}
-
-void AlignerClient::load_scoring_matrix(std::ifstream& matrix_stream){
-    matrix_stream.clear();
-    matrix_stream.seekg(0);
-    if(regular_aligner) get_regular_aligner()->load_scoring_matrix(matrix_stream);
-    matrix_stream.clear();
-    matrix_stream.seekg(0);
-    if(qual_adj_aligner) get_qual_adj_aligner()->load_scoring_matrix(matrix_stream);
-}
-
 BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a,

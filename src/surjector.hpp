@@ -9,7 +9,7 @@
 #include <set>
 
 #include "alignment.hpp"
-#include "mapper.hpp"
+#include "aligner.hpp"
 #include "xg.hpp"
 #include "vg.hpp"
 #include "translator.hpp"
@@ -23,11 +23,10 @@ namespace vg {
 
 using namespace std;
 
-    class Surjector : BaseMapper {
+    class Surjector : AlignerClient {
     public:
         
-        Surjector(xg::XG* xg_index);
-        ~Surjector();
+        Surjector(const xg::XG* xg_index);
         
         /// Extract the portions of an alignment that are on a chosen set of paths and try to
         /// align realign the portions that are off of the chosen paths to the intervening
@@ -72,6 +71,8 @@ using namespace std;
         
         // make a sentinel meant to indicate an unmapped read
         Alignment make_null_alignment(const Alignment& source);
+        
+        const xg::XG* xindex;
     };
 }
 

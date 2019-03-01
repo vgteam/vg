@@ -13,14 +13,10 @@ namespace vg {
 
 using namespace std;
     
-    Surjector::Surjector(xg::XG* xg_index) : BaseMapper(xg_index, nullptr, nullptr) {
+    Surjector::Surjector(const xg::XG* xg_index) : xindex(xg_index) {
         if (!xindex) {
             cerr << "error:[Surjector] Failed to provide an XG index to the Surjector" << endl;
         }
-    }
-    
-    Surjector::~Surjector() {
-        
     }
     
     Alignment Surjector::surject(const Alignment& source, const set<string>& path_names,
