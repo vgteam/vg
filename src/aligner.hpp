@@ -32,7 +32,7 @@ namespace vg {
     static const int8_t default_max_scaled_score = 32;
     static const uint8_t default_max_qual_score = 255;
     static const double default_gc_content = 0.5;
-    static const uint32_t default_max_gap_length = 40;
+    static const uint32_t default_xdrop_max_gap_length = 40;
 
     
     class VG; // forward declaration
@@ -289,7 +289,7 @@ namespace vg {
                 int8_t _gap_extension,
                 int8_t _full_length_bonus,
                 double _gc_content,
-                uint32_t _max_gap_length);
+                uint32_t _xdrop_max_gap_length);
         ~Aligner(void) = default;
         
         /// Store optimal local alignment against a graph in the Alignment object.

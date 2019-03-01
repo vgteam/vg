@@ -806,7 +806,7 @@ Aligner::Aligner(int8_t _match,
                  int8_t _gap_extension,
                  int8_t _full_length_bonus,
                  double gc_content)
-    : Aligner(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, gc_content, default_max_gap_length)
+    : Aligner(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, gc_content, default_xdrop_max_gap_length)
 {
 }
 
@@ -816,8 +816,8 @@ Aligner::Aligner(int8_t _match,
                  int8_t _gap_extension,
                  int8_t _full_length_bonus,
                  double gc_content,
-                 uint32_t _max_gap_length)
-    : xdrop(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, _max_gap_length)
+                 uint32_t _xdrop_max_gap_length)
+    : xdrop(_match, _mismatch, _gap_open, _gap_extension, _full_length_bonus, _xdrop_max_gap_length)
 {
     match = _match;
     mismatch = _mismatch;

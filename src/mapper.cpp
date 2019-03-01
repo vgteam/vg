@@ -11,11 +11,61 @@ namespace vg {
 // init the static memo
 thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
+AlignerClient::AlignerClient(double gc_content_estimate) :
+    gc_content_estimate(gc_content_estimate) {
+    
+    // Adopt the default scoring parameters and make the aligners
+    set_alignment_scores(default_match, default_mismatch, default_gap_open,
+                         default_gap_extension, default_full_length_bonus, default_xdrop_max_gap_length);
+}
+
+GSSWAligner* AlignerClient::get_aligner(bool have_qualities) const {
+    return (have_qualities && adjust_alignments_for_base_quality) ?
+        (GSSWAligner*) get_qual_adj_aligner() :
+        (GSSWAligner*) get_regular_aligner();
+}
+
+QualAdjAligner* AlignerClient::get_qual_adj_aligner() const {
+    assert(qual_adj_aligner.get() != nullptr);
+    return qual_adj_aligner.get();
+}
+
+Aligner* AlignerClient::get_regular_aligner() const {
+    assert(regular_aligner.get() != nullptr);
+    return regular_aligner.get();
+}
+
+void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, 
+                                         int8_t full_length_bonus, uint32_t xdrop_max_gap_length) {
+    
+    // hacky, find max score so that scaling doesn't change score
+    int8_t max_score = match;
+    if (mismatch > max_score) max_score = mismatch;
+    if (gap_open > max_score) max_score = gap_open;
+    if (gap_extend > max_score) max_score = gap_extend;
+    
+    qual_adj_aligner = unique_ptr<QualAdjAligner>(new QualAdjAligner(match, mismatch, gap_open, gap_extend,
+                                                                     full_length_bonus, max_score, 255, gc_content_estimate));
+    regular_aligner = unique_ptr<Aligner>(new Aligner(match, mismatch, gap_open, gap_extend,
+                                                      full_length_bonus, gc_content_estimate, xdrop_max_gap_length));
+                  
+}
+
+void AlignerClient::load_scoring_matrix(std::ifstream& matrix_stream){
+    matrix_stream.clear();
+    matrix_stream.seekg(0);
+    if(regular_aligner) get_regular_aligner()->load_scoring_matrix(matrix_stream);
+    matrix_stream.clear();
+    matrix_stream.seekg(0);
+    if(qual_adj_aligner) get_qual_adj_aligner()->load_scoring_matrix(matrix_stream);
+}
+
 BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a,
                        haplo::ScoreProvider* haplo_score_provider) :
-      xindex(xidex)
+      AlignerClient(estimate_gc_content(g))
+      , xindex(xidex)
       , gcsa(g)
       , lcp(a)
       , haplo_score_provider(haplo_score_provider)
@@ -27,16 +77,11 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       , adaptive_diff_exponent(0.065)
       , hit_max(0)
       , alignment_threads(1)
-      , qual_adj_aligner(nullptr)
-      , regular_aligner(nullptr)
-      , adjust_alignments_for_base_quality(false)
       , mapping_quality_method(Approx)
       , max_mapping_quality(60)
       , strip_bonuses(false)
       , assume_acyclic(false)
 {
-    init_aligner(default_match, default_mismatch, default_gap_open,
-                 default_gap_extension, default_full_length_bonus);
     
     // TODO: removing these consistency checks because we seem to have violated them pretty wontonly in
     // the code base already by changing the members directly when they were still public
@@ -67,12 +112,6 @@ BaseMapper::BaseMapper(void) : BaseMapper(nullptr, nullptr, nullptr) {
     // Nothing to do. Default constructed and can't really do anything.
 }
 
-BaseMapper::~BaseMapper(void) {
-    
-    clear_aligners();
-    
-}
-    
 // Use the GCSA2 index to find super-maximal exact matches.
 vector<MaximalExactMatch>
 BaseMapper::find_mems_simple(string::const_iterator seq_begin,
@@ -1592,52 +1631,6 @@ void BaseMapper::force_fragment_length_distr(double mean, double stddev) {
     fragment_length_distr.force_parameters(mean, stddev);
 }
     
-GSSWAligner* BaseMapper::get_aligner(bool have_qualities) const {
-    return (have_qualities && adjust_alignments_for_base_quality) ?
-        (GSSWAligner*) qual_adj_aligner :
-        (GSSWAligner*) regular_aligner;
-}
-
-QualAdjAligner* BaseMapper::get_qual_adj_aligner() const {
-    assert(qual_adj_aligner != nullptr);
-    return qual_adj_aligner;
-}
-
-Aligner* BaseMapper::get_regular_aligner() const {
-    assert(regular_aligner != nullptr);
-    return regular_aligner;
-}
-
-void BaseMapper::clear_aligners(void) {
-    delete qual_adj_aligner;
-    delete regular_aligner;
-    qual_adj_aligner = nullptr;
-    regular_aligner = nullptr;
-}
-
-void BaseMapper::init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus, uint32_t max_gap_length) {
-    // hacky, find max score so that scaling doesn't change score
-    int8_t max_score = match;
-    if (mismatch > max_score) max_score = mismatch;
-    if (gap_open > max_score) max_score = gap_open;
-    if (gap_extend > max_score) max_score = gap_extend;
-    
-    double gc_content = estimate_gc_content();
-    
-    qual_adj_aligner = new QualAdjAligner(match, mismatch, gap_open, gap_extend, full_length_bonus,
-                                          max_score, 255, gc_content);
-    regular_aligner = new Aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, gc_content, max_gap_length);
-}
-
-void BaseMapper::load_scoring_matrix(std::ifstream& matrix_stream){
-    matrix_stream.clear();
-    matrix_stream.seekg(0);
-    if(regular_aligner) get_regular_aligner()->load_scoring_matrix(matrix_stream);
-    matrix_stream.clear();
-    matrix_stream.seekg(0);
-    if(qual_adj_aligner) get_qual_adj_aligner()->load_scoring_matrix(matrix_stream);
-}
-
 void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& alns) {
     if (haplo_score_provider == nullptr) {
         // There's no haplotype data available, so we can't add consistency scores.
@@ -1754,7 +1747,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     }
 }
     
-double BaseMapper::estimate_gc_content(void) {
+double BaseMapper::estimate_gc_content(const gcsa::GCSA* gcsa) {
     
     uint64_t at = 0, gc = 0;
     
@@ -1780,13 +1773,9 @@ int BaseMapper::random_match_length(double chance_random) {
 }
 
 void BaseMapper::set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend,
-    int8_t full_length_bonus, double haplotype_consistency_exponent, uint32_t max_gap_length) {
+    int8_t full_length_bonus, uint32_t xdrop_max_gap_length, double haplotype_consistency_exponent) {
     
-    // clear the existing aligners and recreate them
-    if (regular_aligner || qual_adj_aligner) {
-        clear_aligners();
-    }
-    init_aligner(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length);
+    AlignerClient::set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, xdrop_max_gap_length);
     
     // Save the consistency exponent
     this->haplotype_consistency_exponent = haplotype_consistency_exponent;
