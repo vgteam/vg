@@ -23,7 +23,7 @@ class Pileups {
 public:
     
     Pileups(VG* graph, int min_quality = 0, int max_mismatches = 1, int window_size = 0,
-            int max_depth = 1000, bool use_mapq = false) :
+            int max_depth = 1000, bool use_mapq = false, bool strict_edge_support = false) :
         _graph(graph),
         _min_quality(min_quality),
         _max_mismatches(max_mismatches),
@@ -32,7 +32,8 @@ public:
         _min_quality_count(0),
         _max_mismatch_count(0),
         _bases_count(0),
-        _use_mapq(use_mapq)
+        _use_mapq(use_mapq),
+        _strict_edge_support(strict_edge_support)
 {}
     
     /// copy constructor
@@ -50,6 +51,7 @@ public:
             _max_mismatch_count = other._max_mismatch_count;
             _bases_count = other._bases_count;
             _use_mapq = other._use_mapq;
+            _strict_edge_support = other._strict_edge_support;
         }
     }
 
@@ -66,6 +68,7 @@ public:
         _max_mismatch_count = other._max_mismatch_count;
         _bases_count = other._bases_count;
         _use_mapq = other._use_mapq;
+        _strict_edge_support = other._strict_edge_support;
     }
 
     /// copy assignment operator
@@ -88,6 +91,7 @@ public:
         _max_mismatch_count = other._max_mismatch_count;
         _bases_count = other._bases_count;
         _use_mapq = other._use_mapq;
+        _strict_edge_support = other._strict_edge_support;
         return *this;
     }
 
@@ -117,6 +121,8 @@ public:
     int _max_depth;
     /// toggle whether we incorporate Alignment.mapping_quality
     bool _use_mapq;
+    /// toggle whether we only count edges if they are not book-ended by matches in the read
+    bool _strict_edge_support;
     /// Keep count of bases filtered by quality
     mutable uint64_t _min_quality_count;
     /// keep count of bases filtered by mismatches

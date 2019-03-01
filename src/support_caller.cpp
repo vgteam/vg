@@ -374,7 +374,7 @@ size_t SupportCaller::get_deletion_length(const NodeSide& end1, const NodeSide& 
 
         map<int64_t, pair<size_t, bool>>& idx = i->second.get_index().by_id;
         map<int64_t, pair<size_t, bool>>::iterator idx_it1 = idx.find(end1.node);
-        map<int64_t, pair<size_t, bool>>::iterator  idx_it2 = idx_it1 != idx.end() ? idx.find(end2.node) : idx.end();
+        map<int64_t, pair<size_t, bool>>::iterator idx_it2 = idx_it1 != idx.end() ? idx.find(end2.node) : idx.end();
         
         if (idx_it1 != idx.end() && idx_it2 != idx.end()) {
 
@@ -493,6 +493,8 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             ref_nodes.insert(node);
         }, [&](size_t i, NodeSide end1, NodeSide end2) {
             ref_edges.insert(augmented.graph.get_edge(end1, end2));
+            ref_nodes.insert(end1.node);
+            ref_nodes.insert(end2.node);
         }, [&](size_t i, Snarl child, bool is_reverse) {
             ref_children.insert(child);
         });
@@ -512,6 +514,11 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
     // Keep reference-overlapping support separate
     vector<Support> total_ref_supports(record_count, Support());
     vector<size_t> ref_visit_sizes(record_count, 0);
+    // Keep track of which direction we're going on the reference
+    // (set to true if we go through a reversing edge)
+    bool ref_reversed = false;
+    // apply max_unsupported_edge_size cutoff (todo: less hacky)
+    bool zero_avg_support = false;
     
     // Don't count nodes shared between child snarls more than once.
     set<Node*> coverage_counted;
@@ -532,8 +539,10 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
 #ifdef debug
         cerr << "From node " << node->id() << " get " << got_support << endl;
 #endif
-
-        if (!ref_nodes.count(node_id)) {
+        // don't count inverted nodes as reference
+        bool count_as_ref = ref_nodes.count(node_id) && !ref_reversed;
+        
+        if (!count_as_ref) { 
             // update totals for averaging
             total_supports[i] += got_support;
             visit_sizes[i] += node->sequence().size();
@@ -558,7 +567,12 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         // Count as 1 base worth for the total/average support
         // Make sure to only use half the support if the edge is shared
         auto got_support = (double)edge_size * augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
-        
+
+        // Prevent averaging over SVs with 0 support, just because the reference part of the traversal has support
+        if (edge_size > max_unsupported_edge_size && support_val(got_support) == 0) {
+            zero_avg_support = true;
+        }
+
         if (end1.node > end2.node || (end1.node == end2.node && !end1.is_end)) {
             // We follow the edge backward, from high ID to low ID, or backward around a normal self loop.
             // TODO: Make sure this check agrees on which orientation is which after augmentation re-numbers things!
@@ -577,6 +591,12 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         } else {
             total_ref_supports[i] += got_support;
             ref_visit_sizes[i] += edge_size;
+        }
+
+        // flip our reversed flag if we hit an inversion edge
+        // todo: won't detect complex inversions that stray off reference
+        if (end1.is_end == end2.is_end && ref_nodes.count(end1.node) && ref_nodes.count(end2.node)) {
+            ref_reversed = !ref_reversed;
         }
         
         // Min in its support
@@ -622,9 +642,12 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             // Make sure to halve the support if the child is shared
             child_max *= 0.5;
         }
-        
+
+        // don't count inverted children as reference
+        bool count_as_ref = ref_children.count(child) && !ref_reversed;
+
         // Smoosh support over the whole child
-        if (!ref_children.count(child)) {
+        if (!count_as_ref) {
             total_supports[i] += child_max * child_size;
             visit_sizes[i] += child_size;
         } else {
@@ -672,6 +695,11 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             total_support += total_ref_support;
             total_size += total_ref_size;
         }
+    }
+
+    // Apply the max_unsupported_edge_size cutoff
+    if (zero_avg_support) {
+        total_support = Support();
     }
     
     // And the min support?
@@ -1433,6 +1461,7 @@ void SupportCaller::call(
             return nullptr;
         }
     });
+    traversal_finder.other_orientation_timeout = max_inversion_size;
     
     // We're going to remember what nodes and edges are covered by sites, so we
     // will know which nodes/edges aren't in any sites and may need generic
