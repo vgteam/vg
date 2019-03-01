@@ -63,14 +63,14 @@ namespace vg {
         
         // for construction
         // needed when constructing an alignable graph from the nodes
-        gssw_graph* create_gssw_graph(const HandleGraph& g);
+        gssw_graph* create_gssw_graph(const HandleGraph& g) const;
         // for constructing an alignable graph when the topological order is already known
-        gssw_graph* create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order);
+        gssw_graph* create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) const;
         
         // convert graph mapping back into unreversed node positions
-        void unreverse_graph_mapping(gssw_graph_mapping* gm);
+        void unreverse_graph_mapping(gssw_graph_mapping* gm) const;
         // convert from graph sequences back into unrereversed form
-        void unreverse_graph(gssw_graph* graph);
+        void unreverse_graph(gssw_graph* graph) const;
         
         // alignment functions
         void gssw_mapping_to_alignment(gssw_graph* graph,
@@ -78,7 +78,7 @@ namespace vg {
                                        Alignment& alignment,
                                        bool pinned,
                                        bool pin_left,
-                                       bool print_score_matrices = false);
+                                       bool print_score_matrices = false) const;
         string graph_cigar(gssw_graph_mapping* gm);
         
     public:
@@ -270,7 +270,7 @@ namespace vg {
                             const vector<handle_t>* topological_order,
                             bool pinned, bool pin_left, int32_t max_alt_alns,
                             bool traceback_aln,
-                            bool print_score_matrices);
+                            bool print_score_matrices) const;
 
         // members
         XdropAligner xdrop;

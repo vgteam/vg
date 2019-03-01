@@ -13,11 +13,11 @@ GSSWAligner::~GSSWAligner(void) {
     free(score_matrix);
 }
 
-gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) {
+gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
     return create_gssw_graph(g, algorithms::lazier_topological_order(&g));
 }
 
-gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) {
+gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) const {
     
     gssw_graph* graph = gssw_graph_create(g.node_size());
     unordered_map<int64_t, gssw_node*> nodes;
@@ -95,7 +95,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph* graph,
                                             Alignment& alignment,
                                             bool pinned,
                                             bool pin_left,
-                                            bool print_score_matrices) {    
+                                            bool print_score_matrices) const {    
     alignment.clear_path();
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
@@ -215,7 +215,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph* graph,
     alignment.set_identity(identity(alignment.path()));
 }
 
-void GSSWAligner::unreverse_graph(gssw_graph* graph) {
+void GSSWAligner::unreverse_graph(gssw_graph* graph) const {
     // this is only for getting correct reference-relative edits, so we can get away with only
     // reversing the sequences and not paying attention to the edges
     
@@ -227,7 +227,7 @@ void GSSWAligner::unreverse_graph(gssw_graph* graph) {
     }
 }
 
-void GSSWAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) {
+void GSSWAligner::unreverse_graph_mapping(gssw_graph_mapping* gm) const {
     
     gssw_graph_cigar* graph_cigar = &(gm->cigar);
     gssw_node_cigar* node_cigars = graph_cigar->elements;
@@ -840,7 +840,7 @@ Aligner::~Aligner()
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, const HandleGraph& g,
                              const vector<handle_t>* topological_order, bool pinned, bool pin_left,
-                             int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) {
+                             int32_t max_alt_alns, bool traceback_aln, bool print_score_matrices) const {
     // bench_start(bench);
     // check input integrity
     if (pin_left && !pinned) {
