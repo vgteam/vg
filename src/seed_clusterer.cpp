@@ -506,31 +506,28 @@ namespace vg {
         vector<const Chain*> child_chains;
         for (auto v : snarl_index.visitToIndex) {
 
-            pair<id_t, bool> visit = v.first;
-            if (visit.second) {
-                const Snarl* snarl = snarl_manager.into_which_snarl(visit.first,
-                                                                    false);
-                if (snarl == NULL) {
-                    snarl = snarl_manager.into_which_snarl(visit.first, true);
+            id_t visit = v.first;
+            const Snarl* snarl = snarl_manager.into_which_snarl(visit, false);
+            if (snarl == NULL) {
+                snarl = snarl_manager.into_which_snarl(visit, true);
+            }
+            if (snarl == NULL) {
+                //If this is a node and 
+                //if not including boundary nodes, not a boundary node
+                if ( include_boundaries || 
+                               (visit != snarl_index.snarlStart.first &&
+                                   visit != snarl_index.snarlEnd.first)) {
+                    child_nodes.push_back(visit);
                 }
-                if (snarl == NULL) {
-                    //If this is a node and 
-                    //if not including boundary nodes, not a boundary node
-                    if ( include_boundaries || 
-                               (visit.first != snarl_index.snarlStart.first &&
-                                   visit.first != snarl_index.snarlEnd.first)) {
-                        child_nodes.push_back(visit.first);
-                    }
+            } else {
+                //This is a snarl or a chain
+                if (snarl_manager.in_nontrivial_chain(snarl)) {
+                    //This is a chain
+                    const Chain* chain = snarl_manager.chain_of(snarl); 
+                    child_chains.push_back(chain);
                 } else {
-                    //This is a snarl or a chain
-                    if (snarl_manager.in_nontrivial_chain(snarl)) {
-                        //This is a chain
-                        const Chain* chain = snarl_manager.chain_of(snarl); 
-                        child_chains.push_back(chain);
-                    } else {
-                        //This is a snarl
-                        child_snarls.push_back(snarl);
-                    }
+                    //This is a snarl
+                    child_snarls.push_back(snarl);
                 }
             }
         }

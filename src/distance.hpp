@@ -74,7 +74,8 @@ class DistanceIndex {
             //Constructor
             SnarlIndex(DistanceIndex* di,
                           unordered_set<pair<id_t, bool>>& allNodes, 
-                          pair<id_t, bool> start, pair<id_t, bool> end);
+                          pair<id_t, bool> start, pair<id_t, bool> end,
+                          pair<id_t, bool> parentNode);
            
             //Construct from vector - inverse of toVector
             SnarlIndex(DistanceIndex* di, vector<int64_t> v);
@@ -105,11 +106,11 @@ class DistanceIndex {
             //Length of a node in the netgraph of the snarl
             //If it is a node, then the length of the node. If it is a snarl or
             //chain, then the shortest distance between the boundaries
-            int64_t nodeLength(HandleGraph*graph, NetGraph* ng,  id_t node);
+            int64_t nodeLength(id_t node);
         
             //Total length of the snarl-shortest distance from start to end
             //including the lengths of boundary nodes
-            int64_t snarlLength(HandleGraph* graph, NetGraph* ng);
+            int64_t snarlLength();
 
             /*Given distances from a position to either end of a node, find the
               shortest distance from that position to the start and end nodes of
@@ -123,12 +124,18 @@ class DistanceIndex {
         protected:
 
             //Maps node to index to get its distance
-            hash_map< pair<id_t, bool>, size_t> visitToIndex;
+            //Maps fd node to an index, reverse node is fd index * 2
+            hash_map< id_t, size_t> visitToIndex;
  
-             /*Store the distance between every pair nodes, -1 indicates no path
+             /*Store the distance between every pair nodes, not including the 
+             lengths of the nodes. 
+             The lengths of each of the nodes are stored as the first n entries
+             Distances stored are 1 greater than actual distances 
+             -1 (stored as 0) indicates no path
              For child snarls that are unary or only connected to one node
              in the snarl, distances between that node leaving the snarl
              and any other node is -1
+             
              */
             int_vector<> distances;
 
@@ -137,6 +144,9 @@ class DistanceIndex {
  
             //End facing out of snarl
             pair<id_t, bool> snarlEnd;           
+
+            //Parent snarl or chain. If this is a root, parent is <0, false>
+            pair<id_t, bool> parent;
 
             //The index into distances for distance start->end
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
@@ -158,7 +168,7 @@ class DistanceIndex {
         
             //Constructor
             ChainIndex(DistanceIndex* di, id_t start, id_t end,
-                         hash_map<id_t, size_t> s, 
+                        pair<id_t, bool> parentNode,  hash_map<id_t, size_t> s, 
                          vector<int64_t> p, vector<int64_t> fd, 
                           vector<int64_t> rev );
 
@@ -220,6 +230,8 @@ class DistanceIndex {
 
             id_t chainStartID;
             id_t chainEndID;
+            //Parent snarl. If this is a root, parent is <0, false>
+            pair<id_t, bool> parent;
 
 
         
