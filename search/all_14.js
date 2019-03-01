@@ -114,7 +114,7 @@ var searchData=
   ['translate_5foriented_5fnode_5fids',['translate_oriented_node_ids',['../namespacevg.html#a2b0ba7a1d0cf7630b79d03ba0ab65c53',1,'vg']]],
   ['translation',['Translation',['../structvg_1_1Translation.html',1,'vg']]],
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],
-  ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()'],['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)']]],
+  ['translator',['Translator',['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)'],['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
   ['translator',['Translator',['../classvg_1_1Translator.html',1,'vg']]],
   ['translator_2ecpp',['translator.cpp',['../translator_8cpp.html',1,'']]],
   ['translator_2ehpp',['translator.hpp',['../translator_8hpp.html',1,'']]],
@@ -152,6 +152,7 @@ var searchData=
   ['trim_5fand_5fcheck_5ffor_5fempty',['trim_and_check_for_empty',['../classvg_1_1MultipathAlignmentGraph.html#aba6c4c7e8954cbe789393e5ced260a8d',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fhanging_5fends',['trim_hanging_ends',['../namespacevg.html#a990f54fb0e09dc439dace1519aff5e9f',1,'vg']]],
   ['trim_5fhanging_5findels',['trim_hanging_indels',['../classvg_1_1MultipathAlignmentGraph.html#a1709931c016b2126b6a9d909c2b1c725',1,'vg::MultipathAlignmentGraph']]],
+  ['trim_5findels',['trim_indels',['../classvg_1_1Constructor.html#a130c318e05428ee7973135ac5ea26b50',1,'vg::Constructor']]],
   ['trim_5fto_5fbranch_5fpoints',['trim_to_branch_points',['../classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fto_5fvariable',['trim_to_variable',['../classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02',1,'vg::Constructor']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a7a3ad443fda205c48013fc246bea552e',1,'vg::TrivialTraversalFinder']]],
@@ -165,9 +166,9 @@ var searchData=
   ['tv_5fpath_5flength',['tv_path_length',['../classvg_1_1TargetValueSearch.html#a7dc599c6d4a317999890c81634d9ddf5',1,'vg::TargetValueSearch']]],
   ['tv_5fphase2',['tv_phase2',['../classvg_1_1TargetValueSearch.html#ae9a3cfe20dc321d54de020de540bfa40',1,'vg::TargetValueSearch']]],
   ['tvs',['tvs',['../classvg_1_1TVSClusterer.html#ad59ad1a2a88d40a980a7b7fb2cc18a0d',1,'vg::TVSClusterer']]],
-  ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html#a021b05c5dcb97d9c596014a2d4cf4887',1,'vg::TVSClusterer']]],
   ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html',1,'vg']]],
+  ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html#a021b05c5dcb97d9c596014a2d4cf4887',1,'vg::TVSClusterer']]],
   ['type',['type',['../structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6',1,'vg::Snarl']]],
-  ['types_2ehpp',['types.hpp',['../src_2types_8hpp.html',1,'']]],
-  ['types_2ehpp',['types.hpp',['../deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html',1,'']]]
+  ['types_2ehpp',['types.hpp',['../deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html',1,'']]],
+  ['types_2ehpp',['types.hpp',['../src_2types_8hpp.html',1,'']]]
 ];

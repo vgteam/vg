@@ -45,6 +45,7 @@ var searchData=
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5ffinder',['traversal_finder',['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier']]],
   ['tree',['tree',['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree']]],
+  ['trim_5findels',['trim_indels',['../classvg_1_1Constructor.html#a130c318e05428ee7973135ac5ea26b50',1,'vg::Constructor']]],
   ['true',['true',['../classvg_1_1SupportCaller.html#ae80afc297411ff87d793461d259106a2',1,'vg::SupportCaller']]],
   ['ts_5fciv',['ts_civ',['../classxg_1_1XG.html#a10edf2d06ea2dd4c2447fee2d45315d0',1,'xg::XG']]],
   ['ts_5fiv',['ts_iv',['../classxg_1_1XG.html#a05141e12ffaf3a49aef046d3e2d7181a',1,'xg::XG']]],
