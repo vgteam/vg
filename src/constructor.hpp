@@ -79,6 +79,10 @@ public:
     // or at least the ones we know how to?
     bool do_svs = false;
 
+    // Should we trim the 1bp reference sequence that by default is placed
+    // on indel variants?
+    bool trim_indels = true;
+
     // Should we also store the alt_paths as loci?
     // e.g.
     // Locus{
