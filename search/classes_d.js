@@ -4,6 +4,7 @@ var searchData=
   ['option',['Option',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20bool_20_3e',['Option&lt; bool &gt;',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20double_20_3e',['Option&lt; double &gt;',['../classvg_1_1Option.html',1,'vg']]],
+  ['option_3c_20int_20_3e',['Option&lt; int &gt;',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20int64_5ft_20_3e',['Option&lt; int64_t &gt;',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20size_5ft_20_3e',['Option&lt; size_t &gt;',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20string_20_3e',['Option&lt; string &gt;',['../classvg_1_1Option.html',1,'vg']]],

@@ -114,8 +114,8 @@ Public Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5d271c2cbd5c914c9402516b58559d9e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Pileups.html#a5d271c2cbd5c914c9402516b58559d9e">Pileups</a> (<a class="el" href="classvg_1_1VG.html">VG</a> *graph, int min_quality=0, int max_mismatches=1, int window_size=0, int max_depth=1000, bool use_mapq=false)</td></tr>
-<tr class="separator:a5d271c2cbd5c914c9402516b58559d9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a981effb71b5d6778be516e8c7c3152ac"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Pileups.html#a981effb71b5d6778be516e8c7c3152ac">Pileups</a> (<a class="el" href="classvg_1_1VG.html">VG</a> *graph, int min_quality=0, int max_mismatches=1, int window_size=0, int max_depth=1000, bool use_mapq=false, bool strict_edge_support=false)</td></tr>
+<tr class="separator:a981effb71b5d6778be516e8c7c3152ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab088376228d3e9a55614d5a7abcccd10"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Pileups.html#ab088376228d3e9a55614d5a7abcccd10">Pileups</a> (const <a class="el" href="classvg_1_1Pileups.html">Pileups</a> &amp;other)</td></tr>
 <tr class="memdesc:ab088376228d3e9a55614d5a7abcccd10"><td class="mdescLeft">&#160;</td><td class="mdescRight">copy constructor  <a href="#ab088376228d3e9a55614d5a7abcccd10">More...</a><br/></td></tr>
 <tr class="separator:ab088376228d3e9a55614d5a7abcccd10"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -251,6 +251,9 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a3257a69f673539d48d2c42124bfd28d5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Pileups.html#a3257a69f673539d48d2c42124bfd28d5">_use_mapq</a></td></tr>
 <tr class="memdesc:a3257a69f673539d48d2c42124bfd28d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">toggle whether we incorporate <a class="el" href="structvg_1_1Alignment.html#a78851a70cc8a3e8f3e71409693130230" title="The mapping quality score for the alignment, in Phreds. ">Alignment.mapping_quality</a>  <a href="#a3257a69f673539d48d2c42124bfd28d5">More...</a><br/></td></tr>
 <tr class="separator:a3257a69f673539d48d2c42124bfd28d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a250b89737a7bd667f564cacfdb7d01aa"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Pileups.html#a250b89737a7bd667f564cacfdb7d01aa">_strict_edge_support</a></td></tr>
+<tr class="memdesc:a250b89737a7bd667f564cacfdb7d01aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">toggle whether we only count edges if they are not book-ended by matches in the read  <a href="#a250b89737a7bd667f564cacfdb7d01aa">More...</a><br/></td></tr>
+<tr class="separator:a250b89737a7bd667f564cacfdb7d01aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab8c18d3f5372b4e827f91a1f417480c"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Pileups.html#aab8c18d3f5372b4e827f91a1f417480c">_min_quality_count</a></td></tr>
 <tr class="memdesc:aab8c18d3f5372b4e827f91a1f417480c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Keep count of bases filtered by quality.  <a href="#aab8c18d3f5372b4e827f91a1f417480c">More...</a><br/></td></tr>
 <tr class="separator:aab8c18d3f5372b4e827f91a1f417480c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -289,7 +292,7 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a5d271c2cbd5c914c9402516b58559d9e"></a>
+<a class="anchor" id="a981effb71b5d6778be516e8c7c3152ac"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -330,7 +333,13 @@ Public Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>use_mapq</em> = <code>false</code>&#160;</td>
+          <td class="paramname"><em>use_mapq</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>strict_edge_support</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -1803,6 +1812,20 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>This maps from <a class="el" href="structvg_1_1Position.html">Position</a> to <a class="el" href="structvg_1_1Pileup.html" title="Bundle up Node and Edge pileups. ">Pileup</a>. </p>
+
+</div>
+</div>
+<a class="anchor" id="a250b89737a7bd667f564cacfdb7d01aa"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Pileups::_strict_edge_support</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>toggle whether we only count edges if they are not book-ended by matches in the read </p>
 
 </div>
 </div>

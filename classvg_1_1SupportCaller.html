@@ -237,9 +237,13 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
 <tr class="separator:a2310ebac3bb08de54267e7f7aa1b06d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3251426f491b2efad76f0db8f28512f4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a3251426f491b2efad76f0db8f28512f4">leave_shared_ends</a></td></tr>
 <tr class="separator:a3251426f491b2efad76f0db8f28512f4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a643327cc6aa0bd911a56dd13bf298e54"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a643327cc6aa0bd911a56dd13bf298e54">max_inversion_size</a></td></tr>
+<tr class="separator:a643327cc6aa0bd911a56dd13bf298e54"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a16284074baabe10886ae5e33b2d0e165"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a16284074baabe10886ae5e33b2d0e165">verbose</a> = false</td></tr>
 <tr class="memdesc:a16284074baabe10886ae5e33b2d0e165"><td class="mdescLeft">&#160;</td><td class="mdescRight">print warnings etc. to stderr  <a href="#a16284074baabe10886ae5e33b2d0e165">More...</a><br/></td></tr>
 <tr class="separator:a16284074baabe10886ae5e33b2d0e165"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a915a93847b01934900fd4c6dcb61b333"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a915a93847b01934900fd4c6dcb61b333">max_unsupported_edge_size</a> = 20</td></tr>
+<tr class="separator:a915a93847b01934900fd4c6dcb61b333"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="classvg_1_1SupportCaller.html">SupportCaller</a>: take an augmented graph from a Caller and produce actual calls in a VCF. </p>
@@ -798,6 +802,20 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
 
 </div>
 </div>
+<a class="anchor" id="a643327cc6aa0bd911a56dd13bf298e54"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Option.html">Option</a>&lt;int&gt; vg::SupportCaller::max_inversion_size</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">{<span class="keyword">this</span>, <span class="stringliteral">&quot;max-inv&quot;</span>, <span class="stringliteral">&quot;e&quot;</span>, 1000,</div>
+<div class="line">            <span class="stringliteral">&quot;maximum detectable inversion size in number of nodes&quot;</span>}</div>
+</div><!-- fragment -->
+</div>
+</div>
 <a class="anchor" id="a3f075288ed00491db3479a2717a595d8"></a>
 <div class="memitem">
 <div class="memproto">
@@ -856,6 +874,19 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
 <b>Initial value:</b><div class="fragment"><div class="line">{<span class="keyword">this</span>, <span class="stringliteral">&quot;max-search-width&quot;</span>, <span class="stringliteral">&quot;wWmMsS&quot;</span>, 1000,</div>
 <div class="line">        <span class="stringliteral">&quot;maximum width for path search&quot;</span>}</div>
 </div><!-- fragment --><p>How many search states should we allow on the DFS stack when searching for traversals? </p>
+
+</div>
+</div>
+<a class="anchor" id="a915a93847b01934900fd4c6dcb61b333"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::SupportCaller::max_unsupported_edge_size = 20</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>inversion or deletion edges greater than this length with 0 support will clamp average support down to 0. this is primarily to prevent FP inversions when using average support </p>
 
 </div>
 </div>

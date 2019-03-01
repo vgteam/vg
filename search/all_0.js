@@ -36,6 +36,7 @@ var searchData=
   ['_5fpush_5fmapping',['_push_mapping',['../xdrop__aligner_8cpp.html#a5787add53d7bbfdc10c9720454e98918',1,'xdrop_aligner.cpp']]],
   ['_5fpush_5fop',['_push_op',['../xdrop__aligner_8cpp.html#ac058be264b99f54156cf44838308078c',1,'xdrop_aligner.cpp']]],
   ['_5fsrc_5findex',['_src_index',['../xdrop__aligner_8cpp.html#aebd5c1bc54d1732930033dcdf9977bd9',1,'xdrop_aligner.cpp']]],
+  ['_5fstrict_5fedge_5fsupport',['_strict_edge_support',['../classvg_1_1Pileups.html#a250b89737a7bd667f564cacfdb7d01aa',1,'vg::Pileups']]],
   ['_5fuse_5fmapq',['_use_mapq',['../classvg_1_1Pileups.html#a3257a69f673539d48d2c42124bfd28d5',1,'vg::Pileups']]],
   ['_5fvisited_5fnodes',['_visited_nodes',['../classvg_1_1PileupAugmenter.html#a48de8d0e48e1146d6da0700c9e79e452',1,'vg::PileupAugmenter']]],
   ['_5fwindow_5fsize',['_window_size',['../classvg_1_1Pileups.html#a704565fa7d0517847b207ad0ff44f1d9',1,'vg::Pileups']]],

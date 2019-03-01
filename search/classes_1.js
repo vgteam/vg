@@ -9,6 +9,7 @@ var searchData=
   ['baseoption',['BaseOption',['../classvg_1_1BaseOption.html',1,'vg']]],
   ['baseoption_3c_20bool_2c_20optionvalueparser_3c_20bool_20_3e_20_3e',['BaseOption&lt; bool, OptionValueParser&lt; bool &gt; &gt;',['../classvg_1_1BaseOption.html',1,'vg']]],
   ['baseoption_3c_20double_2c_20optionvalueparser_3c_20double_20_3e_20_3e',['BaseOption&lt; double, OptionValueParser&lt; double &gt; &gt;',['../classvg_1_1BaseOption.html',1,'vg']]],
+  ['baseoption_3c_20int_2c_20optionvalueparser_3c_20int_20_3e_20_3e',['BaseOption&lt; int, OptionValueParser&lt; int &gt; &gt;',['../classvg_1_1BaseOption.html',1,'vg']]],
   ['baseoption_3c_20int64_5ft_2c_20optionvalueparser_3c_20int64_5ft_20_3e_20_3e',['BaseOption&lt; int64_t, OptionValueParser&lt; int64_t &gt; &gt;',['../classvg_1_1BaseOption.html',1,'vg']]],
   ['baseoption_3c_20size_5ft_2c_20optionvalueparser_3c_20size_5ft_20_3e_20_3e',['BaseOption&lt; size_t, OptionValueParser&lt; size_t &gt; &gt;',['../classvg_1_1BaseOption.html',1,'vg']]],
   ['baseoption_3c_20string_2c_20optionvalueparser_3c_20string_20_3e_20_3e',['BaseOption&lt; string, OptionValueParser&lt; string &gt; &gt;',['../classvg_1_1BaseOption.html',1,'vg']]],

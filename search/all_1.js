@@ -135,7 +135,7 @@ var searchData=
   ['aln_5fto_5fmate',['aln_to_mate',['../classvg_1_1SRPE.html#a17b17b87964f9fb6f113cb393dee370c',1,'vg::SRPE']]],
   ['alphabet',['alphabet',['../classvg_1_1NGSSimulator.html#aa970fcca49e375093b8abf6c3b31e2c5',1,'vg::NGSSimulator']]],
   ['alt1',['alt1',['../structvg_1_1NodeDivider_1_1Entry.html#ade4bfc2ac4680ef1ecbb9a8edac20420',1,'vg::NodeDivider::Entry::alt1()'],['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0aaec61486c5c65fa8d335cac97d7a7de3',1,'vg::NodeDivider::Alt1()']]],
-  ['alt2',['alt2',['../structvg_1_1NodeDivider_1_1Entry.html#aea93cd15efd8c13eec905d9743e5ed49',1,'vg::NodeDivider::Entry::alt2()'],['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a9b19672d1e347943f430eedbba8edd0e',1,'vg::NodeDivider::Alt2()']]],
+  ['alt2',['Alt2',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0a9b19672d1e347943f430eedbba8edd0e',1,'vg::NodeDivider::Alt2()'],['../structvg_1_1NodeDivider_1_1Entry.html#aea93cd15efd8c13eec905d9743e5ed49',1,'vg::NodeDivider::Entry::alt2()']]],
   ['alt_5falignments',['alt_alignments',['../classvg_1_1BandedGlobalAligner.html#a72ad87c059fc959b0258feb87c8dd4bd',1,'vg::BandedGlobalAligner']]],
   ['alt_5fanchor_5fmax_5flength_5fdiff',['alt_anchor_max_length_diff',['../classvg_1_1MultipathMapper.html#a229117ffb8dcad25565d8f65e29ba194',1,'vg::MultipathMapper']]],
   ['alt_5fpaths',['alt_paths',['../classvg_1_1Constructor.html#a19deb52667c009bcb73cd27e7ba2a5ac',1,'vg::Constructor']]],

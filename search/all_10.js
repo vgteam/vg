@@ -212,7 +212,7 @@ var searchData=
   ['pileupaugmenter',['PileupAugmenter',['../classvg_1_1PileupAugmenter.html',1,'vg']]],
   ['pileupaugmenter',['PileupAugmenter',['../classvg_1_1PileupAugmenter.html#aa3f009e54c06facabb0c8b2a2547d187',1,'vg::PileupAugmenter']]],
   ['pileups',['Pileups',['../classvg_1_1Pileups.html',1,'vg']]],
-  ['pileups',['Pileups',['../classvg_1_1Pileups.html#a5d271c2cbd5c914c9402516b58559d9e',1,'vg::Pileups::Pileups(VG *graph, int min_quality=0, int max_mismatches=1, int window_size=0, int max_depth=1000, bool use_mapq=false)'],['../classvg_1_1Pileups.html#ab088376228d3e9a55614d5a7abcccd10',1,'vg::Pileups::Pileups(const Pileups &amp;other)'],['../classvg_1_1Pileups.html#a2c6b10101fcba001719273dc82bb40dc',1,'vg::Pileups::Pileups(Pileups &amp;&amp;other) noexcept']]],
+  ['pileups',['Pileups',['../classvg_1_1Pileups.html#a981effb71b5d6778be516e8c7c3152ac',1,'vg::Pileups::Pileups(VG *graph, int min_quality=0, int max_mismatches=1, int window_size=0, int max_depth=1000, bool use_mapq=false, bool strict_edge_support=false)'],['../classvg_1_1Pileups.html#ab088376228d3e9a55614d5a7abcccd10',1,'vg::Pileups::Pileups(const Pileups &amp;other)'],['../classvg_1_1Pileups.html#a2c6b10101fcba001719273dc82bb40dc',1,'vg::Pileups::Pileups(Pileups &amp;&amp;other) noexcept']]],
   ['pinchtovgtranslator',['PinchToVGTranslator',['../classvg_1_1PinchToVGTranslator.html',1,'vg']]],
   ['pindexes',['pindexes',['../classvg_1_1Deconstructor.html#aa20ebcbb8753e469b24f90b72566dfca',1,'vg::Deconstructor::pindexes()'],['../classvg_1_1SRPE.html#acfaef35346e986c1c0ad3172acaa488e',1,'vg::SRPE::pindexes()']]],
   ['pinned_5ftail_5fsize',['pinned_tail_size',['../classvg_1_1VariantAdder.html#ab5dea4bb3c4143e8fb4e28205a4d2cd6',1,'vg::VariantAdder']]],
