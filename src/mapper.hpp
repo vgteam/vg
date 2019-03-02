@@ -180,10 +180,6 @@ public:
     void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
                               uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length, double haplotype_consistency_exponent = 1);
     
-    /// Set the alignment thread count, updating internal data structures that
-    /// are per thread. Note that this resets aligner scores to their default values!
-    void set_alignment_threads(int new_thread_count);
-    
     void set_cache_size(int new_cache_size);
     
     /// Returns true if fragment length distribution has been fixed
@@ -324,8 +320,6 @@ protected:
     // Algorithm for choosing an adaptive reseed length based on the length of the parent MEM
     size_t get_adaptive_min_reseed_length(size_t parent_mem_length);
     
-    int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
-
     /// Score all of the alignments in the vector for haplotype consistency. If
     /// all of them can be scored (i.e. none of them visit nodes/edges with no
     /// haplotypes), adjust all of their scores to reflect haplotype

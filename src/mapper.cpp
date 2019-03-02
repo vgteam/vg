@@ -27,7 +27,6 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       , adaptive_reseed_diff(true)
       , adaptive_diff_exponent(0.065)
       , hit_max(0)
-      , alignment_threads(1)
       , mapping_quality_method(Approx)
       , max_mapping_quality(60)
       , strip_bonuses(false)
@@ -1570,10 +1569,6 @@ map<pos_t, char> BaseMapper::next_pos_chars(pos_t pos) {
     return xg_next_pos_chars(pos, xindex);
 }
 
-void BaseMapper::set_alignment_threads(int new_thread_count) {
-    alignment_threads = new_thread_count;
-}
-
 bool BaseMapper::has_fixed_fragment_length_distr() {
     return fragment_length_distr.is_finalized();
 }
@@ -1845,8 +1840,7 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                0, // band padding override
                                aln.sequence().size(),
                                0, // unroll_length
-                               xdrop_alignment,
-                               xdrop_alignment && alignment_threads > 1);
+                               xdrop_alignment);
         } else {
             aligned = vg.align_qual_adjusted(aln,
                                              get_qual_adj_aligner(),
@@ -3943,15 +3937,10 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         }
     };
 
-    if (alignment_threads > 1) {
+    // Always use OMP parallelism here; restrict threads by setting OMP thread count.
 #pragma omp parallel for
-        for (int i = 0; i < bands.size(); ++i) {
-            do_band(i);
-        }
-    } else {
-        for (int i = 0; i < bands.size(); ++i) {
-            do_band(i);
-        }
+    for (int i = 0; i < bands.size(); ++i) {
+        do_band(i);
     }
 
     // cost function

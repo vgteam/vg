@@ -245,8 +245,6 @@ int main_surject(int argc, char** argv) {
                 strcat(out_mode, tmp);
             }
             
-            int thread_count = get_thread_count();
-            
             // bam/sam/cram output
             
             // Define a string to hold the SAM header, to be generated later.

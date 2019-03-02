@@ -108,7 +108,6 @@ int main_msga(int argc, char** argv) {
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
-    int alignment_threads = get_thread_count();
     int edge_max = 3;
     int subgraph_prune = 0;
     bool normalize = false;
@@ -330,7 +329,6 @@ int main_msga(int argc, char** argv) {
 
         case 't':
             omp_set_num_threads(parse<int>(optarg));
-            alignment_threads = parse<int>(optarg);
             break;
 
         case 'Q':
@@ -665,8 +663,6 @@ int main_msga(int argc, char** argv) {
             mapper->extra_multimaps = extra_multimaps;
             mapper->mapping_quality_method = mapping_quality_method;
             mapper->max_mapping_quality = max_mapping_quality;
-            // set up the multi-threaded alignment interface
-            mapper->set_alignment_threads(alignment_threads);
             mapper->patch_alignments = patch_alignments;
         }
     };
