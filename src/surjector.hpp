@@ -41,7 +41,7 @@ using namespace std;
                           string& path_name_out,
                           int64_t& path_pos_out,
                           bool& path_rev_out,
-                          bool allow_negative_scores = false);
+                          bool allow_negative_scores = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
@@ -52,25 +52,25 @@ using namespace std;
         unordered_map<size_t, vector<path_chunk_t>>
         extract_overlapping_paths(const Alignment& source, const unordered_map<size_t, string>& path_rank_to_name,
                                   unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
-                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr);
+                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
         
         /// compute the widest interval of path positions that the realigned sequence could align to
         pair<size_t, size_t>
         compute_path_interval(const Alignment& source, size_t path_rank, const xg::XGPath& xpath, const vector<path_chunk_t>& path_chunks,
-                              unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr);
+                              unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
         
         /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
         VG extract_linearized_path_graph(size_t first, size_t last, const xg::XGPath& xpath,
-                                         unordered_map<id_t, pair<id_t, bool>>& node_trans);
+                                         unordered_map<id_t, pair<id_t, bool>>& node_trans) const;
         
         
         /// associate a path position and strand to a surjected alignment against this path
         void set_path_position(const Alignment& surjected, size_t best_path_rank, const xg::XGPath& xpath,
                                string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
-                               unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr);
+                               unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
         
         // make a sentinel meant to indicate an unmapped read
-        Alignment make_null_alignment(const Alignment& source);
+        static Alignment make_null_alignment(const Alignment& source);
         
         const xg::XG* xindex;
     };

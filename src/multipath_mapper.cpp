@@ -2538,7 +2538,7 @@ namespace vg {
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
         // Figure out the aligner to use
-        GSSWAligner* aligner = get_aligner();
+        const GSSWAligner* aligner = get_aligner();
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;

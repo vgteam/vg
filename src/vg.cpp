@@ -6737,8 +6737,8 @@ unordered_map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const unord
 }
 
 Alignment VG::align(const Alignment& alignment,
-                    Aligner* aligner,
-                    QualAdjAligner* qual_adj_aligner,
+                    const Aligner* aligner,
+                    const QualAdjAligner* qual_adj_aligner,
                     const vector<MaximalExactMatch>& mems,
                     bool traceback,
                     bool acyclic_and_sorted,
@@ -6898,7 +6898,7 @@ Alignment VG::align(const Alignment& alignment,
 }
 
 Alignment VG::align(const Alignment& alignment,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     const vector<MaximalExactMatch>& mems,
                     bool traceback,
                     bool acyclic_and_sorted,
@@ -6917,7 +6917,7 @@ Alignment VG::align(const Alignment& alignment,
 }
 
 Alignment VG::align(const Alignment& alignment,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     bool traceback,
                     bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
@@ -6936,7 +6936,7 @@ Alignment VG::align(const Alignment& alignment,
 }
 
 Alignment VG::align(const string& sequence,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     bool traceback,
                     bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
@@ -6994,7 +6994,7 @@ Alignment VG::align(const string& sequence,
 
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   const vector<MaximalExactMatch>& mems,
                                   bool traceback,
                                   bool acyclic_and_sorted,
@@ -7013,7 +7013,7 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   bool traceback,
                                   bool acyclic_and_sorted,
                                   size_t max_query_graph_ratio,
@@ -7032,7 +7032,7 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   bool traceback,
                                   bool acyclic_and_sorted,
                                   size_t max_query_graph_ratio,

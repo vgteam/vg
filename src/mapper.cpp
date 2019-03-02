@@ -3457,7 +3457,7 @@ VG Mapper::cluster_subgraph_strict(const Alignment& aln, const vector<MaximalExa
     backward_max_dist.reserve(mems.size());
     
     // What aligner are we using?
-    GSSWAligner* aligner = get_aligner();
+    const GSSWAligner* aligner = get_aligner();
     
     for (const auto& mem : mems) {
         // get the start position of the MEM
@@ -4053,7 +4053,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns, double cluster_mq, double mq_estimate, double mq_cap) {
     if (alns.empty()) return;
     double max_mq = min(mq_cap, (double)max_mapping_quality);
-    GSSWAligner* aligner = get_aligner();
+    const GSSWAligner* aligner = get_aligner();
     int sub_overlaps = sub_overlaps_of_first_aln(alns, mq_overlap);
     switch (mapping_quality_method) {
         case Approx:
@@ -4071,7 +4071,7 @@ void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>
     if (pair_alns.first.empty() || pair_alns.second.empty()) return;
     double max_mq1 = min(mq_cap1, (double)max_mapping_quality);
     double max_mq2 = min(mq_cap2, (double)max_mapping_quality);
-    GSSWAligner* aligner = get_aligner();
+    const GSSWAligner* aligner = get_aligner();
     int sub_overlaps1 = sub_overlaps_of_first_aln(pair_alns.first, mq_overlap);
     int sub_overlaps2 = sub_overlaps_of_first_aln(pair_alns.second, mq_overlap);
     vector<double> frag_weights;
@@ -4783,7 +4783,7 @@ void Mapper::remove_full_length_bonuses(Alignment& aln) {
 int32_t Mapper::score_alignment(const Alignment& aln, bool use_approx_distance) {
 
     // Find the right aligner to score with
-    GSSWAligner* aligner = get_aligner();
+    const GSSWAligner* aligner = get_aligner();
     
     if (use_approx_distance) {
         // Use an approximation

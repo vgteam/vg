@@ -1660,18 +1660,18 @@ AlignerClient::AlignerClient(double gc_content_estimate) :
                          default_gap_extension, default_full_length_bonus, default_xdrop_max_gap_length);
 }
 
-GSSWAligner* AlignerClient::get_aligner(bool have_qualities) const {
+const GSSWAligner* AlignerClient::get_aligner(bool have_qualities) const {
     return (have_qualities && adjust_alignments_for_base_quality) ?
         (GSSWAligner*) get_qual_adj_aligner() :
         (GSSWAligner*) get_regular_aligner();
 }
 
-QualAdjAligner* AlignerClient::get_qual_adj_aligner() const {
+const QualAdjAligner* AlignerClient::get_qual_adj_aligner() const {
     assert(qual_adj_aligner.get() != nullptr);
     return qual_adj_aligner.get();
 }
 
-Aligner* AlignerClient::get_regular_aligner() const {
+const Aligner* AlignerClient::get_regular_aligner() const {
     assert(regular_aligner.get() != nullptr);
     return regular_aligner.get();
 }
@@ -1695,8 +1695,8 @@ void AlignerClient::set_alignment_scores(int8_t match, int8_t mismatch, int8_t g
 void AlignerClient::load_scoring_matrix(std::ifstream& matrix_stream){
     matrix_stream.clear();
     matrix_stream.seekg(0);
-    if(regular_aligner) get_regular_aligner()->load_scoring_matrix(matrix_stream);
+    if(regular_aligner) regular_aligner->load_scoring_matrix(matrix_stream);
     matrix_stream.clear();
     matrix_stream.seekg(0);
-    if(qual_adj_aligner) get_qual_adj_aligner()->load_scoring_matrix(matrix_stream);
+    if(qual_adj_aligner) qual_adj_aligner->load_scoring_matrix(matrix_stream);
 }

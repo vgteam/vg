@@ -1031,7 +1031,7 @@ public:
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const string& sequence,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     bool traceback = true,
                     bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
@@ -1048,7 +1048,7 @@ public:
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align(const Alignment& alignment,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     const vector<MaximalExactMatch>& mems,
                     bool traceback = true,
                     bool acyclic_and_sorted = false,
@@ -1062,7 +1062,7 @@ public:
                     int xdrop_alignment = 0,                // 1 for forward, >1 for reverse
                     bool print_score_matrices = false);
     Alignment align(const Alignment& alignment,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     bool traceback = true,
                     bool acyclic_and_sorted = false,
                     size_t max_query_graph_ratio = 0,
@@ -1113,7 +1113,7 @@ public:
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   const vector<MaximalExactMatch>& mems,
                                   bool traceback = true,
                                   bool acyclic_and_sorted = false,
@@ -1127,7 +1127,7 @@ public:
                                   int xdrop_alignment = 0,              // 1 for forward, >1 for reverse
                                   bool print_score_matrices = false);
     Alignment align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
                                   bool acyclic_and_sorted = false,
                                   size_t max_query_graph_ratio = 0,
@@ -1144,7 +1144,7 @@ public:
     /// May modify the graph by re-ordering the nodes.
     /// May add nodes to the graph, but cleans them up afterward.
     Alignment align_qual_adjusted(const string& sequence,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   bool traceback = true,
                                   bool acyclic_and_sorted = false,
                                   size_t max_query_graph_ratio = 0,
@@ -1262,8 +1262,8 @@ private:
     /// padding is provided. If the band padding override is not provided, the
     /// max span is used as the band padding and permissive banding is enabled.
     Alignment align(const Alignment& alignment,
-                    Aligner* aligner,
-                    QualAdjAligner* qual_adj_aligner,
+                    const Aligner* aligner,
+                    const QualAdjAligner* qual_adj_aligner,
                     const vector<MaximalExactMatch>& mems,
                     bool traceback = true,
                     bool acyclic_and_sorted = false,

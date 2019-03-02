@@ -429,12 +429,12 @@ namespace vg {
         /// adjust_alignments_for_base_quality. By setting have_qualities to false,
         /// you can force the non-quality-adjusted aligner, for reads that lack
         /// quality scores.
-        GSSWAligner* get_aligner(bool have_qualities = true) const;
+        const GSSWAligner* get_aligner(bool have_qualities = true) const;
         
         // Sometimes you really do need the two kinds of aligners, to pass to code
         // that expects one or the other.
-        QualAdjAligner* get_qual_adj_aligner() const;
-        Aligner* get_regular_aligner() const;
+        const QualAdjAligner* get_qual_adj_aligner() const;
+        const Aligner* get_regular_aligner() const;
         
     public:
         /// Set all the aligner scoring parameters and create the stored aligner instances.

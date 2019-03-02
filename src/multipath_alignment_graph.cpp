@@ -1357,8 +1357,8 @@ namespace vg {
         }
     }
    
-    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, GSSWAligner* aligner,
-                                                          size_t max_alt_alns, bool dynamic_alt_alns) {
+    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph,
+                                                          const GSSWAligner* aligner, size_t max_alt_alns, bool dynamic_alt_alns) {
     
         
         // Align the tails, not collecting a set of source subpaths.
@@ -3052,7 +3052,7 @@ namespace vg {
 #endif
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, GSSWAligner* aligner, bool score_anchors_as_matches,
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
@@ -3062,7 +3062,7 @@ namespace vg {
         align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns, constant_padding, multipath_aln_out, allow_negative_scores);
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, GSSWAligner* aligner, bool score_anchors_as_matches,
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns,
                                         function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                                         MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
@@ -3387,7 +3387,7 @@ namespace vg {
     
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph,
-                                         GSSWAligner* aligner, size_t max_alt_alns,
+                                         const GSSWAligner* aligner, size_t max_alt_alns,
                                          bool dynamic_alt_alns, unordered_set<size_t>* sources) {
         
 #ifdef debug_multipath_alignment
