@@ -502,6 +502,11 @@ list<Transcriptome::TranscriptPath> Transcriptome::project_transcript_embedded(c
             continue;
         }
 
+        if (Paths::is_alt(graph.paths.get_path_name(path_mapping_start.first))) {
+
+            continue;
+        }
+
         const bool is_reference_path = (graph.paths.get_path_name(path_mapping_start.first) == cur_transcript.chrom);
         bool is_partial = false;
 
