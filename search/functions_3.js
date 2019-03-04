@@ -137,6 +137,8 @@ var searchData=
   ['contains',['contains',['../classvg_1_1MinimizerIndex.html#ac34e6b63d5bf558b5ba49144ac06b984',1,'vg::MinimizerIndex']]],
   ['contract',['contract',['../classvg_1_1PackedDeque.html#ae30a12dcdb32809cd68a4e2ba26d21d8',1,'vg::PackedDeque']]],
   ['convert',['convert',['../classvg_1_1VcfRecordConverter.html#a30aaab305cfc665f6f9588997fdd2297',1,'vg::VcfRecordConverter::convert()'],['../namespacevg.html#a5674e45f23020370046d49c674fd691f',1,'vg::convert(const std::string &amp;s, T &amp;r)'],['../namespacevg.html#ad7b1ca8b13ad1732d0679723bb206f18',1,'vg::convert(const T &amp;r)']]],
+  ['convert_5fhandle_5fgraph',['convert_handle_graph',['../namespacevg.html#a516af361cd83414f278eeea202f155ac',1,'vg']]],
+  ['convert_5fpath_5fhandle_5fgraph',['convert_path_handle_graph',['../namespacevg.html#a05e8ea638b359f1149f2ca5e972214cc',1,'vg']]],
   ['copy',['copy',['../classvg_1_1MinimizerIndex.html#a8bbdade3a89d723436f0b92945cf2a07',1,'vg::MinimizerIndex']]],
   ['count',['count',['../classvg_1_1MinimizerIndex.html#abc80398814794c602226f658f5e1e57e',1,'vg::MinimizerIndex::count()'],['../structxg_1_1XG_1_1ThreadSearchState.html#a45a1208a2279cffe1ebebbc44d2f1d96',1,'xg::XG::ThreadSearchState::count()']]],
   ['count_5fhaplotypes',['count_haplotypes',['../classvg_1_1GenomeState.html#a80ffcd90334fd674df62f2faa53f5549',1,'vg::GenomeState::count_haplotypes(const pair&lt; const Snarl *, const Snarl * &gt; &amp;telomere_pair) const '],['../classvg_1_1GenomeState.html#a0a892d78d60bd586ae25a3a472ff0671',1,'vg::GenomeState::count_haplotypes(const Snarl *snarl) const '],['../classxg_1_1XG.html#ad8d3a5158543b3df230b3901c49150d9',1,'xg::XG::count_haplotypes()']]],

@@ -3,7 +3,6 @@ var searchData=
   ['handle_5fbuffer',['handle_buffer',['../classvg_1_1VcfBuffer.html#a1d8968beb2952113ea8a724dad1e1752',1,'vg::VcfBuffer']]],
   ['handle_5fgraph_5fto_5fcactus',['handle_graph_to_cactus',['../namespacevg.html#a2a6d7cffb12deb3ea3f7ae293755edf4',1,'vg']]],
   ['handle_5fto_5fgbwt',['handle_to_gbwt',['../namespacevg.html#a1fa5cc80bff735a8803aa9f564c29994',1,'vg']]],
-  ['handle_5fto_5fvg',['handle_to_vg',['../namespacevg.html#adfbbf25510f3a739532e075c2d59041a',1,'vg']]],
   ['haplo_5fdp',['haplo_DP',['../structhaplo_1_1haplo__DP.html#a35035e7b00f8d5503ae3582afebbac50',1,'haplo::haplo_DP']]],
   ['haplo_5fdp_5fcolumn',['haplo_DP_column',['../structhaplo_1_1haplo__DP__column.html#a15c9d8c26ba9eba47510eaac32b49eb8',1,'haplo::haplo_DP_column']]],
   ['haplo_5fdp_5fedge_5fmemo',['haplo_DP_edge_memo',['../structhaplo_1_1haplo__DP__edge__memo.html#a6a5ec0c2e4391ac70e5d8c5c682a4109',1,'haplo::haplo_DP_edge_memo::haplo_DP_edge_memo()'],['../structhaplo_1_1haplo__DP__edge__memo.html#a9fe2238c6de21202e7625f64f065162c',1,'haplo::haplo_DP_edge_memo::haplo_DP_edge_memo(xg::XG &amp;graph, xg::XG::ThreadMapping last_node, xg::XG::ThreadMapping node)']]],

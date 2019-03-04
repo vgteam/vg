@@ -18,6 +18,8 @@ var searchData=
   ['constructor_2ecpp',['constructor.cpp',['../constructor_8cpp.html',1,'']]],
   ['constructor_2ehpp',['constructor.hpp',['../constructor_8hpp.html',1,'']]],
   ['convert_2ehpp',['convert.hpp',['../convert_8hpp.html',1,'']]],
+  ['convert_5fhandle_2ecpp',['convert_handle.cpp',['../convert__handle_8cpp.html',1,'']]],
+  ['convert_5fhandle_2ehpp',['convert_handle.hpp',['../convert__handle_8hpp.html',1,'']]],
   ['crash_2ecpp',['crash.cpp',['../crash_8cpp.html',1,'']]],
   ['crash_2ehpp',['crash.hpp',['../crash_8hpp.html',1,'']]],
   ['crash_5fmain_2ecpp',['crash_main.cpp',['../crash__main_8cpp.html',1,'']]]
