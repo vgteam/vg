@@ -9,9 +9,10 @@
 
 #include <unordered_map>
 
+#include "vg.pb.h"
+
 #include "../position.hpp"
 #include "../cached_position.hpp"
-#include "../vg.pb.h"
 #include "../hash_map.hpp"
 #include "../handle.hpp"
 #include "apply_bulk_modifications.hpp"
