@@ -13,8 +13,8 @@ vg xg -i x.xg -X y.vg
 
 is $? 0 "converter successfully takes in xg file and outputs vg file"
 
-vg view x.vg| grep -v P | sort > x.gfa
-vg view y.vg| grep -v P | sort > y.gfa
+vg mod -E x.vg | vg view - | grep -v P | sort > x.gfa
+vg mod -E y.vg | vg view - | grep -v P | sort > y.gfa
 diff x.gfa y.gfa
 
 is $? 0 "files are the same"
