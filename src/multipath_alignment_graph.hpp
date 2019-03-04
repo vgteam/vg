@@ -100,7 +100,7 @@ namespace vg {
         
         /// Removes nodes and edges that are not part of any path that has an estimated score
         /// within some amount of the highest scoring path. Reachability edges must be present.
-        void prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
+        void prune_to_high_scoring_paths(const Alignment& alignment, const GSSWAligner* aligner,
                                          double max_suboptimal_score_ratio, const vector<size_t>& topological_order);
         
         /// Clear reachability edges, so that add_reachability_edges can be run
@@ -127,7 +127,7 @@ namespace vg {
         /// Alignment that owns the sequence into which iterators were passed
         /// when the MultipathAlignmentGraph was constructed! TODO: Shouldn't
         /// the class hold a reference to the Alignment then?
-        void synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner,
+        void synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                                      size_t max_alt_alns, bool dynamic_alt_alns);
         
         /// Add edges between reachable nodes and split nodes at overlaps
@@ -145,7 +145,7 @@ namespace vg {
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
-        void align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+        void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
         
         /// Do intervening and tail alignments between the anchoring paths and
@@ -160,7 +160,7 @@ namespace vg {
         /// Note that the output alignment may NOT be in topologically-sorted
         /// order, even if this MultipathAlignmentGraph is. You MUST sort it
         /// with topologically_order_subpaths() before trying to run DP on it.
-        void align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+        void align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                    size_t max_alt_alns, bool dynamic_alt_alns,
                    function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                    MultipathAlignment& multipath_aln_out, const bool allow_negative_scores = false);
@@ -227,7 +227,7 @@ namespace vg {
         /// source subpaths and adds their numbers to the given set if not
         /// null.
         unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
-        align_tails(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner,
+        align_tails(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
                     size_t max_alt_alns, bool dynamic_alt_alns, unordered_set<size_t>* sources = nullptr);
     };
 }

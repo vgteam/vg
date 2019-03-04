@@ -1017,9 +1017,8 @@ int main_mpmap(int argc, char** argv) {
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_length);
     }
     
-    // set computational paramters
+    // Count our threads 
     int thread_count = get_thread_count();
-    multipath_mapper.set_alignment_threads(thread_count);
     
     // Establish a watchdog to find reads that take too long to map.
     // If we see any, we will issue a warning.
