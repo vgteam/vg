@@ -25,7 +25,7 @@ var searchData=
   ['locked_5fnodes',['locked_nodes',['../classvg_1_1GraphSynchronizer_1_1Lock.html#acfb5bf6caa6040ec1028250324296355',1,'vg::GraphSynchronizer::Lock::locked_nodes()'],['../classvg_1_1GraphSynchronizer.html#a275e3112ec47229a197e3ecc118771c4',1,'vg::GraphSynchronizer::locked_nodes()']]],
   ['locus',['locus',['../structvg_1_1Alignment.html#afe47b70cd7b78e97a9cf18e9c60ef4f0',1,'vg::Alignment']]],
   ['locus_5fbuffer_5fsize',['locus_buffer_size',['../classvg_1_1SupportCaller.html#ae6584c21b8d57196db570a3642e23a27',1,'vg::SupportCaller']]],
-  ['log_5fbase',['log_base',['../classvg_1_1BaseAligner.html#a10f211ed00ac67a73035a9317b7d7623',1,'vg::BaseAligner']]],
+  ['log_5fbase',['log_base',['../classvg_1_1GSSWAligner.html#a5a1a7e6edc3764ff32f7815999d6345f',1,'vg::GSSWAligner']]],
   ['log_5fcontinue_5fprobability',['log_continue_probability',['../structhaplo_1_1haploMath_1_1RRMemo.html#afd6af2944e0a42df7f251fe008ba3e90',1,'haplo::haploMath::RRMemo']]],
   ['log_5flikelihood',['log_likelihood',['../structvg_1_1Genotype.html#ad14f6fc449e1086ccd2de2bc4ad419a4',1,'vg::Genotype']]],
   ['log_5flikelihood_5fapprox_5ffactor',['log_likelihood_approx_factor',['../classvg_1_1MultipathMapper.html#a28e3e0b047b5d3c195431982f76084c1',1,'vg::MultipathMapper']]],

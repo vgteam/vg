@@ -135,18 +135,18 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae035e62365ff4617433e18d102bec452"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aff525a435389183fc9f77e2270951e72"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#aff525a435389183fc9f77e2270951e72">~MEMClusterer</a> ()=default</td></tr>
 <tr class="separator:aff525a435389183fc9f77e2270951e72"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a12992c94104df8196b0e62deaa2c8da1"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a12992c94104df8196b0e62deaa2c8da1">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *<a class="el" href="classvg_1_1Aligner.html">Aligner</a>, size_t min_mem_length=1, int32_t max_qual_score=60, int32_t log_likelihood_approx_factor=0, size_t min_median_mem_coverage_for_split=0, double suboptimal_edge_pruning_factor=.75)</td></tr>
-<tr class="separator:a12992c94104df8196b0e62deaa2c8da1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a33c57c2613769a60e3d54b10c41f4aa8"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a33c57c2613769a60e3d54b10c41f4aa8">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *<a class="el" href="classvg_1_1Aligner.html">Aligner</a>, size_t min_mem_length=1, int32_t max_qual_score=60, int32_t log_likelihood_approx_factor=0, size_t min_median_mem_coverage_for_split=0, double suboptimal_edge_pruning_factor=.75)</td></tr>
+<tr class="separator:a33c57c2613769a60e3d54b10c41f4aa8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4e84dd599bb8dc4341cbed2fd1de1ed0"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; pair&lt; pair<br class="typebreak"/>
 &lt; size_t, size_t &gt;, int64_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a4e84dd599bb8dc4341cbed2fd1de1ed0">pair_clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment_2, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> * &gt; &amp;left_clusters, const vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> * &gt; &amp;right_clusters, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;left_alt_cluster_anchors, const vector&lt; pair&lt; size_t, size_t &gt;&gt; &amp;right_alt_cluster_anchors, int64_t optimal_separation, int64_t max_deviation)=0</td></tr>
 <tr class="separator:a4e84dd599bb8dc4341cbed2fd1de1ed0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:af0d16028b4f04a75d23ba256854052f5"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html">HitGraph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#af0d16028b4f04a75d23ba256854052f5">make_hit_graph</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner, size_t min_mem_length)=0</td></tr>
-<tr class="separator:af0d16028b4f04a75d23ba256854052f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a94c25cde22a8be56157178d5f8012222"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#a94c25cde22a8be56157178d5f8012222">estimate_edge_score</a> (const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_1, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_2, int64_t graph_dist, <a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *aligner) const </td></tr>
-<tr class="separator:a94c25cde22a8be56157178d5f8012222"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af2d7afad2eed6e2dd44de7a9882e7d2f"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html">HitGraph</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#af2d7afad2eed6e2dd44de7a9882e7d2f">make_hit_graph</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length)=0</td></tr>
+<tr class="separator:af2d7afad2eed6e2dd44de7a9882e7d2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaeaf1935dd44fd09be43d1a0132087b6"><td class="memItemLeft" align="right" valign="top">int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#aaeaf1935dd44fd09be43d1a0132087b6">estimate_edge_score</a> (const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_1, const <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> *mem_2, int64_t graph_dist, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner) const </td></tr>
+<tr class="separator:aaeaf1935dd44fd09be43d1a0132087b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae99c87e944c8c1056abb8efc7da5786e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e">deduplicate_cluster_pairs</a> (vector&lt; pair&lt; pair&lt; size_t, size_t &gt;, int64_t &gt;&gt; &amp;cluster_pairs, int64_t optimal_separation)</td></tr>
 <tr class="separator:ae99c87e944c8c1056abb8efc7da5786e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -226,7 +226,7 @@ Protected Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="a12992c94104df8196b0e62deaa2c8da1"></a>
+<a class="anchor" id="a33c57c2613769a60e3d54b10c41f4aa8"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -245,7 +245,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
           <td class="paramname"><em>Aligner</em>, </td>
         </tr>
         <tr>
@@ -324,7 +324,7 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a94c25cde22a8be56157178d5f8012222"></a>
+<a class="anchor" id="aaeaf1935dd44fd09be43d1a0132087b6"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -352,7 +352,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
           <td class="paramname"><em>aligner</em>&#160;</td>
         </tr>
         <tr>
@@ -371,7 +371,7 @@ Protected Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="af0d16028b4f04a75d23ba256854052f5"></a>
+<a class="anchor" id="af2d7afad2eed6e2dd44de7a9882e7d2f"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -393,7 +393,7 @@ Protected Member Functions</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1BaseAligner.html">BaseAligner</a> *&#160;</td>
+          <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
           <td class="paramname"><em>aligner</em>, </td>
         </tr>
         <tr>
@@ -416,7 +416,7 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Initializes a hit graph and adds edges to it, this must be implemented by any inheriting class </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1TVSClusterer.html#abf1b905f2a59c7218ade2078f17e35da">vg::TVSClusterer</a>, and <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a6cf35643680c2922cf3b893e6e773b43">vg::OrientedDistanceClusterer</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1TVSClusterer.html#aabdbd5086c66e1f0193c870532e82789">vg::TVSClusterer</a>, and <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a7bcda4e626cbd4dd7fda99f952a3ef72">vg::OrientedDistanceClusterer</a>.</p>
 
 </div>
 </div>

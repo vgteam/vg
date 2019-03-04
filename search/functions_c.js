@@ -21,7 +21,7 @@ var searchData=
   ['load_5ffrom_5ffile',['load_from_file',['../classvg_1_1Packer.html#a55b21208921e13f2399f4475d4d02b32',1,'vg::Packer']]],
   ['load_5fgraph',['load_graph',['../classvg_1_1Index.html#a0c6f4fc6c51426cc3ff46bcaed6973ee',1,'vg::Index']]],
   ['load_5fpaths',['load_paths',['../classvg_1_1Index.html#a8f24c391c502aa89f3f089c5a2c4eada',1,'vg::Index']]],
-  ['load_5fscoring_5fmatrix',['load_scoring_matrix',['../classvg_1_1BaseAligner.html#a2294ca81858059a5dad59efda8f90f89',1,'vg::BaseAligner::load_scoring_matrix()'],['../classvg_1_1BaseMapper.html#aabfd34a0a9ceaf48e43011e74df2c42a',1,'vg::BaseMapper::load_scoring_matrix()']]],
+  ['load_5fscoring_5fmatrix',['load_scoring_matrix',['../classvg_1_1GSSWAligner.html#a76a56281ddd422dfee5e617c7a39bcbc',1,'vg::GSSWAligner::load_scoring_matrix()'],['../classvg_1_1AlignerClient.html#a2ef1e755d0886e16328eb9818ae31fb2',1,'vg::AlignerClient::load_scoring_matrix()']]],
   ['load_5fsize',['load_size',['../namespacevg_1_1mi.html#af29a3fd45381a8f5a173636940105e36',1,'vg::mi']]],
   ['load_5fsupports',['load_supports',['../structvg_1_1SupportAugmentedGraph.html#a1aef5debe026648525732be7bc6cc4b1',1,'vg::SupportAugmentedGraph']]],
   ['load_5ftranslations',['load_translations',['../structvg_1_1AugmentedGraph.html#af86dc51d58ee0cfa4513602dccc373cd',1,'vg::AugmentedGraph']]],
@@ -44,6 +44,6 @@ var searchData=
   ['logs',['logS',['../structhaplo_1_1haploMath_1_1RRMemo.html#a3c54d778760482c2bc80935ceefb0f61',1,'haplo::haploMath::RRMemo']]],
   ['logsum',['logsum',['../namespacehaplo_1_1haploMath.html#a5bc510bf3fca2eeaba726ababf32678f',1,'haplo::haploMath']]],
   ['logt',['logT',['../structhaplo_1_1haploMath_1_1RRMemo.html#ac74af8f5adda75809d2995a37ca79317',1,'haplo::haploMath::RRMemo']]],
-  ['longest_5fdetectable_5fgap',['longest_detectable_gap',['../classvg_1_1BaseAligner.html#a6b8357ced3c9a0f26eda195c3eea16bd',1,'vg::BaseAligner::longest_detectable_gap(const Alignment &amp;alignment, const string::const_iterator &amp;read_pos) const '],['../classvg_1_1BaseAligner.html#ab753228bda847425bf5be6446cc8d4c1',1,'vg::BaseAligner::longest_detectable_gap(const Alignment &amp;alignment) const ']]],
+  ['longest_5fdetectable_5fgap',['longest_detectable_gap',['../classvg_1_1GSSWAligner.html#a19fa8e1cb664992f69c8c97d3a6314c2',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment, const string::const_iterator &amp;read_pos) const '],['../classvg_1_1GSSWAligner.html#a1ea06f5d75e49017148c17e251567647',1,'vg::GSSWAligner::longest_detectable_gap(const Alignment &amp;alignment) const ']]],
   ['loopdistance',['loopDistance',['../classvg_1_1DistanceIndex.html#a34d7cdc878337f667c15065cd0fb8fc5',1,'vg::DistanceIndex::loopDistance(pair&lt; id_t, bool &gt; node1, pair&lt; id_t, bool &gt; node2)'],['../classvg_1_1DistanceIndex.html#a5d8240a4ff7285937985b9468d036c23',1,'vg::DistanceIndex::loopDistance(const Snarl *snarl1, const Snarl *snarl2, pair&lt; id_t, bool &gt; node1, pair&lt; id_t, bool &gt; node2)']]]
 ];

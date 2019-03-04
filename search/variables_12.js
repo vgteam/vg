@@ -28,7 +28,7 @@ var searchData=
   ['reference_5fpaths',['reference_paths',['../classvg_1_1PhaseUnfolder.html#a2bfa46441300e0817643b310aced989b',1,'vg::PhaseUnfolder']]],
   ['reflect',['reflect',['../classvg_1_1GraphSynchronizer_1_1Lock.html#aa5776efd133ed466cb82ef4f4b161dfd',1,'vg::GraphSynchronizer::Lock']]],
   ['refpos',['refpos',['../structvg_1_1Alignment.html#a584c3aa15a5c1386d14a97c0ce85c0cf',1,'vg::Alignment']]],
-  ['regular_5faligner',['regular_aligner',['../classvg_1_1BaseMapper.html#ab5a6d061f13e5ed2b86d1a610fb7be72',1,'vg::BaseMapper']]],
+  ['regular_5faligner',['regular_aligner',['../classvg_1_1AlignerClient.html#af164f37a5efb0c05b10fea3841b78e83',1,'vg::AlignerClient']]],
   ['remove_5ffailing_5fedits',['remove_failing_edits',['../classvg_1_1Filter.html#aea2a2fc6de506793111639e609376bf0',1,'vg::Filter']]],
   ['repeat_5fsize',['repeat_size',['../classvg_1_1ReadFilter.html#a4d1bcac75fda8d439384ba8c09c780cf',1,'vg::ReadFilter']]],
   ['rescore',['rescore',['../classvg_1_1ReadFilter.html#ab3b47fbeff165aa3fb4fdff25d2cb6fb',1,'vg::ReadFilter']]],

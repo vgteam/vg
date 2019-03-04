@@ -10,7 +10,7 @@ var searchData=
   ['samplers',['samplers',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a8d2808d7b690045d11af93fd6619fbf7',1,'vg::NGSSimulator::MarkovDistribution']]],
   ['scale_5ffactor',['scale_factor',['../classvg_1_1QualAdjAligner.html#a23d8dac870d6d716120f91b287a7e88b',1,'vg::QualAdjAligner']]],
   ['score',['score',['../classvg_1_1MEMChainModelVertex.html#a10cf4210b2f802b628111fe2cd1f309b',1,'vg::MEMChainModelVertex::score()'],['../classvg_1_1MEMClusterer_1_1HitNode.html#aa0f6834e2a0860792afc6a701d3396c3',1,'vg::MEMClusterer::HitNode::score()'],['../structvg_1_1Genotyper_1_1Affinity.html#aa0fa1b63d720aa196205be34ee80ee07',1,'vg::Genotyper::Affinity::score()'],['../classvg_1_1AlignmentChainModelVertex.html#a207cf7885f1eb8d129d9f599791b0dea',1,'vg::AlignmentChainModelVertex::score()'],['../structvg_1_1Alignment.html#a5c57b95a7ea122139a092427b592ebeb',1,'vg::Alignment::score()'],['../structvg_1_1Subpath.html#acffb5adff6c20c194740186323f1f484',1,'vg::Subpath::score()']]],
-  ['score_5fmatrix',['score_matrix',['../classvg_1_1BaseAligner.html#aadb78987c376a75ea5ff70f2220c070c',1,'vg::BaseAligner']]],
+  ['score_5fmatrix',['score_matrix',['../classvg_1_1GSSWAligner.html#a9ad471080a267eb489e31523ef2b5f2b',1,'vg::GSSWAligner']]],
   ['scratch',['scratch',['../structvg_1_1ChainIterator.html#a277447dceb98d18d597a73f2c790e15c',1,'vg::ChainIterator']]],
   ['secondary_5frescue_5fattempts',['secondary_rescue_attempts',['../classvg_1_1MultipathMapper.html#a0203a68c7b346ec30bf2854c78bb3434',1,'vg::MultipathMapper']]],
   ['secondary_5frescue_5fscore_5fdiff',['secondary_rescue_score_diff',['../classvg_1_1MultipathMapper.html#ac5ba763f99c22ff9feccb76333cf1039',1,'vg::MultipathMapper']]],

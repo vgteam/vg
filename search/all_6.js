@@ -199,7 +199,7 @@ var searchData=
   ['from_5fstream',['from_stream',['../classxg_1_1XG.html#abfab3d6de5efff6080f283ebc99ef3ab',1,'xg::XG']]],
   ['from_5fturtle',['from_turtle',['../classvg_1_1VG.html#a8aef48163c0dd4267d24b629de8a04c8',1,'vg::VG']]],
   ['fs',['fs',['../structvg_1_1StrandSupport.html#ab88dd03472df99d411f4055efa3d0d45',1,'vg::StrandSupport']]],
-  ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1BaseAligner.html#a1750f4587061f9d6dcf62abbd7d6347e',1,'vg::BaseAligner']]],
+  ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner']]],
   ['full_5fsiblings_5ffrom',['full_siblings_from',['../classvg_1_1VG.html#ae2eb11662200dc88ef8397a1b2232056',1,'vg::VG']]],
   ['full_5fsiblings_5fto',['full_siblings_to',['../classvg_1_1VG.html#a0a79ae3ab132b28cf72b6c18644fcf2f',1,'vg::VG']]],
   ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]]

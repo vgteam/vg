@@ -53,7 +53,7 @@ var searchData=
   ['np_5fbv_5frank',['np_bv_rank',['../classxg_1_1XG.html#a55acaa0611404005fbeb437edf97f5fc',1,'xg::XG']]],
   ['np_5fbv_5fselect',['np_bv_select',['../classxg_1_1XG.html#a2ff620a3aed44bfef13fc538a759ef35',1,'xg::XG']]],
   ['np_5fiv',['np_iv',['../classxg_1_1XG.html#ab0dc911345e7c76db95039f26f25b0d9',1,'xg::XG']]],
-  ['nt_5ftable',['nt_table',['../classvg_1_1BaseAligner.html#ae68afc236d9d8bac09b710e751db81b5',1,'vg::BaseAligner']]],
+  ['nt_5ftable',['nt_table',['../classvg_1_1GSSWAligner.html#a73b117b8b0b894ce486bdb2c4eeeeb10',1,'vg::GSSWAligner']]],
   ['num_5falt_5falns',['num_alt_alns',['../classvg_1_1MultipathMapper.html#ad29e0a45fcb921023bd6479a15cfef78',1,'vg::MultipathMapper']]],
   ['num_5fbases',['num_bases',['../structvg_1_1BasePileup.html#aca3e40a479d777aaaa687ca8ab7ce49a',1,'vg::BasePileup']]],
   ['num_5fforward_5freads',['num_forward_reads',['../structvg_1_1EdgePileup.html#a5a61f1d9489561ede0ca1afcbcd7c1d9',1,'vg::EdgePileup']]],

@@ -170,7 +170,7 @@ var searchData=
   ['prune_5fkmers',['prune_kmers',['../classvg_1_1Index.html#aa1fc314841c278662fec2e07925b10b0',1,'vg::Index']]],
   ['prune_5flow_5fscoring_5fedges',['prune_low_scoring_edges',['../classvg_1_1MEMClusterer_1_1HitGraph.html#ab2949f31f3e43410189eafa260544baf',1,'vg::MEMClusterer::HitGraph']]],
   ['prune_5fshort_5fsubgraphs',['prune_short_subgraphs',['../classvg_1_1VG.html#a590703c2954a2a15d735995c2007a879',1,'vg::VG']]],
-  ['prune_5fto_5fhigh_5fscoring_5fpaths',['prune_to_high_scoring_paths',['../classvg_1_1MultipathAlignmentGraph.html#a249f30db71bee19ad429c4bc9c34868e',1,'vg::MultipathAlignmentGraph']]],
+  ['prune_5fto_5fhigh_5fscoring_5fpaths',['prune_to_high_scoring_paths',['../classvg_1_1MultipathAlignmentGraph.html#ae608d17e883c30c5dd8a4c38047d1e00',1,'vg::MultipathAlignmentGraph']]],
   ['pseudo_5flength',['pseudo_length',['../classvg_1_1MultipathMapper.html#a4455f8ca97f019d0925a765c18c1313e',1,'vg::MultipathMapper']]],
   ['push_5fback',['push_back',['../structhaplo_1_1gbwt__thread__t.html#a726f2772b4725564569e4889f89db7c6',1,'haplo::gbwt_thread_t::push_back()'],['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#ade3cdc2fdb2dc88b735bee5be2c04cee',1,'haplo::linear_haplo_structure::SNVvector::push_back()'],['../structvg_1_1HashGraph_1_1path__t.html#ae1ce0855dd9303072c347b7fb47367b4',1,'vg::HashGraph::path_t::push_back()']]],
   ['push_5fedit',['push_edit',['../classvg_1_1XdropAligner.html#a0fdcf4192f3f5045ed4025f2a2dbe8f6',1,'vg::XdropAligner']]],

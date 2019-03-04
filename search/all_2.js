@@ -42,7 +42,6 @@ var searchData=
   ['base_5fequal',['base_equal',['../classvg_1_1Pileups.html#a2f998d4a10664dfe3367ca82fff85a19',1,'vg::Pileups']]],
   ['base_5fgraph',['base_graph',['../structvg_1_1AugmentedGraph.html#a0022757311c1ac569ebfa42e651637af',1,'vg::AugmentedGraph']]],
   ['base_5fpileup',['base_pileup',['../structvg_1_1NodePileup.html#a7ce88a430f079f1d72f96659edeb02de',1,'vg::NodePileup']]],
-  ['basealigner',['BaseAligner',['../classvg_1_1BaseAligner.html#adb102937992cfa2030613b46a2f3151c',1,'vg::BaseAligner']]],
   ['basealigner',['BaseAligner',['../classvg_1_1BaseAligner.html',1,'vg']]],
   ['basemapper',['BaseMapper',['../classvg_1_1BaseMapper.html#abd17202084a4e11cfbf5304daee468a3',1,'vg::BaseMapper::BaseMapper(xg::XG *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, haplo::ScoreProvider *haplo_score_provider=nullptr)'],['../classvg_1_1BaseMapper.html#a895c239d974f084e7a0a83025e104fd8',1,'vg::BaseMapper::BaseMapper(void)']]],
   ['basemapper',['BaseMapper',['../classvg_1_1BaseMapper.html',1,'vg']]],

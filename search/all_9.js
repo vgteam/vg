@@ -63,10 +63,9 @@ var searchData=
   ['indexopenexception',['indexOpenException',['../classvg_1_1indexOpenException.html#a6f40b99e24b3edb813bb9a8054269e20',1,'vg::indexOpenException']]],
   ['indexopenexception',['indexOpenException',['../classvg_1_1indexOpenException.html',1,'vg']]],
   ['init',['init',['../classvg_1_1VG.html#aafd0f191fe33bd4590f15f309d0fd89c',1,'vg::VG::init()'],['../classvg_1_1Viz.html#aabc9cbdd806a8acec353646a351e326b',1,'vg::Viz::init()']]],
-  ['init_5faligner',['init_aligner',['../classvg_1_1BaseMapper.html#a8ffbb81469afb28137d725afe904e80a',1,'vg::BaseMapper']]],
   ['init_5fband_5fpadding_5fmemo',['init_band_padding_memo',['../classvg_1_1MultipathMapper.html#a373038067171533375512e963f28fa65',1,'vg::MultipathMapper']]],
   ['init_5fmapper',['init_mapper',['../classvg_1_1Filter.html#abd9fa5045b867b20e1b20e3d74d77e4b',1,'vg::Filter']]],
-  ['init_5fmapping_5fquality',['init_mapping_quality',['../classvg_1_1BaseAligner.html#ac0ae9eca25f2ce201024def1dcf8fe6b',1,'vg::BaseAligner::init_mapping_quality()'],['../classvg_1_1QualAdjAligner.html#a0bae95094ac53c096eaf4ab381762d39',1,'vg::QualAdjAligner::init_mapping_quality()']]],
+  ['init_5fmapping_5fquality',['init_mapping_quality',['../classvg_1_1GSSWAligner.html#aa940804996a9028d35d110475701c3dd',1,'vg::GSSWAligner::init_mapping_quality()'],['../classvg_1_1QualAdjAligner.html#a0bae95094ac53c096eaf4ab381762d39',1,'vg::QualAdjAligner::init_mapping_quality()']]],
   ['initial_5fcapacity',['INITIAL_CAPACITY',['../classvg_1_1MinimizerIndex.html#a044a3cf2e5a0bf7ac29e195ee6e97513',1,'vg::MinimizerIndex']]],
   ['initial_5fposition',['initial_position',['../namespacevg.html#acd31d3a8dc67801f147d0ba1b0059c3f',1,'vg']]],
   ['inject_5fmain_2ecpp',['inject_main.cpp',['../inject__main_8cpp.html',1,'']]],
@@ -108,8 +107,8 @@ var searchData=
   ['internal_5findex',['internal_index',['../classvg_1_1PackedDeque.html#a5578cfc59c41359b22d38eca8bec3cef',1,'vg::PackedDeque']]],
   ['intersection',['intersection',['../structhaplo_1_1int__itvl__t.html#ade4051b750fcce428be13a69663ec035',1,'haplo::int_itvl_t']]],
   ['interval_5fsize',['interval_size',['../structhaplo_1_1haplo__DP__rectangle.html#a6b3ef8d3d6e3f1f38fb462ab903c2bb1',1,'haplo::haplo_DP_rectangle']]],
-  ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html',1,'vg']]],
   ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html#a929348710988ce5d6d5d334e8a400961',1,'vg::IntervalBitfield']]],
+  ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html',1,'vg']]],
   ['intervals',['intervals',['../classvg_1_1SRPE.html#a5fc255cb93b3221c2b8a01ae7553ac7b',1,'vg::SRPE']]],
   ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1SnarlManager.html#a78f488b3c39067118b28666d834dd6b1',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const '],['../classvg_1_1SnarlManager.html#a976c4bdaded285896fe607118ace6ac3',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const ']]],
   ['invalid',['invalid',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8a26ab26b5bf5a066a0902a79defda6b5d',1,'haplo::linear_haplo_structure']]],
@@ -164,7 +163,7 @@ var searchData=
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]],
   ['iteratee_2ehpp',['iteratee.hpp',['../iteratee_8hpp.html',1,'']]],
+  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]],
   ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]],
-  ['iterator',['iterator',['../structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482',1,'vg::PathIndex::iterator()'],['../classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096',1,'vg::ShuffledPairs::iterator::iterator(const iterator &amp;other)=default'],['../classvg_1_1ShuffledPairs_1_1iterator.html#a3b52dd39c46e409ef1bfd67ab8ee76e4',1,'vg::ShuffledPairs::iterator::iterator(const ShuffledPairs &amp;iteratee, size_t start_at)'],['../classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441',1,'vg::PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode *haplo_node)'],['../classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf',1,'vg::PhasedGenome::iterator::iterator()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a03bdcb94d8ed8b6e895ff003412185e4',1,'vg::PhasedGenome::iterator::iterator(const iterator &amp;other)']]],
-  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]]
+  ['iterator',['iterator',['../structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482',1,'vg::PathIndex::iterator()'],['../classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096',1,'vg::ShuffledPairs::iterator::iterator(const iterator &amp;other)=default'],['../classvg_1_1ShuffledPairs_1_1iterator.html#a3b52dd39c46e409ef1bfd67ab8ee76e4',1,'vg::ShuffledPairs::iterator::iterator(const ShuffledPairs &amp;iteratee, size_t start_at)'],['../classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441',1,'vg::PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode *haplo_node)'],['../classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf',1,'vg::PhasedGenome::iterator::iterator()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a03bdcb94d8ed8b6e895ff003412185e4',1,'vg::PhasedGenome::iterator::iterator(const iterator &amp;other)']]]
 ];

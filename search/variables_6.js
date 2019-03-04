@@ -48,6 +48,6 @@ var searchData=
   ['from_5fnode_5fid',['from_node_id',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a2084bf098f9ffe829a0de4ca12ae0f3e',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['from_5fstart',['from_start',['../structvg_1_1Edge.html#aadc916440008619a27cdd0c388e8ba86',1,'vg::Edge']]],
   ['fs',['fs',['../structvg_1_1StrandSupport.html#ab88dd03472df99d411f4055efa3d0d45',1,'vg::StrandSupport']]],
-  ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1BaseAligner.html#a1750f4587061f9d6dcf62abbd7d6347e',1,'vg::BaseAligner']]],
+  ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner']]],
   ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]]
 ];

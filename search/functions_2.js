@@ -15,7 +15,6 @@ var searchData=
   ['base_5fedge',['base_edge',['../structvg_1_1AugmentedGraph.html#acfd8bc29f1837a8a9bd87a8d2d36d757',1,'vg::AugmentedGraph']]],
   ['base_5fentry_5fto_5fstring',['base_entry_to_string',['../classvg_1_1Index.html#a1426dd5881bf343842232d86c7ce24e3',1,'vg::Index']]],
   ['base_5fequal',['base_equal',['../classvg_1_1Pileups.html#a2f998d4a10664dfe3367ca82fff85a19',1,'vg::Pileups']]],
-  ['basealigner',['BaseAligner',['../classvg_1_1BaseAligner.html#adb102937992cfa2030613b46a2f3151c',1,'vg::BaseAligner']]],
   ['basemapper',['BaseMapper',['../classvg_1_1BaseMapper.html#abd17202084a4e11cfbf5304daee468a3',1,'vg::BaseMapper::BaseMapper(xg::XG *xidex, gcsa::GCSA *g, gcsa::LCPArray *a, haplo::ScoreProvider *haplo_score_provider=nullptr)'],['../classvg_1_1BaseMapper.html#a895c239d974f084e7a0a83025e104fd8',1,'vg::BaseMapper::BaseMapper(void)']]],
   ['baseoption',['BaseOption',['../classvg_1_1BaseOption.html#a368247286ff1adae58018b7d16598d17',1,'vg::BaseOption::BaseOption()=delete'],['../classvg_1_1BaseOption.html#a2cad5b14f958dd4e71a4f21debe2c0a0',1,'vg::BaseOption::BaseOption(Configurable *owner, const string &amp;long_opt, const string &amp;short_opts, const Value &amp;default_value, const string &amp;description)']]],
   ['batch_5fedge',['batch_edge',['../classvg_1_1Index.html#a396cc86a668620dbf4c65aa8408db6ea',1,'vg::Index']]],
