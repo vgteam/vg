@@ -13,19 +13,15 @@ namespace vg {
 
 using namespace std;
     
-    Surjector::Surjector(xg::XG* xg_index) : BaseMapper(xg_index, nullptr, nullptr) {
+    Surjector::Surjector(const xg::XG* xg_index) : xindex(xg_index) {
         if (!xindex) {
             cerr << "error:[Surjector] Failed to provide an XG index to the Surjector" << endl;
         }
     }
     
-    Surjector::~Surjector() {
-        
-    }
-    
     Alignment Surjector::surject(const Alignment& source, const set<string>& path_names,
                                  string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
-                                 bool allow_negative_scores) {
+                                 bool allow_negative_scores) const {
         
 #ifdef debug_anchored_surject
         cerr << "surjecting alignment: " << pb2json(source) << " onto paths ";
@@ -187,7 +183,7 @@ using namespace std;
     unordered_map<size_t, vector<Surjector::path_chunk_t>>
     Surjector::extract_overlapping_paths(const Alignment& source, const unordered_map<size_t, string>& path_rank_to_name,
                                          unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
-                                         unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) {
+                                         unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
         
         
         unordered_map<size_t, vector<path_chunk_t>> to_return;
@@ -301,7 +297,7 @@ using namespace std;
     
     pair<size_t, size_t>
     Surjector::compute_path_interval(const Alignment& source, size_t path_rank, const xg::XGPath& xpath, const vector<path_chunk_t>& path_chunks,
-                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) {
+                                     unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
         
         pair<size_t, size_t> interval(numeric_limits<size_t>::max(), numeric_limits<size_t>::min());
         
@@ -362,7 +358,7 @@ using namespace std;
     }
     
     VG Surjector::extract_linearized_path_graph(size_t first, size_t last, const xg::XGPath& xpath,
-                                                unordered_map<id_t, pair<id_t, bool>>& node_trans) {
+                                                unordered_map<id_t, pair<id_t, bool>>& node_trans) const {
         
 #ifdef debug_anchored_surject
         cerr << "extracting path graph for position interval " << first << ":" << last << " in path of length " << xpath.positions[xpath.positions.size() - 1] + xindex->node_length(xpath.node(xpath.ids.size() - 1)) << endl;
@@ -401,7 +397,7 @@ using namespace std;
     
     void Surjector::set_path_position(const Alignment& surjected, size_t best_path_rank, const xg::XGPath& xpath,
                                       string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
-                                      unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) {
+                                      unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
         
         const Path& path = surjected.path();
         

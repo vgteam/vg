@@ -195,14 +195,11 @@ int main_surject(int argc, char** argv) {
         path_length[name] = xgidx->path_length(name);
     }
     
-    // Make Surjectors for all the threads. TODO: There's no good reason to
-    // need one of these per thread. They and BaseAligner ought to be made
-    // thread safe.
+    // Make a single therad-safe Surjector.
+    Surjector surjector(xgidx.get());
+   
+    // Count out threads
     int thread_count = get_thread_count();
-    vector<Surjector*> surjectors(thread_count);
-    for (int i = 0; i < surjectors.size(); i++) {
-        surjectors[i] = new Surjector(xgidx.get());
-    }
 
     if (input_type == "gam") {
         if (output_type == "gam") {
@@ -220,12 +217,12 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                buffer[tid].push_back(surjectors[omp_get_thread_num()]->surject(src,
-                                                                                path_names,
-                                                                                path_name,
-                                                                                path_pos,
-                                                                                path_reverse,
-                                                                                subpath_global));
+                buffer[tid].push_back(surjector.surject(src,
+                                                        path_names,
+                                                        path_name,
+                                                        path_pos,
+                                                        path_reverse,
+                                                        subpath_global));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             get_input_file(file_name, [&](istream& in) {
@@ -247,8 +244,6 @@ int main_surject(int argc, char** argv) {
                 tmp[0] = compress_level + '0'; tmp[1] = '\0';
                 strcat(out_mode, tmp);
             }
-            
-            int thread_count = get_thread_count();
             
             // bam/sam/cram output
             
@@ -288,12 +283,12 @@ int main_surject(int argc, char** argv) {
                 // reads need to come out with a 0 1-based position.
                 int64_t path_pos = -1; 
                 bool path_reverse = false;
-                auto surj = surjectors[omp_get_thread_num()]->surject(src,
-                                                                      path_names,
-                                                                      path_name,
-                                                                      path_pos,
-                                                                      path_reverse,
-                                                                      subpath_global);
+                auto surj = surjector.surject(src,
+                                              path_names,
+                                              path_name,
+                                              path_pos,
+                                              path_reverse,
+                                              subpath_global);
                 // Always use the surjected alignment, even if it surjects to unmapped.
                 
                 // Set sample metadata after surjection, since input read is const.
@@ -549,10 +544,6 @@ int main_surject(int argc, char** argv) {
     }
     cout.flush();
     
-    for (Surjector* surjector : surjectors) {
-        delete surjector;
-    }
-
     return 0;
 }
 

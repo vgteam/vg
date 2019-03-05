@@ -9,7 +9,7 @@
 
 #include "hash_map.hpp"
 #include "mapper.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
 #include "xg.hpp"

@@ -19,7 +19,7 @@
 #include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "mem.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
@@ -147,33 +147,38 @@ private:
     
     void estimate_distribution();
 };
-    
-class BaseMapper : public Progressive {
+
+/**
+ * Base class for basic mapping functionality shared between the Mapper, MultipathMapper, etc.
+ * Handles holding on to the random access and text indexes needed for mapping operations.
+ */
+class BaseMapper : public AlignerClient {
     
 public:
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer
-    // index + LCP array, and which can score reads against haplotypes using
-    // the given ScoreProvider.
+    /**
+     * Make a BaseMapper that pulls from an XG succinct graph and a GCSA2 kmer
+     * index + LCP array, and which can score reads against haplotypes using
+     * the given ScoreProvider.
+     *
+     * If the GCSA and LCPArray are null, cannot do search, only alignment.
+     */
     BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     BaseMapper(void);
-    ~BaseMapper(void);
     
-    double estimate_gc_content(void);
+    /// We need to be able to estimate the GC content from the GCSA index in the constructor.
+    /// The given index may be null.
+    static double estimate_gc_content(const gcsa::GCSA* gcsa);
     
     int random_match_length(double chance_random);
    
-    void load_scoring_matrix(std::ifstream& matrix_stream);
-
-    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
-        double haplotype_consistency_exponent = 1, uint32_t max_gap_length = default_max_gap_length);
-    
     // TODO: setting alignment threads could mess up the internal memory for how many threads to reset to
     void set_fragment_length_distr_params(size_t maximum_sample_size = 1000, size_t reestimation_frequency = 1000,
                                           double robust_estimation_fraction = 0.95);
+                         
     
-    /// Set the alignment thread count, updating internal data structures that
-    /// are per thread. Note that this resets aligner scores to their default values!
-    void set_alignment_threads(int new_thread_count);
+    /// Override alignment score setting to support haplotype consistency exponent
+    void set_alignment_scores(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus,
+                              uint32_t xdrop_max_gap_length = default_xdrop_max_gap_length, double haplotype_consistency_exponent = 1);
     
     void set_cache_size(int new_cache_size);
     
@@ -252,7 +257,7 @@ public:
     // Does NOT (yet) remove the haplotype consistency bonus.
     bool strip_bonuses; 
     bool assume_acyclic; // the indexed graph is acyclic
-    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
+    
     
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
@@ -315,11 +320,6 @@ protected:
     // Algorithm for choosing an adaptive reseed length based on the length of the parent MEM
     size_t get_adaptive_min_reseed_length(size_t parent_mem_length);
     
-    int alignment_threads; // how many threads will *this* mapper use. Should not be set directly.
-
-    void init_aligner(int8_t match, int8_t mismatch, int8_t gap_open, int8_t gap_extend, int8_t full_length_bonus, uint32_t max_gap_length = default_max_gap_length);
-    void clear_aligners(void);
-    
     /// Score all of the alignments in the vector for haplotype consistency. If
     /// all of them can be scored (i.e. none of them visit nodes/edges with no
     /// haplotypes), adjust all of their scores to reflect haplotype
@@ -346,23 +346,6 @@ protected:
     double haplotype_consistency_exponent = 1;
     
     FragmentLengthDistribution fragment_length_distr;
-
-    /// Get the appropriate aligner to use, based on
-    /// adjust_alignments_for_base_quality. By setting have_qualities to false,
-    /// you can force the non-quality-adjusted aligner, for reads that lack
-    /// quality scores.
-    BaseAligner* get_aligner(bool have_qualities = true) const;
-    
-    // Sometimes you really do need the two kinds of aligners, to pass to code
-    // that expects one or the other.
-    QualAdjAligner* get_qual_adj_aligner() const;
-    Aligner* get_regular_aligner() const;
-
-private:
-    // GSSW aligners
-    QualAdjAligner* qual_adj_aligner = nullptr;
-    Aligner* regular_aligner = nullptr;    
-
 };
 
 /**

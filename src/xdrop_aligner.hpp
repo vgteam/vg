@@ -31,6 +31,7 @@ namespace vg {
 		uint32_t ref_offset, query_offset;
 	};
 
+    /// Non-thread-safe alignment problem, to be solved using the x-drop algorithm.
 	class XdropAligner {
 	private:
 		// context (contains memory arena and constants) and working buffers
@@ -69,7 +70,7 @@ namespace vg {
 		// bench_t bench;
 
 	public:
-		// default_* defined in vg::, see gssw_aligner.hpp
+		// default_* defined in vg::, see aligner.hpp
 		XdropAligner();
 		XdropAligner(XdropAligner const &);
 		XdropAligner& operator=(XdropAligner const &);
@@ -88,7 +89,7 @@ namespace vg {
 			uint32_t _max_gap_length);
 		~XdropAligner(void);
 
-		// copied from gssw_aligner.hpp
+		// copied from aligner.hpp
 		void align(Alignment &alignment, Graph const &graph, const vector<MaximalExactMatch> &mems, bool reverse_complemented);
 	};
 } // end of namespace vg

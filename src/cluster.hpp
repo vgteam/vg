@@ -5,7 +5,7 @@
 #include <gcsa/lcp.h>
 #include <structures/union_find.hpp>
 #include "position.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
 #include "xg.hpp"
@@ -170,7 +170,7 @@ public:
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
     vector<cluster_t> clusters(const Alignment& alignment,
                                const vector<MaximalExactMatch>& mems,
-                               BaseAligner* Aligner,
+                               const GSSWAligner* Aligner,
                                size_t min_mem_length = 1,
                                int32_t max_qual_score = 60,
                                int32_t log_likelihood_approx_factor = 0,
@@ -205,12 +205,12 @@ protected:
     /// Initializes a hit graph and adds edges to it, this must be implemented by any inheriting
     /// class
     virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                    BaseAligner* aligner, size_t min_mem_length) = 0;
+                                    const GSSWAligner* aligner, size_t min_mem_length) = 0;
     
     /// Once the distance between two hits has been estimated, estimate the score of the hit graph edge
     /// connecting them
     int32_t estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2, int64_t graph_dist,
-                                BaseAligner* aligner) const;
+                                const GSSWAligner* aligner) const;
     
     /// Sorts cluster pairs and removes copies of the same cluster pair, choosing only the one whose distance
     /// is closest to the optimal separation
@@ -221,7 +221,7 @@ class MEMClusterer::HitGraph {
 public:
     
     /// Initializes nodes in the hit graph, but does not add edges
-    HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
+    HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
              size_t min_mem_length = 1);
     
     /// Add an edge
@@ -229,7 +229,7 @@ public:
     
     /// Returns the top scoring connected components
     vector<cluster_t> clusters(const Alignment& alignment,
-                               BaseAligner* aligner,
+                               const GSSWAligner* aligner,
                                int32_t max_qual_score,
                                int32_t log_likelihood_approx_factor,
                                size_t min_median_mem_coverage_for_split,
@@ -521,7 +521,7 @@ private:
                                                            const vector<MaximalExactMatch>& mems);
     
     /// Concrete implementation of virtual method from MEMClusterer
-    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
                             size_t min_mem_length);
     
     OrientedDistanceMeasurer& distance_measurer;
@@ -623,7 +623,7 @@ public:
 private:
     
     /// Concrete implementation of virtual method from MEMClusterer
-    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
                             size_t min_mem_length);
     
     TargetValueSearch tvs;
