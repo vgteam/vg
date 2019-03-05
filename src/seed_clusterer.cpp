@@ -7,7 +7,7 @@ namespace vg {
     SnarlSeedClusterer::SnarlSeedClusterer() {
     };
 
-    vector<size_t> SnarlSeedClusterer::cluster_seeds ( 
+    vector<hash_set<size_t>> SnarlSeedClusterer::cluster_seeds ( 
                   vector<pos_t> seeds, size_t distance_limit,
                   SnarlManager& snarl_manager, DistanceIndex& dist_index ){
         /* Given a vector of seeds and a limit, find a clustering of seeds where
@@ -15,7 +15,6 @@ namespace vg {
          * Returns a vector of cluster assignments 
          */ 
 
-        vector<size_t> cluster_assignments (seeds.size(), 0); 
 
         //Map snarl tree node to positions it contains, empty set if its child has seeds
         hash_set< const Chain* > chains_with_seeds;
@@ -45,6 +44,7 @@ namespace vg {
         const vector<const Snarl*>& top_snarls = 
                                                snarl_manager.top_level_snarls();
         unordered_set<const Snarl*> seen_snarls;
+        vector<hash_set<size_t>> cluster_assignments; 
         for (const Snarl* root_snarl : top_snarls) {
             //Find clusters for each disconnected snarl/chain
 
@@ -68,11 +68,8 @@ namespace vg {
 
             for (size_t i = 0 ; i < clusters.size() ; i++) {
                 SnarlSeedClusterer::cluster_t cluster = clusters[i]; 
-                for (size_t seed_i : cluster.seeds) {
-                    assert(cluster_assignments[seed_i] == 0 ||
-                            cluster_assignments[seed_i] == i);//TODO: remove this, also the second part shouldn't be true but ok if it is
-                    cluster_assignments[seed_i] = i;
-                }
+                hash_set<size_t> seeds = move( cluster.seeds);
+                cluster_assignments.push_back(seeds); 
             }
         }
         return cluster_assignments;

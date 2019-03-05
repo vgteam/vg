@@ -1894,7 +1894,7 @@ DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di,
     //Get distance vector
     distances.resize((((numNodes+1) *numNodes) / 2) + (numNodes / 2));
     size_t j = 0;
-    for (size_t i = numNodes + 4; i < v.size(); i++) {
+    for (size_t i = numNodes/2 + 4; i < v.size(); i++) {
 
         distances[j++] = v[i];
 
@@ -1905,13 +1905,13 @@ DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di,
 
  vector<int64_t>DistanceIndex::SnarlIndex::toVector() {
     /*Convert contents of object to vector for serialization
-      Vector contains a header of four ints: #nodes, start node, end node
+      Vector contains a header of four ints: #nodes, start node, end node, parent
                   a vector representing visitToIndex [node1, node2, ...] where                          the nodes are ordered by the index they map to
                   a vector representing distances*/
 
     vector<int64_t> v;// v (1, 0, sizeof(int64_t));
-    size_t numNodes = visitToIndex.size();//number of node+directions
-    v.resize(numNodes + distances.size() + 3); //store map, distances, header
+    size_t numNodes = visitToIndex.size();//number of nodes
+    v.resize(numNodes + distances.size() + 4); //store map, distances, header
 
     v[0] = (int64_t) numNodes;
     v[1] = snarlStart.second ? -(int64_t) snarlStart.first :
@@ -2246,17 +2246,19 @@ vector<int64_t> DistanceIndex::ChainIndex::toVector() {
     v.resize(numNodes * 4 + 2);
     v[0] = chainStartID;
     v[1] = chainEndID;
+    v[2] =  parent.second ? -(int64_t) parent.first :
+                                                 (int64_t) parent.first;
 
     for (int i = 0 ; i < numNodes ; i++) {
-        v[4*i + 3] = prefixSum[i];
-        v[4*i + 4] = loopFd[i];
-        v[4*i + 5] = loopRev[i];
+        v[4*i + 4] = prefixSum[i];
+        v[4*i + 5] = loopFd[i];
+        v[4*i + 6] = loopRev[i];
     }
    
     for (pair<id_t, size_t> p : snarlToIndex) {
-        v[p.second * 4 + 2] = (int64_t) p.first; 
+        v[p.second * 4 + 3] = (int64_t) p.first; 
     }
-    if (loops) {v[(numNodes-1) * 4 + 2] = v[0];} //Last node id is first
+    if (loops) {v[(numNodes-1) * 4 + 3] = v[0];} //Last node id is first
    
     return v;
 
