@@ -14,7 +14,7 @@
 
 #include "../vg.hpp"
 #include "../translator.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 
 using namespace std;
 using namespace vg;

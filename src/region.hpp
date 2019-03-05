@@ -37,7 +37,8 @@ inline void parse_region(string& region,
 // So bedline "chr1   5   10" will return start=5 stop=9
 void parse_bed_regions(
     const string& bed_path,
-    vector<Region>& out_regions);
+    vector<Region>& out_regions,
+    vector<string>* out_names = nullptr);
     
 }    
 

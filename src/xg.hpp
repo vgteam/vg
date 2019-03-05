@@ -122,9 +122,10 @@ public:
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
     void load(istream& in);
+    // Save this XG index to a stream.
     size_t serialize(std::ostream& out,
                      sdsl::structure_tree_node* v = NULL,
-                     std::string name = "");
+                     std::string name = "") const;
                      
     
     ////////////////////////////////////////////////////////////////////////////
@@ -209,8 +210,6 @@ public:
     
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
-    // Copy over the visit version which would otherwise be shadowed.
-    using HandleGraph::get_handle;
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
     /// Get the orientation of a handle
@@ -225,12 +224,10 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-    // Copy over the tamplate version
-    using HandleGraph::for_each_handle;
+    virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
     /// Get the minimum node ID used in the graph, if any are used
@@ -259,7 +256,7 @@ public:
     /// Returns the number of paths stored in the graph
     virtual size_t get_path_count() const;
     /// Execute a function on each path in the graph
-    virtual void for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const;
+    virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
     virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
     /// Get a handle to the first occurrence in a path
@@ -276,10 +273,8 @@ public:
     virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns a vector of all occurrences of a node on paths. Optionally restricts to
-    /// occurrences that match the handle in orientation.
-    virtual vector<occurrence_handle_t> occurrences_of_handle(const handle_t& handle,
-                                                              bool match_orientation = false) const;
+    /// Executes a function on each occurrence of a handle in any path.
+    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -912,7 +907,7 @@ Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse
 void to_text(ostream& out, Graph& graph);
 
 // Serialize a rank_select_int_vector in an SDSL serialization compatible way. Returns the number of bytes written.
-size_t serialize(XG::rank_select_int_vector& to_serialize, ostream& out,
+size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name);
 
 // Deserialize a rank_select_int_vector in an SDSL serialization compatible way.

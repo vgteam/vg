@@ -7,7 +7,7 @@
 
 #include "subcommand.hpp"
 
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
 #include "../constructor.hpp"
 #include "../msa_converter.hpp"
 #include "../region.hpp"

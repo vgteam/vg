@@ -47,14 +47,14 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee
     /// returns false. Can be told to run in parallel, in which case stopping
     /// after a false return value is on a best-effort basis and iteration
     /// order is not defined.
-    virtual void for_each_handle(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    virtual bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
@@ -67,6 +67,9 @@ public:
     /// Return the largest ID in the graph, or some larger number if the
     /// largest ID is unavailable. Return value is unspecified if the graph is empty.
     virtual id_t max_node_id(void) const;
+    
+    /// Efficiently get the number of edges attached to one side of a handle.
+    virtual size_t get_degree(const handle_t& handle, bool go_left) const;
 
     /// Create a new node with the given sequence and return the handle.
     virtual handle_t create_handle(const std::string& sequence);
@@ -145,8 +148,7 @@ public:
     virtual size_t get_path_count() const;
 
     /// Execute a function on each path in the graph
-    // TODO: allow stopping early?
-    virtual void for_each_path_handle(const std::function<void(const path_handle_t&)>& iteratee) const;
+    virtual bool for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const;
 
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
     virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
@@ -174,10 +176,9 @@ public:
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
-    /// Returns a vector of all occurrences of a node on paths. Optionally restricts to
-    /// occurrences that match the handle in orientation.
-    virtual vector<occurrence_handle_t> occurrences_of_handle(const handle_t& handle,
-                                                              bool match_orientation = false) const;
+    /// Calls a function with all occurrences of a node on paths.
+    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle,
+                                                    const function<bool(const occurrence_handle_t&)>& iteratee) const;
     
     /**
      * Destroy the given path. Invalidates handles to the path and its node occurrences.
@@ -232,7 +233,7 @@ private:
         path_t() {}
         path_t(const string& name, const int64_t& path_id) : name(name), path_id(path_id) {}
         
-        // Move constructor
+        /// Move constructor
         path_t(path_t&& other) : head(other.head), tail(other.tail), path_id(other.path_id), count(other.count), name(move(other.name)) {
             
             other.head = nullptr;
@@ -241,7 +242,7 @@ private:
             other.count = 0;
         }
         
-        // Move assignment
+        /// Move assignment
         path_t& operator=(path_t&& other) {
             if (this != &other) {
                 // free existing list
@@ -264,6 +265,61 @@ private:
                 
                 count = other.count;
                 other.count = 0;
+            }
+            return *this;
+        }
+        
+        /// Copy constructor
+        path_t(const path_t& other) : path_id(other.path_id), count(other.count), name(other.name) {
+            
+            path_mapping_t* prev = nullptr;
+            for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+                
+                path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
+                
+                if (!head) {
+                    head = copied;
+                }
+                if (prev) {
+                    prev->next = copied;
+                    copied->prev = prev;
+                }
+                prev = copied;
+            }
+            tail = prev;
+        }
+        
+        /// Copy assignment
+        path_t& operator=(const path_t& other) {
+            if (this != &other) {
+                // free existing list
+                for (path_mapping_t* mapping = head; mapping != nullptr;) {
+                    path_mapping_t* next = mapping->next;
+                    delete mapping;
+                    mapping = next;
+                }
+                
+                // copy the other list
+                path_mapping_t* prev = nullptr;
+                for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+                    
+                    path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
+                    
+                    if (!head) {
+                        head = copied;
+                    }
+                    if (prev) {
+                        prev->next = copied;
+                        copied->prev = prev;
+                    }
+                    prev = copied;
+                }
+                tail = prev;
+                
+                // copy the rest of the info
+                path_id = other.path_id;
+                name = other.name;
+                count = other.count;
             }
             return *this;
         }

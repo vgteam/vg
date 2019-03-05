@@ -18,7 +18,9 @@ SAVE_DOCKER=""
 LOAD_DOCKER=""
 # What tag will our Docker use?
 # We need exclusive control of the Docker daemon for the duration of the test, so nobody moves it!
-DOCKER_TAG="vgci-docker-vg-local"
+DOCKER_TAG=""
+# If not specified, use this default
+DOCKER_TAG_DEFAULT="vgci-docker-vg-local"
 # Should we re-use and keep around the same virtualenv?
 REUSE_VENV=0
 # Should we keep our test output around after uploading the new baseline?
@@ -28,7 +30,7 @@ KEEP_INTERMEDIATE_FILES=0
 # Should we show stdout and stderr from tests? If so, set to "-s".
 SHOW_OPT=""
 # What toil-vg should we install?
-TOIL_VG_PACKAGE="git+https://github.com/adamnovak/toil-vg.git@f04a21197cef57dc42a09e4f4d142baabd7c92bd"
+TOIL_VG_PACKAGE="git+https://github.com/vgteam/toil-vg.git@5947af96d806daebd56894b63fc82595a30f545f"
 # What toil should we install?
 # Could be something like "toil[aws,mesos]==3.13.0"
 # or "git+https://github.com/adamnovak/toil.git@2b696bec34fa1381afdcf187456571d2b41f3842#egg=toil[aws,mesos]"
@@ -63,6 +65,7 @@ usage() {
     printf "\t\t\tNon-Python dependencies must be installed.\n"
     printf "\t-d FILE\tSave built Docker to the given file.\n"
     printf "\t-D FILE\tLoad a previously built Docker from a file instead of building.\n"
+    printf "\t-T TAG\tLoad a previously built Docker from the given tag/specifier instead of building.\n"
     printf "\t-r\t\tRe-use virtualenvs across script invocations. \n"
     printf "\t-k\t\tKeep on-disk output from tests. \n"
     printf "\t-i\t\tKeep intermediate on-disk output from tests. \n"
@@ -70,14 +73,14 @@ usage() {
     printf "\t-p PACKAGE\tUse the given Python package specifier to install toil-vg.\n"
     printf "\t-t TESTSPEC\tUse the given PyTest test specifier to select tests to run, or 'None' for no tests.\n"
     printf "\t-w WORKDIR\tOutput test result data to the given absolute or ./ path (also used for scratch)\n"
-    printf "\t-W WORKDIR\Load test result data to the given path instead of building or running tests\n"
+    printf "\t-W WORKDIR\tLoad test result data from the given path instead of building or running tests\n"
     printf "\t-j FILE\tSave the JUnit test report XML to the given file (default: test-report.xml)\n"
     printf "\t-J FILE\tLoad the JUnit test report from the given file instead of building or running tests\n"
     printf "\t-H\tSkip generating HTML report based on JUnit report\n"
     exit 1
 }
 
-while getopts "ld:D:rkisp:t:w:W:j:J:H" o; do
+while getopts "ld:D:T:rkisp:t:w:W:j:J:H" o; do
     case "${o}" in
         l)
             LOCAL_BUILD=1
@@ -87,6 +90,9 @@ while getopts "ld:D:rkisp:t:w:W:j:J:H" o; do
             ;;
         D)
             LOAD_DOCKER="${OPTARG}"
+            ;;
+        T)
+            DOCKER_TAG="${OPTARG}"
             ;;
         r)
             REUSE_VENV=1
@@ -164,6 +170,15 @@ if [ ! -z "${LOAD_DOCKER}" ]
 then
     # Skip the build phase
     DO_BUILD=0
+fi
+
+if [ ! -z "${DOCKER_TAG}" ]
+then
+    # Skip build and use this tag
+    DO_BUILD=0
+else
+    # Use the default tag
+    DOCKER_TAG="${DOCKER_TAG_DEFAULT}"
 fi
 
 if [ "${PYTEST_TEST_SPEC}" == "None" ]
@@ -273,6 +288,20 @@ then
     # TEST PREP PHASE
     #########
 
+    # Make sure we have the aws command. We only need it in this case.
+    mkdir -p bin
+
+    # Create awscli venv
+    if [ ! "${REUSE_VENV}" == "1" ]; then
+        rm -rf awscli
+    fi
+    if [ ! -e awscli ]; then
+        virtualenv --never-download awscli && awscli/bin/pip install awscli
+    fi
+    # Expose binaries to the PATH
+    ln -snf ${PWD}/awscli/bin/aws bin/
+    export PATH=$PATH:${PWD}/bin
+
     # Create Toil venv
     if [ ! "${REUSE_VENV}" == "1" ]; then
         rm -rf .env
@@ -305,7 +334,6 @@ then
     pip install requests
     pip install timeout_decorator
     pip install pytest
-    pip install pygithub
 
     # Install Toil
     echo "Installing toil from ${TOIL_PACKAGE}"
@@ -326,7 +354,7 @@ then
         echo "pip install toil-vg fail"
         exit 1
     fi
-
+    
     #########
     # TEST PHASE
     #########
@@ -375,6 +403,23 @@ then
         cp test-report.xml "${SAVE_JUNIT}" || touch "${SAVE_JUNIT}"
     fi
     
+    if [ ! -z "${CI}" ] && [ "${TEST_FAIL}" != 0 ]
+    then
+        # We are running on cloud CI (and not manually running the tests), so
+        # we probably have AWS and Github credentials and can upload stuff to S3.
+        # A test faled, so we should make sure we upload its outstore for debugging.
+        # TODO: If we get the report job to always run and include this, maybe we don't need individual uploads too.
+        
+        # Upload the results of this test in particular, as soon as it is done, instead of waiting for the final report job to do it.
+        tar czf "test_output.tar.gz" "${SAVE_WORK_DIR}/" test-report.xml
+        DEST_URL="${OUTPUT_DESTINATION}/vgci_output_archives/${VG_VERSION}/${CI_PIPELINE_ID}/${CI_JOB_ID}/test_output.tar.gz"
+        aws s3 cp --only-show-errors \
+            "test_output.tar.gz" "${DEST_URL}" \
+            --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
+        
+        echo "Test(s) failed. Output is available at ${DEST_URL}"
+    fi
+
     # Load from the work directory we saved to
     LOAD_WORK_DIR="${SAVE_WORK_DIR:-./vgci-work}"
 fi
@@ -397,17 +442,22 @@ then
     # We need a local bin directory to put on our path.
     # The vg build makes this but we may not have run it.
     mkdir -p bin
-
-    # Create awscli venv
-    if [ ! "${REUSE_VENV}" == "1" ]; then
-        rm -rf awscli
+    
+    if [ "${DO_TEST}" == "0" ]; then
+        # We didn't get this installed already from the test prep phase.
+    
+        # Create awscli venv
+        if [ ! "${REUSE_VENV}" == "1" ]; then
+            rm -rf awscli
+        fi
+        if [ ! -e awscli ]; then
+            virtualenv --never-download awscli && awscli/bin/pip install awscli
+        fi
+        # Expose binaries to the PATH
+        ln -snf ${PWD}/awscli/bin/aws bin/
+        export PATH=$PATH:${PWD}/bin
+        
     fi
-    if [ ! -e awscli ]; then
-        virtualenv --never-download awscli && awscli/bin/pip install awscli
-    fi
-    # Expose binaries to the PATH
-    ln -snf ${PWD}/awscli/bin/aws bin/
-    export PATH=$PATH:${PWD}/bin
 
     # Create s3am venv
     if [ ! "${REUSE_VENV}" == "1" ]; then
@@ -420,6 +470,9 @@ then
     # Expose binaries to the PATH
     ln -snf ${PWD}/s3am/bin/s3am bin/
     export PATH=$PATH:${PWD}/bin
+    
+    # Make sure we have pygithub available
+    pip install pygithub
 
     #########
     # REPORT PHASE
@@ -455,8 +508,7 @@ then
             # Test the Dockerized vg
             VG_VERSION=`docker run ${DOCKER_TAG} vg version -s`
         fi
-            
-
+        
         # we publish the results to the archive
         tar czf "${VG_VERSION}_output.tar.gz" "${LOAD_WORK_DIR}/" test-report.xml vgci/vgci.py vgci/vgci.sh vgci_cfg.tsv
         aws s3 cp --only-show-errors \

@@ -14,7 +14,8 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
-#include "stream.hpp"
+#include "stream/protobuf_emitter.hpp"
+#include "stream/protobuf_iterator.hpp"
 #include "vg.hpp"
 #include "handle.hpp"
 #include "vg.pb.h"
@@ -277,8 +278,6 @@ public:
     
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
-    // Copy over the visit version which would otherwise be shadowed.
-    using HandleGraph::get_handle;
         
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
@@ -299,17 +298,11 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
-        
-    // Copy over the template for nice calls
-    using HandleGraph::follow_edges;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
         
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-        
-    // Copy over the template for nice calls
-    using HandleGraph::for_each_handle;
+    virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
@@ -711,6 +704,9 @@ inline Visit to_visit(id_t node_id, bool is_reverse);
     
 /// Make a Visit from a snarl to traverse
 inline Visit to_visit(const Snarl& snarl);
+
+/// Make a Visit from a handle in a HandleGraph.
+inline Visit to_visit(const handlegraph::HandleGraph& graph, const handle_t& handle);
     
 /// Get the reversed version of a visit
 inline Visit reverse(const Visit& visit);
@@ -885,6 +881,10 @@ inline Visit to_visit(const Snarl& snarl) {
     *to_return.mutable_snarl()->mutable_start() = snarl.start();
     *to_return.mutable_snarl()->mutable_end() = snarl.end();
     return to_return;
+}
+
+inline Visit to_visit(const handlegraph::HandleGraph& graph, const handle_t& handle) {
+    return to_visit(graph.get_id(handle), graph.get_is_reverse(handle));
 }
     
 inline Visit reverse(const Visit& visit) {

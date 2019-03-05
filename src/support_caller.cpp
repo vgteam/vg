@@ -18,7 +18,7 @@
 #include "path.hpp"
 #include "path_index.hpp"
 #include "support_caller.hpp"
-#include "stream.hpp"
+#include "stream/stream.hpp"
 #include "nested_traversal_finder.hpp"
 
 //#define debug
@@ -351,7 +351,7 @@ const string& SupportCaller::PrimaryPath::get_name() const {
     return name;
 }
 
-map<string, SupportCaller::PrimaryPath>::iterator SupportCaller::find_path(const Snarl& site, map<string, PrimaryPath>& primary_paths) {
+map<string, SupportCaller::PrimaryPath>::iterator SupportCaller::find_path(const Snarl& site) {
     for(auto i = primary_paths.begin(); i != primary_paths.end(); ++i) {
         // Scan the whole map with an iterator
         
@@ -364,6 +364,38 @@ map<string, SupportCaller::PrimaryPath>::iterator SupportCaller::find_path(const
     // Otherwise we hit the end and found no path that this site can be strung
     // on.
     return primary_paths.end();
+}
+
+size_t SupportCaller::get_deletion_length(const NodeSide& end1, const NodeSide& end2,
+                                          SupportAugmentedGraph& augmented) {
+    
+    for(auto i = primary_paths.begin(); i != primary_paths.end(); ++i) {
+        // Scan the whole map with an iterator
+
+        map<int64_t, pair<size_t, bool>>& idx = i->second.get_index().by_id;
+        map<int64_t, pair<size_t, bool>>::iterator idx_it1 = idx.find(end1.node);
+        map<int64_t, pair<size_t, bool>>::iterator  idx_it2 = idx_it1 != idx.end() ? idx.find(end2.node) : idx.end();
+        
+        if (idx_it1 != idx.end() && idx_it2 != idx.end()) {
+
+            // find the positions of our nodesides in the path.
+            size_t pos1 = idx_it1->second.first;
+            if (end1.is_end != idx_it1->second.second) {
+                pos1 += augmented.graph.get_length(augmented.graph.get_handle(idx_it1->first));
+            }
+            size_t pos2 = idx_it2->second.first;
+            if (end2.is_end != idx_it2->second.second) {
+                pos2 += augmented.graph.get_length(augmented.graph.get_handle(idx_it2->first));
+            }
+
+            if (pos1 > pos2) {
+                std::swap(pos1, pos2);
+            }
+            return pos2 - pos1;
+        }
+    }
+    
+    return 0;
 }
 
 /**
@@ -415,13 +447,13 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
 
 /**
  * Get the min support, total support, bp size (to divide total by for average
- * support), and min likelihood for a traversal, optionally special-casing the
+ * support), and fraction of unsupported edges for a traversal, optionally special-casing the
  * material used by another traversal. Material used by another traversal only
  * makes half its coverage available to this traversal.
  */
-tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& augmented,
+tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
-    const SnarlTraversal* already_used = nullptr) {
+    const SnarlTraversal* already_used, const SnarlTraversal* ref_traversal) {
 
 #ifdef debug
     cerr << "Evaluate traversal: " << endl;
@@ -450,7 +482,21 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
             shared_children.insert(child);
         });
     }
-    
+
+    // And the reference stuff we want to average out separately
+    set<id_t> ref_nodes;
+    set<Snarl> ref_children;
+    set<Edge*> ref_edges;
+    if (ref_traversal != nullptr && ref_traversal != &traversal) {
+        // Mark all the nodes and edges that the ref traverasl uses.
+        trace_traversal(*ref_traversal, site, [&](size_t i, id_t node, bool is_reverse) {
+            ref_nodes.insert(node);
+        }, [&](size_t i, NodeSide end1, NodeSide end2) {
+            ref_edges.insert(augmented.graph.get_edge(end1, end2));
+        }, [&](size_t i, Snarl child, bool is_reverse) {
+            ref_children.insert(child);
+        });
+    }    
     
     // Compute min and total supports, and bp sizes, for all the visits by
     // number.
@@ -463,6 +509,9 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
     vector<Support> total_supports(record_count, Support());
     // And the bp size of each visit
     vector<size_t> visit_sizes(record_count, 0);
+    // Keep reference-overlapping support separate
+    vector<Support> total_ref_supports(record_count, Support());
+    vector<size_t> ref_visit_sizes(record_count, 0);
     
     // Don't count nodes shared between child snarls more than once.
     set<Node*> coverage_counted;
@@ -484,10 +533,15 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
         cerr << "From node " << node->id() << " get " << got_support << endl;
 #endif
 
-        total_supports[i] += got_support;
-        
-        // And its size
-        visit_sizes[i] += node->sequence().size();
+        if (!ref_nodes.count(node_id)) {
+            // update totals for averaging
+            total_supports[i] += got_support;
+            visit_sizes[i] += node->sequence().size();
+        } else {
+            // reference-overlapping support kept separate for later filters
+            total_ref_supports[i] += got_support;
+            ref_visit_sizes[i] += node->sequence().size();
+        }
         
         // And update its min support
         min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * (shared_nodes.count(node_id) ? 0.5 : 1.0));
@@ -496,10 +550,14 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
         // This is an edge
         Edge* edge = augmented.graph.get_edge(end1, end2);
         assert(edge != nullptr);
-        
+
+        // edges between adjacent nodes or ones that go off primary path count for size 1
+        // otherwise, they count as the number of deleted bases on the primary path
+        size_t edge_size = max(1UL, get_deletion_length(end1, end2, augmented));
+
         // Count as 1 base worth for the total/average support
         // Make sure to only use half the support if the edge is shared
-        auto got_support = augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
+        auto got_support = (double)edge_size * augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
         
         if (end1.node > end2.node || (end1.node == end2.node && !end1.is_end)) {
             // We follow the edge backward, from high ID to low ID, or backward around a normal self loop.
@@ -513,12 +571,16 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
             << edge->to() << " " << edge->to_end() << " get " << got_support << endl;
 #endif
 
-        total_supports[i] += got_support;
-        
-        visit_sizes[i] += 1;
+        if (!ref_edges.count(edge)) {
+            total_supports[i] += got_support;
+            visit_sizes[i] += edge_size;
+        } else {
+            total_ref_supports[i] += got_support;
+            ref_visit_sizes[i] += edge_size;
+        }
         
         // Min in its support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));        
     }, [&](size_t i, Snarl child, bool is_reverse) {
         // This is a child snarl, so get its max support.
         
@@ -562,8 +624,13 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
         }
         
         // Smoosh support over the whole child
-        total_supports[i] += child_max * child_size;
-        visit_sizes[i] += child_size;
+        if (!ref_children.count(child)) {
+            total_supports[i] += child_max * child_size;
+            visit_sizes[i] += child_size;
+        } else {
+            total_ref_supports[i] += child_max * child_size;
+            ref_visit_sizes[i] += child_size;
+        }            
         
         if (child_size != 0) {
             // We actually have some nodes to our name.
@@ -585,6 +652,27 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
     for (auto& size : visit_sizes) {
         total_size += size;
     }
+
+    // If we are looking at a non-ref traversal, we ignore the reference support
+    // if it's higher than the non-reference support for the purposes of computing
+    // average support.  This is to prevent spurious calls when the actual variant
+    // has low support, but most of the bases in the traversal are shared with the
+    // well-supported reference. 
+    if (!ref_nodes.empty() || !ref_edges.empty() || !ref_children.empty()) {
+        Support total_ref_support;
+        for (auto& support : total_ref_supports) {
+            total_ref_support += support;
+        }
+        size_t total_ref_size = 0;
+        for (auto& size : ref_visit_sizes) {
+            total_ref_size += size;
+        }
+        if (support_val(total_ref_support) / total_ref_size <=
+            support_val(total_support) / total_size) {
+            total_support += total_ref_support;
+            total_size += total_ref_size;
+        }
+    }
     
     // And the min support?
     Support min_support = make_support(INFINITY, INFINITY, INFINITY);
@@ -603,7 +691,9 @@ tuple<Support, Support, size_t> get_traversal_support(SupportAugmentedGraph& aug
 }
 
 /** Get the support for each traversal in a list, using average_support_switch_threshold
-    to decide if we use the minimum or average */
+    to decide if we use the minimum or average.  Apply the min_supported_edges cutoff
+    to set support to 0 if not enough edges were supported.
+*/
 tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_and_sizes(
     SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
     const vector<SnarlTraversal>& traversals, const SnarlTraversal* minus_traversal) {
@@ -630,7 +720,7 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
         Support min_support;
         // Trace the traversal and get its support
         tie(min_support, total_support, total_size) = get_traversal_support(
-            augmented, snarl_manager, site, traversal, minus_traversal);
+            augmented, snarl_manager, site, traversal, minus_traversal, &traversals.front());
             
         // Add average and min supports to vectors. Note that average support
         // ignores edges.
@@ -1130,7 +1220,7 @@ void SupportCaller::call(
     
     // We'll fill this in with a PrimaryPath for every primary reference path
     // that is specified or detected.
-    map<string, PrimaryPath> primary_paths;
+    primary_paths.clear();
     for (auto& name : primary_path_names) {
         // Make a PrimaryPath for every primary path we have.
         // Index the primary path and compute the binned supports.   
@@ -1252,7 +1342,7 @@ void SupportCaller::call(
         // corresponding PrimaryPath object. Otherwise, leave this null.
         PrimaryPath* primary_path = nullptr;
         {
-            auto found = find_path(*site, primary_paths);
+            auto found = find_path(*site);
             if (found != primary_paths.end()) {
                 primary_path = &found->second;
             }
@@ -1334,7 +1424,7 @@ void SupportCaller::call(
                                                    [&] (const Snarl& site) -> PathIndex* {
         
         // When the TraversalFinder needs a primary path index for a site, it can look it up with this function.
-        auto found = find_path(site, primary_paths);
+        auto found = find_path(site);
         if (found != primary_paths.end()) {
             // It's on a path
             return &found->second.get_index();
@@ -1360,7 +1450,7 @@ void SupportCaller::call(
         // For every site, we're going to make a bunch of Locus objects
         
         // See if the site is on a primary path, so we can use binned support.
-        map<string, PrimaryPath>::iterator found_path = find_path(*site, primary_paths);
+        map<string, PrimaryPath>::iterator found_path = find_path(*site);
         
         // We need to figure out how much support a site ought to have.
         // Within its local bin?
@@ -1823,7 +1913,7 @@ void SupportCaller::call(
         
         // Recursively type the site, using that support and an assumption of a diploid sample.
         find_best_traversals(augmented, site_manager, &traversal_finder, *site, baseline_support, 2,
-            [&locus_buffer, &emit_variant, &site_manager, &called_loci, &primary_paths, &augmented,
+            [&locus_buffer, &emit_variant, &site_manager, &called_loci, &augmented,
             &covered_nodes, &covered_edges, this](const Locus& locus, const Snarl* site) {
             
             // Now we have the Locus with call information, and the site (either
@@ -1834,7 +1924,7 @@ void SupportCaller::call(
                 // We want to emit VCF
                 
                 // Look up the path this child site lives on. (TODO: just capture and use the path the parent lives on?)
-                auto found_path = find_path(*site, primary_paths);
+                auto found_path = find_path(*site);
                 if(found_path != primary_paths.end()) {
                     // And this site is on a primary path
                     

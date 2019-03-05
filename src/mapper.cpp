@@ -1923,22 +1923,51 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
                                              // xdrop_alignment*/);
         }
     } else {
-        // we've got an id-sortable graph and we can directly align with gssw
+        // we've got an id-sortable graph so we can avoid recomputing the topological order
+        // later because we know that we called sort_by_id_dedup_and_clean, which put it in
+        // topological order by ID
+        
         aligned = aln;
         if (banded_global) {
+            // the banded global alignment no longer constructs an internal representation of the graph
+            // for topological sorting, etc., instead counting on the HandleGraph to do that itself. accordingly
+            // we need a more serious/performant implementation of a graph here
+            VG align_graph(graph);
+            
             size_t max_span = aln.sequence().size();
             size_t band_padding_override = 0;
             bool permissive_banding = (band_padding_override == 0);
             size_t band_padding = permissive_banding ? max(max_span, (size_t) 1) : band_padding_override;
-            get_aligner(!aln.quality().empty())->align_global_banded(aligned, graph, band_padding, false);
+            get_aligner(!aln.quality().empty())->align_global_banded(aligned, align_graph, band_padding, false);
         } else if (pinned_alignment) {
-            get_aligner(!aln.quality().empty())->align_pinned(aligned, graph, pin_left);
+            // pinned alignment is based on gssw, which takes a HandleGraph, but only uses it for sorting and
+            // for constructing its own graph representation. we can improve efficiency by taking advantage of
+            // the internal sort order and a thin shim into the HandleGraph interface
+            ProtoHandleGraph proto_handle_graph(&graph);
+            // construct a topological order manually using the internal sort order
+            vector<handle_t> topological_order(graph.node_size());
+            for (size_t i = 0; i < graph.node_size(); i++) {
+                topological_order[i] = proto_handle_graph.get_handle_by_index(i);
+            }
+            get_aligner(!aln.quality().empty())->align_pinned(aligned, proto_handle_graph, topological_order, pin_left);
         } else if (xdrop_alignment) {
+            // we'll still use the Protobuf graph for the X-drop aligner, which hasn't been transitioned
+            // to HandleGraphs yet
+            
             // directly call alignment function without node translation
             // cerr << "X-drop alignment, (" << xdrop_alignment << "), rev(" << ((xdrop_alignment == 1) ? false : true) << ")" << endl;
             get_aligner(!aln.quality().empty())->align_xdrop(aligned, graph, mems, (xdrop_alignment == 1) ? false : true, alignment_threads > 1);
         } else {
-            get_aligner(!aln.quality().empty())->align(aligned, graph, traceback, false);
+            // local alignment is based on gssw, which takes a HandleGraph, but only uses it for sorting and
+            // for constructing its own graph representation. we can improve efficiency by taking advantage of
+            // the internal sort order and a thin shim into the HandleGraph interface
+            ProtoHandleGraph proto_handle_graph(&graph);
+            // construct a topological order manually using the internal sort order
+            vector<handle_t> topological_order(graph.node_size());
+            for (size_t i = 0; i < graph.node_size(); i++) {
+                topological_order[i] = proto_handle_graph.get_handle_by_index(i);
+            }
+            get_aligner(!aln.quality().empty())->align(aligned, proto_handle_graph, topological_order, traceback, false);
         }
     }
     if (traceback && !keep_bonuses && aligned.score()) {
@@ -2153,7 +2182,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried2 = true;
-            //write_alignment_to_file(aln2, "rescue-" + h + ".gam");
+            //stream::write_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
@@ -2173,7 +2202,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried1 = true;
-            //write_alignment_to_file(aln1, "rescue-" + h + ".gam");
+            //stream::write_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
@@ -3843,7 +3872,7 @@ bool Mapper::check_alignment(const Alignment& aln) {
                  << "expect:\t" << aln.sequence() << endl
                  << "got:\t" << seq << endl;
             // save alignment
-            write_alignment_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
+            stream::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
             // save graph, bigger fragment
             xindex->expand_context(sub, 5, true);
             VG gn; gn.extend(sub);

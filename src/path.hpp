@@ -7,7 +7,6 @@
 #include <set>
 #include <list>
 #include <sstream>
-#include <regex>
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "edit.hpp"
@@ -43,8 +42,9 @@ ostream& operator<<(ostream& out, mapping_t mapping);
 class Paths {
 public:
 
-    // This regex matches the names of alt paths.
-    const static std::regex is_alt;
+    // This predicate matches the names of alt paths.
+    // We used to use a regex but that's a very slow way to check a prefix.
+    const static function<bool(const string&)> is_alt;
 
     Paths(void);
 
@@ -225,6 +225,9 @@ public:
     void for_each(const function<void(const Path&)>& lambda);
     // Loop over the names of paths without actually extracting the Path objects.
     void for_each_name(const function<void(const string&)>& lambda) const;
+    // Like for_each_name but allows stopping early.
+    // TODO: Use the libhandlegraph unified iteratee pattern here.
+    bool for_each_name_stoppable(const function<bool(const string&)>& lambda) const;
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
     // Replace the node IDs used as keys with those used as values.
@@ -341,9 +344,9 @@ pos_t final_position(const Path& path);
 // Turn a list of node traversals into a path
 Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
-// Remove the paths with names matching the regex from the graph.
+// Remove the paths with names matching the predicate from the graph.
 // Store them in the list unless it is nullptr.
-void remove_paths(Graph& graph, const std::regex& paths_to_take, std::list<Path>* matching);
+void remove_paths(Graph& graph, const function<bool(const string&)>& paths_to_take, std::list<Path>* matching);
 
 }
 

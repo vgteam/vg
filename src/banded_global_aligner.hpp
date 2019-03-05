@@ -16,7 +16,9 @@
 #include <unordered_map>
 #include <list>
 #include <exception>
-#include "vg.pb.h"
+
+#include "handle.hpp"
+#include "algorithms/topological_sort.hpp"
 
 
 using namespace std;
@@ -53,7 +55,7 @@ namespace vg {
         ///  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
         ///  adjust_for_base_quality     perform base quality adjusted alignment (see QualAdjAligner)
         ///
-        BandedGlobalAligner(Alignment& alignment, Graph& g,
+        BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             int64_t band_padding, bool permissive_banding = false,
                             bool adjust_for_base_quality = false);
         
@@ -70,7 +72,7 @@ namespace vg {
         ///  band_padding                width to expand band by
         ///  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
         ///  adjust_for_base_quality     perform base quality adjusted alignment (see QualAdjAligner)
-        BandedGlobalAligner(Alignment& alignment, Graph& g,
+        BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             vector<Alignment>& alt_alignments, int64_t max_multi_alns,
                             int64_t band_padding, bool permissive_banding = false,
                             bool adjust_for_base_quality = false);
@@ -102,6 +104,7 @@ namespace vg {
         /// Matrices used in Smith-Waterman-Gotoh alignment algorithm
         enum matrix_t {Match, InsertCol, InsertRow};
         
+        const HandleGraph& graph;
         /// The primary alignment
         Alignment& alignment;
         /// Vector for alternate alignments, or null if not making any
@@ -117,14 +120,14 @@ namespace vg {
         /// Map from node IDs to the index used in internal vectors
         unordered_map<int64_t, int64_t> node_id_to_idx;
         /// A topological ordering of the nodes
-        vector<Node*> topological_order;
+        vector<handle_t> topological_order;
         /// Source nodes in the graph
-        unordered_set<Node*> source_nodes;
+        vector<handle_t> source_nodes;
         /// Sink nodes in the graph
-        unordered_set<Node*> sink_nodes;
+        vector<handle_t> sink_nodes;
         
         /// Internal constructor that the public constructors funnel into
-        BandedGlobalAligner(Alignment& alignment, Graph& g,
+        BandedGlobalAligner(Alignment& alignment, const HandleGraph& g,
                             vector<Alignment>* alt_alignments, int64_t max_multi_alns,
                             int64_t band_padding, bool permissive_banding = false,
                             bool adjust_for_base_quality = false);
@@ -132,20 +135,13 @@ namespace vg {
         /// Traceback through dynamic programming matrices to compute alignment
         void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, IntType min_inf);
         
-        /// Constructor helper function: converts Graph object into adjacency list representation
-        void graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list);
-        /// Constructor helper function: compute topoligical ordering
-        void topological_sort(Graph& g, vector<vector<int64_t>>& node_edges_out, vector<Node*>& out_topological_order);
         /// Constructor helper function: compute the longest and shortest path to a sink for each node
-        void path_lengths_to_sinks(const string& read, vector<vector<int64_t>>& node_edges_in,
-                                   vector<int64_t>& shortest_path_to_sink, vector<int64_t>& longest_path_to_sink);
+        void path_lengths_to_sinks(vector<int64_t>& shortest_path_to_sink, vector<int64_t>& longest_path_to_sink);
         /// Constructor helper function: compute which diagonals the bands cover on each node's matrix
-        void find_banded_paths(const string& read, bool permissive_banding, vector<vector<int64_t>>& node_edges_in,
-                               vector<vector<int64_t>>& node_edges_out, int64_t band_padding,
-                               vector<bool>& node_masked, vector<pair<int64_t, int64_t>>& band_ends);
+        void find_banded_paths(bool permissive_banding, int64_t band_padding, vector<bool>& node_masked,
+                               vector<pair<int64_t, int64_t>>& band_ends);
         /// Constructor helper function: compute the shortest path from a source to each node
-        void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, unordered_set<Node*>& source_nodes,
-                                vector<int64_t>& seq_lens_out);
+        void shortest_seq_paths(vector<int64_t>& seq_lens_out);
     };
 
     /**
@@ -156,22 +152,23 @@ namespace vg {
     class BandedGlobalAligner<IntType>::BAMatrix {
         
     public:
-        BAMatrix(Alignment& alignment, Node* node, int64_t top_diag, int64_t bottom_diag,
-                 BAMatrix** seeds, int64_t num_seeds, int64_t cumulative_seq_len);
+        BAMatrix(Alignment& alignment, handle_t node, int64_t top_diag, int64_t bottom_diag,
+                 const vector<BAMatrix*>& seeds, int64_t cumulative_seq_len);
         ~BAMatrix();
         
         /// Use DP to fill the band with alignment scores
-        void fill_matrix(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
-                         IntType min_inf);
+        void fill_matrix(const HandleGraph& graph, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
+                         int8_t gap_extend, bool qual_adjusted, IntType min_inf);
         
         /// Traceback through the band after using DP to fill it
-        void traceback(BABuilder& builder, AltTracebackStack& traceback_stack, matrix_t start_mat, int8_t* score_mat,
-                       int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, IntType min_inf);
+        void traceback(const HandleGraph& graph, BABuilder& builder, AltTracebackStack& traceback_stack,
+                       matrix_t start_mat, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
+                       int8_t gap_extend, bool qual_adjusted, IntType min_inf);
         
         /// Debugging function
-        void print_full_matrices();
+        void print_full_matrices(const HandleGraph& graph);
         /// Debugging function
-        void print_rectangularized_bands();
+        void print_rectangularized_bands(const HandleGraph& graph);
         
     private:
 
@@ -179,7 +176,7 @@ namespace vg {
         int64_t top_diag;
         int64_t bottom_diag;
         
-        Node* node;
+        handle_t node;
         
         Alignment& alignment;
         
@@ -187,8 +184,7 @@ namespace vg {
         int64_t cumulative_seq_len;
         
         /// Matrices for nodes with edges into this node
-        BAMatrix** seeds;
-        int64_t num_seeds;
+        vector<BAMatrix*> seeds;
         
         /// DP matrix
         IntType* match;
@@ -197,15 +193,15 @@ namespace vg {
         /// DP matrix
         IntType* insert_row;
         
-        void traceback_internal(BABuilder& builder, AltTracebackStack& traceback_stack, int64_t start_row,
-                                int64_t start_col, matrix_t start_mat, bool in_lead_gap, int8_t* score_mat,
-                                int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
-                                IntType min_inf);
+        void traceback_internal(const HandleGraph& graph, BABuilder& builder, AltTracebackStack& traceback_stack,
+                                int64_t start_row, int64_t start_col, matrix_t start_mat, bool in_lead_gap,
+                                int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend,
+                                bool qual_adjusted, IntType min_inf);
         
         /// Debugging function
-        void print_matrix(matrix_t which_mat);
+        void print_matrix(const HandleGraph& graph, matrix_t which_mat);
         /// Debugging function
-        void print_band(matrix_t which_mat);
+        void print_band(const HandleGraph& graph, matrix_t which_mat);
         
         friend class BABuilder;
         friend class AltTracebackStack; // not a fan of this one, but constructor ugly without it
@@ -220,7 +216,7 @@ namespace vg {
     template <class IntType>
     class BandedGlobalAligner<IntType>::AltTracebackStack {
     public:
-        AltTracebackStack(int64_t max_multi_alns, int32_t empty_score,
+        AltTracebackStack(const HandleGraph& graph, int64_t max_multi_alns, int32_t empty_score,
                           unordered_set<BAMatrix*>& source_node_matrices,
                           unordered_set<BAMatrix*>& sink_node_matrices,
                           int8_t gap_open,
@@ -275,6 +271,7 @@ namespace vg {
         /// All of the paths through the graph that take only empty nodes
         list<list<int64_t>> empty_full_paths;
         int32_t empty_score;
+        const HandleGraph& graph;
         
         /// Pointer to the traceback directions for the alignment we are currently tracing back
         typename list<tuple<vector<Deflection>, IntType, list<int64_t>>>::iterator curr_traceback;
@@ -321,8 +318,8 @@ namespace vg {
         ~BABuilder();
         
         /// Add next step in traceback
-        void update_state(matrix_t matrix, Node* node, int64_t read_idx, int64_t node_idx,
-                          bool empty_node_seq = false);
+        void update_state(const HandleGraph& graph, matrix_t matrix, const handle_t& node, int64_t read_idx,
+                          int64_t node_idx, bool empty_node_seq = false);
         /// Call after concluding traceback to finish adding edits to alignment
         void finalize_alignment(const list<int64_t>& empty_prefix);
         
@@ -334,7 +331,8 @@ namespace vg {
         
         matrix_t matrix_state;
         bool matching = false;
-        Node* current_node = nullptr;
+        id_t current_node_id = 0;
+        string current_node_sequence = "";
         int64_t edit_length = 0;
         int64_t edit_read_end_idx = 0;
         

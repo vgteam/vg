@@ -51,14 +51,14 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee
     /// returns false. Can be told to run in parallel, in which case stopping
     /// after a false return value is on a best-effort basis and iteration
     /// order is not defined.
-    virtual void for_each_handle(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    virtual bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
@@ -149,8 +149,7 @@ public:
     virtual size_t get_path_count() const;
 
     /// Execute a function on each path in the graph
-    // TODO: allow stopping early?
-    virtual void for_each_path_handle(const std::function<void(const path_handle_t&)>& iteratee) const;
+    virtual bool for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const;
 
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
     virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
@@ -178,10 +177,9 @@ public:
     /// Returns a handle to the path that an occurrence is on
     virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
-    /// Returns a vector of all occurrences of a node on paths. Optionally restricts to
-    /// occurrences that match the handle in orientation.
-    virtual vector<occurrence_handle_t> occurrences_of_handle(const handle_t& handle,
-                                                              bool match_orientation = false) const;
+    /// Calls the given function for each occurrence of the given handle on a path.
+    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle,
+                                                    const function<bool(const occurrence_handle_t&)>& iteratee) const;
     
     /**
      * Destroy the given path. Invalidates handles to the path and its node occurrences.

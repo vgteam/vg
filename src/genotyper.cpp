@@ -343,7 +343,8 @@ pair<pair<int64_t, int64_t>, bool> Genotyper::get_snarl_reference_bounds(const S
     // position along the reference at which it occurs. Our bubble
     // goes forward in the reference, so we must come out of the
     // opposnarl end of the node from the one we have stored.
-    auto referenceIntervalStart = index.by_id.at(first_id).first + graph->get_length(graph->get_handle(snarl->start()));
+    auto referenceIntervalStart = index.by_id.at(first_id).first + graph->get_length(graph->get_handle(snarl->start().node_id(),
+        snarl->start().backward()));
 
     // The position we have stored for the end node is the first
     // position it occurs in the reference, and we know we go into
@@ -361,7 +362,8 @@ pair<pair<int64_t, int64_t>, bool> Genotyper::get_snarl_reference_bounds(const S
         // Recalculate reference positions Use the end node, which we've now
         // made first_id, to get the length offset to the start of the actual
         // internal variable bit.
-        referenceIntervalStart = index.by_id.at(first_id).first + graph->get_length(graph->get_handle(snarl->end()));
+        referenceIntervalStart = index.by_id.at(first_id).first + graph->get_length(graph->get_handle(snarl->end().node_id(),
+            snarl->end().backward()));
         referenceIntervalPastEnd = index.by_id.at(last_id).first;
     }
 

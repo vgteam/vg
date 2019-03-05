@@ -12,7 +12,8 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 
 using namespace std;
 using namespace vg;
@@ -22,7 +23,7 @@ void help_inject(char** argv) {
     cerr << "usage: " << argv[0] << " inject [options] input.[bam|sam|cram] >output.gam" << endl
          << endl
          << "options:" << endl
-         << "    -x, --xg-name FILE       use the graph in this xg index" << endl
+         << "    -x, --xg-name FILE       use the graph in this xg index (required)" << endl
          << "    -t, --threads N          number of threads to use" << endl;
 }
 
@@ -78,15 +79,12 @@ int main_inject(int argc, char** argv) {
 
     string file_name = get_input_file_name(optind, argc, argv);
 
-    xg::XG* xgidx = nullptr;
-    ifstream xg_stream(xg_name);
-    if(xg_stream) {
-      xgidx = new xg::XG(xg_stream);
+    // We require an XG index
+    if (xg_name.empty()) {
+        cerr << "error[vg inject]: XG index (-x) is required" << endl;
+        exit(1);
     }
-    if (!xg_stream || xgidx == nullptr) {
-      cerr << "[vg inject] error: could not open xg index" << endl;
-      return 1;
-    }
+    auto xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
 
     stream::ProtobufEmitter<Alignment> buf(cout);
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
@@ -96,9 +94,9 @@ int main_inject(int argc, char** argv) {
         }
     };
     if (threads > 1) {
-        hts_for_each_parallel(file_name, lambda, xgidx);
+        hts_for_each_parallel(file_name, lambda, xgidx.get());
     } else {
-        hts_for_each(file_name, lambda, xgidx);
+        hts_for_each(file_name, lambda, xgidx.get());
     }
     return 0;
 }

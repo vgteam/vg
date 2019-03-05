@@ -377,8 +377,9 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
     //initialize chain prefix sum to [0, len of first node in chain]
     vector<int64_t> chainPrefixSum (1,0); 
     vector<int64_t> chainLoopFd; 
-    vector<int64_t> chainLoopRev; 
-    handle_t firstNode = graph->get_handle(get_start_of(*chain));
+    vector<int64_t> chainLoopRev;
+    auto firstVisit = get_start_of(*chain);
+    handle_t firstNode = graph->get_handle(firstVisit.node_id(), firstVisit.backward());
     
     
     hash_map<id_t, size_t> snarlToIndex;
@@ -554,8 +555,10 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                                 } else {
                                     loopDist = chainDists->second.loopRev[
                                       chainDists->second.loopRev.size()-1] - 1;
+                                      auto endVisit = get_end_of(*currChain);
                                       handle_t tempHandle = graph->get_handle(
-                                                        get_end_of(*currChain));
+                                                   endVisit.node_id(),
+                                                   endVisit.backward());
 
                                     if (loopDist != -1) { 
                                         loopDist = loopDist + 
@@ -587,9 +590,11 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                                     loopDist = currChainDists.loopRev[
                                            currChainDists.loopRev.size()-1] - 1;
 
-                                    if (loopDist != -1) { 
+                                    if (loopDist != -1) {
+                                        auto endVisit = get_end_of(*currChain);
                                         handle_t tempHandle = graph->get_handle(
-                                                     get_end_of(*currChain));
+                                                     endVisit.node_id(),
+                                                     endVisit.backward());
                                         loopDist = loopDist +
                                            graph->get_length(tempHandle);
                                      }
@@ -628,9 +633,10 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                                            make_pair(endID, !endRev), 
                                            make_pair(endID, endRev));
 
-                                     if (loopDist != -1) { 
+                                     if (loopDist != -1) {
                                          handle_t tempHandle = 
-                                            graph->get_handle(currSnarl->end());
+                                            graph->get_handle(currSnarl->end().node_id(),
+                                                     currSnarl->end().backward());
                                          loopDist = loopDist + 
                                             graph->get_length(tempHandle); 
                                      }
@@ -673,8 +679,9 @@ int64_t DistanceIndex::calculateMinIndex(const Chain* chain) {
                                         make_pair(endID, endRev));
 
                                      if (loopDist != -1) { 
-                                         handle_t tempHandle = graph->get_handle
-                                                    (currSnarl->end());
+                                         handle_t tempHandle = graph->get_handle(
+                                                     currSnarl->end().node_id(),
+                                                     currSnarl->end().backward());
                                          loopDist = loopDist+ 
                                                   graph->get_length(tempHandle);
                                       }

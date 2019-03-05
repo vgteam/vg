@@ -43,7 +43,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -99,7 +99,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -155,7 +155,7 @@ namespace vg {
                 
                 Aligner aligner(1, 4, 6, 1, 0);
                 
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -215,7 +215,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -273,7 +273,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -332,7 +332,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -391,7 +391,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -445,7 +445,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -498,7 +498,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -557,7 +557,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -620,7 +620,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -683,7 +683,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -746,7 +746,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -797,7 +797,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -827,7 +827,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -869,7 +869,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -928,7 +928,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -987,7 +987,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1036,7 +1036,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1096,7 +1096,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1145,7 +1145,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1205,7 +1205,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1273,7 +1273,7 @@ namespace vg {
                 bool pin_left = true;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1339,7 +1339,7 @@ namespace vg {
                 bool pin_left = false;
                 
                 Aligner aligner;
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1394,7 +1394,7 @@ namespace vg {
                 int8_t full_length_bonus = 3;
                 
                 Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1461,7 +1461,7 @@ namespace vg {
                 int8_t full_length_bonus = 3;
                 
                 Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1528,7 +1528,7 @@ namespace vg {
                 int8_t full_length_bonus = 5;
                 
                 Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                                 
                 const Path& path = aln.path();
                 
@@ -1591,7 +1591,7 @@ namespace vg {
                 int8_t full_length_bonus = 2;
                 
                 Aligner aligner(1, 4, 6, 1, full_length_bonus);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1662,7 +1662,7 @@ namespace vg {
                 int8_t full_length_bonus = 5;
                 
                 QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1726,7 +1726,7 @@ namespace vg {
                 int8_t full_length_bonus = 5;
                 
                 QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1789,7 +1789,7 @@ namespace vg {
                 int8_t full_length_bonus = 5;
                 
                 QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 6);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1853,7 +1853,7 @@ namespace vg {
                 
                 
                 QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1916,7 +1916,7 @@ namespace vg {
                 int8_t full_length_bonus = 3;
                 
                 QualAdjAligner aligner(1, 4, 6, 1, full_length_bonus, 64);
-                aligner.align_pinned(aln, graph.graph, pin_left);
+                aligner.align_pinned(aln, graph, pin_left);
                 
                 const Path& path = aln.path();
                 
@@ -1985,7 +1985,7 @@ namespace vg {
                 
                 Aligner aligner;
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 int64_t prev_score = numeric_limits<int64_t>::max();
                 for (Alignment& alt_aln : multi_alns) {
@@ -2031,7 +2031,7 @@ namespace vg {
                 
                 Aligner aligner;
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 REQUIRE(aln.sequence() == multi_alns[0].sequence());
                 REQUIRE(aln.score() == multi_alns[0].score());
@@ -2073,7 +2073,7 @@ namespace vg {
                 
                 Aligner aligner;
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool found_first_opt = false;
                 bool found_second_opt = false;
@@ -2173,7 +2173,7 @@ namespace vg {
                 
                 Aligner aligner;
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool took_alternate_path = false;
                 for (Alignment& alt_aln : multi_alns) {
@@ -2214,7 +2214,7 @@ namespace vg {
                 
                 Aligner aligner;
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 REQUIRE(multi_alns.size() == 1);
             }
@@ -2250,7 +2250,7 @@ namespace vg {
                 
                 Aligner aligner;
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool found_first_opt = false;
                 bool found_second_opt = false;
@@ -2359,7 +2359,7 @@ namespace vg {
                 
                 Aligner aligner;
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 bool found_first_opt = false;
                 bool found_second_opt = false;
@@ -2485,7 +2485,7 @@ namespace vg {
                 
                 QualAdjAligner aligner(1, 4, 6, 1, 5, 6);
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 for (Alignment& alt_aln : multi_alns) {
                     for (size_t i = 0; i < alt_aln.path().mapping_size(); i++) {
@@ -2522,7 +2522,7 @@ namespace vg {
                 int max_multi_alns = 5000;
                 
                 vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pin_left, max_multi_alns);
+                aligner.align_pinned_multi(aln, multi_alns, graph, pin_left, max_multi_alns);
                 
                 unordered_set<string> alns_seen;
                 for (Alignment& alt_aln : multi_alns) {

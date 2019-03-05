@@ -12,7 +12,8 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
-#include "../stream.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/vpkg.hpp"
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -20,10 +21,10 @@
 #include "../snarls.hpp"
 #include "../distance.hpp"
 #include "../source_sink_overlay.hpp"
+#include "../gbwt_helper.hpp"
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
-#include <gbwt/dynamic_gbwt.h>
 #include <gbwt/variants.h>
 
 using namespace std;
@@ -86,17 +87,11 @@ void help_index(char** argv) {
          << "    -w  --max_dist N   cap beyond which the maximum distance is no longer accurate" << endl;
 }
 
-// Convert gbwt::node_type to ThreadMapping.
-xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
-    xg::XG::ThreadMapping thread_mapping = { (int64_t)(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
-    return thread_mapping;
-}
-
 // Convert Path to a GBWT path.
 gbwt::vector_type path_to_gbwt(const Path& path) {
     gbwt::vector_type result(path.mapping_size());
     for (size_t i = 0; i < result.size(); i++) {
-        result[i] = gbwt::Node::encode(path.mapping(i).position().node_id(), path.mapping(i).position().is_reverse());
+        result[i] = mapping_to_gbwt(path.mapping(i));
     }
     return result;
 }
@@ -233,7 +228,7 @@ int main_index(int argc, char** argv) {
             {"exclude", required_argument, 0, 'E'},
 
             // GCSA
-            {"gcsa-name", required_argument, 0, 'g'},
+            {"gcsa-out", required_argument, 0, 'g'},
             {"dbg-in", required_argument, 0, 'i'},
             {"mapping", required_argument, 0, 'f'},
             {"kmer-size", required_argument, 0, 'k'},
@@ -556,7 +551,7 @@ int main_index(int argc, char** argv) {
     if (index_haplotypes || index_paths || index_gam) {
 
         if (!build_gbwt && !(parse_only && index_haplotypes) && !write_threads && !build_gpbwt) {
-            cerr << "error: [vg index] No output format specified for the threads" << endl;
+            cerr << "error: [vg index] no output format specified for the threads" << endl;
             return 1;
         }
 
@@ -642,7 +637,7 @@ int main_index(int argc, char** argv) {
                 }
                 gbwt::vector_type buffer(path.ids.size());
                 for (size_t i = 0; i < path.ids.size(); i++) {
-                    buffer[i] = gbwt::Node::encode(path.node(i), path.is_reverse(i));
+                    buffer[i] = xg_path_to_gbwt(path, i);
                 }
                 store_thread(buffer, xg_index->path_name(path_rank));
             }
@@ -656,7 +651,7 @@ int main_index(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&](Alignment& aln) {
                 gbwt::vector_type buffer;
                 for (auto& m : aln.path().mapping()) {
-                    buffer.push_back(gbwt::Node::encode(m.position().node_id(), m.position().is_reverse()));
+                    buffer.push_back(mapping_to_gbwt(m));
                 }
                 store_thread(buffer, aln.name());
                 haplotype_count++;
@@ -686,7 +681,7 @@ int main_index(int argc, char** argv) {
             // How many samples are there?
             size_t num_samples = variant_file.sampleNames.size();
             if (num_samples == 0) {
-                cerr << "error: [vg index] The variant file does not contain phasings" << endl;
+                cerr << "error: [vg index] the variant file does not contain phasings" << endl;
                 return 1;
             }
 
@@ -727,7 +722,7 @@ int main_index(int argc, char** argv) {
 
                 // Add the reference to VariantPaths.
                 for (size_t i = 0; i < path.ids.size(); i++) {
-                    variants.appendToReference(gbwt::Node::encode(path.node(i), path.is_reverse(i)));
+                    variants.appendToReference(xg_path_to_gbwt(path, i));
                 }
                 variants.indexReference();
 
@@ -780,7 +775,7 @@ int main_index(int argc, char** argv) {
                         ref_path = path_to_gbwt(ref_path_iter->second);
                         ref_pos = variants.firstOccurrence(ref_path.front());
                         if (ref_pos == variants.invalid_position()) {
-                            cerr << "warning: [vg index] Invalid ref path for " << var_name << " at "
+                            cerr << "warning: [vg index] invalid ref path for " << var_name << " at "
                                  << var.sequenceName << ":" << var.position << endl;
                             continue;
                         }
@@ -822,11 +817,11 @@ int main_index(int argc, char** argv) {
                             if (warn_on_missing_variants) {
                                 if (found_missing_variants <= max_missing_variant_warnings) {
                                     // The user might not know it. Warn them in case they mixed up their VCFs.
-                                    cerr << "warning: [vg index] Alt and ref paths for " << var_name
+                                    cerr << "warning: [vg index] alt and ref paths for " << var_name
                                          << " at " << var.sequenceName << ":" << var.position
                                          << " missing/empty! Was the variant skipped during construction?" << endl;
                                     if (found_missing_variants == max_missing_variant_warnings) {
-                                        cerr << "warning: [vg index] Suppressing further missing variant warnings" << endl;
+                                        cerr << "warning: [vg index] suppressing further missing variant warnings" << endl;
                                     }
                                 }
                             }
@@ -892,7 +887,10 @@ int main_index(int argc, char** argv) {
 
                 // Save the VCF parse or generate the haplotypes.
                 if (parse_only) {
-                    sdsl::store_to_file(variants, parse_file);
+                    if (!sdsl::store_to_file(variants, parse_file)) {
+                        cerr << "error: [vg index] cannot write parse file " << parse_file << endl;
+                        return 1;
+                    }
                 } else {
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         gbwt::generateHaplotypes(variants, phasings[batch],
@@ -942,7 +940,10 @@ int main_index(int argc, char** argv) {
                     cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
                     cerr << "Saving GBWT to disk..." << endl;
                 }
-                sdsl::store_to_file(gbwt_builder->index, gbwt_name);
+                
+                // Save encapsulated in a VPKG
+                stream::VPKG::save(gbwt_builder->index, gbwt_name);
+                
                 delete gbwt_builder; gbwt_builder = nullptr;
             }
             if (write_threads) {
@@ -988,9 +989,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving XG index to disk..." << endl;
         }
-        ofstream db_out(xg_name);
-        xg_index->serialize(db_out);
-        db_out.close();
+        // Save encapsulated in a VPKG
+        stream::VPKG::save(*xg_index, xg_name); 
     }
     delete xg_index; xg_index = nullptr;
 
@@ -1027,11 +1027,11 @@ int main_index(int argc, char** argv) {
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
-                    xg::XG xg(xg_stream);
+                    auto xg = stream::VPKG::load_one<xg::XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
-                    SourceSinkOverlay overlay(&xg, kmer_size);
+                    SourceSinkOverlay overlay(xg.get(), kmer_size);
                     
                     // Get the size limit
                     size_t kmer_bytes = params.getLimitBytes();
@@ -1047,7 +1047,7 @@ int main_index(int argc, char** argv) {
                 
                 });
             } else {
-                cerr << "error[vg index]: Can't generate GCSA index without either a vg or an xg" << endl;
+                cerr << "error: [vg index] cannot generate GCSA index without either a vg or an xg" << endl;
                 exit(1);
             }
         }
@@ -1071,8 +1071,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving the index to disk..." << endl;
         }
-        sdsl::store_to_file(gcsa_index, gcsa_name);
-        sdsl::store_to_file(lcp_array, gcsa_name + ".lcp");
+        stream::VPKG::save(gcsa_index, gcsa_name);
+        stream::VPKG::save(lcp_array, gcsa_name + ".lcp");
 
         // Verify the index
         if (verify_gcsa) {

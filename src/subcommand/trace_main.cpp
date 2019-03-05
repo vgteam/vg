@@ -6,6 +6,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
+#include "../stream/vpkg.hpp"
 #include "../haplotype_extracter.hpp"
 
 using namespace vg;
@@ -125,17 +126,16 @@ int main_trace(int argc, char** argv) {
   unique_ptr<gbwt::GBWT> gbwt_index;
   if (!gbwt_name.empty()) {
     // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
-    gbwt_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
     
-    // Open up the index
-    ifstream in(gbwt_name.c_str());
-    if (!in) {
+    // Load the GBWT from its container
+    gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name.c_str());
+
+    if (gbwt_index.get() == nullptr) {
+      // Complain if we couldn't.
       cerr << "error:[vg trace] unable to load gbwt index file" << endl;
       return 1;
     }
 
-    // And load it
-    gbwt_index->load(in);
   }
 
   // trace out our graph and paths from the start node

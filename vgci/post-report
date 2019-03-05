@@ -163,8 +163,12 @@ if [ ! -z "${CI}" ]; then
         read_job_id "master_sync"
         
         # We assume CI_JOB_ID is a monotonically increasing number.
+        echo "Our job: ${CI_JOB_ID}"
+        echo "Old job: ${OLD_JOB_ID}"
         
-        if [ "${CI_JOB_ID}" -gt "${OLD_JOB_ID}" ]; then # Upload to the path for master, overwriting whatever was there.
+        if [ -z "${OLD_JOB_ID}" ] || [ "${CI_JOB_ID}" -gt "${OLD_JOB_ID}" ]; then
+            # Upload to the path for master, overwriting whatever was there.
+            
             HTML_PATH="vg_ci/vgci_reports/branch/master"
             
             # Save the new higher build number
@@ -186,7 +190,7 @@ if [ ! -z "${CI}" ]; then
     fi
     
     # Upload the HTML to S3 as the current master report
-    aws s3 sync --acl public-read "${HTML_DIR_IN}" "s3://vg-data/${HTML_PATH}"
+    aws s3 sync --quiet --acl public-read "${HTML_DIR_IN}" "s3://vg-data/${HTML_PATH}"
     
     # Make the URL for the report HTML
     REPORT_URL="http://vg-data.s3.amazonaws.com/${HTML_PATH}/index.html"
@@ -208,18 +212,15 @@ cat "${MD_IN}" | sed "s|{{REPORT_URL}}|${REPORT_URL}|g" | tee processed.md
 if [ ! -z "${CI}" ]; then
     # On cloud CI, so actually post a comment
     
-    if [ -z "${CI_MERGE_REQUEST_IID}" ] && [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
+    # Comment on the commit we built.
+    # We don't have a good way to know if there is an open PR for it, and there might be more than one maybe.
+    vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true 
+    
+    if [ "${CI_COMMIT_REF_NAME}" == "master" ]; then
         # Normal master build
-                
-        # Comment on the commit we built
-        vgci/post-comment.py vgteam/vg --in_file processed.md --commit "${CI_COMMIT_SHA}" || true    
         
         # We grabbed the mutex, so we need to release it
         unlock_mutex "master_sync"    
-    elif [ ! -z "${CI_MERGE_REQUEST_IID}" ]; then
-        # PR build so we comment on the PR
-        # Won't work until GH_TOKEN env var is exposed on cloud CI 
-        vgci/post-comment.py vgteam/vg --in_file processed.md --pr "${CI_MERGE_REQUEST_IID}" || true
     fi
 fi
 

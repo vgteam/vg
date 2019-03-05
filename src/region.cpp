@@ -26,7 +26,8 @@ void parse_region(const string& target, string& name, int64_t& start, int64_t& e
 }
 
 void parse_bed_regions(const string& bed_path,
-                       vector<Region>& out_regions) {
+                       vector<Region>& out_regions,
+                       vector<string>* out_names) {
     out_regions.clear();
     ifstream bedstream(bed_path);
     if (!bedstream) {
@@ -36,6 +37,7 @@ void parse_bed_regions(const string& bed_path,
     string row;
     string sbuf;
     string ebuf;
+    string nbuf;
     for (int line = 1; getline(bedstream, row); ++line) {
         Region region;
         if (row.size() < 2 || row[0] == '#') {
@@ -44,7 +46,8 @@ void parse_bed_regions(const string& bed_path,
         istringstream ss(row);
         if (!getline(ss, region.seq, '\t') ||
             !getline(ss, sbuf, '\t') ||
-            !getline(ss, ebuf, '\t')) {
+            !getline(ss, ebuf, '\t') ||
+            (out_names != nullptr && !getline(ss, nbuf, '\t'))) {
             cerr << "Error parsing bed line " << line << ": " << row << endl;
         } else {
             region.start = std::stoi(sbuf);
@@ -55,6 +58,10 @@ void parse_bed_regions(const string& bed_path,
             region.end -= 1;
 
             out_regions.push_back(region);
+            
+            if (out_names != nullptr) {
+                out_names->push_back(nbuf);
+            }
         }
     }
 }
