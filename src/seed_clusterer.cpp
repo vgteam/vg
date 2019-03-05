@@ -1,7 +1,5 @@
 #include "seed_clusterer.hpp"
 
-#define DEBUG 
-
 namespace vg {
     //TODO: Put this somewhere else???
     SnarlSeedClusterer::SnarlSeedClusterer() {
@@ -429,11 +427,13 @@ for (cluster_t c : clusters) {
                             }
                         }
                     }
+#ifdef DEBUG
 cerr << "cluster is assigned to the following chain clusters: " << endl;
 for (size_t a : curr_cluster_assignments) {
 cerr << a << " " ;
 }
 cerr << endl;
+#endif
                     vector<pair<hash_set<size_t>, hash_set<size_t>>> 
                                                               new_chain_indices;
                     pair<hash_set<size_t>, hash_set<size_t>> new_chain_cluster;

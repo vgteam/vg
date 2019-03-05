@@ -19,8 +19,6 @@
 #include "../stream/stream.hpp"
 #include "../stream/protobuf_emitter.hpp"
 
-
-
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -105,7 +103,7 @@ int main_cluster(int argc, char** argv) {
                 
             case 'd':
                 distance_name = optarg;
-                if (snarls_name.empty()) {
+                if (distance_name.empty()) {
                     cerr << "error:[vg cluster] Must provide distance index file with -d." << endl;
                     exit(1);
                 }
@@ -199,18 +197,38 @@ int main_cluster(int argc, char** argv) {
                 }
             }
             
-            // Cluster the seeds
-            vector<size_t> cluster_assignments = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+            // Cluster the seeds. Get sets of input seed indexes that go together
+            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+            
+            // Put the biggest cluster first
+            std::sort(clusters.begin(), clusters.end(), [](const hash_set<size_t>& a, const hash_set<size_t>& b) -> bool {
+                // Return true if a must come before b, and false otherwise
+                return a.size() > b.size();
+            });
             
             // Find the seeds in the best cluster. Assume that's cluster 0.
             vector<pos_t> best;
-            assert(cluster_assignments.size() == seeds.size());
-            for (size_t i = 0; i < seeds.size(); i++) {
-                if (cluster_assignments[i] == 0) {
+            if (!clusters.empty()) {
+                for (auto& seed_index : clusters.front()) {
                     // This seed is in the best cluster
-                    best.push_back(seeds[i]);
+                    best.push_back(seeds.at(seed_index));
                 }
             }
+            
+#ifdef debug
+            cerr << "Read with best cluster (of " << clusters.size() << "): ";
+            if (!clusters.empty()) {
+                for (auto& index : clusters.front()) {
+                    cerr << seeds.at(index) << ",";
+                }
+            }
+            cerr << endl;
+            cerr << "Alignment was: ";
+            for (auto& mapping : aln.path().mapping()) {
+                cerr << mapping.position().node_id() << " ";
+            }
+            cerr << endl;
+#endif
             
             // Decide if they are in the right place for the original alignment or not
             unordered_set<vg::id_t> true_nodes;
@@ -227,7 +245,11 @@ int main_cluster(int argc, char** argv) {
             }
             
             // Tag the alignment
-            set_annotation(aln, "have_overlap", have_overlap);
+            set_annotation(aln, "best_cluster_overlap", have_overlap);
+            
+#ifdef debug
+            cerr << "Overlap? " << have_overlap << endl;
+#endif
             
             // Emit it.
             // TODO: parallelize this
