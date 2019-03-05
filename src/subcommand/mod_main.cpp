@@ -17,8 +17,7 @@
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
 
-#include "../algorithms/0_demo_extract_subgraph.cpp"
-#include "../algorithms/0_demo_snarl_to_strings.cpp"
+#include "../algorithms/0_demo_final_0.hpp"
 
 using namespace std;
 using namespace vg;
@@ -83,7 +82,8 @@ void help_mod(char** argv) {
          << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl
          << "    -G, --sample-graph FILE subset an augmented graph to a sample graph using a Locus file" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl
-         << "    -F, --demo_0 N          TO BE REMOVED: add six adenosines to the front of start of a given node N" << endl;
+         << "    -F, --demo_0 FILE       Given a .snarls file (from command vg snarls) and the corresponding graph," << endl
+         << "                            simplifies redundancy in graph's snarls." << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -135,7 +135,7 @@ int main_mod(int argc, char** argv) {
     string vcf_filename;
     string loci_filename;
     int max_degree = 0;
-    string demo_0 = "";
+    string demo_0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -862,27 +862,21 @@ int main_mod(int argc, char** argv) {
         graph->paths = Paths();
     }
 
-    if ( demo_0.length() > 0 ) {
-        vector<int> snarl_nodes = split_at_space(demo_0);
-        vg::id_t start_id = 220;
-        vg::id_t end_id = 218;
-        // tag_all_snarl_nodes(*graph, snarl_nodes[0], snarl_nodes[1]);
-        // vg::SubHandleGraph snarl = extract_subgraph(*graph, start_id, end_id);
-        vector<string> walks = get_walks(*graph, start_id, end_id);
-        cout << endl << endl << endl;
-
-        for (string walk : walks){
-            cout << walk << endl;
+    if ( !demo_0.empty() ) {
+        
+        std::ifstream snarl_stream;
+        snarl_stream.open(demo_0);
+        
+        if (!snarl_stream) {
+            cerr << "error:[vg mod] Cannot open Snarls file " << demo_0 << endl;
+            exit(1);
         }
 
-        cout << endl << endl << endl;
-        // list<string> walks get_walks(snarl);
-
+        clean_all_snarls(*graph, snarl_stream);
     }
-
     graph->serialize_to_ostream(std::cout);
-
     delete graph;
+
 
     return 0;
 }
