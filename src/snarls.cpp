@@ -551,15 +551,20 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
     return ChainIterator();
 } 
 
-// TODO: this is duplicative with the other constructor, but protobuf won't let me make
-// a deserialization iterator to match its signature because its internal file streams
-// disallow copy constructors
-SnarlManager::SnarlManager(istream& in) {
-    // Add snarls to master list
+SnarlManager::SnarlManager(istream& in) : SnarlManager([&in](const function<void(Snarl&)>& consume_snarl) -> void {
+    // Find all the snarls in the input stream and use each of them in the callback-based constructor
     for (stream::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
-        // Add each snarl
-        add_snarl(*iter);
+        consume_snarl(*iter);
     }
+}) {
+    // Nothing to do!
+}
+
+SnarlManager::SnarlManager(const function<void(const function<void(Snarl&)>&)>& for_each_snarl) {
+    for_each_snarl([&](Snarl& snarl) {
+        // Add each snarl to us
+        add_snarl(snarl);
+    });
     // Record the tree structure and build the other indexes
     finish();
 }
