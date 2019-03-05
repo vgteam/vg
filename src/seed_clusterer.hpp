@@ -8,7 +8,7 @@ class SnarlSeedClusterer {
     public:
 
         SnarlSeedClusterer();
-        vector<size_t> cluster_seeds ( vector<pos_t> seeds,
+        vector<hash_set<size_t>> cluster_seeds ( vector<pos_t> seeds,
                size_t distance_limit, SnarlManager& snarl_manager,
                DistanceIndex& dist_index);
     private:
