@@ -19,7 +19,7 @@
 
 namespace vg {
 namespace unittest {
-    TEST_CASE( "Simple example",
+    TEST_CASE( "multiple clusters in a chain",
                    "[cluster]" ) {
         VG graph;
 
@@ -68,13 +68,14 @@ namespace unittest {
 
         SECTION( "One cluster" ) {
  
-            id_t seed_nodes[] = {2, 3, 4, 7, 8, 11};
+            id_t seed_nodes[] = {2, 3, 4, 7, 8, 9, 11};
+            //all are in the same cluster
             vector<pos_t> seeds;
             for (id_t n : seed_nodes) {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<size_t> clusters = clusterer.cluster_seeds(seeds, 30, 
+            vector<size_t> clusters = clusterer.cluster_seeds(seeds, 10, 
                            snarl_manager, dist_index); 
             for (size_t c : clusters) {cerr << c << " " ;}
             cerr << endl;
@@ -89,12 +90,13 @@ namespace unittest {
  
             id_t seed_nodes[] = {2, 3, 4, 7, 8, 10, 11};
             //Clusters should be {2, 3, 4}, {7, 8, 10, 11}
+            //Distance from pos on 4 to pos on 7 is 9, including positions
             vector<pos_t> seeds;
             for (id_t n : seed_nodes) {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<size_t> clusters = clusterer.cluster_seeds(seeds, 3, 
+            vector<size_t> clusters = clusterer.cluster_seeds(seeds, 9, 
                            snarl_manager, dist_index); 
             for (size_t c : clusters) {cerr << c << " " ;}
             cerr << endl;
