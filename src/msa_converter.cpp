@@ -8,7 +8,7 @@
 #include "msa_converter.hpp"
 
 
-//#define debug_msa_converter
+// #define debug_msa_converter
 
 namespace vg {
 
@@ -67,6 +67,92 @@ using namespace std;
                 alignment[tokens[1]] = tokens[6];
             }
         }
+
+        else if (format == "seqan") {
+            // conservation line starts with int.
+            unordered_set<char> conservation_chars{'0','1','2','3','4','5','6','7','8','9'}; 
+            
+            auto is_conservation_line = [&](string& line) {
+                bool conservation_line = false;
+                for (char c : line) {
+                    if (!isspace(c)) {
+                        if (conservation_chars.count(c)) {
+                            conservation_line = true;
+                        }
+                        else {
+                            conservation_line = false;
+                        }
+                        break;
+                    }
+                }
+                return conservation_line;
+            };
+            
+            auto is_blank = [](const string& str) {
+                return all_of(str.begin(), str.end(), [](char c){return isspace(c);});
+            };
+            
+            auto is_draw_line = [&](string& line) {
+                bool draw_line = false;
+                for (char c : line) {
+                    if (!isspace(c)) {
+                        if (c == '|') {
+                            draw_line = true;
+                        }
+                        else {
+                            draw_line = false;
+                        }
+                        break;
+                    }
+                }
+                return draw_line;
+            };
+
+            // removes leading whitespace of line.
+            auto get_next_line = [&](istream& in) {
+                string line;
+                getline(in, line);
+
+                for (auto it = line.begin(); it != line.end(); it++){
+                    if (!isspace(*it)) {
+                        line.erase(line.begin(), it);
+                        break;
+                    }
+                }
+                return line;
+            };
+
+            // make an alignment block
+            alignments.emplace_back();
+            auto& alignment = alignments.back();
+
+            int seq_count = 0;
+            string line;
+            line = get_next_line(in);
+            while (!in.eof()) {
+                if (is_conservation_line(line) || is_blank(line)){
+                    seq_count = 0;
+                }
+                else if (is_draw_line(line)) {
+                    seq_count++;
+                }
+                else{
+                    auto iter = alignment.find(to_string(seq_count));
+                    if (iter != alignment.end()) {
+                        iter->second.append(line);
+                    }
+                    else {
+                        alignment[to_string(seq_count)] = line;
+                    }
+                }
+                line = get_next_line(in);
+
+            }
+
+            
+
+        }
+
         else if (format == "clustal") {
             
             unordered_set<char> conservation_chars{'.', ':', '*'};
@@ -168,7 +254,7 @@ using namespace std;
         cerr << "alignments:" << endl;
         for (const auto& aln : alignments) {
             for (const auto& seq : aln) {
-                cerr << seq.first << "\t" << seq.second << endl;
+                cerr << "seq.first " << seq.first << "\t" << "seq.second " << seq.second << endl << endl;
             }
             cerr << endl;
         }
