@@ -5,13 +5,21 @@
 #include <omp.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <iostream>
+#include <cassert>
+#include <vector>
+#include <unordered_set>
 
 #include "subcommand.hpp"
 
 #include "../seed_clusterer.hpp"
+#include "../mapper.hpp"
+#include "../annotation.hpp"
 #include "../stream/vpkg.hpp"
+#include "../stream/stream.hpp"
+#include "../stream/protobuf_emitter.hpp"
 
-#include <iostream>
+
 
 using namespace std;
 using namespace vg;
@@ -43,6 +51,8 @@ int main_cluster(int argc, char** argv) {
     string gcsa_name;
     string snarls_name;
     string distance_name;
+    // How close should two hits be to be in the same cluster?
+    size_t distance_limit = 1000;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -145,7 +155,7 @@ int main_cluster(int argc, char** argv) {
     // create in-memory objects
     unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
     unique_ptr<gcsa::GCSA> gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
-    unique_ptr<gcsa::LCPArray> lcp_array = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
+    unique_ptr<gcsa::LCPArray> lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
     unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
     
     // Now load the distance index.
@@ -159,7 +169,73 @@ int main_cluster(int argc, char** argv) {
         // TODO: let this go through VPKG as soon as we get it loadable without passing a graph
         distance_index = make_unique<DistanceIndex>(xg_index.get(), snarl_manager.get(), distance_stream);
     }
-   
+    
+    // Make the clusterer
+    SnarlSeedClusterer clusterer;
+    
+    // Make a Mapper to look up MEM seeds
+    Mapper mapper(xg_index.get(), gcsa_index.get(), lcp_index.get());
+    
+    get_input_file(optind, argc, argv, [&](istream& in) {
+        // Open up the input GAM
+        
+        // Make the output emitter
+        stream::ProtobufEmitter<Alignment> emitter(cout);
+        
+        stream::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
+            // For each input alignment
+            
+            // Find MEMs
+            double lcp_avg, fraction_filtered;
+            vector<MaximalExactMatch> mems = mapper.find_mems_deep(aln.sequence().begin(), aln.sequence().end(), lcp_avg, fraction_filtered);
+            
+            // Convert to position seeds
+            vector<pos_t> seeds;
+            for (auto& mem : mems) {
+                for (gcsa::node_type n : mem.nodes) {
+                    // Convert from GCSA node_type packing to a pos_t
+                    seeds.push_back(make_pos_t(n));
+                    // TODO: We split up any information about which MEMs these positions belonged to.
+                }
+            }
+            
+            // Cluster the seeds
+            vector<size_t> cluster_assignments = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+            
+            // Find the seeds in the best cluster. Assume that's cluster 0.
+            vector<pos_t> best;
+            assert(cluster_assignments.size() == seeds.size());
+            for (size_t i = 0; i < seeds.size(); i++) {
+                if (cluster_assignments[i] == 0) {
+                    // This seed is in the best cluster
+                    best.push_back(seeds[i]);
+                }
+            }
+            
+            // Decide if they are in the right place for the original alignment or not
+            unordered_set<vg::id_t> true_nodes;
+            for (auto& mapping : aln.path().mapping()) {
+                true_nodes.insert(mapping.position().node_id());
+            }
+            // We are in the right place if we share any nodes
+            bool have_overlap = false;
+            for (auto& pos : best) {
+                if (true_nodes.count(get_id(pos))) {
+                    // The cluster had a position on a node that the real alignment had.
+                    have_overlap = true;
+                }
+            }
+            
+            // Tag the alignment
+            set_annotation(aln, "have_overlap", have_overlap);
+            
+            // Emit it.
+            // TODO: parallelize this
+            #pragma omp critical (cout)
+            emitter.write(std::move(aln));
+        });
+    });
+    
     return 0;
 }
 
