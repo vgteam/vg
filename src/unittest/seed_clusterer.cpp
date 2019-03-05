@@ -113,5 +113,78 @@ namespace unittest {
 
         }
     }//End test case
+TEST_CASE( "Clusters in snarl","[dist]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GGGGGGGGGGGG");//12 Gs
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("G");
+        Node* n9 = graph.create_node("AA");
+        Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("G");
+        Node* n12 = graph.create_node("G");
+        Node* n13 = graph.create_node("GA");
+        Node* n14 = graph.create_node("G");
+        Node* n15 = graph.create_node("G");
+        Node* n16 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n13);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n16);
+        Edge* e27 = graph.create_edge(n16, n9);
+        Edge* e5 = graph.create_edge(n3, n4);
+        Edge* e6 = graph.create_edge(n3, n5);
+        Edge* e7 = graph.create_edge(n4, n6);
+        Edge* e8 = graph.create_edge(n5, n6);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n6, n8);
+        Edge* e11 = graph.create_edge(n7, n8);
+        Edge* e12 = graph.create_edge(n8, n9);
+        Edge* e13 = graph.create_edge(n9, n10);
+        Edge* e14 = graph.create_edge(n9, n11);
+        Edge* e15 = graph.create_edge(n10, n11);
+        Edge* e16 = graph.create_edge(n11, n12);
+        Edge* e17 = graph.create_edge(n11, n2);
+        Edge* e18 = graph.create_edge(n12, n1);
+        Edge* e19 = graph.create_edge(n13, n14);
+        Edge* e20 = graph.create_edge(n13, n15);
+        Edge* e21 = graph.create_edge(n14, n15);
+        Edge* e22 = graph.create_edge(n15, n12);
+        Edge* e23 = graph.create_edge(n2, n2, true, false);
+        Edge* e24 = graph.create_edge(n11, n11, false, true);
+        Edge* e25 = graph.create_edge(n1, n1, true, false);
+        Edge* e26 = graph.create_edge(n12, n12, false, true);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+
+        SnarlSeedClusterer clusterer;
+
+        SECTION( "One cluster" ) {
+            id_t seed_nodes[] = {2, 3, 4, 7, 8, 9, 11};
+            //all are in the same cluster
+            vector<pos_t> seeds;
+            for (id_t n : seed_nodes) {
+                seeds.push_back(make_pos_t(n, false, 0));
+            }
+
+            vector<size_t> clusters = clusterer.cluster_seeds(seeds, 10, 
+                           snarl_manager, dist_index); 
+            for (size_t c : clusters) {cerr << c << " " ;}
+            cerr << endl;
+
+            size_t c = clusters[0];
+            for (size_t c1 : clusters) {
+                REQUIRE(c == c1);
+            }
+        }
+    }//end test case
 }
 }
