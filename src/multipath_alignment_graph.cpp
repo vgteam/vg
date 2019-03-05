@@ -3101,6 +3101,46 @@ namespace vg {
             }
         }
         
+        // we use this function to remove alignments that follow the same path, keeping only the highest scoring one
+        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns) {
+            // we use stable sort to keep the original ordering among alignments
+            // that take the same path, which is descending by score
+            stable_sort(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
+                bool is_less = false;
+                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
+                size_t i = 0;
+                for (; i < path_1.mapping_size() && i < path_2.mapping_size(); i++) {
+                    const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                    if (pos_1.node_id() < pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
+                        is_less = true;
+                        break;
+                    }
+                    else if (pos_1.node_id() > pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
+                        break;
+                    }
+                }
+                return is_less || (i == path_1.mapping_size() && i < path_2.mapping_size());
+            });
+            // move alignments that have the same path to the end of the vector, keeping the
+            // first one (which has the highest score)
+            auto new_end = unique(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
+                bool is_equal = true;
+                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
+                if (path_1.mapping_size() == path_2.mapping_size()) {
+                    for (size_t i = 0; i < path_1.mapping_size() && is_equal; i++) {
+                        const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                        is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
+                    }
+                }
+                else {
+                    is_equal = false;
+                }
+                return is_equal;
+            });
+            // remove the duplicates at the end
+            alt_alns.erase(new_end, alt_alns.end());
+        };
+        
 #ifdef debug_multipath_alignment
         cerr << "doing DP between MEMs" << endl;
 #endif
@@ -3197,6 +3237,9 @@ namespace vg {
                     aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns,
                                                        band_padding_function(intervening_sequence, connecting_graph), true);
                 }
+                
+                // remove alignments with the same path
+                deduplicate_alt_alns(alt_alignments);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment
@@ -3302,7 +3345,9 @@ namespace vg {
             // For each sink subpath number
             const size_t& j = kv.first;
             // And the tail alignments from it
-            const vector<Alignment>& alt_alignments = kv.second;
+            vector<Alignment>& alt_alignments = kv.second;
+            // remove alignments with the same path
+            deduplicate_alt_alns(alt_alignments);
         
             PathNode& path_node = path_nodes.at(j);
             
@@ -3313,6 +3358,7 @@ namespace vg {
             pos_t end_pos = final_position(path_node.path);
             // want past-the-last instead of last index here
             get_offset(end_pos)++;
+            
                     
             for (const Alignment& tail_alignment : alt_alignments) {
                 
@@ -3352,6 +3398,8 @@ namespace vg {
                 
                 // There should be some alignments
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
+                // remove alignments with the same path
+                deduplicate_alt_alns(alt_alignments);
                 
                 const Mapping& first_mapping = path_node.path.mapping(0);
                 for (Alignment& tail_alignment : alt_alignments) {
