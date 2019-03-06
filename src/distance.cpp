@@ -2138,7 +2138,7 @@ DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, vector<int64_t> v) {
     
     distIndex = di;
 
-    size_t numNodes = v.size()-2 / 4;
+    size_t numNodes = (v.size()-2) / 4;
   
     chainStartID = v[0];
     chainEndID = v[1];
