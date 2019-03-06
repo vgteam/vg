@@ -2208,8 +2208,8 @@ DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, vector<int64_t> v) {
     
     distIndex = di;
 
-    size_t numNodes = v.size()-2 / 4;
-  
+    size_t numNodes = (v.size()-3) / 4;
+    
     chainStartID = v[0];
     chainEndID = v[1];
     int64_t par = v[2];
@@ -2243,7 +2243,7 @@ vector<int64_t> DistanceIndex::ChainIndex::toVector() {
     if (loops) { numNodes = numNodes + 1; } 
 
     vector<int64_t> v;
-    v.resize(numNodes * 4 + 2);
+    v.resize(numNodes * 4 + 3);
     v[0] = chainStartID;
     v[1] = chainEndID;
     v[2] =  parent.second ? -(int64_t) parent.first :
