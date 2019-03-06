@@ -19,6 +19,7 @@ void clean_all_snarls(MutablePathDeletableHandleGraph& graph, ifstream& snarl_st
     for (auto roots : snarl_roots){
         clean_snarl(graph, roots->start().node_id(), roots->end().node_id());
     }
+    delete snarl_manager;
 
     
 }
