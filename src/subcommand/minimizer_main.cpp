@@ -62,9 +62,11 @@ void help_minimizer(char** argv) {
     std::cerr << "    -G, --gcsa-name X      also benchmark the GCSA2 index in file X" << std::endl;
     std::cerr << "    -L, --locate           locate the minimizer/MEM occurrences" << std::endl;
     std::cerr << "    -m, --max-occs N       do not locate minimizers with more than N occurrences" << std::endl;
+    std::cerr << "    -e, --extend N         try gapless extension of unique hits with up to N mismatches (requires -g, -L)" << std::endl;
+    std::cerr << "    -g, --gbwt-name X      extend using the GBWT index in file X" << std::endl;
 }
 
-int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool progress);
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, bool progress);
 
 int main_minimizer(int argc, char** argv) {
 
@@ -77,8 +79,9 @@ int main_minimizer(int argc, char** argv) {
     size_t kmer_length = MinimizerIndex::KMER_LENGTH;
     size_t window_length = MinimizerIndex::WINDOW_LENGTH;
     size_t max_occs = MinimizerIndex::MAX_OCCS;
+    size_t max_errors = 0;
     std::string index_name, load_index, gbwt_name, xg_name, reads_name, gcsa_name;
-    bool progress = false, locate = false;
+    bool progress = false, locate = false, gapless_extend = false;
     int threads = omp_get_max_threads();
 
     int c;
@@ -97,11 +100,12 @@ int main_minimizer(int argc, char** argv) {
             { "benchmark", required_argument, 0, 'b' },
             { "gcsa-name", required_argument, 0, 'G' },
             { "locate", no_argument, 0, 'L' },
+            { "extend", required_argument, 0, 'e' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:L", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:Le:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -142,6 +146,10 @@ int main_minimizer(int argc, char** argv) {
         case 'L':
             locate = true;
             break;
+        case 'e':
+            max_errors = parse<size_t>(optarg);
+            gapless_extend = true;
+            break;
 
         case 'h':
         case '?':
@@ -155,8 +163,12 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "[vg minimizer]: option --index-name is required" << std::endl;
         return 1;
     }
+    if (gapless_extend && (!locate || gbwt_name.empty())) {
+        std::cerr << "[vg minimizer]: option --extend requires --gbwt-name and --locate" << std::endl;
+        return 1;
+    }
     if (!reads_name.empty()) {
-        return query_benchmarks(index_name, reads_name, gcsa_name, locate, max_occs, progress);
+        load_index = index_name;
     }
     if (optind + 1 != argc) {
         help_minimizer(argv);
@@ -177,7 +189,7 @@ int main_minimizer(int argc, char** argv) {
     std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length, max_occs));
     if (!load_index.empty()) {
         if (progress) {
-            std::cerr << "Loading the index from " << load_index << std::endl;
+            std::cerr << "Loading the minimizer index from " << load_index << std::endl;
         }
         index = stream::VPKG::load_one<MinimizerIndex>(load_index);
     }
@@ -195,6 +207,11 @@ int main_minimizer(int argc, char** argv) {
         }
         gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
         xg_index.reset(nullptr); // The XG index is no longer needed.
+    }
+
+    // Run the benchmarks and return.
+    if (!reads_name.empty()) {
+        return query_benchmarks(index, gbwt_graph, reads_name, gcsa_name, locate, max_occs, gapless_extend, max_errors, progress);
     }
 
     // Minimizer caching.
@@ -277,15 +294,9 @@ int main_minimizer(int argc, char** argv) {
     return 0;
 }
 
-int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool progress) {
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, bool progress) {
 
     double start = gbwt::readTimer();
-
-    // Load the minimizer index.
-    if (progress) {
-        std::cerr << "Loading the minimizer index from " << index_name << std::endl;
-    }
-    std::unique_ptr<MinimizerIndex> index(stream::VPKG::load_one<MinimizerIndex>(index_name));
 
     // Load the GCSA index.
     bool benchmark_gcsa = !(gcsa_name.empty());
@@ -325,18 +336,30 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
 
         std::vector<size_t> min_counts(threads, 0);
         std::vector<size_t> occ_counts(threads, 0);
-#pragma omp parallel for schedule(static)
+        std::vector<size_t> unique_counts(threads, 0);
+        std::vector<size_t> success_counts(threads, 0);
+        #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
             size_t thread = omp_get_thread_num();
             std::vector<MinimizerIndex::minimizer_type> result = index->minimizers(reads[i]);
             min_counts[thread] += result.size();
             if (locate) {
+                std::vector<std::pair<size_t, pos_t>> hits; // (read offset, pos) for unique hits.
                 for (auto minimizer : result) {
                     if (index->count(minimizer.first) <= max_occs) {
-                        std::vector<pos_t> result = index->find(minimizer.first);
-                        if (result.size() != 1 || !vg::is_empty(result.front())) {
-                            occ_counts[thread] += result.size();
+                        std::vector<pos_t> occs = index->find(minimizer.first);
+                        if (occs.size() != 1 || !vg::is_empty(occs.front())) {
+                            occ_counts[thread] += occs.size();
                         }
+                        if (gapless_extend && occs.size() == 1 && !vg::is_empty(occs.front())) {
+                            hits.emplace_back(minimizer.second, occs.front());
+                        }
+                    }
+                }
+                if (!hits.empty()) {
+                    unique_counts[thread]++;
+                    if (gapless_extension(*gbwt_graph, reads[i], hits, max_errors)) {
+                        success_counts[thread]++;
                     }
                 }
             } else {
@@ -346,15 +369,27 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
             }
         }
         size_t min_count = 0, occ_count = 0;
+        size_t unique_count = 0, success_count = 0;
         for (size_t i = 0; i < threads; i++) {
             min_count += min_counts[i];
             occ_count += occ_counts[i];
+            unique_count += unique_counts[i];
+            success_count += success_counts[i];
         }
 
         double phase_seconds = gbwt::readTimer() - phase_start;
-        std::string query_type = (locate ? "locate" : "count");
+        std::string query_type = "count";
+        if (locate) { 
+            query_type = "locate";
+        }
+        if (gapless_extend) {
+            query_type = "extend";
+        }
         std::cerr << "Minimizers (" << query_type << "): " << phase_seconds << " seconds (" << (reads.size() / phase_seconds) << " reads/second)" << std::endl;
         std::cerr << min_count << " minimizers with " << occ_count << " occurrences" << std::endl;
+        if (gapless_extend) {
+            std::cerr << unique_count << " reads with unique hits, " << success_count << " successfully extended with up to " << max_errors << " mismatches" << std::endl;
+        }
         std::cerr << std::endl;
     }
 
@@ -364,7 +399,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
 
         std::vector<size_t> mem_counts(threads, 0);
         std::vector<size_t> mem_lengths(threads, 0);
-#pragma omp parallel for schedule(static)
+        #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
             size_t thread = omp_get_thread_num();
             const std::string& read = reads[i];

@@ -140,14 +140,14 @@ public:
 
     // GBWTGraph specific interface.
 
-    /// Get node sequence as a pointer and length.
-    std::pair<const char*, size_t> get_sequence_view(const handle_t& handle) const;
-
     /// Convert gbwt::node_type to handle_t.
     static handle_t node_to_handle(gbwt::node_type node) { return handlegraph::as_handle(node); }
 
     /// Convert handle_t to gbwt::node_type.
     static gbwt::node_type handle_to_node(const handle_t& handle) { return handlegraph::as_integer(handle); }
+
+    /// Get node sequence as a pointer and length.
+    std::pair<const char*, size_t> get_sequence_view(const handle_t& handle) const;
 
     /// Convert handle_t to gbwt::SearchState.
     gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(handle_to_node(handle)); }
@@ -164,7 +164,7 @@ public:
     /// Stop and return false if the iteratee returns false.
     /// Note that the state may be empty if no path continues to that node.
     /// Each state corresponds to a path. Going backward extends the path left, while going
-    /// extends it right.
+    /// extends it right. When going backward, the state is for the reverse orientation.
     bool follow_paths(gbwt::BidirectionalState state, bool backward,
                       const std::function<bool(const gbwt::BidirectionalState&)>& iteratee) const;
 
@@ -188,6 +188,13 @@ void for_each_haplotype_window(const GBWTGraph& graph, size_t window_size,
 void for_each_window(const HandleGraph& graph, size_t window_size,
                      const std::function<void(const std::vector<handle_t>&, const std::string&)>& lambda,
                      bool parallel);
+
+//------------------------------------------------------------------------------
+
+/// Toy example: Align seq to graph using gapless extension from the given hits.
+/// For each hit, seq position .first corresponds to graph position .second.
+/// Returns true if the extension was successful. TODO: Remove.
+bool gapless_extension(const GBWTGraph& graph, const std::string& seq, const std::vector<std::pair<size_t, pos_t>>& hits, size_t max_errors);
 
 //------------------------------------------------------------------------------
 
