@@ -643,7 +643,7 @@ for (cluster_t c : chain_clusters) {
                              curr_node, false, node_len); 
                 }
 
-            } else if (i < child_snarls.size()) {
+            } else if (i < child_snarls.size() + child_nodes.size()) {
 
                 const Snarl* curr_snarl = child_snarls[i - child_nodes.size()];
                 curr_node = curr_snarl->start().node_id();
@@ -678,12 +678,13 @@ for (cluster_t c : chain_clusters) {
                     bool in_this_cluster = false;
                     vector<hash_set<size_t>> old_cluster_indices =
                                             combined_clusters_indices[k].first;
-                    if (old_cluster_indices.size() < i-1) {
+                    while (old_cluster_indices.size() <= i) {
                         //If this cluster doesn't have a set for this child node
                         //TODO: Maybe a better way of doing this??
 
                         hash_set<size_t> new_cluster ;
                         old_cluster_indices.push_back(new_cluster);
+                        combined_clusters_indices[k].first = old_cluster_indices;
                     }
                     for (size_t j = 0 ; j < i ; j++){
                         //Go through child nodes up to but not including i
@@ -697,7 +698,7 @@ for (cluster_t c : chain_clusters) {
                             if (j < child_nodes.size()) {
                                 other_node = child_nodes[j];
                                 other_rev = false;
-                            } else if (j < child_snarls.size()) {
+                            } else if (j < child_snarls.size() + child_nodes.size()) {
                                 const Snarl* other_snarl =  
                                            child_snarls[j - child_nodes.size()];
                                 other_node = other_snarl->start().node_id();
@@ -807,15 +808,17 @@ for (cluster_t c : chain_clusters) {
                                       combined_clusters_indices[k].first;
                         pair<int64_t, int64_t> old_cluster_dists = 
                                       combined_clusters_indices[k].second;
-                        for (size_t j = 0 ; j < i ; j++) {
+                        new_dists.first = DistanceIndex::minPos(
+                                   {new_dists.first, old_cluster_dists.first});
+                        new_dists.second = DistanceIndex::minPos(
+                                   {new_dists.second,old_cluster_dists.second});
+                        for (size_t j = 0 ; j <= i ; j++) {
                             //Combine clusters
+                            if (old_cluster_indices[j].size() > 0) {
                             combined_cluster[j].insert(
                                 old_cluster_indices[j].begin(),
                                 old_cluster_indices[j].end());
-                            new_dists.first = DistanceIndex::minPos(
-                                   {new_dists.first, old_cluster_dists.first});
-                            new_dists.second = DistanceIndex::minPos(
-                                   {new_dists.second,old_cluster_dists.second});
+                            }
                         }
                     } else {
 

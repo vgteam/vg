@@ -227,5 +227,110 @@ namespace unittest {
             REQUIRE( clusters.size() == 4);
         }
     }//end test case
+    TEST_CASE("Random graphs", "[cluster]"){
+
+        for (int i = 0; i < 100; i++) {
+            //1000 different graphs
+            VG graph = randomGraph(1000, 20, 100);
+
+
+            CactusSnarlFinder bubble_finder(graph);
+            SnarlManager snarl_manager = bubble_finder.find_snarls();
+            DistanceIndex dist_index (&graph, &snarl_manager, 20);
+
+            SnarlSeedClusterer clusterer;
+
+            vector<const Snarl*> allSnarls;
+            auto addSnarl = [&] (const Snarl* s) {
+                allSnarls.push_back(s);
+            };
+            snarl_manager.for_each_snarl_preorder(addSnarl);
+
+            uniform_int_distribution<int> randSnarlIndex(0, allSnarls.size()-1);
+            default_random_engine generator(time(NULL));
+            for (size_t k = 0; k < 100 ; k++) {
+                vector<pos_t> seeds;
+                for (int j = 0; j < 100; j++) {
+                    //Check clusters of 100 random positions 
+                    const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
+
+                    pair<unordered_set<Node*>, unordered_set<Edge*>> contents1 =
+                           snarl_manager.shallow_contents(snarl1, graph, true);
+  
+                    vector<Node*> nodes1 (contents1.first.begin(), contents1.first.end());
+
+
+                    uniform_int_distribution<int> randNodeIndex1(0,nodes1.size()-1);
+ 
+                    Node* node1 = nodes1[randNodeIndex1(generator)];
+                    id_t nodeID1 = node1->id();
+ 
+                    off_t offset1 = uniform_int_distribution<int>(0,node1->sequence().size() - 1)(generator);
+
+                    pos_t pos = make_pos_t(nodeID1,
+                        uniform_int_distribution<int>(0,1)(generator) == 0,offset1 );
+                    seeds.push_back(pos);
+
+                }
+                int64_t lim = 100;// Distance between clusters
+                vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+                                      seeds, lim, snarl_manager, dist_index); 
+
+                for (size_t a = 0; a < clusters.size(); a++) {
+                    hash_set<size_t> clust = clusters[a];
+                    for (size_t i1 : clust) {
+                        int64_t min_dist = -1;
+                        for (size_t i2 : clust) {
+                            pos_t pos1 = seeds[i1];
+                            pos_t pos2 = seeds[i2];
+                            size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
+                            pos_t rev1 = make_pos_t(get_id(pos1), 
+                                                    !is_rev(pos1),
+                                                    len1 - get_offset(pos1)); 
+                            size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                            pos_t rev2 = make_pos_t(get_id(pos2), 
+                                                    !is_rev(pos2),
+                                                    len2 - get_offset(pos2)); 
+                            int64_t dist1 = dist_index.minDistance(pos1, pos2);
+                            int64_t dist2 = dist_index.minDistance(pos1, rev2);
+                            int64_t dist3 = dist_index.minDistance(rev1, pos2);
+                            int64_t dist4 = dist_index.minDistance(rev1, rev2);
+                            min_dist = dist1 == -1 ? min_dist : min(min_dist,dist1);
+                            min_dist = dist2 == -1 ? min_dist : min(min_dist,dist2);
+                            min_dist = dist3 == -1 ? min_dist : min(min_dist,dist3);
+                            min_dist = dist4 == -1 ? min_dist : min(min_dist,dist4);
+
+                        }
+                        REQUIRE(min_dist <= lim);
+                        for ( size_t b = 0; b < a ; b ++) {
+                            hash_set<size_t> clust2 = clusters[b];
+                            for (size_t i2 : clust2) {
+                                pos_t pos1 = seeds[i1];
+                                pos_t pos2 = seeds[i2];
+                            size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
+                            pos_t rev1 = make_pos_t(get_id(pos1), 
+                                                    !is_rev(pos1),
+                                                    len1 - get_offset(pos1)); 
+                            size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                            pos_t rev2 = make_pos_t(get_id(pos2), 
+                                                    !is_rev(pos2),
+                                                    len2 - get_offset(pos2)); 
+                            int64_t dist1 = dist_index.minDistance(pos1, pos2);
+                            int64_t dist2 = dist_index.minDistance(pos1, rev2);
+                            int64_t dist3 = dist_index.minDistance(rev1, pos2);
+                            int64_t dist4 = dist_index.minDistance(rev1, rev2);
+                            REQUIRE((    (dist1 == -1 || dist1 >= lim) 
+                                      && (dist2 == -1 ||  dist2 >= lim) 
+                                      && (dist3 == -1 ||  dist3 >= lim)  
+                                      && (dist4 == -1 || dist4 >= lim)));
+                            }
+                        }
+                    }
+
+                }
+;
+            }
+        }
+    } //end test case
 }
 }
