@@ -2208,7 +2208,7 @@ DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, vector<int64_t> v) {
     
     distIndex = di;
 
-    size_t numNodes = v.size()-2 / 4;
+    size_t numNodes = (v.size()-3) / 4;
   
     chainStartID = v[0];
     chainEndID = v[1];
@@ -2235,7 +2235,7 @@ DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, vector<int64_t> v) {
 
 vector<int64_t> DistanceIndex::ChainIndex::toVector() {
     /*Convert contents into vector of ints for serialization
-     Stored as [node_id, prefix sum1, prefix sum2, loopfd,loop rev, node_id2...]
+     Stored as [node_id1, prefix sum1, loopfd1,loop rev1, node_id2...]
      */
    
     int64_t numNodes = snarlToIndex.size();
@@ -2243,7 +2243,7 @@ vector<int64_t> DistanceIndex::ChainIndex::toVector() {
     if (loops) { numNodes = numNodes + 1; } 
 
     vector<int64_t> v;
-    v.resize(numNodes * 4 + 2);
+    v.resize(numNodes * 4 + 3);
     v[0] = chainStartID;
     v[1] = chainEndID;
     v[2] =  parent.second ? -(int64_t) parent.first :
@@ -2256,7 +2256,7 @@ vector<int64_t> DistanceIndex::ChainIndex::toVector() {
     }
    
     for (pair<id_t, size_t> p : snarlToIndex) {
-        v[p.second * 4 + 3] = (int64_t) p.first; 
+        v[p.second * 4 + 3] = (int64_t) p.first;
     }
     if (loops) {v[(numNodes-1) * 4 + 3] = v[0];} //Last node id is first
    

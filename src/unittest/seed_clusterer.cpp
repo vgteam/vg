@@ -115,7 +115,7 @@ namespace unittest {
 
         }
     }//End test case
-TEST_CASE( "Clusters in snarl","[dist]" ) {
+    TEST_CASE( "Clusters in snarl","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -169,7 +169,62 @@ TEST_CASE( "Clusters in snarl","[dist]" ) {
 
         SnarlSeedClusterer clusterer;
 
-        SECTION( "One cluster" ) {
+        SECTION( "Two clusters in a chain and loop of snarl boundary" ) {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(2, false, 0));
+            seeds.push_back(make_pos_t(3, false, 0));
+            seeds.push_back(make_pos_t(5, false, 0));
+            seeds.push_back(make_pos_t(16, false, 0));
+            //New cluster
+            seeds.push_back(make_pos_t(5, false, 10));
+            seeds.push_back(make_pos_t(6, false, 0));
+            seeds.push_back(make_pos_t(8, false, 0));
+
+            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+                                         seeds, 4,  snarl_manager, dist_index); 
+            for (hash_set<size_t> c : clusters) { 
+                for (size_t s : c) {cerr << s << " ";}
+                cerr << endl; 
+            }
+            REQUIRE( clusters.size() == 2);
+            REQUIRE (( (clusters[0].count(0) == 1 &&
+                       clusters[0].count(1) == 1 &&
+                       clusters[0].count(2) == 1 &&
+                       clusters[0].count(3) == 1 &&
+                       clusters[1].count(4) == 1 &&
+                       clusters[1].count(5) == 1 &&
+                       clusters[1].count(6) == 1)  ||
+
+                     ( clusters[1].count(0) == 1 &&
+                       clusters[1].count(1) == 1 &&
+                       clusters[1].count(2) == 1 &&
+                       clusters[0].count(3) == 1 &&
+                       clusters[0].count(4) == 1 &&
+                       clusters[0].count(5) == 1 &&
+                       clusters[0].count(6) == 1  )));
+        }
+        SECTION( "Four clusters" ) {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(3, false, 0));
+            seeds.push_back(make_pos_t(5, false, 0));
+            //New cluster
+            seeds.push_back(make_pos_t(5, false, 10));
+            seeds.push_back(make_pos_t(6, false, 0));
+            seeds.push_back(make_pos_t(8, false, 0));
+            //New cluster
+            seeds.push_back(make_pos_t(16, false, 0));
+            //New cluster
+            seeds.push_back(make_pos_t(13, false, 1));
+            seeds.push_back(make_pos_t(14, false, 0));
+            seeds.push_back(make_pos_t(15, false, 0));
+
+            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+                                         seeds, 3,  snarl_manager, dist_index); 
+            for (hash_set<size_t> c : clusters) { 
+                for (size_t s : c) {cerr << s << " ";}
+                cerr << endl; 
+            }
+            REQUIRE( clusters.size() == 4);
         }
     }//end test case
 }

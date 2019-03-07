@@ -102,7 +102,7 @@ cerr << "Finding clusters on node " << root << endl;
 
             //Distance from seed to start of node 
             int64_t offset = is_rev(seed) ? node_length - get_offset(seed) : 
-                                            get_offset(seed);
+                                            get_offset(seed)+1;
                         
             for (size_t j = 0 ; j < cluster_indices.size(); j++) {
                 //Check which new clusters this seed belongs in 
@@ -114,7 +114,7 @@ cerr << "Finding clusters on node " << root << endl;
                         pos_t other_seed = seeds[k];
                         int64_t other_offset = is_rev(other_seed) ?  
                                        node_length - get_offset(other_seed) : 
-                                       get_offset(seed);
+                                       get_offset(other_seed) + 1;
                         if (abs(offset - other_offset) < distance_limit) {
                             in_this_cluster = true;
                             curr_cluster_assignments.insert(j);
@@ -145,7 +145,7 @@ cerr << "Finding clusters on node " << root << endl;
                         combined_cluster.push_back(old_cluster);
                     }
                 }
-                cluster_indices = combined_cluster;
+                cluster_indices = move(combined_cluster);
             }
         }
 
@@ -201,6 +201,9 @@ for (cluster_t c : clusters) {
         DistanceIndex::ChainIndex& chain_index = dist_index.chainDistances.at(
                                                  get_start_of(*root).node_id());
         ChainIterator chain_e = chain_end(*root);
+        //The node at which the chain clusters reach
+        id_t last_snarl = get_start_of(*root).node_id();
+        int64_t last_len;
         for (ChainIterator c = chain_begin(*root); c != chain_e; ++c) {
             /* For each child snarl in the chain, find the clusters of just the
              * snarl, add the seeds that mapped to boundary nodes on the chain,
@@ -208,37 +211,64 @@ for (cluster_t c : clusters) {
              */
             const Snarl* curr_snarl = c->first;
             bool rev_in_chain = c->second;
-            DistanceIndex::SnarlIndex& snarl_index = 
-                        dist_index.snarlDistances.at(
-                           make_pair(curr_snarl->start().node_id(),
-                                     curr_snarl->start().backward()));
 
-
-             //Start and end node of snarl relative to chain
-            id_t start_node = rev_in_chain ? curr_snarl->end().node_id() :
-                                                 curr_snarl->start().node_id();
-            id_t end_node = rev_in_chain ? curr_snarl->start().node_id() :
-                                                 curr_snarl->end().node_id();
             //TODO: This should be true if the node in the chain is traversed backward
             //TODO: Actually might not need this- always traverse a node forward in a chain????????
             id_t start_rev = rev_in_chain ? curr_snarl->end().backward() :
                                            ! curr_snarl->start().backward();
             id_t end_rev = rev_in_chain ? ! curr_snarl->start().backward() :
                                                 curr_snarl->end().backward();
-            int64_t start_length = snarl_index.nodeLength(start_node);
-            int64_t end_length = snarl_index.nodeLength(end_node);
-            if (c == chain_begin(*root)) {
-                /* If this is the first snarl in the chain, then the 
-                 * clusters in the first node of the chain can be considered
-                 * as the clusters up to this snarl */ 
-
-                chain_clusters =  get_clusters_node(seeds, node_to_seed,
-                             distance_limit, snarl_manager, dist_index, 
-                             start_node, false, start_length); 
-            }
-            if (snarls_with_seeds.count(curr_snarl) != 0) {
+             //Start and end node of snarl relative to chain
+            id_t start_node = rev_in_chain ? curr_snarl->end().node_id() :
+                                                 curr_snarl->start().node_id();
+            id_t end_node = rev_in_chain ? curr_snarl->start().node_id() :
+                                                 curr_snarl->end().node_id();
+            if (node_to_seed.find(end_node) != node_to_seed.end()
+                || snarls_with_seeds.count(curr_snarl) != 0) {
                 //If this snarl has seeds on its children
-                
+     
+                DistanceIndex::SnarlIndex& snarl_index = 
+                        dist_index.snarlDistances.at(
+                           make_pair(curr_snarl->start().node_id(),
+                                     curr_snarl->start().backward()));
+                int64_t start_length = snarl_index.nodeLength(start_node);
+                int64_t end_length = snarl_index.nodeLength(end_node);
+
+                if (chain_clusters.size() == 0) {
+                    /* If this is the first snarl in the chain, then the 
+                     * clusters in the first node of the chain can be considered
+                     * as the clusters up to this snarl */ 
+
+                    chain_clusters =  get_clusters_node(seeds, node_to_seed,
+                             distance_limit, snarl_manager, dist_index, 
+                             start_node, false, start_length);
+                    last_snarl = start_node;
+                    last_len = start_length;
+                }
+
+                if (last_snarl != start_node) { 
+                    /* If the chain clusters don't reach this snarl,
+                     * extend their dist_right to the beginning of this snarl
+                     */  
+                    int64_t offset = chain_index.prefixSum[
+                                      chain_index.snarlToIndex[start_node]] -
+                                chain_index.prefixSum[
+                                      chain_index.snarlToIndex[last_snarl]] +
+                                start_length - last_len;
+                    vector<cluster_t> new_chain_clusters;
+                    for (cluster_t curr : chain_clusters) {
+                        //Update the clusters to reach the current snarl
+                        cluster_t new_c;
+                        new_c.dist_right = curr.dist_right + offset;
+                        new_c.dist_left = curr.dist_left;
+                        new_c.seeds = move(curr.seeds);
+                        new_chain_clusters.push_back(new_c);
+                    }
+                    chain_clusters = move(new_chain_clusters);
+                }
+                last_snarl = end_node;
+                last_len = end_length;
+
 
                 //Get clusters on current snarl and 2nd boundary node 
                 vector<SnarlSeedClusterer::cluster_t> snarl_clusters =
@@ -429,11 +459,6 @@ for (cluster_t c : clusters) {
                             }
                         }
                     }
-cerr << "cluster is assigned to the following chain clusters: " << endl;
-for (size_t a : curr_cluster_assignments) {
-cerr << a << " " ;
-}
-cerr << endl;
                     vector<pair<hash_set<size_t>, hash_set<size_t>>> 
                                                               new_chain_indices;
                     pair<hash_set<size_t>, hash_set<size_t>> new_chain_cluster;
@@ -509,25 +534,6 @@ cerr << endl;
                 chain_clusters = new_chain_clusters;
                 
 
-            } else { 
-                //Extend the boundaries of the clusters to end of current snarl
-
-                
-                vector<SnarlSeedClusterer::cluster_t> new_chain_clusters;
-                int64_t dist_to_next = snarl_index.snarlLength() - start_length;
-                for (SnarlSeedClusterer::cluster_t curr_cluster :
-                                                               chain_clusters) {
-//TODO: Should be able to just change the dist_right value of existing cluster
-                    cluster_t new_cluster;
-
-                    new_cluster.seeds.insert(curr_cluster.seeds.begin(),
-                                             curr_cluster.seeds.end());
-                    new_cluster.dist_left = curr_cluster.dist_left;
-                    new_cluster.dist_right = curr_cluster.dist_right + dist_to_next;
-                    new_chain_clusters.push_back(new_cluster);
-                }
-                chain_clusters = new_chain_clusters;
-            }
 #ifdef DEBUG
 cerr << "\t at snarl " << start_node << ", clusters:" << endl;
 
@@ -540,6 +546,7 @@ for (SnarlSeedClusterer::cluster_t curr_cluster :chain_clusters) {
     cerr << endl;
 }
 #endif
+            } 
             
         }
          
@@ -678,7 +685,8 @@ for (cluster_t c : chain_clusters) {
                         hash_set<size_t> new_cluster ;
                         old_cluster_indices.push_back(new_cluster);
                     }
-                    for (size_t j = 0 ; j < i-1; j++){
+                    for (size_t j = 0 ; j < i ; j++){
+                        //Go through child nodes up to but not including i
                         if (!in_this_cluster) {
                             
                             //Clusters of child j in this combined cluster
@@ -763,22 +771,30 @@ for (cluster_t c : chain_clusters) {
                                                   !snarl_index.snarlEnd.second),
                                          make_pair(curr_node, !curr_rev))] - 1;
                 dist_s_l = dist_s_l == -1  || child_cluster.dist_left == -1 
-                                     ? -1 : start_length + dist_s_l + child_cluster.dist_left;
+                       ? -1 : start_length + dist_s_l + child_cluster.dist_left;
                 dist_s_r = dist_s_r == -1 || child_cluster.dist_right == -1 
-                                    ? -1 : start_length + dist_s_r + child_cluster.dist_right;
+                      ? -1 : start_length + dist_s_r + child_cluster.dist_right;
                 dist_e_l = dist_e_l == -1 || child_cluster.dist_left == -1
-                                    ? -1 : end_length + dist_e_l + child_cluster.dist_left;
+                       ? -1 : end_length + dist_e_l + child_cluster.dist_left;
                 dist_e_r = dist_e_r == -1 || child_cluster.dist_right == -1
-                                   ? -1 : end_length + dist_e_r + child_cluster.dist_right;
+                      ? -1 : end_length + dist_e_r + child_cluster.dist_right;
+  
                 pair<int64_t, int64_t> new_dists (
                          DistanceIndex::minPos({dist_s_l, dist_s_r}), 
                          DistanceIndex::minPos({dist_e_l,dist_e_r}));
+                if (snarl_index.snarlEnd.first == curr_node) {
+                    new_dists.second = child_cluster.dist_right ;
+                } 
+                if (curr_node == snarl_index.snarlStart.first){
+                    new_dists.second = child_cluster.dist_left ;
+                }
 
                 //Combine clusters that child cluster belongs to
                 vector<pair<vector<hash_set<size_t>>, pair<int64_t, int64_t>>>
                                                      new_cluster_indices;
                 vector<hash_set<size_t>> combined_cluster;
-                for (size_t j = 0; j < i+1 ; j++) {
+                for (size_t j = 0; j <= i ; j++) {
+                    //Add a set of clusters for each node up to i
                     hash_set<size_t> set;
                     combined_cluster.push_back(set);
                 }
@@ -791,7 +807,7 @@ for (cluster_t c : chain_clusters) {
                                       combined_clusters_indices[k].first;
                         pair<int64_t, int64_t> old_cluster_dists = 
                                       combined_clusters_indices[k].second;
-                        for (size_t j = 0 ; j < i-1 ; j++) {
+                        for (size_t j = 0 ; j < i ; j++) {
                             //Combine clusters
                             combined_cluster[j].insert(
                                 old_cluster_indices[j].begin(),
@@ -811,7 +827,7 @@ for (cluster_t c : chain_clusters) {
                 combined_cluster[i].insert(c);
                 new_cluster_indices.push_back(make_pair(combined_cluster, 
                                                          new_dists));
-                combined_clusters_indices = new_cluster_indices;
+                combined_clusters_indices = move(new_cluster_indices);
                 
             }
         }
