@@ -130,13 +130,10 @@ using namespace std;
             string line;
             line = get_next_line(in);
             while (!in.eof()) {
-                if (is_conservation_line(line) || is_blank(line)){
+                if (is_conservation_line(line)){
                     seq_count = 0;
                 }
-                else if (is_draw_line(line)) {
-                    seq_count++;
-                }
-                else{
+                else if (!is_draw_line(line) && !is_blank(line)) {
                     auto iter = alignment.find(to_string(seq_count));
                     if (iter != alignment.end()) {
                         iter->second.append(line);
@@ -144,6 +141,7 @@ using namespace std;
                     else {
                         alignment[to_string(seq_count)] = line;
                     }
+                    seq_count++;
                 }
                 line = get_next_line(in);
 

@@ -29,7 +29,7 @@ void clean_snarl(MutablePathDeletableHandleGraph& graph, const id_t& start_id, c
     //Convert subgraph of graph, defined by start_id and end_id, into a vector of strings
     //representing all possible walks through the snarl:
     vector<string> walks = graph_to_strings(graph, start_id, end_id);
-
+    
     //Make a new snarl from walks:
     VG new_snarl = strings_to_graph(walks);
 
@@ -170,7 +170,7 @@ VG strings_to_graph(const vector<string>& walks){
     
 
     globalMsaAlignment(align, seqan::SimpleScore(5, -3, -1, -3));
-    // std::cout << align << "\n";
+    cerr << align << "\n";
 
     stringstream ss;
     ss << align;
