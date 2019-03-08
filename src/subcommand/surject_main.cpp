@@ -36,6 +36,7 @@ void help_surject(char** argv) {
          << "    -s, --sam-output        write SAM to stdout" << endl
          << "    -N, --sample NAME       set this sample name for all reads" << endl
          << "    -R, --read-group NAME   set this read group for all reads" << endl
+         << "    -f, --max-frag-len N    reads with fragment lengths greater than N will not be marked properly paired in SAM/BAM/CRAM" << endl
          << "    -C, --compression N     level for compression [0-9]" << endl;
 }
 
@@ -54,6 +55,7 @@ int main_surject(int argc, char** argv) {
     bool interleaved = false;
     string sample_name;
     string read_group;
+    int32_t max_frag_len = 0;
     int compress_level = 9;
     bool subpath_global = true; // force full length alignments in mpmap resolution
 
@@ -74,12 +76,13 @@ int main_surject(int argc, char** argv) {
             {"sam-output", no_argument, 0, 's'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"max-frag-len", required_argument, 0, 'f'},
             {"compress", required_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:F:licbsN:R:C:t:",
+        c = getopt_long (argc, argv, "hx:p:F:licbsN:R:f:C:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -128,6 +131,10 @@ int main_surject(int argc, char** argv) {
             
         case 'R':
             read_group = optarg;
+            break;
+            
+        case 'f':
+            max_frag_len = parse<int32_t>(optarg);
             break;
 
         case 'C':
@@ -394,9 +401,9 @@ int main_surject(int argc, char** argv) {
                                     
                                     // Create and write paired BAM records referencing each other
                                     write_bam_record(alignment_to_bam(header, surj1, name1, pos1, reverse1, cigar1,
-                                        name2, pos2, reverse2, tlens.first));
+                                        name2, pos2, reverse2, tlens.first, max_frag_len));
                                     write_bam_record(alignment_to_bam(header, surj2, name2, pos2, reverse2, cigar2,
-                                        name1, pos1, reverse1, tlens.second));
+                                        name1, pos1, reverse1, tlens.second, max_frag_len));
                                 
                                 }
                                 

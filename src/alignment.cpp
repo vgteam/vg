@@ -581,7 +581,8 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const int32_t matepos,
                                  bool materev,
                                  const int32_t tlen,
-                                 bool paired) {
+                                 bool paired,
+                                 const int32_t tlen_max) {
 
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
@@ -615,10 +616,23 @@ string alignment_to_sam_internal(const Alignment& alignment,
     }
 
     if (mapped && paired && !refseq.empty() && refseq == mateseq) {
-        // properly paired if both mates mapped to same sequence
-        // TODO: bwa is more strict, and additionally requires that the mates are in forward-reverse orientation
-        // and the distance between them is proporitinal to the estimated insert length.   
-        flags |= BAM_FPROPER_PAIR;
+        // Properly paired if both mates mapped to same sequence, in inward-facing orientations.
+        // We know they're on the same sequence, so check orientation.
+        
+        // If we are first, mate needs to be reverse, and if mate is first, we need to be reverse.
+        // If we are at the same position either way is fine.
+        bool facing = ((refpos <= matepos) && !refrev && materev) || ((matepos <= refpos) && refrev && !materev);
+        
+        // We are close enough if there is not tlen limit, or if there is one and we do not exceed it
+        bool close_enough = (tlen_max == 0) || abs(tlen) <= tlen_max;
+        
+        if (facing && close_enough) {
+            // We can't find anything wrong with this pair; it's properly paired.
+            flags |= BAM_FPROPER_PAIR;
+        }
+        
+        // TODO: Support sequencing technologies where "proper" pairing may
+        // have a different meaning or expected combination of orientations.
     }
 
     if (paired && mateseq.empty()) {
@@ -672,9 +686,10 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& mateseq,
                         const int32_t matepos,
                         bool materev,
-                        const int32_t tlen) {
+                        const int32_t tlen,
+                        const int32_t tlen_max) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
 
 }
 
@@ -684,7 +699,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const bool refrev,
                         const vector<pair<int, char>>& cigar) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
 
 }
 
@@ -699,13 +714,14 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
                                   const int32_t matepos,
                                   bool materev,
                                   const int32_t tlen,
-                                  bool paired) {
+                                  bool paired,
+                                  const int32_t tlen_max) {
 
     assert(!sam_header.empty());
     
     // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
     string sam_file = "data:," + percent_url_encode(sam_header +
-       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired));
+       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired, tlen_max));
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -730,9 +746,10 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& mateseq,
                         const int32_t matepos,
                         bool materev,
-                        const int32_t tlen) {
+                        const int32_t tlen,
+                        const int32_t tlen_max) {
 
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true);
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
 
 }
 
@@ -743,7 +760,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const bool refrev,
                         const vector<pair<int, char>>& cigar) {
     
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
 
 }
 

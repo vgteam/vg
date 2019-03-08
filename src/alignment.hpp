@@ -69,7 +69,9 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
  * refpos must be -1. Otherwise, refpos must be the position on the reference
  * sequence to which the alignment is aligned. Similarly, refseq must be the
  * sequence aligned to, or "" if unaligned. The mateseq and matepos fields must
- * be set similarly for the mate. Note that mateseq must not be "=".
+ * be set similarly for the mate. Note that mateseq must not be "=". If
+ * tlen_max is given, it is a limit on the magnitude of tlen to consider the
+ * read properly paired.
  *
  * Remember to clean up with bam_destroy1(b);
  */
@@ -82,7 +84,8 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const string& mateseq,
                          const int32_t matepos,
                          bool materev,
-                         const int32_t tlen);
+                         const int32_t tlen,
+                         const int32_t tlen_max = 0);
                          
 /**
  * Convert an unpaired Alignment to a BAM record. If the alignment is unmapped,
@@ -104,7 +107,9 @@ bam1_t* alignment_to_bam(const string& sam_header,
  * refpos must be -1. Otherwise, refpos must be the position on the reference
  * sequence to which the alignment is aligned. Similarly, refseq must be the
  * sequence aligned to, or "" if unaligned. The mateseq and matepos fields must
- * be set similarly for the mate. Note that mateseq must not be "=".
+ * be set similarly for the mate. Note that mateseq must not be "=". If
+ * tlen_max is given, it is a limit on the magnitude of tlen to consider the
+ * read properly paired.
  */
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
@@ -114,7 +119,8 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& mateseq,
                         const int32_t matepos,
                         bool materev,
-                        const int32_t tlen);
+                        const int32_t tlen,
+                        const int32_t tlen_max = 0);
                         
 /**
  * Convert an unpaired Alignment to a SAM record. If the alignment is unmapped,

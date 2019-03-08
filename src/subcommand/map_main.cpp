@@ -839,6 +839,12 @@ int main_map(int argc, char** argv) {
                 // Determine the TLEN for each read.
                 auto tlens = compute_template_lengths(path_pos1, cigar1, path_pos2, cigar2);
                 
+                // Look up the paired end distribution stats for deciding if reads are propelry paired
+                auto& stats = mapper[omp_get_thread_num()]->frag_stats;
+                // Put a proper pair bound at 6 std devs.
+                // If distribution hasn't been computed yet, this comes out 0 and no bound is applied.
+                int32_t tlen_limit = stats.cached_fragment_length_mean + 6 * stats.cached_fragment_length_stdev;
+                
                 // Make BAM records
                 bam1_t* b1 = alignment_to_bam(sam_header,
                                               surj1,
@@ -849,7 +855,8 @@ int main_map(int argc, char** argv) {
                                               path_name2,
                                               path_pos2,
                                               path_reverse2,
-                                              tlens.first);
+                                              tlens.first,
+                                              tlen_limit);
                 bam1_t* b2 = alignment_to_bam(sam_header,
                                               surj2,
                                               path_name2,
@@ -859,7 +866,8 @@ int main_map(int argc, char** argv) {
                                               path_name1,
                                               path_pos1,
                                               path_reverse1,
-                                              tlens.second);
+                                              tlens.second,
+                                              tlen_limit);
                 
                 // Write the records
                 int r = 0;
