@@ -9,6 +9,7 @@
 #include <cassert>
 #include <vector>
 #include <unordered_set>
+#include <chrono>
 
 #include "subcommand.hpp"
 
@@ -197,9 +198,13 @@ int main_cluster(int argc, char** argv) {
                 }
             }
             
-            // Cluster the seeds. Get sets of input seed indexes that go together
+            // Cluster the seeds. Get sets of input seed indexes that go together.
+            // Make sure to time it.
+            std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
             vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
-            
+            std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed_seconds = end-start;
+        
             // Put the biggest cluster first
             std::sort(clusters.begin(), clusters.end(), [](const hash_set<size_t>& a, const hash_set<size_t>& b) -> bool {
                 // Return true if a must come before b, and false otherwise
@@ -244,8 +249,10 @@ int main_cluster(int argc, char** argv) {
                 }
             }
             
-            // Tag the alignment
+            // Tag the alignment with cluster accuracy
             set_annotation(aln, "best_cluster_overlap", have_overlap);
+            // And with cluster time
+            set_annotation(aln, "cluster_seconds", elapsed_seconds.count());
             
 #ifdef debug
             cerr << "Overlap? " << have_overlap << endl;
