@@ -378,8 +378,8 @@ int main_surject(int argc, char** argv) {
                                     auto& reverse2 = get<2>(surjected_pair.second);
                                     auto& surj2 = get<3>(surjected_pair.second);
                                     
-                                    // Compute CIGAR strings if actually surjected
-                                    string cigar1 = "", cigar2 = "";
+                                    // Compute CIGARs if actually surjected
+                                    vector<pair<int, char>> cigar1, cigar2;
                                     if (name1 != "") {
                                         size_t path_len1 = xgidx->path_length(name1);
                                         cigar1 = cigar_against_path(surj1, reverse1, pos1, path_len1, 0);
@@ -389,15 +389,14 @@ int main_surject(int argc, char** argv) {
                                         cigar2 = cigar_against_path(surj2, reverse2, pos2, path_len2, 0);
                                     }
                                     
-                                    // TODO: compute template length based on
-                                    // pair distance and alignment content.
-                                    int template_length = 0;
+                                    // Determine the TLEN for each read.
+                                    auto tlens = compute_template_lengths(pos1, cigar1, pos2, cigar2);
                                     
                                     // Create and write paired BAM records referencing each other
                                     write_bam_record(alignment_to_bam(header, surj1, name1, pos1, reverse1, cigar1,
-                                        name2, pos2, reverse2, template_length));
+                                        name2, pos2, reverse2, tlens.first));
                                     write_bam_record(alignment_to_bam(header, surj2, name2, pos2, reverse2, cigar2,
-                                        name1, pos1, reverse1, template_length));
+                                        name1, pos1, reverse1, tlens.second));
                                 
                                 }
                                 
@@ -498,7 +497,7 @@ int main_surject(int argc, char** argv) {
                                 auto& surj = get<3>(s);
                                 
                                 // Generate a CIGAR string for it
-                                string cigar = "";
+                                vector<pair<int, char>> cigar;
                                 if (name != "") {
                                     size_t path_len = xgidx->path_length(name);
                                     cigar = cigar_against_path(surj, reverse, pos, path_len, 0);

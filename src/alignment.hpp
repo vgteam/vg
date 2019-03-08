@@ -56,7 +56,7 @@ bam_hdr_t* hts_string_header(string& header,
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
-string cigar_string(vector<pair<int, char> >& cigar);
+string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
 void cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex);
@@ -78,7 +78,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const string& refseq,
                          const int32_t refpos,
                          const bool refrev,
-                         const string& cigar,
+                         const vector<pair<int, char>>& cigar,
                          const string& mateseq,
                          const int32_t matepos,
                          bool materev,
@@ -97,7 +97,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar);
+                        const vector<pair<int, char>>& cigar);
                          
 /**
  * Convert a paired Alignment to a SAM record. If the alignment is unmapped,
@@ -110,7 +110,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar,
+                        const vector<pair<int, char>>& cigar,
                         const string& mateseq,
                         const int32_t matepos,
                         bool materev,
@@ -126,12 +126,18 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar);
+                        const vector<pair<int, char>>& cigar);
                         
 
 
-string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
 void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand);
+
+/// Work out the TLEN values for two reads. The magnitude is the distance
+/// between the outermost aligned bases, and the sign is positive for the
+/// leftmost read and negative for the rightmost.
+pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
+    const int64_t& pos2, const vector<pair<int, char>>& cigar2);
 
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired);
 short quality_char_to_short(char c);

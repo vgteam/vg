@@ -576,7 +576,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const string& refseq,
                                  const int32_t refpos,
                                  const bool refrev,
-                                 const string& cigar,
+                                 const vector<pair<int, char>>& cigar,
                                  const string& mateseq,
                                  const int32_t matepos,
                                  bool materev,
@@ -640,7 +640,7 @@ string alignment_to_sam_internal(const Alignment& alignment,
         << (mapped ? refseq : use_mate_loc ? mateseq : "*") << "\t"
         << (use_mate_loc ? matepos + 1 : refpos + 1) << "\t"
         << (mapped ? alignment.mapping_quality() : 0) << "\t"
-        << (mapped ? cigar : "*") << "\t"
+        << (mapped ? cigar_string(cigar) : "*") << "\t"
         << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
         << matepos + 1 << "\t"
         << tlen << "\t"
@@ -668,7 +668,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar,
+                        const vector<pair<int, char>>& cigar,
                         const string& mateseq,
                         const int32_t matepos,
                         bool materev,
@@ -682,7 +682,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar) {
+                        const vector<pair<int, char>>& cigar) {
     
     return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
 
@@ -694,7 +694,7 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
                                   const string& refseq,
                                   const int32_t refpos,
                                   const bool refrev,
-                                  const string& cigar,
+                                  const vector<pair<int, char>>& cigar,
                                   const string& mateseq,
                                   const int32_t matepos,
                                   bool materev,
@@ -726,7 +726,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar,
+                        const vector<pair<int, char>>& cigar,
                         const string& mateseq,
                         const int32_t matepos,
                         bool materev,
@@ -741,13 +741,13 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar) {
+                        const vector<pair<int, char>>& cigar) {
     
     return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false);
 
 }
 
-string cigar_string(vector<pair<int, char> >& cigar) {
+string cigar_string(const vector<pair<int, char> >& cigar) {
     vector<pair<int, char> > cigar_comp;
     pair<int, char> cur = make_pair(0, '\0');
     for (auto& e : cigar) {
@@ -801,7 +801,7 @@ string mapping_string(const string& source, const Mapping& mapping) {
     return result;
 }
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
     for (const auto& edit : mapping.edit()) {
         if (edit.from_length() && edit.from_length() == edit.to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
@@ -887,9 +887,9 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 // Produces CIGAR in forward strand space of the reference sequence.
-string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
+vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
-    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return "";
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return {};
     const Path& path = alignment.path();
     int l = 0;
 
@@ -925,7 +925,63 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, in
         }
     }
 
-    return cigar_string(cigar);
+    return cigar;
+}
+
+pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
+    const int64_t& pos2, const vector<pair<int, char>>& cigar2) {
+
+    // Compute signed distance from outermost matched/mismatched base of each
+    // alignment to the outermost matched/mismatched base of the other.
+    
+    // We work with CIGARs because it's easier than reverse complementing
+    // Alignment objects without node lengths.
+    
+    // Work out the low and high mapped bases for each side
+    auto find_bounds = [](const int64_t& pos, const vector<pair<int, char>>& cigar) {
+        // Initialize bounds to represent no mapped bases
+        int64_t low = numeric_limits<int64_t>::max();
+        int64_t high = numeric_limits<int64_t>::min();
+        
+        // Track position in the reference
+        int64_t here = pos;
+        for (auto& item : cigar) {
+            // Trace along the cigar
+            if (item.second == 'M') {
+                // Bases are matched. Count them in the bounds and execute the operation
+                low = min(low, here);
+                here += item.first;
+                high = max(high, here - 1);
+            } else if (item.second == 'D') {
+                // Only other way to advance in the reference
+                here += item.first;
+            }
+        }
+        
+        return make_pair(low, high);
+    };
+    
+    auto bounds1 = find_bounds(pos1, cigar1);
+    auto bounds2 = find_bounds(pos2, cigar2);
+    
+    // Compute the separation
+    int32_t dist = 0;
+    if (bounds1.first < bounds2.second) {
+        // The reads are in order
+        dist = bounds2.second - bounds1.first;
+    } else if (bounds2.first < bounds1.second) {
+        // The reads are out of order so the other bounds apply
+        dist = bounds1.second - bounds2.first;
+    }
+    
+    if (pos1 < pos2) {
+        // Count read 1 as the overall "leftmost", so its value will be positive
+        return make_pair(dist, -dist);
+    } else {
+        // Count read 2 as the overall leftmost
+        return make_pair(-dist, dist);
+    }
+
 }
 
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired) {
