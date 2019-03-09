@@ -39,29 +39,38 @@ namespace vg {
             }
         }
   
-        const vector<const Snarl*>& top_snarls = 
-                                               snarl_manager.top_level_snarls();
-        unordered_set<const Snarl*> seen_snarls;
+        // This will hold all top-level snarls that have seeds under them
+        vector<const Snarl*> top_snarls;
+        for (auto& snarl : snarls_with_seeds) {
+            if (snarl_manager.parent_of(snarl) == nullptr) {
+                // This is top level
+                top_snarls.push_back(snarl);
+            }
+        }
+        
+        // We track seen-ness by chain, so we don't have to do O(N) work to tag
+        // all snarls in chromosome-spanning chains as seen.
+        unordered_set<const Chain*> seen_chains;
         vector<hash_set<size_t>> cluster_assignments; 
         for (const Snarl* root_snarl : top_snarls) {
             //Find clusters for each disconnected snarl/chain
+            
+            // Look up the (possibly trivial) chain for the snarl
+            const Chain* root_chain = snarl_manager.chain_of(root_snarl);
 
             vector<SnarlSeedClusterer::cluster_t> clusters;
-            if (seen_snarls.count(root_snarl) == 0) {
+            if (seen_chains.count(root_chain) == 0) {
+                // This is the first snarl we are visiting in its chain
                 if (snarl_manager.in_nontrivial_chain(root_snarl)){
-                    const Chain* root_chain =snarl_manager.chain_of(root_snarl);
                     clusters =  get_clusters_chain( seeds, chains_with_seeds, 
                                snarls_with_seeds, node_to_seed, distance_limit,
                                 snarl_manager, dist_index, root_chain);
-                    for (auto s : *root_chain) {
-                        seen_snarls.insert(s.first);
-                    }
                 } else {
                     clusters =  get_clusters_snarl( seeds, chains_with_seeds, 
                               snarls_with_seeds, node_to_seed, distance_limit, 
                               snarl_manager, dist_index, root_snarl, true);
-                    seen_snarls.insert(root_snarl);
                 }
+                seen_chains.insert(root_chain);
             }
 
             for (size_t i = 0 ; i < clusters.size() ; i++) {
