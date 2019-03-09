@@ -85,6 +85,8 @@ void help_map(char** argv) {
          << "    -K, --keep-secondary          produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
          << "    -Q, --mq-max INT              cap the mapping quality at INT [60]" << endl
+         << "    --exclude-unaligned           exclude reads with no alignment" << endl
+
          << "    -D, --debug                   print debugging information about alignment to stderr" << endl;
 
 }
@@ -98,6 +100,7 @@ int main_map(int argc, char** argv) {
 
     #define OPT_SCORE_MATRIX 1000
     #define OPT_RECOMBINATION_PENALTY 1001
+    #define OPT_EXCLUDE_UNALIGNED 1002
     string matrix_file_name;
     string seq;
     string qual;
@@ -114,6 +117,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
+    bool exclude_unaligned = false;
     string surject_type;
     bool debug = false;
     float min_score = 0;
@@ -201,6 +205,7 @@ int main_map(int argc, char** argv) {
                 {"output-json", no_argument, 0, 'j'},
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
+                {"exclude-unaligned", no_argument, 0, OPT_EXCLUDE_UNALIGNED},
                 {"fastq", required_argument, 0, 'f'},
                 {"fasta", required_argument, 0, 'F'},
                 {"interleaved", no_argument, 0, 'i'},
@@ -346,6 +351,10 @@ int main_map(int argc, char** argv) {
 
         case 'K':
             keep_secondary = true;
+            break;
+
+        case OPT_EXCLUDE_UNALIGNED:
+            exclude_unaligned = true;
             break;
 
         case 'f':
@@ -962,6 +971,7 @@ int main_map(int argc, char** argv) {
         m->band_multimaps = band_multimaps;
         m->min_banded_mq = min_banded_mq;
         m->maybe_mq_threshold = maybe_mq_threshold;
+        m->exclude_unaligned = exclude_unaligned;
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
@@ -1018,7 +1028,7 @@ int main_map(int argc, char** argv) {
         }
 
         vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
-        if(alignments.size() == 0) {
+        if(alignments.size() == 0 && !exclude_unaligned) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
