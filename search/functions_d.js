@@ -87,7 +87,7 @@ var searchData=
   ['mapping',['mapping',['../classxg_1_1XGPath.html#a9409904d640865ebce223bbf807911cf',1,'xg::XGPath']]],
   ['mapping_5fagainst_5fpath',['mapping_against_path',['../namespacevg.html#aa8c1de94b56959d2c5ece78540fe6727',1,'vg::mapping_against_path(Alignment &amp;alignment, const bam1_t *b, char *chr, xg::XG *xgindex, bool on_reverse_strand)'],['../namespacevg.html#a57a704ecec885cb89b7b3845c8a990e7',1,'vg::mapping_against_path(Alignment &amp;alignment, const bam1_t *b, xg::XG *xgindex, bool on_reverse_strand)']]],
   ['mapping_5fat_5fpath_5fposition',['mapping_at_path_position',['../classxg_1_1XG.html#a9498c6678510cfc26a315a45f593339a',1,'xg::XG']]],
-  ['mapping_5fcigar',['mapping_cigar',['../namespacevg.html#a27af27aefacd2822744823bee4fe9366',1,'vg']]],
+  ['mapping_5fcigar',['mapping_cigar',['../namespacevg.html#a814bb77cffb64c258d06bbc9a79252d9',1,'vg::mapping_cigar(const Mapping &amp;mapping, vector&lt; pair&lt; int, char &gt;&gt; &amp;cigar)'],['../namespacevg.html#a27af27aefacd2822744823bee4fe9366',1,'vg::mapping_cigar(const Mapping &amp;mapping, vector&lt; pair&lt; int, char &gt; &gt; &amp;cigar)']]],
   ['mapping_5fends_5fin_5fdeletion',['mapping_ends_in_deletion',['../namespacevg.html#afeef6a4c023183ead5725398b14d443c',1,'vg']]],
   ['mapping_5fenters_5fside',['mapping_enters_side',['../classvg_1_1Genotyper.html#aa2b4d94f59265c107895c48a26b107a6',1,'vg::Genotyper']]],
   ['mapping_5fentry_5fto_5fstring',['mapping_entry_to_string',['../classvg_1_1Index.html#a785c1d7333629377cd4a80ae51dc8459',1,'vg::Index']]],
