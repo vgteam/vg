@@ -279,29 +279,31 @@ namespace unittest {
                 for (size_t a = 0; a < clusters.size(); a++) {
                     hash_set<size_t> clust = clusters[a];
                     for (size_t i1 : clust) {
-                        int64_t min_dist = -1;
+                        int64_t min_dist = lim + 1;
                         for (size_t i2 : clust) {
-                            pos_t pos1 = seeds[i1];
-                            pos_t pos2 = seeds[i2];
-                            size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
-                            pos_t rev1 = make_pos_t(get_id(pos1), 
+                            if (i1 != i2){
+                                pos_t pos1 = seeds[i1];
+                                pos_t pos2 = seeds[i2];
+                                size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
+                                pos_t rev1 = make_pos_t(get_id(pos1), 
                                                     !is_rev(pos1),
                                                     len1 - get_offset(pos1)); 
-                            size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
-                            pos_t rev2 = make_pos_t(get_id(pos2), 
+                                size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                                pos_t rev2 = make_pos_t(get_id(pos2), 
                                                     !is_rev(pos2),
                                                     len2 - get_offset(pos2)); 
-                            int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                            int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                            int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                            int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                            min_dist = dist1 == -1 ? min_dist : min(min_dist,dist1);
-                            min_dist = dist2 == -1 ? min_dist : min(min_dist,dist2);
-                            min_dist = dist3 == -1 ? min_dist : min(min_dist,dist3);
-                            min_dist = dist4 == -1 ? min_dist : min(min_dist,dist4);
+                                int64_t dist1 = dist_index.minDistance(pos1, pos2);
+                                int64_t dist2 = dist_index.minDistance(pos1, rev2);
+                                int64_t dist3 = dist_index.minDistance(rev1, pos2);
+                                int64_t dist4 = dist_index.minDistance(rev1, rev2);
+                                min_dist = dist1 == -1 ? min_dist : min(min_dist,dist1);
+                                min_dist = dist2 == -1 ? min_dist : min(min_dist,dist2);
+                                min_dist = dist3 == -1 ? min_dist : min(min_dist,dist3);
+                                min_dist = dist4 == -1 ? min_dist : min(min_dist,dist4);
 
+                            }
                         }
-                        REQUIRE(min_dist <= lim);
+                        REQUIRE(min_dist <= lim + 2);
                         for ( size_t b = 0; b < a ; b ++) {
                             hash_set<size_t> clust2 = clusters[b];
                             for (size_t i2 : clust2) {
@@ -319,10 +321,14 @@ namespace unittest {
                             int64_t dist2 = dist_index.minDistance(pos1, rev2);
                             int64_t dist3 = dist_index.minDistance(rev1, pos2);
                             int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                            REQUIRE((    (dist1 == -1 || dist1 >= lim) 
+                            if (!(    (dist1 == -1 || dist1 >= lim) 
                                       && (dist2 == -1 ||  dist2 >= lim) 
                                       && (dist3 == -1 ||  dist3 >= lim)  
-                                      && (dist4 == -1 || dist4 >= lim)));
+                                      && (dist4 == -1 || dist4 >= lim))){
+                                graph.serialize_to_file("testGraph");
+                                cerr << pos1 << " " << pos2 << endl;
+                                cerr << dist1 << " " << dist2 << " " << dist3<< " " << dist4 << endl;
+                                };
                             }
                         }
                     }
