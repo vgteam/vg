@@ -31,6 +31,7 @@ BaseMapper::BaseMapper(xg::XG* xidex,
       , max_mapping_quality(60)
       , strip_bonuses(false)
       , assume_acyclic(false)
+      , exclude_unaligned(false)
 {
     
     // TODO: removing these consistency checks because we seem to have violated them pretty wontonly in
@@ -2902,14 +2903,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         queued_resolve_later = true;
     }
 
-    if(results.first.empty()) {
+    if(results.first.empty() && !exclude_unaligned) {
         results.first.push_back(read1);
         auto& aln = results.first.back();
         aln.clear_path();
         aln.clear_score();
         aln.clear_identity();
     }
-    if(results.second.empty()) {
+    if(results.second.empty() && !exclude_unaligned) {
         results.second.push_back(read2);
         auto& aln = results.second.back();
         aln.clear_path();
@@ -2934,14 +2935,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.set_fragment_length_distribution(fragment_dist.str());
     }
 
-    // if we have references, annotate the alignments with their reference positions
-    annotate_with_initial_path_positions(results.first);
-    annotate_with_initial_path_positions(results.second);
+    if (!results.first.empty() && !results.second.empty()) {
+        // if we have references, annotate the alignments with their reference positions
+        annotate_with_initial_path_positions(results.first);
+        annotate_with_initial_path_positions(results.second);
 
-    chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-    auto used_time = chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-    results.first.front().set_time_used(used_time);
-    results.second.front().set_time_used(used_time);
+        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+        auto used_time = chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+        results.first.front().set_time_used(used_time);
+        results.second.front().set_time_used(used_time);
+    }
 
     return results;
 
@@ -3298,7 +3301,7 @@ Mapper::align_mem_multi(const Alignment& aln,
     filter_and_process_multimaps(alns, keep_multimaps);
 
     // if we didn't get anything, return an unaligned version of our input
-    if (alns.empty()) {
+    if (alns.empty() && !exclude_unaligned) {
         alns.push_back(aln);
         auto& unaligned = alns.back();
         unaligned.clear_path();

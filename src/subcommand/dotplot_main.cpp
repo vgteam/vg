@@ -14,6 +14,7 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
+#include "../stream/vpkg.hpp"
 #include "../position.hpp"
 
 using namespace std;
@@ -76,19 +77,19 @@ int main_dotplot(int argc, char** argv) {
         cerr << "[vg dotplot] Error: an xg index is required" << endl;
         exit(1);
     } else {
-        xg::XG xgidx;
-        ifstream in(xg_file.c_str());
-        xgidx.load(in);
+        unique_ptr<xg::XG> xindex;
+        xindex = stream::VPKG::load_one<xg::XG>(xg_file);
+    
         cout << "query.name" << "\t"
              << "query.pos" << "\t"
              << "orientation" << "\t"
              << "target.name" << "\t"
              << "target.pos" << endl;
-        xgidx.for_each_handle([&](const handle_t& h) {
-                vg::id_t id = xgidx.get_id(h);
-                for (size_t i = 0; i < xgidx.node_length(id); ++i) {
+        xindex->for_each_handle([&](const handle_t& h) {
+                vg::id_t id = xindex->get_id(h);
+                for (size_t i = 0; i < xindex->node_length(id); ++i) {
                     pos_t p = make_pos_t(id, false, i);
-                    map<string, vector<pair<size_t, bool> > > offsets = xgidx.offsets_in_paths(p);
+                    map<string, vector<pair<size_t, bool> > > offsets = xindex->offsets_in_paths(p);
                     // cross the offsets in output
                     for (auto& o : offsets) {
                         auto& name1 = o.first;
