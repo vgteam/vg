@@ -178,12 +178,14 @@ ChainIterator chain_rend(const Chain& chain);
 ChainIterator chain_rcbegin(const Chain& chain);
 ChainIterator chain_rcend(const Chain& chain);
     
-/// We also define a function for getting the ChainIterator (forward or
-/// reverse complement) for a chain starting with a given snarl in the given
-/// inward orientation
+/// We also define a function for getting the ChainIterator (forward or reverse
+/// complement) for a chain starting with a given snarl in the given inward
+/// orientation. Only works for bounding snarls of the chain.
 ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation);
-/// And the end iterator for the chain (forward or reverse complement)
-/// viewed from a given snarl in the given inward orientation
+/// And the end iterator for the chain (forward or reverse complement) viewed
+/// from a given snarl in the given inward orientation. Only works for bounding
+/// snarls of the chain, and should be the *same* bounding snarl as was used
+/// for chain_begin_from.
 ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation);
     
 /**
@@ -395,6 +397,9 @@ public:
         
     /// Construct a SnarlManager for the snarls contained in an input stream
     SnarlManager(istream& in);
+    
+    /// Construct a SnarlManager from a function that calls a callback with each Snarl in turn
+    SnarlManager(const function<void(const function<void(Snarl&)>&)>& for_each_snarl);
         
     /// Default constructor for an empty SnarlManager. Must call finish() once
     /// all snarls have been added with add_snarl().
@@ -464,7 +469,17 @@ public:
     /// If the given Snarl is backward in its chain, return true. Otherwise,
     /// return false.
     bool chain_orientation_of(const Snarl* snarl) const;
-        
+    
+    /// Get the rank that the given snarl appears in in its chain. If two
+    /// snarls are in forward orientation in the chain, then leaving the end of
+    /// the lower rank snarl will eventually reach the start of the higher rank
+    /// snarl. If either or both snarls is backward, you leave/arrive at the
+    /// other bounding node instead.
+    ///
+    /// Sorting snarls by rank will let you visit them in chain order without
+    /// walking the whole chain.
+    size_t chain_rank_of(const Snarl* snarl) const;
+    
     /// Return true if a Snarl is part of a nontrivial chain of more than one
     /// snarl. Note that chain_of() still works for snarls in trivial chains.
     bool in_nontrivial_chain(const Snarl* here) const;
