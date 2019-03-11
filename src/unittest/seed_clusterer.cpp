@@ -277,8 +277,10 @@ namespace unittest {
                                       seeds, lim, snarl_manager, dist_index); 
 
                 for (size_t a = 0; a < clusters.size(); a++) {
+                    // For each cluster
                     hash_set<size_t> clust = clusters[a];
                     for (size_t i1 : clust) {
+                        // For each clustered position
                         int64_t min_dist = -1;
                         for (size_t i2 : clust) {
                             pos_t pos1 = seeds[i1];
@@ -303,26 +305,40 @@ namespace unittest {
                         }
                         REQUIRE(min_dist <= lim);
                         for ( size_t b = 0; b < a ; b ++) {
+                            // For each other cluster
                             hash_set<size_t> clust2 = clusters[b];
                             for (size_t i2 : clust2) {
+                                // And each position in *that* cluster
                                 pos_t pos1 = seeds[i1];
                                 pos_t pos2 = seeds[i2];
-                            size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
-                            pos_t rev1 = make_pos_t(get_id(pos1), 
-                                                    !is_rev(pos1),
-                                                    len1 - get_offset(pos1)); 
-                            size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
-                            pos_t rev2 = make_pos_t(get_id(pos2), 
-                                                    !is_rev(pos2),
-                                                    len2 - get_offset(pos2)); 
-                            int64_t dist1 = dist_index.minDistance(pos1, pos2);
-                            int64_t dist2 = dist_index.minDistance(pos1, rev2);
-                            int64_t dist3 = dist_index.minDistance(rev1, pos2);
-                            int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                            REQUIRE((    (dist1 == -1 || dist1 >= lim) 
-                                      && (dist2 == -1 ||  dist2 >= lim) 
-                                      && (dist3 == -1 ||  dist3 >= lim)  
-                                      && (dist4 == -1 || dist4 >= lim)));
+                                
+                                // Get reverse-complement versions of each position
+                                size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
+                                pos_t rev1 = make_pos_t(get_id(pos1), 
+                                                        !is_rev(pos1),
+                                                        len1 - get_offset(pos1)); 
+                                size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
+                                pos_t rev2 = make_pos_t(get_id(pos2), 
+                                                        !is_rev(pos2),
+                                                        len2 - get_offset(pos2)); 
+                                                        
+                                // Work out how far apart these positions in the two distinct clusters are
+                                int64_t dist1 = dist_index.minDistance(pos1, pos2);
+                                int64_t dist2 = dist_index.minDistance(pos1, rev2);
+                                int64_t dist3 = dist_index.minDistance(rev1, pos2);
+                                int64_t dist4 = dist_index.minDistance(rev1, rev2);
+                                if (dist1 != -1) {
+                                    REQUIRE(dist1 >= lim);
+                                }
+                                if (dist2 != -1) {
+                                    REQUIRE(dist2 >= lim);
+                                }
+                                if (dist3 != -1) {
+                                    REQUIRE(dist3 >= lim);
+                                }
+                                if (dist4 != -1) {
+                                    REQUIRE(dist4 >= lim);
+                                }
                             }
                         }
                     }
