@@ -1,4 +1,4 @@
-    /**
+/**
  * \file mpmap_main.cpp: multipath mapping of reads to a graph
  */
 
