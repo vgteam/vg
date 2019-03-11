@@ -5,6 +5,105 @@
 
 namespace vg {
 
+AlignmentEmitter::AlignmentEmitter(const string& filename, const string& format, map<string, int64_t>& path_length) : 
+    format(format), path_length(path_length) {
+    
+    // Make sure we have an HTS format
+    assert(format == "SAM" || format == "BAM" || format == "CRAM");
+    
+    // Compute the file mode to send to HTSlib depending on output format
+    char out_mode[5];
+    string out_format = "";
+    strcpy(out_mode, "w");
+    if (format == "BAM") {
+        out_format = "b";
+    } else if (format == "CRAM") {
+        out_format = "c";
+    } else {
+        // Must be SAM
+        out_format = "";
+    }
+    strcat(out_mode, out_format.c_str());
+    int compress_level = 9; // TODO: support other compression levels
+    if (compress_level >= 0) {
+        char tmp[2];
+        tmp[0] = compress_level + '0'; tmp[1] = '\0';
+        strcat(out_mode, tmp);
+    }
+    
+    // Open the file
+    sam_file = sam_open(filename.c_str(), out_mode);
+    
+    if (sam_file == nullptr) {
+        // We couldn't open the output file.
+        cerr << "[vg::AlignmentEmitter] failed to open " << filename << " for writing HTS output" << endl;
+        exit(1);
+    }
+
+}
+
+AlignmentEmitter::AlignmentEmitter(const string& filename, const string& format) {
+}
+
+void AlignmentEmitter::emit_single(Alignment&& aln) {
+    if (format == "SAM" || format == "BAM" || format == "CRAM") {
+        // Handle HTSlib output
+        
+        // Lock ourselves
+        lock_guard<mutex> lock(sync);
+        
+        if (hdr == nullptr) {
+            // Create and write the header
+            
+            // Sniff out the read group and sample, and map from RG to sample
+            map<string, string> rg_sample;
+            if (!aln.sample_name().empty() && !aln.read_group().empty()) {
+                // We have a sample and a read group
+                rg_sample[aln.read_group()] = aln.sample_name();
+            }
+            
+            hdr = hts_string_header(sam_header, path_length, rg_sample);
+            
+            // write the header
+            if (sam_hdr_write(sam_file, hdr) != 0) {
+                cerr << "[vg::AlignmentEmitter] error: failed to write the SAM header" << endl;
+                exit(1);
+            }
+        }
+        
+        // Look up the stuff we need from the Alignment to express it in BAM.
+        // We assume the position is available in refpos(0)
+        assert(aln.refpos_size() == 1);
+        
+        size_t path_len = 0;
+        if (aln.refpos(0).name() != "") {
+            path_len = path_length.at(aln.refpos(0).name()); 
+        }
+        // Extract the position so that it could be adjusted by cigar_against_path if we decided to supperss softclips. Which we don't.
+        // TODO: Separate out softclip suppression.
+        int64_t pos = aln.refpos(0).offset();
+        vector<pair<int, char>> cigar = cigar_against_path(aln, aln.refpos(0).is_reverse(), pos, path_len, 0);
+        // TODO: We're passing along a text header so we can make a SAM file so
+        // we can make a BAM record by re-reading it, which we can then
+        // possibly output as SAM again. Make this less complicated.
+        bam1_t* b = alignment_to_bam(sam_header,
+                                     aln,
+                                     aln.refpos(0).name(),
+                                     pos,
+                                     aln.refpos(0).is_reverse(),
+                                     cigar);
+        int r = 0;
+        r = sam_write1(sam_file, hdr, b);
+        if (r == 0) {
+            cerr << "[vg::AlignmentEmitter] error: writing to output file failed" << endl;
+            exit(1);
+        }
+        bam_destroy1(b);
+    } else {
+    }
+}
+
+
 int hts_for_each(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex) {
 
     samFile *in = hts_open(filename.c_str(), "r");
@@ -901,9 +1000,6 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
     refpos->set_is_reverse(on_reverse_strand);
 }
 
-// act like the path this is against is the reference
-// and generate an equivalent cigar
-// Produces CIGAR in forward strand space of the reference sequence.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
     if (!alignment.has_path() || alignment.path().mapping_size() == 0) return {};

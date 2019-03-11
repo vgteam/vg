@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <functional>
+#include <mutex>
 #include <zlib.h>
 #include "utility.hpp"
 #include "path.hpp"
@@ -14,8 +15,65 @@
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
+#include "stream/protobuf_emitter.hpp"
 
 namespace vg {
+
+/**
+ * Emit Alignments to a stream in GAM, JSON, or SAM/BAM/CRAM format.
+ * Thread safe.
+ */
+class AlignmentEmitter {
+public:
+    /// Create an AlignmentEmitter writing to the given file (or "-") in the
+    /// given HTS format ("SAM", "BAM", "CRAM"). path_length must map from
+    /// contig name to length to include in the header. Sample names and read
+    /// groups for the header will be guessed from the first reads. HTSlib
+    /// positions will be read from the alignments' refpos, and the alignments
+    /// must be surjected.
+    AlignmentEmitter(const string& filename, const string& format, map<string, int64_t>& path_length);
+    
+    /// Create an AlignmentEmitter writing to the given file (or "-") in the given
+    /// non-HTS format ("JSON", "GAM").
+    AlignmentEmitter(const string& filename, const string& format);
+    
+    /// Tear down an AlignmentEmitter
+    ~AlignmentEmitter();
+    
+    // Not copyable or movable
+    AlignmentEmitter(const AlignmentEmitter& other) = delete;
+    AlignmentEmitter& operator=(const AlignmentEmitter& other) = delete;
+    AlignmentEmitter(AlignmentEmitter&& other) = delete;
+    AlignmentEmitter& operator=(AlignmentEmitter&& other) = delete;
+    
+    
+    /// Emit a single Alignment
+    void emit_single(Alignment&& aln);
+    /// Emit a pair of Alignments
+    void emit_pair(Alignment&& aln1, Alignment&& aln2);
+    /// Emit the mappings of a pair of Alignments.
+    void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2);
+private:
+    
+    /// We need a mutex to synchronize on if we are doing non-protobuf output
+    mutex sync;
+
+    /// Remember what format we are using.
+    string format;
+    
+    /// Sorte the path length map until the header can be made.
+    map<string, int64_t> path_length;
+    
+    /// If we are doing Protobuf output we need an emitter
+    unique_ptr<stream::ProtobufEmitter<Alignment>> proto;
+    
+    /// If we are doing HTS output we need a samFile
+    samFile* sam_file = nullptr;
+    /// If we are doing HTS output we need a header
+    bam_hdr_t* hdr = nullptr;
+    /// if we are doing HTS output we also need a header string
+    string sam_header;
+};
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
@@ -136,7 +194,11 @@ string alignment_to_sam(const Alignment& alignment,
                         
 
 
+/// Create a CIGAR from the given Alignment. If softclip_suppress is nonzero,
+/// suppress softclips up to that length. This will necessitate adjusting pos,
+/// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+
 void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand);
 
 /// Work out the TLEN values for two reads. The magnitude is the distance
