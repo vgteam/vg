@@ -2365,7 +2365,7 @@ namespace vg {
                     size_t start = starts[start_idx];
                     
 #ifdef debug_multipath_alignment
-                    cerr << "searching backward from start " << start << endl;
+                    cerr << "searching backward from start " << start << " at index " << start_idx << endl;
 #endif
                     
                     PathNode& start_node = path_nodes.at(start);
@@ -2504,7 +2504,6 @@ namespace vg {
                             }
                         }
                     }
-                    
                     
 #ifdef debug_multipath_alignment
                     cerr << "walking path to look for overlaps" << endl;
@@ -2650,7 +2649,10 @@ namespace vg {
                     if (new_start_offset != curr_start_offset) {
                         colocated_starts.clear();
                     }
-                    colocated_starts.emplace_back(starts[start_idx]);
+                    if (start_idx < starts.size()) {
+                        colocated_starts.emplace_back(starts[start_idx]);
+                    }
+                    curr_start_offset = new_start_offset;
                 }
             }
         }
