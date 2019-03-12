@@ -85,6 +85,8 @@ void help_map(char** argv) {
          << "    -K, --keep-secondary          produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
          << "    -Q, --mq-max INT              cap the mapping quality at INT [60]" << endl
+         << "    --exclude-unaligned           exclude reads with no alignment" << endl
+
          << "    -D, --debug                   print debugging information about alignment to stderr" << endl;
 
 }
@@ -98,6 +100,7 @@ int main_map(int argc, char** argv) {
 
     #define OPT_SCORE_MATRIX 1000
     #define OPT_RECOMBINATION_PENALTY 1001
+    #define OPT_EXCLUDE_UNALIGNED 1002
     string matrix_file_name;
     string seq;
     string qual;
@@ -114,6 +117,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     bool output_json = false;
+    bool exclude_unaligned = false;
     string surject_type;
     bool debug = false;
     float min_score = 0;
@@ -201,6 +205,7 @@ int main_map(int argc, char** argv) {
                 {"output-json", no_argument, 0, 'j'},
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
+                {"exclude-unaligned", no_argument, 0, OPT_EXCLUDE_UNALIGNED},
                 {"fastq", required_argument, 0, 'f'},
                 {"fasta", required_argument, 0, 'F'},
                 {"interleaved", no_argument, 0, 'i'},
@@ -346,6 +351,10 @@ int main_map(int argc, char** argv) {
 
         case 'K':
             keep_secondary = true;
+            break;
+
+        case OPT_EXCLUDE_UNALIGNED:
+            exclude_unaligned = true;
             break;
 
         case 'f':
@@ -790,7 +799,7 @@ int main_map(int argc, char** argv) {
                 if (path_name != "") {
                     path_len = xgidx->path_length(path_name);
                 }
-                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, 0);
+                vector<pair<int, char>> cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, 0);
                 bam1_t* b = alignment_to_bam(sam_header,
                                              surj,
                                              path_name,
@@ -833,12 +842,17 @@ int main_map(int argc, char** argv) {
                 if (path_name2 != "") {
                     path_len2 = xgidx->path_length(path_name2);
                 }
-                string cigar1 = cigar_against_path(surj1, path_reverse1, path_pos1, path_len1, 0);
-                string cigar2 = cigar_against_path(surj2, path_reverse2, path_pos2, path_len2, 0);
+                vector<pair<int, char>> cigar1 = cigar_against_path(surj1, path_reverse1, path_pos1, path_len1, 0);
+                vector<pair<int, char>> cigar2 = cigar_against_path(surj2, path_reverse2, path_pos2, path_len2, 0);
                 
-                // TODO: compute template length based on
-                // pair distance and alignment content.
-                int template_length = 0;
+                // Determine the TLEN for each read.
+                auto tlens = compute_template_lengths(path_pos1, cigar1, path_pos2, cigar2);
+                
+                // Look up the paired end distribution stats for deciding if reads are propelry paired
+                auto& stats = mapper[omp_get_thread_num()]->frag_stats;
+                // Put a proper pair bound at 6 std devs.
+                // If distribution hasn't been computed yet, this comes out 0 and no bound is applied.
+                int32_t tlen_limit = stats.cached_fragment_length_mean + 6 * stats.cached_fragment_length_stdev;
                 
                 // Make BAM records
                 bam1_t* b1 = alignment_to_bam(sam_header,
@@ -850,7 +864,8 @@ int main_map(int argc, char** argv) {
                                               path_name2,
                                               path_pos2,
                                               path_reverse2,
-                                              template_length);
+                                              tlens.first,
+                                              tlen_limit);
                 bam1_t* b2 = alignment_to_bam(sam_header,
                                               surj2,
                                               path_name2,
@@ -860,7 +875,8 @@ int main_map(int argc, char** argv) {
                                               path_name1,
                                               path_pos1,
                                               path_reverse1,
-                                              template_length);
+                                              tlens.second,
+                                              tlen_limit);
                 
                 // Write the records
                 int r = 0;
@@ -955,6 +971,7 @@ int main_map(int argc, char** argv) {
         m->band_multimaps = band_multimaps;
         m->min_banded_mq = min_banded_mq;
         m->maybe_mq_threshold = maybe_mq_threshold;
+        m->exclude_unaligned = exclude_unaligned;
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
@@ -1011,7 +1028,7 @@ int main_map(int argc, char** argv) {
         }
 
         vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
-        if(alignments.size() == 0) {
+        if(alignments.size() == 0 && !exclude_unaligned) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
