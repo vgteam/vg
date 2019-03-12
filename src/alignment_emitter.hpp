@@ -49,6 +49,43 @@ public:
 };
 
 /**
+ * Throws per-OMP-thread buffers over the top of a backing AlignmentEmitter.
+ */
+class OMPThreadBufferedAlignmentEmitter : public AlignmentEmitter {
+public:
+    /// Create an OMPThreadBufferedAlignmentEmitter that emits alignments to
+    /// the given backing AlignmentEmitter. The backing emitter must outlive
+    /// this one.
+    OMPThreadBufferedAlignmentEmitter(AlignmentEmitter& backing);
+    
+    /// Destroy and flush all the buffers
+    ~OMPThreadBufferedAlignmentEmitter();
+    
+    /// Emit a single Alignment
+    virtual void emit_single(Alignment&& aln);
+    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
+    virtual void emit_mapped_single(vector<Alignment>&& alns);
+    /// Emit a pair of Alignments.
+    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
+    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
+    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    
+private:
+    void flush(size_t thread);
+
+    /// Keep a reference to the backing emitter
+    AlignmentEmitter& backing;
+    
+    // We have one buffer for each type of emit operation, for each thread
+    vector<vector<Alignment>> single_buffer;
+    vector<vector<vector<Alignment>>> mapped_single_buffer;
+    vector<vector<pair<Alignment, Alignment>>> pair_buffer;
+    vector<vector<pair<vector<Alignment>, vector<Alignment>>>> mapped_pair_buffer;
+
+    const static size_t BUFFER_LIMIT = 1000;
+};
+
+/**
  * Emit Alignments to a stream in SAM/BAM/CRAM format.
  * Thread safe.
  */
