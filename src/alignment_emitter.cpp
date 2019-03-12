@@ -50,6 +50,13 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
 
 }
 
+HTSAlignmentEmitter::~HTSAlignmentEmitter() {
+    if (hdr != nullptr) {
+        bam_hdr_destroy(hdr);
+    }
+    sam_close(sam_file);
+}
+
 void HTSAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock) {
     // We are already locked, so we can touch the header.
     
@@ -102,7 +109,7 @@ void HTSAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard
     bam_destroy1(b);
 }
 
-void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock) {
+void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit, const lock_guard<mutex>& lock) {
     // We are already locked, so we can touch the header.
     
     if (hdr == nullptr) {
@@ -161,7 +168,7 @@ void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2,
                                   pos2,
                                   aln2.refpos(0).is_reverse(),
                                   tlens.first,
-                                  this->tlen_limit);
+                                  tlen_limit);
     bam1_t* b2 = alignment_to_bam(sam_header,
                                   aln2,
                                   aln2.refpos(0).name(),
@@ -172,7 +179,7 @@ void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2,
                                   pos1,
                                   aln1.refpos(0).is_reverse(),
                                   tlens.second,
-                                  this->tlen_limit);
+                                  tlen_limit);
     
     int r = 0;
     r = sam_write1(sam_file, hdr, b1);
@@ -203,20 +210,20 @@ void HTSAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
     }
 }
 
-void HTSAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2) {
+void HTSAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
     lock_guard<mutex> lock(sync);
     // Emit the two paired alignments paired with each other.
-    emit_pair_internal(std::move(aln1), std::move(aln2), lock);
+    emit_pair_internal(std::move(aln1), std::move(aln2), tlen_limit, lock);
 }
 
 
-void HTSAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2) {
+void HTSAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
     lock_guard<mutex> lock(sync);
     // Make sure we have the same number of mappings on each side.
     assert(alns1.size() == alns2.size());
     for (size_t i = 0; i < alns1.size(); i++) {
         // Emit each pair as paired alignments
-        emit_pair_internal(std::move(alns1[i]), std::move(alns2[i]), lock);
+        emit_pair_internal(std::move(alns1[i]), std::move(alns2[i]), tlen_limit, lock);
     }
 }
 
@@ -245,6 +252,27 @@ VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& for
     }
     
     // We later infer our format and output destination from out_file and proto being empty/set.
+}
+
+VGAlignmentEmitter::~VGAlignmentEmitter() {
+    // TODO: We've had trouble with alignments going missing. Hopefully this fiexs that.
+
+    if (proto.get() != nullptr) {
+        // Flush the ProtobufEmitter
+        proto->emit_group(); 
+        // Make it go away before the stream
+        proto.reset();
+    }
+    
+    if (out_file.get() != nullptr) {
+        // Flush our file stream
+        out_file->flush();
+        // Destroy it
+        out_file.reset();
+    } else {
+        // Flush standard output
+        cout.flush();
+    }
 }
 
 void VGAlignmentEmitter::emit_single(Alignment&& aln) {
@@ -280,11 +308,11 @@ void VGAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
         
         // Lock and emit the string
         lock_guard<mutex> lock(stream_mutex);
-        out << data.str() << endl;
+        out << data.str();
     }
 }
 
-void VGAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2) {
+void VGAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
     if (proto.get() != nullptr) {
         // Save in protobuf
         
@@ -304,11 +332,11 @@ void VGAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2) {
         
         // Lock and emit the string
         lock_guard<mutex> lock(stream_mutex);
-        out << data.str() << endl;
+        out << data.str();
     }
 }
 
-void VGAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2) {
+void VGAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
     // Sizes need to match up
     assert(alns1.size() == alns2.size());
     
@@ -338,7 +366,7 @@ void VGAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alig
         
         // Lock and emit the string
         lock_guard<mutex> lock(stream_mutex);
-        out << data.str() << endl;
+        out << data.str();
     }
 }
 

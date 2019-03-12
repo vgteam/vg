@@ -32,13 +32,20 @@ public:
     virtual void emit_single(Alignment&& aln) = 0;
     /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
     virtual void emit_mapped_single(vector<Alignment>&& alns) = 0;
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2) = 0;
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2) = 0;
+    /// Emit a pair of Alignments. The tlen_limit, if specified, is the maximum
+    /// pairing distance to flag properly paired, if the output format cares
+    /// about such things. TODO: Move to a properly paired annotation that runs
+    /// with the Alignment.
+    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0) = 0;
+    /// Emit the mappings of a pair of Alignments. All secondaries must have
+    /// is_secondary set already. The tlen_limit, if specified, is the maximum
+    /// pairing distance to flag properly paired, if the output format cares
+    /// about such things. TODO: Move to a properly paired annotation that runs
+    /// with the Alignment.
+    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0) = 0;
     
     /// Allow destruction through base class pointer.
-    virtual ~AlignmentEmitter();
+    virtual ~AlignmentEmitter() = default;
 };
 
 /**
@@ -70,13 +77,9 @@ public:
     /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
     virtual void emit_mapped_single(vector<Alignment>&& alns);
     /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2);
+    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
     /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2);
-    
-    /// If the distance between paired reads is above this limit, they will not
-    /// be flagged as properly paired.
-    size_t tlen_limit = 0;
+    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
     
 private:
     
@@ -99,7 +102,7 @@ private:
     /// Emit a single alignment, with a lock already held.
     void emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock);
     /// Emit a pair of alignments, with a lock already held.
-    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock);
+    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit, const lock_guard<mutex>& lock);
 };
 
 /**
@@ -110,18 +113,21 @@ private:
  */
 class VGAlignmentEmitter : public AlignmentEmitter {
 public:
-    /// Create an AlignmentEmitter writing to the given file (or "-") in the given
+    /// Create a VGAlignmentEmitter writing to the given file (or "-") in the given
     /// non-HTS format ("JSON", "GAM").
     VGAlignmentEmitter(const string& filename, const string& format);
+    
+    /// Finish and drstroy a VGAlignmentEmitter.
+    ~VGAlignmentEmitter();
     
     /// Emit a single Alignment
     virtual void emit_single(Alignment&& aln);
     /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
     virtual void emit_mapped_single(vector<Alignment>&& alns);
     /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2);
+    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
     /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2);
+    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
     
 private:
 
