@@ -14,11 +14,17 @@ namespace vg {
 using namespace std;
 
 OMPThreadBufferedAlignmentEmitter::OMPThreadBufferedAlignmentEmitter(AlignmentEmitter& backing) : backing(backing) {
-    size_t threads = omp_get_num_threads();
-    single_buffer.resize(threads);
-    pair_buffer.resize(threads);
-    mapped_single_buffer.resize(threads);
-    mapped_pair_buffer.resize(threads);
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            size_t threads = omp_get_num_threads();
+            single_buffer.resize(threads);
+            pair_buffer.resize(threads);
+            mapped_single_buffer.resize(threads);
+            mapped_pair_buffer.resize(threads);
+        }
+    }
     
 }
 
@@ -34,16 +40,16 @@ void OMPThreadBufferedAlignmentEmitter::flush(size_t thread) {
         backing.emit_single(std::move(aln));
     }
     single_buffer[thread].clear();
-    for (auto& alns : pair_buffer[thread]) {
-        backing.emit_pair(std::move(alns.first), std::move(alns.second));
+    for (auto& record : pair_buffer[thread]) {
+        backing.emit_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
     }
     pair_buffer[thread].clear();
     for (auto& alns : mapped_single_buffer[thread]) {
         backing.emit_mapped_single(std::move(alns));
     }
     mapped_single_buffer[thread].clear();
-    for (auto& alns : mapped_pair_buffer[thread]) {
-        backing.emit_mapped_pair(std::move(alns.first), std::move(alns.second));
+    for (auto& record : mapped_pair_buffer[thread]) {
+        backing.emit_mapped_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
     }
     mapped_pair_buffer[thread].clear();
 }
@@ -64,14 +70,14 @@ void OMPThreadBufferedAlignmentEmitter::emit_mapped_single(vector<Alignment>&& a
 }
 void OMPThreadBufferedAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
     size_t i = omp_get_thread_num();
-    pair_buffer[i].emplace_back(std::move(aln1), std::move(aln2));
+    pair_buffer[i].emplace_back(std::move(aln1), std::move(aln2), tlen_limit);
     if (pair_buffer[i].size() >= BUFFER_LIMIT) {
         flush(i);
     }
 }
 void OMPThreadBufferedAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
     size_t i = omp_get_thread_num();
-    mapped_pair_buffer[i].emplace_back(std::move(alns1), std::move(alns2));
+    mapped_pair_buffer[i].emplace_back(std::move(alns1), std::move(alns2), tlen_limit);
     if (mapped_pair_buffer[i].size() >= BUFFER_LIMIT) {
         flush(i);
     }

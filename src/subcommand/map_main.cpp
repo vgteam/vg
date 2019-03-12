@@ -783,6 +783,9 @@ int main_map(int argc, char** argv) {
         exit(1);
     }
 
+    // Buffer emitted alignments per-thread.
+    OMPThreadBufferedAlignmentEmitter buffered_emitter(*alignment_emitter); 
+
     
 
     // TODO: Refactor the surjection code out of surject_main and into somewhere where we can just use it here!
@@ -804,7 +807,7 @@ int main_map(int argc, char** argv) {
         
         if (surjects2.empty()) {
             // Write out surjected single-end reads
-            alignment_emitter->emit_mapped_single(std::move(surjects1));
+            buffered_emitter.emit_mapped_single(std::move(surjects1));
         } else {
             // Look up the paired end distribution stats for deciding if reads are propelry paired
             auto& stats = mapper[omp_get_thread_num()]->frag_stats;
@@ -813,7 +816,7 @@ int main_map(int argc, char** argv) {
             int64_t tlen_limit = stats.cached_fragment_length_mean + 6 * stats.cached_fragment_length_stdev;
         
             // Write out surjected paired-end reads
-            alignment_emitter->emit_mapped_pair(std::move(surjects1), std::move(surjects2), tlen_limit);
+            buffered_emitter.emit_mapped_pair(std::move(surjects1), std::move(surjects2), tlen_limit);
         }
     };
 
@@ -826,10 +829,10 @@ int main_map(int argc, char** argv) {
             // Just emit. No need for a tlen limit.
             if (alns2.empty()) {
                 // Single-ended read
-                alignment_emitter->emit_mapped_single(std::move(alns1));
+                buffered_emitter.emit_mapped_single(std::move(alns1));
             } else {
                 // Paired reads
-                alignment_emitter->emit_mapped_pair(std::move(alns1), std::move(alns2));
+                buffered_emitter.emit_mapped_pair(std::move(alns1), std::move(alns2));
             }
         }
     };

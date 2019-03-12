@@ -227,6 +227,10 @@ int main_surject(int argc, char** argv) {
         cerr << "error [vg surject]: Unimplemented output format " << output_format << endl;
         exit(1);
     }
+
+    // Buffer emitted alignments per-thread.
+    OMPThreadBufferedAlignmentEmitter buffered_emitter(*alignment_emitter); 
+
    
     // Count out threads
     int thread_count = get_thread_count();
@@ -283,8 +287,8 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src2);
                     
                     // Surject and emit.
-                    alignment_emitter->emit_pair(surjector.surject(src1, path_names, subpath_global),
-                                                 surjector.surject(src2, path_names, subpath_global));
+                    buffered_emitter.emit_pair(surjector.surject(src1, path_names, subpath_global),
+                                               surjector.surject(src2, path_names, subpath_global));
                 
                 });
             } else {
@@ -296,7 +300,7 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src);
                     
                     // Surject and emit the single read.
-                    alignment_emitter->emit_single(surjector.surject(src, path_names, subpath_global));
+                    buffered_emitter.emit_single(surjector.surject(src, path_names, subpath_global));
                         
                 });
             }

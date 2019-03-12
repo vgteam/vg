@@ -71,6 +71,7 @@ public:
     virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
     
 private:
+    /// Save all the buffered alignments from the given thread.
     void flush(size_t thread);
 
     /// Keep a reference to the backing emitter
@@ -79,8 +80,8 @@ private:
     // We have one buffer for each type of emit operation, for each thread
     vector<vector<Alignment>> single_buffer;
     vector<vector<vector<Alignment>>> mapped_single_buffer;
-    vector<vector<pair<Alignment, Alignment>>> pair_buffer;
-    vector<vector<pair<vector<Alignment>, vector<Alignment>>>> mapped_pair_buffer;
+    vector<vector<tuple<Alignment, Alignment, size_t>>> pair_buffer;
+    vector<vector<tuple<vector<Alignment>, vector<Alignment>, size_t>>> mapped_pair_buffer;
 
     const static size_t BUFFER_LIMIT = 1000;
 };
