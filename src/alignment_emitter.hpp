@@ -105,6 +105,8 @@ private:
 /**
  * Emit Alignments to a stream in GAM or JSON format.
  * Thread safe.
+ *
+ * TODO: Split into Protobuf and JSON versions?
  */
 class VGAlignmentEmitter : public AlignmentEmitter {
 public:
@@ -123,10 +125,14 @@ public:
     
 private:
 
-    /// If we are doing Protobuf output we need a backing emitter
+    /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
+    unique_ptr<ofstream> out_file;
+
+    /// If we are doing Protobuf output we need a backing emitter. If we are doing JSON out, this will be empty.
     unique_ptr<stream::ProtobufEmitter<Alignment>> proto;
     
-
+    /// If we are doing JSON, we need to take care of our own stream locking.
+    mutex stream_mutex;
 };
 
 }

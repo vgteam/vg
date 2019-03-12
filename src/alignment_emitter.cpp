@@ -6,6 +6,9 @@
 
 #include "alignment_emitter.hpp"
 #include "alignment.hpp"
+#include "json2pb.h"
+
+#include <sstream>
 
 namespace vg {
 using namespace std;
@@ -41,7 +44,7 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
     
     if (sam_file == nullptr) {
         // We couldn't open the output file.
-        cerr << "[vg::AlignmentEmitter] failed to open " << filename << " for writing HTS output" << endl;
+        cerr << "[vg::HTSAlignmentEmitter] failed to open " << filename << " for writing " << format << " output" << endl;
         exit(1);
     }
 
@@ -64,7 +67,7 @@ void HTSAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard
         
         // write the header
         if (sam_hdr_write(sam_file, hdr) != 0) {
-            cerr << "[vg::AlignmentEmitter] error: failed to write the SAM header" << endl;
+            cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
             exit(1);
         }
     }
@@ -93,7 +96,7 @@ void HTSAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard
     int r = 0;
     r = sam_write1(sam_file, hdr, b);
     if (r == 0) {
-        cerr << "[vg::AlignmentEmitter] error: writing to output file failed" << endl;
+        cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
         exit(1);
     }
     bam_destroy1(b);
@@ -116,7 +119,7 @@ void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2,
         
         // write the header
         if (sam_hdr_write(sam_file, hdr) != 0) {
-            cerr << "[vg::AlignmentEmitter] error: failed to write the SAM header" << endl;
+            cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
             exit(1);
         }
     }
@@ -174,14 +177,14 @@ void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2,
     int r = 0;
     r = sam_write1(sam_file, hdr, b1);
     if (r == 0) {
-        cerr << "[vg::AlignmentEmitter] error: writing to output file failed" << endl;
+        cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
         exit(1);
     }
     bam_destroy1(b1);
     r = 0;
     r = sam_write1(sam_file, hdr, b2);
     if (r == 0) {
-        cerr << "[vg::AlignmentEmitter] error: writing to output file failed" << endl;
+        cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
         exit(1);
     }
     bam_destroy1(b2);
@@ -214,6 +217,128 @@ void HTSAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Ali
     for (size_t i = 0; i < alns1.size(); i++) {
         // Emit each pair as paired alignments
         emit_pair_internal(std::move(alns1[i]), std::move(alns2[i]), lock);
+    }
+}
+
+VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& format) {
+    // We only support GAM and JSON formats
+    assert(format == "GAM" || format == "JSON");
+    
+    if (filename != "-") {
+        // Open the file
+        out_file = make_unique<ofstream>(filename);
+        if (!*out_file) {
+            // We couldn't get it open
+            cerr << "[vg::VGAlignmentEmitter] failed to open " << filename << " for writing " << format << " output" << endl;
+            exit(1);
+        }
+    }
+    
+    if (format == "GAM") {
+        // We ened an emitter
+        
+        // Pick where to send the output
+        ostream& out_stream = (filename != "-") ? *out_file : cout;
+        
+        // Point a ProtobufEmitter there
+        proto = make_unique<stream::ProtobufEmitter<Alignment>>(out_stream);
+    }
+    
+    // We later infer our format and output destination from out_file and proto being empty/set.
+}
+
+void VGAlignmentEmitter::emit_single(Alignment&& aln) {
+    if (proto.get() != nullptr) {
+        // Save in protobuf
+        proto->write(std::move(aln));
+    } else {
+        // Find a stream to write JSON to
+        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
+        
+        // Serialize to a string in our thread
+        string data = pb2json(aln);
+        
+        // Lock and emit the string
+        lock_guard<mutex> lock(stream_mutex);
+        out << data << endl;
+    }
+}
+
+void VGAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
+    if (proto.get() != nullptr) {
+        // Save in protobuf
+        proto->write_many(std::move(alns));
+    } else {
+        // Find a stream to write JSON to
+        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
+        
+        // Serialize to a string in our thread
+        stringstream data;
+        for (auto& aln : alns) {
+            data << pb2json(aln) << endl;
+        }
+        
+        // Lock and emit the string
+        lock_guard<mutex> lock(stream_mutex);
+        out << data.str() << endl;
+    }
+}
+
+void VGAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2) {
+    if (proto.get() != nullptr) {
+        // Save in protobuf
+        
+        // Arrange into a vector
+        vector<Alignment> alns {std::move(aln1), std::move(aln2)};
+        
+        // Save as a single unit
+        proto->write_many(std::move(alns));
+    } else {
+        // Find a stream to write JSON to
+        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
+        
+        // Serialize to a string in our thread
+        stringstream data;
+        data << pb2json(aln1) << endl;
+        data << pb2json(aln2) << endl;
+        
+        // Lock and emit the string
+        lock_guard<mutex> lock(stream_mutex);
+        out << data.str() << endl;
+    }
+}
+
+void VGAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2) {
+    // Sizes need to match up
+    assert(alns1.size() == alns2.size());
+    
+    if (proto.get() != nullptr) {
+        // Save in protobuf
+        
+        // Arrange into an interleaved vector
+        vector<Alignment> alns;
+        alns.reserve(alns1.size() + alns2.size());
+        for (size_t i = 0; i < alns1.size(); i++) {
+            alns.emplace_back(std::move(alns1[i]));
+            alns.emplace_back(std::move(alns2[i]));
+        }
+        
+        // Save the interleaved vector
+        proto->write_many(std::move(alns));
+    } else {
+        // Find a stream to write JSON to
+        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
+        
+        // Serialize to an interleaved string in our thread
+        stringstream data;
+        for (size_t i = 0; i < alns1.size(); i++) {
+            data << pb2json(alns1[i]) << endl;
+            data << pb2json(alns2[i]) << endl;
+        }
+        
+        // Lock and emit the string
+        lock_guard<mutex> lock(stream_mutex);
+        out << data.str() << endl;
     }
 }
 

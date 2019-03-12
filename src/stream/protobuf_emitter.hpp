@@ -189,13 +189,13 @@ auto ProtobufEmitter<T>::write_many(vector<T>&& ordered_items) -> void {
     // Lock the backing emitter
     lock_guard<mutex> lock(out_mutex);
     
-    for (auto& s : encoded) {
+    for (size_t i = 0; i < to_encode.size(); i++) {
         // Write each message with the correct tag.
-        message_emitter.write(tag, std::move(s));
+        message_emitter.write(tag, std::move(encoded[i]));
         
         for (auto& handler : message_handlers) {
             // Fire the handlers in serial
-            handler(to_encode);
+            handler(to_encode[i]);
         }
     }
     
