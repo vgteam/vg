@@ -150,6 +150,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ae84454f9fc68a9ea4a801b653058de3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a61b988ac39ab5d3f9279e7a0fef6afef"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a61b988ac39ab5d3f9279e7a0fef6afef">chain_orientation_of</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const </td></tr>
 <tr class="separator:a61b988ac39ab5d3f9279e7a0fef6afef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a005f19e7f17aa3ae15a449026c7a08b0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a005f19e7f17aa3ae15a449026c7a08b0">chain_rank_of</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const </td></tr>
+<tr class="separator:a005f19e7f17aa3ae15a449026c7a08b0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abe6a0924ce953c5dd1a43a91558c4391"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#abe6a0924ce953c5dd1a43a91558c4391">in_nontrivial_chain</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *here) const </td></tr>
 <tr class="separator:abe6a0924ce953c5dd1a43a91558c4391"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6d6584dc551c3f87d5d85a786789f3b9"><td class="memItemLeft" align="right" valign="top">const deque&lt; <a class="el" href="namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d">Chain</a> &gt; &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a6d6584dc551c3f87d5d85a786789f3b9">chains_of</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const </td></tr>
@@ -511,6 +513,24 @@ template&lt;typename SnarlIterator &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>If the given <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes. ">Snarl</a> is backward in its chain, return true. Otherwise, return false. </p>
+
+</div>
+</div>
+<a class="anchor" id="a005f19e7f17aa3ae15a449026c7a08b0"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::SnarlManager::chain_rank_of </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
+          <td class="paramname"><em>snarl</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the rank that the given snarl appears in in its chain. If two snarls are in forward orientation in the chain, then leaving the end of the lower rank snarl will eventually reach the start of the higher rank snarl. If either or both snarls is backward, you leave/arrive at the other bounding node instead.</p>
+<p>Sorting snarls by rank will let you visit them in chain order without walking the whole chain. </p>
 
 </div>
 </div>

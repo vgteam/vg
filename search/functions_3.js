@@ -37,6 +37,7 @@ var searchData=
   ['chain_5fend_5ffrom',['chain_end_from',['../namespacevg.html#a0627b5d536b881a355d8b419b6f329c6',1,'vg']]],
   ['chain_5fof',['chain_of',['../classvg_1_1SnarlManager.html#ae84454f9fc68a9ea4a801b653058de3f',1,'vg::SnarlManager']]],
   ['chain_5forientation_5fof',['chain_orientation_of',['../classvg_1_1SnarlManager.html#a61b988ac39ab5d3f9279e7a0fef6afef',1,'vg::SnarlManager']]],
+  ['chain_5frank_5fof',['chain_rank_of',['../classvg_1_1SnarlManager.html#a005f19e7f17aa3ae15a449026c7a08b0',1,'vg::SnarlManager']]],
   ['chain_5frbegin',['chain_rbegin',['../namespacevg.html#aa24387fbb4606765c23a280316bfcb65',1,'vg']]],
   ['chain_5frcbegin',['chain_rcbegin',['../namespacevg.html#a7aed054b974860f2cc4d5be4b7615de0',1,'vg']]],
   ['chain_5frcend',['chain_rcend',['../namespacevg.html#ae1369d5e29159750fd14482f73421660',1,'vg']]],
