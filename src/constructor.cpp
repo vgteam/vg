@@ -177,6 +177,39 @@ namespace vg {
         return std::make_pair(start, end);
     }
 
+    bool Constructor::remove_illegal_alts(vcflib::Variant& var) {
+        unordered_set<size_t> remove_alts;
+        for (size_t i = 0; i < var.alt.size(); ++i) {
+            if (!allATGCN(toUppercase(var.alt[i]))) {
+                // Non-DNA variants are trouble.  We skip them with a warning
+                #pragma omp critical (cerr)
+                {
+                    cerr << "warning:[vg::Constructor] Skipping alt \"" << var.alt[i]
+                         << "\" that contains non-ACGTN character in variant:\n"
+                         << var << endl;
+                }
+                remove_alts.insert(i);
+            }
+        }
+        
+        if (!remove_alts.empty()) {
+            vector<string> orig_alts = std::move(var.alt);
+            vector<string> orig_alleles = std::move(var.alleles);
+            var.alleles.push_back(orig_alleles[0]);
+            for (size_t i = 0; i < orig_alts.size(); ++ i) {
+                if (!remove_alts.count(i)) {
+                    var.alt.push_back(orig_alts[i]);
+                    var.alleles.push_back(orig_alleles[i + 1]);
+                }
+            }
+        }
+        
+        if (!remove_alts.empty()) {
+            var.updateAlleleIndexes();
+        }
+        
+        return var.alt.empty();
+    }
 
     pair<int64_t, int64_t> Constructor::get_bounds(const vector<list<vcflib::VariantAllele>>& trimmed_variant) {
 
@@ -440,14 +473,15 @@ namespace vg {
 
                 (next_variant != variants.end() && clump_end > next_variant->zeroBasedPosition() - chunk_offset)) {
 
-
-                // Either there are no variants in the clump, or this variant
-                // overlaps the clump. It belongs in the clump
-                clump.push_back(&(*next_variant));
-                // It may make the clump longer and necessitate adding more variants.
-                // TODO: make sure long SVs don't fall outside chunk
-                clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
-
+                // remove invalid alts and only procede if any are left
+                if (!remove_illegal_alts(*next_variant)) {
+                    // Either there are no variants in the clump, or this variant
+                    // overlaps the clump. It belongs in the clump
+                    clump.push_back(&(*next_variant));
+                    // It may make the clump longer and necessitate adding more variants.
+                    // TODO: make sure long SVs don't fall outside chunk
+                    clump_end = max(clump_end, next_variant->zeroBasedPosition() + next_variant->ref.size() - chunk_offset);
+                }
 
                 // Try the variant after that
                 next_variant++;
@@ -595,8 +629,6 @@ namespace vg {
                                 // until all the edits for the clump are known.
                                 continue;
                             }
-
-
                             // With 0 being the first non-ref allele, which alt are we?
                             // Copy the string out of the map
                             string alt_string = kv.first;

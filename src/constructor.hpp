@@ -227,6 +227,14 @@ private:
      * bound before their start, because the anchoring base isn't included.
      */
     static pair<int64_t, int64_t> get_symbolic_bounds(vcflib::Variant var);
+
+
+    /**
+     * Remove some illegal alts from a variant. Variant edited in place,
+     * false returned if all alts removed. 
+     */
+    static bool remove_illegal_alts(vcflib::Variant& var);
+    
     /// What sequences have we warned about containing lowercase characters?
     mutable unordered_set<string> warned_sequences;
     /// Have we given a warning yet about lowercase alt alleles?
