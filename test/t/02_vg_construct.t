@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 24
+plan tests 25
 
 is $(vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -102,4 +102,7 @@ is $short_enough 1 "vg construct respects node size limit"
 
 is $(vg construct -CR 'gi|568815592:29791752-29792749' -r GRCh38_alts/FASTA/HLA/V-352962.fa | vg view - | grep TCTAGAAGAGTCCACGGGGACAGGTAAG | wc -l) 1 "--region can be interpreted to be a reference sequence (and not parsed as a region spec)"
 
-is "$(vg construct -r sv/x.fa -v sv/x.inv.vcf -S | vg view - | sort | md5sum | cut -f 1 -d\ )" "$(cat sv/x.inv.gfa | sort | md5sum | cut -f1 -d\ )" "vg constructs the correct graph for inversions."
+is "$(vg construct -r sv/x.fa -v sv/x.inv.vcf -S | vg view - | sort | md5sum | cut -f 1 -d\ )" "$(cat sv/x.inv.gfa | sort | md5sum | cut -f1 -d\ )" "vg constructs the correct graph for inversions"
+
+is "$(vg construct -r tiny/tiny.fa -v tiny/dots.vcf | vg mod -u - | vg stats -z - | grep nodes | cut -f2)" "1" "vg construct skips variants with . ALTs"
+

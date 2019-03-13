@@ -1767,7 +1767,7 @@ namespace vg {
                     // TODO: handle remaining alts.
                     if (alt == ".") {
                         variant_acceptable = false;
-                        if (vvar->alt.size() > 0) {
+                        if (vvar->alt.size() > 1) {
                             // Warn if there are more alts we will miss because of skipping
                             #pragma omp critical (cerr)
                             cerr << "warning:[vg::Constructor] Variant with '.' among multiple alts being skipped: "
