@@ -69,8 +69,8 @@ is $(vg map -G <(vg sim -a -n 100 -x x.xg) -g x.gcsa -x x.xg | vg surject -p x -
 echo '{"sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "mapping_quality": 99}' | vg view -JGa - > read.gam
 is "$(vg surject -p x -x x.xg read.gam | vg view -aj - | jq '.mapping_quality')" "99" "mapping quality is preserved through surjection"
 
-echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}' | vg view -JGa - > read.gam
-is "$(vg surject -p x -x x.xg -i read.gam | vg view -aj - | jq -r '.fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
+echo '{"name": "read/2", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_prev": {"name": "read/1"}}{"name": "read/1", "sequence": "GATTACA", "path": {"mapping": [{"position": {"node_id": 1, "is_reverse": true}, "edit": [{"from_length": 7, "to_length": 7}]}]}, "fragment_next": {"name": "read/2"}}' | vg view -JGa - > read.gam
+is "$(vg surject -p x -x x.xg -i read.gam | vg view -aj - | jq -r 'select(.name == "read/2") | .fragment_prev.name')" "read/1" "read pairing is preserved through GAM->GAM surjection"
 
 vg map -d x -iG <(vg view -a small/x-s13241-n1-p500-v300.gam | sed 's%_1%/1%' | sed 's%_2%/2%' | vg view -JaG - ) | vg surject -x x.xg -p x -s -i -N Sample1 -R RG1 - >surjected.sam
 is "$(cat surjected.sam | grep -v '^@' | sort | cut -f 4)" "$(printf '321\n762')" "surjection of paired reads to SAM yields correct positions"

@@ -20,6 +20,27 @@ using namespace std;
     }
     
     Alignment Surjector::surject(const Alignment& source, const set<string>& path_names,
+                                 bool allow_negative_scores) const {
+    
+        // Allocate the annotation info
+        string path_name_out;
+        int64_t path_pos_out;
+        bool path_rev_out;
+        
+        // Do the surjection
+        Alignment surjected = surject(source, path_names, path_name_out, path_pos_out, path_rev_out, allow_negative_scores);
+        
+        // Pack all the info into the refpos field
+        surjected.clear_refpos();
+        auto* pos = surjected.add_refpos();
+        pos->set_name(path_name_out);
+        pos->set_offset(path_pos_out);
+        pos->set_is_reverse(path_rev_out);
+    
+        return surjected;
+    }
+    
+    Alignment Surjector::surject(const Alignment& source, const set<string>& path_names,
                                  string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                  bool allow_negative_scores) const {
         
