@@ -90,8 +90,7 @@ class DistanceIndex {
             //Distance between beginning of node start and beginning of node end
             //Bool is true if the node is traversed in reverse
             //Only works for nodes heading their chains (which represent the chains), or snarl boundaries.
-            int64_t snarlDistance(HandleGraph* graph,NetGraph* ng,pair<id_t, bool> start,
-                                                         pair<id_t, bool> end);
+            int64_t snarlDistance(pair<id_t, bool> start, pair<id_t, bool> end);
 
  
             //Distance between end of node start and beginning of node end

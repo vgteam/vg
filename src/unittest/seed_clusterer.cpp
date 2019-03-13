@@ -115,6 +115,57 @@ namespace unittest {
 
         }
     }//End test case
+    TEST_CASE( "Revese in chain","[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("G");
+        Node* n9 = graph.create_node("AA");
+        Node* n10 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n10);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n5, n7);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n7, n7, false, true);
+        Edge* e11 = graph.create_edge(n7, n8);
+        Edge* e12 = graph.create_edge(n7, n9);
+        Edge* e13 = graph.create_edge(n8, n9);
+        Edge* e14 = graph.create_edge(n9, n10);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+
+        SnarlSeedClusterer clusterer;
+
+        SECTION( "One cluster" ) {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(3, false, 0));
+            seeds.push_back(make_pos_t(4, false, 0));
+
+            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 10,  snarl_manager, dist_index); 
+            for (hash_set<size_t> c : clusters) { 
+                for (size_t s : c) {cerr << s << " ";}
+                cerr << endl; 
+            }
+            REQUIRE( clusters.size() == 1);
+        }
+    }//end test case
+
+
     TEST_CASE( "Clusters in snarl","[cluster]" ) {
         VG graph;
 
@@ -203,12 +254,13 @@ namespace unittest {
                        clusters[0].count(5) == 1 &&
                        clusters[0].count(6) == 1  )));
         }
-        SECTION( "Four clusters" ) {
+        SECTION( "Five clusters" ) {
             vector<pos_t> seeds;
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(5, false, 0));
             //New cluster
             seeds.push_back(make_pos_t(5, false, 10));
+            //New cluster
             seeds.push_back(make_pos_t(6, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
             //New cluster
@@ -224,7 +276,7 @@ namespace unittest {
                 for (size_t s : c) {cerr << s << " ";}
                 cerr << endl; 
             }
-            REQUIRE( clusters.size() == 4);
+            REQUIRE( clusters.size() == 5);
         }
     }//end test case
 
@@ -286,18 +338,26 @@ namespace unittest {
                     seeds.push_back(pos);
 
                 }
-                int64_t lim = 100;// Distance between clusters
+                int64_t lim = 20;// Distance between clusters
                 vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
                                       seeds, lim, snarl_manager, dist_index); 
+cerr << "Random graph " << i << " cluster " << k << " with " << clusters.size() << " clusters" << endl;
 
                 for (size_t a = 0; a < clusters.size(); a++) {
-                    // For each cluster
+                    // For each cluster -cluster this cluster to ensure that 
+                    // there is only one
                     hash_set<size_t> clust = clusters[a];
+                    
+                    //vector of verified clusters. should be only one after 
+                    //running through all seeds in cluster a 
+                    vector<hash_set<size_t>> checked_clusters;
                     for (size_t i1 : clust) {
                         // For each clustered position
-                        int64_t min_dist = lim + 1;
-                        for (size_t i2 : clust) {
-                            if (i1 != i2){
+                        hash_set<size_t> assignments;
+                        for (size_t b = 0 ; b < checked_clusters.size() ; b++) {
+                            //For each new cluster that we're making
+
+                            for (size_t i2 : checked_clusters[b]) {
                                 //Ever seed is close to at least one seed in the same cluster
                                 pos_t pos1 = seeds[i1];
                                 pos_t pos2 = seeds[i2];
@@ -313,14 +373,27 @@ namespace unittest {
                                 int64_t dist2 = dist_index.minDistance(pos1, rev2);
                                 int64_t dist3 = dist_index.minDistance(rev1, pos2);
                                 int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                                min_dist = dist1 == -1 ? min_dist : min(min_dist,dist1);
-                                min_dist = dist2 == -1 ? min_dist : min(min_dist,dist2);
-                                min_dist = dist3 == -1 ? min_dist : min(min_dist,dist3);
-                                min_dist = dist4 == -1 ? min_dist : min(min_dist,dist4);
+                                int64_t dist = DistanceIndex::minPos({dist1, 
+                                                   dist2, dist3, dist4});
+                                if ( dist != -1 && dist <= lim+2) {
+                                    assignments.insert(b);
+                                }
 
                             }
                         }
-                        REQUIRE(min_dist <= lim + 2);
+                        vector<hash_set<size_t>> new_checked_clusters;
+                        hash_set<size_t> curr_cluster;
+                        curr_cluster.insert(i1);
+                        for (size_t b = 0 ; b < checked_clusters.size() ; b++) {
+                            if (assignments.count(b) > 0) {
+                                curr_cluster.insert(checked_clusters[b].begin(),
+                                                    checked_clusters[b].end());
+                            } else {
+                                new_checked_clusters.push_back(checked_clusters[b]);
+                            } 
+                        }
+                        new_checked_clusters.push_back(curr_cluster);
+                        checked_clusters = move(new_checked_clusters);
                         for ( size_t b = 0; b < a ; b ++) {
                             // For each other cluster
                             hash_set<size_t> clust2 = clusters[b];
@@ -345,14 +418,27 @@ namespace unittest {
                                       && (dist3 == -1 ||  dist3 >= lim-2)  
                                       && (dist4 == -1 || dist4 >= lim-2))){
                                     graph.serialize_to_file("testGraph");
+                                    cerr << "These should have been in the same cluster: ";
                                     cerr << pos1 << " " << pos2 << endl;
                                     cerr << dist1 << " " << dist2 << " " << dist3<< " " << dist4 << endl;
+                                    dist_index.printSelf();
                                 REQUIRE(false);
                                 };
                             }
                         }
                     }
-
+                    if (checked_clusters.size() != 1) {
+                        graph.serialize_to_file("testGraph");
+                        cerr << "These should be different clusters: " << endl;
+                        for (hash_set<size_t> c : checked_clusters) {
+                            cerr << "cluster: " ; 
+                            for (size_t i1 : c) {
+                                cerr << seeds[i1] << " ";
+                            }
+                            cerr << endl;
+                        }
+                    }
+                    REQUIRE(checked_clusters.size() == 1);
                 }
 ;
             }
