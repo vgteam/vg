@@ -3746,6 +3746,10 @@ namespace vg {
                 std::swap(scores[index[i]], scores[i]);
                 std::swap(cluster_pairs[index[i]], cluster_pairs[i]);
                 std::swap(multipath_aln_pairs[index[i]], multipath_aln_pairs[i]);
+#ifdef debug_multipath_mapper
+                std::swap(chosen_align_score[index[i]], chosen_align_score[i]);
+                std::swap(chosen_population_score[index[i]], chosen_population_score[i]);
+#endif
                 std::swap(index[index[i]], index[i]);
                 
             }
