@@ -3364,6 +3364,15 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
+                    connecting_graph.for_each_handle([&](const handle_t& handle) {
+                        cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                        connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            cerr << "\t-> " << connecting_graph.get_id(next) << endl;
+                        });
+                        connecting_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                        });
+                    });
 #endif
                     
                     if (!alignment.quality().empty()) {
@@ -3635,6 +3644,15 @@ namespace vg {
                         
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                        tail_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                        });
 #endif
                         
                         auto& alt_alignments = right_alignments[j];
@@ -3744,6 +3762,15 @@ namespace vg {
                         
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
+                        tail_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                        });
 #endif
                         
                         auto& alt_alignments = left_alignments[j];
