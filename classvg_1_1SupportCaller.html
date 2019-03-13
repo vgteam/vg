@@ -125,6 +125,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a7e7d15eed023928433d5a6c3f7097939"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab7dabc56eec19202fa1ced866a87152"><td class="memItemLeft" align="right" valign="top">tuple&lt; <a class="el" href="structvg_1_1Support.html">Support</a>, <a class="el" href="structvg_1_1Support.html">Support</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#aab7dabc56eec19202fa1ced866a87152">get_traversal_support</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> *already_used=nullptr, const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> *ref_traversal=nullptr)</td></tr>
 <tr class="separator:aab7dabc56eec19202fa1ced866a87152"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9617d7c962abebc73b02b624e39fa738"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a9617d7c962abebc73b02b624e39fa738">get_inversion_supports</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;traversals, const vector&lt; size_t &gt; &amp;traversal_sizes, int best_allele, int second_best_allele)</td></tr>
+<tr class="separator:a9617d7c962abebc73b02b624e39fa738"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac01e7eacc46cd32095b49f6b4ac1916f"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#ac01e7eacc46cd32095b49f6b4ac1916f">find_best_traversals</a> (<a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;augmented, <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;snarl_manager, <a class="el" href="classvg_1_1TraversalFinder.html">TraversalFinder</a> *finder, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const <a class="el" href="structvg_1_1Support.html">Support</a> &amp;baseline_support, size_t copy_budget, function&lt; void(const <a class="el" href="structvg_1_1Locus.html">Locus</a> &amp;, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *)&gt; emit_locus)</td></tr>
 <tr class="separator:ac01e7eacc46cd32095b49f6b4ac1916f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a122bc21c6e3795bf018cacf541ab6d6e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a122bc21c6e3795bf018cacf541ab6d6e">is_reference</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;trav, <a class="el" href="structvg_1_1AugmentedGraph.html">AugmentedGraph</a> &amp;augmented)</td></tr>
@@ -411,6 +413,63 @@ VCF&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="class
       </table>
 </div><div class="memdoc">
 <p>Find the lenght of a deletion deletion edge along (the first found) primary path. If no path found or not a deletion edge, return 0. </p>
+
+</div>
+</div>
+<a class="anchor" id="a9617d7c962abebc73b02b624e39fa738"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Support.html">Support</a> &gt; vg::SupportCaller::get_inversion_supports </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1SupportAugmentedGraph.html">SupportAugmentedGraph</a> &amp;&#160;</td>
+          <td class="paramname"><em>augmented</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> &amp;&#160;</td>
+          <td class="paramname"><em>snarl_manager</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;&#160;</td>
+          <td class="paramname"><em>site</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversals</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>traversal_sizes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>best_allele</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>second_best_allele</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Get the edge supports of an inversion. This is to be used for computing genotypes with average support, as the normal supports will almost always return 0/1 due to the nodes having the same support. If the alleles don't refer to a simple inversion, an empty vector is returned (and should be ignored) </p>
 
 </div>
 </div>
