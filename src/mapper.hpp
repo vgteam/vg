@@ -262,6 +262,8 @@ public:
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
     int max_mapping_quality; // the cap for mapping quality
     
+    bool exclude_unaligned = false;
+
     /// Set to enable debugging messages to cerr from the mapper, so a user can understand why a read maps the way it does.
     bool debug = false;
     
