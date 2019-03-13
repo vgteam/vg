@@ -164,6 +164,16 @@ public:
         const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr,
         const SnarlTraversal* ref_traversal = nullptr);
 
+    /** 
+     * Get the edge supports of an inversion.  This is to be used for computing genotypes with average support,
+     * as the normal supports will almost always return 0/1 due to the nodes having the same support.  If 
+     * the alleles don't refer to a simple inversion, an empty vector is returned (and should be ignored)
+     */
+    vector<Support>  get_inversion_supports(
+        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<size_t>& traversal_sizes,
+        int best_allele, int second_best_allele);   
+
     /**
      * For the given snarl, find the reference traversal, the best traversal,
      * and the second-best traversal, recursively, if any exist. These

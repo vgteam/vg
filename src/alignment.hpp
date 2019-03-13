@@ -136,7 +136,11 @@ string alignment_to_sam(const Alignment& alignment,
                         
 
 
+/// Create a CIGAR from the given Alignment. If softclip_suppress is nonzero,
+/// suppress softclips up to that length. This will necessitate adjusting pos,
+/// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
+
 void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand);
 
 /// Work out the TLEN values for two reads. The magnitude is the distance
