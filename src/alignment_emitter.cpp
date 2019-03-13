@@ -13,7 +13,28 @@
 namespace vg {
 using namespace std;
 
-OMPThreadBufferedAlignmentEmitter::OMPThreadBufferedAlignmentEmitter(AlignmentEmitter& backing) : backing(backing) {
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, const map<string, int64_t>& path_length) {
+
+    // Make the backing, non-buffered emitter
+    AlignmentEmitter* backing = nullptr;
+    if (format == "GAM" || format == "JSON") {
+        // Make an emitter that supports VG formats
+        backing = new VGAlignmentEmitter(filename, format);
+    } else if (format == "SAM" || format == "BAM" || format == "CRAM") {
+        // Make an emitter that supports HTSlib formats
+        backing = new HTSAlignmentEmitter(filename, format, path_length);
+    } else if (format == "TSV") {
+        backing = new TSVAlignmentEmitter(filename);
+    } else {
+        cerr << "error [vg::get_alignment_emitter]: Unimplemented output format " << format << endl;
+        exit(1);
+    }
+
+    // Make a buffering emitter to own the backing one, and return it in a unique_ptr.
+    return make_unique<OMPThreadBufferedAlignmentEmitter>(backing);
+}
+
+OMPThreadBufferedAlignmentEmitter::OMPThreadBufferedAlignmentEmitter(AlignmentEmitter* backing) : backing(backing) {
     #pragma omp parallel
     {
         #pragma omp single
@@ -29,27 +50,30 @@ OMPThreadBufferedAlignmentEmitter::OMPThreadBufferedAlignmentEmitter(AlignmentEm
 }
 
 OMPThreadBufferedAlignmentEmitter::~OMPThreadBufferedAlignmentEmitter() {
+    // Flush our buffers
     for (size_t i = 0; i < single_buffer.size(); i++) {
         flush(i);
     }
+    // Then we can clean up our backing emitter
+    backing.reset();
 }
 
 void OMPThreadBufferedAlignmentEmitter::flush(size_t thread) {
     // Flush all the buffers
     for (auto& aln : single_buffer[thread]) {
-        backing.emit_single(std::move(aln));
+        backing->emit_single(std::move(aln));
     }
     single_buffer[thread].clear();
     for (auto& record : pair_buffer[thread]) {
-        backing.emit_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
+        backing->emit_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
     }
     pair_buffer[thread].clear();
     for (auto& alns : mapped_single_buffer[thread]) {
-        backing.emit_mapped_single(std::move(alns));
+        backing->emit_mapped_single(std::move(alns));
     }
     mapped_single_buffer[thread].clear();
     for (auto& record : mapped_pair_buffer[thread]) {
-        backing.emit_mapped_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
+        backing->emit_mapped_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
     }
     mapped_pair_buffer[thread].clear();
 }
@@ -61,6 +85,7 @@ void OMPThreadBufferedAlignmentEmitter::emit_single(Alignment&& aln) {
         flush(i);
     }
 }
+
 void OMPThreadBufferedAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
     size_t i = omp_get_thread_num();
     mapped_single_buffer[i].emplace_back(std::move(alns));
@@ -68,6 +93,7 @@ void OMPThreadBufferedAlignmentEmitter::emit_mapped_single(vector<Alignment>&& a
         flush(i);
     }
 }
+
 void OMPThreadBufferedAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
     size_t i = omp_get_thread_num();
     pair_buffer[i].emplace_back(std::move(aln1), std::move(aln2), tlen_limit);
@@ -75,6 +101,7 @@ void OMPThreadBufferedAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& 
         flush(i);
     }
 }
+
 void OMPThreadBufferedAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
     size_t i = omp_get_thread_num();
     mapped_pair_buffer[i].emplace_back(std::move(alns1), std::move(alns2), tlen_limit);
@@ -83,7 +110,66 @@ void OMPThreadBufferedAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& aln
     }
 }
 
-HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format, map<string, int64_t>& path_length) : 
+TSVAlignmentEmitter::TSVAlignmentEmitter(const string& filename) : out_file(filename == "-" ? nullptr : new ofstream(filename)) {
+    if (out_file.get() != nullptr && !*out_file) {
+        // Make sure we opened a file if we aren't writing to standard output
+        cerr << "[vg::TSVAlignmentEmitter] failed to open " << filename << " for writing" << endl;
+        exit(1);
+    }
+}
+
+void TSVAlignmentEmitter::emit_single(Alignment&& aln) {
+    lock_guard<mutex> lock(sync);
+    emit_single_internal(std::move(aln), lock);
+}
+
+void TSVAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
+    lock_guard<mutex> lock(sync);
+    for (auto& aln : alns) {
+        // Emit each mapping of the alignment in order in a single run
+        emit_single_internal(std::move(aln), lock);
+    }
+}
+
+void TSVAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
+    lock_guard<mutex> lock(sync);
+    // Emit the two paired alignments paired with each other.
+    emit_pair_internal(std::move(aln1), std::move(aln2), lock);
+}
+
+
+void TSVAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
+    lock_guard<mutex> lock(sync);
+    // Make sure we have the same number of mappings on each side.
+    assert(alns1.size() == alns2.size());
+    for (size_t i = 0; i < alns1.size(); i++) {
+        // Emit each pair as paired alignments
+        emit_pair_internal(std::move(alns1[i]), std::move(alns2[i]), lock);
+    }
+}
+
+void TSVAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock) {
+    Position refpos;
+    if (aln.refpos_size()) {
+        refpos = aln.refpos(0);
+    }
+
+    // Work out if we are writing to standard output or an open file
+    ostream& out = (out_file.get() == nullptr) ? cout : *out_file;
+
+    out << aln.name() << "\t"
+        << refpos.name() << "\t"
+        << refpos.offset() << "\t"
+        << aln.mapping_quality() << "\t"
+        << aln.score() << "\n";
+}
+
+void TSVAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock) {
+    emit_single_internal(std::move(aln1), lock);
+    emit_single_internal(std::move(aln2), lock);
+}
+
+HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length) : 
     format(format), path_length(path_length) {
     
     // Make sure we have an HTS format

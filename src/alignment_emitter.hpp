@@ -48,15 +48,20 @@ public:
     virtual ~AlignmentEmitter() = default;
 };
 
+/// Get an AlignmentEmitter that can emit to the given file (or "-") in the
+/// given format. A table of contig lengths is required for HTSlib formats.
+/// Automatically applies buffering.
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, const map<string, int64_t>& path_length);
+
 /**
- * Throws per-OMP-thread buffers over the top of a backing AlignmentEmitter.
+ * Throws per-OMP-thread buffers over the top of a backing AlignmentEmitter, which it owns.
  */
 class OMPThreadBufferedAlignmentEmitter : public AlignmentEmitter {
 public:
     /// Create an OMPThreadBufferedAlignmentEmitter that emits alignments to
-    /// the given backing AlignmentEmitter. The backing emitter must outlive
-    /// this one.
-    OMPThreadBufferedAlignmentEmitter(AlignmentEmitter& backing);
+    /// the given backing AlignmentEmitter. The backing emitter will become
+    /// owned by this one.
+    OMPThreadBufferedAlignmentEmitter(AlignmentEmitter* backing);
     
     /// Destroy and flush all the buffers
     ~OMPThreadBufferedAlignmentEmitter();
@@ -75,7 +80,7 @@ private:
     void flush(size_t thread);
 
     /// Keep a reference to the backing emitter
-    AlignmentEmitter& backing;
+    unique_ptr<AlignmentEmitter> backing;
     
     // We have one buffer for each type of emit operation, for each thread
     vector<vector<Alignment>> single_buffer;
@@ -84,6 +89,42 @@ private:
     vector<vector<tuple<vector<Alignment>, vector<Alignment>, size_t>>> mapped_pair_buffer;
 
     const static size_t BUFFER_LIMIT = 1000;
+};
+
+/**
+ * Emit a TSV table describing alignments.
+ */
+class TSVAlignmentEmitter : public AlignmentEmitter {
+public:
+    
+    /// Create a TSVAlignmentEmitter writing to the given file (or "-")
+    TSVAlignmentEmitter(const string& filename);
+
+    /// The default destructor should clean up the open file, if any.
+    ~TSVAlignmentEmitter() = default;
+    
+    /// Emit a single Alignment
+    virtual void emit_single(Alignment&& aln);
+    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
+    virtual void emit_mapped_single(vector<Alignment>&& alns);
+    /// Emit a pair of Alignments.
+    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
+    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
+    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    
+private:
+
+    /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
+    unique_ptr<ofstream> out_file;
+
+    /// Access to the output stream is protected by this mutex
+    mutex sync;
+
+    /// Emit a single alignment as TSV
+    void emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock);
+    
+    /// Emit a pair of alignments as TSV, in order.
+    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock);
 };
 
 /**
@@ -98,7 +139,7 @@ public:
     /// groups for the header will be guessed from the first reads. HTSlib
     /// positions will be read from the alignments' refpos, and the alignments
     /// must be surjected.
-    HTSAlignmentEmitter(const string& filename, const string& format, map<string, int64_t>& path_length);
+    HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length);
     
     /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
     ~HTSAlignmentEmitter();

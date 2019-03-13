@@ -13,66 +13,6 @@
 using namespace vg;
 using namespace vg::subcommand;
 
-/**
- * We have a special AlignmentEmitter that emits a TSV table.
- */
-class RefposAlignmentEmitter : public AlignmentEmitter {
-public:
-
-    // Default constructible. Only works for one format, to cout.
-    
-    void emit_single(Alignment&& aln) {
-        lock_guard<mutex> lock(sync);
-        emit_single_internal(std::move(aln), lock);
-    }
-
-    void emit_mapped_single(vector<Alignment>&& alns) {
-        lock_guard<mutex> lock(sync);
-        for (auto& aln : alns) {
-            // Emit each mapping of the alignment in order in a single run
-            emit_single_internal(std::move(aln), lock);
-        }
-    }
-
-    void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
-        lock_guard<mutex> lock(sync);
-        // Emit the two paired alignments paired with each other.
-        emit_pair_internal(std::move(aln1), std::move(aln2), lock);
-    }
-
-
-    void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
-        lock_guard<mutex> lock(sync);
-        // Make sure we have the same number of mappings on each side.
-        assert(alns1.size() == alns2.size());
-        for (size_t i = 0; i < alns1.size(); i++) {
-            // Emit each pair as paired alignments
-            emit_pair_internal(std::move(alns1[i]), std::move(alns2[i]), lock);
-        }
-    }
-    
-private:
-    
-    void emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock) {
-        Position refpos;
-        if (aln.refpos_size()) {
-            refpos = aln.refpos(0);
-        }
-        cout << aln.name() << "\t"
-            << refpos.name() << "\t"
-            << refpos.offset() << "\t"
-            << aln.mapping_quality() << "\t"
-            << aln.score() << "\n";
-    }
-    
-    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock) {
-        emit_single_internal(std::move(aln1), lock);
-        emit_single_internal(std::move(aln2), lock);
-    }
-
-    mutex sync;    
-};
-
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] -d idxbase -f in1.fq [-f in2.fq] >aln.gam" << endl
          << "Align reads to a graph." << endl
@@ -540,7 +480,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'v':
-            output_format = "Refpos";
+            output_format = "TSV";
             break;
 
         case '5':
@@ -759,34 +699,17 @@ int main_map(int argc, char** argv) {
     
     // If we need to do surjection, we will need a surjector. So set one up.
     Surjector surjector(xgidx.get());
-    
-    // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter;
-    if (output_format == "GAM" || output_format == "JSON") {
-        // Make an emitter that supports VG formats
-        alignment_emitter = unique_ptr<AlignmentEmitter>(new VGAlignmentEmitter("-", output_format));
-    } else if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
-        // Look up all the path info we need for the HTSlib header
-        map<string, int64_t> path_length;
-        int num_paths = xgidx->max_path_rank();
-        for (int i = 1; i <= num_paths; ++i) {
-            auto name = xgidx->path_name(i);
-            path_length[name] = xgidx->path_length(name);
-        }
 
-        // Make an emitter that supports HTSlib formats
-        alignment_emitter = unique_ptr<AlignmentEmitter>(new HTSAlignmentEmitter("-", output_format, path_length));
-    } else if (output_format == "Refpos") {
-        alignment_emitter = unique_ptr<AlignmentEmitter>(new RefposAlignmentEmitter());
-    } else {
-        cerr << "error [vg map]: Unimplemented output format " << output_format << endl;
-        exit(1);
+    // Look up all the path info we need for the HTSlib header, in case we output to HTS format.
+    map<string, int64_t> path_length;
+    int num_paths = xgidx->max_path_rank();
+    for (int i = 1; i <= num_paths; ++i) {
+        auto name = xgidx->path_name(i);
+        path_length[name] = xgidx->path_length(name);
     }
 
-    // Buffer emitted alignments per-thread.
-    OMPThreadBufferedAlignmentEmitter buffered_emitter(*alignment_emitter); 
-
-    
+    // Set up output to an emitter that will handle serialization
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length);
 
     // TODO: Refactor the surjection code out of surject_main and into somewhere where we can just use it here!
 
@@ -807,7 +730,7 @@ int main_map(int argc, char** argv) {
         
         if (surjects2.empty()) {
             // Write out surjected single-end reads
-            buffered_emitter.emit_mapped_single(std::move(surjects1));
+            alignment_emitter->emit_mapped_single(std::move(surjects1));
         } else {
             // Look up the paired end distribution stats for deciding if reads are propelry paired
             auto& stats = mapper[omp_get_thread_num()]->frag_stats;
@@ -816,7 +739,7 @@ int main_map(int argc, char** argv) {
             int64_t tlen_limit = stats.cached_fragment_length_mean + 6 * stats.cached_fragment_length_stdev;
         
             // Write out surjected paired-end reads
-            buffered_emitter.emit_mapped_pair(std::move(surjects1), std::move(surjects2), tlen_limit);
+            alignment_emitter->emit_mapped_pair(std::move(surjects1), std::move(surjects2), tlen_limit);
         }
     };
 
@@ -829,10 +752,10 @@ int main_map(int argc, char** argv) {
             // Just emit. No need for a tlen limit.
             if (alns2.empty()) {
                 // Single-ended read
-                buffered_emitter.emit_mapped_single(std::move(alns1));
+                alignment_emitter->emit_mapped_single(std::move(alns1));
             } else {
                 // Paired reads
-                buffered_emitter.emit_mapped_pair(std::move(alns1), std::move(alns2));
+                alignment_emitter->emit_mapped_pair(std::move(alns1), std::move(alns2));
             }
         }
     };

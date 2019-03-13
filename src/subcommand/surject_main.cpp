@@ -195,6 +195,9 @@ int main_surject(int argc, char** argv) {
         }
     }
 
+    // Make a single therad-safe Surjector.
+    Surjector surjector(xgidx.get());
+    
     // Get the lengths of all the paths in the XG to populate the HTS headers
     map<string, int64_t> path_length;
     int num_paths = xgidx->max_path_rank();
@@ -203,35 +206,9 @@ int main_surject(int argc, char** argv) {
         path_length[name] = xgidx->path_length(name);
     }
     
-    // Make a single therad-safe Surjector.
-    Surjector surjector(xgidx.get());
-    
-    // Make an alignment emitter.
-    // TODO: deduplicate selection code with vg map
-    unique_ptr<AlignmentEmitter> alignment_emitter;
-    if (output_format == "GAM" || output_format == "JSON") {
-        // Make an emitter that supports VG formats
-        alignment_emitter = unique_ptr<AlignmentEmitter>(new VGAlignmentEmitter("-", output_format));
-    } else if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
-        // Look up all the path info we need for the HTSlib header
-        map<string, int64_t> path_length;
-        int num_paths = xgidx->max_path_rank();
-        for (int i = 1; i <= num_paths; ++i) {
-            auto name = xgidx->path_name(i);
-            path_length[name] = xgidx->path_length(name);
-        }
+    // Set up output to an emitter that will handle serialization
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length);
 
-        // Make an emitter that supports HTSlib formats
-        alignment_emitter = unique_ptr<AlignmentEmitter>(new HTSAlignmentEmitter("-", output_format, path_length));
-    } else {
-        cerr << "error [vg surject]: Unimplemented output format " << output_format << endl;
-        exit(1);
-    }
-
-    // Buffer emitted alignments per-thread.
-    OMPThreadBufferedAlignmentEmitter buffered_emitter(*alignment_emitter); 
-
-   
     // Count out threads
     int thread_count = get_thread_count();
 
@@ -287,8 +264,8 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src2);
                     
                     // Surject and emit.
-                    buffered_emitter.emit_pair(surjector.surject(src1, path_names, subpath_global),
-                                               surjector.surject(src2, path_names, subpath_global));
+                    alignment_emitter->emit_pair(surjector.surject(src1, path_names, subpath_global),
+                                                 surjector.surject(src2, path_names, subpath_global));
                 
                 });
             } else {
@@ -300,7 +277,7 @@ int main_surject(int argc, char** argv) {
                     set_metadata(src);
                     
                     // Surject and emit the single read.
-                    buffered_emitter.emit_single(surjector.surject(src, path_names, subpath_global));
+                    alignment_emitter->emit_single(surjector.surject(src, path_names, subpath_global));
                         
                 });
             }
