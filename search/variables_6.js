@@ -21,7 +21,7 @@ var searchData=
   ['force_5fhaplotype_5fcount',['force_haplotype_count',['../classvg_1_1MultipathMapper.html#a4c89cc1e5c4696682c6bc9282de4b034',1,'vg::MultipathMapper']]],
   ['forefronts',['forefronts',['../classvg_1_1XdropAligner.html#ae3a4b6a0f8a31895f99ec6e59c2b732c',1,'vg::XdropAligner']]],
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t']]],
-  ['format',['format',['../classvg_1_1SupportCaller.html#af9e9a4ecc2f56ea8fe5ac2cba6ddc42e',1,'vg::SupportCaller']]],
+  ['format',['format',['../classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761',1,'vg::HTSAlignmentEmitter::format()'],['../classvg_1_1SupportCaller.html#af9e9a4ecc2f56ea8fe5ac2cba6ddc42e',1,'vg::SupportCaller::format()']]],
   ['forward',['forward',['../classvg_1_1GFAToPinchTranslator.html#aa2bde3e3f2d943225f23715afa4a2f6e',1,'vg::GFAToPinchTranslator::forward()'],['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support::forward()']]],
   ['forward_5fgraph',['forward_graph',['../classvg_1_1BackwardsGraph.html#a9387c529c83c9868a84a1689ff873d55',1,'vg::BackwardsGraph']]],
   ['forward_5fonly',['forward_only',['../classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507',1,'vg::Sampler']]],

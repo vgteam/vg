@@ -200,7 +200,7 @@ var searchData=
   ['support_5fquality',['support_quality',['../classvg_1_1SupportCaller.html#aa339586afbf179881045478d4b6f09db',1,'vg::SupportCaller']]],
   ['supportcaller',['SupportCaller',['../classvg_1_1SupportCaller.html#ae794f8e0fba185201cc7ce6d41f2a09d',1,'vg::SupportCaller']]],
   ['supportrestrictedtraversalfinder',['SupportRestrictedTraversalFinder',['../classvg_1_1SupportRestrictedTraversalFinder.html#aceeb94d7e05fdbc113557b61448f6b2a',1,'vg::SupportRestrictedTraversalFinder']]],
-  ['surject',['surject',['../classvg_1_1Surjector.html#aa01a5d3fe30da337b4533b69d0c297be',1,'vg::Surjector']]],
+  ['surject',['surject',['../classvg_1_1Surjector.html#aa01a5d3fe30da337b4533b69d0c297be',1,'vg::Surjector::surject(const Alignment &amp;source, const set&lt; string &gt; &amp;path_names, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out, bool allow_negative_scores=false) const '],['../classvg_1_1Surjector.html#a93b288be86926bdfd48bc991ccfaaa01',1,'vg::Surjector::surject(const Alignment &amp;source, const set&lt; string &gt; &amp;path_names, bool allow_negative_scores=false) const ']]],
   ['surjector',['Surjector',['../classvg_1_1Surjector.html#a9b72a9a5ca512900b27278de006d8ad0',1,'vg::Surjector']]],
   ['swap',['swap',['../classvg_1_1SnarlState.html#a4e3f0d0c720ea665b3db9542d07f7ec1',1,'vg::SnarlState::swap()'],['../classvg_1_1MinimizerIndex.html#a46a5cb10502dd6d957f15c8952c6a442',1,'vg::MinimizerIndex::swap()']]],
   ['swap_5falleles',['swap_alleles',['../classvg_1_1PhasedGenome.html#ae325c8488e737b75b980796aacf37246',1,'vg::PhasedGenome']]],

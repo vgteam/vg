@@ -19,6 +19,7 @@ var searchData=
   ['other_5forientation_5ftimeout',['other_orientation_timeout',['../classvg_1_1RepresentativeTraversalFinder.html#a5d5136f771fe4566506ff486fb17df49',1,'vg::RepresentativeTraversalFinder']]],
   ['other_5fsupports',['other_supports',['../structvg_1_1BREAKPOINT.html#a2f08ace3f57cff47b7f703fef1ae9792',1,'vg::BREAKPOINT']]],
   ['out',['out',['../structhaplo_1_1haplo__DP__edge__memo.html#a5b237e3bd675f8f4c58dd21e3e704f95',1,'haplo::haplo_DP_edge_memo']]],
+  ['out_5ffile',['out_file',['../classvg_1_1TSVAlignmentEmitter.html#afdcac9128ebbfb1edf128b660a6ad854',1,'vg::TSVAlignmentEmitter::out_file()'],['../classvg_1_1VGAlignmentEmitter.html#a4f1650aff05b04dce740db0956240103',1,'vg::VGAlignmentEmitter::out_file()']]],
   ['outfile',['outfile',['../classvg_1_1Viz.html#a78a53d3a62a503ff6c29e93cb9a12a88',1,'vg::Viz']]],
   ['output_5fnames',['output_names',['../classVectorizer.html#aadb47085d4b369b1c9ea341b06311341',1,'Vectorizer']]],
   ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],

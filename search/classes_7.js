@@ -44,5 +44,6 @@ var searchData=
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html',1,'vg::MEMClusterer']]],
-  ['homogenizer',['Homogenizer',['../classvg_1_1Homogenizer.html',1,'vg']]]
+  ['homogenizer',['Homogenizer',['../classvg_1_1Homogenizer.html',1,'vg']]],
+  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html',1,'vg']]]
 ];

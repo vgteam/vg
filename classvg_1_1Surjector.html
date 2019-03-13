@@ -122,6 +122,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a9b72a9a5ca512900b27278de006d8ad0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa01a5d3fe30da337b4533b69d0c297be"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#aa01a5d3fe30da337b4533b69d0c297be">surject</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const set&lt; string &gt; &amp;path_names, string &amp;path_name_out, int64_t &amp;path_pos_out, bool &amp;path_rev_out, bool allow_negative_scores=false) const </td></tr>
 <tr class="separator:aa01a5d3fe30da337b4533b69d0c297be"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a93b288be86926bdfd48bc991ccfaaa01"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Alignment.html">Alignment</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html#a93b288be86926bdfd48bc991ccfaaa01">surject</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;source, const set&lt; string &gt; &amp;path_names, bool allow_negative_scores=false) const </td></tr>
+<tr class="separator:a93b288be86926bdfd48bc991ccfaaa01"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -489,6 +491,41 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 <p>Extract the portions of an alignment that are on a chosen set of paths and try to align realign the portions that are off of the chosen paths to the intervening path segments to obtain an alignment that is fully restricted to the paths.</p>
 <p>Also returns the path name, position, and strand of the new alignment.</p>
+<p>Optionally either allow softclips so that the alignment has a nonnegative score on the path or require the full-length alignment, possibly creating a negative score. </p>
+
+</div>
+</div>
+<a class="anchor" id="a93b288be86926bdfd48bc991ccfaaa01"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> vg::Surjector::surject </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>source</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const set&lt; string &gt; &amp;&#160;</td>
+          <td class="paramname"><em>path_names</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_negative_scores</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Extract the portions of an alignment that are on a chosen set of paths and try to align realign the portions that are off of the chosen paths to the intervening path segments to obtain an alignment that is fully restricted to the paths.</p>
+<p>Replaces the alignment's refpos with the path name, position, and strand the alignment has been surjected to.</p>
 <p>Optionally either allow softclips so that the alignment has a nonnegative score on the path or require the full-length alignment, possibly creating a negative score. </p>
 
 </div>

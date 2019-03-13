@@ -9,6 +9,7 @@ var searchData=
   ['page_5fsize',['page_size',['../classvg_1_1PagedVector.html#aed31f4d366519b0fc2bb19e1ba9fa23c',1,'vg::PagedVector']]],
   ['page_5fwidth',['PAGE_WIDTH',['../classvg_1_1PackedGraph.html#a2448556d94acc07aa90b1e4b548f16e2',1,'vg::PackedGraph']]],
   ['pages',['pages',['../classvg_1_1PagedVector.html#a6a68c53301abee2a2bcbfb22c1c710f9',1,'vg::PagedVector']]],
+  ['pair_5fbuffer',['pair_buffer',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html#a7897d080984d86109f7613a8520d4473',1,'vg::OMPThreadBufferedAlignmentEmitter']]],
   ['pair_5frescue_5fhang_5fthreshold',['pair_rescue_hang_threshold',['../classvg_1_1Mapper.html#a92e1f4de4e6ce576e09005713d1c1cd1',1,'vg::Mapper']]],
   ['pair_5frescue_5fretry_5fthreshold',['pair_rescue_retry_threshold',['../classvg_1_1Mapper.html#a36ed72fe5d33907a75992011ff9ae244',1,'vg::Mapper']]],
   ['paired_5fread_5fname',['paired_read_name',['../structvg_1_1MultipathAlignment.html#a0664790bf6bd37af413697cddff370fb',1,'vg::MultipathAlignment']]],
@@ -22,6 +23,7 @@ var searchData=
   ['path',['path',['../classvg_1_1PathNode.html#a135155ca8d14a6ea86c85f997fb03b20',1,'vg::PathNode::path()'],['../structvg_1_1Graph.html#a850007eb60ce0d25a6bd9799050ec790',1,'vg::Graph::path()'],['../structvg_1_1Alignment.html#a4736db5fe121ef57784c18c3c27aea79',1,'vg::Alignment::path()'],['../structvg_1_1Subpath.html#a69056b48fb59ee83a8b0307838987e19',1,'vg::Subpath::path()']]],
   ['path_5fcount',['path_count',['../classxg_1_1XG.html#a1859cb996668f8d86107d4e0117cf97f',1,'xg::XG']]],
   ['path_5fid',['path_id',['../structvg_1_1HashGraph_1_1path__mapping__t.html#acf566a48ec570bae5a8fc3767d51007b',1,'vg::HashGraph::path_mapping_t::path_id()'],['../structvg_1_1HashGraph_1_1path__t.html#a86c1288d9af619e7ebd0715d1272044c',1,'vg::HashGraph::path_t::path_id()'],['../classvg_1_1HashGraph.html#a5c3d6ba66905470b785ea8c4f754b148',1,'vg::HashGraph::path_id()'],['../classvg_1_1PackedGraph.html#a0b511822169f490c769e20e6f6dcf2f5',1,'vg::PackedGraph::path_id()']]],
+  ['path_5flength',['path_length',['../classvg_1_1HTSAlignmentEmitter.html#a120f7a095425d81db9fa4c3574f0bee5',1,'vg::HTSAlignmentEmitter']]],
   ['path_5fmembership_5fnode_5fiv',['path_membership_node_iv',['../classvg_1_1PackedGraph.html#a75428a60532edb8d43d166621aba1f56',1,'vg::PackedGraph']]],
   ['path_5fmembership_5fvalue_5fiv',['path_membership_value_iv',['../classvg_1_1PackedGraph.html#a8301907f9c8bb3a27b7b709598318164',1,'vg::PackedGraph']]],
   ['path_5fname',['path_name',['../structvg_1_1FeatureSet_1_1Feature.html#a645900ed3044cc3359c18e109f7460a7',1,'vg::FeatureSet::Feature::path_name()'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#ad19c5f9cbb68abb1bcfe6e3a9fd65382',1,'vg::GraphSynchronizer::Lock::path_name()']]],
@@ -91,6 +93,6 @@ var searchData=
   ['progress_5fcount',['progress_count',['../classvg_1_1Progressive.html#a71e61fe99d71d23542d2d7387c23fd4d',1,'vg::Progressive']]],
   ['progress_5fmessage',['progress_message',['../classvg_1_1Progressive.html#a4bb04fe23ceb41467dd14cdf8cc01a71',1,'vg::Progressive']]],
   ['progress_5fseen',['progress_seen',['../classvg_1_1Progressive.html#ac6745d7e07b4b271f9510cd40f06d18e',1,'vg::Progressive']]],
-  ['proto',['proto',['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'vg.proto']]],
+  ['proto',['proto',['../classvg_1_1VGAlignmentEmitter.html#a5a614adac34031f4738d776b1d8788b1',1,'vg::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
   ['pseudo_5flength_5fmultiplier',['pseudo_length_multiplier',['../classvg_1_1MultipathMapper.html#a8c463a9a1350cd7220abd8575d9e7bd3',1,'vg::MultipathMapper']]]
 ];

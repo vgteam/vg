@@ -1,6 +1,7 @@
 var searchData=
 [
   ['occurrence_5fhandle_5ft',['occurrence_handle_t',['../structhandlegraph_1_1occurrence__handle__t.html',1,'handlegraph']]],
+  ['ompthreadbufferedalignmentemitter',['OMPThreadBufferedAlignmentEmitter',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html',1,'vg']]],
   ['option',['Option',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20bool_20_3e',['Option&lt; bool &gt;',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20double_20_3e',['Option&lt; double &gt;',['../classvg_1_1Option.html',1,'vg']]],

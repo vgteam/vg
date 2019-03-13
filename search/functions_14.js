@@ -89,6 +89,7 @@ var searchData=
   ['trim_5fto_5fbranch_5fpoints',['trim_to_branch_points',['../classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fto_5fvariable',['trim_to_variable',['../classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02',1,'vg::Constructor']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a7a3ad443fda205c48013fc246bea552e',1,'vg::TrivialTraversalFinder']]],
+  ['tsvalignmentemitter',['TSVAlignmentEmitter',['../classvg_1_1TSVAlignmentEmitter.html#a9cd7e56af0a31c48a77ad0658eea6662',1,'vg::TSVAlignmentEmitter']]],
   ['tv_5fpath',['tv_path',['../classvg_1_1TargetValueSearch.html#a9ab66a82967803031203885c18291c6f',1,'vg::TargetValueSearch']]],
   ['tv_5fpath_5fexists',['tv_path_exists',['../classvg_1_1TargetValueSearch.html#a407607bcab4cfd14e283386bac418636',1,'vg::TargetValueSearch']]],
   ['tv_5fpath_5flength',['tv_path_length',['../classvg_1_1TargetValueSearch.html#a7dc599c6d4a317999890c81634d9ddf5',1,'vg::TargetValueSearch']]],
