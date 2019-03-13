@@ -2037,7 +2037,8 @@ void SupportCaller::call(
             // Don't bother with trivial calls
             if (write_trivial_calls ||
                 (genotype_vector.back() != "./." && genotype_vector.back() != ".|." &&
-                 genotype_vector.back() != "0/0" && genotype_vector.back() != "0|0")) {
+                 genotype_vector.back() != "0/0" && genotype_vector.back() != "0|0" &&
+                 genotype_vector.back() != "." && genotype_vector.back() != "0")) {
             
                 if(can_write_alleles(variant)) {
                     // No need to check for collisions because we assume sites are correctly found.
