@@ -2,7 +2,8 @@
 # post-comment.py: post standard input as a Github comment
 
 """
-Post a Github comment.
+Post a Github comment on a commit or PR.
+Can also set CI status on a commit.
 """
 
 import argparse
@@ -43,6 +44,16 @@ def parse_args(args):
         help="commit hash to comment on")
     target_group.add_argument("--pr", type=int,
         help="PR issue number to comment on")
+    # If operating on a commit we can do a status update as well
+    parser.add_argument("--status-state", choices=["error", "failure", "pending", "success"],
+        help="State of the commit status to create")
+    parser.add_argument("--status-url",
+        help="URL for the status to link to")
+    parser.add_argument("--status-description",
+        help="Description to show for the commit status")
+    parser.add_argument("--status-context", default="ci/post-comment",
+        help="Identifier for the service the status is from")
+    
     
     
     # The command line arguments start with the program name, which we don't
@@ -73,6 +84,15 @@ def main(args):
         # Comment on this commit
         target = repo.get_commit(options.commit)
         comment = target.create_comment(options.in_file.read())
+        
+        if options.status_state is not None:
+            # Also set CI status
+            status = target.create_status(state=options.status_state,
+                target_url=options.status_url,
+                context=options.status_context,
+                description=options.status_description)
+                
+        
     elif options.pr is not None:
         # Comment on this PR
         target = repo.get_pull(options.pr)
