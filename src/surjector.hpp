@@ -42,6 +42,21 @@ using namespace std;
                           int64_t& path_pos_out,
                           bool& path_rev_out,
                           bool allow_negative_scores = false) const;
+                          
+        /// Extract the portions of an alignment that are on a chosen set of
+        /// paths and try to align realign the portions that are off of the
+        /// chosen paths to the intervening path segments to obtain an
+        /// alignment that is fully restricted to the paths.
+        ///
+        /// Replaces the alignment's refpos with the path name, position, and
+        /// strand the alignment has been surjected to.
+        ///
+        /// Optionally either allow softclips so that the alignment has a
+        /// nonnegative score on the path or require the full-length alignment,
+        /// possibly creating a negative score.
+        Alignment surject(const Alignment& source,
+                          const set<string>& path_names,
+                          bool allow_negative_scores = false) const;
         
         /// a local type that represents a read interval matched to a portion of the alignment path
         using path_chunk_t = pair<pair<string::const_iterator, string::const_iterator>, Path>;
