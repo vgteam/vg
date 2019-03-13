@@ -36,32 +36,30 @@ class SnarlSeedClusterer {
                              vector<seed_index_list>& seed_list,
                              hash_map< id_t, vector<size_t> >& node_to_seed,
                              size_t distance_limit, SnarlManager& snarl_manager,
-                             DistanceIndex& dist_index, id_t root, bool rev,
+                             DistanceIndex& dist_index, id_t root, 
                              int64_t node_length);
 
         vector<cluster_t> get_clusters_chain(vector<pos_t>& seeds,
                              vector<seed_index_list>& seed_list,
-                             hash_map< const Chain*, 
-                                       vector<pair<const Snarl*, id_t>> >& 
-                                 chains_to_snarl,
+                             hash_map< const Chain*, vector<const Snarl*> >& 
+                                                                chains_to_snarl,
                              hash_map< const Snarl*, 
                                        hash_set<pair<id_t, bool>> >& 
-                                  snarls_to_node,
+                                                                 snarls_to_node,
                              hash_map< id_t, vector<size_t> >& node_to_seed,
                              size_t distance_limit, SnarlManager& snarl_manager,
                              DistanceIndex& dist_index, const Chain* root);
 
         vector<cluster_t> get_clusters_snarl(vector<pos_t>& seeds,
                              vector<seed_index_list>& seed_list,
-                             hash_map< const Chain*, 
-                                       vector<pair<const Snarl*, id_t>> >& 
-                                 chains_to_snarl,
+                             hash_map< const Chain*, vector<const Snarl*> >& 
+                                                               chains_to_snarl,
                              hash_map< const Snarl*, 
                                        hash_set<pair<id_t, bool>> >& 
                                   snarls_to_node,
                              hash_map< id_t, vector<size_t> >& node_to_seed,
                              size_t distance_limit, SnarlManager& snarl_manager,
                              DistanceIndex& dist_index, const Snarl* root,
-                             bool include_boundaries);
+                             bool rev);
 };
 }
