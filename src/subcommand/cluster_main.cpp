@@ -190,11 +190,14 @@ int main_cluster(int argc, char** argv) {
             
             // Convert to position seeds
             vector<pos_t> seeds;
-            for (auto& mem : mems) {
+            vector<size_t> seed_to_mem_index;
+            for (size_t i = 0; i < mems.size(); i++) {
+                auto& mem = mems[i];
                 for (gcsa::node_type n : mem.nodes) {
                     // Convert from GCSA node_type packing to a pos_t
                     seeds.push_back(make_pos_t(n));
-                    // TODO: We split up any information about which MEMs these positions belonged to.
+                    // And remember which MEM the seed came from.
+                    seed_to_mem_index.push_back(i);
                 }
             }
             
@@ -204,36 +207,66 @@ int main_cluster(int argc, char** argv) {
             vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
+            
+            // Compute the covered portion of the read represented by each cluster
+            vector<double> read_coverage_by_cluster;
+            for (auto& cluster : clusters) {
+                // We set bits in here to true when MEMs cover them
+                vector<bool> covered(aln.sequence().size());
+                // We use this to convert iterators to indexes
+                auto start = aln.sequence().begin();
+                
+                for (auto& hit_index : cluster) {
+                    // For each hit in the cluster, work out what MEM it is from.
+                    size_t mem_index = seed_to_mem_index.at(hit_index);
+                    
+                    for (size_t i = (mems[mem_index].begin - start); i < (mems[mem_index].end - start); i++) {
+                        // Set all the bits in read space for that MEM
+                        covered[i] = true;
+                    }
+                }
+                
+                // Count up the covered positions
+                size_t covered_count = 0;
+                for (auto bit : covered) {
+                    covered_count += bit;
+                }
+                
+                // Turn that into a fraction
+                read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+            }
+            
+            // Make a vector of cluster indexes to sort
+            vector<size_t> cluster_indexes_in_order;
+            for (size_t i = 0; i < clusters.size(); i++) {
+                cluster_indexes_in_order.push_back(i);
+            }
         
-            // Put the biggest cluster first
-            std::sort(clusters.begin(), clusters.end(), [](const hash_set<size_t>& a, const hash_set<size_t>& b) -> bool {
+            // Put the most covering cluster's index first
+            std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
                 // Return true if a must come before b, and false otherwise
-                return a.size() > b.size();
+                return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
             });
             
-            // Find the seeds in the best cluster. Assume that's cluster 0.
+            // Find the seeds in the clusters tied for best.
             vector<pos_t> best;
             if (!clusters.empty()) {
-                for (auto& seed_index : clusters.front()) {
-                    // This seed is in the best cluster
-                    best.push_back(seeds.at(seed_index));
+                // How much does the best cluster cover
+                double best_coverage = read_coverage_by_cluster.at(cluster_indexes_in_order.front());
+                for (size_t i = 0; i < cluster_indexes_in_order.size() &&
+                    read_coverage_by_cluster.at(cluster_indexes_in_order[i]) >= best_coverage; i++) {
+                    
+                    // For each cluster covering that much or more of the read
+                    for (auto& seed_index : clusters.at(cluster_indexes_in_order[i])) {
+                        // For each seed in those clusters
+                        
+                        // Mark that seed as being part of the best cluster(s)
+                        best.push_back(seeds.at(seed_index));
+                    }
+                    
                 }
+                
             }
-            
-#ifdef debug
-            cerr << "Read with best cluster (of " << clusters.size() << "): ";
-            if (!clusters.empty()) {
-                for (auto& index : clusters.front()) {
-                    cerr << seeds.at(index) << ",";
-                }
-            }
-            cerr << endl;
-            cerr << "Alignment was: ";
-            for (auto& mapping : aln.path().mapping()) {
-                cerr << mapping.position().node_id() << " ";
-            }
-            cerr << endl;
-#endif
             
             // Decide if they are in the right place for the original alignment or not
             unordered_set<vg::id_t> true_nodes;
@@ -253,12 +286,15 @@ int main_cluster(int argc, char** argv) {
             set_annotation(aln, "best_cluster_overlap", have_overlap);
             // And with cluster time
             set_annotation(aln, "cluster_seconds", elapsed_seconds.count());
+            // And with hit count clustered
+            set_annotation(aln, "seed_count", (double)seeds.size());
+            // And with cluster count returned
+            set_annotation(aln, "cluster_count", (double)clusters.size());
+            // And with the coverage of the read in the best cluster
+            set_annotation(aln, "best_cluster_coverage", clusters.empty() ? 0.0 :
+                read_coverage_by_cluster.at(cluster_indexes_in_order.front()));
             
-#ifdef debug
-            cerr << "Overlap? " << have_overlap << endl;
-#endif
             
-            // Emit it.
             // TODO: parallelize this
             #pragma omp critical (cout)
             emitter.write(std::move(aln));
