@@ -88,7 +88,7 @@ unordered_set<vg::id_t> GSSWAligner::identify_pinning_points(const HandleGraph& 
             handle_t here =  stack.back();
             stack.pop_back();
             
-            if (graph.get_degree(here, false) == 0) {
+            if (graph.get_length(here) > 0) {
                 return_val.insert(graph.get_id(here));
             }
             else {
