@@ -24,6 +24,7 @@ var searchData=
   ['checkin_5fhigh_5fwater_5fkb',['checkin_high_water_kb',['../structvg_1_1Watchdog_1_1thread__state__t.html#a5f8bf15e6a488344b99f4bad238ac8c3',1,'vg::Watchdog::thread_state_t']]],
   ['child_5fchains',['child_chains',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a4d3d44b4a07fd7598a414eae1f5a2d33',1,'vg::SnarlManager::SnarlRecord']]],
   ['children',['children',['../structvg_1_1SnarlManager_1_1SnarlRecord.html#a0bfacb041ef897faedba2cf2585c9fb0',1,'vg::SnarlManager::SnarlRecord::children()'],['../structvg_1_1BitStringTree_1_1TreeNode.html#aec0e7ef56323148869869a0b02560aa5',1,'vg::BitStringTree::TreeNode::children()'],['../structvg_1_1TreeNode.html#a5a5645da982fa8a9acb280ef031960d2',1,'vg::TreeNode::children()']]],
+  ['chunk_5fsize',['CHUNK_SIZE',['../classvg_1_1GBWTGraph.html#a0b611b6f3e931dd4ac15df3d6c6888db',1,'vg::GBWTGraph']]],
   ['circular',['circular',['../classvg_1_1Paths.html#ad8af70b16e2280fba6e46418842229fa',1,'vg::Paths']]],
   ['codenames',['codenames',['../classvg_1_1Version.html#afa3c976df333371eaad42c698bf4a5a9',1,'vg::Version']]],
   ['codes_5fby_5foption',['codes_by_option',['../classvg_1_1ConfigurableParser.html#aea0db01f1fd00b96a309053cb66881c4',1,'vg::ConfigurableParser']]],

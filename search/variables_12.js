@@ -13,6 +13,7 @@ var searchData=
   ['read_5fpaired',['read_paired',['../structvg_1_1Alignment.html#a2bfa3fffb5f4ea6ab3e98a6340ad16bb',1,'vg::Alignment']]],
   ['reader',['reader',['../classvg_1_1WindowedVcfBuffer.html#a064a56b55dbb562f1b52034a54ed3583',1,'vg::WindowedVcfBuffer']]],
   ['reads_5fby_5fname',['reads_by_name',['../classvg_1_1PathRestrictedTraversalFinder.html#ac08d8f72efc63adb1bf169d9ed7c107e',1,'vg::PathRestrictedTraversalFinder']]],
+  ['real_5fnodes',['real_nodes',['../classvg_1_1GBWTGraph.html#acc02e096acbe478a0ff1626da4706b75',1,'vg::GBWTGraph']]],
   ['realign_5findels',['realign_indels',['../classvg_1_1Genotyper.html#a79ac39be882405a426afaeeef65c9660',1,'vg::Genotyper']]],
   ['recombination_5fpenalty',['recombination_penalty',['../classvg_1_1BaseMapper.html#af0e6c250a81dc74df57136242174aa54',1,'vg::BaseMapper::recombination_penalty()'],['../classvg_1_1MultipathMapper.html#a26993f76e9bbe5c48e0b436cc9c3fda8',1,'vg::MultipathMapper::recombination_penalty()']]],
   ['redundant_5fvertexes',['redundant_vertexes',['../classvg_1_1MEMChainModel.html#a6a4132f34b8c9636e02c186ffa75a333',1,'vg::MEMChainModel::redundant_vertexes()'],['../classvg_1_1AlignmentChainModel.html#a2fd794e91dfc7ee2db7fdc9f921c5134',1,'vg::AlignmentChainModel::redundant_vertexes()']]],

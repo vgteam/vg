@@ -4,7 +4,7 @@ var searchData=
   ['occurrences_5fiv',['occurrences_iv',['../structvg_1_1PackedGraph_1_1PackedPath.html#a98c102a0192e95b2f2a1a8680e72f721',1,'vg::PackedGraph::PackedPath']]],
   ['off_5fmask',['OFF_MASK',['../classvg_1_1MinimizerIndex.html#a2fc676c781d0dfa963b5d549fd375847',1,'vg::MinimizerIndex']]],
   ['offset',['offset',['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()']]],
-  ['offsets',['offsets',['../classxg_1_1XGPath.html#a68ff3492845d876329b9a6a3381ced86',1,'xg::XGPath']]],
+  ['offsets',['offsets',['../classvg_1_1GBWTGraph.html#a74d8cfa8cdde319046b070b83b75d196',1,'vg::GBWTGraph::offsets()'],['../classxg_1_1XGPath.html#a68ff3492845d876329b9a6a3381ced86',1,'xg::XGPath::offsets()']]],
   ['offsets_5frank',['offsets_rank',['../classxg_1_1XGPath.html#a1d3b3643614f6f4e6f5e9e834c8ff2fd',1,'xg::XGPath']]],
   ['offsets_5fselect',['offsets_select',['../classxg_1_1XGPath.html#aca3ba6a17c469b812c67bf978c0e02c1',1,'xg::XGPath']]],
   ['old_5fnode',['old_node',['../classhaplo_1_1hDP__graph__accessor.html#a2df5d3849273292541a6d522dd679194',1,'haplo::hDP_graph_accessor::old_node()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#ac101c3ba66f96fa569c1de71bf6c51fe',1,'haplo::hDP_gbwt_graph_accessor::old_node()']]],

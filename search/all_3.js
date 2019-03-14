@@ -94,6 +94,7 @@ var searchData=
   ['children_5fof',['children_of',['../classvg_1_1SnarlManager.html#a63dfe5dbace5551d276f6d1d1bc94d78',1,'vg::SnarlManager']]],
   ['choose_5fln',['choose_ln',['../namespacevg.html#abf777e701e331bb422d91135a13408d2',1,'vg']]],
   ['chunk_5fmain_2ecpp',['chunk_main.cpp',['../chunk__main_8cpp.html',1,'']]],
+  ['chunk_5fsize',['CHUNK_SIZE',['../classvg_1_1GBWTGraph.html#a0b611b6f3e931dd4ac15df3d6c6888db',1,'vg::GBWTGraph']]],
   ['chunker_2ecpp',['chunker.cpp',['../chunker_8cpp.html',1,'']]],
   ['chunker_2ehpp',['chunker.hpp',['../chunker_8hpp.html',1,'']]],
   ['cigar_5fagainst_5fpath',['cigar_against_path',['../namespacevg.html#a43ac2d1903fa51a20a2366a865f5f0a4',1,'vg']]],

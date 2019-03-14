@@ -3,7 +3,7 @@ var searchData=
   ['last_5fpath_5fposition',['last_path_position',['../namespacevg.html#aa1c1e5b8ce9f9607976913317102d6dc',1,'vg']]],
   ['left_5fdegree',['left_degree',['../classvg_1_1VG.html#af9ac6e61dfa9350459dbb9586088c4a5',1,'vg::VG']]],
   ['left_5frotate',['left_rotate',['../classvg_1_1PackedSplayTree.html#ab9e91c22ee97a2576a4debfc9b71808e',1,'vg::PackedSplayTree']]],
-  ['length',['length',['../classvg_1_1MaximalExactMatch.html#a337debd9fc7219234fc98d2d2462c5fc',1,'vg::MaximalExactMatch::length()'],['../classvg_1_1BitString.html#ab4a80eb1f2c9dc963ee13ad640a92611',1,'vg::BitString::length()'],['../classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c',1,'vg::VG::length()']]],
+  ['length',['length',['../structvg_1_1GaplessMatch.html#a3335154d5b87b94cd70eaabc0c47c5b4',1,'vg::GaplessMatch::length()'],['../classvg_1_1MaximalExactMatch.html#a337debd9fc7219234fc98d2d2462c5fc',1,'vg::MaximalExactMatch::length()'],['../classvg_1_1BitString.html#ab4a80eb1f2c9dc963ee13ad640a92611',1,'vg::BitString::length()'],['../classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c',1,'vg::VG::length()']]],
   ['less_5fthan',['less_than',['../classvg_1_1StreamSorter.html#a7430c2e7c5191f314a241067d13aa3ea',1,'vg::StreamSorter::less_than(const Message &amp;a, const Message &amp;b) const '],['../classvg_1_1StreamSorter.html#a92260948d55c244f28803053ab52e992',1,'vg::StreamSorter::less_than(const Position &amp;a, const Position &amp;b) const ']]],
   ['likelihoods',['likelihoods',['../classvg_1_1VG.html#ada5821862279a350885f5368a54a5cba',1,'vg::VG']]],
   ['likely_5fmate_5fposition',['likely_mate_position',['../classvg_1_1Mapper.html#a6477a8dc5a03ce6a4fc638f70524f3cb',1,'vg::Mapper']]],

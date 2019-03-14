@@ -133,7 +133,6 @@ var searchData=
   ['extend_5fpath',['extend_path',['../classvg_1_1PhaseUnfolder.html#a40a20697627b7742f98776111b8dbc66',1,'vg::PhaseUnfolder::extend_path()'],['../namespacevg.html#afcc55b3037b4e078c4268f08dda7cf4b',1,'vg::extend_path()']]],
   ['extend_5fsearch',['extend_search',['../classxg_1_1XG.html#a49095ae5364e54b94b1c72ccefd0cb45',1,'xg::XG::extend_search(ThreadSearchState &amp;state, const thread_t &amp;t) const '],['../classxg_1_1XG.html#a06f013129adee5e0c78f501c6e175e6d',1,'xg::XG::extend_search(ThreadSearchState &amp;state, const ThreadMapping &amp;t) const ']]],
   ['extend_5fstate',['extend_state',['../classvg_1_1PhaseUnfolder.html#a610d8256b9dc58fe6d04b1ff7aaafebb',1,'vg::PhaseUnfolder']]],
-  ['extend_5ftraversals',['extend_traversals',['../namespacevg.html#a4a5ac30eac9679bd6db692628c9051bc',1,'vg']]],
   ['external_5fid',['external_id',['../classxg_1_1XGPath.html#a973235f84dc3f6ce0aad3e5eb3d13078',1,'xg::XGPath']]],
   ['extra_5fdata',['extra_data',['../structvg_1_1FeatureSet_1_1Feature.html#ad95acb3def1e4c9b5fa2a590b77e4993',1,'vg::FeatureSet::Feature']]],
   ['extra_5fmultimaps',['extra_multimaps',['../classvg_1_1Mapper.html#afe9cdcfbff73199e755c5bead44c9674',1,'vg::Mapper']]],

@@ -107,8 +107,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 Functions</h2></td></tr>
 <tr class="memitem:a45dc67f0fe9ce978202fda58585b6b52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a45dc67f0fe9ce978202fda58585b6b52">help_minimizer</a> (char **argv)</td></tr>
 <tr class="separator:a45dc67f0fe9ce978202fda58585b6b52"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1f199449c7725a847383286124d13553"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a1f199449c7725a847383286124d13553">query_benchmarks</a> (const std::string &amp;index_name, const std::string &amp;reads_name, const std::string &amp;gcsa_name, bool locate, size_t max_occs, bool progress)</td></tr>
-<tr class="separator:a1f199449c7725a847383286124d13553"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad993fe836a72698c0fd177a575ce84e8"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#ad993fe836a72698c0fd177a575ce84e8">query_benchmarks</a> (const std::unique_ptr&lt; <a class="el" href="classvg_1_1MinimizerIndex.html">MinimizerIndex</a> &gt; &amp;index, const std::unique_ptr&lt; <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &gt; &amp;gbwt_graph, const std::string &amp;reads_name, const std::string &amp;gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, bool progress)</td></tr>
+<tr class="separator:ad993fe836a72698c0fd177a575ce84e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5a43d1ef287159cce46f07df1b8b088d"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="minimizer__main_8cpp.html#a5a43d1ef287159cce46f07df1b8b088d">main_minimizer</a> (int argc, char **argv)</td></tr>
 <tr class="separator:a5a43d1ef287159cce46f07df1b8b088d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -165,15 +165,21 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a1f199449c7725a847383286124d13553"></a>
+<a class="anchor" id="ad993fe836a72698c0fd177a575ce84e8"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">int query_benchmarks </td>
           <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>index_name</em>, </td>
+          <td class="paramtype">const std::unique_ptr&lt; <a class="el" href="classvg_1_1MinimizerIndex.html">MinimizerIndex</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::unique_ptr&lt; <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>gbwt_graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -198,6 +204,18 @@ Functions</h2></td></tr>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>max_occs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>gapless_extend</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_errors</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>

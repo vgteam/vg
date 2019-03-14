@@ -86,17 +86,25 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">gbwt_helper.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br/>
+<div class="textblock"><code>#include &lt;vector&gt;</code><br/>
+<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="position_8hpp.html">position.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="xg_8hpp.html">xg.hpp</a>&quot;</code><br/>
 <code>#include &lt;gbwt/dynamic_gbwt.h&gt;</code><br/>
+<code>#include &lt;sdsl/int_vector.hpp&gt;</code><br/>
 </div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html">vg::GBWTGraph</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
@@ -125,19 +133,19 @@ Functions</h2></td></tr>
 <tr class="memitem:aaa275a724a3f7cb35d3ebb3604640e00"><td class="memItemLeft" align="right" valign="top">gbwt::node_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aaa275a724a3f7cb35d3ebb3604640e00">vg::xg_path_to_gbwt</a> (const <a class="el" href="classxg_1_1XGPath.html">xg::XGPath</a> &amp;path, size_t i)</td></tr>
 <tr class="memdesc:aaa275a724a3f7cb35d3ebb3604640e00"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert a node on <a class="el" href="classxg_1_1XGPath.html">xg::XGPath</a> to gbwt::node_type.  <a href="#aaa275a724a3f7cb35d3ebb3604640e00">More...</a><br/></td></tr>
 <tr class="separator:aaa275a724a3f7cb35d3ebb3604640e00"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af31f11475fbc49c70c90988b22a6806a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af31f11475fbc49c70c90988b22a6806a">vg::for_each_kmer</a> (const HandleGraph &amp;graph, const gbwt::GBWT &amp;haplotypes, size_t k, const function&lt; void(const std::vector&lt; std::pair&lt; pos_t, size_t &gt;&gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
-<tr class="separator:af31f11475fbc49c70c90988b22a6806a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac6afd7a2240cdd115e8c26396b14a126"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac6afd7a2240cdd115e8c26396b14a126">vg::for_each_window</a> (const HandleGraph &amp;graph, const gbwt::GBWT &amp;haplotypes, size_t window_size, const function&lt; void(const std::vector&lt; std::pair&lt; pos_t, size_t &gt;&gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
-<tr class="separator:ac6afd7a2240cdd115e8c26396b14a126"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9fe200e310c017f408be788af1820a25"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9fe200e310c017f408be788af1820a25">vg::for_each_window</a> (const HandleGraph &amp;graph, size_t window_size, const function&lt; void(const std::vector&lt; std::pair&lt; pos_t, size_t &gt;&gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
-<tr class="memdesc:a9fe200e310c017f408be788af1820a25"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all windows in the graph, running lambda on each.  <a href="#a9fe200e310c017f408be788af1820a25">More...</a><br/></td></tr>
-<tr class="separator:a9fe200e310c017f408be788af1820a25"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3dd31a9e86a6919fd7982920effc743b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3dd31a9e86a6919fd7982920effc743b">vg::for_each_haplotype_window</a> (const GBWTGraph &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; handle_t &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
+<tr class="separator:a3dd31a9e86a6919fd7982920effc743b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a38deb09e330017467f53de09f96cfc14"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a38deb09e330017467f53de09f96cfc14">vg::for_each_window</a> (const HandleGraph &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; handle_t &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
+<tr class="memdesc:a38deb09e330017467f53de09f96cfc14"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all windows in the graph, running lambda on each.  <a href="#a38deb09e330017467f53de09f96cfc14">More...</a><br/></td></tr>
+<tr class="separator:a38deb09e330017467f53de09f96cfc14"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a247386035f31fb61c43dca78cd245e45"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a247386035f31fb61c43dca78cd245e45">vg::gapless_extension</a> (const GBWTGraph &amp;graph, const std::string &amp;seq, const std::vector&lt; std::pair&lt; size_t, pos_t &gt;&gt; &amp;hits, size_t max_errors)</td></tr>
+<tr class="separator:a247386035f31fb61c43dca78cd245e45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a571047c58b73b78d02a767c3ab6ec222"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">vg::get_gbwt</a> (const std::vector&lt; gbwt::vector_type &gt; &amp;paths)</td></tr>
 <tr class="memdesc:a571047c58b73b78d02a767c3ab6ec222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transform the paths into a GBWT index. Primarily for testing.  <a href="#a571047c58b73b78d02a767c3ab6ec222">More...</a><br/></td></tr>
 <tr class="separator:a571047c58b73b78d02a767c3ab6ec222"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Utility functions for working with GBWT. </p>
+<div class="textblock"><p>Utility classes and functions for working with GBWT. </p>
 </div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
