@@ -13,6 +13,7 @@
 #include <functional>
 #include <vector>
 #include <list>
+#include <mutex>
 
 #include "message_emitter.hpp"
 #include "registry.hpp"
@@ -37,8 +38,13 @@ using namespace std;
  * Note that the callbacks may be called by the ProtobufEmitter's destructor,
  * so anything they reference needs to outlive the ProtobufEmitter.
  *
- * Not thread-safe. May be more efficient than repeated write/write_buffered
- * calls because a single BGZF stream can be used.
+ * May be more efficient than repeated write/write_buffered calls because a
+ * single BGZF stream can be used.
+ *
+ * Thread-safe to call into. Serialization is done before locking. If a
+ * particular order is needed between objects, use the multi-object write
+ * functions. Listeners will be called inside the lock, so only one will be in
+ * progress at a time.
  */
 template <typename T>
 class ProtobufEmitter {
@@ -60,6 +66,10 @@ public:
     /// TODO: May not really be any more efficient.
     /// We serialize to string right away in either case.
     void write(T&& item);
+    
+    /// Emit the given collection of items in order, with no other intervening
+    /// items between them.
+    void write_many(vector<T>&& ordered_items);
     
     /// Emit a copy of the given item.
     /// To use when you have something you can't move.
@@ -88,6 +98,10 @@ public:
     void emit_group();
     
 private:
+
+    /// Mutex to controll access to the backing MessageEmitter.
+    /// Also needs to control access to the listener lists.
+    mutex out_mutex;
 
     /// We wrap a MessageEmitter that handles tagged message IO
     MessageEmitter message_emitter;
@@ -145,26 +159,50 @@ auto ProtobufEmitter<T>::write(T&& item) -> void {
     // Grab the item
     T to_encode = std::move(item);
     
-    for (auto& handler : message_handlers) {
-        // Fire the handlers
-        handler(to_encode);
-    }
-    
     // Encode it to a string
     string encoded;
     handle(to_encode.SerializeToString(&encoded));
     
+    // Lock the backing emitter
+    lock_guard<mutex> lock(out_mutex);
+    
     // Write it with the correct tag.
     message_emitter.write(tag, std::move(encoded));
+    
+    for (auto& handler : message_handlers) {
+        // Fire the handlers in serial
+        handler(to_encode);
+    }
+}
+
+template<typename T>
+auto ProtobufEmitter<T>::write_many(vector<T>&& ordered_items) -> void {
+    // Grab the items
+    vector<T> to_encode = std::move(ordered_items);
+    
+    // Encode them all to strings
+    vector<string> encoded(to_encode.size());
+    for (size_t i = 0; i < to_encode.size(); i++) {
+        handle(to_encode[i].SerializeToString(&encoded[i]));
+    }
+    
+    // Lock the backing emitter
+    lock_guard<mutex> lock(out_mutex);
+    
+    for (size_t i = 0; i < to_encode.size(); i++) {
+        // Write each message with the correct tag.
+        message_emitter.write(tag, std::move(encoded[i]));
+        
+        for (auto& handler : message_handlers) {
+            // Fire the handlers in serial
+            handler(to_encode[i]);
+        }
+    }
+    
 }
 
 template<typename T>
 auto ProtobufEmitter<T>::write_copy(const T& item) -> void {
-    for (auto& handler : message_handlers) {
-        // Fire the handlers
-        handler(item);
-    }
-    
     // Encode it to a string
     string encoded;
     handle(item.SerializeToString(&encoded));
@@ -172,13 +210,24 @@ auto ProtobufEmitter<T>::write_copy(const T& item) -> void {
 #ifdef debug
     cerr << "Write Protobuf: " << pb2json(item) << " to " << encoded.size() << " bytes" << endl;
 #endif
+
+    // Lock the backing emitter
+    lock_guard<mutex> lock(out_mutex);
     
     // Write it with the correct tag.
     message_emitter.write(tag, std::move(encoded));
+    
+    for (auto& handler : message_handlers) {
+        // Fire the handlers in serial
+        handler(item);
+    }
 }
 
 template<typename T>
 auto ProtobufEmitter<T>::on_group(group_listener_t&& listener) -> void {
+    // Lock the handler list
+    lock_guard<mutex> lock(out_mutex);
+    
     // Take custody
     group_handlers.emplace_back(std::move(listener));
     
@@ -195,12 +244,18 @@ auto ProtobufEmitter<T>::on_group(group_listener_t&& listener) -> void {
 
 template<typename T>
 auto ProtobufEmitter<T>::on_message(message_listener_t&& listener) -> void {
+    // Lock the handler list
+    lock_guard<mutex> lock(out_mutex);
+
     // Put in the collection to loop through on every message.
     message_handlers.emplace_back(std::move(listener));
 }
 
 template<typename T>
 auto ProtobufEmitter<T>::emit_group() -> void {
+    // Lock the backing emitter
+    lock_guard<mutex> lock(out_mutex);
+
     message_emitter.emit_group();
 }
 

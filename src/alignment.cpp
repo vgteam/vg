@@ -48,11 +48,17 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, x
         int tid = omp_get_thread_num();
         while (more_data) {
             bam1_t* b = bs[tid];
+            // We need to track our own read operation's success separate from
+            // the global flag, or someone else encountering EOF will cause us
+            // to drop our read on the floor.
+            bool got_read = false;
 #pragma omp critical (hts_input)
             if (more_data) {
-                more_data = sam_read1(in, hdr, b) >= 0;
+                got_read = sam_read1(in, hdr, b) >= 0;
+                more_data &= got_read;
             }
-            if (more_data) {
+            // Now we're outside the critical section so we can only rely on our own variables.
+            if (got_read) {
                 Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
                 lambda(a);
             }
@@ -901,9 +907,6 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
     refpos->set_is_reverse(on_reverse_strand);
 }
 
-// act like the path this is against is the reference
-// and generate an equivalent cigar
-// Produces CIGAR in forward strand space of the reference sequence.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
     if (!alignment.has_path() || alignment.path().mapping_size() == 0) return {};
