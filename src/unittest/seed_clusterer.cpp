@@ -92,10 +92,6 @@ namespace unittest {
 
             vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
                                          seeds, 9,  snarl_manager, dist_index); 
-            for (hash_set<size_t> c : clusters) { 
-                for (size_t s : c) {cerr << seed_nodes[s] << " ";}
-                cerr << endl; 
-            }
             REQUIRE( clusters.size() == 2);
             REQUIRE (( (clusters[0].count(0) == 1 &&
                        clusters[0].count(1) == 1 &&
@@ -157,10 +153,6 @@ namespace unittest {
 
             vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
                                         seeds, 10,  snarl_manager, dist_index); 
-            for (hash_set<size_t> c : clusters) { 
-                for (size_t s : c) {cerr << s << " ";}
-                cerr << endl; 
-            }
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -233,10 +225,6 @@ namespace unittest {
 
             vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
                                          seeds, 4,  snarl_manager, dist_index); 
-            for (hash_set<size_t> c : clusters) { 
-                for (size_t s : c) {cerr << s << " ";}
-                cerr << endl; 
-            }
             REQUIRE( clusters.size() == 2);
             REQUIRE (( (clusters[0].count(0) == 1 &&
                        clusters[0].count(1) == 1 &&
@@ -272,10 +260,6 @@ namespace unittest {
 
             vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
                                          seeds, 3,  snarl_manager, dist_index); 
-            for (hash_set<size_t> c : clusters) { 
-                for (size_t s : c) {cerr << s << " ";}
-                cerr << endl; 
-            }
             REQUIRE( clusters.size() == 5);
         }
     }//end test case
@@ -341,7 +325,6 @@ namespace unittest {
                 int64_t lim = 20;// Distance between clusters
                 vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
                                       seeds, lim, snarl_manager, dist_index); 
-cerr << "Random graph " << i << " cluster " << k << " with " << clusters.size() << " clusters" << endl;
 
                 for (size_t a = 0; a < clusters.size(); a++) {
                     // For each cluster -cluster this cluster to ensure that 

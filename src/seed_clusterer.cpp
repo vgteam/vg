@@ -54,6 +54,7 @@ namespace vg {
             }
             pair<id_t, bool> prev (id, false);
             while (snarl != nullptr) { 
+                bool seen = false;
                 //Add ancestors of snarl to the snarl subtree
                 pair<id_t, bool> prev_snarl = move(prev);
                 if (snarl_manager.in_nontrivial_chain(snarl)) {
@@ -116,8 +117,13 @@ namespace vg {
                     snarls_to_node.emplace(snarl, nodes);
                 } else {
                     snarls_to_node.at(snarl).insert(prev_snarl);
+                    seen = true;
                 }
-                snarl = snarl_manager.parent_of(snarl);
+                if (seen) {
+                    snarl = nullptr;
+                } else {
+                    snarl = snarl_manager.parent_of(snarl);
+                }
 
             }
         }
