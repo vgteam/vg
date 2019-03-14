@@ -375,7 +375,7 @@ std::ostream& operator<<(std::ostream& out, const GaplessMatch& match) {
     return out;
 }
 
-// Match forward, updating mismatches and length.
+// Match forward, updating mismatches and match range.
 void forward_mismatches(const std::string& seq, std::pair<const char*, size_t> target, size_t target_offset,
                         GaplessMatch& match, size_t error_bound) {
     while (match.limit < seq.length() && target_offset < target.second && match.mismatches < error_bound) {
@@ -387,7 +387,7 @@ void forward_mismatches(const std::string& seq, std::pair<const char*, size_t> t
     }
 }
 
-// Match forward, updating mismatches and length.
+// Match backward, updating mismatches and match range.
 void backward_mismatches(const std::string& seq, std::pair<const char*, size_t> target,
                          GaplessMatch& match, size_t error_bound) {
     size_t target_offset = target.second;
