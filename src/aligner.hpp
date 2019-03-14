@@ -7,6 +7,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include "gssw.h"
 #include "vg.pb.h"
 #include "vg.hpp"
@@ -18,6 +19,8 @@
 #include "xdrop_aligner.hpp"
 #include "handle.hpp"
 #include "backwards_graph.hpp"
+#include "null_masking_graph.hpp"
+#include "algorithms/distance_to_tail.hpp"
 
 // #define BENCH
 // #include "bench.h"
@@ -50,7 +53,6 @@ namespace vg {
         /// Same as previous, but takes advantage of a pre-computed topological order
         virtual void align(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
                            bool traceback_aln, bool print_score_matrices) const = 0;
-        
     };
 
     /**
@@ -66,6 +68,10 @@ namespace vg {
         gssw_graph* create_gssw_graph(const HandleGraph& g) const;
         // for constructing an alignable graph when the topological order is already known
         gssw_graph* create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) const;
+        
+        // identify the IDs of nodes that should be used as pinning points in GSSW for pinned
+        // alignment ((i.e. non-empty nodes as close as possible to sinks))
+        unordered_set<id_t> identify_pinning_points(const HandleGraph& graph) const;
         
         // convert graph mapping back into unreversed node positions
         void unreverse_graph_mapping(gssw_graph_mapping* gm) const;

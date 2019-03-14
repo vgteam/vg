@@ -72,6 +72,41 @@ gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g, const vector<ha
     
 }
 
+
+
+unordered_set<vg::id_t> GSSWAligner::identify_pinning_points(const HandleGraph& graph) const {
+    
+    unordered_set<vg::id_t> return_val;
+    
+    // start at the sink nodes
+    vector<handle_t> sinks = algorithms::tail_nodes(&graph);
+    
+    // walk backwards to find non-empty nodes if necessary
+    for (const handle_t& handle : sinks) {
+        vector<handle_t> stack(1, handle);
+        while (!stack.empty()) {
+            handle_t here =  stack.back();
+            stack.pop_back();
+            
+            if (graph.get_degree(here, false) == 0) {
+                return_val.insert(graph.get_id(here));
+            }
+            else {
+                graph.follow_edges(here, true, [&](const handle_t& prev) {
+                    // TODO: technically this won't filter out all redundant walks, but it should
+                    // handle all cases we're practically interested in and it doesn't require a
+                    // second set object
+                    if (!return_val.count(graph.get_id(prev))) {
+                        stack.push_back(prev);
+                    }
+                });
+            }
+        }
+    }
+    
+    return return_val;
+}
+
 void GSSWAligner::load_scoring_matrix(istream& matrix_stream) {
     if(score_matrix) free(score_matrix);
     score_matrix = (int8_t*)calloc(25, sizeof(int8_t));
@@ -881,6 +916,15 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         align_sequence = &reversed_sequence;
     }
     
+    // to save compute, we won't make these unless we're doing pinning
+    unordered_set<vg::id_t> pinning_ids;
+    NullMaskingGraph* null_masked_graph = nullptr;
+    if (pinned) {
+        pinning_ids = identify_pinning_points(*align_graph);
+        null_masked_graph = new NullMaskingGraph(align_graph);
+        align_graph = null_masked_graph;
+    }
+    
     // convert into gssw graph either using the pre-made topological order or computing a
     // topological order in the constructor
     gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
@@ -895,12 +939,25 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     // traceback either from pinned position or optimal local alignment
     if (traceback_aln) {
         if (pinned) {
+            
+            gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
+            size_t j = 0;
+            for (size_t i = 0; i < graph->size; i++) {
+                gssw_node* node = graph->nodes[i];
+                if (pinning_ids.count(node->id)) {
+                    pinning_nodes[j] = node;
+                    j++;
+                }
+            }
+            
             // trace back pinned alignment
             gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
                                                                            max_alt_alns,
                                                                            true,
                                                                            align_sequence->c_str(),
                                                                            align_sequence->size(),
+                                                                           pinning_nodes,
+                                                                           pinning_ids.size(),
                                                                            nt_table,
                                                                            score_matrix,
                                                                            gap_open,
@@ -908,6 +965,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                                                                            full_length_bonus,
                                                                            0);
         
+            free(pinning_nodes);
+            
             if (pin_left) {
                 // translate nodes and mappings into original sequence
                 unreverse_graph(graph);
@@ -926,15 +985,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             else if (g.node_size() > 0) {
                 // gssw will not identify mappings with 0 score, infer location based on pinning
                 
-                // find an arbitrary source node or sink node as appropriate
-                handle_t pinning_point;
-                align_graph->for_each_handle([&](const handle_t& handle) {
-                    if (align_graph->get_degree(handle, pin_left) == 0) {
-                        pinning_point = handle;
-                        return false;
-                    }
-                    return true;
-                });
+                // find an arbitrary source/sink node
+                handle_t pinning_point = align_graph->get_handle(*pinning_ids.begin());
                 
                 Mapping* mapping = alignment.mutable_path()->add_mapping();
                 mapping->set_rank(1);
@@ -1012,6 +1064,9 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
+    
+    // this might be null if we're not doing pinned alignment, but delete doesn't care
+    delete null_masked_graph;
     
     gssw_graph_destroy(graph);
     // bench_end(bench);
@@ -1346,6 +1401,15 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         exit(EXIT_FAILURE);
     }
     
+    // to save compute, we won't make these unless we're doing pinning
+    unordered_set<vg::id_t> pinning_ids;
+    NullMaskingGraph* null_masked_graph = nullptr;
+    if (pinned) {
+        pinning_ids = identify_pinning_points(*align_graph);
+        null_masked_graph = new NullMaskingGraph(align_graph);
+        align_graph = null_masked_graph;
+    }
+    
     // convert into gssw graph either using the pre-made topological order or computing a
     // topological order in the constructor
     gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
@@ -1361,6 +1425,17 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     // traceback either from pinned position or optimal local alignment
     if (traceback_aln) {
         if (pinned) {
+            
+            gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
+            size_t j = 0;
+            for (size_t i = 0; i < graph->size; i++) {
+                gssw_node* node = graph->nodes[i];
+                if (pinning_ids.count(node->id)) {
+                    pinning_nodes[j] = node;
+                    j++;
+                }
+            }
+            
             // trace back pinned alignment
             gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_qual_adj_multi (graph,
                                                                                     max_alt_alns,
@@ -1368,6 +1443,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                                                                                     align_sequence->c_str(),
                                                                                     align_quality->c_str(),
                                                                                     align_sequence->size(),
+                                                                                    pinning_nodes,
+                                                                                    pinning_ids.size(),
                                                                                     nt_table,
                                                                                     score_matrix,
                                                                                     gap_open,
@@ -1375,6 +1452,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                                                                                     full_length_bonus,
                                                                                     0);
         
+            free(pinning_nodes);
+            
             if (pin_left) {
                 // translate graph and mappings into original node space// translate nodes and mappings into original sequence
                 unreverse_graph(graph);
@@ -1393,15 +1472,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
             else if (g.node_size() > 0) {
                 // gssw will not identify mappings with 0 score, infer location based on pinning
                 
-                // find an arbitrary source node or sink node as appropriate
-                handle_t pinning_point;
-                align_graph->for_each_handle([&](const handle_t& handle) {
-                    if (align_graph->get_degree(handle, pin_left) == 0) {
-                        pinning_point = handle;
-                        return false;
-                    }
-                    return true;
-                });
+                // find an arbitrary source/sink node
+                handle_t pinning_point = align_graph->get_handle(*pinning_ids.begin());
                 
                 Mapping* mapping = alignment.mutable_path()->add_mapping();
                 mapping->set_rank(1);
@@ -1481,6 +1553,9 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     }
     
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
+    
+    // this might be null if we're not doing pinned alignment, but delete doesn't care
+    delete null_masked_graph;
     
     gssw_graph_destroy(graph);
     
