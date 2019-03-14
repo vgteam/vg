@@ -374,7 +374,7 @@ size_t SupportCaller::get_deletion_length(const NodeSide& end1, const NodeSide& 
 
         map<int64_t, pair<size_t, bool>>& idx = i->second.get_index().by_id;
         map<int64_t, pair<size_t, bool>>::iterator idx_it1 = idx.find(end1.node);
-        map<int64_t, pair<size_t, bool>>::iterator  idx_it2 = idx_it1 != idx.end() ? idx.find(end2.node) : idx.end();
+        map<int64_t, pair<size_t, bool>>::iterator idx_it2 = idx_it1 != idx.end() ? idx.find(end2.node) : idx.end();
         
         if (idx_it1 != idx.end() && idx_it2 != idx.end()) {
 
@@ -493,6 +493,8 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             ref_nodes.insert(node);
         }, [&](size_t i, NodeSide end1, NodeSide end2) {
             ref_edges.insert(augmented.graph.get_edge(end1, end2));
+            ref_nodes.insert(end1.node);
+            ref_nodes.insert(end2.node);
         }, [&](size_t i, Snarl child, bool is_reverse) {
             ref_children.insert(child);
         });
@@ -512,6 +514,11 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
     // Keep reference-overlapping support separate
     vector<Support> total_ref_supports(record_count, Support());
     vector<size_t> ref_visit_sizes(record_count, 0);
+    // Keep track of which direction we're going on the reference
+    // (set to true if we go through a reversing edge)
+    bool ref_reversed = false;
+    // apply max_unsupported_edge_size cutoff (todo: less hacky)
+    bool zero_avg_support = false;
     
     // Don't count nodes shared between child snarls more than once.
     set<Node*> coverage_counted;
@@ -532,8 +539,10 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
 #ifdef debug
         cerr << "From node " << node->id() << " get " << got_support << endl;
 #endif
-
-        if (!ref_nodes.count(node_id)) {
+        // don't count inverted nodes as reference
+        bool count_as_ref = ref_nodes.count(node_id) && !ref_reversed;
+        
+        if (!count_as_ref) { 
             // update totals for averaging
             total_supports[i] += got_support;
             visit_sizes[i] += node->sequence().size();
@@ -558,7 +567,12 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         // Count as 1 base worth for the total/average support
         // Make sure to only use half the support if the edge is shared
         auto got_support = (double)edge_size * augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
-        
+
+        // Prevent averaging over SVs with 0 support, just because the reference part of the traversal has support
+        if (edge_size > max_unsupported_edge_size && support_val(got_support) == 0) {
+            zero_avg_support = true;
+        }
+
         if (end1.node > end2.node || (end1.node == end2.node && !end1.is_end)) {
             // We follow the edge backward, from high ID to low ID, or backward around a normal self loop.
             // TODO: Make sure this check agrees on which orientation is which after augmentation re-numbers things!
@@ -577,6 +591,12 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         } else {
             total_ref_supports[i] += got_support;
             ref_visit_sizes[i] += edge_size;
+        }
+
+        // flip our reversed flag if we hit an inversion edge
+        // todo: won't detect complex inversions that stray off reference
+        if (end1.is_end == end2.is_end && ref_nodes.count(end1.node) && ref_nodes.count(end2.node)) {
+            ref_reversed = !ref_reversed;
         }
         
         // Min in its support
@@ -622,9 +642,12 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             // Make sure to halve the support if the child is shared
             child_max *= 0.5;
         }
-        
+
+        // don't count inverted children as reference
+        bool count_as_ref = ref_children.count(child) && !ref_reversed;
+
         // Smoosh support over the whole child
-        if (!ref_children.count(child)) {
+        if (!count_as_ref) {
             total_supports[i] += child_max * child_size;
             visit_sizes[i] += child_size;
         } else {
@@ -672,6 +695,11 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
             total_support += total_ref_support;
             total_size += total_ref_size;
         }
+    }
+
+    // Apply the max_unsupported_edge_size cutoff
+    if (zero_avg_support) {
+        total_support = Support();
     }
     
     // And the min support?
@@ -755,6 +783,84 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
         tie(min_supports, sizes);
 }
 
+vector<Support> SupportCaller::get_inversion_supports(
+    SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+    const vector<SnarlTraversal>& traversals, const vector<size_t>& traversal_sizes,
+    int best_allele, int second_best_allele) {
+    vector<Support> inversion_supports;
+    int trav_size = -1;
+
+    // ATM we only use this for distinguishing between 0/1 and 1/1 inversions
+    if (best_allele != -1 && second_best_allele != -1 && (best_allele == 0 || second_best_allele == 0) &&
+        traversals[best_allele].visit_size() == traversals[second_best_allele].visit_size() &&
+        traversals[best_allele].visit_size() > 2) {
+        trav_size = traversals[best_allele].visit_size();
+
+        // Make sure we are dealing with a simple inversion, where one traversal is the same as the other
+        // but in the opposite direction (ignoring endpoints)
+        for (int i = 1; i < trav_size - 1; ++i) {
+            const Visit& bvis = traversals[best_allele].visit(i);
+            const Visit& svis = traversals[second_best_allele].visit(trav_size - 1 - i);
+
+            // must both be snarls or same nodes
+            if (bvis.node_id() != svis.node_id() ||
+                // must be in reverse orientation relative to each other
+                bvis.backward() == svis.backward() ||
+                // if both snarls
+                (bvis.node_id() == 0 && svis.node_id() == 0 &&
+                 // then they must have same endpoints 
+                 (bvis.snarl().start() != svis.snarl().start() ||
+                  bvis.snarl().end() != svis.snarl().end()))) {
+                return inversion_supports;
+            }
+        }
+
+        size_t longest_traversal_length = *max_element(traversal_sizes.begin(), traversal_sizes.end());
+        
+        // compute the supports, keep them in same sized array as normal supports to be less confusing
+        inversion_supports.resize(traversals.size());
+        for (auto allele : {best_allele, second_best_allele}) {
+
+            // the edge going out of the site's start
+            const Visit& next_visit = traversals[allele].visit(1).node_id() ?
+                traversals[allele].visit(1) :
+                traversals[allele].visit(1).backward() ?
+                traversals[allele].visit(1).snarl().end() :
+                traversals[allele].visit(1).snarl().start();
+            bool next_backward = traversals[allele].visit(1).node_id() ?
+                traversals[allele].visit(1).backward() :
+                next_visit.backward() != traversals[allele].visit(1).backward();
+            Edge* edge1 = augmented.graph.get_edge(NodeSide(traversals[allele].visit(0).node_id(),
+                                                            !traversals[allele].visit(0).backward()),
+                                                   NodeSide(next_visit.node_id(), next_backward));
+            
+            // the edge going into the site's end
+            const Visit& prev_visit = traversals[allele].visit(trav_size - 2).node_id() ?
+                traversals[allele].visit(trav_size - 2) :
+                traversals[allele].visit(trav_size - 2).backward() ?
+                traversals[allele].visit(trav_size - 2).snarl().start() :
+                traversals[allele].visit(trav_size - 2).snarl().end();
+            bool prev_backward = traversals[allele].visit(trav_size - 2).node_id() ?
+                traversals[allele].visit(trav_size - 2).backward() :
+                prev_visit.backward() != traversals[allele].visit(trav_size - 2).backward();
+            Edge* edge2 = augmented.graph.get_edge(NodeSide(prev_visit.node_id(), !prev_backward),
+                                                   NodeSide(traversals[allele].visit(trav_size - 1).node_id(),
+                                                            traversals[allele].visit(trav_size - 1).backward()));
+
+            assert(edge1 != nullptr && edge2 != nullptr);
+
+            if (longest_traversal_length > average_support_switch_threshold || use_average_support) {
+                inversion_supports[allele] = (augmented.get_support(edge1) + augmented.get_support(edge2) / 2);
+            } else {
+                inversion_supports[allele] = min(augmented.get_support(edge1), augmented.get_support(edge2));
+            }
+        }
+    }
+
+    return inversion_supports;
+}
+
+
 vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph& augmented,
         SnarlManager& snarl_manager, TraversalFinder* finder, const Snarl& site,
         const Support& baseline_support, size_t copy_budget, function<void(const Locus&, const Snarl*)> emit_locus) {
@@ -828,6 +934,20 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
     // Then pick the second best one
     int second_best_allele = get_best_allele(additional_supports, {best_allele});
 
+    // Problem: when using average support (necessary for long variants, especially
+    // in recall (no augmentation) mode), it's almost impossible to call a 1/1 inversion.
+    // This is because the nodes on the reference and inversion have the same support.
+    // The difference is in the edge supports at the snarl endpoints, but in general
+    // we need to allow for a few unsupported edges here and there to call indels.
+    // So this is a hack to identify simple inversions in order to restrict relative support
+    // calculations to the edges that differ between them in order to genotype correctly.
+    //
+    // Not sure what the best general solution to this here, but it's something to keep
+    // in mind for the next generation of the caller.  Factoring minimum support on the augmented
+    // graph would fix this in theory, but has yet to be competitive overall on benchmark data.
+    vector<Support> inversion_supports = get_inversion_supports(
+        augmented, snarl_manager, site, here_traversals, traversal_sizes, best_allele, second_best_allele);
+
 #ifdef debug
     cerr << "Choose second best allele: " << second_best_allele << endl;
 #endif
@@ -871,6 +991,27 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
     Support third_best_support;
     if (third_best_allele != -1) {
         third_best_support = supports.at(third_best_allele);
+    }
+
+    // Override inversion supports for sake of genotyping
+    Support best_support_gt = best_support;
+    Support second_best_support_gt = second_best_support;
+    if (!inversion_supports.empty()) {
+        best_support_gt = inversion_supports.at(best_allele);
+        second_best_support_gt = inversion_supports.at(second_best_allele);
+#ifdef debug    
+        cerr << "Overriding support for simple inversion for purposes of genotyping" << endl
+             << "allele " << best_allele << " from " << best_support << " to " << best_support_gt << endl
+             << "allele " << second_best_allele << " from " << second_best_support << " to " << second_best_support_gt << endl;
+#endif
+        if (support_val(best_support_gt) < support_val(second_best_support_gt)) {
+            std::swap(best_allele, second_best_allele);
+            std::swap(best_support, second_best_support);
+            std::swap(best_support_gt, second_best_support_gt);
+#ifdef debug
+            cerr << "Swapping best and second best allele in light of inversion support override" << endl;
+#endif
+        }
     }
     
     // As we do the genotype, we also compute the likelihood. Holds
@@ -920,11 +1061,11 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         
         if (support_val(second_best_support) > 0) {
             cerr << "Bias: (limit " << bias_limit * bias_multiple << "):"
-                << support_val(best_support)/support_val(second_best_support) << endl;
+                 << support_val(best_support_gt)/support_val(second_best_support_gt) << endl;
         }
         
-        cerr << bias_limit * bias_multiple * support_val(second_best_support) << " vs "
-            << support_val(best_support) << endl;
+        cerr << bias_limit * bias_multiple * support_val(second_best_support_gt) << " vs "
+            << support_val(best_support_gt) << endl;
             
         cerr << total(second_best_support) << " vs " << min_total_support_for_call << endl;
 #endif
@@ -957,7 +1098,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(SupportAugmentedGraph
         }
         else if (copy_budget >= 2 &&
             second_best_allele != -1 &&
-            bias_limit * bias_multiple * support_val(second_best_support) >= support_val(best_support) &&
+            bias_limit * bias_multiple * support_val(second_best_support_gt) >= support_val(best_support_gt) &&
             total(best_support) >= max((size_t)min_total_support_for_call, 1UL) &&
             total(second_best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
             // There's a second best allele, and it's not too biased to call,
@@ -1433,6 +1574,7 @@ void SupportCaller::call(
             return nullptr;
         }
     });
+    traversal_finder.other_orientation_timeout = max_inversion_size;
     
     // We're going to remember what nodes and edges are covered by sites, so we
     // will know which nodes/edges aren't in any sites and may need generic
@@ -1895,7 +2037,8 @@ void SupportCaller::call(
             // Don't bother with trivial calls
             if (write_trivial_calls ||
                 (genotype_vector.back() != "./." && genotype_vector.back() != ".|." &&
-                 genotype_vector.back() != "0/0" && genotype_vector.back() != "0|0")) {
+                 genotype_vector.back() != "0/0" && genotype_vector.back() != "0|0" &&
+                 genotype_vector.back() != "." && genotype_vector.back() != "0")) {
             
                 if(can_write_alleles(variant)) {
                     // No need to check for collisions because we assume sites are correctly found.

@@ -3,6 +3,7 @@
 #include "../utility.hpp"
 #include "../mapper.hpp"
 #include "../surjector.hpp"
+#include "../alignment_emitter.hpp"
 #include "../stream/stream.hpp"
 #include "../stream/vpkg.hpp"
 
@@ -85,6 +86,8 @@ void help_map(char** argv) {
          << "    -K, --keep-secondary          produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -M, --max-multimaps INT       produce up to INT alignments for each read [1]" << endl
          << "    -Q, --mq-max INT              cap the mapping quality at INT [60]" << endl
+         << "    --exclude-unaligned           exclude reads with no alignment" << endl
+
          << "    -D, --debug                   print debugging information about alignment to stderr" << endl;
 
 }
@@ -98,6 +101,7 @@ int main_map(int argc, char** argv) {
 
     #define OPT_SCORE_MATRIX 1000
     #define OPT_RECOMBINATION_PENALTY 1001
+    #define OPT_EXCLUDE_UNALIGNED 1002
     string matrix_file_name;
     string seq;
     string qual;
@@ -113,8 +117,8 @@ int main_map(int argc, char** argv) {
     int hit_max = 2048;
     int max_multimaps = 1;
     int thread_count = 1;
-    bool output_json = false;
-    string surject_type;
+    string output_format = "GAM";
+    bool exclude_unaligned = false;
     bool debug = false;
     float min_score = 0;
     string sample_name;
@@ -169,7 +173,6 @@ int main_map(int argc, char** argv) {
     bool print_fragment_model = false;
     int fragment_model_update = 10;
     bool acyclic_graph = false;
-    bool refpos_table = false;
     bool patch_alignments = true;
     int min_banded_mq = 0;
     int max_sub_mem_recursion_depth = 2;
@@ -201,6 +204,7 @@ int main_map(int argc, char** argv) {
                 {"output-json", no_argument, 0, 'j'},
                 {"hts-input", required_argument, 0, 'b'},
                 {"keep-secondary", no_argument, 0, 'K'},
+                {"exclude-unaligned", no_argument, 0, OPT_EXCLUDE_UNALIGNED},
                 {"fastq", required_argument, 0, 'f'},
                 {"fasta", required_argument, 0, 'F'},
                 {"interleaved", no_argument, 0, 'i'},
@@ -348,6 +352,10 @@ int main_map(int argc, char** argv) {
             keep_secondary = true;
             break;
 
+        case OPT_EXCLUDE_UNALIGNED:
+            exclude_unaligned = true;
+            break;
+
         case 'f':
             if (fastq1.empty()) fastq1 = optarg;
             else if (fastq2.empty()) fastq2 = optarg;
@@ -391,7 +399,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'j':
-            output_json = true;
+            output_format = "JSON";
             break;
 
         case 'w':
@@ -477,15 +485,23 @@ int main_map(int argc, char** argv) {
 
         case 'X':
             compare_gam = true;
-            output_json = true;
+            output_format = "JSON";
             break;
 
         case 'v':
-            refpos_table = true;
+            output_format = "TSV";
             break;
 
         case '5':
-            surject_type = optarg;
+            output_format = optarg;
+            for (auto& c: output_format) {
+                // Convert to upper case
+                c = toupper(c);
+            }
+            if (output_format != "SAM" && output_format != "BAM" && output_format != "CRAM") {
+                cerr << "error [vg map] illegal surjection type " << optarg << endl;
+                return 1;
+            }
             break;
 
         case '8':
@@ -673,270 +689,83 @@ int main_map(int argc, char** argv) {
 
     thread_count = get_thread_count();
 
+    // TODO: We need a Mapper for every thread because the Mapper's fragment
+    // length distribution isn't yet thread safe.  
     vector<Mapper*> mapper;
     mapper.resize(thread_count);
+    
     vector<vector<Alignment> > output_buffer;
     output_buffer.resize(thread_count);
     vector<Alignment> empty_alns;
     
-    // If we need to do surjection
-    Surjector surjector(xgidx.get());
-
-    // bam/sam/cram output
-    samFile* sam_out = 0;
-    int buffer_limit = 100;
-    bam_hdr_t* hdr = nullptr;
-    int compress_level = 9; // hard coded
-    map<string, string> rg_sample;
-    string sam_header;
-    
-    vector<Surjector*> surjectors;
-    if (!surject_type.empty()) {
-        surjectors.resize(thread_count);
-        for (int i = 0; i < surjectors.size(); i++) {
-            surjectors[i] = new Surjector(xgidx.get());
-        }
-    }
-
     // if no paths were given take all of those in the index
     set<string> path_names;
-    if (!surject_type.empty() && path_names.empty()) {
+    if ((output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") && path_names.empty()) {
         for (size_t i = 1; i <= xgidx->path_count; ++i) {
             path_names.insert(xgidx->path_name(i));
         }
     }
+    
+    // If we need to do surjection, we will need a surjector. So set one up.
+    Surjector surjector(xgidx.get());
 
-    // for SAM header generation
-    auto setup_sam_header = [&hdr, &sam_out, &surject_type, &compress_level, &xgidx, &rg_sample, &sam_header] (void) {
-#pragma omp critical (hts_header)
-        if (!hdr) {
-            char out_mode[5];
-            string out_format = "";
-            strcpy(out_mode, "w");
-            if (surject_type == "bam") { out_format = "b"; }
-            else if (surject_type == "cram") { out_format = "c"; }
-            else { out_format = ""; }
-            strcat(out_mode, out_format.c_str());
-            if (compress_level >= 0) {
-                char tmp[2];
-                tmp[0] = compress_level + '0'; tmp[1] = '\0';
-                strcat(out_mode, tmp);
-            }
-            map<string, int64_t> path_length;
-            int num_paths = xgidx->max_path_rank();
-            for (int i = 1; i <= num_paths; ++i) {
-                auto name = xgidx->path_name(i);
-                path_length[name] = xgidx->path_length(name);
-            }
-            hdr = hts_string_header(sam_header, path_length, rg_sample);
-            if ((sam_out = sam_open("-", out_mode)) == 0) {
-                cerr << "[vg map] failed to open stdout for writing HTS output" << endl;
-                exit(1);
-            } else {
-                // write the header
-                if (sam_hdr_write(sam_out, hdr) != 0) {
-                    cerr << "[vg map] error: failed to write the SAM header" << endl;
-                }
-            }
-        }
-    };
+    // Look up all the path info we need for the HTSlib header, in case we output to HTS format.
+    map<string, int64_t> path_length;
+    int num_paths = xgidx->max_path_rank();
+    for (int i = 1; i <= num_paths; ++i) {
+        auto name = xgidx->path_name(i);
+        path_length[name] = xgidx->path_length(name);
+    }
 
-    // TODO: Refactor the surjection code out of surject_main and intto somewhere where we can just use it here!
+    // Set up output to an emitter that will handle serialization
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length);
 
-    auto surject_alignments = [&hdr, &sam_header, &mapper, &rg_sample, &setup_sam_header, &path_names, &sam_out, &xgidx, &surjectors, &surject_subpath_global] (const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
+    // TODO: Refactor the surjection code out of surject_main and into somewhere where we can just use it here!
+
+    auto surject_alignments = [&](const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
         
         if (alns1.empty()) return;
-        setup_sam_header();
-        vector<tuple<string, int64_t, bool, Alignment> > surjects1, surjects2;
+        vector<Alignment> surjects1, surjects2;
         int tid = omp_get_thread_num();
         for (auto& aln : alns1) {
-            // Surject each alignment of the first read in the pair
-            string path_name;
-            int64_t path_pos = -1;
-            bool path_reverse = false;
-            
-            auto surj = surjectors[omp_get_thread_num()]->surject(aln, path_names, path_name, path_pos, path_reverse, surject_subpath_global);
-            surjects1.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
-            
-            // hack: if we haven't established the header, we look at the reads to guess which read groups to put in it
-            if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
-#pragma omp critical (hts_header)
-                rg_sample[surj.read_group()] = surj.sample_name();
-            }
+            // Surject each alignment of the first read in the pair and annotate with surjected path position
+            surjects1.push_back(surjector.surject(aln, path_names, surject_subpath_global));
         }
         
         for (auto& aln : alns2) {
-            // Surject each alignment of the second read in the pair, if any
-            string path_name;
-            int64_t path_pos = -1;
-            bool path_reverse = false;
-            
-            auto surj = surjectors[omp_get_thread_num()]->surject(aln, path_names, path_name, path_pos, path_reverse, surject_subpath_global);
-            surjects2.push_back(make_tuple(path_name, path_pos, path_reverse, surj));
-            
-            // Don't try and populate the header; it should have happened already
+            // Surject each alignment of the second read in the pair, if any, and annotate with surjected path position
+            surjects2.push_back(surjector.surject(aln, path_names, surject_subpath_global));
         }
         
         if (surjects2.empty()) {
             // Write out surjected single-end reads
-        
-            for (auto& s : surjects1) {
-                auto& path_name = get<0>(s);
-                auto& path_pos = get<1>(s);
-                auto& path_reverse = get<2>(s);
-                auto& surj = get<3>(s);
-                
-                size_t path_len = 0;
-                if (path_name != "") {
-                    path_len = xgidx->path_length(path_name);
-                }
-                string cigar = cigar_against_path(surj, path_reverse, path_pos, path_len, 0);
-                bam1_t* b = alignment_to_bam(sam_header,
-                                             surj,
-                                             path_name,
-                                             path_pos,
-                                             path_reverse,
-                                             cigar);
-                int r = 0;
-#pragma omp critical (cout)
-                r = sam_write1(sam_out, hdr, b);
-                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
-                bam_destroy1(b);
-            }
+            alignment_emitter->emit_mapped_single(std::move(surjects1));
         } else {
+            // Look up the paired end distribution stats for deciding if reads are propelry paired
+            auto& stats = mapper[omp_get_thread_num()]->frag_stats;
+            // Put a proper pair bound at 6 std devs.
+            // If distribution hasn't been computed yet, this comes out 0 and no bound is applied.
+            int64_t tlen_limit = stats.cached_fragment_length_mean + 6 * stats.cached_fragment_length_stdev;
+        
             // Write out surjected paired-end reads
-            
-            // Paired-end reads come in corresponding pairs, allowing duplicate reads.
-            assert(surjects1.size() == surjects2.size());
-            
-            for (size_t i = 0; i < surjects1.size(); i++) {
-                // For each corresponding pair
-                auto& s1 = surjects1[i];
-                auto& s2 = surjects2[i];
-
-                // Unpack each read
-                auto& path_name1 = get<0>(s1);
-                auto& path_pos1 = get<1>(s1);
-                auto& path_reverse1 = get<2>(s1);
-                auto& surj1 = get<3>(s1);
-                
-                auto& path_name2 = get<0>(s2);
-                auto& path_pos2 = get<1>(s2);
-                auto& path_reverse2 = get<2>(s2);
-                auto& surj2 = get<3>(s2);
-                
-                // Compute CIGARs
-                size_t path_len1, path_len2;
-                if (path_name1 != "") {
-                    path_len1 = xgidx->path_length(path_name1);
-                }
-                if (path_name2 != "") {
-                    path_len2 = xgidx->path_length(path_name2);
-                }
-                string cigar1 = cigar_against_path(surj1, path_reverse1, path_pos1, path_len1, 0);
-                string cigar2 = cigar_against_path(surj2, path_reverse2, path_pos2, path_len2, 0);
-                
-                // TODO: compute template length based on
-                // pair distance and alignment content.
-                int template_length = 0;
-                
-                // Make BAM records
-                bam1_t* b1 = alignment_to_bam(sam_header,
-                                              surj1,
-                                              path_name1,
-                                              path_pos1,
-                                              path_reverse1,
-                                              cigar1,
-                                              path_name2,
-                                              path_pos2,
-                                              path_reverse2,
-                                              template_length);
-                bam1_t* b2 = alignment_to_bam(sam_header,
-                                              surj2,
-                                              path_name2,
-                                              path_pos2,
-                                              path_reverse2,
-                                              cigar2,
-                                              path_name1,
-                                              path_pos1,
-                                              path_reverse1,
-                                              template_length);
-                
-                // Write the records
-                int r = 0;
-#pragma omp critical (cout)
-                r = sam_write1(sam_out, hdr, b1);
-                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
-                bam_destroy1(b1);
-                r = 0;
-#pragma omp critical (cout)
-                r = sam_write1(sam_out, hdr, b2);
-                if (r == 0) { cerr << "[vg map] error: writing to stdout failed" << endl; exit(1); }
-                bam_destroy1(b2);
-            }
-            
-            
-        }
-    };
-
-    auto write_json = [](const vector<Alignment>& alns) {
-        for(auto& alignment : alns) {
-            string json = pb2json(alignment);
-            cout << json << "\n";
-        }
-    };
-
-    auto write_refpos = [](const vector<Alignment>& alns) {
-        for(auto& alignment : alns) {
-            Position refpos;
-            if (alignment.refpos_size()) {
-                refpos = alignment.refpos(0);
-            }
-            cout << alignment.name() << "\t"
-            << refpos.name() << "\t"
-            << refpos.offset() << "\t"
-            << alignment.mapping_quality() << "\t"
-            << alignment.score() << "\n";
+            alignment_emitter->emit_mapped_pair(std::move(surjects1), std::move(surjects2), tlen_limit);
         }
     };
 
     // We have one function to dump alignments into
-    // Make sure to flush the buffer at the end of the program!
-    auto output_alignments = [&output_buffer,
-                              &output_json,
-                              &surject_type,
-                              &surject_alignments,
-                              &buffer_size,
-                              &refpos_table,
-                              &write_json,
-                              &write_refpos](const vector<Alignment>& alns1, const vector<Alignment>& alns2) {
-        if (output_json) {
-            // If we want to convert to JSON, convert them all to JSON and dump them to cout.
-#pragma omp critical (cout)
-            {
-                write_json(alns1);
-                write_json(alns2);
-            }
-        } else if (refpos_table) {
-            // keep multi alignments ordered appropriately
-#pragma omp critical (cout)
-            {
-                write_refpos(alns1);
-                write_refpos(alns2);
-            }
-        } else if (!surject_type.empty()) {
-            // surject
+    auto output_alignments = [&](vector<Alignment>& alns1, vector<Alignment>& alns2) {
+        if (output_format == "SAM" || output_format == "BAM" || output_format == "CRAM") {
+            // Surject and emit, making sure to pass tlen limit for proper pairing if paired.
             surject_alignments(alns1, alns2);
         } else {
-            // Otherwise write them through the buffer for our thread
-            int tid = omp_get_thread_num();
-            auto& output_buf = output_buffer[tid];
-
-            // Copy all the alignments over to the output buffer
-            copy(alns1.begin(), alns1.end(), back_inserter(output_buf));
-            copy(alns2.begin(), alns2.end(), back_inserter(output_buf));
-
-            stream::write_buffered(cout, output_buf, buffer_size);
+            // Just emit. No need for a tlen limit.
+            if (alns2.empty()) {
+                // Single-ended read
+                alignment_emitter->emit_mapped_single(std::move(alns1));
+            } else {
+                // Paired reads
+                alignment_emitter->emit_mapped_pair(std::move(alns1), std::move(alns2));
+            }
         }
     };
 
@@ -955,6 +784,7 @@ int main_map(int argc, char** argv) {
         m->band_multimaps = band_multimaps;
         m->min_banded_mq = min_banded_mq;
         m->maybe_mq_threshold = maybe_mq_threshold;
+        m->exclude_unaligned = exclude_unaligned;
         m->debug = debug;
         m->min_identity = min_score;
         m->drop_chain = drop_chain;
@@ -971,7 +801,7 @@ int main_map(int argc, char** argv) {
         m->fast_reseed = use_fast_reseed;
         m->max_sub_mem_recursion_depth = max_sub_mem_recursion_depth;
         m->max_target_factor = max_target_factor;
-        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, haplotype_consistency_exponent, max_gap_length);
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend, full_length_bonus, max_gap_length, haplotype_consistency_exponent);
         if(matrix_stream.is_open()) m->load_scoring_matrix(matrix_stream);
         m->strip_bonuses = strip_bonuses;
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
@@ -1011,7 +841,7 @@ int main_map(int argc, char** argv) {
         }
 
         vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
-        if(alignments.size() == 0) {
+        if(alignments.size() == 0 && !exclude_unaligned) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
@@ -1023,7 +853,7 @@ int main_map(int argc, char** argv) {
             if (!seq_name.empty()) alignment.set_name(seq_name);
         }
 
-        // Output the alignments in JSON or protobuf as appropriate.
+        // Output the alignments in the correct format, possibly surjecting.
         output_alignments(alignments, empty_alns);
     }
 
@@ -1054,7 +884,7 @@ int main_map(int argc, char** argv) {
                     }
 
 
-                    // Output the alignments in JSON or protobuf as appropriate.
+                    // Output the alignments in the correct format, possibly surjecting. 
                     output_alignments(alignments, empty_alns);
                 }
             }
@@ -1071,13 +901,19 @@ int main_map(int argc, char** argv) {
                 unaligned.set_sequence(seq);
                 unaligned.set_name(name);
                 int tid = omp_get_thread_num();
-                vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
+                vector<Alignment> alignments = mapper[tid]->align_multi(unaligned,
+                                                                        kmer_size,
+                                                                        kmer_stride,
+                                                                        max_mem_length,
+                                                                        band_width,
+                                                                        band_overlap,
+                                                                        xdrop_alignment);
                 for(auto& alignment : alignments) {
                     // Set the alignment metadata
                     if (!sample_name.empty()) alignment.set_sample_name(sample_name);
                     if (!read_group.empty()) alignment.set_read_group(read_group);
                 }
-                // Output the alignments in JSON or protobuf as appropriate.
+                // Output the alignments in the correct format, possibly surjecting.
                 output_alignments(alignments, empty_alns);
             }
         };
@@ -1090,30 +926,30 @@ int main_map(int argc, char** argv) {
     }
 
     if (!hts_file.empty()) {
-        function<void(Alignment&)> lambda =
-            [&mapper,
-             &output_alignments,
-             &keep_secondary,
-             &kmer_size,
-             &kmer_stride,
-             &max_mem_length,
-             &band_width,
-             &band_overlap,
-             &empty_alns,
-             &xdrop_alignment]
-                (Alignment& alignment) {
+        function<void(Alignment&)> lambda = [&](Alignment& alignment) {
+            if(alignment.is_secondary() && !keep_secondary) {
+                // Skip over secondary alignments in the input; we don't want several output mappings for each input *mapping*.
+                return;
+            }
 
-                    if(alignment.is_secondary() && !keep_secondary) {
-                        // Skip over secondary alignments in the input; we don't want several output mappings for each input *mapping*.
-                        return;
-                    }
+            int tid = omp_get_thread_num();
+            vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
+                                                                    kmer_size,
+                                                                    kmer_stride,
+                                                                    max_mem_length,
+                                                                    band_width,
+                                                                    band_overlap,
+                                                                    xdrop_alignment);
+                                                                    
+            for(auto& alignment : alignments) {
+                // Set the alignment metadata
+                if (!sample_name.empty()) alignment.set_sample_name(sample_name);
+                if (!read_group.empty()) alignment.set_read_group(read_group);
+            }
 
-                    int tid = omp_get_thread_num();
-                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
-
-                    // Output the alignments in JSON or protobuf as appropriate.
-                    output_alignments(alignments, empty_alns);
-                };
+            // Output the alignments in JSON or protobuf as appropriate.
+            output_alignments(alignments, empty_alns);
+        };
         // run
         hts_for_each_parallel(hts_file, lambda);
     }
@@ -1121,34 +957,26 @@ int main_map(int argc, char** argv) {
     if (!fastq1.empty()) {
         if (interleaved_input) {
             // paired interleaved
-            auto output_func = [&output_alignments,
-                                &compare_gam,
-                                &print_fragment_model]
-                (Alignment& aln1,
-                 Alignment& aln2,
-                 pair<vector<Alignment>, vector<Alignment>>& alnp) {
+            auto output_func = [&](Alignment& aln1,
+                                   Alignment& aln2,
+                                   pair<vector<Alignment>, vector<Alignment>>& alnp) {
+                
                 if (!print_fragment_model) {
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alnp.first, alnp.second);
                 }
             };
-            function<void(Alignment&,Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &keep_secondary,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &band_overlap,
-                 &pair_window,
-                 &top_pairs_only,
-                 &print_fragment_model,
-                 &output_func,
-                 &xdrop_alignment](Alignment& aln1, Alignment& aln2) {
+            
+            function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false, xdrop_alignment);
+                auto alnp = our_mapper->align_paired_multi(aln1,
+                                                           aln2,
+                                                           queued_resolve_later,
+                                                           max_mem_length,
+                                                           top_pairs_only,
+                                                           false,
+                                                           xdrop_alignment);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -1188,54 +1016,40 @@ int main_map(int argc, char** argv) {
             }
         } else if (fastq2.empty()) {
             // single
-            function<void(Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &band_overlap,
-                 &empty_alns,
-                 &xdrop_alignment]
-                    (Alignment& alignment) {
-
+            function<void(Alignment&)> lambda = [&](Alignment& alignment) {
                         int tid = omp_get_thread_num();
-                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
+                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
+                                                                                kmer_size,
+                                                                                kmer_stride,
+                                                                                max_mem_length,
+                                                                                band_width,
+                                                                                band_overlap,
+                                                                                xdrop_alignment);
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                         output_alignments(alignments, empty_alns);
                     };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
             // paired two-file
-            auto output_func = [&output_alignments,
-                                &print_fragment_model]
-                (Alignment& aln1,
-                 Alignment& aln2,
-                 pair<vector<Alignment>, vector<Alignment>>& alnp) {
+            auto output_func = [&](Alignment& aln1,
+                                   Alignment& aln2,
+                                   pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (!print_fragment_model) {
                     output_alignments(alnp.first, alnp.second);
                 }
             };
-            function<void(Alignment&,Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &keep_secondary,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &band_overlap,
-                 &pair_window,
-                 &top_pairs_only,
-                 &print_fragment_model,
-                 &output_func,
-                 &xdrop_alignment](Alignment& aln1, Alignment& aln2) {
+            function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false, xdrop_alignment);
+                auto alnp = our_mapper->align_paired_multi(aln1,
+                                                           aln2,
+                                                           queued_resolve_later,
+                                                           max_mem_length,
+                                                           top_pairs_only,
+                                                           false,
+                                                           xdrop_alignment);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -1278,12 +1092,9 @@ int main_map(int argc, char** argv) {
     if (!gam_input.empty()) {
         ifstream gam_in(gam_input);
         if (interleaved_input) {
-            auto output_func = [&output_alignments,
-                                &compare_gam,
-                                &print_fragment_model]
-                (Alignment& aln1,
-                 Alignment& aln2,
-                 pair<vector<Alignment>, vector<Alignment>>& alnp) {
+            auto output_func = [&] (Alignment& aln1,
+                                    Alignment& aln2,
+                                    pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 if (print_fragment_model) {
                     // do nothing
                 } else {
@@ -1297,24 +1108,16 @@ int main_map(int argc, char** argv) {
                     output_alignments(alnp.first, alnp.second);
                 }
             };
-            function<void(Alignment&,Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &keep_secondary,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &band_overlap,
-                 &compare_gam,
-                 &pair_window,
-                 &top_pairs_only,
-                 &print_fragment_model,
-                 &output_func,
-                 &xdrop_alignment](Alignment& aln1, Alignment& aln2) {
+            function<void(Alignment&,Alignment&)> lambda = [&](Alignment& aln1, Alignment& aln2) {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 bool queued_resolve_later = false;
-                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, max_mem_length, top_pairs_only, false, xdrop_alignment);
+                auto alnp = our_mapper->align_paired_multi(aln1,
+                                                           aln2,
+                                                           queued_resolve_later,
+                                                           max_mem_length,
+                                                           top_pairs_only,
+                                                           false,
+                                                           xdrop_alignment);
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
@@ -1352,21 +1155,16 @@ int main_map(int argc, char** argv) {
                 our_mapper->imperfect_pairs_to_retry.clear();
             }
         } else {
-            function<void(Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &keep_secondary,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &band_overlap,
-                 &compare_gam,
-                 &empty_alns,
-                 &xdrop_alignment](Alignment& alignment) {
+            function<void(Alignment&)> lambda = [&](Alignment& alignment) {
                 int tid = omp_get_thread_num();
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
+                vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
+                                                                        kmer_size,
+                                                                        kmer_stride,
+                                                                        max_mem_length,
+                                                                        band_width,
+                                                                        band_overlap,
+                                                                        xdrop_alignment);
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
                 // Output the alignments in JSON or protobuf as appropriate.
@@ -1390,31 +1188,11 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    // clean up
-    for (int i = 0; i < thread_count; ++i) {
-        delete mapper[i];
-        auto& output_buf = output_buffer[i];
-        if (!output_json && !refpos_table && surject_type.empty()) {
-            stream::write_buffered(cout, output_buf, 0);
-        }
-    }
-
-    // special cleanup for htslib outputs
-    if (!surject_type.empty()) {
-        if (hdr != nullptr) bam_hdr_destroy(hdr);
-        sam_close(sam_out);
-        cout.flush();
-    }
-    
     if (haplo_score_provider) {
         delete haplo_score_provider;
         haplo_score_provider = nullptr;
     }
     
-    for (Surjector* surjector : surjectors) {
-        delete surjector;
-    }
-
     cout.flush();
 
     return 0;

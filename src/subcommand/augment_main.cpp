@@ -35,7 +35,7 @@ using namespace vg::subcommand;
 // this used to be pileup_main()
 static Pileups* compute_pileups(VG* graph, const string& gam_file_name, int thread_count, int min_quality,
                                 int max_mismatches, int window_size, int max_depth, bool use_mapq,
-                                bool show_progress);
+                                bool strict_edge_support, bool show_progress);
 
 // this used to be the first half of call_main()
 static void augment_with_pileups(PileupAugmenter& augmenter, Pileups& pileups, bool expect_subgraph,
@@ -64,10 +64,11 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "    -g, --min-aug-support N     minimum support to augment graph ["
          << PileupAugmenter::Default_min_aug_support << "]" << endl
          << "    -U, --subgraph              expect a subgraph and ignore extra pileup entries outside it" << endl
-         << "    -q, --min-quality N         ignore bases with PHRED quality < N (default=10)" << endl
+         << "    -q, --min-quality N         ignore bases with PHRED quality < N (default=0)" << endl
          << "    -m, --max-mismatches N      ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N         size of window to apply -m option (default=0)" << endl
-         << "    -M, --ignore-mapq           do not combine mapping qualities with base qualities in pileup" << endl;
+         << "    -M, --ignore-mapq           do not combine mapping qualities with base qualities in pileup" << endl
+         << "    -r, --recall                recall mode: compute supports but don't add structure to the graph" << endl;
     
      // Then report more options
      parser.print_help(cerr);
@@ -120,8 +121,8 @@ int main_augment(int argc, char** argv) {
     // Number of threads to use (will default to all if not specified)
     int thread_count = 0;
 
-    // Bases wit quality less than 10 will not be added to the pileup
-    int min_quality = 10;
+    // Bases with quality less than 10 will not be added to the pileup
+    int min_quality = 0;
 
     // Bases with more than this many mismatches within the window_size not added
     int max_mismatches = 1;
@@ -136,6 +137,10 @@ int main_augment(int argc, char** argv) {
     // Combine MAPQ and PHRED base qualities to determine quality at each position
     // If false, only PHRED base quality will be used. 
     bool use_mapq = true;
+
+    // Recall mode: compute supports so vg call can be run, but don't actually augment
+    // the graph
+    bool recall_mode = false;
 
 
     static const struct option long_options[] = {
@@ -161,9 +166,10 @@ int main_augment(int argc, char** argv) {
         {"ignore-mapq", no_argument, 0, 'M'},
         {"min-aug-support", required_argument, 0, 'g'},
         {"subgraph", no_argument, 0, 'U'},
+        {"recall", no_argument, 0, 'r'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iBhpvt:l:L:P:S:q:m:w:Mg:U";
+    static const char* short_options = "a:Z:A:iBhpvt:l:L:P:S:q:m:w:Mg:Ur";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -236,6 +242,9 @@ int main_augment(int argc, char** argv) {
             break;            
         case 'U':
             expect_subgraph = true;
+            break;
+        case 'r':
+            recall_mode = true;
             break;
             
         default:
@@ -314,7 +323,7 @@ int main_augment(int argc, char** argv) {
         
         // compute the pileups from the graph and gam
         pileups = compute_pileups(graph, gam_in_file_name, thread_count, min_quality, max_mismatches,
-                                  window_size, max_depth, use_mapq, show_progress);
+                                  window_size, max_depth, use_mapq, !recall_mode, show_progress);
     }
         
     if (!pileup_file_name.empty()) {
@@ -460,7 +469,8 @@ int main_augment(int argc, char** argv) {
         // We want to augment with pileups
         
         // The PileupAugmenter object will take care of all augmentation
-        PileupAugmenter augmenter(graph, PileupAugmenter::Default_default_quality, min_aug_support);    
+        PileupAugmenter augmenter(graph, PileupAugmenter::Default_default_quality,
+                                  recall_mode ? numeric_limits<int>::max() : min_aug_support);
 
         // compute the augmented graph from the pileup
         // Note: we can save a fair bit of memory by clearing pileups, and re-reading off of
@@ -613,12 +623,13 @@ int main_augment(int argc, char** argv) {
 
 Pileups* compute_pileups(VG* graph, const string& gam_file_name, int thread_count, int min_quality,
                          int max_mismatches, int window_size, int max_depth, bool use_mapq,
-                         bool show_progress) {
+                         bool strict_edge_support, bool show_progress) {
 
     // Make Pileups makers for each thread.
     vector<Pileups*> pileups;
     for (int i = 0; i < thread_count; ++i) {
-        pileups.push_back(new Pileups(graph, min_quality, max_mismatches, window_size, max_depth, use_mapq));
+        pileups.push_back(new Pileups(graph, min_quality, max_mismatches, window_size, max_depth, use_mapq,
+                              strict_edge_support));
     }
     
     // setup alignment stream

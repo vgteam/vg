@@ -392,7 +392,7 @@ bool ShuffledPairs::iterator::operator!=(const iterator& other) const {
 }
     
 int32_t MEMClusterer::estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2,
-                                          int64_t graph_dist, BaseAligner* aligner) const {
+                                          int64_t graph_dist, const GSSWAligner* aligner) const {
     
     // the length of the sequence in between the MEMs (can be negative if they overlap)
     int64_t between_length = mem_2->begin - mem_1->end;
@@ -469,7 +469,7 @@ void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, i
 #endif
 }
     
-MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
+MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
                                  size_t min_mem_length) {
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
@@ -1015,7 +1015,7 @@ void MEMClusterer::HitGraph::identify_sources_and_sinks(vector<size_t>& sources_
 }
 
 vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment& alignment,
-                                                                 BaseAligner* aligner,
+                                                                 const GSSWAligner* aligner,
                                                                  int32_t max_qual_score,
                                                                  int32_t log_likelihood_approx_factor,
                                                                  size_t min_median_mem_coverage_for_split,
@@ -1193,7 +1193,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
     
 vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignment,
                                                        const vector<MaximalExactMatch>& mems,
-                                                       BaseAligner* aligner,
+                                                       const GSSWAligner* aligner,
                                                        size_t min_mem_length ,
                                                        int32_t max_qual_score,
                                                        int32_t log_likelihood_approx_factor,
@@ -1537,7 +1537,7 @@ vector<pair<size_t, size_t>> SnarlOrientedDistanceMeasurer::exclude_merges(vecto
     
     
 MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                 BaseAligner* aligner, size_t min_mem_length) {
+                                                                 const GSSWAligner* aligner, size_t min_mem_length) {
     
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
@@ -3008,7 +3008,7 @@ TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* dista
 }
     
 MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                    BaseAligner* aligner, size_t min_mem_length) {
+                                                    const GSSWAligner* aligner, size_t min_mem_length) {
     
     
     // intialize with nodes
