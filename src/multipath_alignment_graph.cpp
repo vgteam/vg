@@ -3625,9 +3625,6 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // remove the empty anchoring nodes that this algorithm sometimes creates
-                    groom_graph_for_gssw(tail_graph);
-                    
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                     
@@ -3745,9 +3742,6 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // remove the empty anchoring nodes that this algorithm sometimes creates
-                    groom_graph_for_gssw(tail_graph);
-                    
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                             
@@ -3826,21 +3820,6 @@ namespace vg {
         
         // Return all the alignments, organized by tail and subpath
         return to_return;
-    }
-    
-    void MultipathAlignmentGraph::groom_graph_for_gssw(DeletableHandleGraph& graph) {
-        
-        // collect all of the empty node IDs without doing any edits
-        vector<id_t> empty_nodes;
-        graph.for_each_handle([&](const handle_t& handle) {
-            if (graph.get_length(handle) == 0) {
-                empty_nodes.push_back(graph.get_id(handle));
-            }
-        });
-        // go through and delete them now that we're done iterating
-        for (const id_t& node_id : empty_nodes) {
-            graph.destroy_handle(graph.get_handle(node_id));
-        }
     }
     
     bool MultipathAlignmentGraph::empty() {
