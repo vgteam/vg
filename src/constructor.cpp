@@ -437,9 +437,7 @@ namespace vg {
 
             // Group variants into clumps of overlapping variants.
             if (clump.empty() || 
-
                 (next_variant != variants.end() && clump_end > next_variant->zeroBasedPosition() - chunk_offset)) {
-
 
                 // Either there are no variants in the clump, or this variant
                 // overlaps the clump. It belongs in the clump
@@ -1760,68 +1758,90 @@ namespace vg {
             // We need to decide if we want to use this variant. By default we will use all variants.
             bool variant_acceptable = true;
             
-            if (vvar->isSymbolicSV()) {
-                // We have a symbolic not-all-filled-in alt.
-                // We need to be processed as a symbolic SV
-            
-                if (this->do_svs) {
-                    // We are actually going to try to handle this SV.
-                    
-                    // Canonicalize the variant and see if that disqualifies it.
-                    // This also takes care of setting the variant's alt sequences.
-                    variant_acceptable = vvar->canonicalize(reference, insertions, true);
-     
-                    if (variant_acceptable) {
-                        // Worth checking for multiple alts.
+            if (vvar->alt.empty()) {
+                // Variants with no alts are unimportant
+                variant_acceptable = false;
+            } else {
+                for (string& alt : vvar->alt) {
+                    // Variants with "." alts can't be processsed.
+                    // TODO: handle remaining alts.
+                    if (alt == ".") {
+                        variant_acceptable = false;
                         if (vvar->alt.size() > 1) {
-                            // We can't handle multiallelic SVs yet.
+                            // Warn if there are more alts we will miss because of skipping
                             #pragma omp critical (cerr)
-                            cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
-                            variant_acceptable = false;
-                        }
-                    }
-                        
-                    if (variant_acceptable) {
-                        // Worth checking for bounds problems.
-                        // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
-                        // But for inserts the bounds will have the end right before the start, so we have to allow for those.
-                        auto bounds = get_symbolic_bounds(*vvar);
-                        if (bounds.second + 1 < bounds.first) {
-                            #pragma omp critical (cerr)
-                            cerr << "warning:[vg::Constructor] SV with end position " << bounds.second
-                                << " significantly before start " << bounds.first << " being skipped (check liftover?): "
+                            cerr << "warning:[vg::Constructor] Variant with '.' among multiple alts being skipped: "
                                 << *vvar << endl;
-                            variant_acceptable = false;
                         }
+                        break;
                     }
-                } else {
-                    // SV handling is off.
-                    variant_acceptable = false;
-                    
-                    // Figure out exactly what to complain about.
-                    
-                    for (string& alt : vvar->alt) {
-                        // Validate each alt of the variant
+                }
+            }
+            
+            if (variant_acceptable) {
+                if (vvar->isSymbolicSV()) {
+                    // We have a symbolic not-all-filled-in alt.
+                    // We need to be processed as a symbolic SV
+                
+                    if (this->do_svs) {
+                        // We are actually going to try to handle this SV.
+                        
+                        // Canonicalize the variant and see if that disqualifies it.
+                        // This also takes care of setting the variant's alt sequences.
+                        variant_acceptable = vvar->canonicalize(reference, insertions, true);
+         
+                        if (variant_acceptable) {
+                            // Worth checking for multiple alts.
+                            if (vvar->alt.size() > 1) {
+                                // We can't handle multiallelic SVs yet.
+                                #pragma omp critical (cerr)
+                                cerr << "warning:[vg::Constructor] Unsupported multiallelic SV being skipped: " << *vvar << endl;
+                                variant_acceptable = false;
+                            }
+                        }
+                            
+                        if (variant_acceptable) {
+                            // Worth checking for bounds problems.
+                            // We have seen VCFs where the variant positions are on GRCh38 but the END INFO tags are on GRCh37.
+                            // But for inserts the bounds will have the end right before the start, so we have to allow for those.
+                            auto bounds = get_symbolic_bounds(*vvar);
+                            if (bounds.second + 1 < bounds.first) {
+                                #pragma omp critical (cerr)
+                                cerr << "warning:[vg::Constructor] SV with end position " << bounds.second
+                                    << " significantly before start " << bounds.first << " being skipped (check liftover?): "
+                                    << *vvar << endl;
+                                variant_acceptable = false;
+                            }
+                        }
+                    } else {
+                        // SV handling is off.
+                        variant_acceptable = false;
+                        
+                        // Figure out exactly what to complain about.
+                        
+                        for (string& alt : vvar->alt) {
+                            // Validate each alt of the variant
 
-                        if(!allATGCN(alt)) {
-                            // This is our problem alt here.
-                            // Either it's a symbolic alt or it is somehow lower case or something.
-                            #pragma omp critical (cerr)
-                            {
-                                bool warn = true;
-                                if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
-                                    if (symbolic_allele_warnings.find(alt) != symbolic_allele_warnings.end()) {
-                                        warn = false;
-                                    } else {
-                                        symbolic_allele_warnings.insert(alt);
+                            if(!allATGCN(alt)) {
+                                // This is our problem alt here.
+                                // Either it's a symbolic alt or it is somehow lower case or something.
+                                #pragma omp critical (cerr)
+                                {
+                                    bool warn = true;
+                                    if (!alt.empty() && alt[0] == '<' && alt[alt.size()-1] == '>') {
+                                        if (symbolic_allele_warnings.find(alt) != symbolic_allele_warnings.end()) {
+                                            warn = false;
+                                        } else {
+                                            symbolic_allele_warnings.insert(alt);
+                                        }
+                                    }
+                                    if (warn) {
+                                        cerr << "warning:[vg::Constructor] Unsupported variant allele \""
+                                            << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
                                     }
                                 }
-                                if (warn) {
-                                    cerr << "warning:[vg::Constructor] Unsupported variant allele \""
-                                        << alt << "\"; Skipping variant(s) " << *vvar <<" !" << endl;
-                                }
+                                break;
                             }
-                            break;
                         }
                     }
                 }
