@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: src/aligner.hpp File Reference</title>
+<title>vg: src/null_masking_graph.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -89,41 +89,14 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">aligner.hpp File Reference</div>  </div>
+<div class="title">null_masking_graph.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &lt;algorithm&gt;</code><br/>
-<code>#include &lt;utility&gt;</code><br/>
-<code>#include &lt;vector&gt;</code><br/>
-<code>#include &lt;set&gt;</code><br/>
-<code>#include &lt;string&gt;</code><br/>
-<code>#include &lt;unordered_map&gt;</code><br/>
-<code>#include &lt;unordered_set&gt;</code><br/>
-<code>#include &quot;gssw.h&quot;</code><br/>
-<code>#include &quot;vg.pb.h&quot;</code><br/>
-<code>#include &quot;<a class="el" href="vg_8hpp.html">vg.hpp</a>&quot;</code><br/>
-<code>#include &quot;Variant.h&quot;</code><br/>
-<code>#include &quot;Fasta.h&quot;</code><br/>
-<code>#include &quot;<a class="el" href="path_8hpp.html">path.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="banded__global__aligner_8hpp.html">banded_global_aligner.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="xdrop__aligner_8hpp.html">xdrop_aligner.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="backwards__graph_8hpp.html">backwards_graph.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="null__masking__graph_8hpp.html">null_masking_graph.hpp</a>&quot;</code><br/>
-<code>#include &quot;algorithms/distance_to_tail.hpp&quot;</code><br/>
+<div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1BaseAligner.html">vg::BaseAligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html">vg::GSSWAligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Aligner.html">vg::Aligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1QualAdjAligner.html">vg::QualAdjAligner</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignerClient.html">vg::AlignerClient</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullMaskingGraph.html">vg::NullMaskingGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -131,7 +104,9 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p><a class="el" href="null__masking__graph_8hpp.html">null_masking_graph.hpp</a>: defines a handle graph implementation that hides nodes that have no sequence in another graph </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

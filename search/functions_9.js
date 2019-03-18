@@ -6,6 +6,7 @@ var searchData=
   ['id_5fto_5fprefix',['id_to_prefix',['../classvg_1_1StreamIndexBase.html#a4b0e44b8cb40b33c5ef4db47a8a89272',1,'vg::StreamIndexBase']]],
   ['id_5fto_5frank',['id_to_rank',['../classxg_1_1XG.html#acc5e2413b28e3f5889436b3e9b0b528f',1,'xg::XG']]],
   ['identically_5foriented_5fsibling_5fsets',['identically_oriented_sibling_sets',['../classvg_1_1VG.html#acb33bdc43954b8acd955bb4425a48df1',1,'vg::VG']]],
+  ['identify_5fpinning_5fpoints',['identify_pinning_points',['../classvg_1_1GSSWAligner.html#ace4142b79dc11ab4fc0fa550b4b8b7a6',1,'vg::GSSWAligner']]],
   ['identify_5fsources_5fand_5fsinks',['identify_sources_and_sinks',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a6f516a61ac5a9a7194c6841eabc39e42',1,'vg::MEMClusterer::HitGraph']]],
   ['identify_5fstart_5fsubpaths',['identify_start_subpaths',['../namespacevg.html#a84d3918e06a7c8948bb6e91ba1226fa9',1,'vg']]],
   ['identity',['identity',['../namespacevg.html#ab3c5c7a407962a8c735c1d533cc0b186',1,'vg']]],

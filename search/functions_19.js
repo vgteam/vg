@@ -45,6 +45,7 @@ var searchData=
   ['_7emultipathalignmentgraph',['~MultipathAlignmentGraph',['../classvg_1_1MultipathAlignmentGraph.html#a85e2932360f805d5c6353cd25e377e5d',1,'vg::MultipathAlignmentGraph']]],
   ['_7emultipathmapper',['~MultipathMapper',['../classvg_1_1MultipathMapper.html#aae4b40b1c3c0668b884ae3247779f188',1,'vg::MultipathMapper']]],
   ['_7enestedtraversalfinder',['~NestedTraversalFinder',['../classvg_1_1NestedTraversalFinder.html#a8ce9c736ca873d86fb63b84c7039dd70',1,'vg::NestedTraversalFinder']]],
+  ['_7enullmaskinggraph',['~NullMaskingGraph',['../classvg_1_1NullMaskingGraph.html#a2423b2f9fd83988f10edcc70f9df4d51',1,'vg::NullMaskingGraph']]],
   ['_7eompthreadbufferedalignmentemitter',['~OMPThreadBufferedAlignmentEmitter',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html#a0ee93dfbf11f3c0f70f0832cafda4bf2',1,'vg::OMPThreadBufferedAlignmentEmitter']]],
   ['_7eoption',['~Option',['../classvg_1_1Option.html#a5e003513f76f5555d0c51b9e61389c22',1,'vg::Option::~Option()'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#acce49922cb0d364a1d3ff4b2db78379a',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::~Option()']]],
   ['_7eoptioninterface',['~OptionInterface',['../classvg_1_1OptionInterface.html#a064598bb6752f1e24c95a91e472448fe',1,'vg::OptionInterface']]],

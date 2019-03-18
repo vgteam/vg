@@ -60,6 +60,7 @@ var searchData=
   ['num_5fitems',['num_items',['../classvg_1_1ShuffledPairs.html#af7af129e1f60b59e78ed6d92d693d599',1,'vg::ShuffledPairs']]],
   ['num_5fmapping_5fattempts',['num_mapping_attempts',['../classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa',1,'vg::MultipathMapper']]],
   ['num_5fnodes',['num_nodes',['../classvg_1_1PackedSplayTree.html#aa10b7e02fded5a21712d8d20dc96c031',1,'vg::PackedSplayTree']]],
+  ['num_5fnull_5fnodes',['num_null_nodes',['../classvg_1_1NullMaskingGraph.html#a789adb0e97e25f480f18c7158aec51ac',1,'vg::NullMaskingGraph']]],
   ['num_5fpairs',['num_pairs',['../classvg_1_1ShuffledPairs.html#abf8913c70ff6595d8b288bdab3c88981',1,'vg::ShuffledPairs']]],
   ['num_5freads',['num_reads',['../structvg_1_1EdgePileup.html#aa95aa0337a5bc6229762abaa56dcdbff',1,'vg::EdgePileup']]],
   ['numcycles',['numCycles',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a4a0ca5f262321b665d0c09e1198395db',1,'vg::DistanceIndex::MaxDistanceIndex']]]

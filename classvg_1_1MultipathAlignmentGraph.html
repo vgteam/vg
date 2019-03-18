@@ -174,8 +174,6 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:aa9837be5f0b807534244afe266208448"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adba05a33bf075eb3eb7260e229245f06"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#adba05a33bf075eb3eb7260e229245f06">reorder_adjacency_lists</a> (const vector&lt; size_t &gt; &amp;order)</td></tr>
 <tr class="separator:adba05a33bf075eb3eb7260e229245f06"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1899bb3add8c07b8f54b555a4275a4be"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a1899bb3add8c07b8f54b555a4275a4be">groom_graph_for_gssw</a> (<a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;graph)</td></tr>
-<tr class="separator:a1899bb3add8c07b8f54b555a4275a4be"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee4f887b7ce1bef26935c7416d7ae2fc"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; bool, <br class="typebreak"/>
 unordered_map&lt; size_t, vector<br class="typebreak"/>
 &lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aee4f887b7ce1bef26935c7416d7ae2fc">align_tails</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns, unordered_set&lt; size_t &gt; *sources=nullptr)</td></tr>
@@ -964,31 +962,6 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Get lists of the vg node IDs that participate in each connected component in the <a class="el" href="classvg_1_1MultipathAlignmentGraph.html">MultipathAlignmentGraph</a>. </p>
-
-</div>
-</div>
-<a class="anchor" id="a1899bb3add8c07b8f54b555a4275a4be"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::MultipathAlignmentGraph::groom_graph_for_gssw </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">DeletableHandleGraph</a> &amp;&#160;</td>
-          <td class="paramname"><em>graph</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Removes the empty anchoring nodes that are sometimes created by the graph extraction algorithms, which is how gssw likes it </p>
 
 </div>
 </div>
