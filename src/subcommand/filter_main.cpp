@@ -220,7 +220,7 @@ int main_filter(int argc, char** argv) {
         case 'b':
             {
                 vector<string> parts = split_delims(string(optarg), ":");
-                if (!parts.size() == 2) {
+                if (parts.size() != 2) {
                     cerr << "[vg filter] Error: -b expects value in form of <INT>:<FLOAT>" << endl;
                     return 1;
                 }
