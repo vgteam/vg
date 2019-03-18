@@ -32,6 +32,9 @@ public:
     vector<string> name_prefixes;
     /// Read must not have a refpos set with a contig name containing a match to any of these
     vector<regex> excluded_refpos_contigs;
+    /// If a read has one of the features in this set as annotations, the read
+    /// is filtered out.
+    unordered_set<string> banned_features;
     double min_secondary = 0.;
     double min_primary = 0.;
     // Should we rescore each alignment with default parameters and no e.g.
@@ -74,8 +77,9 @@ public:
                      
     // Keep some basic counts for when verbose mode is enabled
     struct Counts {
-        enum FilterName { read = 0, wrong_name, wrong_refpos, min_score, min_sec_score, max_overhang, min_end_matches,
-                          min_mapq, split, repeat, defray, defray_all, random, filtered, min_base_qual, last };
+        enum FilterName { read = 0, wrong_name, wrong_refpos, banned_feature, min_score, min_sec_score, max_overhang,
+                          min_end_matches, min_mapq, split, repeat, defray, defray_all, random, filtered, min_base_qual,
+                          last };
         vector<size_t> counts;
         Counts () : counts(FilterName::last, 0) {}
         Counts& operator+=(const Counts& other) {

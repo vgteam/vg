@@ -1,5 +1,6 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
+#include "annotation.hpp"
 #include "stream/stream.hpp"
 
 #include <fstream>
@@ -617,6 +618,19 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
         if (found_match) {
             ++counts.counts[Counts::FilterName::wrong_refpos];
             keep = false;    
+        }
+    }
+    if ((keep || verbose) && !banned_features.empty()) {
+        // Get all the feature tags on the read
+        vector<string> features(get_annotation<vector<string>>(aln, "features"));
+        
+        for (auto& feature : features) {
+            if (banned_features.count(feature)) {
+                // If the read has any banned features, fail it.
+                ++counts.counts[Counts::FilterName::banned_feature];
+                keep = false;
+                break;
+            }
         }
     }
     if ((keep || verbose) && (!aln.is_secondary() && score < min_primary)) {
