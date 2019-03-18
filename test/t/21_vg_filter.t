@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 8
+plan tests 10
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg  x.vg
@@ -64,6 +64,9 @@ is "$(vg filter -X "[w-z]" paired.annotated.gam | vg view -aj - | wc -l)" "0" "r
 is "$(vg filter -U x.gam | vg view -aj - | wc -l)" "0" "negating a non-filter results in no reads"
 
 is "$(cat <(vg filter -U -d 123.5 -t 10 paired.gam | vg view -aj -) <(vg filter -d 123.5 -t 10 paired.gam | vg view -aj -)  | wc -l)" "$(vg view -aj paired.gam | wc -l)" "a filter and its complement should form the entire file"
+
+is "$(echo '{"sequence": "GATTACA", "name": "read1", "annotation": {"features": ["test"]}, "fragment_next": {"name": "read2"}}{"sequence": "CATTAG", "name": "read2", "fragment_prev":{"name": "read1"}}' | vg view -JGa - | vg filter -F "test" -i - | vg view -aj - | wc -l)" "0" "read pairs can be tropped by feature"
+is "$(echo '{"sequence": "GATTACA", "name": "read1", "annotation": {"features": ["test"]}, "fragment_next": {"name": "read2"}}{"sequence": "CATTAG", "name": "read2", "fragment_prev":{"name": "read1"}}' | vg view -JGa - | vg filter -F "test" -I - | vg view -aj - | wc -l)" "2" "read pairs can be kept if only one read fails"
 
 rm -f x.gam filter_chunk*.gam chunks.bed
 rm -f x.vg x.xg paired.gam paired.sam paired.annotated.gam single.gam single.sam filtered.gam filtered.sam
