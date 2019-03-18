@@ -338,7 +338,7 @@ public:
     vector<size_t> paths_of_node(int64_t id) const;
     map<string, vector<Mapping>> node_mappings(int64_t id) const;
     bool path_contains_node(const string& name, int64_t id) const;
-    void add_paths_to_graph(map<int64_t, Node*>& nodes, Graph& g) const;
+    void add_paths_to_graph(unordered_map<int64_t, Node*>& nodes, Graph& g) const;
     size_t node_occs_in_path(int64_t id, const string& name) const;
     size_t node_occs_in_path(int64_t id, size_t rank) const;
     vector<size_t> node_ranks_in_path(int64_t id, const string& name) const;

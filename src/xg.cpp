@@ -1945,6 +1945,7 @@ vector<Edge> XG::edges_of(int64_t id) const {
     int64_t t = g + G_NODE_HEADER_LENGTH;
     int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     vector<Edge> edges;
+    edges.reserve((f - t + G_EDGE_LENGTH * edges_from_count) / 2);
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
@@ -1969,6 +1970,7 @@ vector<Edge> XG::edges_to(int64_t id) const {
     int64_t t = g + G_NODE_HEADER_LENGTH;
     int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     vector<Edge> edges;
+    edges.reserve((f - t) / 2);
     for (int64_t j = t; j < f; ) {
         int64_t from = g+g_iv[j++];
         int type = g_iv[j++];
@@ -1989,6 +1991,7 @@ vector<Edge> XG::edges_from(int64_t id) const {
     int64_t f = g + G_NODE_HEADER_LENGTH + G_EDGE_LENGTH * edges_to_count;
     int64_t e = f + G_EDGE_LENGTH * edges_from_count;
     vector<Edge> edges;
+    edges.reserve((e - f) / 2);
     for (int64_t j = f; j < e; ) {
         int64_t to = g+g_iv[j++];
         int type = g_iv[j++];
@@ -2302,9 +2305,9 @@ void XG::expand_context(Graph& g, size_t dist, bool add_paths, bool use_steps,
 void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
                                  bool expand_forward, bool expand_backward,
                                  int64_t until_node) const {
-    map<int64_t, Node*> nodes;
-    map<pair<side_t, side_t>, Edge*> edges;
-    set<int64_t> to_visit;
+    unordered_map<int64_t, Node*> nodes(g.node_size());
+    unordered_map<pair<side_t, side_t>, Edge*> edges(g.edge_size());
+    unordered_set<int64_t> to_visit;
     // start with the nodes in the graph
     for (size_t i = 0; i < g.node_size(); ++i) {
         to_visit.insert(g.node(i).id());
@@ -2321,7 +2324,7 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
     }
     // and expand
     for (size_t i = 0; i < steps; ++i) {
-        set<int64_t> to_visit_next;
+        unordered_set<int64_t> to_visit_next;
         for (auto id : to_visit) {
             // build out the graph
             // if we have nodes we haven't seeen
@@ -2418,10 +2421,10 @@ void XG::expand_context_by_length(Graph& g, size_t length, bool add_paths,
 
     // map node_id --> min-distance-to-left-side, min-distance-to-right-side
     // these distances include the length of the node in the table. 
-    map<int64_t, pair<int64_t, int64_t> > node_table;
+    unordered_map<int64_t, pair<int64_t, int64_t> > node_table(g.node_size());
     // nodes and edges in graph, so we don't duplicate when we add to protobuf
-    map<int64_t, Node*> nodes;
-    map<pair<side_t, side_t>, Edge*> edges;
+    unordered_map<int64_t, Node*> nodes(g.node_size());
+    unordered_map<pair<side_t, side_t>, Edge*> edges(g.edge_size());
     // bfs queue (id, enter-on-left-size)
     queue<int64_t> to_visit;
 
@@ -2527,7 +2530,7 @@ void XG::expand_context_by_length(Graph& g, size_t length, bool add_paths,
 // if the graph ids partially ordered, this works no prob
 // otherwise... owch
 // the paths become disordered due to traversal of the node ids in order
-void XG::add_paths_to_graph(map<int64_t, Node*>& nodes, Graph& g) const {
+void XG::add_paths_to_graph(unordered_map<int64_t, Node*>& nodes, Graph& g) const {
     // map from path name to (map from mapping rank to mapping)
     map<string, map<size_t, Mapping>> paths;
     // mappings without 
