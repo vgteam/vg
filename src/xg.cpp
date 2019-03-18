@@ -27,6 +27,10 @@ side_t make_side(id_t id, bool is_end) {
     return !is_end ? id : -1 * id;
 }
 
+pair<side_t, side_t> make_side_pair(side_t s1, side_t s2) {
+    return s1 < s2 ? make_pair(s1, s2) : make_pair(s2, s1);
+}
+
 id_t trav_id(const trav_t& trav) {
     return abs(trav.first);
 }
@@ -2319,8 +2323,8 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
         auto& edge = g.edge(i);
         to_visit.insert(edge.from());
         to_visit.insert(edge.to());
-        edges[make_pair(make_side(edge.from(), edge.from_start()),
-                        make_side(edge.to(), edge.to_end()))] = g.mutable_edge(i);
+        edges[make_side_pair(make_side(edge.from(), edge.from_start()),
+                             make_side(edge.to(), edge.to_end()))] = g.mutable_edge(i);
     }
     // and expand
     for (size_t i = 0; i < steps; ++i) {
@@ -2345,8 +2349,8 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
                 exit(1);
             }
             for (auto& edge : edges_todo) {
-                auto sides = make_pair(make_side(edge.from(), edge.from_start()),
-                                       make_side(edge.to(), edge.to_end()));
+                auto sides = make_side_pair(make_side(edge.from(), edge.from_start()),
+                                            make_side(edge.to(), edge.to_end()));
                 if (edges.find(sides) == edges.end()) {
                     Edge* ep = g.add_edge(); *ep = edge;
                     edges[sides] = ep;
@@ -2397,8 +2401,8 @@ void XG::expand_context_by_steps(Graph& g, size_t steps, bool add_paths,
                 
                 // Determine if it's been seen already (somehow).
                 // TODO: it probably shouldn't have been, unless it's a self loop or something.
-                auto sides = make_pair(make_side(edge.from(), edge.from_start()),
-                                       make_side(edge.to(), edge.to_end()));
+                auto sides = make_side_pair(make_side(edge.from(), edge.from_start()),
+                                            make_side(edge.to(), edge.to_end()));
                 if (edges.find(sides) == edges.end()) {
                     // If it isn't there already, add it to the graph
                     Edge* ep = g.add_edge(); *ep = edge;
@@ -2439,8 +2443,8 @@ void XG::expand_context_by_length(Graph& g, size_t length, bool add_paths,
     // add starting edges
     for (size_t i = 0; i < g.edge_size(); ++i) {
         auto& edge = g.edge(i);
-        edges[make_pair(make_side(edge.from(), edge.from_start()),
-                        make_side(edge.to(), edge.to_end()))] = g.mutable_edge(i);
+        edges[make_side_pair(make_side(edge.from(), edge.from_start()),
+                             make_side(edge.to(), edge.to_end()))] = g.mutable_edge(i);
     }
 
     // expand outward breadth-first
@@ -2492,10 +2496,10 @@ void XG::expand_context_by_length(Graph& g, size_t length, bool add_paths,
                         }
                         // create all links back to graph, so as not to break paths
                         for (auto& other_edge : edges_of(other)) {
-                            auto sides = make_pair(make_side(other_edge.from(),
-                                                             other_edge.from_start()),
-                                                   make_side(other_edge.to(),
-                                                             other_edge.to_end()));
+                            auto sides = make_side_pair(make_side(other_edge.from(),
+                                                                  other_edge.from_start()),
+                                                        make_side(other_edge.to(),
+                                                                  other_edge.to_end()));
                             int64_t other_from = other_edge.from() == other ? other_edge.to() :
                                 other_edge.from();
                             if (nodes.find(other_from) != nodes.end() &&

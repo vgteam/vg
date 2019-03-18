@@ -45,6 +45,8 @@ typedef int64_t side_t;
 id_t side_id(const side_t& side);
 bool side_is_end(const side_t& side);
 side_t make_side(id_t id, bool is_end);
+pair<side_t, side_t> make_side_pair(side_t s1, side_t s2);
+    
 // node traversals
 typedef pair<int64_t, int32_t> trav_t; // meant to encode pos+side or pos+strand
 id_t trav_id(const trav_t& trav);
