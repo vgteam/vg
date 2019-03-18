@@ -337,7 +337,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
 
         GaplessExtender extender;
         if (gapless_extend) {
-            extender = GaplessExtender(*gbwt_graph, max_errors);
+            extender = GaplessExtender(*gbwt_graph);
         }
         std::vector<size_t> min_counts(threads, 0);
         std::vector<size_t> occ_counts(threads, 0);
@@ -363,7 +363,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                 }
                 if (!hits.empty()) {
                     unique_counts[thread]++;
-                    auto result = extender.extend_seeds(hits, reads[i]);
+                    auto result = extender.extend_seeds(hits, reads[i], max_errors);
                     if (result.second <= max_errors) {
                         success_counts[thread]++;
                     }

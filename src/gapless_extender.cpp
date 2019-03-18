@@ -8,12 +8,12 @@ namespace vg {
 //------------------------------------------------------------------------------
 
 GaplessExtender::GaplessExtender() :
-    graph(nullptr), max_mismatches(MAX_MISMATCHES)
+    graph(nullptr)
 {
 }
 
-GaplessExtender::GaplessExtender(const GBWTGraph& graph, size_t max_mismatches) :
-    graph(&graph), max_mismatches(max_mismatches)
+GaplessExtender::GaplessExtender(const GBWTGraph& graph) :
+    graph(&graph)
 {
 }
 
@@ -92,7 +92,7 @@ std::pair<Path, size_t> gapless_match_to_path(GaplessMatch& match, const GBWTGra
     size_t mismatch_offset = 0; // In match.mismatches.
     size_t node_offset = match.offset; // Start of the alignment in the current node.
     for (size_t i = 0; i < match.path.size(); i++) {
-        size_t limit = sequence_offset + graph.get_length(match.path[i]);
+        size_t limit = sequence_offset + graph.get_length(match.path[i]) - node_offset;
         Mapping mapping;
         mapping.mutable_position()->set_node_id(graph.get_id(match.path[i]));
         mapping.mutable_position()->set_offset(node_offset);
@@ -127,10 +127,10 @@ std::pair<Path, size_t> gapless_match_to_path(GaplessMatch& match, const GBWTGra
     return result;
 }
 
-std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) {
+std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence, size_t max_mismatches) {
 
     GaplessMatch best_match {
-        this->max_mismatches + 1,
+        max_mismatches + 1,
         static_cast<size_t>(0), static_cast<size_t>(0),
         static_cast<size_t>(0),
         { },
