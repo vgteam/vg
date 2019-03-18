@@ -319,7 +319,7 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
       i = 1;
     }
     if(length == 1) {
-      for(i; i < entries.size(); i++) {
+      for(; i < entries.size(); i++) {
         assert(entries[i].get() != nullptr);
         double logLHS = memo.logT_base +
                         previous_R(i) +
@@ -327,7 +327,7 @@ void haplo_DP_column::update_score_vector(haploMath::RRMemo& memo) {
         entries[i]->R = haploMath::logsum(logLHS, logpS1S2RRS);
       }
     } else {
-      for(i; i < entries.size(); i++) {
+      for(; i < entries.size(); i++) {
         assert(entries[i].get() != nullptr);
         double logLHS = memo.logT_base +
                         haploMath::logsum(logS1RRD, previous_R(i) + memo.logT(length));
