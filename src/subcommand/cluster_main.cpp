@@ -187,18 +187,11 @@ int main_cluster(int argc, char** argv) {
         minimizer_index = stream::VPKG::load_one<MinimizerIndex>(minimizer_name);
     }
     unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
+    unique_ptr<DistanceIndex> distance_index = stream::VPKG::load_one<DistanceIndex>(distance_name);
     
-    // Now load the distance index.
-    unique_ptr<DistanceIndex> distance_index;
-    {
-        ifstream distance_stream(distance_name);
-        if (!distance_stream) {
-            cerr << "error:[vg cluster] Could not open " << distance_name << endl;
-            exit(1);
-        }
-        // TODO: let this go through VPKG as soon as we get it loadable without passing a graph
-        distance_index = make_unique<DistanceIndex>(xg_index.get(), snarl_manager.get(), distance_stream);
-    }
+    // Connect the DistanceIndex to the other things it needs to work.
+    distance_index->setGraph(xg_index.get());
+    distance_index->setSnarlManager(snarl_manager.get());
     
     // Make the clusterer
     SnarlSeedClusterer clusterer;
