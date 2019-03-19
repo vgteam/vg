@@ -200,7 +200,7 @@ void DistanceIndex::load(istream& in){
     maxIndex.distIndex = this;
 };
 
-void DistanceIndex::serialize(ostream& out) {
+void DistanceIndex::serialize(ostream& out) const {
 
     auto toUint = [](int64_t val) {
         /* convert signed integer into unsigned representation where last bit 
@@ -1903,7 +1903,7 @@ DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di,
 
 }
 
- vector<int64_t>DistanceIndex::SnarlIndex::toVector() {
+ vector<int64_t>DistanceIndex::SnarlIndex::toVector() const {
     /*Convert contents of object to vector for serialization
       Vector contains a header of four ints: #nodes, start node, end node, parent
                   a vector representing visitToIndex [node1, node2, ...] where                          the nodes are ordered by the index they map to
@@ -2233,7 +2233,7 @@ DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, vector<int64_t> v) {
     }
 }
 
-vector<int64_t> DistanceIndex::ChainIndex::toVector() {
+vector<int64_t> DistanceIndex::ChainIndex::toVector() const {
     /*Convert contents into vector of ints for serialization
      Stored as [node_id1, prefix sum1, loopfd1,loop rev1, node_id2...]
      */

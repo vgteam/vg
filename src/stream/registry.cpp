@@ -6,13 +6,16 @@
 #include "registry.hpp"
 #include "fdstream.hpp"
 
+// Keep these inclused in alphabetical order so it is easy to spot missing ones.
+#include "register_loader_saver_distance_index.hpp"
 #include "register_loader_saver_gcsa.hpp"
 #include "register_loader_saver_lcp.hpp"
 #include "register_loader_saver_gbwt.hpp"
-#include "register_loader_saver_xg.hpp"
-#include "register_loader_saver_vg.hpp"
 #include "register_loader_saver_minimizer.hpp"
 #include "register_loader_saver_snarl_manager.hpp"
+#include "register_loader_saver_vg.hpp"
+#include "register_loader_saver_xg.hpp"
+
 
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/descriptor.h>
@@ -43,13 +46,15 @@ auto Registry::register_everything() -> bool {
 
     // Register all the stream loader/savers.
     // These all call back to the registry.
+    // Keep the calls in alphabetical order so missing ones are easy to find!
+    register_loader_saver_distance_index();
+    register_loader_saver_gbwt();
     register_loader_saver_gcsa();
     register_loader_saver_lcp();
-    register_loader_saver_gbwt();
-    register_loader_saver_xg();
-    register_loader_saver_vg();
     register_loader_saver_minimizer();
     register_loader_saver_snarl_manager();
+    register_loader_saver_vg();
+    register_loader_saver_xg();
     
     return true;
 }

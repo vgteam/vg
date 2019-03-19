@@ -32,7 +32,7 @@ class DistanceIndex {
     void setSnarlManager(const SnarlManager* new_manager);
     
     //Serialize object into out
-    void serialize(ostream& out);
+    void serialize(ostream& out) const;
 
     //Load serialized object from in. Does not rely on the internal graph or snarl manager pointers.
     void load(istream& in);
@@ -94,7 +94,7 @@ class DistanceIndex {
                         [visit to index as list of node ids in order of index] +
                         [distances]
             */
-            vector<int64_t>  toVector();
+            vector<int64_t>  toVector() const;
             
             //Distance between beginning of node start and beginning of node end
             //Bool is true if the node is traversed in reverse
@@ -187,7 +187,7 @@ class DistanceIndex {
                stored as [chainStartID, chainEndID, node_id1, prefixsum1 start,
                            prefixsum1 end, loopfd1, loopfd2, node_id2, ...]
             */
-            vector<int64_t> toVector();
+            vector<int64_t> toVector() const;
        
             /** 
              * Distance between two node sides in a chain. id_t values specify
