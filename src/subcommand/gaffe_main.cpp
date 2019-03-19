@@ -245,6 +245,8 @@ int main_gaffe(int argc, char** argv) {
     // Define how to align and output a read, in a thread.
     auto map_read = [&](Alignment& aln) {
         // For each input alignment
+        
+        std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
             
         // We will find all the seed hits
         vector<pos_t> seeds;
@@ -402,6 +404,14 @@ int main_gaffe(int argc, char** argv) {
             // Assign primary and secondary status
             out.set_is_secondary(i > 0);
             out.set_mapping_quality(0);
+        }
+        
+        std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        
+        if (!aligned.empty()) {
+            // Annotate the primary alignment with mapping runtime
+            set_annotation(aligned[0], "map_seconds", elapsed_seconds.count());
         }
         
         // Ship out all the aligned alignments
