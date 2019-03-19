@@ -333,62 +333,73 @@ int main_gaffe(int argc, char** argv) {
         // How many multimaps will we produce?
         size_t actual_multimaps = min(cluster_indexes_in_order.size(), max_multimaps);
         
-        for (size_t i = 0; i < actual_multimaps; i++) {
-            // For each cluster
-            hash_set<size_t>& cluster = clusters[i];
-            
-            // Pack the seeds into (read position, graph position) pairs.
-            vector<pair<size_t, pos_t>> seed_matchings;
-            seed_matchings.reserve(cluster.size());
-            for (auto& seed_index : cluster) {
-                // For each seed in the cluster, generate its matching pair
-                seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].second, seeds[seed_index]);
-            }
-            
-            // Extend seed hits in the cluster into a real alignment path and mismatch count.
-            std::pair<Path, size_t> extended = extender.extend_seeds(seed_matchings, aln.sequence());
-            auto& path = extended.first;
-            auto& mismatch_count = extended.second;
+        for (size_t i = 0; i < max(actual_multimaps, (size_t)1); i++) {
+            // For each output alignment we will produce (always at least 1,
+            // and possibly up to our multimap limit or the cluster count)
             
             // Produce an output Alignment
             aligned.emplace_back(aln);
             Alignment& out = aligned.back();
+            // Clear any old refpos annotation
+            out.clear_refpos();
             
-            if (path.mapping_size() != 0) {
-                // We have a mapping
+            if (i < clusters.size()) {
+                // We have a cluster; it actually mapped
+            
+                // For each cluster
+                hash_set<size_t>& cluster = clusters[i];
                 
-                // Compute a score based on the sequence length and mismatch count.
-                // Alignments will only contain matches and mismatches.
-                int alignment_score = default_match * (aln.sequence().size() - mismatch_count) - default_mismatch * extended.second;
-                
-                if (path.mapping().begin()->edit_size() != 0 && edit_is_match(*path.mapping().begin()->edit().begin())) {
-                    // Apply left full length bonus based on the first edit
-                    alignment_score += default_full_length_bonus;
+                // Pack the seeds into (read position, graph position) pairs.
+                vector<pair<size_t, pos_t>> seed_matchings;
+                seed_matchings.reserve(cluster.size());
+                for (auto& seed_index : cluster) {
+                    // For each seed in the cluster, generate its matching pair
+                    seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].second, seeds[seed_index]);
                 }
-                if (path.mapping().rbegin()->edit_size() != 0 && edit_is_match(*path.mapping().rbegin()->edit().rbegin())) {
-                    // Apply right full length bonus based on the last edit
-                    alignment_score += default_full_length_bonus;
+                
+                // Extend seed hits in the cluster into a real alignment path and mismatch count.
+                std::pair<Path, size_t> extended = extender.extend_seeds(seed_matchings, aln.sequence());
+                auto& path = extended.first;
+                auto& mismatch_count = extended.second;
+            
+            
+            
+                if (path.mapping_size() != 0) {
+                    // We have a mapping
+                    
+                    // Compute a score based on the sequence length and mismatch count.
+                    // Alignments will only contain matches and mismatches.
+                    int alignment_score = default_match * (aln.sequence().size() - mismatch_count) - default_mismatch * extended.second;
+                    
+                    if (path.mapping().begin()->edit_size() != 0 && edit_is_match(*path.mapping().begin()->edit().begin())) {
+                        // Apply left full length bonus based on the first edit
+                        alignment_score += default_full_length_bonus;
+                    }
+                    if (path.mapping().rbegin()->edit_size() != 0 && edit_is_match(*path.mapping().rbegin()->edit().rbegin())) {
+                        // Apply right full length bonus based on the last edit
+                        alignment_score += default_full_length_bonus;
+                    }
+                   
+                    // Compute identity from mismatch count.
+                    double identity = aln.sequence().size() == 0 ? 0.0 : (aln.sequence().size() - mismatch_count) / (double) aln.sequence().size();
+                    
+                    // Fill in the extension info
+                    *out.mutable_path() = path;
+                    out.set_score(alignment_score);
+                    out.set_identity(identity);
+                    
+                    // Read mapped successfully!
+                    continue;
                 }
-               
-                // Compute identity from mismatch count.
-                double identity = aln.sequence().size() == 0 ? 0.0 : (aln.sequence().size() - mismatch_count) / (double) aln.sequence().size();
-                
-                // Fill in the extension info
-                *out.mutable_path() = path;
-                out.set_score(alignment_score);
-                out.set_identity(identity);
-                
-            } else {
-                // Read was not able to be mapped; mismatch_count is not true.
-                // Make an un-aligned alignment.
-                
-                out.clear_path();
-                out.set_score(0);
-                out.set_identity(0);
             }
             
-            // Set other fields
-            out.clear_refpos();
+            // If we get here, either there was no cluster or the cluster produced no extension
+            
+            // Read was not able to be mapped.
+            // Make our output alignment un-aligned.
+            out.clear_path();
+            out.set_score(0);
+            out.set_identity(0);
         }
         
         // Sort again by actual score instead of cluster coverage
