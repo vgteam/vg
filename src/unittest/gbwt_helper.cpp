@@ -80,8 +80,6 @@ gbwt::vector_type short_path {
     static_cast<gbwt::vector_type::value_type>(gbwt::Node::encode(9, false))
 };
 
-} // anonymous namespace
-
 // Build a GBWT with three threads including a duplicate.
 gbwt::GBWT build_gbwt_index() {
     std::vector<gbwt::vector_type> gbwt_threads {
@@ -90,6 +88,8 @@ gbwt::GBWT build_gbwt_index() {
 
     return get_gbwt(gbwt_threads);
 }
+
+} // anonymous namespace
 
 TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
 

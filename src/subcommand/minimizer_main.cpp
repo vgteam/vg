@@ -24,6 +24,7 @@
  *   minimizers can start.
  */
 
+#include "../gapless_extender.hpp"
 #include "../gbwt_helper.hpp"
 #include "../minimizer.hpp"
 #include "subcommand.hpp"
@@ -334,6 +335,10 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
     {
         double phase_start = gbwt::readTimer();
 
+        GaplessExtender extender;
+        if (gapless_extend) {
+            extender = GaplessExtender(*gbwt_graph);
+        }
         std::vector<size_t> min_counts(threads, 0);
         std::vector<size_t> occ_counts(threads, 0);
         std::vector<size_t> unique_counts(threads, 0);
@@ -358,7 +363,8 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                 }
                 if (!hits.empty()) {
                     unique_counts[thread]++;
-                    if (gapless_extension(*gbwt_graph, reads[i], hits, max_errors)) {
+                    auto result = extender.extend_seeds(hits, reads[i], max_errors);
+                    if (result.second <= max_errors) {
                         success_counts[thread]++;
                     }
                 }
