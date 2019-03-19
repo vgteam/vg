@@ -10,22 +10,22 @@ namespace vg {
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
  */
-DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, uint64_t cap){
+DistanceIndex::DistanceIndex(const HandleGraph* vg, const SnarlManager* snarlManager, uint64_t cap) : graph(vg), sm(snarlManager){
     /*Constructor for the distance index given a VG and snarl manager
       cap is the largest distance that the maximum distance estimation will be
       accurate to 
     */
+    
+    assert(graph != nullptr);
+    assert(sm != nullptr);
 
-    if (snarlManager->top_level_snarls().size() == 0 && maxNodeID > 1) {
+    if (sm->top_level_snarls().size() == 0 && maxNodeID > 1) {
  
         throw runtime_error("Snarl manager is empty");       
     }
     minNodeID = -1;
     maxNodeID = -1;
 
-
-    graph = vg;
-    sm = snarlManager;
 
     #ifdef indexTraverse
         cerr << endl << "Creating distance index"<< endl;
@@ -55,22 +55,21 @@ DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, uint64
        }
         
     }
-    nodeToSnarl = calculateNodeToSnarl(snarlManager);
+    nodeToSnarl = calculateNodeToSnarl(sm);
     //TODO: Cap should be given
     maxIndex = MaxDistanceIndex (this, topSnarls, cap);
   
 };
 
 
-DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, istream& in) {
+DistanceIndex::DistanceIndex(const HandleGraph* vg, const SnarlManager* snarlManager, istream& in) : DistanceIndex(in) {
 
-    /*Constructor for the distance index given a VG, snarl manager, and a vector
-      of ints from serialization
+    /*Constructor for the distance index given a VG, snarl manager, and a stream from serialization
     */
-   
-    graph = vg;
-    sm = snarlManager;
-    load(in);
+    
+    // We already loaded ourselves; set up our connections to the other data sources.
+    setGraph(vg);
+    setSnarlManager(snarlManager);
 }
 
 DistanceIndex::DistanceIndex (istream& in) : graph(nullptr), sm(nullptr) {
@@ -78,14 +77,14 @@ DistanceIndex::DistanceIndex (istream& in) : graph(nullptr), sm(nullptr) {
     load(in);
 }
 
-void DistanceIndex::setGraph(HandleGraph* new_graph) {
+void DistanceIndex::setGraph(const HandleGraph* new_graph) {
     assert(new_graph != nullptr);
     graph = new_graph;
     
     // TODO: verify that the passed graph matches the stored distance index.
 }
     
-void DistanceIndex::setSnarlManager(SnarlManager* new_manager) {
+void DistanceIndex::setSnarlManager(const SnarlManager* new_manager) {
     assert(new_manager != nullptr);
     sm = new_manager;
     
@@ -300,7 +299,7 @@ void DistanceIndex::serialize(ostream& out) {
 }
 
 
-int_vector<> DistanceIndex::calculateNodeToSnarl(SnarlManager* sm){
+int_vector<> DistanceIndex::calculateNodeToSnarl(const SnarlManager* sm){
 
     auto toUint = [](int64_t val) {
         /* convert signed integer into unsigned representation where last bit 
@@ -2044,7 +2043,7 @@ int64_t DistanceIndex::SnarlIndex::snarlLength() {
  
 }
 
-pair<int64_t, int64_t> DistanceIndex::SnarlIndex::distToEnds(HandleGraph* graph,
+pair<int64_t, int64_t> DistanceIndex::SnarlIndex::distToEnds(const HandleGraph* graph,
            NetGraph* ng, id_t node, bool rev, int64_t distL, int64_t distR) {
     /* Given the distances to either end of a node, find the distances to 
        either end of the snarl
@@ -2348,7 +2347,7 @@ int64_t DistanceIndex::ChainIndex::chainDistance(pair<id_t, bool> start,
          } 
           
     }
-    HandleGraph* graph = distIndex->graph;
+    const HandleGraph* graph = distIndex->graph;
 
     if ((!rev1 && !rev2)) {
         //If start and end are facing forward relative to the start of the chain
@@ -2420,7 +2419,7 @@ int64_t DistanceIndex::ChainIndex::chainDistance(pair<id_t, bool> start,
     }
 }
 
-int64_t DistanceIndex::ChainIndex::chainDistanceShort(HandleGraph* graph, 
+int64_t DistanceIndex::ChainIndex::chainDistanceShort(const HandleGraph* graph, 
           pair<id_t, bool> start, pair<id_t, bool> end, const Snarl* startSnarl,
           const Snarl* endSnarl) {
     /*Distance between end of start node to beginning of end node in chain
@@ -2457,7 +2456,7 @@ int64_t DistanceIndex::ChainIndex::chainLength() {
 
     //Get the length of a chain including length of last node
     //TODO: if there is a unary snarl then this should be -1
-    HandleGraph* graph = distIndex->graph;
+    const HandleGraph* graph = distIndex->graph;
     return prefixSum[prefixSum.size()-1] - 1 + 
                         graph->get_length(graph->get_handle(chainEndID, false));
 }
@@ -2550,7 +2549,7 @@ int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     //Upper bound of distance between two positions
     
     id_t node1 = get_id(pos1);
-    HandleGraph* graph = distIndex->graph;
+    const HandleGraph* graph = distIndex->graph;
     int64_t len1 = max(get_offset(pos1),  
           graph->get_length(graph->get_handle(node1, false)) - 
           get_offset(pos1)) + 1;
@@ -2596,7 +2595,7 @@ uint64_t DistanceIndex::MaxDistanceIndex::findComponents(
     */
 
     int64_t minNodeID = distIndex->minNodeID;
-    HandleGraph* graph = distIndex->graph;
+    const HandleGraph* graph = distIndex->graph;
     int64_t maxNodeID = distIndex->maxNodeID;
     hash_set<pair<id_t, bool>> seen;
     auto findComp = [&](const handle_t& h)-> bool { 
@@ -2731,7 +2730,7 @@ void DistanceIndex::MaxDistanceIndex::calculateMaxDistances(
       (pointing out),get the max and min distances from each node to a sink node
     */
 
-    HandleGraph* graph = distIndex->graph;
+    const HandleGraph* graph = distIndex->graph;
     int64_t minNodeID = distIndex->minNodeID; 
     
     list<pair<pair<id_t, bool>, pair<uint64_t, uint64_t>>> nextNodes;

@@ -16,20 +16,20 @@ class DistanceIndex {
     public: 
     //Constructor 
     //Cap is the distance up to which the maximum distance will give a reliable bound - if there is a path with length greater than cap, then cap may be returned
-    DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, uint64_t cap);
+    DistanceIndex (const HandleGraph* vg, const SnarlManager* snarlManager, uint64_t cap);
 
     //Constructor to load index from serialization 
-    DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, istream& in);
+    DistanceIndex (const HandleGraph* vg, const SnarlManager* snarlManager, istream& in);
     
     //Constructor to load index from serialization when graph and snarl manager are not immediately available.
     //User must call setGraph and setSnarlManager before using the index.
     DistanceIndex (istream& in);
     
     //Associate the DistanceIndex with the given graph. Graph must not be null.
-    void setGraph(HandleGraph* new_graph);
+    void setGraph(const HandleGraph* new_graph);
     
     //Associate the DistanceIndex with the given SnarlManager. The snarl manager must not be null.
-    void setSnarlManager(SnarlManager* new_manager);
+    void setSnarlManager(const SnarlManager* new_manager);
     
     //Serialize object into out
     void serialize(ostream& out);
@@ -124,7 +124,7 @@ class DistanceIndex {
               shortest distance from that position to the start and end nodes of
               the snarl
             */
-            pair<int64_t, int64_t> distToEnds(HandleGraph* graph, NetGraph* ng, 
+            pair<int64_t, int64_t> distToEnds(const HandleGraph* graph, NetGraph* ng, 
                              id_t node, bool rev, int64_t distL, int64_t distR);
 
             void printSelf();
@@ -208,7 +208,7 @@ class DistanceIndex {
              * Returns the distance from the **opposite** side of the start
              * node to the specified side of the end node.
              */
-            int64_t chainDistanceShort(HandleGraph* graph, 
+            int64_t chainDistanceShort(const HandleGraph* graph, 
                                 pair<id_t, bool> start, pair<id_t, bool> end,
                                 const Snarl* startSnarl, const Snarl* endSnarl);
 
@@ -309,9 +309,9 @@ class DistanceIndex {
     hash_map<id_t, ChainIndex> chainDistances;
 
     //Graph and snarl manager for this index
-    HandleGraph* graph;
+    const HandleGraph* graph;
 
-    SnarlManager* sm;
+    const SnarlManager* sm;
 
 
     /*Index to find the snarl containing a node
@@ -338,7 +338,7 @@ class DistanceIndex {
 
 
     //Helper function for constructor - populate node to snarl
-    int_vector<> calculateNodeToSnarl(SnarlManager* sm);
+    int_vector<> calculateNodeToSnarl(const SnarlManager* sm);
 
 
     /*Minimum distance of a loop that involves node or edge
