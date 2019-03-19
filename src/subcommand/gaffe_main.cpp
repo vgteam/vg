@@ -358,6 +358,16 @@ int main_gaffe(int argc, char** argv) {
                 // Compute a score based on the sequence length and mismatch count.
                 // Alignments will only contain matches and mismatches.
                 int alignment_score = default_match * (aln.sequence().size() - mismatch_count) - default_mismatch * extended.second;
+                
+                if (path.mapping().begin()->edit_size() != 0 && edit_is_match(*path.mapping().begin()->edit().begin())) {
+                    // Apply left full length bonus based on the first edit
+                    alignment_score += default_full_length_bonus;
+                }
+                if (path.mapping().rbegin()->edit_size() != 0 && edit_is_match(*path.mapping().rbegin()->edit().rbegin())) {
+                    // Apply right full length bonus based on the last edit
+                    alignment_score += default_full_length_bonus;
+                }
+               
                 // Compute identity from mismatch count.
                 double identity = aln.sequence().size() == 0 ? 0.0 : (aln.sequence().size() - mismatch_count) / (double) aln.sequence().size();
                 
