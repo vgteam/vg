@@ -71,24 +71,34 @@ DistanceIndex::DistanceIndex(HandleGraph* vg, SnarlManager* snarlManager, istrea
     graph = vg;
     sm = snarlManager;
     load(in);
+}
 
-    for ( auto x : snarlDistances ) {
-    //Check that vg and snarl manager match the distance index
-  
-        pair<id_t, bool> node = x.first;
-/* TODO: Make test that uses handle graph
-        if (!graph->has_node(node.first)) {
+DistanceIndex::DistanceIndex (istream& in) : graph(nullptr), sm(nullptr) {
+    // Load the index
+    load(in);
+}
 
-            throw runtime_error("Distance index does not match vg");
-
-        } else */if (sm->into_which_snarl(node.first, node.second) == NULL) {
-
+void DistanceIndex::setGraph(HandleGraph* new_graph) {
+    assert(new_graph != nullptr);
+    graph = new_graph;
+    
+    // TODO: verify that the passed graph matches the stored distance index.
+}
+    
+void DistanceIndex::setSnarlManager(SnarlManager* new_manager) {
+    assert(new_manager != nullptr);
+    sm = new_manager;
+    
+    for ( auto& x : snarlDistances ) {
+        //Check that vg and snarl manager match the distance index
+        const pair<id_t, bool>& node = x.first;
+        if (sm->into_which_snarl(node.first, node.second) == NULL) {
             throw runtime_error("Distance index does not match snarl manager");
         }
-
     }
-
 }
+    
+
 void DistanceIndex::load(istream& in){
     //Load serialized index from an istream
     auto toInt = [] (uint64_t uval) {

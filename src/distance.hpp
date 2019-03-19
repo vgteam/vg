@@ -20,14 +20,23 @@ class DistanceIndex {
 
     //Constructor to load index from serialization 
     DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, istream& in);
-  
+    
+    //Constructor to load index from serialization when graph and snarl manager are not immediately available.
+    //User must call setGraph and setSnarlManager before using the index.
+    DistanceIndex (istream& in);
+    
+    //Associate the DistanceIndex with the given graph. Graph must not be null.
+    void setGraph(HandleGraph* new_graph);
+    
+    //Associate the DistanceIndex with the given SnarlManager. The snarl manager must not be null.
+    void setSnarlManager(SnarlManager* new_manager);
+    
     //Serialize object into out
     void serialize(ostream& out);
 
-    //Load serialized object from in
+    //Load serialized object from in. Does not rely on the internal graph or snarl manager pointers.
     void load(istream& in);
-
-
+    
     /*Get the minimum distance between two position
      *If there is no path between the two positions then the distance is -1
      */
