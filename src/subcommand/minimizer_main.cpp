@@ -65,10 +65,10 @@ void help_minimizer(char** argv) {
     std::cerr << "    -m, --max-occs N       do not locate minimizers with more than N occurrences" << std::endl;
     std::cerr << "    -e, --extend N         try gapless extension of unique hits with up to N mismatches (requires -g, -L)" << std::endl;
     std::cerr << "    -g, --gbwt-name X      extend using the GBWT index in file X" << std::endl;
-    std::cerr << "    -M, --min-unique N     only extend reads with at least N unique minimizers" << std::endl;
+    std::cerr << "    -M, --min-hits N       only extend reads with at least N minimizer hits" << std::endl;
 }
 
-int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_unique, bool progress);
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_hits, bool progress);
 
 int main_minimizer(int argc, char** argv) {
 
@@ -81,7 +81,7 @@ int main_minimizer(int argc, char** argv) {
     size_t kmer_length = MinimizerIndex::KMER_LENGTH;
     size_t window_length = MinimizerIndex::WINDOW_LENGTH;
     size_t max_occs = MinimizerIndex::MAX_OCCS;
-    size_t max_errors = 0, min_unique = 1;
+    size_t max_errors = 0, min_hits = 1;
     std::string index_name, load_index, gbwt_name, xg_name, reads_name, gcsa_name;
     bool progress = false, locate = false, gapless_extend = false;
     int threads = omp_get_max_threads();
@@ -103,7 +103,7 @@ int main_minimizer(int argc, char** argv) {
             { "gcsa-name", required_argument, 0, 'G' },
             { "locate", no_argument, 0, 'L' },
             { "extend", required_argument, 0, 'e' },
-            { "min-unique", required_argument, 0, 'M' },
+            { "min-hits", required_argument, 0, 'M' },
             { 0, 0, 0, 0 }
         };
 
@@ -154,7 +154,7 @@ int main_minimizer(int argc, char** argv) {
             gapless_extend = true;
             break;
         case 'M':
-            min_unique = std::max(static_cast<size_t>(1), parse<size_t>(optarg));
+            min_hits = std::max(static_cast<size_t>(1), parse<size_t>(optarg));
             break;
 
         case 'h':
@@ -217,7 +217,7 @@ int main_minimizer(int argc, char** argv) {
 
     // Run the benchmarks and return.
     if (!reads_name.empty()) {
-        return query_benchmarks(index, gbwt_graph, reads_name, gcsa_name, locate, max_occs, gapless_extend, max_errors, min_unique, progress);
+        return query_benchmarks(index, gbwt_graph, reads_name, gcsa_name, locate, max_occs, gapless_extend, max_errors, min_hits, progress);
     }
 
     // Minimizer caching.
@@ -300,7 +300,7 @@ int main_minimizer(int argc, char** argv) {
     return 0;
 }
 
-int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_unique, bool progress) {
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_hits, bool progress) {
 
     double start = gbwt::readTimer();
 
@@ -346,8 +346,8 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         }
         std::vector<size_t> min_counts(threads, 0);
         std::vector<size_t> occ_counts(threads, 0);
-        std::vector<size_t> unique_counts(threads, 0);
-        std::vector<size_t> unique_min_counts(threads, 0);
+        std::vector<size_t> extend_counts(threads, 0);
+        std::vector<size_t> seed_counts(threads, 0);
         std::vector<size_t> success_counts(threads, 0);
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
@@ -361,15 +361,17 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                         std::vector<pos_t> occs = index->find(minimizer.first);
                         if (occs.size() != 1 || !vg::is_empty(occs.front())) {
                             occ_counts[thread] += occs.size();
-                        }
-                        if (gapless_extend && occs.size() == 1 && !vg::is_empty(occs.front())) {
-                            hits.emplace_back(minimizer.second, occs.front());
+                            if (gapless_extend) {
+                                for (pos_t occ : occs) {
+                                    hits.emplace_back(minimizer.second, occ);
+                                }
+                            }
                         }
                     }
                 }
-                if (hits.size() >= min_unique) {
-                    unique_counts[thread]++;
-                    unique_min_counts[thread] += hits.size();
+                if (hits.size() >= min_hits) {
+                    extend_counts[thread]++;
+                    seed_counts[thread] += hits.size();
                     auto result = extender.extend_seeds(hits, reads[i], max_errors);
                     if (result.second <= max_errors) {
                         success_counts[thread]++;
@@ -382,12 +384,12 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
             }
         }
         size_t min_count = 0, occ_count = 0;
-        size_t unique_count = 0, success_count = 0, unique_min_count = 0;
+        size_t extend_count = 0, seed_count = 0, success_count = 0;
         for (size_t i = 0; i < threads; i++) {
             min_count += min_counts[i];
             occ_count += occ_counts[i];
-            unique_count += unique_counts[i];
-            unique_min_count += unique_min_counts[i];
+            extend_count += extend_counts[i];
+            seed_count += seed_counts[i];
             success_count += success_counts[i];
         }
 
@@ -402,7 +404,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         std::cerr << "Minimizers (" << query_type << "): " << phase_seconds << " seconds (" << (reads.size() / phase_seconds) << " reads/second)" << std::endl;
         std::cerr << min_count << " minimizers with " << occ_count << " occurrences" << std::endl;
         if (gapless_extend) {
-            std::cerr << unique_count << " reads with " << unique_min_count << " unique hits, " << success_count << " extended with up to " << max_errors << " mismatches" << std::endl;
+            std::cerr << extend_count << " reads with " << seed_count << " seeds, " << success_count << " extended with up to " << max_errors << " mismatches" << std::endl;
         }
         std::cerr << std::endl;
     }

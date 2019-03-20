@@ -93,34 +93,30 @@ std::pair<Path, size_t> gapless_match_to_path(GaplessMatch& match, const GBWTGra
     size_t node_offset = match.offset; // Start of the alignment in the current node.
     for (size_t i = 0; i < match.path.size(); i++) {
         size_t limit = sequence_offset + graph.get_length(match.path[i]) - node_offset;
-        Mapping mapping;
+        Mapping& mapping = *(result.first.add_mapping());
         mapping.mutable_position()->set_node_id(graph.get_id(match.path[i]));
         mapping.mutable_position()->set_offset(node_offset);
         mapping.mutable_position()->set_is_reverse(graph.get_is_reverse(match.path[i]));
         while (mismatch_offset < match.mismatches.size() && match.mismatches[mismatch_offset] < limit) {
             if (sequence_offset < match.mismatches[mismatch_offset]) {
-                Edit exact_match;
+                Edit& exact_match = *(mapping.add_edit());
                 exact_match.set_from_length(match.mismatches[mismatch_offset] - sequence_offset);
                 exact_match.set_to_length(match.mismatches[mismatch_offset] - sequence_offset);
-                *(mapping.add_edit()) = exact_match;
             }
-            Edit mismatch;
+            Edit& mismatch = *(mapping.add_edit());
             mismatch.set_from_length(1);
             mismatch.set_to_length(1);
             mismatch.set_sequence(std::string(1, sequence[match.mismatches[mismatch_offset]]));
-            *(mapping.add_edit()) = mismatch;
             sequence_offset = match.mismatches[mismatch_offset] + 1;
             mismatch_offset++;
         }
         if (sequence_offset < limit) {
-            Edit exact_match;
+            Edit& exact_match = *(mapping.add_edit());
             exact_match.set_from_length(limit - sequence_offset);
             exact_match.set_to_length(limit - sequence_offset);
-            *(mapping.add_edit()) = exact_match;
             sequence_offset = limit;
         }
         mapping.set_rank(i + 1);
-        *(result.first.add_mapping()) = mapping;
         node_offset = 0;
     }
 
