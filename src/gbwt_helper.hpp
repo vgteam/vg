@@ -191,13 +191,6 @@ void for_each_window(const HandleGraph& graph, size_t window_size,
 
 //------------------------------------------------------------------------------
 
-/// Toy example: Align seq to graph using gapless extension from the given hits.
-/// For each hit, seq position .first corresponds to graph position .second.
-/// Returns true if the extension was successful. TODO: Remove.
-bool gapless_extension(const GBWTGraph& graph, const std::string& seq, const std::vector<std::pair<size_t, pos_t>>& hits, size_t max_errors);
-
-//------------------------------------------------------------------------------
-
 /// Transform the paths into a GBWT index. Primarily for testing.
 gbwt::GBWT get_gbwt(const std::vector<gbwt::vector_type>& paths);
 
