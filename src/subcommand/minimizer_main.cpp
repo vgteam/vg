@@ -65,9 +65,10 @@ void help_minimizer(char** argv) {
     std::cerr << "    -m, --max-occs N       do not locate minimizers with more than N occurrences" << std::endl;
     std::cerr << "    -e, --extend N         try gapless extension of unique hits with up to N mismatches (requires -g, -L)" << std::endl;
     std::cerr << "    -g, --gbwt-name X      extend using the GBWT index in file X" << std::endl;
+    std::cerr << "    -M, --min-unique N     only extend reads with at least N unique minimizers" << std::endl;
 }
 
-int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, bool progress);
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_unique, bool progress);
 
 int main_minimizer(int argc, char** argv) {
 
@@ -80,7 +81,7 @@ int main_minimizer(int argc, char** argv) {
     size_t kmer_length = MinimizerIndex::KMER_LENGTH;
     size_t window_length = MinimizerIndex::WINDOW_LENGTH;
     size_t max_occs = MinimizerIndex::MAX_OCCS;
-    size_t max_errors = 0;
+    size_t max_errors = 0, min_unique = 1;
     std::string index_name, load_index, gbwt_name, xg_name, reads_name, gcsa_name;
     bool progress = false, locate = false, gapless_extend = false;
     int threads = omp_get_max_threads();
@@ -102,11 +103,12 @@ int main_minimizer(int argc, char** argv) {
             { "gcsa-name", required_argument, 0, 'G' },
             { "locate", no_argument, 0, 'L' },
             { "extend", required_argument, 0, 'e' },
+            { "min-unique", required_argument, 0, 'M' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:Le:", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:Le:M:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -151,6 +153,9 @@ int main_minimizer(int argc, char** argv) {
             max_errors = parse<size_t>(optarg);
             gapless_extend = true;
             break;
+        case 'M':
+            min_unique = std::max(static_cast<size_t>(1), parse<size_t>(optarg));
+            break;
 
         case 'h':
         case '?':
@@ -190,7 +195,7 @@ int main_minimizer(int argc, char** argv) {
     std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length, max_occs));
     if (!load_index.empty()) {
         if (progress) {
-            std::cerr << "Loading the minimizer index from " << load_index << std::endl;
+            std::cerr << "Loading minimizer index " << load_index << std::endl;
         }
         index = stream::VPKG::load_one<MinimizerIndex>(load_index);
     }
@@ -212,7 +217,7 @@ int main_minimizer(int argc, char** argv) {
 
     // Run the benchmarks and return.
     if (!reads_name.empty()) {
-        return query_benchmarks(index, gbwt_graph, reads_name, gcsa_name, locate, max_occs, gapless_extend, max_errors, progress);
+        return query_benchmarks(index, gbwt_graph, reads_name, gcsa_name, locate, max_occs, gapless_extend, max_errors, min_unique, progress);
     }
 
     // Minimizer caching.
@@ -295,7 +300,7 @@ int main_minimizer(int argc, char** argv) {
     return 0;
 }
 
-int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, bool progress) {
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_unique, bool progress) {
 
     double start = gbwt::readTimer();
 
@@ -305,7 +310,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
     std::unique_ptr<gcsa::LCPArray> lcp_index;
     if (benchmark_gcsa) {
         if (progress) {
-            std::cerr << "Loading the GCSA index from " << gcsa_name << std::endl;
+            std::cerr << "Loading GCSA index " << gcsa_name << std::endl;
         }
         gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         std::string lcp_name = gcsa_name + gcsa::LCPArray::EXTENSION;
@@ -362,7 +367,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                         }
                     }
                 }
-                if (!hits.empty()) {
+                if (hits.size() >= min_unique) {
                     unique_counts[thread]++;
                     unique_min_counts[thread] += hits.size();
                     auto result = extender.extend_seeds(hits, reads[i], max_errors);
