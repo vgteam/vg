@@ -260,10 +260,12 @@ int main_gaffe(int argc, char** argv) {
         
         // Find minimizers in the query
         minimizers = minimizer_index->minimizers(aln.sequence());
+
+        size_t rejected_count = 0;
         
         for (size_t i = 0; i < minimizers.size(); i++) {
             // For each minimizer
-            if (hit_cap != 0 && minimizer_index->count(minimizers[i].first) <= hit_cap) {
+            if (hit_cap == 0 || minimizer_index->count(minimizers[i].first) <= hit_cap) {
                 // The minimizer is infrequent enough to be informative, so feed it into clustering
                 
                 // Locate it in the graph
@@ -272,8 +274,16 @@ int main_gaffe(int argc, char** argv) {
                     seeds.push_back(hit);
                     seed_to_source.push_back(i);
                 }
+            } else {
+                // The minimizer is too frequent
+                rejected_count++;
             }
         }
+
+#ifdef debug
+        cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
+        cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
+#endif
             
         // Cluster the seeds. Get sets of input seed indexes that go together.
         vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
@@ -307,6 +317,10 @@ int main_gaffe(int argc, char** argv) {
             // Turn that into a fraction
             read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
         }
+
+#ifdef debug
+        cerr << "Found " << clusters.size() << " clusters" << endl;
+#endif
         
         // Make a vector of cluster indexes to sort
         vector<size_t> cluster_indexes_in_order;
@@ -344,9 +358,13 @@ int main_gaffe(int argc, char** argv) {
             
             if (i < clusters.size()) {
                 // We have a cluster; it actually mapped
+
+#ifdef debug
+                cerr << "Cluster " << cluster_indexes_in_order[i] << " rank " << i << ": " << endl;
+#endif
             
                 // For each cluster
-                hash_set<size_t>& cluster = clusters[i];
+                hash_set<size_t>& cluster = clusters[cluster_indexes_in_order[i]];
                 
                 // Pack the seeds into (read position, graph position) pairs.
                 vector<pair<size_t, pos_t>> seed_matchings;
@@ -354,15 +372,21 @@ int main_gaffe(int argc, char** argv) {
                 for (auto& seed_index : cluster) {
                     // For each seed in the cluster, generate its matching pair
                     seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].second, seeds[seed_index]);
+#ifdef debug
+                    cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].second << " = " << seeds[seed_index]
+                        << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]].first) << ")" << endl;
+#endif
                 }
                 
                 // Extend seed hits in the cluster into a real alignment path and mismatch count.
                 std::pair<Path, size_t> extended = extender.extend_seeds(seed_matchings, aln.sequence());
                 auto& path = extended.first;
                 auto& mismatch_count = extended.second;
-            
-            
-            
+
+#ifdef debug
+                cerr << "Produced path with " << path.mapping_size() << " mappings and " << mismatch_count << " mismatches" << endl;
+#endif
+
                 if (path.mapping_size() != 0) {
                     // We have a mapping
                     
