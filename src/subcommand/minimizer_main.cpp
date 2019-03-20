@@ -342,6 +342,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         std::vector<size_t> min_counts(threads, 0);
         std::vector<size_t> occ_counts(threads, 0);
         std::vector<size_t> unique_counts(threads, 0);
+        std::vector<size_t> unique_min_counts(threads, 0);
         std::vector<size_t> success_counts(threads, 0);
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
@@ -363,6 +364,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                 }
                 if (!hits.empty()) {
                     unique_counts[thread]++;
+                    unique_min_counts[thread] += hits.size();
                     auto result = extender.extend_seeds(hits, reads[i], max_errors);
                     if (result.second <= max_errors) {
                         success_counts[thread]++;
@@ -375,11 +377,12 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
             }
         }
         size_t min_count = 0, occ_count = 0;
-        size_t unique_count = 0, success_count = 0;
+        size_t unique_count = 0, success_count = 0, unique_min_count = 0;
         for (size_t i = 0; i < threads; i++) {
             min_count += min_counts[i];
             occ_count += occ_counts[i];
             unique_count += unique_counts[i];
+            unique_min_count += unique_min_counts[i];
             success_count += success_counts[i];
         }
 
@@ -394,7 +397,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         std::cerr << "Minimizers (" << query_type << "): " << phase_seconds << " seconds (" << (reads.size() / phase_seconds) << " reads/second)" << std::endl;
         std::cerr << min_count << " minimizers with " << occ_count << " occurrences" << std::endl;
         if (gapless_extend) {
-            std::cerr << unique_count << " reads with unique hits, " << success_count << " successfully extended with up to " << max_errors << " mismatches" << std::endl;
+            std::cerr << unique_count << " reads with " << unique_min_count << " unique hits, " << success_count << " extended with up to " << max_errors << " mismatches" << std::endl;
         }
         std::cerr << std::endl;
     }
