@@ -70,8 +70,10 @@ int main_gaffe(int argc, char** argv) {
     // What FASTQs should we align.
     // Note: multiple FASTQs are not interpreted as paired.
     vector<string> fastq_filenames;
-    // How many mappigns per read can we emit?
+    // How many mappings per read can we emit?
     size_t max_multimaps = 1;
+    // How many clusters per read should we examine/extend?
+    size_t max_alignments = 10;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -330,12 +332,9 @@ int main_gaffe(int argc, char** argv) {
             aln.set_read_group(read_group);
         }
         
-        // How many multimaps will we produce?
-        size_t actual_multimaps = min(cluster_indexes_in_order.size(), max_multimaps);
-        
-        for (size_t i = 0; i < max(actual_multimaps, (size_t)1); i++) {
+        for (size_t i = 0; i < max(min(max_alignments, cluster_indexes_in_order.size()), (size_t)1); i++) {
             // For each output alignment we will produce (always at least 1,
-            // and possibly up to our multimap limit or the cluster count)
+            // and possibly up to our alignment limit or the cluster count)
             
             // Produce an output Alignment
             aligned.emplace_back(aln);
@@ -407,6 +406,11 @@ int main_gaffe(int argc, char** argv) {
             // Return true if a must come before b (i.e. it has a larger score)
             return a.score() > b.score();
         });
+        
+        if (aligned.size() > max_multimaps) {
+            // Drop the lowest scoring alignments
+            aligned.resize(max_multimaps);
+        }
         
         for (size_t i = 0; i < aligned.size(); i++) {
             // For each output alignment in score order
