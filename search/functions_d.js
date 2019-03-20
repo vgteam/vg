@@ -111,6 +111,8 @@ var searchData=
   ['mark_5fsmallvariant_5falignments',['mark_smallVariant_alignments',['../classvg_1_1Filter.html#a2ab59f83f673047f5c2106456c4426c3',1,'vg::Filter']]],
   ['mark_5fsv_5falignments',['mark_sv_alignments',['../classvg_1_1Filter.html#a267d55220fcf5239f12dcc852586bc71',1,'vg::Filter']]],
   ['markovdistribution',['MarkovDistribution',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a26aa251e0cb4297e7519261c5dede0be',1,'vg::NGSSimulator::MarkovDistribution']]],
+  ['match_5fbackward',['match_backward',['../namespacevg.html#af3985f24ec3e8b20036650347f4aa99f',1,'vg']]],
+  ['match_5fforward',['match_forward',['../namespacevg.html#ad95bfc09e181a26c1c053a97fc5e71b7',1,'vg']]],
   ['max',['max',['../classvg_1_1WideningPRNG.html#a2a25f9eb7531337f884266ef872647d2',1,'vg::WideningPRNG']]],
   ['max_5fflow_5fsort',['max_flow_sort',['../classvg_1_1FlowSort.html#a8a5d0ba61635331b2107ad3df4972ff1',1,'vg::FlowSort']]],
   ['max_5fkeys',['max_keys',['../classvg_1_1MinimizerIndex.html#aed8ae218af5cb419ba8845c7695d80bf',1,'vg::MinimizerIndex']]],

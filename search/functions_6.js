@@ -115,7 +115,6 @@ var searchData=
   ['force_5fparameters',['force_parameters',['../classvg_1_1FragmentLengthDistribution.html#a5751543486d54066f30e943ec188b279',1,'vg::FragmentLengthDistribution']]],
   ['format',['format',['../classVectorizer.html#a30aa5bafd8a44b2e1259245b6e046062',1,'Vectorizer']]],
   ['forward',['forward',['../classhandlegraph_1_1HandleGraph.html#a996223319f59bf614a02a78a3038bd89',1,'handlegraph::HandleGraph']]],
-  ['forward_5fmismatches',['forward_mismatches',['../namespacevg.html#a0e6ecfeef84444e01612d18bc7717a81',1,'vg']]],
   ['forwardize_5fbreakpoints',['forwardize_breakpoints',['../classvg_1_1VG.html#a9912608c8779ce01c6c6e06f86588311',1,'vg::VG']]],
   ['fragment_5fdirection',['fragment_direction',['../classvg_1_1FragmentLengthStatistics.html#af43d1fa0b2d07be1cd3f7d658fa932c5',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5flength_5flog_5flikelihood',['fragment_length_log_likelihood',['../classvg_1_1MultipathMapper.html#afff16271d32e6b5d43a9ae3d70a54ffd',1,'vg::MultipathMapper']]],

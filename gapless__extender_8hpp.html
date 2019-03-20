@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: src/gbwt_helper.cpp File Reference</title>
+<title>vg: src/gapless_extender.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -87,38 +87,26 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#namespaces">Namespaces</a> &#124;
-<a href="#func-members">Functions</a>  </div>
+<a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">gbwt_helper.cpp File Reference</div>  </div>
+<div class="title">gapless_extender.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="gbwt__helper_8hpp.html">gbwt_helper.hpp</a>&quot;</code><br/>
-<code>#include &lt;queue&gt;</code><br/>
-<code>#include &lt;stack&gt;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTTraversal.html">vg::GBWTTraversal</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html">vg::GaplessExtender</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
-Functions</h2></td></tr>
-<tr class="memitem:a3dd31a9e86a6919fd7982920effc743b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3dd31a9e86a6919fd7982920effc743b">vg::for_each_haplotype_window</a> (const GBWTGraph &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; handle_t &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
-<tr class="separator:a3dd31a9e86a6919fd7982920effc743b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a38deb09e330017467f53de09f96cfc14"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a38deb09e330017467f53de09f96cfc14">vg::for_each_window</a> (const HandleGraph &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; handle_t &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
-<tr class="memdesc:a38deb09e330017467f53de09f96cfc14"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all windows in the graph, running lambda on each.  <a href="#a38deb09e330017467f53de09f96cfc14">More...</a><br/></td></tr>
-<tr class="separator:a38deb09e330017467f53de09f96cfc14"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a571047c58b73b78d02a767c3ab6ec222"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">vg::get_gbwt</a> (const std::vector&lt; gbwt::vector_type &gt; &amp;paths)</td></tr>
-<tr class="memdesc:a571047c58b73b78d02a767c3ab6ec222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transform the paths into a GBWT index. Primarily for testing.  <a href="#a571047c58b73b78d02a767c3ab6ec222">More...</a><br/></td></tr>
-<tr class="separator:a571047c58b73b78d02a767c3ab6ec222"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Haplotype-consistent gapless seed extension. </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

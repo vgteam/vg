@@ -2,6 +2,8 @@ var searchData=
 [
   ['gamcompare_5fmain_2ecpp',['gamcompare_main.cpp',['../gamcompare__main_8cpp.html',1,'']]],
   ['gamsort_5fmain_2ecpp',['gamsort_main.cpp',['../gamsort__main_8cpp.html',1,'']]],
+  ['gapless_5fextender_2ecpp',['gapless_extender.cpp',['../gapless__extender_8cpp.html',1,'']]],
+  ['gapless_5fextender_2ehpp',['gapless_extender.hpp',['../gapless__extender_8hpp.html',1,'']]],
   ['gbwt_5fhelper_2ecpp',['gbwt_helper.cpp',['../gbwt__helper_8cpp.html',1,'']]],
   ['gbwt_5fhelper_2ehpp',['gbwt_helper.hpp',['../gbwt__helper_8hpp.html',1,'']]],
   ['gbwt_5fmain_2ecpp',['gbwt_main.cpp',['../gbwt__main_8cpp.html',1,'']]],

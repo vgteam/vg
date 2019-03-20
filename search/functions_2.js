@@ -6,7 +6,6 @@ var searchData=
   ['babuilder',['BABuilder',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a5b3be9bb6e0b7962713791917206cf88',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['back',['back',['../structhaplo_1_1gbwt__thread__t.html#ab5065d91b4e646d7585ac7dcec2d454a',1,'haplo::gbwt_thread_t::back()'],['../structhaplo_1_1gbwt__thread__t.html#a6bf90a265cec953154f2447c463c789b',1,'haplo::gbwt_thread_t::back() const ']]],
   ['backtracking_5funroll',['backtracking_unroll',['../classvg_1_1VG.html#a6f838bd143f7909838bf2139b15576ac',1,'vg::VG']]],
-  ['backward_5fmismatches',['backward_mismatches',['../namespacevg.html#a2f50ba16e4b1bf1986b5be5dabe1fc47',1,'vg']]],
   ['backwardsgraph',['BackwardsGraph',['../classvg_1_1BackwardsGraph.html#a8dccede07da490adf13d5a8d8f0d55ff',1,'vg::BackwardsGraph::BackwardsGraph(const HandleGraph *forward_graph)'],['../classvg_1_1BackwardsGraph.html#ac012ea673e9fea9f0bcc72127892a247',1,'vg::BackwardsGraph::BackwardsGraph()=default']]],
   ['balanced_5fkmers',['balanced_kmers',['../namespacevg.html#ab7caa49b187d9fc25833daa572cdf770',1,'vg']]],
   ['balanced_5fstride',['balanced_stride',['../namespacevg.html#a7211eb89509ce3ca625333936c08ec9b',1,'vg']]],

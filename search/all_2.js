@@ -15,7 +15,6 @@ var searchData=
   ['backtracking_5funroll',['backtracking_unroll',['../classvg_1_1VG.html#a6f838bd143f7909838bf2139b15576ac',1,'vg::VG']]],
   ['backward',['backward',['../classvg_1_1GFAToPinchTranslator.html#ab5db095d1129fa281112f460b6ba1332',1,'vg::GFAToPinchTranslator::backward()'],['../classvg_1_1NodeTraversal.html#a72105a87488c202b0326f4a5db46694c',1,'vg::NodeTraversal::backward()'],['../structvg_1_1KmerMatch.html#a412c20eb11307d010d98aac09f561865',1,'vg::KmerMatch::backward()'],['../structvg_1_1Visit.html#ae6f7470943b579f982246c3c581b6f21',1,'vg::Visit::backward()']]],
   ['backward_5fhas_5fdw',['BACKWARD_HAS_DW',['../crash_8cpp.html#aa5592fc113f9fea784f0727b6c3af74e',1,'crash.cpp']]],
-  ['backward_5fmismatches',['backward_mismatches',['../namespacevg.html#a2f50ba16e4b1bf1986b5be5dabe1fc47',1,'vg']]],
   ['backwards_5fgraph_2ecpp',['backwards_graph.cpp',['../backwards__graph_8cpp.html',1,'']]],
   ['backwards_5fgraph_2ehpp',['backwards_graph.hpp',['../backwards__graph_8hpp.html',1,'']]],
   ['backwardsgraph',['BackwardsGraph',['../classvg_1_1BackwardsGraph.html',1,'vg']]],

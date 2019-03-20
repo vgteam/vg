@@ -193,9 +193,11 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1FlowSort.html">FlowSort</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTTraversal.html">GBWTTraversal</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTTraversal.html">GBWTTraversal</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -986,19 +988,19 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="separator:ac3165438256db24864e88601839197df"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77c1cb6069f865239d0365b55649bc8a"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a77c1cb6069f865239d0365b55649bc8a">entropy</a> (const char *st, size_t len)</td></tr>
 <tr class="separator:a77c1cb6069f865239d0365b55649bc8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a398e4f8a73bd122ee1813d9cd7e03a69">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match)</td></tr>
+<tr class="separator:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad95bfc09e181a26c1c053a97fc5e71b7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad95bfc09e181a26c1c053a97fc5e71b7">match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, size_t error_bound)</td></tr>
+<tr class="separator:ad95bfc09e181a26c1c053a97fc5e71b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af3985f24ec3e8b20036650347f4aa99f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af3985f24ec3e8b20036650347f4aa99f">match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, size_t error_bound)</td></tr>
+<tr class="separator:af3985f24ec3e8b20036650347f4aa99f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac901927955affab3135a317d5fbd5e20"><td class="memItemLeft" align="right" valign="top">std::pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac901927955affab3135a317d5fbd5e20">gapless_match_to_path</a> (<a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph, const std::string &amp;sequence)</td></tr>
+<tr class="separator:ac901927955affab3135a317d5fbd5e20"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3dd31a9e86a6919fd7982920effc743b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3dd31a9e86a6919fd7982920effc743b">for_each_haplotype_window</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
 <tr class="separator:a3dd31a9e86a6919fd7982920effc743b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a38deb09e330017467f53de09f96cfc14"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a38deb09e330017467f53de09f96cfc14">for_each_window</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
 <tr class="memdesc:a38deb09e330017467f53de09f96cfc14"><td class="mdescLeft">&#160;</td><td class="mdescRight">Iterate over all windows in the graph, running lambda on each.  <a href="#a38deb09e330017467f53de09f96cfc14">More...</a><br/></td></tr>
 <tr class="separator:a38deb09e330017467f53de09f96cfc14"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a398e4f8a73bd122ee1813d9cd7e03a69">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match)</td></tr>
-<tr class="separator:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0e6ecfeef84444e01612d18bc7717a81"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0e6ecfeef84444e01612d18bc7717a81">forward_mismatches</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, size_t target_offset, <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, size_t error_bound)</td></tr>
-<tr class="separator:a0e6ecfeef84444e01612d18bc7717a81"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2f50ba16e4b1bf1986b5be5dabe1fc47"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2f50ba16e4b1bf1986b5be5dabe1fc47">backward_mismatches</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, size_t error_bound)</td></tr>
-<tr class="separator:a2f50ba16e4b1bf1986b5be5dabe1fc47"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a247386035f31fb61c43dca78cd245e45"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a247386035f31fb61c43dca78cd245e45">gapless_extension</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph, const std::string &amp;seq, const std::vector&lt; std::pair&lt; size_t, <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;hits, size_t max_errors)</td></tr>
-<tr class="separator:a247386035f31fb61c43dca78cd245e45"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a571047c58b73b78d02a767c3ab6ec222"><td class="memItemLeft" align="right" valign="top">gbwt::GBWT&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a571047c58b73b78d02a767c3ab6ec222">get_gbwt</a> (const std::vector&lt; gbwt::vector_type &gt; &amp;paths)</td></tr>
 <tr class="memdesc:a571047c58b73b78d02a767c3ab6ec222"><td class="mdescLeft">&#160;</td><td class="mdescRight">Transform the paths into a GBWT index. Primarily for testing.  <a href="#a571047c58b73b78d02a767c3ab6ec222">More...</a><br/></td></tr>
 <tr class="separator:a571047c58b73b78d02a767c3ab6ec222"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3170,44 +3172,6 @@ template&lt;typename Iter &gt; </div>
 <span class="mlabels"><span class="mlabel">inline</span></span>  </td>
   </tr>
 </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a2f50ba16e4b1bf1986b5be5dabe1fc47"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::backward_mismatches </td>
-          <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>seq</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::pair&lt; const char *, size_t &gt;&#160;</td>
-          <td class="paramname"><em>target</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">GaplessMatch &amp;&#160;</td>
-          <td class="paramname"><em>match</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>error_bound</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
 </div><div class="memdoc">
 
 </div>
@@ -5765,50 +5729,6 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a0e6ecfeef84444e01612d18bc7717a81"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::forward_mismatches </td>
-          <td>(</td>
-          <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>seq</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">std::pair&lt; const char *, size_t &gt;&#160;</td>
-          <td class="paramname"><em>target</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>target_offset</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">GaplessMatch &amp;&#160;</td>
-          <td class="paramname"><em>match</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>error_bound</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a83d1f079508a3ee8a2705773109a5a8e"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5902,13 +5822,19 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a247386035f31fb61c43dca78cd245e45"></a>
+<a class="anchor" id="ac901927955affab3135a317d5fbd5e20"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::gapless_extension </td>
+          <td class="memname">std::pair&lt;<a class="el" href="structvg_1_1Path.html">Path</a>, size_t&gt; vg::gapless_match_to_path </td>
           <td>(</td>
+          <td class="paramtype">GaplessMatch &amp;&#160;</td>
+          <td class="paramname"><em>match</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">const GBWTGraph &amp;&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
         </tr>
@@ -5916,19 +5842,7 @@ template&lt;class RandomIt &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::string &amp;&#160;</td>
-          <td class="paramname"><em>seq</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const std::vector&lt; std::pair&lt; size_t, pos_t &gt;&gt; &amp;&#160;</td>
-          <td class="paramname"><em>hits</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_errors</em>&#160;</td>
+          <td class="paramname"><em>sequence</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -5937,7 +5851,6 @@ template&lt;class RandomIt &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Toy example: Align seq to graph using gapless extension from the given hits. For each hit, seq position .first corresponds to graph position .second. Returns true if the extension was successful. TODO: Remove. </p>
 
 </div>
 </div>
@@ -8599,6 +8512,82 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
+<a class="anchor" id="af3985f24ec3e8b20036650347f4aa99f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::match_backward </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>seq</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::pair&lt; const char *, size_t &gt;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">GaplessMatch &amp;&#160;</td>
+          <td class="paramname"><em>match</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>error_bound</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ad95bfc09e181a26c1c053a97fc5e71b7"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::match_forward </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>seq</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::pair&lt; const char *, size_t &gt;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">GaplessMatch &amp;&#160;</td>
+          <td class="paramname"><em>match</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>error_bound</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a7b4eddcd66a511a113e44ae2589c7ce6"></a>
 <div class="memitem">
 <div class="memproto">
@@ -9756,6 +9745,32 @@ template&lt;typename Scalar &gt; </div>
 
 </div>
 </div>
+<a class="anchor" id="a398e4f8a73bd122ee1813d9cd7e03a69"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::ostream&amp; vg::operator&lt;&lt; </td>
+          <td>(</td>
+          <td class="paramtype">std::ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const GaplessMatch &amp;&#160;</td>
+          <td class="paramname"><em>match</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a7cc9c4d4d792e1e7f38c2c6009207706"></a>
 <div class="memitem">
 <div class="memproto">
@@ -10024,32 +10039,6 @@ template&lt;typename Scalar &gt; </div>
 </div><div class="memdoc">
 
 <p>Print a <a class="el" href="structvg_1_1kmer__t.html">kmer_t</a> to a stream. </p>
-
-</div>
-</div>
-<a class="anchor" id="a398e4f8a73bd122ee1813d9cd7e03a69"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">std::ostream&amp; vg::operator&lt;&lt; </td>
-          <td>(</td>
-          <td class="paramtype">std::ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const GaplessMatch &amp;&#160;</td>
-          <td class="paramname"><em>match</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>

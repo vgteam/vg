@@ -8,7 +8,7 @@ var searchData=
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
   ['off_5fmask',['OFF_MASK',['../classvg_1_1MinimizerIndex.html#a2fc676c781d0dfa963b5d549fd375847',1,'vg::MinimizerIndex']]],
   ['off_5ft',['off_t',['../namespacevg.html#a9cdb6d0305bd8cbf46efed9b2799877a',1,'vg::off_t()'],['../namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462',1,'handlegraph::off_t()']]],
-  ['offset',['offset',['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()'],['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg::offset()']]],
+  ['offset',['offset',['../structvg_1_1GaplessMatch.html#ab292ae1f8fc20b77bf4240180bc130e5',1,'vg::GaplessMatch::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()'],['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg::offset()']]],
   ['offset_5fat_5fposition',['offset_at_position',['../classxg_1_1XGPath.html#a04977ce25eff23220765586de660b37c',1,'xg::XGPath']]],
   ['offsets',['offsets',['../classvg_1_1GBWTGraph.html#a74d8cfa8cdde319046b070b83b75d196',1,'vg::GBWTGraph::offsets()'],['../classxg_1_1XGPath.html#a68ff3492845d876329b9a6a3381ced86',1,'xg::XGPath::offsets()']]],
   ['offsets_5fin_5fpaths',['offsets_in_paths',['../classxg_1_1XG.html#a617f491c2728965b2022f9b9c6ff6913',1,'xg::XG']]],

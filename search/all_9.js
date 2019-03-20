@@ -165,6 +165,6 @@ var searchData=
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]],
   ['iteratee_2ehpp',['iteratee.hpp',['../iteratee_8hpp.html',1,'']]],
   ['iterator',['iterator',['../structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482',1,'vg::PathIndex::iterator()'],['../classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096',1,'vg::ShuffledPairs::iterator::iterator(const iterator &amp;other)=default'],['../classvg_1_1ShuffledPairs_1_1iterator.html#a3b52dd39c46e409ef1bfd67ab8ee76e4',1,'vg::ShuffledPairs::iterator::iterator(const ShuffledPairs &amp;iteratee, size_t start_at)'],['../classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441',1,'vg::PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode *haplo_node)'],['../classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf',1,'vg::PhasedGenome::iterator::iterator()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a03bdcb94d8ed8b6e895ff003412185e4',1,'vg::PhasedGenome::iterator::iterator(const iterator &amp;other)']]],
-  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]],
-  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]]
+  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]],
+  ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]]
 ];
