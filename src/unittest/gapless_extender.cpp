@@ -123,17 +123,17 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
     GaplessExtender extender(gbwt_graph);
 
     SECTION("read matches exactly") {
-        std::string read = "GGTACA";
+        std::string read = "GTACA";
         std::vector<std::pair<pos_t, std::string>> correct_alignment {
-            { make_pos_t(4, false, 1), "2" },
+            { make_pos_t(4, false, 2), "1" },
             { make_pos_t(5, false, 0), "1" },
             { make_pos_t(6, false, 0), "1" },
             { make_pos_t(7, false, 0), "1" },
             { make_pos_t(9, false, 0), "1" }
         };
         std::vector<std::pair<size_t, pos_t>> cluster {
-            { 1, make_pos_t(4, false, 2) },
-            { 3, make_pos_t(6, false, 0) }
+            { 0, make_pos_t(4, false, 2) },
+            { 2, make_pos_t(6, false, 0) }
         };
         size_t error_bound = 0;
         auto result = extender.extend_seeds(cluster, read, error_bound);

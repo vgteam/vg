@@ -44,11 +44,11 @@ std::ostream& operator<<(std::ostream& out, const GaplessMatch& match) {
     return out;
 }
 
-// Match forward, starting from the target offset given in the match.
-void match_forward(const std::string& seq, std::pair<const char*, size_t> target,
+// Match forward, starting from the given target offset.
+void match_forward(const std::string& seq, std::pair<const char*, size_t> target, size_t target_offset,
                    GaplessMatch& match, size_t error_bound) {
-    while (match.limit < seq.length() && match.offset < target.second) {
-        if (seq[match.limit] != target.first[match.offset]) {
+    while (match.limit < seq.length() && target_offset < target.second) {
+        if (seq[match.limit] != target.first[target_offset]) {
             match.score++;
             if (match.score < error_bound) {
                 match.mismatches.push_back(match.limit);
@@ -57,11 +57,11 @@ void match_forward(const std::string& seq, std::pair<const char*, size_t> target
             }
         }
         match.limit++;
-        match.offset++;
+        target_offset++;
     }
 }
 
-// Match backward, starting from the end of the target.
+// Match backward, starting from the end of the target and updating match offset.
 void match_backward(const std::string& seq, std::pair<const char*, size_t> target,
                     GaplessMatch& match, size_t error_bound) {
     match.offset = target.second;
@@ -167,7 +167,7 @@ std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size
                 { },
                 { }            
             };
-            match_forward(sequence, this->graph->get_sequence_view(handle), match, best_match.score);
+            match_forward(sequence, this->graph->get_sequence_view(handle), match.offset, match, best_match.score);
             if (match.score >= best_match.score) { 
                 continue;
             } else {
@@ -199,12 +199,12 @@ std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size
                 GaplessMatch next {
                     curr.score,
                     curr.start, curr.limit,
-                    static_cast<size_t>(0),
+                    curr.offset,
                     next_state,
                     { },
                     { }
                 };
-                match_forward(sequence, this->graph->get_sequence_view(handle), next, best_match.score);
+                match_forward(sequence, this->graph->get_sequence_view(handle), 0, next, best_match.score);
                 if (next.score >= best_match.score) {
                     return true;
                 } else {
@@ -241,7 +241,7 @@ std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size
                 GaplessMatch next {
                     curr.score,
                     curr.start, curr.limit,
-                    static_cast<size_t>(0), // This will be replaced in match_backward().
+                    curr.offset, // This will be replaced in match_backward().
                     next_state,
                     { },
                     { }
