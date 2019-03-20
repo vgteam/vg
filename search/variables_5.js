@@ -39,6 +39,7 @@ var searchData=
   ['endpoints',['endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a2b1f1d67a76ef6de89f8f30bd794f603',1,'vg::GraphSynchronizer::Lock']]],
   ['entries',['entries',['../structhaplo_1_1haplo__DP__column.html#aa46ab429b8d5eba3919e2c1cbf2e9a4e',1,'haplo::haplo_DP_column']]],
   ['exclude_5funaligned',['exclude_unaligned',['../classvg_1_1BaseMapper.html#ac71be220eec4224b249a6536db70bbe5',1,'vg::BaseMapper']]],
+  ['excluded_5ffeatures',['excluded_features',['../classvg_1_1ReadFilter.html#acacb1ca6d956c7cab4e2f6c93db0ceb2',1,'vg::ReadFilter']]],
   ['excluded_5frefpos_5fcontigs',['excluded_refpos_contigs',['../classvg_1_1ReadFilter.html#a3b80df71a29a718b34af1becfe821026',1,'vg::ReadFilter']]],
   ['exp_5frho',['exp_rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7979b3ef938f0a887ea1b5511d33e9f6',1,'haplo::haploMath::RRMemo']]],
   ['expected_5fcoverage',['expected_coverage',['../classvg_1_1SupportCaller.html#a72cd919ebff400d32250e4f0882929f4',1,'vg::SupportCaller']]],

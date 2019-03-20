@@ -124,6 +124,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a3b80df71a29a718b34af1becfe821026"><td class="memItemLeft" align="right" valign="top">vector&lt; regex &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a3b80df71a29a718b34af1becfe821026">excluded_refpos_contigs</a></td></tr>
 <tr class="memdesc:a3b80df71a29a718b34af1becfe821026"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read must not have a refpos set with a contig name containing a match to any of these.  <a href="#a3b80df71a29a718b34af1becfe821026">More...</a><br/></td></tr>
 <tr class="separator:a3b80df71a29a718b34af1becfe821026"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acacb1ca6d956c7cab4e2f6c93db0ceb2"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#acacb1ca6d956c7cab4e2f6c93db0ceb2">excluded_features</a></td></tr>
+<tr class="separator:acacb1ca6d956c7cab4e2f6c93db0ceb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8f0ecf4f3140e483ba93592231929dbb"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a8f0ecf4f3140e483ba93592231929dbb">min_secondary</a> = 0.</td></tr>
 <tr class="separator:a8f0ecf4f3140e483ba93592231929dbb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a17dbd2182c6cf4816c1fe22ae60e2a01"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a17dbd2182c6cf4816c1fe22ae60e2a01">min_primary</a> = 0.</td></tr>
@@ -144,26 +146,35 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aa1d1564e0834e1236d104da7045a4894"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4d1bcac75fda8d439384ba8c09c780cf"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a4d1bcac75fda8d439384ba8c09c780cf">repeat_size</a> = 0</td></tr>
 <tr class="separator:a4d1bcac75fda8d439384ba8c09c780cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0d85ffe55c3074f0b5f9664465fec883"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a0d85ffe55c3074f0b5f9664465fec883">defray_length</a> = 0</td></tr>
-<tr class="separator:a0d85ffe55c3074f0b5f9664465fec883"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac7397dca610aa815fd6a1abac7d67b5c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ac7397dca610aa815fd6a1abac7d67b5c">defray_count</a> = 99999</td></tr>
-<tr class="separator:ac7397dca610aa815fd6a1abac7d67b5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6eba4b03f0f697ae6540a255dd7b0627"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a6eba4b03f0f697ae6540a255dd7b0627">drop_split</a> = false</td></tr>
+<tr class="memdesc:a6eba4b03f0f697ae6540a255dd7b0627"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should we drop split reads that follow edges not in the graph?  <a href="#a6eba4b03f0f697ae6540a255dd7b0627">More...</a><br/></td></tr>
 <tr class="separator:a6eba4b03f0f697ae6540a255dd7b0627"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af11c0f9ba830e35a5b92a041b0a24ded"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#af11c0f9ba830e35a5b92a041b0a24ded">downsample_probability</a> = 1.0</td></tr>
+<tr class="memdesc:af11c0f9ba830e35a5b92a041b0a24ded"><td class="mdescLeft">&#160;</td><td class="mdescRight">We can also pseudorandomly drop reads. What's the probability that we keep a read?  <a href="#af11c0f9ba830e35a5b92a041b0a24ded">More...</a><br/></td></tr>
 <tr class="separator:af11c0f9ba830e35a5b92a041b0a24ded"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acad7bd40167b335fee96b0475a625aef"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#acad7bd40167b335fee96b0475a625aef">downsample_seed_mask</a> = 0</td></tr>
 <tr class="separator:acad7bd40167b335fee96b0475a625aef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0d85ffe55c3074f0b5f9664465fec883"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a0d85ffe55c3074f0b5f9664465fec883">defray_length</a> = 0</td></tr>
+<tr class="separator:a0d85ffe55c3074f0b5f9664465fec883"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac7397dca610aa815fd6a1abac7d67b5c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ac7397dca610aa815fd6a1abac7d67b5c">defray_count</a> = 99999</td></tr>
+<tr class="memdesc:ac7397dca610aa815fd6a1abac7d67b5c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Limit defray recursion to visit this many nodes.  <a href="#ac7397dca610aa815fd6a1abac7d67b5c">More...</a><br/></td></tr>
+<tr class="separator:ac7397dca610aa815fd6a1abac7d67b5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a22e4ebb26cce954d20deb7b0d7a31641"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a22e4ebb26cce954d20deb7b0d7a31641">threads</a> = -1</td></tr>
+<tr class="memdesc:a22e4ebb26cce954d20deb7b0d7a31641"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of threads from omp.  <a href="#a22e4ebb26cce954d20deb7b0d7a31641">More...</a><br/></td></tr>
 <tr class="separator:a22e4ebb26cce954d20deb7b0d7a31641"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad5aa58e55aa8546d0e555a90b7b1ac1a"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ad5aa58e55aa8546d0e555a90b7b1ac1a">buffer_size</a> = 512</td></tr>
+<tr class="memdesc:ad5aa58e55aa8546d0e555a90b7b1ac1a"><td class="mdescLeft">&#160;</td><td class="mdescRight">GAM output buffer size.  <a href="#ad5aa58e55aa8546d0e555a90b7b1ac1a">More...</a><br/></td></tr>
 <tr class="separator:ad5aa58e55aa8546d0e555a90b7b1ac1a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad5bab332dd50a2b84e4bb7798fabd349"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349">write_output</a> = true</td></tr>
 <tr class="separator:ad5bab332dd50a2b84e4bb7798fabd349"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a12f14eed67e334ea2c08ee5e1a2aaa3c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classxg_1_1XG.html">xg::XG</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a12f14eed67e334ea2c08ee5e1a2aaa3c">xindex</a> = nullptr</td></tr>
+<tr class="memdesc:a12f14eed67e334ea2c08ee5e1a2aaa3c"><td class="mdescLeft">&#160;</td><td class="mdescRight">An XG index is required for some filters (Note: <a class="el" href="classvg_1_1ReadFilter.html">ReadFilter</a> doesn't own/free this)  <a href="#a12f14eed67e334ea2c08ee5e1a2aaa3c">More...</a><br/></td></tr>
 <tr class="separator:a12f14eed67e334ea2c08ee5e1a2aaa3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a30a2dea40e9afefb8e7e4e1827a5c109">interleaved</a> = false</td></tr>
+<tr class="memdesc:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="mdescLeft">&#160;</td><td class="mdescRight">Interleaved input.  <a href="#a30a2dea40e9afefb8e7e4e1827a5c109">More...</a><br/></td></tr>
 <tr class="separator:a30a2dea40e9afefb8e7e4e1827a5c109"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acc075968b0c08ed7ad4f2cb0a837ef95"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#acc075968b0c08ed7ad4f2cb0a837ef95">filter_on_all</a> = false</td></tr>
+<tr class="separator:acc075968b0c08ed7ad4f2cb0a837ef95"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52c77d9ed319e6f7cf3e38582621fce1"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a52c77d9ed319e6f7cf3e38582621fce1">min_base_quality</a> = 0</td></tr>
 <tr class="separator:a52c77d9ed319e6f7cf3e38582621fce1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6e494cd5be020669694244d1f3ffc4c6"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReadFilter.html#a6e494cd5be020669694244d1f3ffc4c6">min_base_quality_fraction</a> = 0.0</td></tr>
@@ -413,6 +424,8 @@ Private Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>GAM output buffer size. </p>
+
 </div>
 </div>
 <a class="anchor" id="a7a22a82c55e23fca581060934d03935e"></a>
@@ -439,6 +452,8 @@ Private Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>Limit defray recursion to visit this many nodes. </p>
+
 </div>
 </div>
 <a class="anchor" id="a0d85ffe55c3074f0b5f9664465fec883"></a>
@@ -450,6 +465,7 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>How far in from the end should we look for ambiguous end alignment to clip off? </p>
 
 </div>
 </div>
@@ -463,6 +479,8 @@ Private Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>We can also pseudorandomly drop reads. What's the probability that we keep a read? </p>
+
 </div>
 </div>
 <a class="anchor" id="acad7bd40167b335fee96b0475a625aef"></a>
@@ -474,6 +492,7 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Samtools-compatible internal seed mask, for deciding which read pairs to keep. To be generated with rand() after srand() from the user-visible seed. </p>
 
 </div>
 </div>
@@ -486,6 +505,21 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Should we drop split reads that follow edges not in the graph? </p>
+
+</div>
+</div>
+<a class="anchor" id="acacb1ca6d956c7cab4e2f6c93db0ceb2"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_set&lt;string&gt; vg::ReadFilter::excluded_features</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>If a read has one of the features in this set as annotations, the read is filtered out. </p>
 
 </div>
 </div>
@@ -500,6 +534,19 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Read must not have a refpos set with a contig name containing a match to any of these. </p>
+
+</div>
+</div>
+<a class="anchor" id="acc075968b0c08ed7ad4f2cb0a837ef95"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::ReadFilter::filter_on_all = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>When outputting paired reads, fail the pair only if both (all) reads fail (true) instead of if either (any) read fails (false) </p>
 
 </div>
 </div>
@@ -524,6 +571,8 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>Interleaved input. </p>
 
 </div>
 </div>
@@ -645,6 +694,7 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Should we rescore each alignment with default parameters and no e.g. haplotype info? </p>
 
 </div>
 </div>
@@ -670,6 +720,8 @@ Private Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
+<p>Number of threads from omp. </p>
+
 </div>
 </div>
 <a class="anchor" id="a2ad1a1b72ee0b450fe79340451893cfa"></a>
@@ -693,6 +745,7 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Sometimes we only want a report, and not a filtered gam. toggling off output speeds things up considerably. </p>
 
 </div>
 </div>
@@ -705,6 +758,8 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>An XG index is required for some filters (Note: <a class="el" href="classvg_1_1ReadFilter.html">ReadFilter</a> doesn't own/free this) </p>
 
 </div>
 </div>
