@@ -295,8 +295,8 @@ namespace unittest {
     }//end test case
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 100; i++) {
-            //1000 different graphs
+        for (int i = 0; i < 1; i++) {
+            // For each random graph
             VG graph = randomGraph(1000, 20, 100);
 
 
