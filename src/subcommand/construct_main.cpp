@@ -33,6 +33,7 @@ void help_construct(char** argv) {
          << "    -I, --insertions FILE  a FASTA file containing insertion sequences "<< endl
          << "                           (referred to in VCF) to add to graph." << endl
          << "    -f, --flat-alts N      don't chop up alternate alleles from input VCF" << endl
+         << "    -i, --no-trim-indels   don't remove the 1bp reference base from alt alleles of indels." << endl
          << "construct from a multiple sequence alignment:" << endl
          << "    -M, --msa FILE         input multiple sequence alignment" << endl
          << "    -F, --msa-format       format of the MSA file (options: fasta, clustal; default fasta)" << endl
@@ -90,11 +91,12 @@ int main_construct(int argc, char** argv) {
                 {"region-is-chrom", no_argument, 0, 'C'},
                 {"node-max", required_argument, 0, 'm'},\
                 {"flat-alts", no_argument, 0, 'f'},
+                {"no-trim-indels", no_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:i",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -117,6 +119,10 @@ int main_construct(int argc, char** argv) {
             
         case 'd':
             keep_paths = false;
+            break;
+
+        case 'i':
+            constructor.trim_indels = false;
             break;
 
         case 'r':

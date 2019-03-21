@@ -606,6 +606,16 @@ bool SnarlManager::chain_orientation_of(const Snarl* snarl) const {
     return false;
 }
 
+size_t SnarlManager::chain_rank_of(const Snarl* snarl) const { 
+    const Chain* chain = chain_of(snarl);
+    if (chain != nullptr) {
+        // The index is a perfectly good rank.
+        return record(snarl)->parent_chain_index;
+    }
+    // If you're in a single-snarl chain you are at index 0.
+    return 0;
+}
+
 bool SnarlManager::in_nontrivial_chain(const Snarl* here) const {
     return chain_of(here)->size() > 1;
 }

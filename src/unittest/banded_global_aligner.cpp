@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include "catch.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "vg.hpp"
 #include "path.hpp"
 #include "banded_global_aligner.hpp"
