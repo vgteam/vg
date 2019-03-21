@@ -1,4 +1,4 @@
-    /**
+/**
  * \file mpmap_main.cpp: multipath mapping of reads to a graph
  */
 
@@ -927,17 +927,31 @@ int main_mpmap(int argc, char** argv) {
     }
     // TODO: Allow using haplo::XGScoreProvider?
     
-    SnarlManager* snarl_manager = nullptr;
+    unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
-        snarl_manager = new SnarlManager(snarl_stream);
+        snarl_manager = stream::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
-    DistanceIndex* distance_index = nullptr;
+    unique_ptr<DistanceIndex> distance_index;
     if (!distance_index_name.empty()) {
-        distance_index = new DistanceIndex(xg_index.get(), snarl_manager, distance_index_stream);
+        // We want a diatance index.
+        // We know we have an XG already.
+        // But we don't know that we have a snarl manager.
+        if (!snarl_manager) {
+            cerr << "error:[vg mpmap] distance index requires snarls (-s)" << endl;
+            exit(1);
+        }
+        
+        // Load the index
+        distance_index = stream::VPKG::load_one<DistanceIndex>(distance_index_stream);
+        
+        // Hook it up
+        distance_index->setGraph(xg_index.get());
+        distance_index->setSnarlManager(snarl_manager.get());
     }
     
-    MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider, snarl_manager, distance_index);
+    MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider,
+        snarl_manager.get(), distance_index.get());
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
@@ -1439,10 +1453,6 @@ int main_mpmap(int argc, char** argv) {
     //cerr << "attempted to split " << OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER << " of " << OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER << " clusters with " << OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER << " splits successful (" << 100.0 * double(OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER) / OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER << "%) resulting in " << OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER << " total clusters (" << OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER - OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER << " new)" << endl;
     //cerr << "entered secondary rescue " << MultipathMapper::SECONDARY_RESCUE_TOTAL << " times with " << MultipathMapper::SECONDARY_RESCUE_COUNT << " actually attempting rescues, totaling " << MultipathMapper::SECONDARY_RESCUE_ATTEMPT << " rescues (" << double(MultipathMapper::SECONDARY_RESCUE_ATTEMPT) / MultipathMapper::SECONDARY_RESCUE_COUNT << " average per attempt)" << endl;
     
-    if (snarl_manager != nullptr) {
-        delete snarl_manager;
-    }
-   
     if (haplo_score_provider != nullptr) {
         delete haplo_score_provider;
     }
@@ -1451,10 +1461,6 @@ int main_mpmap(int argc, char** argv) {
         delete sublinearLS;
     }
    
-    if (distance_index != nullptr) {
-        delete distance_index;
-    }
-    
     return 0;
 }
 

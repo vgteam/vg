@@ -16,18 +16,27 @@ class DistanceIndex {
     public: 
     //Constructor 
     //Cap is the distance up to which the maximum distance will give a reliable bound - if there is a path with length greater than cap, then cap may be returned
-    DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, uint64_t cap);
+    DistanceIndex (const HandleGraph* vg, const SnarlManager* snarlManager, uint64_t cap);
 
     //Constructor to load index from serialization 
-    DistanceIndex (HandleGraph* vg, SnarlManager* snarlManager, istream& in);
-  
+    DistanceIndex (const HandleGraph* vg, const SnarlManager* snarlManager, istream& in);
+    
+    //Constructor to load index from serialization when graph and snarl manager are not immediately available.
+    //User must call setGraph and setSnarlManager before using the index.
+    DistanceIndex (istream& in);
+    
+    //Associate the DistanceIndex with the given graph. Graph must not be null.
+    void setGraph(const HandleGraph* new_graph);
+    
+    //Associate the DistanceIndex with the given SnarlManager. The snarl manager must not be null.
+    void setSnarlManager(const SnarlManager* new_manager);
+    
     //Serialize object into out
-    void serialize(ostream& out);
+    void serialize(ostream& out) const;
 
-    //Load serialized object from in
+    //Load serialized object from in. Does not rely on the internal graph or snarl manager pointers.
     void load(istream& in);
-
-
+    
     /*Get the minimum distance between two position
      *If there is no path between the two positions then the distance is -1
      */
@@ -74,7 +83,8 @@ class DistanceIndex {
             //Constructor
             SnarlIndex(DistanceIndex* di,
                           unordered_set<pair<id_t, bool>>& allNodes, 
-                          pair<id_t, bool> start, pair<id_t, bool> end);
+                          pair<id_t, bool> start, pair<id_t, bool> end,
+                          pair<id_t, bool> parentNode);
            
             //Construct from vector - inverse of toVector
             SnarlIndex(DistanceIndex* di, vector<int64_t> v);
@@ -84,13 +94,12 @@ class DistanceIndex {
                         [visit to index as list of node ids in order of index] +
                         [distances]
             */
-            vector<int64_t>  toVector();
+            vector<int64_t>  toVector() const;
             
             //Distance between beginning of node start and beginning of node end
             //Bool is true if the node is traversed in reverse
             //Only works for nodes heading their chains (which represent the chains), or snarl boundaries.
-            int64_t snarlDistance(HandleGraph* graph,NetGraph* ng,pair<id_t, bool> start,
-                                                         pair<id_t, bool> end);
+            int64_t snarlDistance(pair<id_t, bool> start, pair<id_t, bool> end);
 
  
             //Distance between end of node start and beginning of node end
@@ -105,17 +114,17 @@ class DistanceIndex {
             //Length of a node in the netgraph of the snarl
             //If it is a node, then the length of the node. If it is a snarl or
             //chain, then the shortest distance between the boundaries
-            int64_t nodeLength(HandleGraph*graph, NetGraph* ng,  id_t node);
+            int64_t nodeLength(id_t node);
         
             //Total length of the snarl-shortest distance from start to end
             //including the lengths of boundary nodes
-            int64_t snarlLength(HandleGraph* graph, NetGraph* ng);
+            int64_t snarlLength();
 
             /*Given distances from a position to either end of a node, find the
               shortest distance from that position to the start and end nodes of
               the snarl
             */
-            pair<int64_t, int64_t> distToEnds(HandleGraph* graph, NetGraph* ng, 
+            pair<int64_t, int64_t> distToEnds(const HandleGraph* graph, NetGraph* ng, 
                              id_t node, bool rev, int64_t distL, int64_t distR);
 
             void printSelf();
@@ -123,12 +132,18 @@ class DistanceIndex {
         protected:
 
             //Maps node to index to get its distance
-            hash_map< pair<id_t, bool>, size_t> visitToIndex;
+            //Maps fd node to an index, reverse node is fd index * 2
+            hash_map< id_t, size_t> visitToIndex;
  
-             /*Store the distance between every pair nodes, -1 indicates no path
+             /*Store the distance between every pair nodes, not including the 
+             lengths of the nodes. 
+             The lengths of each of the nodes are stored as the first n entries
+             Distances stored are 1 greater than actual distances 
+             -1 (stored as 0) indicates no path
              For child snarls that are unary or only connected to one node
              in the snarl, distances between that node leaving the snarl
              and any other node is -1
+             
              */
             int_vector<> distances;
 
@@ -137,6 +152,9 @@ class DistanceIndex {
  
             //End facing out of snarl
             pair<id_t, bool> snarlEnd;           
+
+            //Parent snarl or chain. If this is a root, parent is <0, false>
+            pair<id_t, bool> parent;
 
             //The index into distances for distance start->end
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
@@ -147,6 +165,7 @@ class DistanceIndex {
 
 
         friend class DistanceIndex;
+        friend class SnarlSeedClusterer;
         friend class TestDistanceIndex;
     };
 
@@ -157,7 +176,7 @@ class DistanceIndex {
         
             //Constructor
             ChainIndex(DistanceIndex* di, id_t start, id_t end,
-                         hash_map<id_t, size_t> s, 
+                        pair<id_t, bool> parentNode,  hash_map<id_t, size_t> s, 
                          vector<int64_t> p, vector<int64_t> fd, 
                           vector<int64_t> rev );
 
@@ -168,7 +187,7 @@ class DistanceIndex {
                stored as [chainStartID, chainEndID, node_id1, prefixsum1 start,
                            prefixsum1 end, loopfd1, loopfd2, node_id2, ...]
             */
-            vector<int64_t> toVector();
+            vector<int64_t> toVector() const;
        
             /** 
              * Distance between two node sides in a chain. id_t values specify
@@ -189,7 +208,7 @@ class DistanceIndex {
              * Returns the distance from the **opposite** side of the start
              * node to the specified side of the end node.
              */
-            int64_t chainDistanceShort(HandleGraph* graph, 
+            int64_t chainDistanceShort(const HandleGraph* graph, 
                                 pair<id_t, bool> start, pair<id_t, bool> end,
                                 const Snarl* startSnarl, const Snarl* endSnarl);
 
@@ -219,6 +238,8 @@ class DistanceIndex {
 
             id_t chainStartID;
             id_t chainEndID;
+            //Parent snarl. If this is a root, parent is <0, false>
+            pair<id_t, bool> parent;
 
 
         
@@ -231,6 +252,7 @@ class DistanceIndex {
             DistanceIndex* distIndex; 
 
         friend class DistanceIndex;   
+        friend class SnarlSeedClusterer;
         friend class TestDistanceIndex;
     }; 
  
@@ -287,9 +309,9 @@ class DistanceIndex {
     hash_map<id_t, ChainIndex> chainDistances;
 
     //Graph and snarl manager for this index
-    HandleGraph* graph;
+    const HandleGraph* graph;
 
-    SnarlManager* sm;
+    const SnarlManager* sm;
 
 
     /*Index to find the snarl containing a node
@@ -316,7 +338,7 @@ class DistanceIndex {
 
 
     //Helper function for constructor - populate node to snarl
-    int_vector<> calculateNodeToSnarl(SnarlManager* sm);
+    int_vector<> calculateNodeToSnarl(const SnarlManager* sm);
 
 
     /*Minimum distance of a loop that involves node or edge
@@ -343,6 +365,7 @@ class DistanceIndex {
     int64_t checkChainLoopRev(id_t snarl, size_t index);
     friend class SnarlIndex;
     friend class ChainIndex;
+    friend class SnarlSeedClusterer;
     friend class TestDistanceIndex;
 
 

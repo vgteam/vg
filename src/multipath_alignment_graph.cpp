@@ -3364,6 +3364,15 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
+                    connecting_graph.for_each_handle([&](const handle_t& handle) {
+                        cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                        connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            cerr << "\t-> " << connecting_graph.get_id(next) << endl;
+                        });
+                        connecting_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                        });
+                    });
 #endif
                     
                     if (!alignment.quality().empty()) {
@@ -3496,7 +3505,6 @@ namespace vg {
             // want past-the-last instead of last index here
             get_offset(end_pos)++;
             
-                    
             for (const Alignment& tail_alignment : alt_alignments) {
                 
                 sink_subpath->add_next(multipath_aln_out.subpath_size());
@@ -3616,9 +3624,6 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // remove the empty anchoring nodes that this algorithm sometimes creates
-                    groom_graph_for_gssw(tail_graph);
-                    
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                     
@@ -3635,40 +3640,20 @@ namespace vg {
                         
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                        tail_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                        });
 #endif
                         
+                        // align against the graph
                         auto& alt_alignments = right_alignments[j];
-                        if (tail_graph.node_size() == 0) {
-                            // edge case for when a read keeps going past the end of a graph
-                            alt_alignments.emplace_back();
-                            Alignment& tail_alignment = alt_alignments.back();
-                            tail_alignment.set_score(aligner->score_gap(right_tail_sequence.sequence().size()));
-                            Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
-                            
-                            // add a soft clip
-                            Edit* edit = insert_mapping->add_edit();
-                            edit->set_to_length(right_tail_sequence.sequence().size());
-                            edit->set_sequence(right_tail_sequence.sequence());
-                            
-                            // make it at the correct position
-                            const Path& anchoring_path = path_nodes.at(j).path;
-                            const Mapping& anchoring_mapping = anchoring_path.mapping(anchoring_path.mapping_size() - 1);
-                            Position* anchoring_position = insert_mapping->mutable_position();
-                            anchoring_position->set_node_id(anchoring_mapping.position().node_id());
-                            anchoring_position->set_is_reverse(anchoring_mapping.position().is_reverse());
-                            anchoring_position->set_offset(anchoring_mapping.position().offset() + mapping_from_length(anchoring_mapping));
-#ifdef debug_multipath_alignment
-                            cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
-#endif
-                            // the ID translator is empty, so add this ID here so it doesn't give an out of index error
-                            id_t node_id = insert_mapping->position().node_id();
-                            tail_trans[node_id] = node_id;
-                        }
-                        else {
-                            // align against the graph
-                            
-                            aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                        }
+                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the left end of the cut node relative to end_pos
@@ -3727,9 +3712,6 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // remove the empty anchoring nodes that this algorithm sometimes creates
-                    groom_graph_for_gssw(tail_graph);
-                    
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                             
@@ -3741,36 +3723,22 @@ namespace vg {
                             left_tail_sequence.set_quality(alignment.quality().substr(0, path_node.begin - alignment.sequence().begin()));
                         }
                         
-                        
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
+                        tail_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                        });
 #endif
                         
+                        // align against the graph
                         auto& alt_alignments = left_alignments[j];
-                        if (tail_graph.node_size() == 0) {
-                            // edge case for when a read keeps going past the end of a graph
-                            alt_alignments.emplace_back();
-                            Alignment& tail_alignment = alt_alignments.back();
-                            tail_alignment.set_score(aligner->score_gap(left_tail_sequence.sequence().size()));
-                            Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
-                            
-                            // add a soft clip
-                            Edit* edit = insert_mapping->add_edit();
-                            edit->set_to_length(left_tail_sequence.sequence().size());
-                            edit->set_sequence(left_tail_sequence.sequence());
-                            
-                            // make it at the correct position
-                            *insert_mapping->mutable_position() = path_nodes.at(j).path.mapping(0).position();
-#ifdef debug_multipath_alignment
-                            cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
-#endif
-                            // the ID translator is empty, so add this ID here so it doesn't give an out of index error
-                            id_t node_id = insert_mapping->position().node_id();
-                            tail_trans[node_id] = node_id;
-                        }
-                        else {
-                            aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
-                        }
+                        aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the right end of the cut node relative to begin_pos
@@ -3799,21 +3767,6 @@ namespace vg {
         
         // Return all the alignments, organized by tail and subpath
         return to_return;
-    }
-    
-    void MultipathAlignmentGraph::groom_graph_for_gssw(DeletableHandleGraph& graph) {
-        
-        // collect all of the empty node IDs without doing any edits
-        vector<id_t> empty_nodes;
-        graph.for_each_handle([&](const handle_t& handle) {
-            if (graph.get_length(handle) == 0) {
-                empty_nodes.push_back(graph.get_id(handle));
-            }
-        });
-        // go through and delete them now that we're done iterating
-        for (const id_t& node_id : empty_nodes) {
-            graph.destroy_handle(graph.get_handle(node_id));
-        }
     }
     
     bool MultipathAlignmentGraph::empty() {

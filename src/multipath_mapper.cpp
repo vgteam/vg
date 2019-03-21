@@ -3491,6 +3491,16 @@ namespace vg {
         // the scores of the optimal alignments and fragments, ignoring population
         vector<double> base_scores(multipath_aln_pairs.size(), 0.0);
         
+#ifdef debug_multipath_mapper
+        // trackers that let us keep track of the alignment and population components separately
+        vector<pair<double, double>> chosen_align_score(multipath_aln_pairs.size(),
+                                                        make_pair(numeric_limits<double>::quiet_NaN(),
+                                                                  numeric_limits<double>::quiet_NaN()));
+        vector<pair<double, double>> chosen_population_score(multipath_aln_pairs.size(),
+                                                             make_pair(numeric_limits<double>::quiet_NaN(),
+                                                                       numeric_limits<double>::quiet_NaN()));
+#endif
+        
         // the scores of the optimal alignments and fragments, accounting for population
         vector<double> pop_adjusted_scores;
         if (include_population_component) {
@@ -3633,6 +3643,16 @@ namespace vg {
                                 best_total_score[end] = total_score;
                                 best_pop_score[end] = pop_score.first / log_base;
                                 have_best_linearization[end] = true;
+#ifdef debug_multipath_mapper
+                                if (end == 0) {
+                                    chosen_align_score[i].first = alignments[end][j].score();
+                                    chosen_population_score[i].first = pop_score.first / log_base;
+                                }
+                                else {
+                                    chosen_align_score[i].second = alignments[end][j].score();
+                                    chosen_population_score[i].second = pop_score.first / log_base;
+                                }
+#endif
                             }
                             
                         }
@@ -3726,6 +3746,10 @@ namespace vg {
                 std::swap(scores[index[i]], scores[i]);
                 std::swap(cluster_pairs[index[i]], cluster_pairs[i]);
                 std::swap(multipath_aln_pairs[index[i]], multipath_aln_pairs[i]);
+#ifdef debug_multipath_mapper
+                std::swap(chosen_align_score[index[i]], chosen_align_score[i]);
+                std::swap(chosen_population_score[index[i]], chosen_population_score[i]);
+#endif
                 std::swap(index[index[i]], index[i]);
                 
             }
@@ -3744,7 +3768,7 @@ namespace vg {
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
             << ", length: " << cluster_pairs[i].second;
             if (include_population_component && all_multipaths_pop_consistent) {
-                cerr << ", pop: " << scores[i] - base_scores[i];
+                cerr << ", pop adjusted aligns: " << chosen_align_score[i].first << " " << chosen_align_score[i].second << ", population: " << chosen_population_score[i].first << " " << chosen_population_score[i].second;
             }
             cerr << ", combined: " << scores[i] << endl;
         }

@@ -317,6 +317,11 @@ public:
         // We shouldn't ever be saving something we don't know how to save.
         assert(tag_and_saver != nullptr);
         
+        if (!out) {
+            cerr << "error[VPKG::save]: Could not write to stream while saving " << describe<Have>() << endl;
+            exit(1);
+        }
+        
         // Make an emitter to emit tagged messages
         MessageEmitter emitter(out);
         
@@ -339,6 +344,11 @@ public:
         } else {
             // Open the file
             ofstream open_file(filename.c_str());
+            
+            if (!open_file) {
+                cerr << "error[VPKG::save]: Could not open " << filename << " while saving " << describe<Have>() << endl;
+                exit(1);
+            }
             
             // Save to it
             save<Have>(have, open_file);
