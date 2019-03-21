@@ -1083,13 +1083,13 @@ namespace vg {
             if (prefix_idx > 0 || suffix_idx + 1 < path_node.path.mapping_size()) {
                 
                 // compute the amount of read we're trimming off from each end
-                int64_t trimmed_prefix_from_length = 0;
-                int64_t trimmed_suffix_from_length = 0;
+                int64_t trimmed_prefix_to_length = 0;
+                int64_t trimmed_suffix_to_length = 0;
                 for (int64_t i = 0; i < prefix_idx; i++) {
-                    trimmed_prefix_from_length += mapping_from_length(path_node.path.mapping(i));
+                    trimmed_prefix_to_length += mapping_to_length(path_node.path.mapping(i));
                 }
                 for (int64_t i = suffix_idx + 1; i < path_node.path.mapping_size(); i++) {
-                    trimmed_suffix_from_length += mapping_from_length(path_node.path.mapping(i));
+                    trimmed_suffix_to_length += mapping_to_length(path_node.path.mapping(i));
                 }
                 
                 // replace the path with the portion that we didn't trim
@@ -1106,8 +1106,8 @@ namespace vg {
                 cerr << "trimmed path: " << pb2json(path_node.path) << endl;
 #endif
                 // update the read interval
-                path_node.begin += trimmed_prefix_from_length;
-                path_node.end -= trimmed_suffix_from_length;
+                path_node.begin += trimmed_prefix_to_length;
+                path_node.end -= trimmed_suffix_to_length;
             }
         }
     }
