@@ -22,6 +22,12 @@
 #include "../alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 
+//#define USE_CALLGRIND
+
+#ifdef USE_CALLGRIND
+#include <valgrind/callgrind.h>
+#endif
+
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
@@ -243,6 +249,11 @@ int main_gaffe(int argc, char** argv) {
     
     // Set up output to an emitter that will handle serialization
     unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {});
+
+#ifdef USE_CALLGRIND
+    // We want to profile the alignment, not the loading.
+    CALLGRIND_START_INSTRUMENTATION;
+#endif
     
     // Define how to align and output a read, in a thread.
     auto map_read = [&](Alignment& aln) {
