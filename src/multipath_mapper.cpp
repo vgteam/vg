@@ -151,6 +151,11 @@ namespace vg {
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
                                       log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
+            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
@@ -200,6 +205,13 @@ namespace vg {
         // Compute the pairs of cluster graphs and their approximate distances from each other
         if (use_tvs_clusterer) {
             TVSClusterer clusterer(xindex, distance_index);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(10.0 * fragment_length_distr.stdev()));
+        }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
             return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
                                            alt_anchors_1, alt_anchors_2,
                                            fragment_length_distr.mean(),
