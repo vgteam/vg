@@ -151,6 +151,11 @@ namespace vg {
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
                                       log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
+            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
@@ -205,6 +210,13 @@ namespace vg {
                                            fragment_length_distr.mean(),
                                            ceil(10.0 * fragment_length_distr.stdev()));
         }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(10.0 * fragment_length_distr.stdev()));
+        }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
             return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
@@ -223,7 +235,7 @@ namespace vg {
         
         
 #ifdef debug_multipath_mapper
-        cerr << "aligning to subgraphs..." << endl;
+        cerr << "aligning to (up to) " << cluster_graphs.size() << " subgraphs..." << endl;
 #endif
       
         // we may need to compute an extra mapping above the one we'll report if we're computing mapping quality
@@ -2935,6 +2947,9 @@ namespace vg {
 
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&align_graph)) {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "graph contains directed cycles, performing dagification" << endl;
+#endif
             // make a dagified graph and translation
             HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);

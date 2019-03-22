@@ -1,3 +1,9 @@
+/**
+ * \file dagify.cpp
+ *
+ * Defines an algorithm to convert a single-stranded graph into a DAG
+ */
+
 //#define debug_dagify
 
 #include "dagify.hpp"
