@@ -4,7 +4,7 @@ var searchData=
   ['h_5fiv',['h_iv',['../classxg_1_1XG.html#ae9a5cc096db7d4713d87cf36e485e2b4',1,'xg::XG']]],
   ['handle',['handle',['../structvg_1_1HashGraph_1_1path__mapping__t.html#ab2136ffc2343352ac2c578bab15aca5b',1,'vg::HashGraph::path_mapping_t']]],
   ['handle_5fbase_5foption',['handle_base_option',['../classvg_1_1ConfigurableParser.html#a0c39f36cf64d91a336afaac0604ff9f0',1,'vg::ConfigurableParser']]],
-  ['handle_5fgraph',['handle_graph',['../classvg_1_1TargetValueSearch.html#a99dd4b74b5894a228a6d31174ca322de',1,'vg::TargetValueSearch']]],
+  ['handle_5fgraph',['handle_graph',['../classvg_1_1TargetValueSearch.html#a99dd4b74b5894a228a6d31174ca322de',1,'vg::TargetValueSearch::handle_graph()'],['../classvg_1_1MinDistanceClusterer.html#a6bc0aa3fb6df2824a2fe88f941312f09',1,'vg::MinDistanceClusterer::handle_graph()']]],
   ['handle_5fmemo',['handle_memo',['../classvg_1_1PathOrientedDistanceMeasurer.html#a73fae6600abc1114e0f28b1cd9e74ee4',1,'vg::PathOrientedDistanceMeasurer']]],
   ['handler',['handler',['../namespacevg_1_1temp__file.html#aa56e128945837a80feb29edaeb6fdf3b',1,'vg::temp_file']]],
   ['haplo_5fnode',['haplo_node',['../classvg_1_1PhasedGenome_1_1iterator.html#a1ae0c6a2bdb23511f58dc2986b36117e',1,'vg::PhasedGenome::iterator']]],

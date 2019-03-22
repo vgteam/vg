@@ -10,6 +10,7 @@ var searchData=
   ['memchainmodel',['MEMChainModel',['../classvg_1_1MEMChainModel.html',1,'vg']]],
   ['memchainmodelvertex',['MEMChainModelVertex',['../classvg_1_1MEMChainModelVertex.html',1,'vg']]],
   ['memclusterer',['MEMClusterer',['../classvg_1_1MEMClusterer.html',1,'vg']]],
+  ['mindistanceclusterer',['MinDistanceClusterer',['../classvg_1_1MinDistanceClusterer.html',1,'vg']]],
   ['minimizerindex',['MinimizerIndex',['../classvg_1_1MinimizerIndex.html',1,'vg']]],
   ['msaconverter',['MSAConverter',['../classvg_1_1MSAConverter.html',1,'vg']]],
   ['multipathalignment',['MultipathAlignment',['../structvg_1_1MultipathAlignment.html',1,'vg']]],

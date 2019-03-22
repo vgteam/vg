@@ -105,8 +105,9 @@ Inheritance diagram for vg::MEMClusterer:</div>
  <div class="center">
   <img src="classvg_1_1MEMClusterer.png" usemap="#vg::MEMClusterer_map" alt=""/>
   <map id="vg::MEMClusterer_map" name="vg::MEMClusterer_map">
-<area href="classvg_1_1OrientedDistanceClusterer.html" alt="vg::OrientedDistanceClusterer" shape="rect" coords="0,56,182,80"/>
-<area href="classvg_1_1TVSClusterer.html" alt="vg::TVSClusterer" shape="rect" coords="192,56,374,80"/>
+<area href="classvg_1_1MinDistanceClusterer.html" alt="vg::MinDistanceClusterer" shape="rect" coords="0,56,182,80"/>
+<area href="classvg_1_1OrientedDistanceClusterer.html" alt="vg::OrientedDistanceClusterer" shape="rect" coords="192,56,374,80"/>
+<area href="classvg_1_1TVSClusterer.html" alt="vg::TVSClusterer" shape="rect" coords="384,56,566,80"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -416,7 +417,7 @@ Protected Member Functions</h2></td></tr>
 </div><div class="memdoc">
 <p>Initializes a hit graph and adds edges to it, this must be implemented by any inheriting class </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1TVSClusterer.html#aabdbd5086c66e1f0193c870532e82789">vg::TVSClusterer</a>, and <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a7bcda4e626cbd4dd7fda99f952a3ef72">vg::OrientedDistanceClusterer</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1MinDistanceClusterer.html#a6830e17ff5aa27717dae558dbacfd948">vg::MinDistanceClusterer</a>, <a class="el" href="classvg_1_1TVSClusterer.html#aabdbd5086c66e1f0193c870532e82789">vg::TVSClusterer</a>, and <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a7bcda4e626cbd4dd7fda99f952a3ef72">vg::OrientedDistanceClusterer</a>.</p>
 
 </div>
 </div>
@@ -490,7 +491,7 @@ Protected Member Functions</h2></td></tr>
 <p>Given two vectors of clusters, an xg index, and bounds on the distance between clusters, returns a vector of pairs of cluster numbers (one in each vector) matched with the estimated distance.</p>
 <p>Clusters are assumed to be located at the position of the first MEM hit they contain. Optionally, additional MEMs may be identied as possible anchors for the cluster. Additional anchors are provided as pairs of (cluster index, MEM index within cluster). Only one result will be returned per pair of clusters regardless of how many alternate anchors are given. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1TVSClusterer.html#a1477ce3367e036c0ecc101e1518b49b9">vg::TVSClusterer</a>, and <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a41e57b46abd69532d53855499d5042eb">vg::OrientedDistanceClusterer</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1MinDistanceClusterer.html#af561001a20cc91adc6238f74edca6480">vg::MinDistanceClusterer</a>, <a class="el" href="classvg_1_1TVSClusterer.html#a1477ce3367e036c0ecc101e1518b49b9">vg::TVSClusterer</a>, and <a class="el" href="classvg_1_1OrientedDistanceClusterer.html#a41e57b46abd69532d53855499d5042eb">vg::OrientedDistanceClusterer</a>.</p>
 
 </div>
 </div>
