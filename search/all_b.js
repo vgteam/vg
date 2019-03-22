@@ -31,7 +31,7 @@ var searchData=
   ['kmer_2ecpp',['kmer.cpp',['../kmer_8cpp.html',1,'']]],
   ['kmer_2ehpp',['kmer.hpp',['../kmer_8hpp.html',1,'']]],
   ['kmer_5fentry_5fto_5fstring',['kmer_entry_to_string',['../classvg_1_1Index.html#a390728092e37532a1e36a417952e21b7',1,'vg::Index']]],
-  ['kmer_5flength',['kmer_length',['../structPruningParameters.html#ae3cd0ffe16bbdd3d2d5092ef57f4219a',1,'PruningParameters::kmer_length()'],['../classvg_1_1MinimizerIndex.html#acec9b26ef8d1d8b587a6750f095b7f63',1,'vg::MinimizerIndex::KMER_LENGTH()']]],
+  ['kmer_5flength',['KMER_LENGTH',['../classvg_1_1MinimizerIndex.html#acec9b26ef8d1d8b587a6750f095b7f63',1,'vg::MinimizerIndex::KMER_LENGTH()'],['../structPruningParameters.html#ae3cd0ffe16bbdd3d2d5092ef57f4219a',1,'PruningParameters::kmer_length()']]],
   ['kmer_5fmask',['KMER_MASK',['../classvg_1_1MinimizerIndex.html#a8c1fc3739dd821d99001c26c7390b0f2',1,'vg::MinimizerIndex']]],
   ['kmer_5fmatches',['kmer_matches',['../classvg_1_1Index.html#a2cf8b8ad22bf41d6a30ac488ead6b52c',1,'vg::Index']]],
   ['kmer_5fmax_5flength',['KMER_MAX_LENGTH',['../classvg_1_1MinimizerIndex.html#aeda9b97e4641875d158688597f09fb43',1,'vg::MinimizerIndex']]],

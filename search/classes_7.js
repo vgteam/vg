@@ -29,7 +29,6 @@ var searchData=
   ['hash_5fmap_3c_20int64_5ft_2c_20nodemap_20_3e',['hash_map&lt; int64_t, NodeMap &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20int64_5ft_2c_20vg_3a_3ahashgraph_3a_3apath_5ft_20_3e',['hash_map&lt; int64_t, vg::HashGraph::path_t &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20k_20_2a_2c_20v_20_3e',['hash_map&lt; K *, V &gt;',['../classvg_1_1hash__map_3_01K_01_5_00_01V_01_4.html',1,'vg']]],
-  ['hash_5fmap_3c_20pair_3c_20id_5ft_2c_20bool_20_3e_2c_20size_5ft_20_3e',['hash_map&lt; pair&lt; id_t, bool &gt;, size_t &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20vg_3a_3aedge_20_2a_2c_20int_20_3e',['hash_map&lt; vg::Edge *, int &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20vg_3a_3anode_20_2a_2c_20int_20_3e',['hash_map&lt; vg::Node *, int &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fnode_5ftraversal',['hash_node_traversal',['../structvg_1_1Genotyper_1_1hash__node__traversal.html',1,'vg::Genotyper']]],

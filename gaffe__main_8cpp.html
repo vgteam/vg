@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: Namespace Members</title>
+<title>vg: src/subcommand/gaffe_main.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -38,9 +38,9 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   <div id="navrow1" class="tabs">
     <ul class="tablist">
       <li><a href="index.html"><span>Main&#160;Page</span></a></li>
-      <li class="current"><a href="namespaces.html"><span>Namespaces</span></a></li>
+      <li><a href="namespaces.html"><span>Namespaces</span></a></li>
       <li><a href="annotated.html"><span>Classes</span></a></li>
-      <li><a href="files.html"><span>Files</span></a></li>
+      <li class="current"><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
         <span class="left">
@@ -61,21 +61,10 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
   <div id="navrow2" class="tabs2">
     <ul class="tablist">
-      <li><a href="namespaces.html"><span>Namespace&#160;List</span></a></li>
-      <li class="current"><a href="namespacemembers.html"><span>Namespace&#160;Members</span></a></li>
+      <li><a href="files.html"><span>File&#160;List</span></a></li>
+      <li><a href="globals.html"><span>File&#160;Members</span></a></li>
     </ul>
   </div>
-  <div id="navrow3" class="tabs2">
-    <ul class="tablist">
-      <li><a href="namespacemembers.html"><span>All</span></a></li>
-      <li><a href="namespacemembers_func.html"><span>Functions</span></a></li>
-      <li class="current"><a href="namespacemembers_vars.html"><span>Variables</span></a></li>
-      <li><a href="namespacemembers_type.html"><span>Typedefs</span></a></li>
-      <li><a href="namespacemembers_enum.html"><span>Enumerations</span></a></li>
-      <li><a href="namespacemembers_eval.html"><span>Enumerator</span></a></li>
-    </ul>
-  </div>
-</div><!-- top -->
 <!-- window showing the filter options -->
 <div id="MSearchSelectWindow"
      onmouseover="return searchBox.OnSearchSelectShow()"
@@ -90,33 +79,88 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </iframe>
 </div>
 
+<div id="nav-path" class="navpath">
+  <ul>
+<li class="navelem"><a class="el" href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a class="el" href="dir_94786e3396b40c0f51bdede03caaa4e5.html">subcommand</a></li>  </ul>
+</div>
+</div><!-- top -->
+<div class="header">
+  <div class="summary">
+<a href="#func-members">Functions</a>  </div>
+  <div class="headertitle">
+<div class="title">gaffe_main.cpp File Reference</div>  </div>
+</div><!--header-->
 <div class="contents">
-&#160;<ul>
-<li>BAM_DNA_LOOKUP
-: <a class="el" href="namespacevg.html#ade7204b42260155b9a98a6d18c24a0b7">vg</a>
-</li>
-<li>fullTrace
-: <a class="el" href="namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2">vg</a>
-</li>
-<li>handler
-: <a class="el" href="namespacevg_1_1temp__file.html#aa56e128945837a80feb29edaeb6fdf3b">vg::temp_file</a>
-</li>
-<li>has_next
-: <a class="el" href="namespacevg.html#a632e52e19127579980cfd54dfddeb811">vg</a>
-</li>
-<li>monitor
-: <a class="el" href="namespacevg_1_1temp__file.html#a26a051eff4fa35591fa94d8190d9709d">vg::temp_file</a>
-</li>
-<li>temp_dir
-: <a class="el" href="namespacevg_1_1temp__file.html#a67738993d4bd500b48df3e75ceed7ba7">vg::temp_file</a>
-</li>
-<li>var
-: <a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">vg</a>
-</li>
-<li>warn_on_score_fail
-: <a class="el" href="namespacehaplo.html#ab22b0954ba9062360178078ce504f1c2">haplo</a>
-</li>
-</ul>
+<div class="textblock"><code>#include &lt;omp.h&gt;</code><br/>
+<code>#include &lt;unistd.h&gt;</code><br/>
+<code>#include &lt;getopt.h&gt;</code><br/>
+<code>#include &lt;iostream&gt;</code><br/>
+<code>#include &lt;cassert&gt;</code><br/>
+<code>#include &lt;vector&gt;</code><br/>
+<code>#include &lt;unordered_set&gt;</code><br/>
+<code>#include &lt;chrono&gt;</code><br/>
+<code>#include &quot;<a class="el" href="subcommand_8hpp.html">subcommand.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="seed__clusterer_8hpp.html">../seed_clusterer.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="mapper_8hpp.html">../mapper.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="annotation_8hpp.html">../annotation.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="minimizer_8hpp.html">../minimizer.hpp</a>&quot;</code><br/>
+<code>#include &quot;../stream/vpkg.hpp&quot;</code><br/>
+<code>#include &quot;../stream/stream.hpp&quot;</code><br/>
+<code>#include &quot;<a class="el" href="alignment__emitter_8hpp.html">../alignment_emitter.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="gapless__extender_8hpp.html">../gapless_extender.hpp</a>&quot;</code><br/>
+</div><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a330f8726ab12d530391acf194e4ac41f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gaffe__main_8cpp.html#a330f8726ab12d530391acf194e4ac41f">help_gaffe</a> (char **argv)</td></tr>
+<tr class="separator:a330f8726ab12d530391acf194e4ac41f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3131a55cb5486239011406daa81f7e5f"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gaffe__main_8cpp.html#a3131a55cb5486239011406daa81f7e5f">main_gaffe</a> (int argc, char **argv)</td></tr>
+<tr class="separator:a3131a55cb5486239011406daa81f7e5f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>: GFA (Graph Alignment Format) Fast Emitter: a new mapper that will be <em>extremely</em> fast once we actually write it </p>
+</div><h2 class="groupheader">Function Documentation</h2>
+<a class="anchor" id="a330f8726ab12d530391acf194e4ac41f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void help_gaffe </td>
+          <td>(</td>
+          <td class="paramtype">char **&#160;</td>
+          <td class="paramname"><em>argv</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a3131a55cb5486239011406daa81f7e5f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int main_gaffe </td>
+          <td>(</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>argc</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char **&#160;</td>
+          <td class="paramname"><em>argv</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->

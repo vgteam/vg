@@ -2,6 +2,7 @@ var searchData=
 [
   ['sampler',['Sampler',['../classvg_1_1Sampler.html',1,'vg']]],
   ['scoreprovider',['ScoreProvider',['../classhaplo_1_1ScoreProvider.html',1,'haplo']]],
+  ['seed_5findex_5flist',['seed_index_list',['../structvg_1_1SnarlSeedClusterer_1_1seed__index__list.html',1,'vg::SnarlSeedClusterer']]],
   ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs.html',1,'vg']]],
   ['simpleconsistencycalculator',['SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html',1,'vg']]],
   ['simpletraversalsupportcalculator',['SimpleTraversalSupportCalculator',['../classvg_1_1SimpleTraversalSupportCalculator.html',1,'vg']]],
@@ -13,6 +14,7 @@ var searchData=
   ['snarlmindistance',['SnarlMinDistance',['../classvg_1_1SnarlMinDistance.html',1,'vg']]],
   ['snarlorienteddistancemeasurer',['SnarlOrientedDistanceMeasurer',['../classvg_1_1SnarlOrientedDistanceMeasurer.html',1,'vg']]],
   ['snarlrecord',['SnarlRecord',['../structvg_1_1SnarlManager_1_1SnarlRecord.html',1,'vg::SnarlManager']]],
+  ['snarlseedclusterer',['SnarlSeedClusterer',['../classvg_1_1SnarlSeedClusterer.html',1,'vg']]],
   ['snarlstate',['SnarlState',['../classvg_1_1SnarlState.html',1,'vg']]],
   ['snarltraversal',['SnarlTraversal',['../structvg_1_1SnarlTraversal.html',1,'vg']]],
   ['snvvector',['SNVvector',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html',1,'haplo::linear_haplo_structure']]],

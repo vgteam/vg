@@ -151,7 +151,7 @@ var searchData=
   ['force_5fparameters',['force_parameters',['../classvg_1_1FragmentLengthDistribution.html#a5751543486d54066f30e943ec188b279',1,'vg::FragmentLengthDistribution']]],
   ['forefronts',['forefronts',['../classvg_1_1XdropAligner.html#ae3a4b6a0f8a31895f99ec6e59c2b732c',1,'vg::XdropAligner']]],
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t']]],
-  ['format',['format',['../classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761',1,'vg::HTSAlignmentEmitter::format()'],['../classvg_1_1SupportCaller.html#af9e9a4ecc2f56ea8fe5ac2cba6ddc42e',1,'vg::SupportCaller::format()'],['../classVectorizer.html#a30aa5bafd8a44b2e1259245b6e046062',1,'Vectorizer::format()']]],
+  ['format',['format',['../classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761',1,'vg::HTSAlignmentEmitter::format()'],['../classVectorizer.html#a30aa5bafd8a44b2e1259245b6e046062',1,'Vectorizer::format()']]],
   ['forward',['forward',['../classvg_1_1GFAToPinchTranslator.html#aa2bde3e3f2d943225f23715afa4a2f6e',1,'vg::GFAToPinchTranslator::forward()'],['../structvg_1_1Support.html#afe50d5886e57f3ff8594bddb90dfc8fa',1,'vg::Support::forward()'],['../classhandlegraph_1_1HandleGraph.html#a996223319f59bf614a02a78a3038bd89',1,'handlegraph::HandleGraph::forward()']]],
   ['forward_5fgraph',['forward_graph',['../classvg_1_1BackwardsGraph.html#a9387c529c83c9868a84a1689ff873d55',1,'vg::BackwardsGraph']]],
   ['forward_5fonly',['forward_only',['../classvg_1_1Sampler.html#a5d105468c850a483ff1b7696b1da7507',1,'vg::Sampler']]],

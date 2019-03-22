@@ -50,6 +50,7 @@ var searchData=
   ['contig_5fname_5foverrides',['contig_name_overrides',['../classvg_1_1SupportCaller.html#a6d89567cf42fb8cb646001046c55d0cc',1,'vg::SupportCaller']]],
   ['control_5fmean',['control_mean',['../structvg_1_1BenchmarkResult.html#a54072b6e4cb8401a4784e9e20b3ca6de',1,'vg::BenchmarkResult']]],
   ['control_5fstddev',['control_stddev',['../structvg_1_1BenchmarkResult.html#ac6db5580a02c1860981365245812304e',1,'vg::BenchmarkResult']]],
+  ['convert_5fto_5fvcf',['convert_to_vcf',['../classvg_1_1SupportCaller.html#a363b181f0b11a99ca083c84ad3e3e20f',1,'vg::SupportCaller']]],
   ['correct',['correct',['../structvg_1_1Alignment.html#a07751b50cfb9c985fccc2c701bfc55fc',1,'vg::Alignment']]],
   ['correctly_5fmapped',['correctly_mapped',['../structvg_1_1Alignment.html#a9ec303e39d844ec1e6289ddfbcdd7911',1,'vg::Alignment']]],
   ['count',['count',['../structvg_1_1HashGraph_1_1path__t.html#aceff47fb61a0df65396b55600facdb07',1,'vg::HashGraph::path_t']]],

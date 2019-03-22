@@ -47,7 +47,7 @@ var searchData=
   ['total_5fsupports',['total_supports',['../structvg_1_1BREAKPOINT.html#afc10d66ae6dad31e2086963bc6e34a06',1,'vg::BREAKPOINT']]],
   ['totalsup',['totalSup',['../namespacevg.html#a35bab41ee9f0370c0b4233acea61658b',1,'vg']]],
   ['touppercase',['toUppercase',['../namespacevg.html#a00a949105ae94b18ca72452a442b8ddb',1,'vg']]],
-  ['tovector',['toVector',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#a3b374d1135042b74cfe8f01cee50fb19',1,'vg::DistanceIndex::SnarlIndex::toVector()'],['../classvg_1_1DistanceIndex_1_1ChainIndex.html#a1c4d5cf34220c34fa8f04f9bd25c4557',1,'vg::DistanceIndex::ChainIndex::toVector()']]],
+  ['tovector',['toVector',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#a9a2028cf79a9aac0a56b53254b78120b',1,'vg::DistanceIndex::SnarlIndex::toVector()'],['../classvg_1_1DistanceIndex_1_1ChainIndex.html#ae2fa48b2a79a85d80c77877d24e9186c',1,'vg::DistanceIndex::ChainIndex::toVector()']]],
   ['trace',['trace',['../classvg_1_1SnarlState.html#a0035e60db21d7b025e667ec240921bb8',1,'vg::SnarlState']]],
   ['trace_5fhaplotype',['trace_haplotype',['../classvg_1_1GenomeState.html#ae913ac64674d5fbf8abaa1ac7d18a102',1,'vg::GenomeState']]],
   ['trace_5fhaplotypes_5fand_5fpaths',['trace_haplotypes_and_paths',['../namespacevg.html#a2fa834f81743ae8666dd9071ce1b6443',1,'vg']]],
