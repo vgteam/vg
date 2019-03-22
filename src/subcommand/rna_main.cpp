@@ -58,7 +58,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool show_progress = false;
 
     int32_t c;
-    optind = 2; // force optind past command positional argument
+    optind = 2;
 
     while (true) {
         static struct option long_options[] =
@@ -139,7 +139,6 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'h':
         case '?':
-            /* getopt_long already printed an error message. */
             help_rna(argv);
             exit(1);
             break;
@@ -168,7 +167,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     if (show_progress) { cerr << "[vg rna] Parsing graph file ..." << endl; }
     
-    // Load the graph
+    // Load the variation graph.
     VG* graph = nullptr;
     get_input_file(optind, argc, argv, [&](istream& in) {
         graph = new VG(in, show_progress);
@@ -183,14 +182,17 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     if (!haplotypes_filename.empty()) {
 
+        // Load haplotype GBWT index.
         if (show_progress) { cerr << "[vg rna] Parsing haplotype GBWT index file ..." << endl; }
         haplotype_index = stream::VPKG::load_one<gbwt::GBWT>(haplotypes_filename);
     
     } else {
 
+        // Construct empty GBWT index if no is given. 
         haplotype_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
     }
 
+    // Construct transcriptome and set member variables.
     Transcriptome transcriptome;
 
     transcriptome.num_threads = num_threads;
@@ -199,10 +201,9 @@ int32_t main_rna(int32_t argc, char** argv) {
     transcriptome.collapse_transcript_paths = collapse_transcript_paths;
     transcriptome.filter_reference_transcript_paths = filter_reference_transcript_paths;
 
-    auto time1 = std::chrono::system_clock::now();
-
     if (show_progress) { cerr << "[vg rna] Parsing and projecting transcripts ..." << endl; }
 
+    // Add transcript to transcriptome.
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
@@ -210,28 +211,33 @@ int32_t main_rna(int32_t argc, char** argv) {
         });
     }
 
-    haplotype_index.reset();
-
-    auto time2 = std::chrono::system_clock::now();
-    cerr << "Time (s): " << std::chrono::duration_cast<std::chrono::seconds>(time2 - time1).count() << endl;
+    // Release and delete GBWT index pointer.
+    haplotype_index.reset(nullptr);
 
     if (show_progress) { cerr << "[vg rna] Adding splice-junctions " << (add_transcript_paths ? "and transcript paths " : "") << "to graph ..." << endl; }
 
+    // Edit graph with splice-junctions in transcriptome and updates 
+    // transcript path traversals to match the augmented graph. 
+    // Optinally add transcript paths in transcriptome to graph.  
+    // TODO: Handlefy edit so that the handlegraph interface can be used.
     transcriptome.edit_graph(graph, add_transcript_paths);
 
-    auto time3 = std::chrono::system_clock::now();
-    cerr << "Time (s): " << std::chrono::duration_cast<std::chrono::seconds>(time3 - time2).count() << endl;
-
+    // Construct and write GBWT index of transcript paths in transcriptome.
     if (!gbwt_out_filename.empty()) {
 
         if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as paths to GBWT index file ..." << endl; }
 
+        // Silence GBWT index construction. 
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
         gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(graph->max_node_id(), true)));
 
         transcriptome.construct_gbwt(&gbwt_builder);
+
+        // Finish contruction and recode index.
         gbwt_builder.finish();
 
+        // Set number of transcripts paths as number of haplotypes in metadata.
+        // TODO: Set number of samples to number of transcripts. Set number of contigs.
         gbwt_builder.index.addMetadata();
         gbwt_builder.index.metadata.setHaplotypes(transcriptome.size());
         // gbwt_builder.index.metadata.setSamples();
@@ -240,9 +246,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         stream::VPKG::save(gbwt_builder.index, gbwt_out_filename);
     }    
 
-    auto time4 = std::chrono::system_clock::now();
-    cerr << "Time (s): " << std::chrono::duration_cast<std::chrono::seconds>(time4 - time3).count() << endl;
-
+    // Write transcript paths in transcriptome to gam file.
     if (!gam_out_filename.empty()) {
 
         if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as alignments to GAM file ..." << endl; }
@@ -253,9 +257,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         gam_ostream.close();
     }
 
-    auto time5 = std::chrono::system_clock::now();
-    cerr << "Time (s): " << std::chrono::duration_cast<std::chrono::seconds>(time5 - time4).count() << endl;
-
+    // Write transcript path in transcriptome sequences to fasta file.
     if (!fasta_out_filename.empty()) {
 
         if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as sequences to fasta file ..." << endl; }
@@ -265,9 +267,6 @@ int32_t main_rna(int32_t argc, char** argv) {
         transcriptome.write_fasta_sequences(&fasta_ostream, *graph);
         fasta_ostream.close();
     }    
-
-    auto time6 = std::chrono::system_clock::now();
-    cerr << "Time (s): " << std::chrono::duration_cast<std::chrono::seconds>(time6 - time5).count() << endl;
 
     if (show_progress) { cerr << "[vg rna] Writing graph to stdout ..." << endl; }
 
