@@ -5313,6 +5313,21 @@ namespace vg {
                 
                 REQUIRE(count_feedback_arcs(&graph, layout) == 1);
             }
+            
+            SECTION("Eades algorithm runs in a graph with a self-loop") {
+                
+                VG graph;
+                
+                handle_t n1 = graph.create_handle("GGGA");
+                
+                graph.create_edge(n1, n1);
+                
+                vector<handle_t> layout = algorithms::eades_algorithm(&graph);
+                
+                REQUIRE(layout.size() == 1);
+                bool layout_correct = layout[0] == n1 || graph.flip(layout[0]) == n1;
+                REQUIRE(layout_correct);
+            }
         }
         
         TEST_CASE("Shortest cycle algorithm correctly identifies shortest cycle","[shortest-cycle][cycles][algorithms]") {

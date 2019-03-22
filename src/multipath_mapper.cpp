@@ -223,7 +223,7 @@ namespace vg {
         
         
 #ifdef debug_multipath_mapper
-        cerr << "aligning to subgraphs..." << endl;
+        cerr << "aligning to (up to) " << cluster_graphs.size() << " subgraphs..." << endl;
 #endif
       
         // we may need to compute an extra mapping above the one we'll report if we're computing mapping quality
@@ -2935,6 +2935,9 @@ namespace vg {
 
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&align_graph)) {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "graph contains directed cycles, performing dagification" << endl;
+#endif
             // make a dagified graph and translation
             HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
