@@ -1,6 +1,6 @@
 /** \file rna_main.cpp
  *
- * Defines the "vg rna" subcommand, which projects rna transcripts to graph paths and/or GBWT haplotypes.
+ * Defines the "vg rna" subcommand.
  */
 
 #include <unistd.h>
@@ -25,10 +25,10 @@ void help_rna(char** argv) {
          << "    -s, --transcript-tag NAME  use this attribute tag in the gtf/gff file(s) as id [transcript_id]" << endl
          << "    -l, --haplotypes FILE      project transcripts onto haplotypes in GBWT index file" << endl
          << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
-         << "    -r, --filter-reference     filter reference transcripts" << endl
+         << "    -r, --filter-reference     filter transcripts on reference chromosomes/contigs" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
          << "    -a, --add-paths            add transcripts as embedded paths in the graph" << endl
-         << "    -b, --write-gbwt FILE      write transcripts as path to GBWT index file" << endl
+         << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -g, --write-gam FILE       write transcripts as alignments to GAM file" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
          << "    -t, --threads INT          number of compute threads to use [1]" << endl
@@ -203,7 +203,8 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     if (show_progress) { cerr << "[vg rna] Parsing and projecting transcripts ..." << endl; }
 
-    // Add transcript to transcriptome.
+    // Add transcripts to transcriptome by projecting them onto embedded paths 
+    // in a graph and/or haplotypes in a GBWT index.
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
@@ -216,16 +217,16 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     if (show_progress) { cerr << "[vg rna] Adding splice-junctions " << (add_transcript_paths ? "and transcript paths " : "") << "to graph ..." << endl; }
 
-    // Edit graph with splice-junctions in transcriptome and updates 
-    // transcript path traversals to match the augmented graph. 
-    // Optinally add transcript paths in transcriptome to graph.  
-    // TODO: Handlefy edit so that the handlegraph interface can be used.
+    // Edit graph with transcriptome splice-junctions and update transcript
+    // path traversals in transcriptome to match the augmented graph. 
+    // Optinally add transcript paths to graph.  
+    // TODO: Add handlegraph support to edit so that the handlegraph interface can be used.
     transcriptome.edit_graph(graph, add_transcript_paths);
 
     // Construct and write GBWT index of transcript paths in transcriptome.
     if (!gbwt_out_filename.empty()) {
 
-        if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as paths to GBWT index file ..." << endl; }
+        if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as threads to GBWT index file ..." << endl; }
 
         // Silence GBWT index construction. 
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
@@ -236,7 +237,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         // Finish contruction and recode index.
         gbwt_builder.finish();
 
-        // Set number of transcripts paths as number of haplotypes in metadata.
+        // Set number of transcript paths as number of haplotypes in metadata.
         // TODO: Set number of samples to number of transcripts. Set number of contigs.
         gbwt_builder.index.addMetadata();
         gbwt_builder.index.metadata.setHaplotypes(transcriptome.size());
@@ -257,7 +258,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         gam_ostream.close();
     }
 
-    // Write transcript path in transcriptome sequences to fasta file.
+    // Write transcript path sequences in transcriptome to fasta file.
     if (!fasta_out_filename.empty()) {
 
         if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as sequences to fasta file ..." << endl; }
@@ -277,5 +278,5 @@ int32_t main_rna(int32_t argc, char** argv) {
 }
 
 // Register subcommand
-static Subcommand vg_rna("rna", "project rna transcripts to graph paths and/or GBWT haplotypes", main_rna);
+static Subcommand vg_rna("rna", "construct spliced variant graphs and transcript paths", main_rna);
 

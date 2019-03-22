@@ -7,6 +7,7 @@ namespace vg {
 
 using namespace std;
 
+// Number of transcripts buffered for each thread
 static const int32_t num_thread_transcripts = 100;
 
 void Transcriptome::add_transcripts(istream & transcript_stream, VG & graph, const gbwt::GBWT & haplotype_index) {
@@ -82,7 +83,7 @@ void Transcriptome::add_transcripts(istream & transcript_stream, VG & graph, con
         // Skip score column.
         transcript_stream.ignore(numeric_limits<streamsize>::max(), '\t');  
         
-        // Parse and strand and set whether it is reverse.
+        // Parse strand and set whether it is reverse.
         getline(transcript_stream, strand, '\t');
         assert(strand == "+" || strand == "-");
         bool is_reverse = (strand == "-") ? true : false;
@@ -107,12 +108,12 @@ void Transcriptome::add_transcripts(istream & transcript_stream, VG & graph, con
             exit(1);
         }
 
-        // Is new transcript.
+        // Is this a new transcript.
         if (transcripts.empty()) {
 
             transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom));
         
-        // Is new transcript.
+        // Is this a new transcript.
         } else if (transcripts.back().name != transcript_id) {
 
             // Reorder reversed order exons.
@@ -219,7 +220,7 @@ void Transcriptome::project_transcripts_callback(const int32_t thread_idx, const
 
     while (transcripts_idx < transcripts.size()) {
 
-        // Get thread specific transcript.
+        // Get next transcript belonging to current thread.
         const Transcript & transcript = transcripts.at(transcripts_idx);
 
         list<TranscriptPath> cur_transcript_paths;
@@ -238,7 +239,7 @@ void Transcriptome::project_transcripts_callback(const int32_t thread_idx, const
 
         if (collapse_transcript_paths) { 
 
-            // Collapse identical paths.
+            // Collapse identical transcript paths.
             collapse_identical_paths(&cur_transcript_paths);
         } 
 
@@ -255,7 +256,7 @@ void Transcriptome::project_transcripts_callback(const int32_t thread_idx, const
                 cur_transcript_paths_it->num_total -= cur_transcript_paths_it->num_reference;
                 cur_transcript_paths_it->num_reference = 0;
                 
-                // Delete transcript path if all copies were reference copies. 
+                // Delete transcript path if all copies were of reference origin. 
                 if (cur_transcript_paths_it->num_total == 0) {
 
                     cur_transcript_paths_it = cur_transcript_paths.erase(cur_transcript_paths_it);
@@ -296,7 +297,10 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
 
     for (int32_t exon_idx = 0; exon_idx < cur_transcript.exons.size(); ++exon_idx) {
 
+        // Calculate expected number of nodes between exon start and end.
         const int32_t expected_length = ceil((cur_transcript.exons.at(exon_idx).second - cur_transcript.exons.at(exon_idx).first) / mean_node_length);
+
+        // Get all haplotypes in GBWT index between exon start and end nodes.
         auto exon_haplotypes = get_exon_haplotypes(cur_transcript.exon_nodes.at(exon_idx).first.node_id(), cur_transcript.exon_nodes.at(exon_idx).second.node_id(), haplotype_index, expected_length);
 
         if (haplotypes.empty()) {
@@ -371,6 +375,8 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
 
     for (auto & haplotype: haplotypes) {
 
+        // Skip partial transcript paths.
+        // TODO: Add support for partial transcript paths.
         if (haplotype.first.size() != cur_transcript.exons.size()) {
 
             continue;
@@ -398,11 +404,14 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
                 int32_t edit_length = (node_id == exons_end.node_id()) ? (exons_end.offset() - offset + 1) : (node_length - offset);
                 assert(0 < edit_length && edit_length <= node_length);
 
+                // Add new mapping in forward direction. Later the whole path will
+                // be reverse complemented if transcript is on the '-' strand.
                 auto new_mapping = cur_transcript_paths.back().path.add_mapping();
                 new_mapping->mutable_position()->set_node_id(node_id);
                 new_mapping->mutable_position()->set_offset(offset);
                 new_mapping->mutable_position()->set_is_reverse(false);
 
+                // Add new edit representing a complete match.
                 auto new_edit = new_mapping->add_edit();
                 new_edit->set_from_length(edit_length);
                 new_edit->set_to_length(edit_length);
@@ -413,14 +422,17 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
 
         if (cur_transcript.is_reverse) {
 
+            // Reverse complement transcript paths that are on the '-' strand.
             reverse_complement_path_in_place(&(cur_transcript_paths.back().path), [&](size_t node_id) {return graph.get_node(node_id)->sequence().size();});
         }
 
+        // Copy paths if collapse of identical transcript paths is not wanted.
         if (!collapse_transcript_paths) {
 
             int32_t cur_transcript_path_num_total = cur_transcript_paths.back().num_total;
             cur_transcript_paths.back().num_total = 1;
 
+            // Create 'num_total' of identical copies.
             for (int32_t i = 1; i < cur_transcript_path_num_total; ++i) {
 
                 cur_transcript_paths.emplace_back(cur_transcript_paths.back());
@@ -435,10 +447,12 @@ vector<pair<exon_nodes_t, vector<gbwt::size_type> > > Transcriptome::get_exon_ha
 
     assert(expected_length > 0);
 
-    // Calculate the expected upperbound length between the two nodes. 
+    // Calculate the expected upperbound of the length between the two 
+    // nodes (number of nodes). 
     const int32_t expected_length_upperbound = 1.1 * expected_length;
 
-    // Set frequency for checking whether extension should be terminated. 
+    // Calcuate frequency for how often a check on whether an extension 
+    // should be terminated is performed. 
     const int32_t termination_frequency = ceil(0.1 * expected_length);
 
     // Get ids for haplotypes that contain the end node.
@@ -471,9 +485,9 @@ vector<pair<exon_nodes_t, vector<gbwt::size_type> > > Transcriptome::get_exon_ha
             continue;            
         }
 
-        // Check whether any haplotypes in the current extension contain the
-        // end node. If not end current extension. This check is only performed
-        // when the upperbound on the expected number of exons is reached. 
+        // Check whether any haplotypes in the current extension contains the
+        // end node. If not, end current extension. This check is only performed
+        // after the upperbound on the expected number of nodes is reached. 
         if (cur_exon_haplotype.first.size() >= expected_length_upperbound && (cur_exon_haplotype.first.size() % termination_frequency) == 0) {
 
             bool has_relevant_haplotype = false;
@@ -545,13 +559,12 @@ list<TranscriptPath> Transcriptome::project_transcript_embedded(const Transcript
         exon_end_node_mappings.emplace_back(&graph.paths.get_node_mapping(exon_node.second.node_id()));
     }
 
-    // List of contructed transcript paths.
     list<TranscriptPath> cur_transcript_paths;
 
     // Loop over all paths that contain the transcript start node.
     for (auto & path_mapping_start: *exon_start_node_mappings.front()) {
 
-        // Skip path if transcript end node is not in the path.
+        // Skip path if transcript end node is not in the current path.
         if (exon_end_node_mappings.back()->find(path_mapping_start.first) == exon_end_node_mappings.back()->end()) {
 
             continue;
@@ -591,8 +604,9 @@ list<TranscriptPath> Transcriptome::project_transcript_embedded(const Transcript
                 haplotype_path_end_map = *haplotype_path_end_it->second.begin();
             }
 
-            // If exon start or end path mappings are empty set transcript path
-            // to partial and stop construction.
+            // Transcript paths are partial if either the start or end exon path 
+            // mapping is empty. Partial transcripts are currently not supported.
+            // TODO: Add support for partial transcript paths.
             if (!haplotype_path_start_map or !haplotype_path_end_map) {
 
                 is_partial = true;
@@ -613,11 +627,14 @@ list<TranscriptPath> Transcriptome::project_transcript_embedded(const Transcript
                 int32_t edit_length = (haplotype_path_start_map == haplotype_path_end_map) ? (cur_transcript.exon_nodes.at(exon_idx).second.offset() - offset + 1) : (node_length - offset);
                 assert(0 < edit_length && edit_length <= node_length);
 
+                // Add new mapping in forward direction. Later the whole path will
+                // be reverse complemented if transcript is on the '-' strand.
                 auto new_mapping = cur_transcript_paths.back().path.add_mapping();
                 new_mapping->mutable_position()->set_node_id(cur_node_id);
                 new_mapping->mutable_position()->set_offset(offset);
                 new_mapping->mutable_position()->set_is_reverse(false);
 
+                // Add new edit representing a complete match.
                 auto new_edit = new_mapping->add_edit();
                 new_edit->set_from_length(edit_length);
                 new_edit->set_to_length(edit_length);
@@ -665,7 +682,7 @@ void Transcriptome::collapse_identical_paths(list<TranscriptPath> * cur_transcri
 
         while (cur_transcript_paths_it_2 != cur_transcript_paths->end()) {
 
-            // Check if two paths mappings are identical.
+            // Check if two path mappings are identical.
             if (equal(cur_transcript_paths_it_1->path.mapping().begin(), cur_transcript_paths_it_1->path.mapping().end(), cur_transcript_paths_it_2->path.mapping().begin(), [](const Mapping & m1, const Mapping & m2) { return google::protobuf::util::MessageDifferencer::Equals(m1, m2); })) {
 
                 // Update identical transcript path copy number.
@@ -697,7 +714,7 @@ int32_t Transcriptome::size() const {
 
 void Transcriptome::edit_graph(VG * graph, const bool add_paths) {
 
-    // Edit graph with transcript paths and updates path traversals
+    // Edit graph with transcript paths and update path traversals
     // to match the augmented graph. 
     graph->edit(_transcriptome, add_paths, true, true);
 }
@@ -725,7 +742,7 @@ void Transcriptome::write_gam_alignments(ostream * gam_ostream) const {
 
     for (auto & path: _transcriptome) {
 
-        // Contruct write path as alignment 
+        // Write path as alignment 
         Alignment alignment;
         alignment.set_name(path.name());
         *alignment.mutable_path() = path;

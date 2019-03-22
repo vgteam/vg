@@ -31,7 +31,7 @@ struct Transcript {
     /// Is transcript in reverse direction (strand == '-').
     const bool is_reverse;
 
-    /// Name of chromosome/contig.
+    /// Name of chromosome/contig where transcript exist.
     const string chrom;
     
     /// Exon coordinates (start and end) on the chromosome/contig.
@@ -86,40 +86,43 @@ class Transcriptome {
         /// Filter transcript paths originating from a reference chromosome/contig.
         bool filter_reference_transcript_paths = false;
 
-        /// Constructs transcript paths by projecting transcripts from gtf/gff file onto 
+        /// Constructs transcript paths by projecting transcripts from a gtf/gff file onto 
         /// embedded paths in a variation graph and/or haplotypes in a GBWT index.   
         void add_transcripts(istream & transcript_stream, VG & graph, const gbwt::GBWT & haplotype_index);
         
-        /// Get transcript paths.
+        /// Returns transcript paths.
         const vector<Path> & transcript_paths() const;
 
-        /// Get number of transcript paths.
+        /// Returns number of transcript paths.
         int32_t size() const;
 
-        /// Edits variation graph with transcript paths splice-junction and 
+        /// Edits variation graph with transcript path splice-junctions and 
         /// updates transcript path traversals to match the augmented graph. 
-        /// Optionally embed transcript paths into variation graph.
+        /// Optionally embed transcript paths in variation graph.
         void edit_graph(VG * graph, const bool add_paths);  
 
-        /// Constructs GBWT index from the transcript paths
+        /// Add transcript paths as threads in GBWT index.
         void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const;
         
-        /// Writes transcript paths to gam file
+        /// Writes transcript paths as alignments to a gam file.
         void write_gam_alignments(ostream * gam_ostream) const;
 
-        /// Writes transcript paths sequences to fasta file  
+        /// Writes transcript path sequences to a fasta file.  
         void write_fasta_sequences(ostream * fasta_ostream, VG & graph) const;
    
     private:
 
-        /// Transcriptome represented by a set of transcript paths 
+        /// Transcriptome represented by a set of transcript paths. 
+        /// TODO: Change to vector<TranscriptPath>. Current implementation
+        ///       decided in order for it to work easily with edit without 
+        ///       excessive copying and moving of paths. 
         vector<Path> _transcriptome;
 
         /// Mutex used for adding transcript paths to transcriptome
         mutex trancriptome_mutex;
 
-        /// Finds the position of each side of a exon in the variation 
-        /// graph and add the exons to a transcript.
+        /// Finds the position of each end of a exon on a path in the  
+        /// variation graph and adds the exon to a transcript.
         void add_exon(Transcript * transcript, const pair<int32_t, int32_t> & exon_pos, const PathIndex & chrom_path_index) const;
 
         /// Reverses exon order if the transcript is on the reverse strand and the exons 
@@ -137,14 +140,14 @@ class Transcriptome {
         list<TranscriptPath> project_transcript_gbwt(const Transcript & cur_transcript, VG & graph, const gbwt::GBWT & haplotype_index, const float mean_node_length) const;
 
         /// Extracts all unique haplotype paths between two nodes from a GBWT index and returns the 
-        /// resulting paths and the haplotype ids for each path (pair<path, ids>).
+        /// resulting paths and the corresponding haplotype ids for each path.
         vector<pair<exon_nodes_t, vector<gbwt::size_type> > > get_exon_haplotypes(const vg::id_t start_node, const vg::id_t end_node, const gbwt::GBWT & haplotype_index, const int32_t expected_length) const;
 
         /// Projects transcripts onto embedded paths in a variation graph and returns resulting transcript paths.
         list<TranscriptPath> project_transcript_embedded(const Transcript & cur_transcript, VG & graph) const;
 
         /// Collapses identical transcript paths. The number of collapsed copies are 
-        /// kept in the data structure TranscriptPath.
+        /// recorded in the data structure TranscriptPath.
         void collapse_identical_paths(list<TranscriptPath> * cur_transcript_paths) const;
 };
 
