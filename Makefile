@@ -338,6 +338,7 @@ $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
 
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
+
 	+cd $(LIBDEFLATE_DIR) && $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
 	
 # We clear out the include/htslib/* headers because they may be cached and out of date and confuse the build.

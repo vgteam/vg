@@ -1246,13 +1246,11 @@ int main_index(int argc, char** argv) {
             SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
             snarl_stream.close();
 
+            // Create the DistanceIndex
             DistanceIndex di (&vg, snarl_manager, cap);
             
-
- 
-            ofstream dist_out(dist_name);           
-            di.serialize(dist_out);
-            dist_out.close();
+            // Save the completed DistanceIndex
+            stream::VPKG::save(di, dist_name);
         }
 
     }

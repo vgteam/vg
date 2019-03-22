@@ -397,6 +397,9 @@ public:
         
     /// Construct a SnarlManager for the snarls contained in an input stream
     SnarlManager(istream& in);
+    
+    /// Construct a SnarlManager from a function that calls a callback with each Snarl in turn
+    SnarlManager(const function<void(const function<void(Snarl&)>&)>& for_each_snarl);
         
     /// Default constructor for an empty SnarlManager. Must call finish() once
     /// all snarls have been added with add_snarl().
