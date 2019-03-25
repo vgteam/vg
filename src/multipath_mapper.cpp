@@ -723,9 +723,28 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
-        return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                             id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                             forward_strand);
+        
+        if (use_min_dist_clusterer) {
+            assert(!forward_strand);
+            int64_t dist = distance_index->minDistance(pos_1, pos_2);
+            if (dist == -1) {
+                dist = distance_index->minDistance(pos_2, pos_1);
+                if (dist == -1) {
+                    return numeric_limits<int64_t>::max();
+                }
+                else {
+                    return -dist;
+                }
+            }
+            else {
+                return dist;
+            }
+        }
+        else {
+            return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                 id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                 forward_strand);
+        }
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
