@@ -16,9 +16,16 @@
 #include "../seed_clusterer.hpp"
 #include "../mapper.hpp"
 #include "../annotation.hpp"
+#include "../minimizer.hpp"
 #include "../stream/vpkg.hpp"
 #include "../stream/stream.hpp"
 #include "../stream/protobuf_emitter.hpp"
+
+//#define USE_CALLGRIND
+
+#ifdef USE_CALLGRIND
+#include <valgrind/callgrind.h>
+#endif
 
 using namespace std;
 using namespace vg;
@@ -31,9 +38,11 @@ void help_cluster(char** argv) {
     << endl
     << "basic options:" << endl
     << "  -x, --xg-name FILE            use this xg index (required)" << endl
-    << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (required; both FILE and FILE.lcp)" << endl
+    << "  -g, --gcsa-name FILE          use this GCSA2/LCP index pair (both FILE and FILE.lcp)" << endl
+    << "  -m, --minimizer-name FILE     use this minimizer index" << endl
     << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
+    << "  -c, --hit-cap INT             ignore minimizers with more than this many locations [10]" << endl
     << "computational parameters:" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -48,10 +57,12 @@ int main_cluster(int argc, char** argv) {
     // initialize parameters with their default options
     string xg_name;
     string gcsa_name;
+    string minimizer_name;
     string snarls_name;
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
+    size_t hit_cap = 10;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -61,14 +72,16 @@ int main_cluster(int argc, char** argv) {
             {"help", no_argument, 0, 'h'},
             {"xg-name", required_argument, 0, 'x'},
             {"gcsa-name", required_argument, 0, 'g'},
+            {"minimizer-name", required_argument, 0, 'm'},
             {"snarls", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'd'},
+            {"hit-cap", required_argument, 0, 'c'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:g:s:d:t:",
+        c = getopt_long (argc, argv, "hx:g:m:s:d:c:t:",
                          long_options, &option_index);
 
 
@@ -93,6 +106,14 @@ int main_cluster(int argc, char** argv) {
                     exit(1);
                 }
                 break;
+            
+            case 'm':
+                minimizer_name = optarg;
+                if (minimizer_name.empty()) {
+                    cerr << "error:[vg cluster] Must provide minimizer file with -m." << endl;
+                    exit(1);
+                }
+                break;
                 
             case 's':
                 snarls_name = optarg;
@@ -108,6 +129,10 @@ int main_cluster(int argc, char** argv) {
                     cerr << "error:[vg cluster] Must provide distance index file with -d." << endl;
                     exit(1);
                 }
+                break;
+            
+            case 'c':
+                hit_cap = parse<size_t>(optarg);
                 break;
                 
             case 't':
@@ -136,8 +161,8 @@ int main_cluster(int argc, char** argv) {
         exit(1);
     }
     
-    if (gcsa_name.empty()) {
-        cerr << "error:[vg cluster] Finding clusters requires a GCSA2 index, must provide GCSA2 file (-g)" << endl;
+    if (gcsa_name.empty() && minimizer_name.empty()) {
+        cerr << "error:[vg cluster] Finding clusters requires a GCSA2 index or minimizer index (-g, -m)" << endl;
         exit(1);
     }
     
@@ -153,27 +178,33 @@ int main_cluster(int argc, char** argv) {
     
     // create in-memory objects
     unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
-    unique_ptr<gcsa::GCSA> gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
-    unique_ptr<gcsa::LCPArray> lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
-    unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
-    
-    // Now load the distance index.
-    unique_ptr<DistanceIndex> distance_index;
-    {
-        ifstream distance_stream(distance_name);
-        if (!distance_stream) {
-            cerr << "error:[vg cluster] Could not open " << distance_name << endl;
-            exit(1);
-        }
-        // TODO: let this go through VPKG as soon as we get it loadable without passing a graph
-        distance_index = make_unique<DistanceIndex>(xg_index.get(), snarl_manager.get(), distance_stream);
+    unique_ptr<gcsa::GCSA> gcsa_index;
+    unique_ptr<gcsa::LCPArray> lcp_index;
+    if (!gcsa_name.empty()) {
+        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
     }
+    unique_ptr<MinimizerIndex> minimizer_index;
+    if (!minimizer_name.empty()) {
+        minimizer_index = stream::VPKG::load_one<MinimizerIndex>(minimizer_name);
+    }
+    unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
+    unique_ptr<DistanceIndex> distance_index = stream::VPKG::load_one<DistanceIndex>(distance_name);
+    
+    // Connect the DistanceIndex to the other things it needs to work.
+    distance_index->setGraph(xg_index.get());
+    distance_index->setSnarlManager(snarl_manager.get());
     
     // Make the clusterer
     SnarlSeedClusterer clusterer;
     
     // Make a Mapper to look up MEM seeds
-    Mapper mapper(xg_index.get(), gcsa_index.get(), lcp_index.get());
+    unique_ptr<Mapper> mapper;
+    if (gcsa_index) {
+        // We will find MEMs using a Mapper
+        mapper = make_unique<Mapper>(xg_index.get(), gcsa_index.get(), lcp_index.get());
+    }
+    // Otherwise we will find minimizers using the minimizer_index
     
     get_input_file(optind, argc, argv, [&](istream& in) {
         // Open up the input GAM
@@ -181,21 +212,60 @@ int main_cluster(int argc, char** argv) {
         // Make the output emitter
         stream::ProtobufEmitter<Alignment> emitter(cout);
         
+#ifdef USE_CALLGRIND
+        // We want to profile the clustering and the code around it.
+        CALLGRIND_START_INSTRUMENTATION;
+#endif
+        
         stream::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
             // For each input alignment
             
-            // Find MEMs
-            double lcp_avg, fraction_filtered;
-            vector<MaximalExactMatch> mems = mapper.find_mems_deep(aln.sequence().begin(), aln.sequence().end(), lcp_avg, fraction_filtered);
-            
-            // Convert to position seeds
+            // We will find all the seed hits
             vector<pos_t> seeds;
-            for (auto& mem : mems) {
-                for (gcsa::node_type n : mem.nodes) {
-                    // Convert from GCSA node_type packing to a pos_t
-                    seeds.push_back(make_pos_t(n));
-                    // TODO: We split up any information about which MEMs these positions belonged to.
+            
+            // If working with MEMs, this will hold all the MEMs
+            vector<MaximalExactMatch> mems;
+            // If working with minimizers, this will hold all the minimizers in the query
+            vector<MinimizerIndex::minimizer_type> minimizers;
+            // And either way this will map from seed to MEM or minimizer that generated it
+            vector<size_t> seed_to_source;
+            
+            if (mapper) {
+                // Find MEMs
+                double lcp_avg, fraction_filtered;
+                mems = mapper->find_mems_deep(aln.sequence().begin(), aln.sequence().end(), lcp_avg, fraction_filtered);
+                
+                // Convert to position seeds
+                for (size_t i = 0; i < mems.size(); i++) {
+                    auto& mem = mems[i];
+                    for (gcsa::node_type n : mem.nodes) {
+                        // Convert from GCSA node_type packing to a pos_t
+                        seeds.push_back(make_pos_t(n));
+                        // And remember which MEM the seed came from.
+                        seed_to_source.push_back(i);
+                    }
                 }
+            } else {
+                // Find minimizers
+                assert(minimizer_index);
+                
+                // Find minimizers in the query
+                minimizers = minimizer_index->minimizers(aln.sequence());
+                
+                for (size_t i = 0; i < minimizers.size(); i++) {
+                    // For each minimizer
+                    if (hit_cap != 0 && minimizer_index->count(minimizers[i].first) <= hit_cap) {
+                        // The minimizer is infrequent enough to be informative, so feed it into clustering
+                        
+                        // Locate it in the graph
+                        for (auto& hit : minimizer_index->find(minimizers[i].first)) {
+                            // For each position, remember it and what minimizer it came from
+                            seeds.push_back(hit);
+                            seed_to_source.push_back(i);
+                        }
+                    }
+                }
+                
             }
             
             // Cluster the seeds. Get sets of input seed indexes that go together.
@@ -204,36 +274,76 @@ int main_cluster(int argc, char** argv) {
             vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
+            
+            // Compute the covered portion of the read represented by each cluster
+            vector<double> read_coverage_by_cluster;
+            for (auto& cluster : clusters) {
+                // We set bits in here to true when query anchors cover them
+                vector<bool> covered(aln.sequence().size());
+                // We use this to convert iterators to indexes
+                auto start = aln.sequence().begin();
+                
+                for (auto& hit_index : cluster) {
+                    // For each hit in the cluster, work out what anchor sequence it is from.
+                    size_t source_index = seed_to_source.at(hit_index);
+                    
+                    if (mapper) {
+                        // Using MEMs
+                        for (size_t i = (mems[source_index].begin - start); i < (mems[source_index].end - start); i++) {
+                            // Set all the bits in read space for that MEM
+                            covered[i] = true;
+                        }
+                    } else {
+                        // Using minimizers
+                        for (size_t i = minimizers[source_index].second; i < minimizers[source_index].second + minimizer_index->k(); i++) {
+                            // Set all the bits in read space for that minimizer.
+                            // Each minimizr is a length-k exact match starting at a position
+                            covered[i] = true;
+                        }
+                    }
+                }
+                
+                // Count up the covered positions
+                size_t covered_count = 0;
+                for (auto bit : covered) {
+                    covered_count += bit;
+                }
+                
+                // Turn that into a fraction
+                read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+            }
+            
+            // Make a vector of cluster indexes to sort
+            vector<size_t> cluster_indexes_in_order;
+            for (size_t i = 0; i < clusters.size(); i++) {
+                cluster_indexes_in_order.push_back(i);
+            }
         
-            // Put the biggest cluster first
-            std::sort(clusters.begin(), clusters.end(), [](const hash_set<size_t>& a, const hash_set<size_t>& b) -> bool {
+            // Put the most covering cluster's index first
+            std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
                 // Return true if a must come before b, and false otherwise
-                return a.size() > b.size();
+                return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
             });
             
-            // Find the seeds in the best cluster. Assume that's cluster 0.
+            // Find the seeds in the clusters tied for best.
             vector<pos_t> best;
             if (!clusters.empty()) {
-                for (auto& seed_index : clusters.front()) {
-                    // This seed is in the best cluster
-                    best.push_back(seeds.at(seed_index));
+                // How much does the best cluster cover
+                double best_coverage = read_coverage_by_cluster.at(cluster_indexes_in_order.front());
+                for (size_t i = 0; i < cluster_indexes_in_order.size() &&
+                    read_coverage_by_cluster.at(cluster_indexes_in_order[i]) >= best_coverage; i++) {
+                    
+                    // For each cluster covering that much or more of the read
+                    for (auto& seed_index : clusters.at(cluster_indexes_in_order[i])) {
+                        // For each seed in those clusters
+                        
+                        // Mark that seed as being part of the best cluster(s)
+                        best.push_back(seeds.at(seed_index));
+                    }
+                    
                 }
+                
             }
-            
-#ifdef debug
-            cerr << "Read with best cluster (of " << clusters.size() << "): ";
-            if (!clusters.empty()) {
-                for (auto& index : clusters.front()) {
-                    cerr << seeds.at(index) << ",";
-                }
-            }
-            cerr << endl;
-            cerr << "Alignment was: ";
-            for (auto& mapping : aln.path().mapping()) {
-                cerr << mapping.position().node_id() << " ";
-            }
-            cerr << endl;
-#endif
             
             // Decide if they are in the right place for the original alignment or not
             unordered_set<vg::id_t> true_nodes;
@@ -249,16 +359,39 @@ int main_cluster(int argc, char** argv) {
                 }
             }
             
+            // We also want to know if we overlap any non-filtered hit
+            bool have_hit_overlap = false;
+            for (auto& pos : seeds) {
+                if (true_nodes.count(get_id(pos))) {
+                    // The hit set had a position on a node that the real alignment had.
+                    have_hit_overlap = true;
+                }
+            }
+            
+            // And we need a vector of cluster sizes
+            vector<double> cluster_sizes;
+            cluster_sizes.reserve(clusters.size());
+            for (auto& cluster : clusters) {
+                cluster_sizes.push_back((double)cluster.size());
+            }
+            
             // Tag the alignment with cluster accuracy
             set_annotation(aln, "best_cluster_overlap", have_overlap);
+            // And with any-hit overlap
+            set_annotation(aln, "any_seed_overlap", have_hit_overlap);
             // And with cluster time
             set_annotation(aln, "cluster_seconds", elapsed_seconds.count());
+            // And with hit count clustered
+            set_annotation(aln, "seed_count", (double)seeds.size());
+            // And with cluster count returned
+            set_annotation(aln, "cluster_count", (double)clusters.size());
+            // And with size of each cluster
+            set_annotation(aln, "cluster_sizes", cluster_sizes);
+            // And with the coverage of the read in the best cluster
+            set_annotation(aln, "best_cluster_coverage", clusters.empty() ? 0.0 :
+                read_coverage_by_cluster.at(cluster_indexes_in_order.front()));
             
-#ifdef debug
-            cerr << "Overlap? " << have_overlap << endl;
-#endif
             
-            // Emit it.
             // TODO: parallelize this
             #pragma omp critical (cout)
             emitter.write(std::move(aln));

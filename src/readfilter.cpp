@@ -1,5 +1,6 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
+#include "annotation.hpp"
 #include "stream/stream.hpp"
 
 #include <fstream>
@@ -619,6 +620,19 @@ ReadFilter::Counts ReadFilter::filter_alignment(Alignment& aln) {
             keep = false;    
         }
     }
+    if ((keep || verbose) && !excluded_features.empty()) {
+        // Get all the feature tags on the read
+        vector<string> features(get_annotation<vector<string>>(aln, "features"));
+        
+        for (auto& feature : features) {
+            if (excluded_features.count(feature)) {
+                // If the read has any banned features, fail it.
+                ++counts.counts[Counts::FilterName::excluded_feature];
+                keep = false;
+                break;
+            }
+        }
+    }
     if ((keep || verbose) && (!aln.is_secondary() && score < min_primary)) {
         ++counts.counts[Counts::FilterName::min_score];
         keep = false;
@@ -769,13 +783,20 @@ int ReadFilter::filter(istream* alignment_stream) {
     function<void(Alignment&, Alignment&)> pair_lambda = [&](Alignment& aln1, Alignment& aln2) {
         Counts aln_counts = filter_alignment(aln1);
         aln_counts += filter_alignment(aln2);
-        // when running interleaved, if we filter out one end for any reason, we filter out the other as well
-        aln_counts.set_paired();
+        if (filter_on_all) {
+            // Unless both reads were filtered out (total filtered count == 2), keep the read.
+            aln_counts.set_paired_all();
+        } else {
+            // Either read failing is sufficient to scuttle the pair.
+            // So if we filter out one end for any reason, we filter out the other as well.
+            aln_counts.set_paired_any();
+        }
         counts_vec[omp_get_thread_num()] += aln_counts;
         if ((aln_counts.keep() != complement_filter) && write_output) {
             output_alignment(aln1);
             output_alignment(aln2);
         }
+        
     };
     
     if (interleaved) {
@@ -802,6 +823,7 @@ ostream& operator<<(ostream& os, const ReadFilter::Counts& counts) {
        << counts.counts[ReadFilter::Counts::FilterName::read] << endl
        << "Read Name Filter:              " << counts.counts[ReadFilter::Counts::FilterName::wrong_name] << endl
        << "refpos Contig Filter:          " << counts.counts[ReadFilter::Counts::FilterName::wrong_refpos] << endl
+       << "Feature Filter:                " << counts.counts[ReadFilter::Counts::FilterName::excluded_feature] << endl
        << "Min Identity Filter:           " << counts.counts[ReadFilter::Counts::FilterName::min_score] << endl
        << "Min Secondary Identity Filter: " << counts.counts[ReadFilter::Counts::FilterName::min_sec_score] << endl
        << "Max Overhang Filter:           " << counts.counts[ReadFilter::Counts::FilterName::max_overhang] << endl

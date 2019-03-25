@@ -1,3 +1,9 @@
+/**
+ * \file eades_algorithm.cpp
+ *
+ * Defines an implementation of the Eades-Lyn-Smyth algorithm for feedback arc set
+ */
+
 //#define debug_eades
 
 #include "eades_algorithm.hpp"
@@ -31,11 +37,11 @@ using namespace std;
         unordered_map<handle_t, pair<pair<int64_t, int64_t>, list<handle_t>::iterator>> degree_info;
         
         // buckets based on delta(u) among non-source, non-sink nodes (see paper)
-        // buckets are numbered -n + 2, -n + 3, ... , n - 3, n - 2
+        // buckets are numbered -n, -n + 1, ... , n - 1, n
         auto assign_bucket = [&](const int64_t& in_degree, const int64_t& out_degree) {
-            return out_degree - in_degree + int64_t(canonical_orientation.size()) - 2;
+            return out_degree - in_degree + int64_t(canonical_orientation.size());
         };
-        vector<list<handle_t>> delta_buckets(canonical_orientation.size() > 1 ? 2 * canonical_orientation.size() - 3 : 0);
+        vector<list<handle_t>> delta_buckets(2 * canonical_orientation.size() + 1);
         
         
         vector<handle_t> sources;
@@ -89,6 +95,7 @@ using namespace std;
         
         // update data structures to remove an edge into a node
         function<void(const handle_t&)> remove_inward_edge = [&](const handle_t& next) {
+            
             auto iter = degree_info.find(next);
             if (iter != degree_info.end()) {
                 // this node is in a delta bucket
@@ -191,7 +198,11 @@ using namespace std;
                 next_left_idx++;
                 
                 // remove it from the graph
-                graph->follow_edges(source, false, remove_inward_edge);
+                graph->follow_edges(source, false, [&](const handle_t& adjacent) {
+                    if (adjacent != source) {
+                        remove_inward_edge(adjacent);
+                    }
+                });
             }
             else if (!sinks.empty()) {
                 // add a sink to the layout
@@ -206,7 +217,11 @@ using namespace std;
                 next_right_idx--;
                 
                 // remove it from the graph
-                graph->follow_edges(sink, true, remove_outward_edge);
+                graph->follow_edges(sink, true, [&](const handle_t& adjacent) {
+                    if (adjacent != sink) {
+                        remove_outward_edge(adjacent);
+                    }
+                });
             }
             else {
                 // remove a node in the highest delta bucket from the graph
@@ -224,8 +239,16 @@ using namespace std;
                 layout[next_left_idx] = next;
                 next_left_idx++;
                 
-                graph->follow_edges(next, false, remove_inward_edge);
-                graph->follow_edges(next, true, remove_outward_edge);
+                graph->follow_edges(next, false,  [&](const handle_t& adjacent) {
+                    if (adjacent != next) {
+                        remove_inward_edge(adjacent);
+                    }
+                });
+                graph->follow_edges(next, true, [&](const handle_t& adjacent) {
+                    if (adjacent != next) {
+                        remove_outward_edge(adjacent);
+                    }
+                });
             }
             
             // move the max bucket lower if it has been emptied

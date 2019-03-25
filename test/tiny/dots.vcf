@@ -1,0 +1,20 @@
+##fileformat=VCFv4.1
+##fileDate=20141110
+##source=mutatrix population genome simulator
+##seed=1415643582
+##reference=x.fa
+##phasing=true
+##commandline=mutatrix --dry-run -s 0.05 -i 0.01 -p 2 x.fa
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Alternate allele count">
+##INFO=<ID=TYPE,Number=A,Type=String,Description="Type of each allele (snp, ins, del, mnp, complex)">
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples at the site">
+##INFO=<ID=NA,Number=1,Type=Integer,Description="Number of alternate alleles">
+##INFO=<ID=LEN,Number=A,Type=Integer,Description="Length of each alternate allele">
+##INFO=<ID=MICROSAT,Number=0,Type=Flag,Description="Generated at a sequence repeat loci">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	1
+x	9	.	G	.	99	.	AC=0;LEN=1;NA=1;NS=1;TYPE=snp	GT	0|0
+x	10	.	C	.	99	.	AC=0;LEN=1;NA=1;NS=1;TYPE=snp	GT	0|0
+x	14	.	G	.	99	.	AC=0;LEN=1;NA=1;NS=1;TYPE=snp	GT	0|0
+x	34	.	T	.	99	.	AC=0;LEN=1;NA=1;NS=1;TYPE=snp	GT	0|0
+x	39	.	T	.	99	.	AC=0;LEN=1;NA=1;NS=1;TYPE=snp	GT	0|0

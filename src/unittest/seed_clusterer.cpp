@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <fstream>
 #include <set>
 #include "json2pb.h"
 #include "vg.hpp"
@@ -11,7 +10,6 @@
 #include "genotypekit.hpp"
 #include "random_graph.hpp"
 #include "seed_clusterer.hpp"
-#include <fstream>
 #include <random>
 #include <time.h>
 
@@ -264,23 +262,10 @@ namespace unittest {
         }
     }//end test case
 
-    TEST_CASE("graph from serialize", "[cluster]"){
-        ifstream vg_stream("testGraph");
-        VG vg(vg_stream);
-        vg_stream.close();
-        CactusSnarlFinder bubble_finder(vg);
-        SnarlManager snarl_manager = bubble_finder.find_snarls(); 
-
-        DistanceIndex di (&vg, &snarl_manager, 50);
-        pos_t pos1 = make_pos_t(75, false, 23);
-        pos_t pos2 = make_pos_t(165, false, 11); 
-
-
-    }//end test case
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 100; i++) {
-            //1000 different graphs
+        for (int i = 0; i < 1; i++) {
+            // For each random graph
             VG graph = randomGraph(1000, 20, 100);
 
 
@@ -400,7 +385,7 @@ namespace unittest {
                                       && (dist2 == -1 ||  dist2 >= lim-2) 
                                       && (dist3 == -1 ||  dist3 >= lim-2)  
                                       && (dist4 == -1 || dist4 >= lim-2))){
-                                    graph.serialize_to_file("testGraph");
+                                    //graph.serialize_to_file("testGraph");
                                     cerr << "These should have been in the same cluster: ";
                                     cerr << pos1 << " " << pos2 << endl;
                                     cerr << dist1 << " " << dist2 << " " << dist3<< " " << dist4 << endl;
@@ -411,7 +396,7 @@ namespace unittest {
                         }
                     }
                     if (checked_clusters.size() != 1) {
-                        graph.serialize_to_file("testGraph");
+                        //graph.serialize_to_file("testGraph");
                         cerr << "These should be different clusters: " << endl;
                         for (hash_set<size_t> c : checked_clusters) {
                             cerr << "cluster: " ; 
