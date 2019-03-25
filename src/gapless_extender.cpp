@@ -363,7 +363,7 @@ Path maximal_match_to_path(const MaximalGBWTMatch& match, const GBWTGraph& graph
     return result;
 }
 
-std::vector<Path> GaplessExtender::seeds_to_mems(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const {
+std::vector<std::pair<Path, size_t>> GaplessExtender::seeds_to_mems(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const {
 
     // Process the seeds in sorted order.
     handle_t prev_handle = GBWTGraph::node_to_handle(gbwt::ENDMARKER);
@@ -489,9 +489,10 @@ std::vector<Path> GaplessExtender::seeds_to_mems(std::vector<std::pair<size_t, p
         }
     }
 
-    std::vector<Path> result;
+    // FIXME this would be a good place to filter MEMs contained in other MEMs
+    std::vector<std::pair<Path, size_t>> result;
     for(const MaximalGBWTMatch& match : mems) {
-        result.emplace_back(maximal_match_to_path(match, *(this->graph), sequence));
+        result.emplace_back(maximal_match_to_path(match, *(this->graph), sequence), match.start);
     }
     return result;
 }

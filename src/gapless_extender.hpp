@@ -41,12 +41,13 @@ public:
 
     /**
     * Extend the pairs of matching sequence/graph position into maximal exact matches and
-    * return the corresponding distinct paths as Path objects.
+    * return the corresponding distinct paths as Path objects and their starting offsets in
+    * the read.
     * The cluster can be in an arbitrary order, but it will be sorted during the call. Each
     * pair in the cluster consists of matching sequence/graph positions. Some positions may
     * occur multiple times, and the matches in the cluster may agree or conflict.
     */
-    std::vector<Path> seeds_to_mems(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const;
+    std::vector<std::pair<Path, size_t>> seeds_to_mems(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const;
 
     const GBWTGraph* graph;
 };
