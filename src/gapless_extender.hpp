@@ -40,14 +40,14 @@ public:
     std::pair<Path, size_t> extend_seeds(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES) const;
 
     /**
-    * Extend the pairs of matching sequence/graph position into maximal exact matches and
-    * return the corresponding distinct paths as Path objects and their starting offsets in
-    * the read.
+    * Find maximal unambiguous extensions of each seed in the cluster. The extension ends
+    * with the first mismatch or when there are multiple successor nodes with the same
+    * character.
     * The cluster can be in an arbitrary order, but it will be sorted during the call. Each
     * pair in the cluster consists of matching sequence/graph positions. Some positions may
     * occur multiple times, and the matches in the cluster may agree or conflict.
     */
-    std::vector<std::pair<Path, size_t>> seeds_to_mems(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const;
+    std::vector<std::pair<Path, size_t>> maximal_extensions(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const;
 
     const GBWTGraph* graph;
 };
