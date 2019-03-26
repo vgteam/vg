@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
   ['tail',['tail',['../structvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a47fbc525ed5e9f2a7b00c333f03fe6c8',1,'vg::VG::tail_nodes(vector&lt; Node * &gt; &amp;nodes)']]],
   ['target_5falignment',['target_alignment',['../classxg_1_1XG.html#a87dfe8567803bebf9409ab3c2aaea36f',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse) const '],['../classxg_1_1XG.html#a58bf34023594fe938008df643154ff39',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse, Mapping &amp;cigar_mapping) const ']]],
@@ -126,7 +126,7 @@ var searchData=
   ['translation',['Translation',['../structvg_1_1Translation.html',1,'vg']]],
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],
   ['translator',['Translator',['../classvg_1_1Translator.html',1,'vg']]],
-  ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()'],['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)']]],
+  ['translator',['Translator',['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)'],['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
   ['translator_2ecpp',['translator.cpp',['../translator_8cpp.html',1,'']]],
   ['translator_2ehpp',['translator.hpp',['../translator_8hpp.html',1,'']]],
   ['trav_5fid',['trav_id',['../namespacexg.html#ac6fad23f04daf243502ea3cbdb8335f7',1,'xg']]],
@@ -152,7 +152,7 @@ var searchData=
   ['travs_5ffrom',['travs_from',['../classvg_1_1VG.html#a34a493a0628857a3bfae181295ba541d',1,'vg::VG']]],
   ['travs_5fof',['travs_of',['../classvg_1_1VG.html#ae065082f817e9bc0e278cf71f31af1e2',1,'vg::VG']]],
   ['travs_5fto',['travs_to',['../classvg_1_1VG.html#a0a962957210c079fa242b383d5c65de3',1,'vg::VG']]],
-  ['tree',['Tree',['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()'],['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree::tree()']]],
+  ['tree',['tree',['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree::tree()'],['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()']]],
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],

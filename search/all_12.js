@@ -23,7 +23,7 @@ var searchData=
   ['read',['read',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388af59ee1df4e2ef504e48839035f85e961',1,'vg::ReadFilter::Counts']]],
   ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5fcoverage_5fz_5fscore',['read_coverage_z_score',['../classvg_1_1MultipathMapper.html#ac5398224011f7ed5f8f200e801b515a6',1,'vg::MultipathMapper']]],
-  ['read_5fgroup',['read_group',['../structvg_1_1Alignment.html#a95102c70d75046f86a2f0a829ba1efe0',1,'vg::Alignment::read_group()'],['../structvg_1_1MultipathAlignment.html#abdc748afaea04b662f170156d8c88343',1,'vg::MultipathAlignment::read_group()']]],
+  ['read_5fgroup',['read_group',['../classvg_1_1MinimizerMapper.html#aee3e4b7c4e777da6c09f70218481e3d6',1,'vg::MinimizerMapper::read_group()'],['../structvg_1_1Alignment.html#a95102c70d75046f86a2f0a829ba1efe0',1,'vg::Alignment::read_group()'],['../structvg_1_1MultipathAlignment.html#abdc748afaea04b662f170156d8c88343',1,'vg::MultipathAlignment::read_group()']]],
   ['read_5fmapped',['read_mapped',['../structvg_1_1Alignment.html#af2fc72c769b77c355632e6aab7573046',1,'vg::Alignment']]],
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],
   ['read_5fon_5freverse_5fstrand',['read_on_reverse_strand',['../structvg_1_1Alignment.html#a10b4d599e1812ee007e348f8ce8bfe49',1,'vg::Alignment']]],

@@ -27,6 +27,7 @@ var searchData=
   ['chrom',['chrom',['../structvg_1_1Transcript.html#ad79bd4743b079f2de3156970344ba689',1,'vg::Transcript']]],
   ['chunk_5fsize',['CHUNK_SIZE',['../classvg_1_1GBWTGraph.html#a0b611b6f3e931dd4ac15df3d6c6888db',1,'vg::GBWTGraph']]],
   ['circular',['circular',['../classvg_1_1Paths.html#ad8af70b16e2280fba6e46418842229fa',1,'vg::Paths']]],
+  ['clusterer',['clusterer',['../classvg_1_1MinimizerMapper.html#a2420d8771bcc824f7e7d36dbe4531fcf',1,'vg::MinimizerMapper']]],
   ['codenames',['codenames',['../classvg_1_1Version.html#afa3c976df333371eaad42c698bf4a5a9',1,'vg::Version']]],
   ['codes_5fby_5foption',['codes_by_option',['../classvg_1_1ConfigurableParser.html#aea0db01f1fd00b96a309053cb66881c4',1,'vg::ConfigurableParser']]],
   ['cohort',['cohort',['../structhaplo_1_1linear__haplo__structure.html#ae0e8f21ee11e664612aefb8f0f678c40',1,'haplo::linear_haplo_structure']]],

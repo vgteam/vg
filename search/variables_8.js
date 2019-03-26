@@ -28,6 +28,7 @@ var searchData=
   ['het_5fprior_5flogprob',['het_prior_logprob',['../classvg_1_1Genotyper.html#a21799af8d6da86a3bbcfffb1060d27cf',1,'vg::Genotyper']]],
   ['heterozygous_5fprior_5fln',['heterozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ac5782c89f874dd212631d6451ef4b842',1,'vg::FixedGenotypePriorCalculator']]],
   ['hint_5fpaths',['hint_paths',['../classvg_1_1CactusSnarlFinder.html#a380a95f5119b76793da6ba19320a1750',1,'vg::CactusSnarlFinder']]],
+  ['hit_5fcap',['hit_cap',['../classvg_1_1MinimizerMapper.html#a1097206776713f059fca80f221b8478c',1,'vg::MinimizerMapper']]],
   ['hit_5fmax',['hit_max',['../classvg_1_1BaseMapper.html#a29b8cec81cc68e9d90405c42fbc8ef64',1,'vg::BaseMapper']]],
   ['homozygous_5fprior_5fln',['homozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ade32a0216586eb9467d476e2880c188b',1,'vg::FixedGenotypePriorCalculator']]]
 ];

@@ -56,6 +56,7 @@ var searchData=
   ['find_5fbest_5ftraversals',['find_best_traversals',['../classvg_1_1SupportCaller.html#ac01e7eacc46cd32095b49f6b4ac1916f',1,'vg::SupportCaller']]],
   ['find_5fbreakpoints',['find_breakpoints',['../classvg_1_1VG.html#a67e451c4a4a95e15244acc4972296124',1,'vg::VG']]],
   ['find_5fbubble',['find_bubble',['../classvg_1_1NestedTraversalFinder.html#ad9fd7aef8b98fdc56b429e4613113c6f',1,'vg::NestedTraversalFinder::find_bubble()'],['../classvg_1_1RepresentativeTraversalFinder.html#a83b5380d4dfa86aa0559b88cf1be670d',1,'vg::RepresentativeTraversalFinder::find_bubble()']]],
+  ['find_5fconnecting_5fpaths',['find_connecting_paths',['../classvg_1_1MinimizerMapper.html#a91d3056e5e1e82f0b10aa588b8c2288b',1,'vg::MinimizerMapper']]],
   ['find_5fedges_5fto_5fprune',['find_edges_to_prune',['../namespacevg.html#a9e892bf26f768618a2b8c2abea6a6a60',1,'vg']]],
   ['find_5fin_5forientation',['find_in_orientation',['../structvg_1_1PathIndex.html#a370381104e7ea9d891dddaf9ae76d06f',1,'vg::PathIndex']]],
   ['find_5fin_5fout_5fweb',['find_in_out_web',['../classvg_1_1FlowSort.html#aa5e485f218cdc874e5519ef61843358c',1,'vg::FlowSort']]],

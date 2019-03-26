@@ -26,7 +26,7 @@ var searchData=
   ['xg_5fdistance',['xg_distance',['../namespacevg.html#a86028cee0c33d849f37236619f93cf97',1,'vg']]],
   ['xg_5fedges_5fon_5fend',['xg_edges_on_end',['../namespacevg.html#a70ac96a405711a35f96e127bb8c8553e',1,'vg']]],
   ['xg_5fedges_5fon_5fstart',['xg_edges_on_start',['../namespacevg.html#abf9c7332961acdb45c8fcd8b14ebdfce',1,'vg']]],
-  ['xg_5findex',['xg_index',['../structhaplo_1_1linear__haplo__structure.html#ab759d42e08c3980b362b9a392cfabcb7',1,'haplo::linear_haplo_structure::xg_index()'],['../classvg_1_1PhaseUnfolder.html#af243361112a7fce2eb831c28c735f6be',1,'vg::PhaseUnfolder::xg_index()'],['../classvg_1_1NGSSimulator.html#a8d685d2e67324b8a0d19f8602ee3fb24',1,'vg::NGSSimulator::xg_index()']]],
+  ['xg_5findex',['xg_index',['../structhaplo_1_1linear__haplo__structure.html#ab759d42e08c3980b362b9a392cfabcb7',1,'haplo::linear_haplo_structure::xg_index()'],['../classvg_1_1MinimizerMapper.html#adc0b4ba1d8d0fe61246f873f11858706',1,'vg::MinimizerMapper::xg_index()'],['../classvg_1_1PhaseUnfolder.html#af243361112a7fce2eb831c28c735f6be',1,'vg::PhaseUnfolder::xg_index()'],['../classvg_1_1NGSSimulator.html#a8d685d2e67324b8a0d19f8602ee3fb24',1,'vg::NGSSimulator::xg_index()']]],
   ['xg_5fmain_2ecpp',['xg_main.cpp',['../xg__main_8cpp.html',1,'']]],
   ['xg_5fnext_5fpos',['xg_next_pos',['../namespacevg.html#a3add5068be75e8c8f5da5d836d0793f0',1,'vg']]],
   ['xg_5fnext_5fpos_5fchars',['xg_next_pos_chars',['../namespacevg.html#a8429876ce03b5b6702a63f8c9f735ab4',1,'vg']]],
