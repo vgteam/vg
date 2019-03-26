@@ -9,8 +9,6 @@
 #include <chrono>
 #include <iostream>
 
-#define debug
-
 namespace vg {
 
 using namespace std;
