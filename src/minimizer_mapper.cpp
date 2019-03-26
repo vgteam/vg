@@ -238,10 +238,22 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // We assume all overlapping hits are exclusive.
                 auto paths_between_seeds = find_connecting_paths(extended_seeds, walk_distance);
 
-                // Then we will align against all those haplotype sequences, take the top n, and use them as plausible connecting paths in a MultipathAlignment.
-                // Then we take the best linearization of the full MultipathAlignment.
+                // Make a MultipathAlignment and feed in all the extended seeds as subpaths
 
-    
+                // Then extract all the intervening sequences for every edge
+
+                // Align the intervening read sequence against each
+
+                // Pick the best alignment for the edge
+
+                // Translate it into a read segment to graph alignment Path
+
+                // Put it in the MultipathAlignment as a Path, and make edges from and to the extended seed paths being connected.
+                // If it was an alignment of nothing to nothing, just make an edge between the two extended seed paths
+
+                // Then we take the best linearization of the full MultipathAlignment and emit that
+
+                // Then return so we don't emit the unaligned Alignment
             }
         }
         
