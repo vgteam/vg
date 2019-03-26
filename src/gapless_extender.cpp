@@ -20,7 +20,6 @@ GaplessExtender::GaplessExtender(const GBWTGraph& graph) :
 
 //------------------------------------------------------------------------------
 
-// FIXME seq_start, seq_limit, node_start, node_limit
 struct GaplessMatch {
     size_t score;
     size_t start, limit; // In the sequence.
