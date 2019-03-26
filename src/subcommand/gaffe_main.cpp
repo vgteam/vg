@@ -424,6 +424,34 @@ int main_gaffe(int argc, char** argv) {
                     
                     // Read mapped successfully!
                     continue;
+                } else {
+                    // We need to generate some sub-full-length, maybe-extended seeds.
+                    vector<pair<Path, size_t>> extended_seeds;
+
+                    for (size_t& seed_index : cluster) {
+                        // TODO: Until Jouni implements the extender, we just make each hit a 1-base "extension"
+                        
+                        // Turn the pos_t into a Path
+                        Path extended;
+                        Mapping* m = extended.add_mapping();
+                        *m->mutable_position() = make_position(seeds[seed_index]);
+                        Edit* e = m->add_edit();
+                        e->set_from_length(1);
+                        e->set_to_length(1);
+
+                        // Pair up the path with the read base it is supposed to be mapping
+                        extended_seeds.emplace_back(std::move(extended), minimizers[seed_to_source[seed_index]].second);
+                    }
+
+                    // Then we need to find all the haplotypes between each pair of seeds that can connect.
+                    // We accomplish that by working out the maximum detectable gap using the code in the mapper,
+                    // and then trace that far through all haplotypes from each extension.
+                    
+
+                    // Then we will align against all those haplotype sequences, take the top n, and use them as plausible connecting paths in a MultipathAlignment.
+                    // Then we take the best linearization of the full MultipathAlignment.
+
+        
                 }
             }
             
