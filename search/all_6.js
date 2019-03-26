@@ -44,6 +44,7 @@ var searchData=
   ['filter_5fmain_2ecpp',['filter_main.cpp',['../filter__main_8cpp.html',1,'']]],
   ['filter_5fmatches',['filter_matches',['../classvg_1_1Filter.html#ab1a5ffa8d8e0205909a9ed33e1ff26f5',1,'vg::Filter']]],
   ['filter_5fon_5fall',['filter_on_all',['../classvg_1_1ReadFilter.html#acc075968b0c08ed7ad4f2cb0a837ef95',1,'vg::ReadFilter']]],
+  ['filter_5freference_5ftranscript_5fpaths',['filter_reference_transcript_paths',['../classvg_1_1Transcriptome.html#a78e782cd6f5d5c38730fbe54cfcbe3fc',1,'vg::Transcriptome']]],
   ['filtered',['filtered',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388a060b43f8b38b7cb06700b61015e04206',1,'vg::ReadFilter::Counts']]],
   ['filtername',['FilterName',['../structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388',1,'vg::ReadFilter::Counts']]],
   ['final_5fposition',['final_position',['../namespacevg.html#ad435098725ff21d822052abee009d2bd',1,'vg']]],

@@ -50,6 +50,7 @@ var searchData=
   ['use_5faverage_5fsupport',['use_average_support',['../classvg_1_1SupportCaller.html#a032117d5fd316be83877834de8d25a99',1,'vg::SupportCaller']]],
   ['use_5favg',['use_avg',['../classvg_1_1Filter.html#a271fe98c839b17295ecef0dc54cb7d7e',1,'vg::Filter']]],
   ['use_5fcluster_5fmq',['use_cluster_mq',['../classvg_1_1Mapper.html#a2c4c837c39fa708de934f5c24c3c371e',1,'vg::Mapper']]],
+  ['use_5fembedded_5fpaths',['use_embedded_paths',['../classvg_1_1Transcriptome.html#afc815aefb14bad4cec9aeccdd9872652',1,'vg::Transcriptome']]],
   ['use_5finternal_5fconnectivity',['use_internal_connectivity',['../classvg_1_1NetGraph.html#a57dedbbe009595f748dc3c4deae2dc72',1,'vg::NetGraph']]],
   ['use_5fmapq',['use_mapq',['../classvg_1_1Genotyper.html#a5991ce66cc2a9ea45bd27d288dd7d9b8',1,'vg::Genotyper']]],
   ['use_5fmin_5fdist_5fclusterer',['use_min_dist_clusterer',['../classvg_1_1MultipathMapper.html#aed5898444e134f0fb95ae527d215e88f',1,'vg::MultipathMapper']]],

@@ -12,6 +12,7 @@ var searchData=
   ['filled',['filled',['../classvg_1_1PackedVector.html#a7eb182c44220bfde11be3ad96167a72e',1,'vg::PackedVector::filled()'],['../classvg_1_1PagedVector.html#a07af7c8a08a67bb822839e74d5f57445',1,'vg::PagedVector::filled()'],['../classvg_1_1PackedDeque.html#a09c56fb373879aca3f8db32e3455b1e1',1,'vg::PackedDeque::filled()']]],
   ['filter_5fmatches',['filter_matches',['../classvg_1_1Filter.html#ab1a5ffa8d8e0205909a9ed33e1ff26f5',1,'vg::Filter']]],
   ['filter_5fon_5fall',['filter_on_all',['../classvg_1_1ReadFilter.html#acc075968b0c08ed7ad4f2cb0a837ef95',1,'vg::ReadFilter']]],
+  ['filter_5freference_5ftranscript_5fpaths',['filter_reference_transcript_paths',['../classvg_1_1Transcriptome.html#a78e782cd6f5d5c38730fbe54cfcbe3fc',1,'vg::Transcriptome']]],
   ['finished',['finished',['../classvg_1_1SnarlManager.html#a50a58df9b2afd9febff530a9505f9dd0',1,'vg::SnarlManager']]],
   ['first',['first',['../structvg_1_1FeatureSet_1_1Feature.html#ade37c17b95cc0314dc381e93b04ff7b4',1,'vg::FeatureSet::Feature']]],
   ['fixed_5ffragment_5fmodel',['fixed_fragment_model',['../classvg_1_1FragmentLengthStatistics.html#a8c3c6bfb99c7cef159520adb58be271d',1,'vg::FragmentLengthStatistics']]],

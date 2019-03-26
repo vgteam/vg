@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
+  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
   ['tail',['tail',['../structvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
@@ -37,6 +37,8 @@ var searchData=
   ['total_5fbits',['TOTAL_BITS',['../classvg_1_1BitString.html#a754714ef7b6c7a1951ae46b8e2594562',1,'vg::BitString']]],
   ['total_5fnodes',['total_nodes',['../classvg_1_1GBWTGraph.html#aeb957b1ebf19c8186d4512d310962cfa',1,'vg::GBWTGraph']]],
   ['total_5fsupport',['total_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#af7917163fa9a4e17ef5e61c345f758cf',1,'vg::SupportCaller::PrimaryPath']]],
+  ['trancriptome_5fmutex',['trancriptome_mutex',['../classvg_1_1Transcriptome.html#a7f981a9d8172e931cc7c59b60de62caa',1,'vg::Transcriptome']]],
+  ['transcript_5ftag',['transcript_tag',['../classvg_1_1Transcriptome.html#a56a00bd350c02600e5474fc89791d5bd',1,'vg::Transcriptome']]],
   ['transition_5fdistrs_5f1',['transition_distrs_1',['../classvg_1_1NGSSimulator.html#a571f3ff879e38077e8d7dad879157d55',1,'vg::NGSSimulator']]],
   ['transition_5fdistrs_5f2',['transition_distrs_2',['../classvg_1_1NGSSimulator.html#ad3d0c480b5ecd2fa7c5209d86b41911d',1,'vg::NGSSimulator']]],
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],

@@ -61,6 +61,7 @@ var searchData=
   ['remove_5fpaths',['remove_paths',['../classvg_1_1Paths.html#a975ff2ed8ee5718aae414cb0cb2fb39b',1,'vg::Paths::remove_paths()'],['../namespacevg.html#ad5e16e94675197650b9d6edb9e7a9081',1,'vg::remove_paths()']]],
   ['remove_5ftransitive_5fedges',['remove_transitive_edges',['../classvg_1_1MultipathAlignmentGraph.html#aeb9c58b7f20245a4c400dd14e8488069',1,'vg::MultipathAlignmentGraph']]],
   ['reorder_5fadjacency_5flists',['reorder_adjacency_lists',['../classvg_1_1MultipathAlignmentGraph.html#adba05a33bf075eb3eb7260e229245f06',1,'vg::MultipathAlignmentGraph']]],
+  ['reorder_5fexons',['reorder_exons',['../classvg_1_1Transcriptome.html#a130ef684755419776eaa83aae6a67bfa',1,'vg::Transcriptome']]],
   ['replace',['replace',['../classvg_1_1PackedSplayTree.html#a1d0f0a03792d0b164fc4ad6e043b5b85',1,'vg::PackedSplayTree']]],
   ['replace_5fin_5fstring',['replace_in_string',['../namespacevg.html#ab169ac1e2fc6ba662eebc1ede1ffe157',1,'vg']]],
   ['replace_5flocal_5fhaplotype',['replace_local_haplotype',['../classvg_1_1GenomeState.html#a8048b04c0d1d0b438ec76bdc1c0b5779',1,'vg::GenomeState']]],

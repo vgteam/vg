@@ -45,7 +45,7 @@ var searchData=
   ['is_5fphased',['is_phased',['../structvg_1_1Genotype.html#a7aceacf9d5e3def3d6e675ef34906aab',1,'vg::Genotype']]],
   ['is_5fpointer',['is_pointer',['../classvg_1_1MinimizerIndex.html#a6fb194d3538dc02b76aa1da6c4ccef23',1,'vg::MinimizerIndex']]],
   ['is_5frend',['is_rend',['../structvg_1_1ChainIterator.html#adb9db0a0ea4cac8bca359c97d293aaa9',1,'vg::ChainIterator']]],
-  ['is_5freverse',['is_reverse',['../structvg_1_1Genotyper_1_1Affinity.html#ae1707128484386f3a20eb8c6a8f9ec95',1,'vg::Genotyper::Affinity::is_reverse()'],['../structvg_1_1Position.html#aeb715b329bd7371ca380a2f2abdcbd13',1,'vg::Position::is_reverse()'],['../structxg_1_1XG_1_1ThreadMapping.html#ad76b5bf95182c95540db5f99e449586f',1,'xg::XG::ThreadMapping::is_reverse()']]],
+  ['is_5freverse',['is_reverse',['../structvg_1_1Genotyper_1_1Affinity.html#ae1707128484386f3a20eb8c6a8f9ec95',1,'vg::Genotyper::Affinity::is_reverse()'],['../structvg_1_1Transcript.html#a9108ebf271cbaed677bbd2c2232729b2',1,'vg::Transcript::is_reverse()'],['../structvg_1_1Position.html#aeb715b329bd7371ca380a2f2abdcbd13',1,'vg::Position::is_reverse()'],['../structxg_1_1XG_1_1ThreadMapping.html#ad76b5bf95182c95540db5f99e449586f',1,'xg::XG::ThreadMapping::is_reverse()']]],
   ['is_5fsecondary',['is_secondary',['../structvg_1_1Alignment.html#a59a4b8c7367fb468e46bcf6ae292888f',1,'vg::Alignment']]],
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]]

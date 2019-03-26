@@ -76,6 +76,7 @@ var searchData=
   ['get_5fend',['get_end',['../classvg_1_1NetGraph.html#a0ca555287cce72bc87cbf68a074458c5',1,'vg::NetGraph']]],
   ['get_5fend_5fof',['get_end_of',['../namespacevg.html#af76e8a5e74f67093a40ed5f2cd15ff28',1,'vg']]],
   ['get_5fendpoints',['get_endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#ae3f2cd3930349768748cc7405adab453',1,'vg::GraphSynchronizer::Lock']]],
+  ['get_5fexon_5fhaplotypes',['get_exon_haplotypes',['../classvg_1_1Transcriptome.html#a4808b2bd9c101b32da4e217abcac988b',1,'vg::Transcriptome']]],
   ['get_5ffeatures',['get_features',['../classvg_1_1FeatureSet.html#a3592a8be42309aaac06a4729d20e12ff',1,'vg::FeatureSet']]],
   ['get_5ffirst_5foccurrence',['get_first_occurrence',['../classvg_1_1HashGraph.html#a0962304a83dfb9b67f885d7dbf6f39ff',1,'vg::HashGraph::get_first_occurrence()'],['../classvg_1_1PackedGraph.html#ae16a805e7a64e43ff84e64bbb9456123',1,'vg::PackedGraph::get_first_occurrence()'],['../classvg_1_1VG.html#adff0e1716e97115deacaf3115786db5b',1,'vg::VG::get_first_occurrence()'],['../classxg_1_1XG.html#a5c6acb966d14b97b07177afc38bdef45',1,'xg::XG::get_first_occurrence()'],['../classhandlegraph_1_1PathHandleGraph.html#a3769fd156e96d8f80c19422670301602',1,'handlegraph::PathHandleGraph::get_first_occurrence()']]],
   ['get_5fgbwt',['get_gbwt',['../namespacevg.html#a571047c58b73b78d02a767c3ab6ec222',1,'vg']]],
