@@ -55,8 +55,9 @@ void help_mpmap(char** argv) {
     << "advanced options:" << endl
     << "algorithm:" << endl
     << "  -v, --tvs-clusterer           use the target value search based clusterer (requies a distance index from -d)" << endl
+    << "      --min-dist-cluster        use the minimum distance based clusterer (requies a distance index from -d)" << endl
     << "  -X, --snarl-max-cut INT       do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
-    << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
+    << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [10]" << endl
     << "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
     << "  -n, --unstranded              use lazy strand consistency when clustering MEMs" << endl
     << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
@@ -72,7 +73,7 @@ void help_mpmap(char** argv) {
     << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
-    << "  -K, --clust-length INT        minimum MEM length form clusters [automatic]" << endl
+    << "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
     << "  -c, --hit-max INT             use at most this many hits for any MEM (0 for no limit) [1024]" << endl
     << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
     << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
@@ -110,6 +111,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_FORCE_HAPLOTYPE_COUNT 1004
     #define OPT_SUPPRESS_TAIL_ANCHORS 1005
     #define OPT_TOP_TRACEBACKS 1006
+    #define OPT_MIN_DIST_CLUSTER 1007
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -128,7 +130,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
-    int max_branch_trim_length = 1;
+    int max_branch_trim_length = 4;
     bool suppress_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
@@ -150,12 +152,13 @@ int main_mpmap(int argc, char** argv) {
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
     bool use_tvs_clusterer = false;
+    bool use_min_dist_clusterer = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
-    int num_alt_alns = 4;
+    int num_alt_alns = 10;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
     double recombination_penalty = 20.7;
@@ -246,6 +249,7 @@ int main_mpmap(int argc, char** argv) {
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
             {"delay-population", no_argument, 0, OPT_DELAY_POPULATION_SCORING},
             {"force-haplotype-count", required_argument, 0, OPT_FORCE_HAPLOTYPE_COUNT},
+            {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -480,6 +484,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_FORCE_HAPLOTYPE_COUNT:
                 force_haplotype_count = parse<size_t>(optarg);
+                break;
+                
+            case OPT_MIN_DIST_CLUSTER:
+                use_min_dist_clusterer = true;
                 break;
                 
             case 'C':
@@ -723,6 +731,16 @@ int main_mpmap(int argc, char** argv) {
     
     if (use_tvs_clusterer && distance_index_name.empty()) {
         cerr << "error:[vg mpmap] The Target Value Search clusterer (-v) requires a distance index (-d)." << endl;
+        exit(1);
+    }
+    
+    if (use_min_dist_clusterer && distance_index_name.empty()) {
+        cerr << "error:[vg mpmap] The minimum distance clusterer (--min-dist-cluster) requires a distance index (-d)." << endl;
+        exit(1);
+    }
+    
+    if (use_min_dist_clusterer && use_tvs_clusterer) {
+        cerr << "error:[vg mpmap] Cannot perform both minimum distance clustering (--min-dist-cluster) and target value clustering (-v)." << endl;
         exit(1);
     }
     

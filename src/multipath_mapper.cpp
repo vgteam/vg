@@ -151,6 +151,11 @@ namespace vg {
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
                                       log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
+            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
@@ -205,6 +210,13 @@ namespace vg {
                                            fragment_length_distr.mean(),
                                            ceil(10.0 * fragment_length_distr.stdev()));
         }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(10.0 * fragment_length_distr.stdev()));
+        }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
             return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
@@ -223,7 +235,7 @@ namespace vg {
         
         
 #ifdef debug_multipath_mapper
-        cerr << "aligning to subgraphs..." << endl;
+        cerr << "aligning to (up to) " << cluster_graphs.size() << " subgraphs..." << endl;
 #endif
       
         // we may need to compute an extra mapping above the one we'll report if we're computing mapping quality
@@ -711,9 +723,28 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
-        return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                             id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                             forward_strand);
+        
+        if (use_min_dist_clusterer) {
+            assert(!forward_strand);
+            int64_t dist = distance_index->minDistance(pos_1, pos_2);
+            if (dist == -1) {
+                dist = distance_index->minDistance(pos_2, pos_1);
+                if (dist == -1) {
+                    return numeric_limits<int64_t>::max();
+                }
+                else {
+                    return -dist;
+                }
+            }
+            else {
+                return dist;
+            }
+        }
+        else {
+            return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                 id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                 forward_strand);
+        }
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
@@ -2935,6 +2966,9 @@ namespace vg {
 
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&align_graph)) {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "graph contains directed cycles, performing dagification" << endl;
+#endif
             // make a dagified graph and translation
             HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);

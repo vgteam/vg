@@ -21,6 +21,8 @@
 #include "../stream/stream.hpp"
 #include "../stream/protobuf_emitter.hpp"
 
+//#define USE_CALLGRIND
+
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
 #endif
