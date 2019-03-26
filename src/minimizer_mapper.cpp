@@ -209,11 +209,30 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     extended_seeds.emplace_back(std::move(extended), minimizers[seed_to_source[seed_index]].second);
                 }
 
+                // TODO: split extended seeds when they overlap in the read, so
+                // they either don't overlap or completely overlap (and are
+                // thus mutually exclusive).
+
                 // Then we need to find all the haplotypes between each pair of seeds that can connect.
-                // We accomplish that by working out the maximum detectable gap using the code in the mapper,
+
+                // We accomplish that by working out past the maximum detectable gap using the code in the mapper,
                 // and then trace that far through all haplotypes from each extension.
-                size_t max_detectable_gap = get_aligner()->longest_detectable_gap(aln); 
-                
+                size_t max_gap = get_aligner()->longest_detectable_gap(aln); 
+                // If we walk the read length plus the max gap we are guaranteed to walk far enough
+                size_t walk_distance = max_gap + aln.sequence().size();
+
+                // Sort the extended seeds by read start position.
+                // We won't be able to match them back to the minimizers anymore but we won't need to.
+                std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const pair<Path, size_t>& a, const pair<Path, size_t>& b) -> bool {
+                    // Return true if a needs to come before b.
+                    // This will happen if a is earlier in the read than b.
+                    return a.second < b.second;
+                });
+
+                // Find the paths between pairs of extended seeds that agree with haplotypes.
+                // We don't actually need the read sequence for this; the paths in the seeds know the hit length.
+                // We assume all overlapping hits are exclusive.
+                auto paths_between_seeds = find_connecting_paths(extended_seeds);
 
                 // Then we will align against all those haplotype sequences, take the top n, and use them as plausible connecting paths in a MultipathAlignment.
                 // Then we take the best linearization of the full MultipathAlignment.
@@ -261,6 +280,77 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(aligned));
+}
+
+unordered_map<size_t, unordered_map<size_t, vector<Path>>>
+MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds) const {
+
+    // Now this will hold, for each extended seed, for each other
+    // reachable extended seed, the graph Paths that the
+    // intervening sequence needs to be aligned against in the
+    // graph.
+    unordered_map<size_t, unordered_map<size_t, vector<Path>>> to_return;
+
+    // All the extended seeds are forward in the read. So we index them by start.
+    // Maps from handle in the GBWT graph to offset on that orientation that an extension starts at and index of the extension.
+    unordered_map<handle_t, vector<pair<size_t, size_t>>> extensions_by_handle;
+
+    for (size_t i = 0; i < extended_seeds.size(); i++) {
+        // For each extension
+        // Where does it start?
+        auto& pos = extended_seeds[i].first.mapping(0).position();
+
+        // Get the handle it is on
+        handle_t handle = gbwt_graph.get_handle(pos.node_id(), pos.is_reverse());
+
+        // Record that this extension starts at this offset along that handle
+        extensions_by_handle[handle].emplace_back(pos.offset(), i);
+    }
+
+    // For each seed in read order, walk out right in the haplotypes by the max length and see what other seeds we encounter.
+    // Remember the read bounds and graph Path we found, for later alignment.
+    for (size_t i = 0; i < extended_seeds.size(); i++) {
+        // For each starting seed
+
+        // Where does it end (inclusive) in the graph and the read?
+        auto& last_mapping = extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1);
+        Position last_pos_graph = last_mapping.position();
+        last_pos_graph.set_offset(last_pos_graph.offset() + mapping_from_length(last_mapping) - 1);
+        size_t last_pos_read = extended_seeds[i].second + path_to_length(extended_seeds[i].first) - 1;
+
+        // Get a handle in the GBWTGraph
+        handle_t start_handle = gbwt_graph.get_handle(last_pos_graph.node_id(), last_pos_graph.is_reverse());
+
+        // Turn it into a SearchState
+        auto start_state = gbwt_graph.get_state(start_handle);
+
+        // Tack on how much of the read we consume to the end of the node
+        // And make a Path that describes that
+
+        // Queue it up
+
+        // While there are things in the queue
+
+        // Grab one
+
+        // follow_paths on it
+
+        // For each place it can go
+
+        // Get state.node and node_to_handle it
+
+        // See if we hit any other extensions on this node
+
+        // If we do, extend the path for them and emit connecting path for each
+
+        // See if we can get to the end of the node without going outside the search length
+
+        // If so extend the path with the entire node match and update the distance count and requeue
+
+    }
+
+    return to_return;
+    
 }
 
 
