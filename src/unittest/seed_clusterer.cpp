@@ -261,10 +261,10 @@ namespace unittest {
             REQUIRE( clusters.size() == 5);
         }
     }//end test case
-
+/*
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < 10; i++) {
             // For each random graph
             VG graph = randomGraph(1000, 20, 100);
 
@@ -412,5 +412,6 @@ namespace unittest {
             }
         }
     } //end test case
+*/
 }
 }
