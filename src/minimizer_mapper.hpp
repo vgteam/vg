@@ -62,7 +62,7 @@ protected:
 
     /// Find for each pair of extended seeds all the haplotype-consistent graph paths against which the intervening read sequence needs to be aligned.
     /// extended_seeds must be sorted by read start position. Any extended seeds that overlap in the read will be precluded from connecting.
-    unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds) const;
+    unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds, size_t walk_distance) const;
 
 
 };

@@ -9,6 +9,8 @@
 #include <chrono>
 #include <iostream>
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -209,6 +211,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     extended_seeds.emplace_back(std::move(extended), minimizers[seed_to_source[seed_index]].second);
                 }
 
+#ifdef debug
+                cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
+#endif
+
                 // TODO: split extended seeds when they overlap in the read, so
                 // they either don't overlap or completely overlap (and are
                 // thus mutually exclusive).
@@ -232,7 +238,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Find the paths between pairs of extended seeds that agree with haplotypes.
                 // We don't actually need the read sequence for this; the paths in the seeds know the hit length.
                 // We assume all overlapping hits are exclusive.
-                auto paths_between_seeds = find_connecting_paths(extended_seeds);
+                auto paths_between_seeds = find_connecting_paths(extended_seeds, walk_distance);
 
                 // Then we will align against all those haplotype sequences, take the top n, and use them as plausible connecting paths in a MultipathAlignment.
                 // Then we take the best linearization of the full MultipathAlignment.
@@ -283,7 +289,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 }
 
 unordered_map<size_t, unordered_map<size_t, vector<Path>>>
-MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds) const {
+MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds, size_t walk_distance) const {
 
     // Now this will hold, for each extended seed, for each other
     // reachable extended seed, the graph Paths that the
@@ -305,6 +311,18 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
         // Record that this extension starts at this offset along that handle
         extensions_by_handle[handle].emplace_back(pos.offset(), i);
+
+#ifdef debug
+        cerr << "Extended seed " << i << " starts on node " << pos.node_id() << " " << pos.is_reverse()
+            << " at offset " << pos.offset() << endl;
+#endif
+    }
+
+    for (auto& kv : extensions_by_handle) {
+        // Sort everything on the same handle
+        std::sort(kv.second.begin(), kv.second.end(), [&](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) -> bool {
+            return a.first < b.first;
+        });
     }
 
     // For each seed in read order, walk out right in the haplotypes by the max length and see what other seeds we encounter.
@@ -318,37 +336,181 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
         last_pos_graph.set_offset(last_pos_graph.offset() + mapping_from_length(last_mapping) - 1);
         size_t last_pos_read = extended_seeds[i].second + path_to_length(extended_seeds[i].first) - 1;
 
+#ifdef debug
+        cerr << "Extended seed " << i << " ends on node " << last_pos_graph.node_id() << " " << last_pos_graph.is_reverse()
+            << " at offset " << last_pos_graph.offset() << endl;
+#endif
+
         // Get a handle in the GBWTGraph
         handle_t start_handle = gbwt_graph.get_handle(last_pos_graph.node_id(), last_pos_graph.is_reverse());
 
+        // Decide if we need to actually do GBWT search, or if we can find a destination on the same node we ended on
+        bool do_gbwt_search = true;
+
+        // Look on the same graph node.
+        // See if we hit any other extensions on this node.
+        auto same_node_found = extensions_by_handle.find(start_handle);
+        if (same_node_found != extensions_by_handle.end()) {
+            // If we have extended seeds
+            
+            for (auto& next_offset_and_index : same_node_found->second) {
+                // Scan them in order.
+                // TODO: Skip to after ourselves.
+                
+                if (extended_seeds[next_offset_and_index.second].second > last_pos_read && next_offset_and_index.first > last_pos_graph.offset()) { 
+                    // As soon as we find one that starts after us in both the read and the node
+
+                    // Emit a connecting Path 
+                    Path connecting;
+
+                    if (next_offset_and_index.first - last_pos_graph.offset() > 1) {
+                        // There actually is intervening graph material
+                        Mapping* m = connecting.add_mapping();
+                        *m->mutable_position() = last_pos_graph;
+                        m->mutable_position()->set_offset(m->position().offset() + 1);
+                        Edit* e = m->add_edit();
+                        e->set_from_length(next_offset_and_index.first - m->position().offset());
+                        e->set_to_length(next_offset_and_index.first - m->position().offset());
+                    }
+
+#ifdef debug
+                    cerr << "Found graph path on node between seeds " << i << " and " << next_offset_and_index.second << ": " << pb2json(connecting) <<  endl;
+#endif
+
+                    // Emit that connection
+                    to_return[i][next_offset_and_index.second].emplace_back(std::move(connecting));
+
+                    // Don't look at any more destinations
+                    do_gbwt_search = false;
+                    break;
+                }
+            }
+        }
+
+        if (!do_gbwt_search) {
+            // Skip the GBWT search from this extended hit and try the next one
+            continue;
+        }
+
         // Turn it into a SearchState
-        auto start_state = gbwt_graph.get_state(start_handle);
+        gbwt::SearchState start_state = gbwt_graph.get_state(start_handle);
 
-        // Tack on how much of the read we consume to the end of the node
-        // And make a Path that describes that
+        // The search state represents searching through the end of the node, so we have to consume that much search limit.
 
-        // Queue it up
+        // Tack on how much search limit distance we consume by going to the end of the node to get an inclusive last position in the read.
+        size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - last_pos_graph.offset();
+        
+        // And make a Path that represents the part of the node we're on that goes out to the end.
+        // This may be empty if the hit already stopped at the end of the node
+        Path path_to_end;
+        if (distance_to_node_end != 0) {
+            // We didn't hit the end of the node already.
 
-        // While there are things in the queue
+            // Make a mapping that starts 1 after the last position in the node that the hit covers
+            Mapping* m = path_to_end.add_mapping();
+            *m->mutable_position() = last_pos_graph;
+            m->mutable_position()->set_offset(m->position().offset() + 1);
 
-        // Grab one
+            // Make it the requested length of perfect match.
+            Edit* e = m->add_edit();
+            e->set_from_length(distance_to_node_end);
+            e->set_to_length(distance_to_node_end);
+        }
+        
+        // Glom these together into a traversal state and queue it up.
+        // Holds the gbwt::SearchState we are at, and the Path from the end of the starting
+        // seed up through the end of the node we just searched.
+        // The from_length of the path tracks our consumption of distance limit.
+        using traversal_state_t = pair<gbwt::SearchState, Path>;
 
-        // follow_paths on it
+        // Holds a queue of search states to extend.
+        list<traversal_state_t> queue{{start_state, path_to_end}};
 
-        // For each place it can go
+        while (!queue.empty()) {
+            // While there are things in the queue
 
-        // Get state.node and node_to_handle it
+#ifdef debug
+            cerr << "Queue size: " << queue.size() << endl;
+#endif
 
-        // See if we hit any other extensions on this node
+            // Grab one
+            traversal_state_t here(std::move(queue.front()));
+            queue.pop_front();
+            gbwt::SearchState& here_state = here.first;
+            Path& here_path = here.second;
+            
+            // follow_paths on it
+            gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
+                // For each place it can go
 
-        // If we do, extend the path for them and emit connecting path for each
+                // Get state.node and node_to_handle it to het the handle we extended with
+                handle_t there_handle = gbwt_graph.node_to_handle(there_state.node);
 
-        // See if we can get to the end of the node without going outside the search length
+                // See if we hit any other extensions on this node
+                auto found = extensions_by_handle.find(there_handle);
+                if (found != extensions_by_handle.end()) {
+                    // If we do
+                    
+                    for (auto& next_offset_and_index : found->second) {
+                        // Look at them in order along the node
+                        
+                        if (extended_seeds[next_offset_and_index.second].second > last_pos_read) { 
+                            // As soon as we find one that starts in the read after our start extended seed ended
 
-        // If so extend the path with the entire node match and update the distance count and requeue
+                            // Extend the Path to connect to it.
+                            // TODO: Make these shared tail lists for better algorithmics
+                            Path extended = here_path;
+                            
+                            if (next_offset_and_index.first > 0) {
+                                // There is actual material on this new node before the extended seed we have to hit.
+                                Mapping* m = extended.add_mapping();
+                                m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
+                                m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
+                                Edit* e = m->add_edit();
+                                // Make sure it runs through the last base *before* the extended seed we are going for
+                                e->set_from_length(next_offset_and_index.first);
+                                e->set_to_length(next_offset_and_index.first);
+                            }
+
+#ifdef debug
+                            cerr << "Found graph path between seeds " << i << " and " << next_offset_and_index.second << ": " << pb2json(extended) <<  endl;
+#endif
+
+                            // And emit that connection
+                            to_return[i][next_offset_and_index.second].emplace_back(std::move(extended));
+
+                            // Don't look at any more destinations, or any extensions past this node of this search state.
+                            return true;
+                        }
+                    }
+                }
+
+                // If we get here, we didn't find a place to stop.
+
+                // See if we can get to the end of the node without going outside the search length.
+                if (path_from_length(here_path) + gbwt_graph.get_length(there_handle) <= walk_distance) {
+                    // If so, extend the path with the entire node match and requeue with the new search state
+                    
+                    // TODO: some of this code is repeated
+                    Path extended = here_path;
+                    Mapping* m = extended.add_mapping();
+                    m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
+                    m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
+                    Edit* e = m->add_edit();
+                    e->set_from_length(gbwt_graph.get_length(there_handle));
+                    e->set_to_length(gbwt_graph.get_length(there_handle));
+
+                    queue.emplace_back(there_state, extended);
+                }
+
+                // Look at other possible haplotypes from where we came from
+                return true;
+            });
+        }
 
     }
 
+    // Now this should be filled in with all the connectivity, so return.
     return to_return;
     
 }
