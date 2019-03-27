@@ -275,6 +275,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                         Alignment before_alignment;
                         before_alignment.set_sequence(before_sequence);
                         // TODO: pre-make the topological order
+                        
+                        cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
+                        subgraph.for_each_handle([&](const handle_t& here) {
+                            cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                            subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                            });
+                            subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                            });
+                        });
+
                         get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
 
                         if (before_alignment.score() > best_score || best_path.mapping_size() == 0) {
@@ -332,6 +344,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 Alignment after_alignment;
                                 after_alignment.set_sequence(trailing_sequence);
                                 // TODO: pre-make the topological order
+
+                                cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
+                                subgraph.for_each_handle([&](const handle_t& here) {
+                                    cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                    subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                        cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                    });
+                                    subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                        cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                    });
+                                });
+
                                 get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
 
                                 if (after_alignment.score() > best_score || best_path.mapping_size() == 0) {
@@ -376,6 +400,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 // Do global alignment to the path subgraph
                                 Alignment between_alignment;
                                 between_alignment.set_sequence(intervening_sequence);
+
+                                cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
+                                subgraph.for_each_handle([&](const handle_t& here) {
+                                    cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                    subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                        cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                    });
+                                    subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                        cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                    });
+                                });
+
                                 get_regular_aligner()->align_global_banded(between_alignment, subgraph, aln.sequence().size(), true);
 
                                 if (between_alignment.score() > best_score || best_path.mapping_size() == 0) {

@@ -6,6 +6,7 @@
 #include "path_subgraph.hpp"
 #include "path.hpp"
 #include <handlegraph/util.hpp>
+#include <iostream>
 
 namespace vg {
 
@@ -21,6 +22,7 @@ using namespace std;
     }
     
     handle_t PathSubgraph::get_handle(const id_t& node_id, bool is_reverse) const {
+        assert(node_id >= 1 && node_id <= defining_path.mapping_size());
         return handlegraph::number_bool_packing::pack(node_id, is_reverse);
     }
     
@@ -44,13 +46,14 @@ using namespace std;
     
     string PathSubgraph::get_sequence(const handle_t& handle) const {
         size_t index = (size_t)get_id(handle) - 1;
+        assert(index >= 0 && index < defining_path.mapping_size());
         bool backward = get_is_reverse(handle);
         auto& pos = defining_path.mapping(index).position();
         // Get the backing handle to the node we are visiting, in the orientation we are visiting it.
         handle_t backing_handle = super->get_handle(pos.node_id(), pos.is_reverse() != backward);
 
         // Grab its full sequence in the correct orientation.
-        string backing_sequence = get_sequence(backing_handle);
+        string backing_sequence = super->get_sequence(backing_handle);
 
         if (index == 0 && pos.offset() != 0) {
             // We need to trim off the start of the backing node in its orientation along the path.
@@ -90,25 +93,28 @@ using namespace std;
     bool PathSubgraph::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // There's only ever 0 or 1 edges
         size_t index = (size_t)get_id(handle) - 1;
+        assert(index >= 0 && index < defining_path.mapping_size());
         bool backward = get_is_reverse(handle);
 
-        if (index == 0 && (go_left != backward)) {
+        if (index == 0 && ((go_left && !backward) || (!go_left && backward))) {
             // Hit left edge
             return true;
         }
 
-        if (index == defining_path.mapping_size() - 1 && (go_left == backward)) {
+        if (index == defining_path.mapping_size() - 1 && ((go_left && backward) || (!go_left && !backward))) {
             // Hit right edge
             return true;
         }
 
         // Otherwise we can go somewhere
-        if (go_left == backward) {
+        if ((go_left && backward) || (!go_left && !backward)) {
             // Going forward in path
             index++;
         } else {
             index--;
         }
+
+        assert(index >= 0 && index < defining_path.mapping_size());
 
         // Go there and return the bool flag
         return iteratee(get_handle(index + 1, backward));
