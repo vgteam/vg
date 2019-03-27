@@ -16,6 +16,10 @@ namespace vg {
         
         assert(gff_record.start != -1 && gff_record.end != -1 && gff_record.start <= gff_record.end);
         
+        if (!xg_index->has_path(gff_record.sequence_id)) {
+            cerr << "error [RegionExpander] cannot expand genomic interval, graph does not contain path with name: " << gff_record.sequence_id << endl;
+            exit(1);
+        }
         const xg::XGPath& path = xg_index->get_path(gff_record.sequence_id);
         
         size_t offset = path.offset_at_position(gff_record.start);
@@ -130,6 +134,16 @@ namespace vg {
                     }
                 });
             }
+        }
+        
+        if (gff_record.strand_is_rev) {
+            map<pair<id_t, bool>, pair<uint64_t, uint64_t>> reversed_map;
+            for (const auto& record : return_val) {
+                uint64_t node_length = xg_index->node_length(record.first.first);
+                reversed_map[make_pair(record.first.first, !record.first.second)] = make_pair(node_length - record.second.second,
+                                                                                              node_length - record.second.first);
+            }
+            return_val = move(reversed_map);
         }
         
         return return_val;

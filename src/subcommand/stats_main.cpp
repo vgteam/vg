@@ -586,7 +586,8 @@ int main_stats(int argc, char** argv) {
                 stats.total_secondary++;
             } else {
                 stats.total_primary++;
-                if(aln.score() > 0) {
+                bool has_alignment = aln.score() > 0;
+                if (has_alignment) {
                     // We only count aligned primary reads in "total aligned";
                     // the primary can't be unaligned if the secondary is
                     // aligned.
@@ -684,10 +685,10 @@ int main_stats(int argc, char** argv) {
                 }
             
                 // If there's no non-match edits, call it a perfect alignment
-                stats.total_perfect += !has_non_match_edits;
+                stats.total_perfect += !has_non_match_edits && has_alignment;
                 
                 // If there's no non-softclip indel edits, the alignment is gapless
-                stats.total_gapless += !has_non_softclip_indel_edits;
+                stats.total_gapless += !has_non_softclip_indel_edits && has_alignment;
             
             }
 
