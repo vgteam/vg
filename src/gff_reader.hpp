@@ -5,6 +5,8 @@
 #include <sstream>
 #include <string>
 #include <map>
+#include <limits>
+#include <functional>
 
 namespace vg {
     
