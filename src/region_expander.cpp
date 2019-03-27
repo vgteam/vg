@@ -22,6 +22,8 @@ namespace vg {
         }
         const xg::XGPath& path = xg_index->get_path(gff_record.sequence_id);
         
+        // walk along the path for the interval and add the corresponding nodes to the subgraph
+        
         size_t offset = path.offset_at_position(gff_record.start);
         id_t node_id = path.node(offset);
         bool is_rev = path.directions[offset];
@@ -47,10 +49,11 @@ namespace vg {
         
         return_val[make_pair(node_id, is_rev)].second = gff_record.end - (at_pos - node_length) + 1;
         
+        // walk along the path and identify snarls that have both ends on the path
+        
         unordered_set<const Snarl*> entered_snarls;
         unordered_set<const Snarl*> completed_snarls;
         
-        // walk along the path and identify snarls that have both ends on the path
         for (size_t i = 0; i + 1 < interval_subpath.size(); i++) {
             const Snarl* snarl_out = snarl_manager->into_which_snarl(interval_subpath[i].first,
                                                                      !interval_subpath[i].second);
@@ -121,6 +124,7 @@ namespace vg {
                 }
                 
                 if (child_snarl_skips.count(handle)) {
+                    // skip over the internals of the child snarl we're pointing into
                     handle_t next = child_snarl_skips[handle];
                     if (!stacked.count(next)) {
                         stack.push_back(next);
@@ -128,6 +132,7 @@ namespace vg {
                     }
                 }
                 else {
+                    // traverse edges
                     xg_index->follow_edges(handle, false, [&](const handle_t& next) {
                         if (!stacked.count(next)) {
                             stack.push_back(next);
@@ -139,6 +144,7 @@ namespace vg {
         }
         
         if (gff_record.strand_is_rev) {
+            // we did all our queries with respect to the forward strand, flip it back to the reverse
             map<pair<id_t, bool>, pair<uint64_t, uint64_t>> reversed_map;
             for (const auto& record : return_val) {
                 uint64_t node_length = xg_index->node_length(record.first.first);
