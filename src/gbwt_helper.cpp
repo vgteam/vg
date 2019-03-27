@@ -170,6 +170,22 @@ std::pair<const char*, size_t> GBWTGraph::get_sequence_view(const handle_t& hand
     return std::make_pair(this->sequences.data() + this->offsets[offset], this->offsets[offset + 1] - this->offsets[offset]);
 }
 
+bool GBWTGraph::starts_with(const handle_t& handle, char c) const {
+    size_t offset = this->node_offset(handle);
+    if (this->offsets[offset + 1] <= this->offsets[offset]) {
+        return false;
+    }
+    return (this->sequences[this->offsets[offset]] == c);
+}
+
+bool GBWTGraph::ends_with(const handle_t& handle, char c) const {
+    size_t offset = this->node_offset(handle);
+    if (this->offsets[offset + 1] <= this->offsets[offset]) {
+        return false;
+    }
+    return (this->sequences[this->offsets[offset + 1] - 1] == c);
+}
+
 // Using undocumented parts of the GBWT interface. --Jouni
 bool GBWTGraph::follow_paths(gbwt::SearchState state, const std::function<bool(const gbwt::SearchState&)>& iteratee) const {
     gbwt::CompressedRecord record = this->index.record(state.node);
