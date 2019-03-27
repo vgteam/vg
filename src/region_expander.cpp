@@ -69,25 +69,6 @@ namespace vg {
             }
         }
         
-        // TODO: in order to handle inversions correctly we actually want to include redundant
-        // children and do a shallow contents algorithm
-        
-        // which of these snarls are the children of other snarls we've identified?
-        vector<const Snarl*> redundant_child_snarls;
-        for (const Snarl* snarl : completed_snarls) {
-            const Snarl* parent = snarl_manager->parent_of(snarl);
-            if (parent) {
-                if (completed_snarls.count(parent)) {
-                    redundant_child_snarls.push_back(snarl);
-                }
-            }
-        }
-        
-        // remove the redundant snarls from the set of snarls we're looking at
-        for (const Snarl* snarl : redundant_child_snarls) {
-            completed_snarls.erase(snarl);
-        }
-        
         // traverse the subgraph in each snarl and add it to the annotation
         for (const Snarl* snarl : completed_snarls) {
             // orient the snarl to match the orientation of the annotation
@@ -115,6 +96,18 @@ namespace vg {
             unordered_set<handle_t> stacked{oriented_start, oriented_end, xg_index->flip(oriented_start)};
             vector<handle_t> stack{oriented_start};
             
+            // make an index for jumping over the inside of child snarls
+            unordered_map<handle_t, handle_t> child_snarl_skips;
+            for (const Snarl* child : snarl_manager->children_of(snarl)) {
+                handle_t start = xg_index->get_handle(child->start().node_id(),
+                                                      child->start().backward());
+                handle_t end = xg_index->get_handle(child->end().node_id(),
+                                                    child->end().backward());
+                
+                child_snarl_skips[start] = end;
+                child_snarl_skips[xg_index->flip(end)] = xg_index->flip(start);
+            }
+            
             // traverse the subgraph and add it to the return value
             while (!stack.empty()) {
                 handle_t handle = stack.back();
@@ -127,12 +120,21 @@ namespace vg {
                     return_val[trav] = pair<uint64_t, uint64_t>(0, xg_index->get_length(handle));
                 }
                 
-                xg_index->follow_edges(handle, false, [&](const handle_t& next) {
+                if (child_snarl_skips.count(handle)) {
+                    handle_t next = child_snarl_skips[handle];
                     if (!stacked.count(next)) {
                         stack.push_back(next);
                         stacked.insert(next);
                     }
-                });
+                }
+                else {
+                    xg_index->follow_edges(handle, false, [&](const handle_t& next) {
+                        if (!stacked.count(next)) {
+                            stack.push_back(next);
+                            stacked.insert(next);
+                        }
+                    });
+                }
             }
         }
         
