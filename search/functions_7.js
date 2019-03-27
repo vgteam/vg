@@ -221,6 +221,8 @@ var searchData=
   ['getreachablebridges',['getReachableBridges',['../namespacevg.html#af601021f7ec2c0b0d7404030ee7271c9',1,'vg']]],
   ['getreachablebridges2',['getReachableBridges2',['../namespacevg.html#a2dc613a63afb3f23851c96494006630d',1,'vg']]],
   ['gfa_5fto_5fgraph',['gfa_to_graph',['../namespacevg.html#acd1d1f2f3c885ddf15f941b869c3030c',1,'vg']]],
+  ['gffreader',['GFFReader',['../classvg_1_1GFFReader.html#a886d9cf2d287f8d0f6c87b206c26d893',1,'vg::GFFReader']]],
+  ['gffrecord',['GFFRecord',['../structvg_1_1GFFRecord.html#a8fc2a234093eccb6ed958325887e0f08',1,'vg::GFFRecord']]],
   ['graph_5fcigar',['graph_cigar',['../classvg_1_1GSSWAligner.html#a21bc6add532890776634abd0550f989b',1,'vg::GSSWAligner']]],
   ['graph_5fcontext_5fg',['graph_context_g',['../classxg_1_1XG.html#af291ce024c0e2d8b46e03553f079ad1a',1,'xg::XG']]],
   ['graph_5fcontext_5fid',['graph_context_id',['../classxg_1_1XG.html#a7709f8d7f3c3aa4081c0afd9fe6e5653',1,'xg::XG']]],

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
   ['tail',['tail',['../structvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
   ['telomere_5fpair',['telomere_pair',['../structvg_1_1SwapHaplotypesCommand.html#a6a5922c2e74c8227f07631fd2f8cc5f9',1,'vg::SwapHaplotypesCommand']]],
@@ -52,5 +52,5 @@ var searchData=
   ['ts_5fiv',['ts_iv',['../classxg_1_1XG.html#a05141e12ffaf3a49aef046d3e2d7181a',1,'xg::XG']]],
   ['tumor_5fsupports',['tumor_supports',['../structvg_1_1BREAKPOINT.html#a66f75cad38b9fa5a3aab6b09b7a4ef8a',1,'vg::BREAKPOINT']]],
   ['tvs',['tvs',['../classvg_1_1TVSClusterer.html#ad59ad1a2a88d40a980a7b7fb2cc18a0d',1,'vg::TVSClusterer']]],
-  ['type',['type',['../structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6',1,'vg::Snarl']]]
+  ['type',['type',['../structvg_1_1GFFRecord.html#a0cc4e99f9e73fafafa9be311151ef0d7',1,'vg::GFFRecord::type()'],['../structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6',1,'vg::Snarl::type()']]]
 ];

@@ -30,6 +30,7 @@ var searchData=
   ['ref_5fcall',['ref_call',['../classvg_1_1PileupAugmenter.html#aa7686c13a2d4054016cebfa912664baf',1,'vg::PileupAugmenter']]],
   ['ref_5fposition',['ref_position',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a3bb99c89f3d0186e1291f0d16e004dcd',1,'haplo::linear_haplo_structure::SNVvector']]],
   ['refactor_5fsplit_5falignment',['refactor_split_alignment',['../classvg_1_1Filter.html#af5c53d7fa62dff67d24ff0daa4d5f925',1,'vg::Filter']]],
+  ['regionexpander',['RegionExpander',['../classvg_1_1RegionExpander.html#a794d628c29f5d21f480be0228fac9960',1,'vg::RegionExpander']]],
   ['register_5fconfigurable',['register_configurable',['../classvg_1_1ConfigurableParser.html#a3c42646beeac7fb48f57c44f1420ec7b',1,'vg::ConfigurableParser']]],
   ['register_5ffragment_5flength',['register_fragment_length',['../classvg_1_1FragmentLengthDistribution.html#a888c21e626cb2fd984f9e0ffd39adefc',1,'vg::FragmentLengthDistribution']]],
   ['register_5foption',['register_option',['../classvg_1_1Configurable.html#afa7bba48c6289ea9b9095acd79a5658e',1,'vg::Configurable']]],

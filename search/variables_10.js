@@ -43,6 +43,7 @@ var searchData=
   ['periphery',['periphery',['../classvg_1_1GraphSynchronizer_1_1Lock.html#ad9bebede56cef5ab20d80828e34d8b6a',1,'vg::GraphSynchronizer::Lock']]],
   ['permutation_5fidx',['permutation_idx',['../classvg_1_1ShuffledPairs_1_1iterator.html#a52dd908e59ff6dac90191a40c63537e0',1,'vg::ShuffledPairs::iterator']]],
   ['permuted',['permuted',['../classvg_1_1ShuffledPairs_1_1iterator.html#a19642461808615472b7b544e04c47243',1,'vg::ShuffledPairs::iterator']]],
+  ['phase',['phase',['../structvg_1_1GFFRecord.html#adf3d82a77a4837edba29935e08cb2a53',1,'vg::GFFRecord']]],
   ['phase_5fvisits',['phase_visits',['../structvg_1_1VG_1_1Plan.html#ad18d84799bb31227175746bee50f6940',1,'vg::VG::Plan']]],
   ['phred_5fprob',['phred_prob',['../classvg_1_1NGSSimulator.html#ab8ace60ed77440820944dbdaee5bb123',1,'vg::NGSSimulator']]],
   ['pi_5fiv',['pi_iv',['../classxg_1_1XG.html#a4bcc36436b42994de2ba623f62c1447e',1,'xg::XG']]],

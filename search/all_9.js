@@ -27,7 +27,7 @@ var searchData=
   ['image_5fheight',['image_height',['../classvg_1_1Viz.html#ab34e44856e2c4d64ddf4d11aac46e5f6',1,'vg::Viz']]],
   ['image_5fwidth',['image_width',['../classvg_1_1Viz.html#a5dfce1ae146aff9f2aead08e304833bd',1,'vg::Viz']]],
   ['imperfect_5fpairs_5fto_5fretry',['imperfect_pairs_to_retry',['../classvg_1_1Mapper.html#a05444e0f52bddbe50304289a34d0b551',1,'vg::Mapper']]],
-  ['in',['in',['../structhaplo_1_1haplo__DP__edge__memo.html#a952eb15b8bbde3d2d5e20a414cde89c5',1,'haplo::haplo_DP_edge_memo']]],
+  ['in',['in',['../classvg_1_1GFFReader.html#a349dc0d2a38d966c4c4c265ac056346f',1,'vg::GFFReader::in()'],['../structhaplo_1_1haplo__DP__edge__memo.html#a952eb15b8bbde3d2d5e20a414cde89c5',1,'haplo::haplo_DP_edge_memo::in()']]],
   ['in_5fnontrivial_5fchain',['in_nontrivial_chain',['../classvg_1_1SnarlManager.html#abe6a0924ce953c5dd1a43a91558c4391',1,'vg::SnarlManager']]],
   ['include',['include',['../classvg_1_1VG.html#a66e4dac76edcf0218f9749352c19acae',1,'vg::VG']]],
   ['include_5ffull_5flength_5fbonuses',['include_full_length_bonuses',['../classvg_1_1Mapper.html#a9472c75cceb3382b70bbd27bfbc4a894',1,'vg::Mapper']]],
