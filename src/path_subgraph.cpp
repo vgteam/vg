@@ -139,5 +139,60 @@ using namespace std;
         return defining_path.mapping_size();
     }
 
+    Path PathSubgraph::translate_down(const Path& path_against_subgraph) const {
+        Path translated;
+
+        for (auto& subgraph_mapping : path_against_subgraph.mapping()) {
+            // Translate each mapping
+            Mapping* translated_mapping = translated.add_mapping();
+
+            // Look up the defining Mapping we are visiting
+            auto& defining_mapping = defining_path.mapping(subgraph_mapping.position().node_id() - 1);
+
+            // TODO: simplify out repeated code here once we're sure each case is really correct
+            if (defining_mapping.position().is_reverse() == false && subgraph_mapping.position().is_reverse() == false) {
+                // We're in the forward orientation all the way through.
+                // If there's an offset in the defining mapping, we need to add that to the offset in the subgraph mapping.
+                // If the defining mapping has a short length, we don't care because we know the subgraph mapping won't be longer.
+                translated_mapping->mutable_position()->set_node_id(defining_mapping.position().node_id());
+                translated_mapping->mutable_position()->set_offset(defining_mapping.position().offset() + subgraph_mapping.position().offset());
+                // The result will be forward
+            } else if (defining_mapping.position().is_reverse() == false && subgraph_mapping.position().is_reverse() == true) {
+                // We're in the forward orientation agaisnt the backing graph but the reverse orientation against the path.
+                // Any shortness in the path mapping from length needs to be turned into an offset and added to the backing path offset.
+                // Any offset in it will be ignored.
+                size_t shortness = mapping_from_length(defining_mapping) - mapping_from_length(subgraph_mapping) - subgraph_mapping.position().offset();
+
+                translated_mapping->mutable_position()->set_node_id(defining_mapping.position().node_id());
+                translated_mapping->mutable_position()->set_offset(defining_mapping.position().offset() + shortness);
+                // We come out backward
+                translated_mapping->mutable_position()->set_is_reverse(true);
+            } else if (defining_mapping.position().is_reverse() == true && subgraph_mapping.position().is_reverse() == false) {
+                // We're in the reverse orientation against the backing graph, and the mapping to the path agrees with that.
+                // We need to sum the offsets and ignore shortness
+                translated_mapping->mutable_position()->set_node_id(defining_mapping.position().node_id());
+                translated_mapping->mutable_position()->set_offset(defining_mapping.position().offset() + subgraph_mapping.position().offset());
+                // And we will stay reverse
+                translated_mapping->mutable_position()->set_is_reverse(true);
+            } else {
+                // We're in the reverse orientation in the backing graph, but then flip back against that.
+                // We need to add shortness to offset
+                size_t shortness = mapping_from_length(defining_mapping) - mapping_from_length(subgraph_mapping) - subgraph_mapping.position().offset();
+                
+                translated_mapping->mutable_position()->set_node_id(defining_mapping.position().node_id());
+                translated_mapping->mutable_position()->set_offset(defining_mapping.position().offset() + shortness);
+                // We come out in the forward orientation
+                translated_mapping->mutable_position()->set_is_reverse(true);
+            }
+
+            // The edits always stay the same
+            for (auto& edit : subgraph_mapping.edit()) {
+                *translated_mapping->add_edit() = edit;
+            }
+        }
+
+        return translated;
+    }
+
 }
 

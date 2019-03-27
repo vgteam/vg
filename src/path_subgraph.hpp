@@ -47,7 +47,7 @@ using namespace std;
         
         /// Invert the orientation of a handle (potentially without getting its ID)
         virtual handle_t flip(const handle_t& handle) const;
-        
+    
         /// Get the length of a node
         virtual size_t get_length(const handle_t& handle) const;
         
@@ -55,6 +55,7 @@ using namespace std;
         /// orientation.
         virtual string get_sequence(const handle_t& handle) const;
         
+    protected:
         /// Loop over all the handles to next/previous (right/left) nodes. Passes
         /// them to a callback which returns false to stop iterating and true to
         /// continue. Returns true if we finished and false if we stopped early.
@@ -67,6 +68,7 @@ using namespace std;
         /// order is not defined.
         virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
+    public:
         /// Return the number of nodes in the graph
         /// TODO: can't be node_count because XG has a field named node_count.
         virtual size_t node_size() const;
@@ -78,6 +80,13 @@ using namespace std;
         /// Return the largest ID in the graph, or some larger number if the
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
         virtual id_t max_node_id() const;
+
+        //////////////////////////
+        /// Additional Interface
+        //////////////////////////
+
+        /// Translate a Path against us to a Path against the base graph
+        Path translate_down(const Path& path_against_subgraph) const;
         
     private:
         const HandleGraph* super = nullptr;

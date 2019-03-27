@@ -5,6 +5,8 @@
 
 #include "minimizer_mapper.hpp"
 #include "annotation.hpp"
+#include "path_subgraph.hpp"
+#include "multipath_alignment.hpp"
 
 #include <chrono>
 #include <iostream>
@@ -236,7 +238,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Find the paths between pairs of extended seeds that agree with haplotypes.
                 // We don't actually need the read sequence for this; the paths in the seeds know the hit length.
                 // We assume all overlapping hits are exclusive.
-                auto paths_between_seeds = find_connecting_paths(extended_seeds, walk_distance);
+                unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds, walk_distance);
 
                 // Make a MultipathAlignment and feed in all the extended seeds as subpaths
                 MultipathAlignment mp;
@@ -244,22 +246,179 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 mp.set_quality(aln.quality());
                 for (auto& extended_seed : extended_seeds) {
                     Subpath* s = mp.add_subpath();
+                    // Copy in the path.
+                    *s->mutable_path() = extended_seed.first;
+                    // The position in the read it occurs at will be handled by the multipath topology.
                 }
 
-                // Then extract all the intervening sequences for every edge
+                for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
+                    // For each source extended seed
+                    const size_t& source = kv.first;
+                    
+                    // Grab the part of the read sequence that comes before it
+                    string before_sequence = aln.sequence().substr(0, extended_seeds[source].second); 
 
-                // Align the intervening read sequence against each
+                    // We want the best alignment, to the base graph, done against any target path
+                    Path best_path;
+                    // And its score
+                    size_t best_score = 0;
 
-                // Pick the best alignment for the edge
+                    // We can align it once per target path
+                    for (auto& path : kv.second) {
+                        // For each path we can take to get to the source
 
-                // Translate it into a read segment to graph alignment Path
+                        // Make a subgraph.
+                        // TODO: don't copy the path
+                        PathSubgraph subgraph(&gbwt_graph, path);
+                        
+                        // Do right-pinned alignment to the path subgraph with GSSWAligner.
+                        Alignment before_alignment;
+                        before_alignment.set_sequence(before_sequence);
+                        // TODO: pre-make the topological order
+                        get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
 
-                // Put it in the MultipathAlignment as a Path, and make edges from and to the extended seed paths being connected.
-                // If it was an alignment of nothing to nothing, just make an edge between the two extended seed paths
+                        if (before_alignment.score() > best_score || best_path.mapping_size() == 0) {
+                            // This is a new best alignment. Translate from subgraph into base graph and keep it
+                            best_path = subgraph.translate_down(before_alignment.path());
+                            best_score = before_alignment.score();
+                        }
+                    }
+                    
+                    // We really should have gotten something
+                    assert(best_path.mapping_size() != 0);
 
-                // Then we take the best linearization of the full MultipathAlignment and emit that
+                    // Put it in the MultipathAlignment
+                    Subpath* s = mp.add_subpath();
+                    *s->mutable_path() = std::move(best_path);
+                    
+                    // And make the edge from it to the correct sink
+                    s->add_next(source);
+                }
 
-                // Then return so we don't emit the unaligned Alignment
+                for (auto& from_and_edges : paths_between_seeds) {
+                    const size_t& from = from_and_edges.first;
+                    if (from == numeric_limits<size_t>::max()) {
+                        continue;
+                    }
+                    // Then for all the other from extended seeds
+
+                    // Work out where the extended seed ends in the read
+                    size_t from_end = extended_seeds[from].second + path_from_length(extended_seeds[from].first);
+                    
+                    for (auto& to_and_paths : from_and_edges.second) {
+                        const size_t& to = to_and_paths.first;
+                        // For all the edges to other extended seeds
+
+                        if (to == numeric_limits<size_t>::max()) {
+                            // Do a bunch of left pinned alignments for the tails.
+                            
+                            // Find the sequence
+                            string trailing_sequence = aln.sequence().substr(from_end); 
+
+                            // Find the best path in backing graph space
+                            Path best_path;
+                            // And its score
+                            size_t best_score = 0;
+
+                            // We can align it once per target path
+                            for (auto& path : to_and_paths.second) {
+                                // For each path we can take to get to the source
+
+                                // Make a subgraph.
+                                // TODO: don't copy the path
+                                PathSubgraph subgraph(&gbwt_graph, path);
+                                
+                                // Do left-pinned alignment to the path subgraph
+                                Alignment after_alignment;
+                                after_alignment.set_sequence(trailing_sequence);
+                                // TODO: pre-make the topological order
+                                get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+
+                                if (after_alignment.score() > best_score || best_path.mapping_size() == 0) {
+                                    // This is a new best alignment. Translate from subgraph into base graph and keep it
+                                    best_path = subgraph.translate_down(after_alignment.path());
+                                    best_score = after_alignment.score();
+                                }
+                            }
+                            
+                            // We need to come after from with this path
+
+                            // We really should have gotten something
+                            assert(best_path.mapping_size() != 0);
+
+                            // Put it in the MultipathAlignment
+                            Subpath* s = mp.add_subpath();
+                            *s->mutable_path() = std::move(best_path);
+                            
+                            // And make the edge to hook it up
+                            mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+
+                        } else {
+                            // Do alignments between from and to
+
+                            // Find the sequence
+                            assert(extended_seeds[to].second >= from_end);
+                            string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].second - from_end); 
+
+                            // Find the best path in backing graph space
+                            Path best_path;
+                            // And its score
+                            size_t best_score = 0;
+
+                            // We can align it once per target path
+                            for (auto& path : to_and_paths.second) {
+                                // For each path we can take to get to the source
+
+                                // Make a subgraph.
+                                // TODO: don't copy the path
+                                PathSubgraph subgraph(&gbwt_graph, path);
+                                
+                                // Do global alignment to the path subgraph
+                                Alignment between_alignment;
+                                between_alignment.set_sequence(intervening_sequence);
+                                get_regular_aligner()->align_global_banded(between_alignment, subgraph, aln.sequence().size(), true);
+
+                                if (between_alignment.score() > best_score || best_path.mapping_size() == 0) {
+                                    // This is a new best alignment. Translate from subgraph into base graph and keep it
+                                    best_path = subgraph.translate_down(between_alignment.path());
+                                    best_score = between_alignment.score();
+                                }
+                            }
+                            
+                            // We may have an empty path. That's fine.
+
+                            if (best_path.mapping_size() == 0 && intervening_sequence.empty()) {
+                                // We just need an edge from from to to
+                                mp.mutable_subpath(from)->add_next(to);
+                            } else {
+                                // We need to connect from and to with a Subpath with this path
+
+                                // We really should have gotten something
+                                assert(best_path.mapping_size() != 0);
+
+                                // Put it in the MultipathAlignment
+                                Subpath* s = mp.add_subpath();
+                                *s->mutable_path() = std::move(best_path);
+                                
+                                // And make the edges to hook it up
+                                s->add_next(to);
+                                mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+                            }
+
+                        }
+
+                    }
+
+                }
+
+                    
+                // Then we take the best linearization of the full MultipathAlignment.
+                // Make sure to force source to sink
+                topologically_order_subpaths(mp);
+                optimal_alignment(mp, out, true);
+
+                // Then continue so we don't emit the unaligned Alignment
+                continue;
             }
         }
         
