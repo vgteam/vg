@@ -26,6 +26,8 @@ var searchData=
   ['alt2',['alt2',['../structvg_1_1NodeDivider_1_1Entry.html#aea93cd15efd8c13eec905d9743e5ed49',1,'vg::NodeDivider::Entry']]],
   ['alt_5falignments',['alt_alignments',['../classvg_1_1BandedGlobalAligner.html#a72ad87c059fc959b0258feb87c8dd4bd',1,'vg::BandedGlobalAligner']]],
   ['alt_5fanchor_5fmax_5flength_5fdiff',['alt_anchor_max_length_diff',['../classvg_1_1MultipathMapper.html#a229117ffb8dcad25565d8f65e29ba194',1,'vg::MultipathMapper']]],
+  ['alt_5fnames_5ffrom_5fvcf_5fid',['alt_names_from_vcf_id',['../classvg_1_1Constructor.html#a38ffa659622678e84041a0c4a915efb4',1,'vg::Constructor']]],
+  ['alt_5fpath_5fprefix',['alt_path_prefix',['../classvg_1_1Constructor.html#a034636bb9693f48d2f926346b47e635f',1,'vg::Constructor']]],
   ['alt_5fpaths',['alt_paths',['../classvg_1_1Constructor.html#a19deb52667c009bcb73cd27e7ba2a5ac',1,'vg::Constructor']]],
   ['alt_5ftracebacks',['alt_tracebacks',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#af49884645b194e12cea5a5fdf6182b58',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['alts_5fas_5floci',['alts_as_loci',['../classvg_1_1Constructor.html#aedef6d593704f6739abcb116369935f7',1,'vg::Constructor']]],
