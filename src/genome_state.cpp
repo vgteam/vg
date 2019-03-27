@@ -574,7 +574,7 @@ ReplaceLocalHaplotypeCommand GenomeState::replace_snarl_haplotype(const ReplaceS
                     handle_t into = net_graphs.at(snarl).get_inward_backing_handle(handle_and_lane.first);
                 
                     // Get the child we are actually reading into from the SnarlManager
-                    const Snarl* child = manager.into_which_snarl(backing_graph->to_visit(into));
+                    const Snarl* child = manager.into_which_snarl(to_visit(*backing_graph, into));
                 
                     // Get the chain for the child
                     const Chain* child_chain = manager.chain_of(child);
@@ -680,7 +680,7 @@ void GenomeState::trace_haplotype(const pair<const Snarl*, const Snarl*>& telome
 #endif
             
                 // Get the snarl we really are entering, because get_inward_backing_handle works.
-                const Snarl* entered = manager.into_which_snarl(backing_graph->to_visit(into));
+                const Snarl* entered = manager.into_which_snarl(to_visit(*backing_graph, into));
                 
                 // Decide if we are entering it through its end
                 bool entered_snarl_via_end = entered->start().node_id() != backing_graph->get_id(into);
@@ -811,7 +811,7 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
     
     for (auto& next_handle : to_add) {
         // For each handle, look at it as a visit in the base graph
-        Visit next_visit = backing_graph->to_visit(next_handle);
+        Visit next_visit = to_visit(*backing_graph, next_handle);
         
 #ifdef debug
         cerr << "Stack: ";
@@ -881,7 +881,7 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
                 auto& net_graph = net_graphs.at(parent);
                 
                 // Get the backing graph handle reading out of the chain
-                handle_t backing_outward = backing_graph->get_handle(next_visit);
+                handle_t backing_outward = backing_graph->get_handle(next_visit.node_id(), next_visit.backward());
                 
                 // Make it inward
                 handle_t backing_inward = backing_graph->flip(backing_outward);
@@ -891,7 +891,7 @@ void GenomeState::insert_handles(const vector<handle_t>& to_add,
                 handle_t chain_handle = net_graph.flip(net_graph.get_handle_from_inward_backing_handle(backing_inward));
 
 #ifdef debug
-                cerr << "Represent chain traversal with " << net_graph.to_visit(chain_handle) << endl;
+                cerr << "Represent chain traversal with " << to_visit(net_graph, chain_handle) << endl;
 #endif
 
                 // Tack it on to the parent

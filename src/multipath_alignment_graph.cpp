@@ -1083,13 +1083,13 @@ namespace vg {
             if (prefix_idx > 0 || suffix_idx + 1 < path_node.path.mapping_size()) {
                 
                 // compute the amount of read we're trimming off from each end
-                int64_t trimmed_prefix_from_length = 0;
-                int64_t trimmed_suffix_from_length = 0;
+                int64_t trimmed_prefix_to_length = 0;
+                int64_t trimmed_suffix_to_length = 0;
                 for (int64_t i = 0; i < prefix_idx; i++) {
-                    trimmed_prefix_from_length += mapping_from_length(path_node.path.mapping(i));
+                    trimmed_prefix_to_length += mapping_to_length(path_node.path.mapping(i));
                 }
                 for (int64_t i = suffix_idx + 1; i < path_node.path.mapping_size(); i++) {
-                    trimmed_suffix_from_length += mapping_from_length(path_node.path.mapping(i));
+                    trimmed_suffix_to_length += mapping_to_length(path_node.path.mapping(i));
                 }
                 
                 // replace the path with the portion that we didn't trim
@@ -1106,8 +1106,8 @@ namespace vg {
                 cerr << "trimmed path: " << pb2json(path_node.path) << endl;
 #endif
                 // update the read interval
-                path_node.begin += trimmed_prefix_from_length;
-                path_node.end -= trimmed_suffix_from_length;
+                path_node.begin += trimmed_prefix_to_length;
+                path_node.end -= trimmed_suffix_to_length;
             }
         }
     }
@@ -1357,8 +1357,8 @@ namespace vg {
         }
     }
    
-    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner,
-                                                          size_t max_alt_alns, bool dynamic_alt_alns) {
+    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph,
+                                                          const GSSWAligner* aligner, size_t max_alt_alns, bool dynamic_alt_alns) {
     
         
         // Align the tails, not collecting a set of source subpaths.
@@ -2206,8 +2206,10 @@ namespace vg {
         
         vector<unordered_map<size_t, size_t>> noncolinear_shells(path_nodes.size());
         
-        // tuples of (overlap size, index onto, index from, dist)
-        vector<tuple<size_t, size_t, size_t, size_t>> confirmed_overlaps;
+        // map from index_from to maps of index_onto to (overlap size, dist)
+        unordered_map<size_t, map<size_t, pair<size_t, size_t>>> confirmed_overlaps;
+        // map from path index to set of indexes whose start occurs on the path
+        unordered_map<size_t, set<size_t>> path_starts_on_path;
         
         for (size_t i = 0; i < topological_order.size(); i++) {
             id_t node_id = graph.get_id(topological_order[i]);
@@ -2216,9 +2218,9 @@ namespace vg {
             cerr << "looking for edges for starts on node " << node_id << endl;
 #endif
             
-            if (!path_starts.count(node_id)) {
+            if (!path_starts.count(node_id) && !path_ends.count(node_id)) {
 #ifdef debug_multipath_alignment
-                cerr << "there are no starts on this node" << endl;
+                cerr << "there are no starts or ends on this node" << endl;
 #endif
                 continue;
             }
@@ -2229,309 +2231,434 @@ namespace vg {
             
             vector<size_t>& starts = path_starts[node_id];
             vector<size_t>& ends = path_ends[node_id];
-            // index of the next end that is past the start we are on
-            size_t next_end_idx = 0;
-            // sentinel that will never be equal to the first offset
-            size_t curr_start_offset = numeric_limits<size_t>::max();
-            
-            for (size_t start_idx = 0; start_idx < starts.size(); start_idx++) {
-                // traverse all of the reachable starts to find the adjacent ends that might be colinear
-                
-                size_t start = starts[start_idx];
-                
-#ifdef debug_multipath_alignment
-                cerr << "searching backward from start " << start << endl;
-#endif
-                
-                PathNode& start_node = path_nodes.at(start);
-                unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
+            size_t start_idx = 0, end_idx = 0;
+            size_t curr_start_offset = numeric_limits<size_t>::max(), curr_end_offset = numeric_limits<size_t>::max();
+            if (!starts.empty()) {
+                curr_start_offset = start_offset(starts[0]);
+            }
+            if (!ends.empty()) {
+                curr_end_offset = end_offset(ends[0]);
+            }
+            while (start_idx < starts.size() || end_idx < ends.size()) {
                 
                 // TODO: would it be better to combine these into one queue?
                 
                 // initialize queues for the next start and next end, prioritized by shortest distance
                 structures::RankPairingHeap<size_t, size_t, std::greater<size_t>> start_queue, end_queue;
                 
-                // we begin at the start we're searching backward from
-                start_queue.push_or_reprioritize(start, 0);
-                
-                while (!start_queue.empty() || !end_queue.empty()) {
-                    // is the next item on the queues a start or an end?
-                    if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
-                        
-                        // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
-                        
-                        pair<size_t, size_t> start_here = start_queue.top();
-                        start_queue.pop();
-                        
+                if (curr_start_offset >= curr_end_offset) {
+                    
+                    // the next endpoint is an end, the point of searching backwards from these is to
+                    // fill out the non-colinear shell of the current end with any path whose end is between
+                    // this path's start and end but is not overlap colinear
+                    
+                    size_t end = ends[end_idx];
+                    
 #ifdef debug_multipath_alignment
-                        cerr << "traversing start " << start_here.first << " at distance " << start_here.second << endl;
+                    cerr << "searching backward from end " << end << endl;
 #endif
-                        
-                        // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
-                        // between them and the distance already traversed
-                        for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.first]) {
-                            end_queue.push_or_reprioritize(end.first, start_here.second + end.second);
-#ifdef debug_multipath_alignment
-                            cerr << "found reachable end " << end.first << " at distance " << start_here.second + end.second << endl;
-#endif
-                        }
-                        
-                        for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.second]) {
-                            start_queue.push_or_reprioritize(start_next.first, start_here.second + start_next.second);
-                        }
+                    PathNode& end_node = path_nodes.at(end);
+                    unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[end];
+                    
+                    for (const pair<size_t, size_t>& next_end : reachable_ends_from_end[end]) {
+                        end_queue.push_or_reprioritize(next_end.first, next_end.second);
                     }
-                    else {
-                        
-                        // the next closest endpoint is an end, so we check if we can make a connection to the start
-                        // that we're searching backward from
-                        
-                        size_t candidate_end = end_queue.top().first;
-                        size_t candidate_dist = end_queue.top().second;
-                        end_queue.pop();
-                        
-#ifdef debug_multipath_alignment
-                        cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
-#endif
-                        
-                        PathNode& candidate_end_node = path_nodes[candidate_end];
-                        
-                        if (candidate_end_node.end <= start_node.begin) {
-                            // these MEMs are read colinear and graph reachable, so connect them
-                            candidate_end_node.edges.emplace_back(start, candidate_dist);
+                    
+                    for (const pair<size_t, size_t>& start_next : reachable_starts_from_end[end]) {
+                        start_queue.push_or_reprioritize(start_next.first, start_next.second);
+                    }
+                    
+                    while (!start_queue.empty() || !end_queue.empty()) {
+                        // is the next item on the queues a start or an end?
+                        if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
                             
-#ifdef debug_multipath_alignment
-                            cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
-                            for (auto& edge : candidate_end_node.edges) {
-                                cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
-                            }
-#endif
+                            // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
                             
-                            // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
-                            // this connection
-                            for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
-#ifdef debug_multipath_alignment
-                                cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second + candidate_dist << " from noncolinear shell" << endl;
-#endif
-                                end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
-                            }
-                        }
-                        else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
-                            // the MEM can be made colinear by removing an overlap, which will not threaten reachability
-                            size_t overlap = candidate_end_node.end - start_node.begin;
-                            confirmed_overlaps.emplace_back(overlap, start, candidate_end, candidate_dist + overlap);
+                            pair<size_t, size_t> start_here = start_queue.top();
+                            start_queue.pop();
                             
-#ifdef debug_multipath_alignment
-                            cerr << "connection is overlap colinear, recording to add edge later" << endl;
-#endif
-                            
-                            // the end of this node might not actually block connections since it's going to intersect the middle of the node
-                            // so we need to find predecessors to this end too
-                            
-                            // add any ends directly reachable from the end
-                            for (const pair<size_t, size_t>& exposed_end : reachable_ends_from_end[candidate_end]) {
-                                end_queue.push_or_reprioritize(exposed_end.first, candidate_dist + exposed_end.second);
-#ifdef debug_multipath_alignment
-                                cerr << "found reachable exposed end " << exposed_end.first << " at distance " << candidate_dist + exposed_end.second << endl;
-#endif
+                            // don't keep looking backward earlier than the start of the current path
+                            if (start_here.first == end) {
+                                continue;
                             }
                             
-                            // add the directly reachable exposed starts to the queue
-                            for (const pair<size_t, size_t>& exposed_start : reachable_starts_from_end[candidate_end]) {
-#ifdef debug_multipath_alignment
-                                cerr << "adding exposed start traversal with " << exposed_start.first << " at distance " << candidate_dist + exposed_start.second << endl;
-#endif
-                                start_queue.push_or_reprioritize(exposed_start.first, candidate_dist + exposed_start.second);
+                            // the minimum distance to each of the starts or ends this can reach is (at most) the sum of the min distance
+                            // between them and the distance already traversed
+                            for (const pair<size_t, size_t>& next_end : reachable_ends_from_start[start_here.first]) {
+                                end_queue.push_or_reprioritize(next_end.first, start_here.second + next_end.second);
                             }
                             
-                            // also skip to the predecessor's noncolinear shell, whose connections might not be blocked by
-                            // this connection
-                            for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
-#ifdef debug_multipath_alignment
-                                cerr << "enqueueing " << shell_pred.first << " at dist " << candidate_dist + shell_pred.second << " from noncolinear shell" << endl;
-#endif
-                                end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
+                            for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.first]) {
+                                start_queue.push_or_reprioritize(start_next.first, start_here.second + start_next.second);
                             }
                         }
                         else {
-                            // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
-                            if (noncolinear_shell.count(candidate_end)) {
-                                noncolinear_shell[candidate_end] = std::min(candidate_dist + (start_node.end - start_node.begin),
-                                                                            noncolinear_shell[candidate_end]);
+                            
+                            // the next closest endpoint is an end, so we'll check whether we can
+                            
+                            pair<size_t, size_t> end_here = end_queue.top();
+                            end_queue.pop();
+                            
+                            PathNode& next_end_node = path_nodes[end_here.first];
+                            
+                            // these are non-colinear, so add it to the non-colinear shell
+                            if (next_end_node.begin >= end_node.begin || next_end_node.end >= end_node.end) {
+                                if (noncolinear_shell.count(end_here.first)) {
+                                    noncolinear_shell[end_here.first] = std::min(end_here.second, noncolinear_shell[end_here.first]);
+                                }
+                                else {
+                                    noncolinear_shell[end_here.first] = end_here.second;
+                                }
+                                continue;
+                            }
+                            
+                            // if we get this far, the two paths are colinear or overlap-colinear, so we won't add it to the
+                            // non-colinear shell. now we need to decide whether to keep searching backward. we'll check a
+                            // few conditions that will guarantee that the rest of the search is redundant
+                            
+                            // TODO: this actually isn't a full set of criteria, we don't just want to know if there is an
+                            // edge, we want to know if it is reachable along any series of edges...
+                            // at least this will only cause a few false positive edges that we can remove later with
+                            // the transitive reduction
+                            
+                            // see if this node has an edge forward
+                            bool has_edge_forward = false;
+                            for (auto& edge : next_end_node.edges) {
+                                if (edge.first == end) {
+                                    has_edge_forward = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (has_edge_forward) { // already has an edge, can stop
+                                continue;
+                            }
+                            
+                            auto overlap_iter = confirmed_overlaps.find(end_here.first);
+                            if (overlap_iter != confirmed_overlaps.end()) {
+                                if (overlap_iter->second.count(end)) {
+                                    has_edge_forward = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (has_edge_forward) { // already has an overlap, can stop
+                                continue;
+                            }
+                            
+                            // we can't easily guarantee that this is non-colinear or colinear, so we're just going to treat it
+                            // as non-colinear and accept some risk of this creating redundant edges to later nodes
+                            if (noncolinear_shell.count(end_here.first)) {
+                                noncolinear_shell[end_here.first] = std::min(end_here.second, noncolinear_shell[end_here.first]);
                             }
                             else {
-                                noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
-                            }
-                            
-#ifdef debug_multipath_alignment
-                            cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
-#endif
-                            
-                            // there is no connection to block further connections back, so any of this MEMs
-                            // predecessors could still be colinear
-                            
-                            // find the ends that can reach it directly
-                            for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
-                                end_queue.push_or_reprioritize(pred_end.first, candidate_dist + pred_end.second);
-#ifdef debug_multipath_alignment
-                                cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
-#endif
-                            }
-                            
-                            // set the start queue up with the immediate start neighbors
-                            for (const pair<size_t, size_t>& pred_start : reachable_starts_from_end[candidate_end]) {
-                                start_queue.push_or_reprioritize(pred_start.first, candidate_dist + pred_start.second);
+                                noncolinear_shell[end_here.first] = end_here.second;
                             }
                         }
                     }
-                }
-                
-#ifdef debug_multipath_alignment
-                cerr << "walking path to look for overlaps" << endl;
-#endif
-                
-                size_t prev_start_offset = curr_start_offset;
-                curr_start_offset = start_offset(start);
-                // update the list of starts at this offset earlier in the starts vector
-                if (curr_start_offset != prev_start_offset) {
-                    colocated_starts.clear();
-                }
-                colocated_starts.push_back(start);
-                
-                // move the next end pointer to the one immediately following this start on the node
-                while (next_end_idx >= ends.size() ? false : end_offset(ends[next_end_idx]) <= curr_start_offset) {
-                    next_end_idx++;
-                }
-                
-                Path& path = path_nodes.at(start).path;
-                // the starts that are on this path
-                unordered_set<size_t> path_starts_on_path(colocated_starts.begin(), colocated_starts.end());
-                // records of (node_idx, overlap length)
-                vector<pair<size_t, size_t>> overlap_candidates;
-                
-                if (path.mapping_size() == 1) {
-                    // TODO: this edge case is a little duplicative, probably could merge
                     
-#ifdef debug_multipath_alignment
-                    cerr << "path is one mapping long" << endl;
-#endif
-                    
-                    size_t final_offset = end_offset(start);
-                    // record which starts are on the path on this node
-                    for (size_t path_start_idx = start_idx + 1;
-                         path_start_idx >= starts.size() ? false : start_offset(starts[path_start_idx]) < final_offset;
-                         path_start_idx++) {
-                        
-                        path_starts_on_path.insert(starts[path_start_idx]);
-                        
-                    }
-                    // record which ends are on the path on this node
-                    for (size_t path_end_idx = next_end_idx; path_end_idx < ends.size(); path_end_idx++) {
-                        size_t end_offset_here = end_offset(ends[path_end_idx]);
-                        if (end_offset_here < final_offset) {
-                            overlap_candidates.emplace_back(ends[path_end_idx], end_offset_here - curr_start_offset);
-                        }
-                        else {
-                            break;
-                        }
-                    }
+                    end_idx++;
+                    curr_end_offset = (end_idx == ends.size() ? numeric_limits<size_t>::max() : end_offset(ends[end_idx]));
                 }
                 else {
+                    
+                    size_t start = starts[start_idx];
+                    
 #ifdef debug_multipath_alignment
-                    cerr << "path is multiple mappings long" << endl;
+                    cerr << "searching backward from start " << start << " at index " << start_idx << endl;
 #endif
                     
-                    // record which starts are on the path on the first node
-                    for (size_t path_start_idx = start_idx + 1; path_start_idx < starts.size(); path_start_idx++) {
-                        path_starts_on_path.insert(starts[path_start_idx]);
-                    }
-                    // record which ends are on the path on the first node
-                    for (size_t path_end_idx = next_end_idx; path_end_idx < ends.size(); path_end_idx++) {
-                        overlap_candidates.emplace_back(ends[path_end_idx], end_offset(ends[path_end_idx]) - curr_start_offset);
-                    }
-                    size_t traversed_length = mapping_from_length(path.mapping(0));
+                    PathNode& start_node = path_nodes.at(start);
+                    unordered_map<size_t, size_t>& noncolinear_shell = noncolinear_shells[start];
+
+                    // we begin at the start we're searching backward from
+                    start_queue.push_or_reprioritize(start, 0);
                     
-                    for (size_t j = 1; j + 1 < path.mapping_size(); j++) {
-                        id_t path_node_id = path.mapping(j).position().node_id();
-                        // record which starts are on the path on this node
-                        for (size_t path_start : path_starts[path_node_id]) {
-                            path_starts_on_path.insert(path_start);
-                        }
-                        // record which ends are on the path on this node
-                        for (size_t path_end : path_ends[path_node_id]) {
-                            overlap_candidates.emplace_back(path_end, end_offset(path_end) + traversed_length);
-                        }
-                        
-                        traversed_length += mapping_from_length(path.mapping(j));
-                    }
-                    
-                    id_t final_node_id = path.mapping(path.mapping_size() - 1).position().node_id();
-                    vector<size_t>& final_starts = path_starts[final_node_id];
-                    vector<size_t>& final_ends = path_ends[final_node_id];
-                    
-                    size_t final_offset = end_offset(start);
-                    // record which starts are on the path on the last node
-                    for (size_t path_start_idx = 0;
-                         path_start_idx >= final_starts.size() ? false : start_offset(final_starts[path_start_idx]) < final_offset;
-                         path_start_idx++) {
-                        
-                        path_starts_on_path.insert(final_starts[path_start_idx]);
-                        
-                    }
-                    // record which ends are on the path on the last node
-                    for (size_t path_end_idx = 0; path_end_idx < final_ends.size(); path_end_idx++) {
-                        size_t end_offset_here = end_offset(final_ends[path_end_idx]);
-                        if (end_offset_here < final_offset) {
-                            overlap_candidates.emplace_back(final_ends[path_end_idx], end_offset_here + traversed_length);
+                    while (!start_queue.empty() || !end_queue.empty()) {
+                        // is the next item on the queues a start or an end?
+                        if (start_queue.empty() ? false : (end_queue.empty() ? true : start_queue.top().second < end_queue.top().second)) {
+                            
+                            // the next closest endpoint is a start, traverse through it to find ends (which is what we really want)
+                            
+                            pair<size_t, size_t> start_here = start_queue.top();
+                            start_queue.pop();
+                            
+#ifdef debug_multipath_alignment
+                            cerr << "traversing start " << start_here.first << " at distance " << start_here.second << endl;
+#endif
+                            
+                            // the minimum distance to each of the starts or ends this can reach is the sum of the min distance
+                            // between them and the distance already traversed
+                            for (const pair<size_t, size_t>& end : reachable_ends_from_start[start_here.first]) {
+                                end_queue.push_or_reprioritize(end.first, start_here.second + end.second);
+#ifdef debug_multipath_alignment
+                                cerr << "found reachable end " << end.first << " at distance " << start_here.second + end.second << endl;
+#endif
+                            }
+                            
+                            for (const pair<size_t, size_t>& start_next : reachable_starts_from_start[start_here.first]) {
+                                start_queue.push_or_reprioritize(start_next.first, start_here.second + start_next.second);
+                            }
                         }
                         else {
-                            break;
+                            
+                            // the next closest endpoint is an end, so we check if we can make a connection to the start
+                            // that we're searching backward from
+                            
+                            size_t candidate_end = end_queue.top().first;
+                            size_t candidate_dist = end_queue.top().second;
+                            end_queue.pop();
+                            
+#ifdef debug_multipath_alignment
+                            cerr << "considering end " << candidate_end << " as candidate for edge of dist " << candidate_dist << endl;
+#endif
+                            
+                            PathNode& candidate_end_node = path_nodes[candidate_end];
+                            
+                            if (candidate_end_node.end <= start_node.begin) {
+                                // these MEMs are read colinear and graph reachable, so connect them
+                                candidate_end_node.edges.emplace_back(start, candidate_dist);
+                                
+#ifdef debug_multipath_alignment
+                                cerr << "connection is read colinear, adding edge on " << candidate_end << " for total of " << candidate_end_node.edges.size() << " edges so far" << endl;
+                                for (auto& edge : candidate_end_node.edges) {
+                                    cerr << "\t-> " << edge.first << " dist " << edge.second << endl;
+                                }
+#endif
+                                
+                                // skip to the predecessor's noncolinear shell, whose connections might not be blocked by
+                                // this connection
+                                for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+#ifdef debug_multipath_alignment
+                                    cerr << "enqueueing " << shell_pred.first << " at dist " << shell_pred.second + candidate_dist << " from noncolinear shell" << endl;
+#endif
+                                    end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
+                                }
+                            }
+                            else if (start_node.end > candidate_end_node.end && start_node.begin > candidate_end_node.begin) {
+                                // the MEM can be made colinear by removing an overlap, which will not threaten reachability
+                                size_t overlap = candidate_end_node.end - start_node.begin;
+                                confirmed_overlaps[start][candidate_end] = make_pair(overlap, candidate_dist + overlap);
+                                
+#ifdef debug_multipath_alignment
+                                cerr << "connection is overlap colinear, recording to add edge later" << endl;
+#endif
+                                
+                                // the end of this node might not actually block connections since it's going to intersect the middle of the node
+                                // so we need to find predecessors to this end too
+                                
+                                // add any ends directly reachable from the end
+                                for (const pair<size_t, size_t>& exposed_end : reachable_ends_from_end[candidate_end]) {
+                                    end_queue.push_or_reprioritize(exposed_end.first, candidate_dist + exposed_end.second);
+#ifdef debug_multipath_alignment
+                                    cerr << "found reachable exposed end " << exposed_end.first << " at distance " << candidate_dist + exposed_end.second << endl;
+#endif
+                                }
+                                
+                                // add the directly reachable exposed starts to the queue
+                                for (const pair<size_t, size_t>& exposed_start : reachable_starts_from_end[candidate_end]) {
+#ifdef debug_multipath_alignment
+                                    cerr << "adding exposed start traversal with " << exposed_start.first << " at distance " << candidate_dist + exposed_start.second << endl;
+#endif
+                                    start_queue.push_or_reprioritize(exposed_start.first, candidate_dist + exposed_start.second);
+                                }
+                                
+                                // also skip to the predecessor's noncolinear shell, whose connections might not be blocked by
+                                // this connection
+                                for (const pair<size_t, size_t>& shell_pred : noncolinear_shells[candidate_end]) {
+#ifdef debug_multipath_alignment
+                                    cerr << "enqueueing " << shell_pred.first << " at dist " << candidate_dist + shell_pred.second << " from noncolinear shell" << endl;
+#endif
+                                    end_queue.push_or_reprioritize(shell_pred.first, candidate_dist + shell_pred.second);
+                                }
+                            }
+                            else {
+                                // these MEMs are noncolinear, so add this predecessor to the noncolinear shell
+                                if (noncolinear_shell.count(candidate_end)) {
+                                    noncolinear_shell[candidate_end] = std::min(candidate_dist + (start_node.end - start_node.begin),
+                                                                                noncolinear_shell[candidate_end]);
+                                }
+                                else {
+                                    noncolinear_shell[candidate_end] = candidate_dist + (start_node.end - start_node.begin);
+                                }
+                                
+#ifdef debug_multipath_alignment
+                                cerr << "connection is noncolinear, add to shell at dist " << candidate_dist + (start_node.end - start_node.begin) << " and continue to search backwards" << endl;
+#endif
+                                
+                                // there is no connection to block further connections back, so any of this MEMs
+                                // predecessors could still be colinear
+                                
+                                // find the ends that can reach it directly
+                                for (const pair<size_t, size_t>& pred_end : reachable_ends_from_end[candidate_end]) {
+                                    end_queue.push_or_reprioritize(pred_end.first, candidate_dist + pred_end.second);
+#ifdef debug_multipath_alignment
+                                    cerr << "found reachable end " << pred_end.first << " at distance " << candidate_dist + pred_end.second << endl;
+#endif
+                                }
+                                
+                                // set the start queue up with the immediate start neighbors
+                                for (const pair<size_t, size_t>& pred_start : reachable_starts_from_end[candidate_end]) {
+                                    start_queue.push_or_reprioritize(pred_start.first, candidate_dist + pred_start.second);
+                                }
+                            }
                         }
                     }
-                }
-                
-                for (const pair<size_t, size_t>& overlap_candidate : overlap_candidates) {
+                    
 #ifdef debug_multipath_alignment
-                    cerr << "considering candidate overlap from " << overlap_candidate.first << " at dist " << overlap_candidate.second << endl;
+                    cerr << "walking path to look for overlaps" << endl;
 #endif
                     
-                    if (path_starts_on_path.count(overlap_candidate.first)) {
-                        // the start of this MEM is also on the path, so this can't be an overhanging overlap
-                        continue;
+                    Path& path = path_nodes.at(start).path;
+                    
+                    // update the path starts index for the paths that start at the same position
+                    for (size_t colocated_start : colocated_starts) {
+                        path_starts_on_path[colocated_start].insert(start);
+                        path_starts_on_path[start].insert(colocated_start);
                     }
+                    // records of (node_idx, overlap length)
+                    vector<pair<size_t, size_t>> overlap_candidates;
                     
-                    PathNode& overlap_node = path_nodes.at(overlap_candidate.first);
-                    
-                    // how much do the paths overlap?
-                    size_t overlap = overlap_candidate.second;
-                    
-                    // are the paths read colinear after removing the overlap?
-                    if (start_node.begin + overlap >= overlap_node.end) {
+                    if (path.mapping_size() == 1) {
+                        // TODO: this edge case is a little duplicative, probably could merge
+                        
 #ifdef debug_multipath_alignment
-                        cerr << "confirmed overlap colinear with overlap of " << overlap << endl;
+                        cerr << "path is one mapping long" << endl;
 #endif
-                        confirmed_overlaps.emplace_back(overlap, start, overlap_candidate.first, 0);
-                    }
-                    else if (overlap_node.begin < start_node.begin && overlap_node.end < start_node.end) {
-#ifdef debug_multipath_alignment
-                        cerr << "confirmed overlap colinear with longer read overlap of " << overlap_node.end - start_node.begin << endl;
-#endif
-                        // there is still an even longer read overlap we need to remove
-                        size_t read_overlap = overlap_node.end - start_node.begin;
-                        confirmed_overlaps.emplace_back(read_overlap, start, overlap_candidate.first, read_overlap - overlap);
+                        
+                        size_t final_offset = end_offset(start);
+                        // record which starts are on the path on this node
+                        for (size_t path_start_idx = start_idx + 1;
+                             path_start_idx >= starts.size() ? false : start_offset(starts[path_start_idx]) < final_offset;
+                             path_start_idx++) {
+                            
+                            path_starts_on_path[start].insert(starts[path_start_idx]);
+                            
+                        }
+                        // record which ends are on the path on this node
+                        for (size_t path_end_idx = end_idx; path_end_idx < ends.size(); path_end_idx++) {
+                            size_t end_offset_here = end_offset(ends[path_end_idx]);
+                            if (end_offset_here < final_offset) {
+                                overlap_candidates.emplace_back(ends[path_end_idx], end_offset_here - curr_start_offset);
+                            }
+                            else {
+                                break;
+                            }
+                        }
                     }
                     else {
 #ifdef debug_multipath_alignment
-                        cerr << "not colinear even with overlap, adding to non-colinear shell at distance " << overlap_candidate.second << endl;
+                        cerr << "path is multiple mappings long" << endl;
 #endif
-                        // the overlapping node is still not reachable so it is in the noncolinear shell of this node
-                        noncolinear_shell[overlap_candidate.first] = (start_node.end - start_node.begin) - overlap_candidate.second;
+                        
+                        // record which starts are on the path on the first node
+                        for (size_t path_start_idx = start_idx + 1; path_start_idx < starts.size(); path_start_idx++) {
+                            path_starts_on_path[start].insert(starts[path_start_idx]);
+                        }
+                        // record which ends are on the path on the first node
+                        for (size_t path_end_idx = end_idx; path_end_idx < ends.size(); path_end_idx++) {
+                            overlap_candidates.emplace_back(ends[path_end_idx], end_offset(ends[path_end_idx]) - curr_start_offset);
+                        }
+                        size_t traversed_length = mapping_from_length(path.mapping(0));
+                        
+                        for (size_t j = 1; j + 1 < path.mapping_size(); j++) {
+                            id_t path_node_id = path.mapping(j).position().node_id();
+                            // record which starts are on the path on this node
+                            for (size_t path_start : path_starts[path_node_id]) {
+                                path_starts_on_path[start].insert(path_start);
+                            }
+                            // record which ends are on the path on this node
+                            for (size_t path_end : path_ends[path_node_id]) {
+                                overlap_candidates.emplace_back(path_end, end_offset(path_end) + traversed_length);
+                            }
+                            
+                            traversed_length += mapping_from_length(path.mapping(j));
+                        }
+                        
+                        id_t final_node_id = path.mapping(path.mapping_size() - 1).position().node_id();
+                        vector<size_t>& final_starts = path_starts[final_node_id];
+                        vector<size_t>& final_ends = path_ends[final_node_id];
+                        
+                        size_t final_offset = end_offset(start);
+                        // record which starts are on the path on the last node
+                        for (size_t path_start_idx = 0;
+                             path_start_idx >= final_starts.size() ? false : start_offset(final_starts[path_start_idx]) < final_offset;
+                             path_start_idx++) {
+                            
+                            path_starts_on_path[start].insert(final_starts[path_start_idx]);
+                            
+                        }
+                        // record which ends are on the path on the last node
+                        for (size_t path_end_idx = 0; path_end_idx < final_ends.size(); path_end_idx++) {
+                            size_t end_offset_here = end_offset(final_ends[path_end_idx]);
+                            if (end_offset_here < final_offset) {
+                                overlap_candidates.emplace_back(final_ends[path_end_idx], end_offset_here + traversed_length);
+                            }
+                            else {
+                                break;
+                            }
+                        }
                     }
+                    
+                    for (const pair<size_t, size_t>& overlap_candidate : overlap_candidates) {
+#ifdef debug_multipath_alignment
+                        cerr << "considering candidate overlap from " << overlap_candidate.first << " at dist " << overlap_candidate.second << endl;
+#endif
+                        
+                        if (path_starts_on_path[start].count(overlap_candidate.first)) {
+                            // the start of this MEM is also on the path, so this can't be an overhanging overlap
+                            continue;
+                        }
+                        
+                        if (!path_starts_on_path[overlap_candidate.first].count(start)) {
+                            // the path we are walking doesn't start on the other path, so this can't be a full overlap
+                            continue;
+                        }
+                        
+                        PathNode& overlap_node = path_nodes.at(overlap_candidate.first);
+                        
+                        // how much do the paths overlap?
+                        size_t overlap = overlap_candidate.second;
+                        
+                        // are the paths read colinear after removing the overlap?
+                        if (start_node.begin + overlap >= overlap_node.end) {
+#ifdef debug_multipath_alignment
+                            cerr << "confirmed overlap colinear with overlap of " << overlap << endl;
+#endif
+                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(overlap, 0);
+                        }
+                        else if (overlap_node.begin < start_node.begin && overlap_node.end < start_node.end) {
+#ifdef debug_multipath_alignment
+                            cerr << "confirmed overlap colinear with longer read overlap of " << overlap_node.end - start_node.begin << endl;
+#endif
+                            // there is still an even longer read overlap we need to remove
+                            size_t read_overlap = overlap_node.end - start_node.begin;
+                            confirmed_overlaps[start][overlap_candidate.first] = pair<size_t, size_t>(read_overlap, read_overlap - overlap);
+                        }
+                        else {
+#ifdef debug_multipath_alignment
+                            cerr << "not colinear even with overlap, adding to non-colinear shell at distance " << overlap_candidate.second << endl;
+#endif
+                            // the overlapping node is still not reachable so it is in the noncolinear shell of this node
+                            noncolinear_shell[overlap_candidate.first] = (start_node.end - start_node.begin) - overlap_candidate.second;
+                        }
+                    }
+                    
+                    start_idx++;
+                    size_t new_start_offset = (start_idx == starts.size() ? numeric_limits<size_t>::max() : start_offset(starts[start_idx]));
+                    if (new_start_offset != curr_start_offset) {
+                        colocated_starts.clear();
+                    }
+                    if (start_idx < starts.size()) {
+                        colocated_starts.emplace_back(starts[start_idx]);
+                    }
+                    curr_start_offset = new_start_offset;
                 }
             }
         }
         
 #ifdef debug_multipath_alignment
-        cerr << "breaking nodes at overlap edges (" << confirmed_overlaps.size() << " times)" << endl;
+        cerr << "breaking nodes at overlap edges" << endl;
 #endif
         
         // now we've found all overlap edges, so we can add them into the graph in an order such that they don't
@@ -2539,20 +2666,30 @@ namespace vg {
         // about overlaps coming in from both directions)
         
         // sort in descending order of overlap length and group by the node that is being cut among overlaps of same length
-        std::sort(confirmed_overlaps.begin(), confirmed_overlaps.end(),
+        // tuples of (overlap, index from, index onto, distance)
+        vector<tuple<size_t, size_t, size_t, size_t>> ordered_overlaps;
+        for (const auto& path_overlaps : confirmed_overlaps) {
+            for (const auto& overlap_record : path_overlaps.second) {
+                ordered_overlaps.emplace_back(overlap_record.second.first,
+                                              path_overlaps.first,
+                                              overlap_record.first,
+                                              overlap_record.second.second);
+            }
+        }
+        std::sort(ordered_overlaps.begin(), ordered_overlaps.end(),
                   std::greater<tuple<size_t, size_t, size_t, size_t>>());
         
         // keep track of whether another node is holding the suffix of one of the original nodes because of a split
         unordered_map<size_t, size_t> node_with_suffix;
         
         // split up each node with an overlap edge onto it
-        auto iter = confirmed_overlaps.begin();
-        while (iter != confirmed_overlaps.end()) {
+        auto iter = ordered_overlaps.begin();
+        while (iter != ordered_overlaps.end()) {
             // find the range of overlaps that want to cut this node at the same place
             auto iter_range_end = iter;
             while (get<0>(*iter_range_end) == get<0>(*iter) && get<1>(*iter_range_end) == get<1>(*iter)) {
                 iter_range_end++;
-                if (iter_range_end == confirmed_overlaps.end()) {
+                if (iter_range_end == ordered_overlaps.end()) {
                     break;
                 }
             }
@@ -2914,7 +3051,7 @@ namespace vg {
         
     }
     
-    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const BaseAligner* aligner,
+    void MultipathAlignmentGraph::prune_to_high_scoring_paths(const Alignment& alignment, const GSSWAligner* aligner,
                                                               double max_suboptimal_score_ratio, const vector<size_t>& topological_order) {
         
         // Can only prune when edges exist.
@@ -3052,7 +3189,7 @@ namespace vg {
 #endif
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns, size_t band_padding, MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
         
         // don't dynamically choose band padding, shim constant value into a function type
@@ -3062,7 +3199,7 @@ namespace vg {
         align(alignment, align_graph, aligner, score_anchors_as_matches, max_alt_alns, dynamic_alt_alns, constant_padding, multipath_aln_out, allow_negative_scores);
     }
     
-    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, BaseAligner* aligner, bool score_anchors_as_matches,
+    void MultipathAlignmentGraph::align(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner, bool score_anchors_as_matches,
                                         size_t max_alt_alns, bool dynamic_alt_alns,
                                         function<size_t(const Alignment&,const HandleGraph&)> band_padding_function,
                                         MultipathAlignment& multipath_aln_out, const bool allow_negative_scores) {
@@ -3100,6 +3237,46 @@ namespace vg {
                 subpath->set_score(aligner->score_partial_alignment(alignment, align_graph, path_node.path, path_node.begin));
             }
         }
+        
+        // we use this function to remove alignments that follow the same path, keeping only the highest scoring one
+        auto deduplicate_alt_alns = [](vector<Alignment>& alt_alns) {
+            // we use stable sort to keep the original ordering among alignments
+            // that take the same path, which is descending by score
+            stable_sort(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
+                bool is_less = false;
+                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
+                size_t i = 0;
+                for (; i < path_1.mapping_size() && i < path_2.mapping_size(); i++) {
+                    const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                    if (pos_1.node_id() < pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() < pos_2.is_reverse())) {
+                        is_less = true;
+                        break;
+                    }
+                    else if (pos_1.node_id() > pos_2.node_id() || (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() > pos_2.is_reverse())) {
+                        break;
+                    }
+                }
+                return is_less || (i == path_1.mapping_size() && i < path_2.mapping_size());
+            });
+            // move alignments that have the same path to the end of the vector, keeping the
+            // first one (which has the highest score)
+            auto new_end = unique(alt_alns.begin(), alt_alns.end(), [](const Alignment& aln_1, const Alignment& aln_2) {
+                bool is_equal = true;
+                const Path& path_1 = aln_1.path(), path_2 = aln_2.path();
+                if (path_1.mapping_size() == path_2.mapping_size()) {
+                    for (size_t i = 0; i < path_1.mapping_size() && is_equal; i++) {
+                        const Position& pos_1 = path_1.mapping(i).position(), pos_2 = path_2.mapping(i).position();
+                        is_equal = (pos_1.node_id() == pos_2.node_id() && pos_1.is_reverse() == pos_2.is_reverse());
+                    }
+                }
+                else {
+                    is_equal = false;
+                }
+                return is_equal;
+            });
+            // remove the duplicates at the end
+            alt_alns.erase(new_end, alt_alns.end());
+        };
         
 #ifdef debug_multipath_alignment
         cerr << "doing DP between MEMs" << endl;
@@ -3187,6 +3364,15 @@ namespace vg {
                     
 #ifdef debug_multipath_alignment
                     cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
+                    connecting_graph.for_each_handle([&](const handle_t& handle) {
+                        cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                        connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                            cerr << "\t-> " << connecting_graph.get_id(next) << endl;
+                        });
+                        connecting_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                        });
+                    });
 #endif
                     
                     if (!alignment.quality().empty()) {
@@ -3197,6 +3383,9 @@ namespace vg {
                     aligner->align_global_banded_multi(intervening_sequence, alt_alignments, connecting_graph, num_alt_alns,
                                                        band_padding_function(intervening_sequence, connecting_graph), true);
                 }
+                
+                // remove alignments with the same path
+                deduplicate_alt_alns(alt_alignments);
                 
                 for (Alignment& connecting_alignment : alt_alignments) {
 #ifdef debug_multipath_alignment
@@ -3302,7 +3491,9 @@ namespace vg {
             // For each sink subpath number
             const size_t& j = kv.first;
             // And the tail alignments from it
-            const vector<Alignment>& alt_alignments = kv.second;
+            vector<Alignment>& alt_alignments = kv.second;
+            // remove alignments with the same path
+            deduplicate_alt_alns(alt_alignments);
         
             PathNode& path_node = path_nodes.at(j);
             
@@ -3313,7 +3504,7 @@ namespace vg {
             pos_t end_pos = final_position(path_node.path);
             // want past-the-last instead of last index here
             get_offset(end_pos)++;
-                    
+            
             for (const Alignment& tail_alignment : alt_alignments) {
                 
                 sink_subpath->add_next(multipath_aln_out.subpath_size());
@@ -3352,6 +3543,8 @@ namespace vg {
                 
                 // There should be some alignments
                 vector<Alignment>& alt_alignments = tail_alignments[false][j];
+                // remove alignments with the same path
+                deduplicate_alt_alns(alt_alignments);
                 
                 const Mapping& first_mapping = path_node.path.mapping(0);
                 for (Alignment& tail_alignment : alt_alignments) {
@@ -3387,7 +3580,7 @@ namespace vg {
     
     unordered_map<bool, unordered_map<size_t, vector<Alignment>>>
     MultipathAlignmentGraph::align_tails(const Alignment& alignment, const HandleGraph& align_graph,
-                                         BaseAligner* aligner, size_t max_alt_alns,
+                                         const GSSWAligner* aligner, size_t max_alt_alns,
                                          bool dynamic_alt_alns, unordered_set<size_t>* sources) {
         
 #ifdef debug_multipath_alignment
@@ -3431,9 +3624,6 @@ namespace vg {
                                                                                                false,         // search forward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // remove the empty anchoring nodes that this algorithm sometimes creates
-                    groom_graph_for_gssw(tail_graph);
-                    
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                     
@@ -3450,40 +3640,20 @@ namespace vg {
                         
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
+                        tail_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                        });
 #endif
                         
+                        // align against the graph
                         auto& alt_alignments = right_alignments[j];
-                        if (tail_graph.node_size() == 0) {
-                            // edge case for when a read keeps going past the end of a graph
-                            alt_alignments.emplace_back();
-                            Alignment& tail_alignment = alt_alignments.back();
-                            tail_alignment.set_score(aligner->score_gap(right_tail_sequence.sequence().size()));
-                            Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
-                            
-                            // add a soft clip
-                            Edit* edit = insert_mapping->add_edit();
-                            edit->set_to_length(right_tail_sequence.sequence().size());
-                            edit->set_sequence(right_tail_sequence.sequence());
-                            
-                            // make it at the correct position
-                            const Path& anchoring_path = path_nodes.at(j).path;
-                            const Mapping& anchoring_mapping = anchoring_path.mapping(anchoring_path.mapping_size() - 1);
-                            Position* anchoring_position = insert_mapping->mutable_position();
-                            anchoring_position->set_node_id(anchoring_mapping.position().node_id());
-                            anchoring_position->set_is_reverse(anchoring_mapping.position().is_reverse());
-                            anchoring_position->set_offset(anchoring_mapping.position().offset() + mapping_from_length(anchoring_mapping));
-#ifdef debug_multipath_alignment
-                            cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
-#endif
-                            // the ID translator is empty, so add this ID here so it doesn't give an out of index error
-                            id_t node_id = insert_mapping->position().node_id();
-                            tail_trans[node_id] = node_id;
-                        }
-                        else {
-                            // align against the graph
-                            
-                            aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
-                        }
+                        aligner->align_pinned_multi(right_tail_sequence, alt_alignments, tail_graph, true, num_alt_alns);
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the left end of the cut node relative to end_pos
@@ -3542,9 +3712,6 @@ namespace vg {
                                                                                                true,          // search backward
                                                                                                false);        // no need to preserve cycles (in a DAG)
                     
-                    // remove the empty anchoring nodes that this algorithm sometimes creates
-                    groom_graph_for_gssw(tail_graph);
-                    
                     size_t num_alt_alns = dynamic_alt_alns ? min(max_alt_alns, algorithms::count_walks(&tail_graph)) :
                                                              max_alt_alns;
                             
@@ -3556,36 +3723,22 @@ namespace vg {
                             left_tail_sequence.set_quality(alignment.quality().substr(0, path_node.begin - alignment.sequence().begin()));
                         }
                         
-                        
 #ifdef debug_multipath_alignment
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << left_tail_sequence.sequence() << endl << "to left tail graph" << endl;
+                        tail_graph.for_each_handle([&](const handle_t& handle) {
+                            cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                                cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                        });
 #endif
                         
+                        // align against the graph
                         auto& alt_alignments = left_alignments[j];
-                        if (tail_graph.node_size() == 0) {
-                            // edge case for when a read keeps going past the end of a graph
-                            alt_alignments.emplace_back();
-                            Alignment& tail_alignment = alt_alignments.back();
-                            tail_alignment.set_score(aligner->score_gap(left_tail_sequence.sequence().size()));
-                            Mapping* insert_mapping = tail_alignment.mutable_path()->add_mapping();
-                            
-                            // add a soft clip
-                            Edit* edit = insert_mapping->add_edit();
-                            edit->set_to_length(left_tail_sequence.sequence().size());
-                            edit->set_sequence(left_tail_sequence.sequence());
-                            
-                            // make it at the correct position
-                            *insert_mapping->mutable_position() = path_nodes.at(j).path.mapping(0).position();
-#ifdef debug_multipath_alignment
-                            cerr << "read overhangs end of graph, manually added softclip: " << pb2json(tail_alignment) << endl;
-#endif
-                            // the ID translator is empty, so add this ID here so it doesn't give an out of index error
-                            id_t node_id = insert_mapping->position().node_id();
-                            tail_trans[node_id] = node_id;
-                        }
-                        else {
-                            aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
-                        }
+                        aligner->align_pinned_multi(left_tail_sequence, alt_alignments, tail_graph, false, num_alt_alns);
                         
                         // Translate back into non-extracted graph.
                         // Make sure to account for having removed the right end of the cut node relative to begin_pos
@@ -3614,21 +3767,6 @@ namespace vg {
         
         // Return all the alignments, organized by tail and subpath
         return to_return;
-    }
-    
-    void MultipathAlignmentGraph::groom_graph_for_gssw(DeletableHandleGraph& graph) {
-        
-        // collect all of the empty node IDs without doing any edits
-        vector<id_t> empty_nodes;
-        graph.for_each_handle([&](const handle_t& handle) {
-            if (graph.get_length(handle) == 0) {
-                empty_nodes.push_back(graph.get_id(handle));
-            }
-        });
-        // go through and delete them now that we're done iterating
-        for (const id_t& node_id : empty_nodes) {
-            graph.destroy_handle(graph.get_handle(node_id));
-        }
     }
     
     bool MultipathAlignmentGraph::empty() {

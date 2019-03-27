@@ -5,6 +5,8 @@
 #include "pileup.hpp"
 #include "stream/stream.hpp"
 
+//#define debug
+
 using namespace std;
 
 namespace vg {
@@ -222,15 +224,16 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
         if ((rank1_idx > 0 || rank2_idx > 0) && (rank1_idx >= 0 && rank2_idx >= 0)) {
             auto& m1 = path.mapping(rank1_idx);
             auto& m2 = path.mapping(rank2_idx);
-            // only count edges bookended by matches
+            // only count edges bookended by matches (unless _strict_edge_support is false)
             size_t m1eds = m1.edit_size();
 
 #ifdef debug
             cerr << "Alignment crosses edge " << pb2json(m1) << "->" << pb2json(m2) << endl;
 #endif
-            
-            if ((m1eds == 0 || m1.edit(m1eds - 1).from_length() == m1.edit(m1eds - 1).to_length()) &&
-                (m2.edit_size() == 0 || m2.edit(0).from_length() == m2.edit(0).to_length())) {
+
+            if (!_strict_edge_support || 
+                ((m1eds == 0 || m1.edit(m1eds - 1).from_length() == m1.edit(m1eds - 1).to_length()) &&
+                 (m2.edit_size() == 0 || m2.edit(0).from_length() == m2.edit(0).to_length()))) {
                 auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
                 // no quality gives a free pass from quality filter

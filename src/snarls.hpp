@@ -178,12 +178,14 @@ ChainIterator chain_rend(const Chain& chain);
 ChainIterator chain_rcbegin(const Chain& chain);
 ChainIterator chain_rcend(const Chain& chain);
     
-/// We also define a function for getting the ChainIterator (forward or
-/// reverse complement) for a chain starting with a given snarl in the given
-/// inward orientation
+/// We also define a function for getting the ChainIterator (forward or reverse
+/// complement) for a chain starting with a given snarl in the given inward
+/// orientation. Only works for bounding snarls of the chain.
 ChainIterator chain_begin_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation);
-/// And the end iterator for the chain (forward or reverse complement)
-/// viewed from a given snarl in the given inward orientation
+/// And the end iterator for the chain (forward or reverse complement) viewed
+/// from a given snarl in the given inward orientation. Only works for bounding
+/// snarls of the chain, and should be the *same* bounding snarl as was used
+/// for chain_begin_from.
 ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool snarl_orientation);
     
 /**
@@ -278,8 +280,6 @@ public:
     
     /// Look up the handle for the node with the given ID in the given orientation
     virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
-    // Copy over the visit version which would otherwise be shadowed.
-    using HandleGraph::get_handle;
         
     /// Get the ID from a handle
     virtual id_t get_id(const handle_t& handle) const;
@@ -300,17 +300,11 @@ public:
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
-        
-    // Copy over the template for nice calls
-    using HandleGraph::follow_edges;
+    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
         
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
-    virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
-        
-    // Copy over the template for nice calls
-    using HandleGraph::for_each_handle;
+    virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
     /// Return the number of nodes in the graph
     virtual size_t node_size() const;
@@ -403,6 +397,9 @@ public:
         
     /// Construct a SnarlManager for the snarls contained in an input stream
     SnarlManager(istream& in);
+    
+    /// Construct a SnarlManager from a function that calls a callback with each Snarl in turn
+    SnarlManager(const function<void(const function<void(Snarl&)>&)>& for_each_snarl);
         
     /// Default constructor for an empty SnarlManager. Must call finish() once
     /// all snarls have been added with add_snarl().
@@ -472,7 +469,17 @@ public:
     /// If the given Snarl is backward in its chain, return true. Otherwise,
     /// return false.
     bool chain_orientation_of(const Snarl* snarl) const;
-        
+    
+    /// Get the rank that the given snarl appears in in its chain. If two
+    /// snarls are in forward orientation in the chain, then leaving the end of
+    /// the lower rank snarl will eventually reach the start of the higher rank
+    /// snarl. If either or both snarls is backward, you leave/arrive at the
+    /// other bounding node instead.
+    ///
+    /// Sorting snarls by rank will let you visit them in chain order without
+    /// walking the whole chain.
+    size_t chain_rank_of(const Snarl* snarl) const;
+    
     /// Return true if a Snarl is part of a nontrivial chain of more than one
     /// snarl. Note that chain_of() still works for snarls in trivial chains.
     bool in_nontrivial_chain(const Snarl* here) const;
@@ -712,6 +719,9 @@ inline Visit to_visit(id_t node_id, bool is_reverse);
     
 /// Make a Visit from a snarl to traverse
 inline Visit to_visit(const Snarl& snarl);
+
+/// Make a Visit from a handle in a HandleGraph.
+inline Visit to_visit(const handlegraph::HandleGraph& graph, const handle_t& handle);
     
 /// Get the reversed version of a visit
 inline Visit reverse(const Visit& visit);
@@ -886,6 +896,10 @@ inline Visit to_visit(const Snarl& snarl) {
     *to_return.mutable_snarl()->mutable_start() = snarl.start();
     *to_return.mutable_snarl()->mutable_end() = snarl.end();
     return to_return;
+}
+
+inline Visit to_visit(const handlegraph::HandleGraph& graph, const handle_t& handle) {
+    return to_visit(graph.get_id(handle), graph.get_is_reverse(handle));
 }
     
 inline Visit reverse(const Visit& visit) {

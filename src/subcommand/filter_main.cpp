@@ -29,6 +29,7 @@ void help_filter(char** argv) {
          << "    -n, --name-prefix NAME     keep only reads with this prefix in their names [default='']" << endl
          << "    -N, --name-prefixes FILE   keep reads with names with one of many prefixes, one per nonempty line" << endl
          << "    -X, --exclude-contig REGEX drop reads with refpos annotations on contigs matching the given regex (may repeat)" << endl
+         << "    -F, --exclude-feature NAME drop reads with the given feature in the \"features\" annotation (may repeat)" << endl
          << "    -s, --min-secondary N      minimum score to keep secondary alignment [default=0]" << endl
          << "    -r, --min-primary N        minimum score to keep primary alignment [default=0]" << endl
          << "    -O, --rescore              re-score reads using default parameters and only alignment information" << endl
@@ -46,8 +47,10 @@ void help_filter(char** argv) {
          << "    -D, --defray-ends N        clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
          << "    -C, --defray-count N       stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl
          << "    -d, --downsample S.P       filter out all but the given portion 0.P of the reads. S may be an integer seed as in SAMtools" << endl
-         << "    -i, --interleaved          assume interleaved input.  both ends will be filtered out if either fails filter" << endl
+         << "    -i, --interleaved          assume interleaved input. both ends will be filtered out if either fails filter" << endl
+         << "    -I, --interleaved-all      assume interleaved input. both ends will be filtered out if *both* fail filters" << endl
          << "    -b, --min-base-quality Q:F filter reads with where fewer than fraction F bases have base quality >= PHRED score Q." << endl
+         << "    -U, --complement           apply the complement of the filter implied by the other arguments." << endl
          << "    -t, --threads N            number of threads [1]" << endl;
 }
 
@@ -75,6 +78,7 @@ int main_filter(int argc, char** argv) {
                 {"name-prefix", required_argument, 0, 'n'},
                 {"name-prefixes", required_argument, 0, 'N'},
                 {"exclude-contig", required_argument, 0, 'X'},
+                {"exclude-feature", required_argument, 0, 'F'},
                 {"min-secondary", required_argument, 0, 's'},
                 {"min-primary", required_argument, 0, 'r'},
                 {"rescore", no_argument, 0, 'O'},
@@ -91,14 +95,16 @@ int main_filter(int argc, char** argv) {
                 {"defray-ends", required_argument, 0, 'D'},
                 {"defray-count", required_argument, 0, 'C'},
                 {"downsample", required_argument, 0, 'd'},
-                {"interleaved", required_argument, 0, 'i'},
+                {"interleaved", no_argument, 0, 'i'},
+                {"interleaved-all", no_argument, 0, 'I'},
                 {"min-base-quality", required_argument, 0, 'b'},
+                {"complement", no_argument, 0, 'U'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:N:X:s:r:Od:e:fauo:m:Sx:AvVq:E:D:C:d:ib:t:",
+        c = getopt_long (argc, argv, "n:N:X:F:s:r:Od:e:fauo:m:Sx:AvVq:E:D:C:d:iIb:Ut:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -125,6 +131,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'X':
             filter.excluded_refpos_contigs.push_back(parse<std::regex>(optarg));
+            break;
+        case 'F':
+            filter.excluded_features.insert(optarg);
             break;
         case 's':
             filter.min_secondary = parse<double>(optarg);
@@ -215,10 +224,14 @@ int main_filter(int argc, char** argv) {
         case 'i':
             filter.interleaved = true;
             break;
+        case 'I':
+            filter.interleaved = true;
+            filter.filter_on_all = true;
+            break;
         case 'b':
             {
                 vector<string> parts = split_delims(string(optarg), ":");
-                if (!parts.size() == 2) {
+                if (parts.size() != 2) {
                     cerr << "[vg filter] Error: -b expects value in form of <INT>:<FLOAT>" << endl;
                     return 1;
                 }
@@ -229,6 +242,9 @@ int main_filter(int argc, char** argv) {
                     return 1;
                 }
             }
+            break;
+        case 'U':
+            filter.complement_filter = true;
             break;
         case 't':
             omp_set_num_threads(parse<int>(optarg));
@@ -273,11 +289,11 @@ int main_filter(int argc, char** argv) {
         
         // Read in the alignments and filter them.
         error_code = filter.filter(&in);
-      });
+    });
 
     return error_code;
 }
 
 // Register subcommand
-static Subcommand vg_vectorize("filter", "filter reads", main_filter);
+static Subcommand vg_filter("filter", "filter reads", main_filter);
 

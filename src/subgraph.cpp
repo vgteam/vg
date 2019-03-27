@@ -5,6 +5,7 @@
 
 #include "subgraph.hpp"
 
+#include <atomic>
 
 namespace vg {
 
@@ -56,7 +57,7 @@ using namespace std;
         return super->get_sequence(handle);
     }
     
-    bool SubHandleGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+    bool SubHandleGraph::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
         // only let it travel along edges whose endpoints are in the subgraph
         bool keep_going = true;
         super->follow_edges(handle, go_left, [&](const handle_t& handle) {
@@ -68,27 +69,34 @@ using namespace std;
         return keep_going;
     }
     
-    void SubHandleGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+    bool SubHandleGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
         if (parallel) {
+            atomic<bool> keep_going(true);
             // do parallelism taskwise inside the iteration
 #pragma omp parallel
             {
 #pragma omp single
                 {
-                    for(auto iter = contents.begin(); iter != contents.end(); iter++) {
+                    for(auto iter = contents.begin(); keep_going && iter != contents.end(); iter++) {
 #pragma omp task
                         {
-                            iteratee(super->get_handle(*iter));
+                            if (!iteratee(super->get_handle(*iter))) {
+                                keep_going = false;
+                            }
                         }
                     }
                 }
             }
+            return keep_going;
         }
         else {
             // non-parallel
             for (id_t node_id : contents) {
-                iteratee(super->get_handle(node_id));
+                if (!iteratee(super->get_handle(node_id))) {
+                    return false;
+                }
             }
+            return true;
         }
     }
     

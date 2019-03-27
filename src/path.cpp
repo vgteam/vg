@@ -161,6 +161,16 @@ void Paths::for_each_name(const function<void(const string&)>& lambda) const {
     }
 }
 
+bool Paths::for_each_name_stoppable(const function<bool(const string&)>& lambda) const {
+    for (auto& p : _paths) {
+        const string& name = p.first;
+        if (!lambda(name)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void Paths::for_each_mapping(const function<void(mapping_t&)>& lambda) {
     for (auto& p : _paths) {
         auto& path = p.second;
@@ -1299,7 +1309,7 @@ Path simplify(const Path& p, bool trim_internal_deletions) {
         auto& m = r.mapping(i);
         int curr_to_length = mapping_to_length(m);
         // skip bits at the beginning and end
-        if (!seen_to_length && !curr_to_length
+        if ((!seen_to_length && !curr_to_length)
             || seen_to_length == total_to_length) continue;
         Mapping n;
         *n.mutable_position() = m.position();

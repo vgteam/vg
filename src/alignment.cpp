@@ -48,11 +48,17 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, x
         int tid = omp_get_thread_num();
         while (more_data) {
             bam1_t* b = bs[tid];
+            // We need to track our own read operation's success separate from
+            // the global flag, or someone else encountering EOF will cause us
+            // to drop our read on the floor.
+            bool got_read = false;
 #pragma omp critical (hts_input)
             if (more_data) {
-                more_data = sam_read1(in, hdr, b) >= 0;
+                got_read = sam_read1(in, hdr, b) >= 0;
+                more_data &= got_read;
             }
-            if (more_data) {
+            // Now we're outside the critical section so we can only rely on our own variables.
+            if (got_read) {
                 Alignment a = bam_to_alignment(b, rg_sample, hdr, xgindex);
                 lambda(a);
             }
@@ -576,12 +582,14 @@ string alignment_to_sam_internal(const Alignment& alignment,
                                  const string& refseq,
                                  const int32_t refpos,
                                  const bool refrev,
-                                 const string& cigar,
+                                 const vector<pair<int, char>>& cigar,
                                  const string& mateseq,
                                  const int32_t matepos,
+                                 bool materev,
                                  const int32_t tlen,
-                                 bool paired) {
-                        
+                                 bool paired,
+                                 const int32_t tlen_max) {
+
     // Determine flags, using orientation, next/prev fragments, and pairing status.
     int32_t flags = sam_flag(alignment, refrev, paired);
    
@@ -612,13 +620,47 @@ string alignment_to_sam_internal(const Alignment& alignment,
         // Keep the alignment name as is because even if the name looks paired, the reads are semantically unpaired.
         alignment_name = alignment.name();
     }
+
+    if (mapped && paired && !refseq.empty() && refseq == mateseq) {
+        // Properly paired if both mates mapped to same sequence, in inward-facing orientations.
+        // We know they're on the same sequence, so check orientation.
+        
+        // If we are first, mate needs to be reverse, and if mate is first, we need to be reverse.
+        // If we are at the same position either way is fine.
+        bool facing = ((refpos <= matepos) && !refrev && materev) || ((matepos <= refpos) && refrev && !materev);
+        
+        // We are close enough if there is not tlen limit, or if there is one and we do not exceed it
+        bool close_enough = (tlen_max == 0) || abs(tlen) <= tlen_max;
+        
+        if (facing && close_enough) {
+            // We can't find anything wrong with this pair; it's properly paired.
+            flags |= BAM_FPROPER_PAIR;
+        }
+        
+        // TODO: Support sequencing technologies where "proper" pairing may
+        // have a different meaning or expected combination of orientations.
+    }
+
+    if (paired && mateseq.empty()) {
+        // Set the flag for the mate being unmapped
+        flags |= BAM_FMUNMAP;
+    }
+
+    if (paired && materev) {
+        // Set the flag for the mate being reversed
+        flags |= BAM_FMREVERSE;
+    }
+
+    // We apply the convention of unmapped reads getting their mate's coordinates
+    // See section 2.4.1 https://samtools.github.io/hts-specs/SAMv1.pdf
+    bool use_mate_loc = !mapped && paired && !mateseq.empty();
     
     sam << (!alignment_name.empty() ? alignment_name : "*") << "\t"
         << flags << "\t"
-        << (mapped ? refseq : "*") << "\t"
-        << refpos + 1 << "\t"
+        << (mapped ? refseq : use_mate_loc ? mateseq : "*") << "\t"
+        << (use_mate_loc ? matepos + 1 : refpos + 1) << "\t"
         << (mapped ? alignment.mapping_quality() : 0) << "\t"
-        << (mapped ? cigar : "*") << "\t"
+        << (mapped ? cigar_string(cigar) : "*") << "\t"
         << (mateseq == "" ? "*" : (mateseq == refseq ? "=" : mateseq)) << "\t"
         << matepos + 1 << "\t"
         << tlen << "\t"
@@ -646,12 +688,14 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar,
+                        const vector<pair<int, char>>& cigar,
                         const string& mateseq,
                         const int32_t matepos,
-                        const int32_t tlen) {
+                        bool materev,
+                        const int32_t tlen,
+                        const int32_t tlen_max) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
 
 }
 
@@ -659,9 +703,9 @@ string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar) {
+                        const vector<pair<int, char>>& cigar) {
     
-    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+    return alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
 
 }
 
@@ -671,17 +715,19 @@ bam1_t* alignment_to_bam_internal(const string& sam_header,
                                   const string& refseq,
                                   const int32_t refpos,
                                   const bool refrev,
-                                  const string& cigar,
+                                  const vector<pair<int, char>>& cigar,
                                   const string& mateseq,
                                   const int32_t matepos,
+                                  bool materev,
                                   const int32_t tlen,
-                                  bool paired) {
+                                  bool paired,
+                                  const int32_t tlen_max) {
 
     assert(!sam_header.empty());
     
     // Make a tiny SAM file. Remember to URL-encode it, since it may contain '%'
     string sam_file = "data:," + percent_url_encode(sam_header +
-        alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, paired));
+       alignment_to_sam_internal(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, paired, tlen_max));
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -702,12 +748,14 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar,
+                        const vector<pair<int, char>>& cigar,
                         const string& mateseq,
                         const int32_t matepos,
-                        const int32_t tlen) {
-    
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen, true);
+                        bool materev,
+                        const int32_t tlen,
+                        const int32_t tlen_max) {
+
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, mateseq, matepos, materev, tlen, true, tlen_max);
 
 }
 
@@ -716,13 +764,13 @@ bam1_t* alignment_to_bam(const string& sam_header,
                         const string& refseq,
                         const int32_t refpos,
                         const bool refrev,
-                        const string& cigar) {
+                        const vector<pair<int, char>>& cigar) {
     
-    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, 0, false);
+    return alignment_to_bam_internal(sam_header, alignment, refseq, refpos, refrev, cigar, "", -1, false, 0, false, 0);
 
 }
 
-string cigar_string(vector<pair<int, char> >& cigar) {
+string cigar_string(const vector<pair<int, char> >& cigar) {
     vector<pair<int, char> > cigar_comp;
     pair<int, char> cur = make_pair(0, '\0');
     for (auto& e : cigar) {
@@ -776,7 +824,7 @@ string mapping_string(const string& source, const Mapping& mapping) {
     return result;
 }
 
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char>>& cigar) {
     for (const auto& edit : mapping.edit()) {
         if (edit.from_length() && edit.from_length() == edit.to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
@@ -859,12 +907,9 @@ void mapping_against_path(Alignment& alignment, const bam1_t *b, char* chr, xg::
     refpos->set_is_reverse(on_reverse_strand);
 }
 
-// act like the path this is against is the reference
-// and generate an equivalent cigar
-// Produces CIGAR in forward strand space of the reference sequence.
-string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
+vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress) {
     vector<pair<int, char> > cigar;
-    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return "";
+    if (!alignment.has_path() || alignment.path().mapping_size() == 0) return {};
     const Path& path = alignment.path();
     int l = 0;
 
@@ -900,7 +945,63 @@ string cigar_against_path(const Alignment& alignment, bool on_reverse_strand, in
         }
     }
 
-    return cigar_string(cigar);
+    return cigar;
+}
+
+pair<int32_t, int32_t> compute_template_lengths(const int64_t& pos1, const vector<pair<int, char>>& cigar1,
+    const int64_t& pos2, const vector<pair<int, char>>& cigar2) {
+
+    // Compute signed distance from outermost matched/mismatched base of each
+    // alignment to the outermost matched/mismatched base of the other.
+    
+    // We work with CIGARs because it's easier than reverse complementing
+    // Alignment objects without node lengths.
+    
+    // Work out the low and high mapped bases for each side
+    auto find_bounds = [](const int64_t& pos, const vector<pair<int, char>>& cigar) {
+        // Initialize bounds to represent no mapped bases
+        int64_t low = numeric_limits<int64_t>::max();
+        int64_t high = numeric_limits<int64_t>::min();
+        
+        // Track position in the reference
+        int64_t here = pos;
+        for (auto& item : cigar) {
+            // Trace along the cigar
+            if (item.second == 'M') {
+                // Bases are matched. Count them in the bounds and execute the operation
+                low = min(low, here);
+                here += item.first;
+                high = max(high, here - 1);
+            } else if (item.second == 'D') {
+                // Only other way to advance in the reference
+                here += item.first;
+            }
+        }
+        
+        return make_pair(low, high);
+    };
+    
+    auto bounds1 = find_bounds(pos1, cigar1);
+    auto bounds2 = find_bounds(pos2, cigar2);
+    
+    // Compute the separation
+    int32_t dist = 0;
+    if (bounds1.first < bounds2.second) {
+        // The reads are in order
+        dist = bounds2.second - bounds1.first;
+    } else if (bounds2.first < bounds1.second) {
+        // The reads are out of order so the other bounds apply
+        dist = bounds1.second - bounds2.first;
+    }
+    
+    if (pos1 < pos2) {
+        // Count read 1 as the overall "leftmost", so its value will be positive
+        return make_pair(dist, -dist);
+    } else {
+        // Count read 2 as the overall leftmost
+        return make_pair(-dist, dist);
+    }
+
 }
 
 int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired) {
@@ -927,11 +1028,7 @@ int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand, bool paired
     if (!alignment.has_path() || alignment.path().mapping_size() == 0) {
         // unmapped
         flag |= BAM_FUNMAP;
-    } else if (flag & BAM_FPAIRED) {
-        // Aligned and in a pair, so assume it's properly paired.
-        // TODO: this relies on us not emitting improperly paired reads
-        flag |= BAM_FPROPER_PAIR;
-    }
+    } 
     if (on_reverse_strand) {
         flag |= BAM_FREVERSE;
     }

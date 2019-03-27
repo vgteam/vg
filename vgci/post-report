@@ -163,8 +163,12 @@ if [ ! -z "${CI}" ]; then
         read_job_id "master_sync"
         
         # We assume CI_JOB_ID is a monotonically increasing number.
+        echo "Our job: ${CI_JOB_ID}"
+        echo "Old job: ${OLD_JOB_ID}"
         
-        if [ "${CI_JOB_ID}" -gt "${OLD_JOB_ID}" ]; then # Upload to the path for master, overwriting whatever was there.
+        if [ -z "${OLD_JOB_ID}" ] || [ "${CI_JOB_ID}" -gt "${OLD_JOB_ID}" ]; then
+            # Upload to the path for master, overwriting whatever was there.
+            
             HTML_PATH="vg_ci/vgci_reports/branch/master"
             
             # Save the new higher build number

@@ -5,17 +5,21 @@
 
 #include "proto_handle_graph.hpp"
 
+#include <handlegraph/util.hpp>
+#include <atomic>
+
 
 namespace vg {
 
 using namespace std;
+using namespace handlegraph;
 
     ProtoHandleGraph::ProtoHandleGraph(const Graph* graph) : graph(graph) {
         // nothing to do
     }
     
     handle_t ProtoHandleGraph::get_handle_by_index(const size_t& i) const {
-        return EasyHandlePacking::pack(i, false);
+        return handlegraph::number_bool_packing::pack(i, false);
     }
     
     size_t ProtoHandleGraph::edge_size() const {
@@ -39,7 +43,7 @@ using namespace std;
     handle_t ProtoHandleGraph::get_handle(const id_t& node_id, bool is_reverse) const {
         for (size_t i = 0; i < graph->node_size(); i++) {
             if (graph->node(i).id() == node_id) {
-                return EasyHandlePacking::pack(i, is_reverse);
+                return handlegraph::number_bool_packing::pack(i, is_reverse);
             }
         }
         // tried to find a handle for a node that doesn't exist
@@ -48,27 +52,27 @@ using namespace std;
     }
     
     id_t ProtoHandleGraph::get_id(const handle_t& handle) const {
-        return graph->node(EasyHandlePacking::unpack_number(handle)).id();
+        return graph->node(handlegraph::number_bool_packing::unpack_number(handle)).id();
     }
     
     bool ProtoHandleGraph::get_is_reverse(const handle_t& handle) const {
-        return EasyHandlePacking::unpack_bit(handle);
+        return handlegraph::number_bool_packing::unpack_bit(handle);
     }
     
     handle_t ProtoHandleGraph::flip(const handle_t& handle) const {
-        return EasyHandlePacking::toggle_bit(handle);
+        return handlegraph::number_bool_packing::toggle_bit(handle);
     }
     
     size_t ProtoHandleGraph::get_length(const handle_t& handle) const {
-        return graph->node(EasyHandlePacking::unpack_number(handle)).sequence().size();
+        return graph->node(handlegraph::number_bool_packing::unpack_number(handle)).sequence().size();
     }
     
     string ProtoHandleGraph::get_sequence(const handle_t& handle) const {
-        return graph->node(EasyHandlePacking::unpack_number(handle)).sequence();
+        return graph->node(handlegraph::number_bool_packing::unpack_number(handle)).sequence();
     }
     
-    bool ProtoHandleGraph::follow_edges(const handle_t& handle, bool go_left,
-                                      const function<bool(const handle_t&)>& iteratee) const {
+    bool ProtoHandleGraph::follow_edges_impl(const handle_t& handle, bool go_left,
+                                             const function<bool(const handle_t&)>& iteratee) const {
         bool keep_going = true;
         bool leftward = (go_left != get_is_reverse(handle));
         for (size_t i = 0; i < graph->edge_size() && keep_going; i++) {
@@ -83,20 +87,25 @@ using namespace std;
         return keep_going;
     }
     
-    void ProtoHandleGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+    bool ProtoHandleGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
         if (parallel) {
             size_t num_nodes = graph->node_size();
+            atomic<bool> keep_going(true);
 #pragma omp parallel shared(num_nodes)
             for (size_t i = 0; i < num_nodes; i++) {
-                // ignore stopping early in parallel mode
-                iteratee(EasyHandlePacking::pack(i, false));
+                if (keep_going && !iteratee(handlegraph::number_bool_packing::pack(i, false))) {
+                    keep_going = false;
+                }
             }
+            return keep_going;
         }
         else {
-            bool keep_going = true;
-            for (size_t i = 0; i < graph->node_size() && keep_going; i++) {
-                keep_going = iteratee(EasyHandlePacking::pack(i, false));
+            for (size_t i = 0; i < graph->node_size(); i++) {
+                if (!iteratee(handlegraph::number_bool_packing::pack(i, false))) {
+                    return false;
+                }
             }
+            return true;
         }
     }
     
@@ -120,7 +129,7 @@ using namespace std;
         return max_id;
     }
     
-    void ProtoHandleGraph::for_each_edge(const function<bool(const edge_t&)>& iteratee,
+    bool ProtoHandleGraph::for_each_edge(const function<bool(const edge_t&)>& iteratee,
                                          bool parallel) const {
         
         // we need to be able to map IDs to indexes to make handles efficiently
@@ -131,21 +140,26 @@ using namespace std;
         }
         
         if (parallel) {
-            // ignore early stopping in parallel execution
+            atomic<bool> keep_going(true);
 #pragma omp parallel for
             for (size_t i = 0; i < graph->edge_size(); i++) {
                 const Edge& edge = graph->edge(i);
-                iteratee(edge_t(EasyHandlePacking::pack(node_idx[edge.from()], edge.from_start()),
-                                EasyHandlePacking::pack(node_idx[edge.to()], edge.to_end())));
+                if (keep_going && !iteratee(edge_t(handlegraph::number_bool_packing::pack(node_idx[edge.from()], edge.from_start()),
+                                            handlegraph::number_bool_packing::pack(node_idx[edge.to()], edge.to_end())))) {
+                
+                    keep_going = false;
+                }
             }
+            return keep_going;
         }
         else {
             bool keep_going = true;
             for (size_t i = 0; i < graph->edge_size() && keep_going; i++) {
                 const Edge& edge = graph->edge(i);
-                keep_going = iteratee(edge_t(EasyHandlePacking::pack(node_idx[edge.from()], edge.from_start()),
-                                             EasyHandlePacking::pack(node_idx[edge.to()], edge.to_end())));
+                keep_going = iteratee(edge_t(handlegraph::number_bool_packing::pack(node_idx[edge.from()], edge.from_start()),
+                                             handlegraph::number_bool_packing::pack(node_idx[edge.to()], edge.to_end())));
             }
+            return keep_going;
         }
     }
 }

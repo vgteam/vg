@@ -3049,6 +3049,12 @@ namespace vg {
                 SECTION("The chain end orientations are correct") {
                     REQUIRE(start_backward(*chain) == false);
                     REQUIRE(end_backward(*chain) == true);
+                    REQUIRE(snarl_manager.chain_orientation_of(left_child) == false);
+                    REQUIRE(snarl_manager.chain_orientation_of(right_child) == true);
+                }
+                
+                SECTION("The chain ranks are correct") {
+                    REQUIRE(snarl_manager.chain_rank_of(left_child) < snarl_manager.chain_rank_of(right_child));
                 }
                     
                 SECTION("The chain ends are correct") {

@@ -9,7 +9,7 @@
 
 #include "hash_map.hpp"
 #include "mapper.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
 #include "xg.hpp"
@@ -146,6 +146,7 @@ namespace vg {
         bool simplify_topologies = false;
         bool delay_population_scoring = false;
         bool use_tvs_clusterer = false;
+        bool use_min_dist_clusterer = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
         

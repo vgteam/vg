@@ -551,15 +551,20 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
     return ChainIterator();
 } 
 
-// TODO: this is duplicative with the other constructor, but protobuf won't let me make
-// a deserialization iterator to match its signature because its internal file streams
-// disallow copy constructors
-SnarlManager::SnarlManager(istream& in) {
-    // Add snarls to master list
+SnarlManager::SnarlManager(istream& in) : SnarlManager([&in](const function<void(Snarl&)>& consume_snarl) -> void {
+    // Find all the snarls in the input stream and use each of them in the callback-based constructor
     for (stream::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
-        // Add each snarl
-        add_snarl(*iter);
+        consume_snarl(*iter);
     }
+}) {
+    // Nothing to do!
+}
+
+SnarlManager::SnarlManager(const function<void(const function<void(Snarl&)>&)>& for_each_snarl) {
+    for_each_snarl([&](Snarl& snarl) {
+        // Add each snarl to us
+        add_snarl(snarl);
+    });
     // Record the tree structure and build the other indexes
     finish();
 }
@@ -604,6 +609,16 @@ bool SnarlManager::chain_orientation_of(const Snarl* snarl) const {
         return chain->at(record(snarl)->parent_chain_index).second;
     }
     return false;
+}
+
+size_t SnarlManager::chain_rank_of(const Snarl* snarl) const { 
+    const Chain* chain = chain_of(snarl);
+    if (chain != nullptr) {
+        // The index is a perfectly good rank.
+        return record(snarl)->parent_chain_index;
+    }
+    // If you're in a single-snarl chain you are at index 0.
+    return 0;
 }
 
 bool SnarlManager::in_nontrivial_chain(const Snarl* here) const {
@@ -1633,8 +1648,10 @@ void NetGraph::add_unary_child(const Snarl* unary) {
     
 void NetGraph::add_chain_child(const Chain& chain) {
     // For every chain, get its bounding handles in the base graph
-    handle_t chain_start_handle = graph->get_handle(get_start_of(chain));
-    handle_t chain_end_handle = graph->get_handle(get_end_of(chain));
+    auto start_visit = get_start_of(chain);
+    handle_t chain_start_handle = graph->get_handle(start_visit.node_id(), start_visit.backward());
+    auto end_visit = get_end_of(chain);
+    handle_t chain_end_handle = graph->get_handle(end_visit.node_id(), end_visit.backward());
         
     // Save the links that let us cross the chain.
     chain_ends_by_start[chain_start_handle] = chain_end_handle;
@@ -1747,7 +1764,7 @@ string NetGraph::get_sequence(const handle_t& handle) const {
     throw runtime_error("Cannot expose sequences via NetGraph");
 }
     
-bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool NetGraph::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // Now we do the real work.
         
 #ifdef debug
@@ -2096,7 +2113,7 @@ bool NetGraph::follow_edges(const handle_t& handle, bool go_left, const function
     return graph->follow_edges(handle, go_left, handle_edge);
 }
     
-void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     // Find all the handles by a traversal.
         
     // We have to do the traversal on the underlying backing graph, because
@@ -2137,12 +2154,12 @@ void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, 
             if (graph->get_is_reverse(here)) {
                 if (!iteratee(graph->flip(here))) {
                     // Run the iteratee on the forward version, and stop if it wants to stop
-                    break;
+                    return false;
                 }
             } else {
                 if (!iteratee(here)) {
                     // Run the iteratee, and stop if it wants to stop.
-                    break;
+                    return false;
                 }
             }
                 
@@ -2186,6 +2203,8 @@ void NetGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, 
             graph->follow_edges(chain_ends_by_start.at(here), false, handle_edge);
         }
     }
+    
+    return true;
 }
     
 size_t NetGraph::node_size() const {

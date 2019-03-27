@@ -23,16 +23,22 @@ class ReadFilter{
 public:
     
     // Filtering parameters
+    
+    /// Actually take the complement of the filter
+    bool complement_filter = false;
     /// Read name must have one of these prefixes, if any are present.
     /// TODO: This should be a trie but I don't have one handy.
     /// Must be sorted for vaguely efficient search.
     vector<string> name_prefixes;
     /// Read must not have a refpos set with a contig name containing a match to any of these
     vector<regex> excluded_refpos_contigs;
+    /// If a read has one of the features in this set as annotations, the read
+    /// is filtered out.
+    unordered_set<string> excluded_features;
     double min_secondary = 0.;
     double min_primary = 0.;
-    // Should we rescore each alignment with default parameters and no e.g.
-    // haplotype info?
+    /// Should we rescore each alignment with default parameters and no e.g.
+    /// haplotype info?
     bool rescore = false;
     bool frac_score = false;
     bool sub_score = false;
@@ -41,29 +47,36 @@ public:
     bool verbose = false;
     double min_mapq = 0.;
     int repeat_size = 0;
-    // How far in from the end should we look for ambiguous end alignment to
-    // clip off?
-    int defray_length = 0;
-    // Limit defray recursion to visit this many nodes
-    int defray_count = 99999;
-    // Should we drop split reads that follow edges not in the graph?
+    /// Should we drop split reads that follow edges not in the graph?
     bool drop_split = false;
-    // We can also pseudorandomly drop reads. What's the probability that we keep a read?
+    
+    /// We can also pseudorandomly drop reads. What's the probability that we keep a read?
     double downsample_probability = 1.0;
-    // Samtools-compatible internal seed mask, for deciding which read pairs to keep.
-    // To be generated with rand() after srand() from the user-visible seed.
+    /// Samtools-compatible internal seed mask, for deciding which read pairs to keep.
+    /// To be generated with rand() after srand() from the user-visible seed.
     uint32_t downsample_seed_mask = 0;
-    // number of threads from omp
+    
+    /// How far in from the end should we look for ambiguous end alignment to
+    /// clip off?
+    int defray_length = 0;
+    /// Limit defray recursion to visit this many nodes
+    int defray_count = 99999;
+    
+    /// Number of threads from omp
     int threads = -1;
-    // GAM output buffer size
+    /// GAM output buffer size
     int buffer_size = 512;
-    // Sometimes we only want a report, and not a filtered gam.  toggling off output
-    // speeds things up considerably.
+    /// Sometimes we only want a report, and not a filtered gam.  toggling off output
+    /// speeds things up considerably.
     bool write_output = true;
-    // An XG index is required for some filters (Note: ReadFilter doesn't own/free this)
+    /// An XG index is required for some filters (Note: ReadFilter doesn't own/free this)
     xg::XG* xindex = nullptr;
-    // Interleaved input
+    /// Interleaved input
     bool interleaved = false;
+    /// When outputting paired reads, fail the pair only if both (all) reads
+    /// fail (true) instead of if either (any) read fails (false)
+    bool filter_on_all = false;
+    
     // minimum base quality as PHRED score
     int min_base_quality = 0;
     // minimum fraction of bases in reads that must have quality at least <min_base_quality>
@@ -71,8 +84,9 @@ public:
                      
     // Keep some basic counts for when verbose mode is enabled
     struct Counts {
-        enum FilterName { read = 0, wrong_name, wrong_refpos, min_score, min_sec_score, max_overhang, min_end_matches,
-                          min_mapq, split, repeat, defray, defray_all, random, filtered, min_base_qual, last };
+        enum FilterName { read = 0, wrong_name, wrong_refpos, excluded_feature, min_score, min_sec_score, max_overhang,
+                          min_end_matches, min_mapq, split, repeat, defray, defray_all, random, min_base_qual, filtered,
+                          last };
         vector<size_t> counts;
         Counts () : counts(FilterName::last, 0) {}
         Counts& operator+=(const Counts& other) {
@@ -81,10 +95,26 @@ public:
             }
             return *this;
         }
-        Counts& set_paired() {
+        /// If any read was filtered, count the other read as filtered
+        Counts& set_paired_any() {
             for (int i = 0; i < FilterName::last; ++i) {
                 counts[i] = counts[i] == 1 ? 2 : counts[i];
             }
+            return *this;
+        }
+        /// If not all reads were filtered, count filtered ones as unfiltered.
+        Counts& set_paired_all() {
+            // We know that the pair as a whole was filtered out if counts[FilterName::filtered] == 2, and that it was kept otherwise.
+            if (counts[FilterName::filtered] != 2) {
+                // The read pair was not discarded, so clear out all the fail counts (including FilterName::filtered).
+                for (int i = 0; i < FilterName::last; ++i) {
+                    counts[i] = 0;
+                }
+            }
+            // Otherwise the read pair was discarded, so leave all the
+            // counts alone. There is at least one fail on each side to be
+            // responsible for it (and if not verbose, only one fail on
+            // each side).
             return *this;
         }
         void reset() {

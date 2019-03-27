@@ -1,11 +1,13 @@
 #include "vg.hpp"
 #include "stream/stream.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
+
+#include <handlegraph/util.hpp>
 
 #include <stack>
 
@@ -14,6 +16,7 @@
 namespace vg {
 
 using namespace std;
+using namespace handlegraph;
 
 // construct from a stream of protobufs
 VG::VG(istream& in, bool showp, bool warn_on_duplicates) {
@@ -126,19 +129,19 @@ VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
     
 
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
-    return EasyHandlePacking::pack(node_id, is_reverse);
+    return handlegraph::number_bool_packing::pack(node_id, is_reverse);
 }
 
 id_t VG::get_id(const handle_t& handle) const {
-    return EasyHandlePacking::unpack_number(handle);
+    return handlegraph::number_bool_packing::unpack_number(handle);
 }
 
 bool VG::get_is_reverse(const handle_t& handle) const {
-    return EasyHandlePacking::unpack_bit(handle);
+    return handlegraph::number_bool_packing::unpack_bit(handle);
 }
 
 handle_t VG::flip(const handle_t& handle) const {
-    return EasyHandlePacking::toggle_bit(handle);
+    return handlegraph::number_bool_packing::toggle_bit(handle);
 }
 
 size_t VG::get_length(const handle_t& handle) const {
@@ -174,7 +177,7 @@ string VG::get_sequence(const handle_t& handle) const {
     
 }
 
-bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
+bool VG::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {
     // Are we reverse?
     bool is_reverse = get_is_reverse(handle);
     
@@ -198,24 +201,27 @@ bool VG::follow_edges(const handle_t& handle, bool go_left, const function<bool(
     return true;
 }
 
-void VG::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
+bool VG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
     if (parallel) {
+        std::atomic<bool> keep_going(true);
 #pragma omp parallel for schedule(dynamic,1)
         for (id_t i = 0; i < graph.node_size(); ++i) {
             // For each node in the backing graph
             // Get its ID and make a handle to it forward
             // And pass it to the iteratee
-            if (!iteratee(get_handle(graph.node(i).id(), false))) {
-                // Iteratee stopped, but we can't do anything if we want to run this in parallel
-                //return;
+            if (keep_going && !iteratee(get_handle(graph.node(i).id(), false))) {
+                // Iteratee stopped, so try and set the global flag.
+                keep_going = false;
             }
         }
+        return keep_going;
     } else { // same but serial
         for (id_t i = 0; i < graph.node_size(); ++i) {
             if (!iteratee(get_handle(graph.node(i).id(), false))) {
-                return;
+                return false;
             }
         }
+        return true;
     }
 }
 
@@ -289,9 +295,9 @@ size_t VG::get_path_count() const {
     return paths._paths.size();
 }
 
-void VG::for_each_path_handle(const function<void(const path_handle_t&)>& iteratee) const {
-    paths.for_each_name([&](const string& name) {
-        iteratee(get_path_handle(name));
+bool VG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const {
+    return paths.for_each_name_stoppable([&](const string& name) {
+        return iteratee(get_path_handle(name));
     });
 }
 
@@ -347,22 +353,19 @@ path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occur
     return as_path_handle(as_integers(occurrence_handle)[0]);
 }
     
-vector<occurrence_handle_t> VG::occurrences_of_handle(const handle_t& handle, bool match_orientation) const {
-    
-    vector<occurrence_handle_t> return_val;
+bool VG::for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const {
     const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
     for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
         for (const mapping_t* mapping : path_occs.second) {
-            if (!match_orientation || mapping->is_reverse() == get_is_reverse(handle)) {
-                occurrence_handle_t occurrence_handle;
-                as_integers(occurrence_handle)[0] = path_occs.first;
-                as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
-                return_val.push_back(occurrence_handle);
+            occurrence_handle_t occurrence_handle;
+            as_integers(occurrence_handle)[0] = path_occs.first;
+            as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
+            if (!iteratee(occurrence_handle)) {
+                return false;
             }
         }
     }
-    
-    return return_val;
+    return true;
 }
 
 handle_t VG::create_handle(const string& sequence) {
@@ -6734,8 +6737,8 @@ unordered_map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const unord
 }
 
 Alignment VG::align(const Alignment& alignment,
-                    Aligner* aligner,
-                    QualAdjAligner* qual_adj_aligner,
+                    const Aligner* aligner,
+                    const QualAdjAligner* qual_adj_aligner,
                     const vector<MaximalExactMatch>& mems,
                     bool traceback,
                     bool acyclic_and_sorted,
@@ -6747,7 +6750,6 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
 
     auto aln = alignment;
@@ -6804,7 +6806,7 @@ Alignment VG::align(const Alignment& alignment,
         } else if(xdrop_alignment) {
             // cerr << "X-drop alignment, (" << xdrop_alignment << ")" << endl;
             if (aligner && !qual_adj_aligner) {
-                aligner->align_xdrop(aln, g.graph, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true, multithreaded_xdrop);
+                aligner->align_xdrop(aln, g.graph, (translated_mems.size()? translated_mems : mems), (xdrop_alignment == 1) ? false : true);
             } else {
                 /* qual_adj_aligner is not yet implemented, fallback */
                 qual_adj_aligner->align/*_xdrop*/(aln, g, traceback, print_score_matrices);
@@ -6896,7 +6898,7 @@ Alignment VG::align(const Alignment& alignment,
 }
 
 Alignment VG::align(const Alignment& alignment,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     const vector<MaximalExactMatch>& mems,
                     bool traceback,
                     bool acyclic_and_sorted,
@@ -6908,15 +6910,14 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     return align(alignment, aligner, nullptr, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     bool traceback,
                     bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
@@ -6927,16 +6928,15 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     const vector<MaximalExactMatch> mems;
     return align(alignment, aligner, nullptr, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
-                    Aligner* aligner,
+                    const Aligner* aligner,
                     bool traceback,
                     bool acyclic_and_sorted,
                     size_t max_query_graph_ratio,
@@ -6947,13 +6947,12 @@ Alignment VG::align(const string& sequence,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const Alignment& alignment,
@@ -6967,12 +6966,11 @@ Alignment VG::align(const Alignment& alignment,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Aligner default_aligner = Aligner();
     return align(alignment, &default_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align(const string& sequence,
@@ -6986,18 +6984,17 @@ Alignment VG::align(const string& sequence,
                     size_t max_span,
                     size_t unroll_length,
                     int xdrop_alignment,
-                    bool multithreaded_xdrop,
                     bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   const vector<MaximalExactMatch>& mems,
                                   bool traceback,
                                   bool acyclic_and_sorted,
@@ -7009,15 +7006,14 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   size_t max_span,
                                   size_t unroll_length,
                                   int xdrop_alignment,
-                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
     return align(alignment, nullptr, qual_adj_aligner, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   bool traceback,
                                   bool acyclic_and_sorted,
                                   size_t max_query_graph_ratio,
@@ -7028,16 +7024,15 @@ Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   size_t max_span,
                                   size_t unroll_length,
                                   int xdrop_alignment,
-                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
     const vector<MaximalExactMatch> mems;
     return align(alignment, nullptr, qual_adj_aligner, mems, traceback, acyclic_and_sorted, max_query_graph_ratio,
                  pinned_alignment, pin_left, banded_global, band_padding_override,
-                 max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                 max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 Alignment VG::align_qual_adjusted(const string& sequence,
-                                  QualAdjAligner* qual_adj_aligner,
+                                  const QualAdjAligner* qual_adj_aligner,
                                   bool traceback,
                                   bool acyclic_and_sorted,
                                   size_t max_query_graph_ratio,
@@ -7048,13 +7043,12 @@ Alignment VG::align_qual_adjusted(const string& sequence,
                                   size_t max_span,
                                   size_t unroll_length,
                                   int xdrop_alignment,
-                                  bool multithreaded_xdrop,
                                   bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align_qual_adjusted(alignment, qual_adj_aligner, traceback, acyclic_and_sorted, max_query_graph_ratio,
                                pinned_alignment, pin_left, banded_global, band_padding_override,
-                               max_span, unroll_length, xdrop_alignment, multithreaded_xdrop, print_score_matrices);
+                               max_span, unroll_length, xdrop_alignment, print_score_matrices);
 }
 
 const string VG::hash(void) {
