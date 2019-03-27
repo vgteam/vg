@@ -33,7 +33,7 @@ var searchData=
   ['adjacent',['adjacent',['../classvg_1_1VG.html#ab213a64c6240d08603530982c0b75047',1,'vg::VG']]],
   ['adjacent_5fmappings',['adjacent_mappings',['../namespacevg.html#a92de94b4571057762bb3152de1376e51',1,'vg']]],
   ['adjacent_5fpositions',['adjacent_positions',['../classvg_1_1Mapper.html#a3e58033862961bc28c3db2ba7b3d44df',1,'vg::Mapper']]],
-  ['advance',['advance',['../structvg_1_1PathBranch.html#a45275291566be41d4262c59078ad99bb',1,'vg::PathBranch::advance()'],['../classvg_1_1NGSSimulator.html#a2830bb54811f8261d6820bc42de24ddd',1,'vg::NGSSimulator::advance()']]],
+  ['advance',['advance',['../structvg_1_1mi_1_1CircularBuffer.html#ad67118b977eaaf78484a501efed8018a',1,'vg::mi::CircularBuffer::advance(MinimizerIndex::minimizer_type candidate)'],['../structvg_1_1mi_1_1CircularBuffer.html#a6c79fe64f31c9780571a80fb22794887',1,'vg::mi::CircularBuffer::advance(size_t pos)'],['../structvg_1_1PathBranch.html#a45275291566be41d4262c59078ad99bb',1,'vg::PathBranch::advance()'],['../classvg_1_1NGSSimulator.html#a2830bb54811f8261d6820bc42de24ddd',1,'vg::NGSSimulator::advance()']]],
   ['advance_5fby_5fdistance',['advance_by_distance',['../classvg_1_1NGSSimulator.html#a12b208b1d0a52b7d167c57f9050e1080',1,'vg::NGSSimulator']]],
   ['advance_5fon_5fgraph',['advance_on_graph',['../classvg_1_1NGSSimulator.html#acadca14bcc46a1a9489227cea12d2992',1,'vg::NGSSimulator']]],
   ['advance_5fon_5fgraph_5fby_5fdistance',['advance_on_graph_by_distance',['../classvg_1_1NGSSimulator.html#a925ce1b9284cf694a0e6b324c7ffb2c2',1,'vg::NGSSimulator']]],

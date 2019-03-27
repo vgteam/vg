@@ -39,6 +39,7 @@ var searchData=
   ['update_5faugmented_5fgraph',['update_augmented_graph',['../classvg_1_1PileupAugmenter.html#a1b9c34b0b86cb3798da4fd832deae878',1,'vg::PileupAugmenter']]],
   ['update_5fin_5fout_5fedges',['update_in_out_edges',['../classvg_1_1FlowSort.html#a09b6782a1ab4d5c5ed7fa23cf83083d8',1,'vg::FlowSort']]],
   ['update_5finner_5fvalues',['update_inner_values',['../structhaplo_1_1haplo__DP__column.html#ae5860a155f8e49360b2fb2289e2555b8',1,'haplo::haplo_DP_column']]],
+  ['update_5fkey',['update_key',['../namespacevg_1_1mi.html#ab6d706e885cc87399e9a601426bad910',1,'vg::mi']]],
   ['update_5fmapping_5fpositions',['update_mapping_positions',['../structvg_1_1PathIndex.html#a783b7aafb86a509a3434c10b5ae9355f',1,'vg::PathIndex']]],
   ['update_5fpath_5findexes',['update_path_indexes',['../classvg_1_1GraphSynchronizer.html#a056cd54145b467de24d6ce128749af27',1,'vg::GraphSynchronizer']]],
   ['update_5fprogress',['update_progress',['../classvg_1_1Progressive.html#a0d64e6aa69bc094c163f4827602a302c',1,'vg::Progressive']]],

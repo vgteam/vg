@@ -197,6 +197,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MaximalGBWTMatch.html">MaximalGBWTMatch</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html">GaplessExtender</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GBWTTraversal.html">GBWTTraversal</a></td></tr>
@@ -1004,12 +1006,18 @@ size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el
 <tr class="separator:a77c1cb6069f865239d0365b55649bc8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memItemLeft" align="right" valign="top">std::ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a398e4f8a73bd122ee1813d9cd7e03a69">operator&lt;&lt;</a> (std::ostream &amp;out, const <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match)</td></tr>
 <tr class="separator:a398e4f8a73bd122ee1813d9cd7e03a69"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad95bfc09e181a26c1c053a97fc5e71b7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ad95bfc09e181a26c1c053a97fc5e71b7">match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, size_t error_bound)</td></tr>
-<tr class="separator:ad95bfc09e181a26c1c053a97fc5e71b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acf2de89815d682177c09dad884662d11"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acf2de89815d682177c09dad884662d11">match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, size_t target_offset, <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, size_t error_bound)</td></tr>
+<tr class="separator:acf2de89815d682177c09dad884662d11"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3985f24ec3e8b20036650347f4aa99f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af3985f24ec3e8b20036650347f4aa99f">match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, <a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, size_t error_bound)</td></tr>
 <tr class="separator:af3985f24ec3e8b20036650347f4aa99f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac901927955affab3135a317d5fbd5e20"><td class="memItemLeft" align="right" valign="top">std::pair&lt; <a class="el" href="structvg_1_1Path.html">Path</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac901927955affab3135a317d5fbd5e20">gapless_match_to_path</a> (<a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph, const std::string &amp;sequence)</td></tr>
-<tr class="separator:ac901927955affab3135a317d5fbd5e20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7c6c351fc5583e717ea614ea1295b2ab"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7c6c351fc5583e717ea614ea1295b2ab">gapless_match_to_path</a> (<a class="el" href="structvg_1_1GaplessMatch.html">GaplessMatch</a> &amp;match, const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph, const std::string &amp;sequence)</td></tr>
+<tr class="separator:a7c6c351fc5583e717ea614ea1295b2ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a566c614bb0c39d191a8a2a4ed748dd9b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a566c614bb0c39d191a8a2a4ed748dd9b">match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, <a class="el" href="structvg_1_1MaximalGBWTMatch.html">MaximalGBWTMatch</a> &amp;match)</td></tr>
+<tr class="separator:a566c614bb0c39d191a8a2a4ed748dd9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac0affb205dbbbfaf986142652705dbbd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac0affb205dbbbfaf986142652705dbbd">match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, <a class="el" href="structvg_1_1MaximalGBWTMatch.html">MaximalGBWTMatch</a> &amp;match)</td></tr>
+<tr class="separator:ac0affb205dbbbfaf986142652705dbbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1453eafe2c79d6b7b06d6d38c9f45b1b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1453eafe2c79d6b7b06d6d38c9f45b1b">maximal_match_to_path</a> (const <a class="el" href="structvg_1_1MaximalGBWTMatch.html">MaximalGBWTMatch</a> &amp;match, const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph)</td></tr>
+<tr class="separator:a1453eafe2c79d6b7b06d6d38c9f45b1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3dd31a9e86a6919fd7982920effc743b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3dd31a9e86a6919fd7982920effc743b">for_each_haplotype_window</a> (const <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a> &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
 <tr class="separator:a3dd31a9e86a6919fd7982920effc743b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a38deb09e330017467f53de09f96cfc14"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a38deb09e330017467f53de09f96cfc14">for_each_window</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;graph, size_t window_size, const std::function&lt; void(const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;, const std::string &amp;)&gt; &amp;lambda, bool parallel)</td></tr>
@@ -5853,12 +5861,12 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ac901927955affab3135a317d5fbd5e20"></a>
+<a class="anchor" id="a7c6c351fc5583e717ea614ea1295b2ab"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::pair&lt;<a class="el" href="structvg_1_1Path.html">Path</a>, size_t&gt; vg::gapless_match_to_path </td>
+          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::gapless_match_to_path </td>
           <td>(</td>
           <td class="paramtype">GaplessMatch &amp;&#160;</td>
           <td class="paramname"><em>match</em>, </td>
@@ -8596,7 +8604,39 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
 
 </div>
 </div>
-<a class="anchor" id="ad95bfc09e181a26c1c053a97fc5e71b7"></a>
+<a class="anchor" id="ac0affb205dbbbfaf986142652705dbbd"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::match_backward </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>seq</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::pair&lt; const char *, size_t &gt;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">MaximalGBWTMatch &amp;&#160;</td>
+          <td class="paramname"><em>match</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="acf2de89815d682177c09dad884662d11"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -8615,6 +8655,12 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
         <tr>
           <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>target_offset</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
           <td class="paramtype">GaplessMatch &amp;&#160;</td>
           <td class="paramname"><em>match</em>, </td>
         </tr>
@@ -8623,6 +8669,64 @@ template&lt;template&lt; class T, class A=std::allocator&lt; T &gt;&gt; class Co
           <td></td>
           <td class="paramtype">size_t&#160;</td>
           <td class="paramname"><em>error_bound</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a566c614bb0c39d191a8a2a4ed748dd9b"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::match_forward </td>
+          <td>(</td>
+          <td class="paramtype">const std::string &amp;&#160;</td>
+          <td class="paramname"><em>seq</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::pair&lt; const char *, size_t &gt;&#160;</td>
+          <td class="paramname"><em>target</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">MaximalGBWTMatch &amp;&#160;</td>
+          <td class="paramname"><em>match</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a1453eafe2c79d6b7b06d6d38c9f45b1b"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::maximal_match_to_path </td>
+          <td>(</td>
+          <td class="paramtype">const MaximalGBWTMatch &amp;&#160;</td>
+          <td class="paramname"><em>match</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const GBWTGraph &amp;&#160;</td>
+          <td class="paramname"><em>graph</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

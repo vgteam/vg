@@ -7,6 +7,7 @@ var searchData=
   ['markovdistribution_3c_20pair_3c_20uint8_5ft_2c_20bool_20_3e_2c_20pair_3c_20pair_3c_20uint8_5ft_2c_20bool_20_3e_2c_20pair_3c_20uint8_5ft_2c_20bool_20_3e_20_3e_20_3e',['MarkovDistribution&lt; pair&lt; uint8_t, bool &gt;, pair&lt; pair&lt; uint8_t, bool &gt;, pair&lt; uint8_t, bool &gt; &gt; &gt;',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html',1,'vg::NGSSimulator']]],
   ['maxdistanceindex',['MaxDistanceIndex',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html',1,'vg::DistanceIndex']]],
   ['maximalexactmatch',['MaximalExactMatch',['../classvg_1_1MaximalExactMatch.html',1,'vg']]],
+  ['maximalgbwtmatch',['MaximalGBWTMatch',['../structvg_1_1MaximalGBWTMatch.html',1,'vg']]],
   ['memchainmodel',['MEMChainModel',['../classvg_1_1MEMChainModel.html',1,'vg']]],
   ['memchainmodelvertex',['MEMChainModelVertex',['../classvg_1_1MEMChainModelVertex.html',1,'vg']]],
   ['memclusterer',['MEMClusterer',['../classvg_1_1MEMClusterer.html',1,'vg']]],

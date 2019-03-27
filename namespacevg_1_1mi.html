@@ -86,12 +86,18 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!-- top -->
 <div class="header">
   <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
 <a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">vg::mi Namespace Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1mi_1_1CircularBuffer.html">CircularBuffer</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
 <tr class="memitem:afcd3611e5a29c2c146c731f666b04c2d"><td class="memTemplParams" colspan="2">template&lt;typename Element &gt; </td></tr>
@@ -118,8 +124,10 @@ Functions</h2></td></tr>
 <tr class="separator:aba67aeffb7a8a1dfe3659bd1c631ba0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc8b8cdd07a427d7bba2ef6c94ba0804"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#afc8b8cdd07a427d7bba2ef6c94ba0804">load_bool_vector</a> (std::istream &amp;in, std::vector&lt; bool &gt; &amp;v)</td></tr>
 <tr class="separator:afc8b8cdd07a427d7bba2ef6c94ba0804"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ae320b0c72f06c74ae5547e3a27eeb203"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimizerIndex.html#a25549dc70036bf2a32cf6f15eff3720f">MinimizerIndex::minimizer_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#ae320b0c72f06c74ae5547e3a27eeb203">minimizer</a> (std::string::const_iterator begin, std::string::const_iterator end, size_t k)</td></tr>
-<tr class="separator:ae320b0c72f06c74ae5547e3a27eeb203"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab6d706e885cc87399e9a601426bad910"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#ab6d706e885cc87399e9a601426bad910">update_key</a> (<a class="el" href="classvg_1_1MinimizerIndex.html#a3be3d20ad774fa4ba89bc3c1335f0d17">MinimizerIndex::key_type</a> &amp;key, size_t k, unsigned char c, size_t &amp;valid_chars)</td></tr>
+<tr class="separator:ab6d706e885cc87399e9a601426bad910"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2fc789452bd1eb6da2b7044cda69e4d2"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1MinimizerIndex.html#a25549dc70036bf2a32cf6f15eff3720f">MinimizerIndex::minimizer_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#a2fc789452bd1eb6da2b7044cda69e4d2">minimizer</a> (std::string::const_iterator begin, std::string::const_iterator end, size_t k, size_t &amp;valid_chars)</td></tr>
+<tr class="separator:a2fc789452bd1eb6da2b7044cda69e4d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Function Documentation</h2>
 <a class="anchor" id="a392c665ef90ea1d3ec3b01dd152e7668"></a>
@@ -232,7 +240,7 @@ template&lt;typename Element &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="ae320b0c72f06c74ae5547e3a27eeb203"></a>
+<a class="anchor" id="a2fc789452bd1eb6da2b7044cda69e4d2"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -252,7 +260,13 @@ template&lt;typename Element &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>k</em>&#160;</td>
+          <td class="paramname"><em>k</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>valid_chars</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -425,6 +439,44 @@ template&lt;typename Element &gt; </div>
           <td></td>
           <td class="paramtype">bool &amp;&#160;</td>
           <td class="paramname"><em>ok</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="ab6d706e885cc87399e9a601426bad910"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::mi::update_key </td>
+          <td>(</td>
+          <td class="paramtype">MinimizerIndex::key_type &amp;&#160;</td>
+          <td class="paramname"><em>key</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>k</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unsigned char&#160;</td>
+          <td class="paramname"><em>c</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t &amp;&#160;</td>
+          <td class="paramname"><em>valid_chars</em>&#160;</td>
         </tr>
         <tr>
           <td></td>

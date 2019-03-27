@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['w',['w',['../structvg_1_1MinimizerIndex_1_1Header.html#a3036e50ff07a2dcc03404fcbcf698cda',1,'vg::MinimizerIndex::Header']]],
+  ['w',['w',['../structvg_1_1mi_1_1CircularBuffer.html#aa81bf4bb0269556a3efe2dd7b98aae1e',1,'vg::mi::CircularBuffer::w()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a3036e50ff07a2dcc03404fcbcf698cda',1,'vg::MinimizerIndex::Header::w()']]],
   ['wabbit_5fmap',['wabbit_map',['../classVectorizer.html#abc8fdb5dcd0ccc39c2b042633ef6820e',1,'Vectorizer']]],
   ['wait_5ffor_5fregion',['wait_for_region',['../classvg_1_1GraphSynchronizer.html#a7f9e68c4e2172bc4a5c7040272a59d38',1,'vg::GraphSynchronizer']]],
   ['warn_5fon_5flowercase',['warn_on_lowercase',['../classvg_1_1Constructor.html#a9da8d803e6e0c0be942ca2ecc35e9267',1,'vg::Constructor']]],

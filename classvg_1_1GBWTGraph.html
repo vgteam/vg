@@ -151,6 +151,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aae35065ff407fa29012ccec1f212a045"><td class="memItemLeft" align="right" valign="top">std::pair&lt; const char *, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#aae35065ff407fa29012ccec1f212a045">get_sequence_view</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:aae35065ff407fa29012ccec1f212a045"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get node sequence as a pointer and length.  <a href="#aae35065ff407fa29012ccec1f212a045">More...</a><br/></td></tr>
 <tr class="separator:aae35065ff407fa29012ccec1f212a045"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6d87f6b0341ca1fa8c52b117eee932e5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a6d87f6b0341ca1fa8c52b117eee932e5">starts_with</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, char c) const </td></tr>
+<tr class="memdesc:a6d87f6b0341ca1fa8c52b117eee932e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the node sequence starts with the given character.  <a href="#a6d87f6b0341ca1fa8c52b117eee932e5">More...</a><br/></td></tr>
+<tr class="separator:a6d87f6b0341ca1fa8c52b117eee932e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acaf67171f50ab75c37c3d7b7d109ada4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#acaf67171f50ab75c37c3d7b7d109ada4">ends_with</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, char c) const </td></tr>
+<tr class="memdesc:acaf67171f50ab75c37c3d7b7d109ada4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if the node sequence ends with the given character.  <a href="#acaf67171f50ab75c37c3d7b7d109ada4">More...</a><br/></td></tr>
+<tr class="separator:acaf67171f50ab75c37c3d7b7d109ada4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9d3009f790a232cc51e6addc179d12e7"><td class="memItemLeft" align="right" valign="top">gbwt::SearchState&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GBWTGraph.html#a9d3009f790a232cc51e6addc179d12e7">get_state</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:a9d3009f790a232cc51e6addc179d12e7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert handle_t to gbwt::SearchState.  <a href="#a9d3009f790a232cc51e6addc179d12e7">More...</a><br/></td></tr>
 <tr class="separator:a9d3009f790a232cc51e6addc179d12e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -294,6 +300,34 @@ Private Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a class="anchor" id="acaf67171f50ab75c37c3d7b7d109ada4"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GBWTGraph::ends_with </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>c</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Determine if the node sequence ends with the given character. </p>
+
+</div>
+</div>
 <a class="anchor" id="a16aeeaadca746a37ee430df522d1d033"></a>
 <div class="memitem">
 <div class="memproto">
@@ -888,6 +922,34 @@ Private Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Convert gbwt::node_type to handle_t. </p>
+
+</div>
+</div>
+<a class="anchor" id="a6d87f6b0341ca1fa8c52b117eee932e5"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::GBWTGraph::starts_with </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">char&#160;</td>
+          <td class="paramname"><em>c</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Determine if the node sequence starts with the given character. </p>
 
 </div>
 </div>

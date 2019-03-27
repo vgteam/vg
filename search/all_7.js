@@ -24,7 +24,7 @@ var searchData=
   ['gap_5fopen',['gap_open',['../classvg_1_1GSSWAligner.html#aa5c0a63b73ad2ff8ec8f05062c768c22',1,'vg::GSSWAligner::gap_open()'],['../classvg_1_1SSWAligner.html#a15398a23880418599e81370d485fec0f',1,'vg::SSWAligner::gap_open()']]],
   ['gapless_5fextender_2ecpp',['gapless_extender.cpp',['../gapless__extender_8cpp.html',1,'']]],
   ['gapless_5fextender_2ehpp',['gapless_extender.hpp',['../gapless__extender_8hpp.html',1,'']]],
-  ['gapless_5fmatch_5fto_5fpath',['gapless_match_to_path',['../namespacevg.html#ac901927955affab3135a317d5fbd5e20',1,'vg']]],
+  ['gapless_5fmatch_5fto_5fpath',['gapless_match_to_path',['../namespacevg.html#a7c6c351fc5583e717ea614ea1295b2ab',1,'vg']]],
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html',1,'vg']]],
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271',1,'vg::GaplessExtender::GaplessExtender()'],['../classvg_1_1GaplessExtender.html#a08058c1fa9281436ffec780441d9d648',1,'vg::GaplessExtender::GaplessExtender(const GBWTGraph &amp;graph)']]],
   ['gaplessmatch',['GaplessMatch',['../structvg_1_1GaplessMatch.html',1,'vg']]],

@@ -21,7 +21,7 @@ var searchData=
   ['has_5freachability_5fedges',['has_reachability_edges',['../classvg_1_1MultipathAlignmentGraph.html#a77a113d4c5b6b5ca1d7748c1b812e8d3',1,'vg::MultipathAlignmentGraph']]],
   ['hash_5ftable',['hash_table',['../classvg_1_1MinimizerIndex.html#af90d350e4d4833ef1ba2485305435a38',1,'vg::MinimizerIndex']]],
   ['hdr',['hdr',['../classvg_1_1HTSAlignmentEmitter.html#a311453c47931cb4edc2c1c33f0f81d77',1,'vg::HTSAlignmentEmitter']]],
-  ['head',['head',['../structvg_1_1HashGraph_1_1path__t.html#a3e43e8351b548cbc65cbb5ec421039d0',1,'vg::HashGraph::path_t::head()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6',1,'vg::PackedGraph::PackedPath::head()']]],
+  ['head',['head',['../structvg_1_1HashGraph_1_1path__t.html#a3e43e8351b548cbc65cbb5ec421039d0',1,'vg::HashGraph::path_t::head()'],['../structvg_1_1mi_1_1CircularBuffer.html#a5d239c64bd4a08c24a2f49e84a13c861',1,'vg::mi::CircularBuffer::head()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6',1,'vg::PackedGraph::PackedPath::head()']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['header',['header',['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex']]],
   ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['w',['w',['../structvg_1_1MinimizerIndex_1_1Header.html#a3036e50ff07a2dcc03404fcbcf698cda',1,'vg::MinimizerIndex::Header::w()'],['../classvg_1_1MinimizerIndex.html#a5630bef68a98414984b8d8dcaa58520e',1,'vg::MinimizerIndex::w()']]],
+  ['w',['w',['../structvg_1_1mi_1_1CircularBuffer.html#aa81bf4bb0269556a3efe2dd7b98aae1e',1,'vg::mi::CircularBuffer::w()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a3036e50ff07a2dcc03404fcbcf698cda',1,'vg::MinimizerIndex::Header::w()'],['../classvg_1_1MinimizerIndex.html#a5630bef68a98414984b8d8dcaa58520e',1,'vg::MinimizerIndex::w()']]],
   ['wabbit_5fmap',['wabbit_map',['../classVectorizer.html#abc8fdb5dcd0ccc39c2b042633ef6820e',1,'Vectorizer']]],
   ['wabbitize',['wabbitize',['../classVectorizer.html#ae4c3627b5c8ec7b066f5735ca6dfb3f1',1,'Vectorizer']]],
   ['wait_5ffor_5fregion',['wait_for_region',['../classvg_1_1GraphSynchronizer.html#a7f9e68c4e2172bc4a5c7040272a59d38',1,'vg::GraphSynchronizer']]],
