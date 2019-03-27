@@ -31,12 +31,12 @@ vg pack -x flat.xg -o 2snp.gam.cx -b 10 -g 2snp.gam
 y=$(vg pack -x flat.xg -di 2snp.gam.cx | wc -c )
 is $x $y "binned edit accumulation does not affect the result"
 
-x=$(vg pack -x flat.xg -di 2snp.gam.cx -n 1)
-y=$(vg pack -x flat.xg -di 2snp.gam.cx)
+x=$(vg pack -x flat.xg -di 2snp.gam.cx -n 1 | wc -c)
+y=$(vg pack -x flat.xg -di 2snp.gam.cx | wc -c)
 is $x $y "pack records are filtered by node id"
 
-x=$(vg pack -x flat.xg -di 2snp.gam.cx -n 1 | cut -f 2 | grep -v "1")
-y=$(vg pack -x flat.xg -di 2snp.gam.cx | cut -f 2 | head -n 1)
+x=$(vg pack -x flat.xg -di 2snp.gam.cx -n 1 | cut -f 2 | grep -v "1" | wc -c)
+y=$(vg pack -x flat.xg -di 2snp.gam.cx | cut -f 2 | head -n 1 | wc -c)
 is $x $y "pack records are filtered by node id"
 
 vg pack -x flat.xg -o 2snp.gam.cx -g 2snp.gam
