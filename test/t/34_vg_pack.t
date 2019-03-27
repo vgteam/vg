@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 6
+plan tests 8
 
 vg construct -m 1000 -r tiny/tiny.fa >flat.vg
 vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
@@ -30,6 +30,10 @@ x=$(vg pack -x flat.xg -di 2snp.gam.cx | wc -c )
 vg pack -x flat.xg -o 2snp.gam.cx -b 10 -g 2snp.gam
 y=$(vg pack -x flat.xg -di 2snp.gam.cx | wc -c )
 is $x $y "binned edit accumulation does not affect the result"
+
+x=$(vg pack -x flat.xg -di 2snp.gam.cx -n 1)
+y=$(vg pack -x flat.xg -di 2snp.gam.cx)
+is $x $y "pack records are filtered by node id"
 
 x=$(vg pack -x flat.xg -di 2snp.gam.cx -n 1 | cut -f 2 | grep -v "1")
 y=$(vg pack -x flat.xg -di 2snp.gam.cx | cut -f 2 | head -n 1)
