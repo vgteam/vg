@@ -61,13 +61,28 @@ protected:
     SnarlSeedClusterer clusterer;
 
     /**
-     * Find for each pair of extended seeds all the haplotype-consistent graph paths against which the intervening read sequence needs to be aligned.
-     *  extended_seeds must be sorted by read start position. Any extended seeds that overlap in the read will be precluded from connecting.
+     * Find for each pair of extended seeds all the haplotype-consistent graph
+     * paths against which the intervening read sequence needs to be aligned.
+     *
+     * extended_seeds must be sorted by read start position. Any extended seeds
+     * that overlap in the read will be precluded from connecting.
+     *
+     * numeric_limits<size_t>::max() is used to store sufficeintly long Paths
+     * ending before sources (which cannot be reached from other extended
+     * seeds) and starting after sinks (which cannot reach any other extended
+     * seeds).
      */
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds, size_t walk_distance) const;
 
-    
-
+    /**
+     * Given a Position, explore the GBWT graph out to the given maximum walk distance.
+     * Calls the visit callback with the Path being extended and the handle it is being extended with.
+     * Only considers paths that visit at least one node after the node the Position is on.
+     * If the callback returns false, that GBWT search state is not extended further.
+     * If the walk_distance limit is exceeded, calls the limit callback with the Path that passed the limit.
+     */
+    void explore_gbwt(const Position& from, size_t walk_distance, const function<bool(const Path&, const handle_t&)>& visit_callback,
+        const function<void(const Path&)>& limit_callback) const;
 
 };
 

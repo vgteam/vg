@@ -239,6 +239,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 auto paths_between_seeds = find_connecting_paths(extended_seeds, walk_distance);
 
                 // Make a MultipathAlignment and feed in all the extended seeds as subpaths
+                MultipathAlignment mp;
+                mp.set_sequence(aln.sequence());
+                mp.set_quality(aln.quality());
+                for (auto& extended_seed : extended_seeds) {
+                    Subpath* s = mp.add_subpath();
+                }
 
                 // Then extract all the intervening sequences for every edge
 
@@ -311,6 +317,9 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
     // Maps from handle in the GBWT graph to offset on that orientation that an extension starts at and index of the extension.
     unordered_map<handle_t, vector<pair<size_t, size_t>>> extensions_by_handle;
 
+    // We track which extended seeds are sources (nothing else can reach them)
+    unordered_set<size_t> sources;
+
     for (size_t i = 0; i < extended_seeds.size(); i++) {
         // For each extension
         // Where does it start?
@@ -321,6 +330,9 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
         // Record that this extension starts at this offset along that handle
         extensions_by_handle[handle].emplace_back(pos.offset(), i);
+
+        // Assume it is a source
+        sources.insert(i);
 
 #ifdef debug
         cerr << "Extended seed " << i << " starts on node " << pos.node_id() << " " << pos.is_reverse()
@@ -390,6 +402,9 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                     // Emit that connection
                     to_return[i][next_offset_and_index.second].emplace_back(std::move(connecting));
 
+                    // Record that the destination is not a source
+                    sources.erase(next_offset_and_index.second);
+
                     // Don't look at any more destinations
                     do_gbwt_search = false;
                     break;
@@ -402,127 +417,196 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             continue;
         }
 
-        // Turn it into a SearchState
-        gbwt::SearchState start_state = gbwt_graph.get_state(start_handle);
+        // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
+        explore_gbwt(last_pos_graph, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+            // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
 
-        // The search state represents searching through the end of the node, so we have to consume that much search limit.
-
-        // Tack on how much search limit distance we consume by going to the end of the node to get an inclusive last position in the read.
-        size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - last_pos_graph.offset();
-        
-        // And make a Path that represents the part of the node we're on that goes out to the end.
-        // This may be empty if the hit already stopped at the end of the node
-        Path path_to_end;
-        if (distance_to_node_end != 0) {
-            // We didn't hit the end of the node already.
-
-            // Make a mapping that starts 1 after the last position in the node that the hit covers
-            Mapping* m = path_to_end.add_mapping();
-            *m->mutable_position() = last_pos_graph;
-            m->mutable_position()->set_offset(m->position().offset() + 1);
-
-            // Make it the requested length of perfect match.
-            Edit* e = m->add_edit();
-            e->set_from_length(distance_to_node_end);
-            e->set_to_length(distance_to_node_end);
-        }
-        
-        // Glom these together into a traversal state and queue it up.
-        // Holds the gbwt::SearchState we are at, and the Path from the end of the starting
-        // seed up through the end of the node we just searched.
-        // The from_length of the path tracks our consumption of distance limit.
-        using traversal_state_t = pair<gbwt::SearchState, Path>;
-
-        // Holds a queue of search states to extend.
-        list<traversal_state_t> queue{{start_state, path_to_end}};
-
-        while (!queue.empty()) {
-            // While there are things in the queue
-
-#ifdef debug
-            cerr << "Queue size: " << queue.size() << endl;
-#endif
-
-            // Grab one
-            traversal_state_t here(std::move(queue.front()));
-            queue.pop_front();
-            gbwt::SearchState& here_state = here.first;
-            Path& here_path = here.second;
-            
-            // follow_paths on it
-            gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
-                // For each place it can go
-
-                // Get state.node and node_to_handle it to het the handle we extended with
-                handle_t there_handle = gbwt_graph.node_to_handle(there_state.node);
-
-                // See if we hit any other extensions on this node
-                auto found = extensions_by_handle.find(there_handle);
-                if (found != extensions_by_handle.end()) {
-                    // If we do
+            // See if we hit any other extensions on this next node
+            auto found = extensions_by_handle.find(there_handle);
+            if (found != extensions_by_handle.end()) {
+                // If we do
+                
+                for (auto& next_offset_and_index : found->second) {
+                    // Look at them in order along the node
                     
-                    for (auto& next_offset_and_index : found->second) {
-                        // Look at them in order along the node
-                        
-                        if (extended_seeds[next_offset_and_index.second].second > last_pos_read) { 
-                            // As soon as we find one that starts in the read after our start extended seed ended
+                    if (extended_seeds[next_offset_and_index.second].second > last_pos_read) { 
+                        // As soon as we find one that starts in the read after our start extended seed ended
 
-                            // Extend the Path to connect to it.
-                            // TODO: Make these shared tail lists for better algorithmics
-                            Path extended = here_path;
-                            
-                            if (next_offset_and_index.first > 0) {
-                                // There is actual material on this new node before the extended seed we have to hit.
-                                Mapping* m = extended.add_mapping();
-                                m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
-                                m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
-                                Edit* e = m->add_edit();
-                                // Make sure it runs through the last base *before* the extended seed we are going for
-                                e->set_from_length(next_offset_and_index.first);
-                                e->set_to_length(next_offset_and_index.first);
-                            }
+                        // Extend the Path to connect to it.
+                        // TODO: Make these shared tail lists for better algorithmics
+                        Path extended = here_path;
+                        
+                        if (next_offset_and_index.first > 0) {
+                            // There is actual material on this new node before the extended seed we have to hit.
+                            Mapping* m = extended.add_mapping();
+                            m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
+                            m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
+                            Edit* e = m->add_edit();
+                            // Make sure it runs through the last base *before* the extended seed we are going for
+                            e->set_from_length(next_offset_and_index.first);
+                            e->set_to_length(next_offset_and_index.first);
+                        }
 
 #ifdef debug
-                            cerr << "Found graph path between seeds " << i << " and " << next_offset_and_index.second << ": " << pb2json(extended) <<  endl;
+                        cerr << "Found graph path between seeds " << i << " and " << next_offset_and_index.second << ": " << pb2json(extended) <<  endl;
 #endif
 
-                            // And emit that connection
-                            to_return[i][next_offset_and_index.second].emplace_back(std::move(extended));
+                        // And emit that connection
+                        to_return[i][next_offset_and_index.second].emplace_back(std::move(extended));
 
-                            // Don't look at any more destinations, or any extensions past this node of this search state.
-                            return true;
-                        }
+                        // Record that the destination is not a source
+                        sources.erase(next_offset_and_index.second);
+
+                        // Don't look at any more destinations, or any extensions past this node of this search state.
+                        return false;
                     }
                 }
+            }
 
-                // If we get here, we didn't find a place to stop.
+            // Otherwise we didn't hit anything we can stop at. Keep extending.
+            return true;
+        }, [&](const Path& limit_path) {
+            // When we blow past the walk distance limit
 
-                // See if we can get to the end of the node without going outside the search length.
-                if (path_from_length(here_path) + gbwt_graph.get_length(there_handle) <= walk_distance) {
-                    // If so, extend the path with the entire node match and requeue with the new search state
-                    
-                    // TODO: some of this code is repeated
-                    Path extended = here_path;
-                    Mapping* m = extended.add_mapping();
-                    m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
-                    m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
-                    Edit* e = m->add_edit();
-                    e->set_from_length(gbwt_graph.get_length(there_handle));
-                    e->set_to_length(gbwt_graph.get_length(there_handle));
-
-                    queue.emplace_back(there_state, extended);
-                }
-
-                // Look at other possible haplotypes from where we came from
-                return true;
-            });
-        }
-
+            // We have a way to escape.
+            // Save that as a path. If we end up with paths anywhere else we will destroy it, so we will only keep it for sinks.
+            
+            to_return[i][numeric_limits<size_t>::max()].emplace_back(limit_path);
+        });
     }
 
+    for (auto& kv : to_return) {
+        // For each seed, if it can reach anything *other* than numeric_limits<size_t>::max(), erase anything going to numeric_limits<size_t>::max()
+        auto found = kv.second.find(numeric_limits<size_t>::max());
+        if (kv.second.size() > 1 && found != kv.second.end()) {
+            // We have a going-off-to-nothing path and also a path to somewhere else.
+            // Don't go off to nothing.
+            kv.second.erase(found);
+        }
+    }
+
+    // Now we need the paths *from* numeric_limits<size_t>::max() to sources.
+    // Luckily we know the sources.
+    for (const size_t& i : sources) {
+        // For each source
+
+        // Find its start
+        Position start = extended_seeds[i].first.mapping(0).position();
+
+        // Flip it around to face left
+        start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id()))); 
+
+        // Start another search, but going left.
+        explore_gbwt(start, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+            // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
+            // So always keep going.
+            return true;
+        }, [&](const Path& limit_path) {
+            // We have this path going right from start and hitting the walk limit.
+
+            // Flip the path around
+            Path flipped = reverse_complement_path(limit_path, [&](id_t id) -> size_t {
+                return gbwt_graph.get_length(gbwt_graph.get_handle(id));
+            });
+
+            // Record that as a path from numeric_limits<size_t>::max() to i.
+            to_return[numeric_limits<size_t>::max()][i].emplace_back(std::move(flipped));
+        });
+    }
+    
     // Now this should be filled in with all the connectivity, so return.
     return to_return;
     
+}
+
+void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, const function<bool(const Path&, const handle_t&)>& visit_callback,
+    const function<void(const Path&)>& limit_callback) const {
+    
+    // Holds the gbwt::SearchState we are at, and the Path from the end of the starting
+    // seed up through the end of the node we just searched.
+    // The from_length of the path tracks our consumption of distance limit.
+    using traversal_state_t = pair<gbwt::SearchState, Path>;
+    
+    // Get a handle to the node the from position is on, in its forward orientation
+    handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
+
+    // Turn it into a SearchState
+    gbwt::SearchState start_state = gbwt_graph.get_state(start_handle);
+
+    // The search state represents searching through the end of the node, so we have to consume that much search limit.
+
+    // Tack on how much search limit distance we consume by going to the end of the node to get an inclusive last position in the read.
+    size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - from.offset();
+    
+    // And make a Path that represents the part of the node we're on that goes out to the end.
+    // This may be empty if the hit already stopped at the end of the node
+    Path path_to_end;
+    if (distance_to_node_end != 0) {
+        // We didn't hit the end of the node already.
+
+        // Make a mapping that starts 1 after the last position in the node that the hit covers
+        Mapping* m = path_to_end.add_mapping();
+        *m->mutable_position() = from;
+        m->mutable_position()->set_offset(m->position().offset() + 1);
+
+        // Make it the requested length of perfect match.
+        Edit* e = m->add_edit();
+        e->set_from_length(distance_to_node_end);
+        e->set_to_length(distance_to_node_end);
+    }
+    
+    // Glom these together into a traversal state and queue it up.
+
+    // Holds a queue of search states to extend.
+    list<traversal_state_t> queue{{start_state, path_to_end}};
+
+    while (!queue.empty()) {
+        // While there are things in the queue
+
+#ifdef debug
+        cerr << "Queue size: " << queue.size() << endl;
+#endif
+
+        // Grab one
+        traversal_state_t here(std::move(queue.front()));
+        queue.pop_front();
+        gbwt::SearchState& here_state = here.first;
+        Path& here_path = here.second;
+        
+        // follow_paths on it
+        gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
+            // For each place it can go
+
+            handle_t there_handle = gbwt_graph.node_to_handle(there_state.node);
+
+            // Say we can go from here to there. Should we?
+            bool continue_extending = visit_callback(here_path, there_handle);
+
+            if (continue_extending) {
+                // Generate the path we take if we take up all of that node.
+                Path extended = here_path;
+                Mapping* m = extended.add_mapping();
+                m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
+                m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
+                Edit* e = m->add_edit();
+                e->set_from_length(gbwt_graph.get_length(there_handle));
+                e->set_to_length(gbwt_graph.get_length(there_handle));
+
+
+                // See if we can get to the end of the node without going outside the search length.
+                if (path_from_length(here_path) + gbwt_graph.get_length(there_handle) <= walk_distance) {
+                    // If so, continue the search
+                    queue.emplace_back(there_state, extended);
+                } else {
+                    // Report that, with this extension, we hit the limit.
+                    limit_callback(extended);
+                }
+            }
+
+            // Look at other possible haplotypes from where we came from
+            return true;
+        });
+    }
 }
 
 
