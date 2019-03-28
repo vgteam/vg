@@ -7,7 +7,6 @@
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
-#include "convert_handle.hpp"
 
 #include <chrono>
 #include <iostream>
@@ -262,38 +261,58 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // We want the best alignment, to the base graph, done against any target path
                     Path best_path;
                     // And its score
-                    size_t best_score = 0;
+                    int64_t best_score = numeric_limits<int64_t>::min();
 
                     // We can align it once per target path
                     for (auto& path : kv.second) {
                         // For each path we can take to get to the source
-
-                        // Make a subgraph.
-                        // TODO: don't copy the path
-                        PathSubgraph subgraph(&gbwt_graph, path);
                         
-                        // Do right-pinned alignment to the path subgraph with GSSWAligner.
-                        Alignment before_alignment;
-                        before_alignment.set_sequence(before_sequence);
-                        // TODO: pre-make the topological order
-                        
-                        cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
-                        subgraph.for_each_handle([&](const handle_t& here) {
-                            cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
-                            subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
-                            });
-                            subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
-                            });
-                        });
+                        if (path.mapping_size() == 0) {
+                            // We might have extra read before where the graph starts. Handle leading insertions.
+                            // We consider a pure softclip.
+                            // We don't consider an empty sequence because if that were the case
+                            // we would not have any paths_between_seeds entries for the dangling-left-sequence sentinel.
+                            if (best_score < 0) {
+                                best_score = 0;
+                                best_path.clear_mapping();
+                                Mapping* m = best_path.add_mapping();
+                                Edit* e = m->add_edit();
+                                e->set_from_length(0);
+                                e->set_to_length(before_sequence.size());
+                                e->set_sequence(before_sequence);
+                                // Since the softclip consumes no graph, we place it on the node we are going to.
+                                *m->mutable_position() = extended_seeds[source].first.mapping(0).position();
+                            }
+                        } else {
 
-                        get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                            // Make a subgraph.
+                            // TODO: don't copy the path
+                            PathSubgraph subgraph(&gbwt_graph, path);
+                            
+                            // Do right-pinned alignment to the path subgraph with GSSWAligner.
+                            Alignment before_alignment;
+                            before_alignment.set_sequence(before_sequence);
+                            // TODO: pre-make the topological order
+                            
+                            cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
+                            subgraph.for_each_handle([&](const handle_t& here) {
+                                cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                    cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                });
+                                subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                    cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                });
+                            });
 
-                        if (before_alignment.score() > best_score || best_path.mapping_size() == 0) {
-                            // This is a new best alignment. Translate from subgraph into base graph and keep it
-                            best_path = subgraph.translate_down(before_alignment.path());
-                            best_score = before_alignment.score();
+                            get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                            // TODO: This should assign full length bonus! Does it?
+
+                            if (before_alignment.score() > best_score) {
+                                // This is a new best alignment. Translate from subgraph into base graph and keep it
+                                best_path = subgraph.translate_down(before_alignment.path());
+                                best_score = before_alignment.score();
+                            }
                         }
                     }
                     
@@ -331,38 +350,66 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             // Find the best path in backing graph space
                             Path best_path;
                             // And its score
-                            size_t best_score = 0;
+                            int64_t best_score = numeric_limits<int64_t>::min();
 
                             // We can align it once per target path
                             for (auto& path : to_and_paths.second) {
-                                // For each path we can take to get to the source
-
-                                // Make a subgraph.
-                                // TODO: don't copy the path
-                                PathSubgraph subgraph(&gbwt_graph, path);
+                                // For each path we can take to leave the "from" sink
                                 
-                                // Do left-pinned alignment to the path subgraph
-                                Alignment after_alignment;
-                                after_alignment.set_sequence(trailing_sequence);
-                                // TODO: pre-make the topological order
+                                if (path.mapping_size() == 0) {
+                                    // Consider the case of a nonempty trailing
+                                    // softclip that bumped up against the end
+                                    // of the underlying graph.
+                                    
+                                    if (best_score < 0) {
+                                        best_score = 0;
+                                        best_path.clear_mapping();
+                                        Mapping* m = best_path.add_mapping();
+                                        Edit* e = m->add_edit();
+                                        e->set_from_length(0);
+                                        e->set_to_length(trailing_sequence.size());
+                                        e->set_sequence(trailing_sequence);
+                                        // We need to set a position at the end of where we are coming from.
+                                        const Mapping& prev_mapping = extended_seeds[from].first.mapping(
+                                            extended_seeds[from].first.mapping_size() - 1);
+                                        const Position& coming_from = prev_mapping.position();
+                                        size_t last_node_length = gbwt_graph.get_length(gbwt_graph.get_handle(coming_from.node_id()));
+                                        m->mutable_position()->set_node_id(coming_from.node_id());
+                                        m->mutable_position()->set_is_reverse(coming_from.is_reverse());
+                                        m->mutable_position()->set_offset(last_node_length);
+                                        
+                                        // We should only have this case if we are coming from the end of a node.
+                                        assert(mapping_from_length(prev_mapping) + coming_from.offset() == last_node_length);
+                                    }
+                                } else {
 
-                                cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
-                                subgraph.for_each_handle([&](const handle_t& here) {
-                                    cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
-                                    subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                        cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                    // Make a subgraph.
+                                    // TODO: don't copy the path
+                                    PathSubgraph subgraph(&gbwt_graph, path);
+                                    
+                                    // Do left-pinned alignment to the path subgraph
+                                    Alignment after_alignment;
+                                    after_alignment.set_sequence(trailing_sequence);
+                                    // TODO: pre-make the topological order
+
+                                    cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
+                                    subgraph.for_each_handle([&](const handle_t& here) {
+                                        cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                        subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                            cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                        });
+                                        subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                            cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                        });
                                     });
-                                    subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                        cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
-                                    });
-                                });
 
-                                get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                                    get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
 
-                                if (after_alignment.score() > best_score || best_path.mapping_size() == 0) {
-                                    // This is a new best alignment. Translate from subgraph into base graph and keep it
-                                    best_path = subgraph.translate_down(after_alignment.path());
-                                    best_score = after_alignment.score();
+                                    if (after_alignment.score() > best_score) {
+                                        // This is a new best alignment. Translate from subgraph into base graph and keep it
+                                        best_path = subgraph.translate_down(after_alignment.path());
+                                        best_score = after_alignment.score();
+                                    }
                                 }
                             }
                             
@@ -385,46 +432,75 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             assert(extended_seeds[to].second >= from_end);
                             string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].second - from_end); 
 
-                            // Find the best path in backing graph space
+                            // Find the best path in backing graph space (which may be empty)
                             Path best_path;
                             // And its score
-                            size_t best_score = 0;
+                            int64_t best_score = numeric_limits<int64_t>::min();
 
                             // We can align it once per target path
                             for (auto& path : to_and_paths.second) {
                                 // For each path we can take to get to the source
+                                
+                                if (path.mapping_size() == 0) {
+                                    // We're aligning against nothing
+                                    if (intervening_sequence.empty()) {
+                                        // Consider the nothing to nothing alignment, score 0
+                                        if (best_score < 0) {
+                                            best_score = 0;
+                                            best_path.clear_mapping();
+                                        }
+                                    } else {
+                                        // Consider the something to nothing alignment.
+                                        // We can't use the normal code path because the BandedGlobalAligner 
+                                        // wouldn't be able to generate a position form an empty graph.
+                                        
+                                        // We know the extended seeds we are between won't start/end with gaps, so we own the gap open.
+                                        int64_t score = get_regular_aligner()->score_gap(intervening_sequence.size());
+                                        if (score > best_score) {
+                                            best_path.clear_mapping();
+                                            Mapping* m = best_path.add_mapping();
+                                            Edit* e = m->add_edit();
+                                            e->set_from_length(0);
+                                            e->set_to_length(intervening_sequence.size());
+                                            e->set_sequence(intervening_sequence);
+                                            // We can copy the position of where we are going to, since we consume no graph.
+                                            *m->mutable_position() = extended_seeds[to].first.mapping(0).position();
+                                        }
+                                    }
+                                } else {
 
-                                // Make a subgraph.
-                                // TODO: don't copy the path
-                                PathSubgraph subgraph(&gbwt_graph, path);
-                                
-                                // Do global alignment to the path subgraph
-                                Alignment between_alignment;
-                                between_alignment.set_sequence(intervening_sequence);
-
-                                cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
-                                cerr << "Defining path: " << pb2json(path) << endl;
-                                subgraph.for_each_handle([&](const handle_t& here) {
-                                    cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
-                                        << " (" << subgraph.get_sequence(here) << "): " << endl;
-                                    subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                        cerr << "\t" << subgraph.get_id(there) << " len " << subgraph.get_length(there)
-                                            << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                    // Make a subgraph.
+                                    // TODO: don't copy the path
+                                    PathSubgraph subgraph(&gbwt_graph, path);
+                                    
+                                    // Do global alignment to the path subgraph
+                                    Alignment between_alignment;
+                                    between_alignment.set_sequence(intervening_sequence);
+                                    
+                                    cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
+                                    cerr << "Defining path: " << pb2json(path) << endl;
+                                    subgraph.for_each_handle([&](const handle_t& here) {
+                                        cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
+                                            << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                        subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                            cerr << "\t" << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                                                << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                        });
+                                        subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                            cerr << "\t-> " << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                                                << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                        });
                                     });
-                                    subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                        cerr << "\t-> " << subgraph.get_id(there) << " len " << subgraph.get_length(there)
-                                            << " (" << subgraph.get_sequence(there) << ")" << endl;
-                                    });
-                                });
-                                
-                                get_regular_aligner()->align_global_banded(between_alignment, subgraph, 5, true);
-                                
-                                cerr << "Got: " << pb2json(between_alignment) << endl;
-                                
-                                if (between_alignment.score() > best_score || best_path.mapping_size() == 0) {
-                                    // This is a new best alignment. Translate from subgraph into base graph and keep it
-                                    best_path = subgraph.translate_down(between_alignment.path());
-                                    best_score = between_alignment.score();
+                                    
+                                    get_regular_aligner()->align_global_banded(between_alignment, subgraph, 5, true);
+                                    
+                                    cerr << "Got: " << pb2json(between_alignment) << endl;
+                                    
+                                    if (between_alignment.score() > best_score) {
+                                        // This is a new best alignment. Translate from subgraph into base graph and keep it
+                                        best_path = subgraph.translate_down(between_alignment.path());
+                                        best_score = between_alignment.score();
+                                    }
                                 }
                                 
                             }
