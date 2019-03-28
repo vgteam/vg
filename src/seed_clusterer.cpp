@@ -176,27 +176,16 @@ for (pair<id_t, vector<size_t>>& n : node_to_seed){
 
         SnarlSeedClusterer::seed2subtree(  seeds, snarl_manager, dist_index, 
                        chains_to_snarl, snarls_to_node, node_to_seed,seed_list); 
-
-  
-        // This will hold all top-level snarls that have seeds under them
-        //vector<const Snarl*> top_snarls;
-        //for (auto& snarl : snarls_to_node) {
-        //    if (snarl_manager.parent_of(snarl.first) == nullptr) {
-        //        // This is top level
-        //        top_snarls.push_back(snarl.first);
-        //    }
-        //}
         
         // We track seen-ness by chain, so we don't have to do O(N) work to tag
         // all snarls in chromosome-spanning chains as seen.
         unordered_set<const Chain*> seen_chains;
         vector<hash_set<size_t>> cluster_assignments; 
-        //for (const Snarl* root_snarl : top_snarls) {
-        for (auto& snarl : snarls_to_node) {
-	    const Snarl* root_snarl = snarl.first;
-            if (snarl_manager.parent_of(root_snarl) != nullptr) {
-		continue;
-	    }
+        const vector<const Snarl*>& top_snarls = snarl_manager.top_level_snarls();
+        for (const Snarl* root_snarl : top_snarls) {
+	    if (snarls_to_node.count(root_snarl) == 0 ) {
+                continue;
+            }
             //Find clusters for each disconnected snarl/chain
             
             // Look up the (possibly trivial) chain for the snarl
