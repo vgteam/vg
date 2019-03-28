@@ -8,6 +8,8 @@
 #include <handlegraph/util.hpp>
 #include <iostream>
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -18,12 +20,19 @@ using namespace std;
     }
     
     bool PathSubgraph::has_node(id_t node_id) const {
-        return (node_id > 0 && node_id <= defining_path.mapping_size());
+        bool result = (node_id > 0 && node_id <= defining_path.mapping_size());
+#ifdef debug
+        cerr << "Have node " << node_id << ": " << result << endl;
+#endif
+        return result;
     }
     
     handle_t PathSubgraph::get_handle(const id_t& node_id, bool is_reverse) const {
         assert(node_id >= 1 && node_id <= defining_path.mapping_size());
-        return handlegraph::number_bool_packing::pack(node_id, is_reverse);
+        handle_t handle = handlegraph::number_bool_packing::pack(node_id, is_reverse);
+        assert(get_id(handle) == node_id);
+        assert(get_is_reverse(handle) == is_reverse);
+        return handle;
     }
     
     id_t PathSubgraph::get_id(const handle_t& handle) const {
@@ -35,13 +44,18 @@ using namespace std;
     }
     
     handle_t PathSubgraph::flip(const handle_t& handle) const {
-        return handlegraph::number_bool_packing::toggle_bit(handle);
+        handle_t flipped = handlegraph::number_bool_packing::toggle_bit(handle);
+        assert(get_is_reverse(flipped) != get_is_reverse(handle));
+        assert(get_id(flipped) == get_id(handle));
+        return flipped;
     }
     
     size_t PathSubgraph::get_length(const handle_t& handle) const {
         size_t index = (size_t)get_id(handle) - 1;
         // No need to go back to the backing graph; the path knows lengths.
-        return mapping_from_length(defining_path.mapping(index));
+        size_t length = mapping_from_length(defining_path.mapping(index));
+        assert(length == get_sequence(handle).size());
+        return length; 
     }
     
     string PathSubgraph::get_sequence(const handle_t& handle) const {
@@ -56,9 +70,11 @@ using namespace std;
         string backing_sequence = super->get_sequence(backing_handle);
 
         if (index == 0 && pos.offset() != 0) {
+            // We are the first node.
+            
             // We need to trim off the start of the backing node in its orientation along the path.
 
-            size_t desired_length = get_length(handle);
+            size_t desired_length = mapping_from_length(defining_path.mapping(index));
 
             if (backward) {
                 // Its orientation along the path is opposite our visit orientation.
@@ -69,10 +85,12 @@ using namespace std;
                 // Trim the start of the string.
                 return backing_sequence.substr(backing_sequence.size() - desired_length);
             }
-        } else if (index == defining_path.mapping_size()) {
+        } else if (index == defining_path.mapping_size() - 1) {
+            // We are the last node
+            
             // We may need to trim off the end of the backing node in its orientation along the path.
 
-            size_t desired_length = get_length(handle);
+            size_t desired_length = mapping_from_length(defining_path.mapping(index));
 
             if (backward) {
                 // Its orientation along the path is opposite our visit orientation.

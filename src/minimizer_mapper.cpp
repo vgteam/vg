@@ -7,6 +7,7 @@
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
+#include "convert_handle.hpp"
 
 #include <chrono>
 #include <iostream>
@@ -402,23 +403,30 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 between_alignment.set_sequence(intervening_sequence);
 
                                 cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
+                                cerr << "Defining path: " << pb2json(path) << endl;
                                 subgraph.for_each_handle([&](const handle_t& here) {
-                                    cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                    cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
+                                        << " (" << subgraph.get_sequence(here) << "): " << endl;
                                     subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                        cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                        cerr << "\t" << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                                            << " (" << subgraph.get_sequence(there) << ") ->" << endl;
                                     });
                                     subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                        cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                        cerr << "\t-> " << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                                            << " (" << subgraph.get_sequence(there) << ")" << endl;
                                     });
                                 });
-
-                                get_regular_aligner()->align_global_banded(between_alignment, subgraph, aln.sequence().size(), true);
-
+                                
+                                get_regular_aligner()->align_global_banded(between_alignment, subgraph, 5, true);
+                                
+                                cerr << "Got: " << pb2json(between_alignment) << endl;
+                                
                                 if (between_alignment.score() > best_score || best_path.mapping_size() == 0) {
                                     // This is a new best alignment. Translate from subgraph into base graph and keep it
                                     best_path = subgraph.translate_down(between_alignment.path());
                                     best_score = between_alignment.score();
                                 }
+                                
                             }
                             
                             // We may have an empty path. That's fine.
