@@ -196,6 +196,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // We need to generate some sub-full-length, maybe-extended seeds.
                 vector<pair<Path, size_t>> extended_seeds;
 
+                cerr << aln.sequence() << endl;
+
                 for (const size_t& seed_index : cluster) {
                     // TODO: Until Jouni implements the extender, we just make each hit a 1-base "extension"
                     
@@ -209,6 +211,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
                     // Pair up the path with the read base it is supposed to be mapping
                     extended_seeds.emplace_back(std::move(extended), minimizers[seed_to_source[seed_index]].second);
+                    
+                    cerr << "Added extended seed between read " 
+                        << aln.sequence().substr(extended_seeds.back().second, 1)
+                        << " at " << extended_seeds.back().second
+                        << " and graph" << pb2json(extended_seeds.back().first) << endl;
+                    cerr << "Graph sequence: " << gbwt_graph.get_sequence(gbwt_graph.get_handle(extended_seeds.back().first.mapping(0).position().node_id(), extended_seeds.back().first.mapping(0).position().is_reverse())) << endl;
                 }
 
 #ifdef debug
@@ -245,10 +253,20 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 mp.set_sequence(aln.sequence());
                 mp.set_quality(aln.quality());
                 for (auto& extended_seed : extended_seeds) {
+                    cerr << "Extended seed at read position " << extended_seed.second << " becomes subpath " << mp.subpath_size() << endl;
+                
                     Subpath* s = mp.add_subpath();
                     // Copy in the path.
                     *s->mutable_path() = extended_seed.first;
+                    // Score it
+                    s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extended_seed.first,
+                        aln.sequence().begin() + extended_seed.second));
                     // The position in the read it occurs at will be handled by the multipath topology.
+                    if (extended_seed.second == 0) {
+                        // But if it occurs at the very start of the read we need to mark that now.
+                        mp.add_start(mp.subpath_size() - 1);
+                        cerr << "\tIt should be a start" << endl;
+                    }
                 }
 
                 for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
@@ -257,6 +275,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     
                     // Grab the part of the read sequence that comes before it
                     string before_sequence = aln.sequence().substr(0, extended_seeds[source].second); 
+                    
+                    cerr << "There is a path into source extended seed " << source
+                        << ": \"" << before_sequence << "\" against " << kv.second.size() << " haplotypes" << endl;
 
                     // We want the best alignment, to the base graph, done against any target path
                     Path best_path;
@@ -282,6 +303,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 e->set_sequence(before_sequence);
                                 // Since the softclip consumes no graph, we place it on the node we are going to.
                                 *m->mutable_position() = extended_seeds[source].first.mapping(0).position();
+                                
+                                cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
                             }
                         } else {
 
@@ -294,6 +317,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             before_alignment.set_sequence(before_sequence);
                             // TODO: pre-make the topological order
                             
+#ifdef debug
                             cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
                             subgraph.for_each_handle([&](const handle_t& here) {
                                 cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
@@ -304,6 +328,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                     cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                                 });
                             });
+#endif
 
                             get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
                             // TODO: This should assign full length bonus! Does it?
@@ -312,6 +337,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 // This is a new best alignment. Translate from subgraph into base graph and keep it
                                 best_path = subgraph.translate_down(before_alignment.path());
                                 best_score = before_alignment.score();
+                                
+                                cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
                             }
                         }
                     }
@@ -322,10 +349,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Put it in the MultipathAlignment
                     Subpath* s = mp.add_subpath();
                     *s->mutable_path() = std::move(best_path);
+                    s->set_score(best_score);
                     
-                    // And make the edge from it to the correct sink
+                    // And make the edge from it to the correct source
                     s->add_next(source);
+                    
+                    cerr << "Resulting source subpath: " << pb2json(*s) << endl;
+                    
+                    // And mark it as a start subpath
+                    mp.add_start(mp.subpath_size() - 1);
                 }
+                
+                // We must have somewhere to start.
+                assert(mp.start_size() > 0);
 
                 for (auto& from_and_edges : paths_between_seeds) {
                     const size_t& from = from_and_edges.first;
@@ -392,6 +428,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                     after_alignment.set_sequence(trailing_sequence);
                                     // TODO: pre-make the topological order
 
+#ifdef debug
                                     cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
                                     subgraph.for_each_handle([&](const handle_t& here) {
                                         cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
@@ -402,6 +439,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                             cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                                         });
                                     });
+#endif
 
                                     get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
 
@@ -421,6 +459,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             // Put it in the MultipathAlignment
                             Subpath* s = mp.add_subpath();
                             *s->mutable_path() = std::move(best_path);
+                            s->set_score(best_score);
                             
                             // And make the edge to hook it up
                             mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
@@ -477,6 +516,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                     Alignment between_alignment;
                                     between_alignment.set_sequence(intervening_sequence);
                                     
+#ifdef debug
                                     cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
                                     cerr << "Defining path: " << pb2json(path) << endl;
                                     subgraph.for_each_handle([&](const handle_t& here) {
@@ -491,10 +531,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                                 << " (" << subgraph.get_sequence(there) << ")" << endl;
                                         });
                                     });
+#endif
                                     
                                     get_regular_aligner()->align_global_banded(between_alignment, subgraph, 5, true);
-                                    
-                                    cerr << "Got: " << pb2json(between_alignment) << endl;
                                     
                                     if (between_alignment.score() > best_score) {
                                         // This is a new best alignment. Translate from subgraph into base graph and keep it
@@ -519,6 +558,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 // Put it in the MultipathAlignment
                                 Subpath* s = mp.add_subpath();
                                 *s->mutable_path() = std::move(best_path);
+                                s->set_score(best_score);
                                 
                                 // And make the edges to hook it up
                                 s->add_next(to);
@@ -535,6 +575,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Then we take the best linearization of the full MultipathAlignment.
                 // Make sure to force source to sink
                 topologically_order_subpaths(mp);
+                
+                view_multipath_alignment_as_dot(cerr, mp, true);
+                
+                view_multipath_alignment(cerr, mp, gbwt_graph);
+
+                assert(validate_multipath_alignment(mp, gbwt_graph));
+                
                 optimal_alignment(mp, out, true);
 
                 // Then continue so we don't emit the unaligned Alignment
@@ -745,7 +792,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             // Otherwise we didn't hit anything we can stop at. Keep extending.
             return true;
         }, [&](const Path& limit_path) {
-            // When we blow past the walk distance limit
+            // When we blow past the walk distance limit or hit a dead end
 
             // We have a way to escape.
             // Save that as a path. If we end up with paths anywhere else we will destroy it, so we will only keep it for sinks.
@@ -768,29 +815,37 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
     // Luckily we know the sources.
     for (const size_t& i : sources) {
         // For each source
+        
+        cerr << "Extended seed " << i << " is a source" << endl;
+        
+        if (extended_seeds[i].second > 0) {
+            cerr << "\tIt is not at the start of the read, so there is a left tail" << endl;
 
-        // Find its start
-        Position start = extended_seeds[i].first.mapping(0).position();
+            // Find its start
+            Position start = extended_seeds[i].first.mapping(0).position();
 
-        // Flip it around to face left
-        start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id()))); 
+            // Flip it around to face left
+            start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id()))); 
 
-        // Start another search, but going left.
-        explore_gbwt(start, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
-            // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
-            // So always keep going.
-            return true;
-        }, [&](const Path& limit_path) {
-            // We have this path going right from start and hitting the walk limit.
+            // Start another search, but going left.
+            explore_gbwt(start, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+                // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
+                // So always keep going.
+                return true;
+            }, [&](const Path& limit_path) {
+                // We have this path going right from start and hitting the walk limit or the edge of the graph.
 
-            // Flip the path around
-            Path flipped = reverse_complement_path(limit_path, [&](id_t id) -> size_t {
-                return gbwt_graph.get_length(gbwt_graph.get_handle(id));
+                // Flip the path around
+                Path flipped = reverse_complement_path(limit_path, [&](id_t id) -> size_t {
+                    return gbwt_graph.get_length(gbwt_graph.get_handle(id));
+                });
+
+                // Record that as a path from numeric_limits<size_t>::max() to i.
+                to_return[numeric_limits<size_t>::max()][i].emplace_back(std::move(flipped));
             });
-
-            // Record that as a path from numeric_limits<size_t>::max() to i.
-            to_return[numeric_limits<size_t>::max()][i].emplace_back(std::move(flipped));
-        });
+            
+            assert(to_return[numeric_limits<size_t>::max()][i].size() > 0);
+        }
     }
     
     // Now this should be filled in with all the connectivity, so return.
@@ -853,10 +908,13 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, c
         Path& here_path = here.second;
         
         // follow_paths on it
+        bool got_anywhere = false;
         gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
             // For each place it can go
-
             handle_t there_handle = gbwt_graph.node_to_handle(there_state.node);
+            
+            // Record that we got there
+            got_anywhere = true;
 
             // Say we can go from here to there. Should we?
             bool continue_extending = visit_callback(here_path, there_handle);
@@ -885,6 +943,11 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, c
             // Look at other possible haplotypes from where we came from
             return true;
         });
+        
+        if (!got_anywhere) {
+            // We hit a dead end here. Report that.
+            limit_callback(here_path);
+        }
     }
 }
 
