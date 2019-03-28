@@ -16,7 +16,13 @@ namespace vg {
         
         assert(gff_record.start != -1 && gff_record.end != -1 && gff_record.start <= gff_record.end);
         
+        if (!xg_index->has_path(gff_record.sequence_id)) {
+            cerr << "error [RegionExpander] cannot expand genomic interval, graph does not contain path with name: " << gff_record.sequence_id << endl;
+            exit(1);
+        }
         const xg::XGPath& path = xg_index->get_path(gff_record.sequence_id);
+        
+        // walk along the path for the interval and add the corresponding nodes to the subgraph
         
         size_t offset = path.offset_at_position(gff_record.start);
         id_t node_id = path.node(offset);
@@ -43,10 +49,11 @@ namespace vg {
         
         return_val[make_pair(node_id, is_rev)].second = gff_record.end - (at_pos - node_length) + 1;
         
+        // walk along the path and identify snarls that have both ends on the path
+        
         unordered_set<const Snarl*> entered_snarls;
         unordered_set<const Snarl*> completed_snarls;
         
-        // walk along the path and identify snarls that have both ends on the path
         for (size_t i = 0; i + 1 < interval_subpath.size(); i++) {
             const Snarl* snarl_out = snarl_manager->into_which_snarl(interval_subpath[i].first,
                                                                      !interval_subpath[i].second);
@@ -63,25 +70,6 @@ namespace vg {
             if (snarl_in) {
                 entered_snarls.insert(snarl_in);
             }
-        }
-        
-        // TODO: in order to handle inversions correctly we actually want to include redundant
-        // children and do a shallow contents algorithm
-        
-        // which of these snarls are the children of other snarls we've identified?
-        vector<const Snarl*> redundant_child_snarls;
-        for (const Snarl* snarl : completed_snarls) {
-            const Snarl* parent = snarl_manager->parent_of(snarl);
-            if (parent) {
-                if (completed_snarls.count(parent)) {
-                    redundant_child_snarls.push_back(snarl);
-                }
-            }
-        }
-        
-        // remove the redundant snarls from the set of snarls we're looking at
-        for (const Snarl* snarl : redundant_child_snarls) {
-            completed_snarls.erase(snarl);
         }
         
         // traverse the subgraph in each snarl and add it to the annotation
@@ -111,6 +99,18 @@ namespace vg {
             unordered_set<handle_t> stacked{oriented_start, oriented_end, xg_index->flip(oriented_start)};
             vector<handle_t> stack{oriented_start};
             
+            // make an index for jumping over the inside of child snarls
+            unordered_map<handle_t, handle_t> child_snarl_skips;
+            for (const Snarl* child : snarl_manager->children_of(snarl)) {
+                handle_t start = xg_index->get_handle(child->start().node_id(),
+                                                      child->start().backward());
+                handle_t end = xg_index->get_handle(child->end().node_id(),
+                                                    child->end().backward());
+                
+                child_snarl_skips[start] = end;
+                child_snarl_skips[xg_index->flip(end)] = xg_index->flip(start);
+            }
+            
             // traverse the subgraph and add it to the return value
             while (!stack.empty()) {
                 handle_t handle = stack.back();
@@ -123,13 +123,35 @@ namespace vg {
                     return_val[trav] = pair<uint64_t, uint64_t>(0, xg_index->get_length(handle));
                 }
                 
-                xg_index->follow_edges(handle, false, [&](const handle_t& next) {
+                if (child_snarl_skips.count(handle)) {
+                    // skip over the internals of the child snarl we're pointing into
+                    handle_t next = child_snarl_skips[handle];
                     if (!stacked.count(next)) {
                         stack.push_back(next);
                         stacked.insert(next);
                     }
-                });
+                }
+                else {
+                    // traverse edges
+                    xg_index->follow_edges(handle, false, [&](const handle_t& next) {
+                        if (!stacked.count(next)) {
+                            stack.push_back(next);
+                            stacked.insert(next);
+                        }
+                    });
+                }
             }
+        }
+        
+        if (gff_record.strand_is_rev) {
+            // we did all our queries with respect to the forward strand, flip it back to the reverse
+            map<pair<id_t, bool>, pair<uint64_t, uint64_t>> reversed_map;
+            for (const auto& record : return_val) {
+                uint64_t node_length = xg_index->node_length(record.first.first);
+                reversed_map[make_pair(record.first.first, !record.first.second)] = make_pair(node_length - record.second.second,
+                                                                                              node_length - record.second.first);
+            }
+            return_val = move(reversed_map);
         }
         
         return return_val;
