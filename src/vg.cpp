@@ -5965,6 +5965,11 @@ void VG::to_dot(ostream& out,
     //out << "    splines=true;" << endl;
     //out << "    smoothType=spring;" << endl;
 
+    // Nodes merged as much as possible for simple mode
+    if(simple_mode){
+	unchop();
+    }
+
     //map<id_t, vector<
     map<id_t, set<pair<string, string>>> symbols_for_node;
     if (ultrabubble_labeling) {
@@ -6016,7 +6021,7 @@ void VG::to_dot(ostream& out,
             inner_label << "</TD>";
         } else if (simple_mode) {
             //inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
-            inner_label << n->id();
+	    inner_label << n->id() << "\\n" << n->sequence().size() << " bp";
             //inner_label << "</TD>";
         } else {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
