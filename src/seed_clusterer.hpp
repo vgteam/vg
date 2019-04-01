@@ -1,3 +1,6 @@
+#ifndef VG_SEED_CLUSTERER_HPP_INCLUDED
+#define VG_SEED_CLUSTERER_HPP_INCLUDED
+
 #include "snarls.hpp"
 #include "distance.hpp"
 #include "hash_map.hpp"
@@ -61,3 +64,5 @@ class SnarlSeedClusterer {
                              bool rev);
 };
 }
+
+#endif
