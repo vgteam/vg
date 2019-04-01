@@ -1664,7 +1664,7 @@ namespace vg {
         }
     }
     
-    
+#define debug_verbose_validation
     bool validate_multipath_alignment(const MultipathAlignment& multipath_aln, const HandleGraph& handle_graph) {
         
         // are the subpaths in topological order?
