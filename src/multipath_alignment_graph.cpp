@@ -1357,8 +1357,8 @@ namespace vg {
         }
     }
    
-    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph,
-                                                          const GSSWAligner* aligner, size_t max_alt_alns, bool dynamic_alt_alns) {
+    void MultipathAlignmentGraph::synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
+                                                          size_t min_anchor_length, size_t max_alt_alns, bool dynamic_alt_alns) {
     
         
         // Align the tails, not collecting a set of source subpaths.
@@ -1384,143 +1384,151 @@ namespace vg {
 #ifdef debug_multipath_alignment
                     cerr << "Tail alignment: " << pb2json(aln) << endl;
 #endif
-                
-                    // Keep a cursor in the aligned sequence
-                    size_t aln_cursor = 0;
                     
-                    // Keep an offset between it and the query alignment's sequence
-                    size_t aln_alignment_offset = handling_right_tail ? (alignment.sequence().size() - aln.sequence().size()) : 0;
+                    auto seq_begin = alignment.sequence().begin() + (handling_right_tail ? (alignment.sequence().size() - aln.sequence().size()) : 0);
                     
-                    // And a running count of the from_length and to_length burned since the last perfect match
-                    size_t from_length_since_match = 0;
-                    // And what PathNode index the last perfect match we made lives at.
-                    size_t last_path_node = numeric_limits<size_t>::max();
+                    // how far have we traveled in the graph since the start of the alignment
+                    size_t cumul_from_length = 0;
+                    // how far have we traveled along the read since the start of the alignment
+                    size_t cumul_to_length = 0;
                     
-                    if (handling_right_tail) {
-                        // Actually just attach off the PathNode we are a tail from
-                        last_path_node = attached_path_node_index;
-                    }
+                    // we will keep track of where we are on the current node
+                    size_t offset_on_curr_node = numeric_limits<size_t>::max();
                     
-                    // And the one we are working on
-                    size_t current_path_node = numeric_limits<size_t>::max();
-                
-                    for (size_t mapping_index = 0; mapping_index < aln.path().mapping_size(); mapping_index++) {
-                        // Visit each mapping, from start to end of the aligned sequence
-                        auto& mapping = aln.path().mapping(mapping_index);
+                    // when we find a match, we will keep track of
+                    size_t curr_match_length = 0;
+                    size_t match_start_mapping_idx = numeric_limits<size_t>::max();
+                    size_t match_start_edit_idx = numeric_limits<size_t>::max();
+                    size_t curr_match_start_offset = numeric_limits<size_t>::max();
+                    
+                    // if it's the right tail, we know the previous index, otherwise there is no previous index
+                    size_t prev_anchor_path_node = handling_right_tail ? attached_path_node_index : numeric_limits<size_t>::max();
+                    size_t prev_anchor_final_from_length = 0;
+                    
+                    const Path& path = aln.path();
+                    
+                    // a function that will create a new match node based on these trackers
+                    auto create_synthetic_anchor_node = [&](const size_t& i, const size_t& j) {
                         
-                        // We walk this cursor through the mapping's node traversal.
-                        size_t traversal_cursor = mapping.position().offset();
+                        path_nodes.emplace_back();
+                        PathNode& synth_path_node = path_nodes.back();
                         
-                        for(size_t edit_index = 0; edit_index < mapping.edit_size(); edit_index++) {
-                            // For each edit, from start to end
-                            auto& edit = mapping.edit(edit_index);
-                            if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
-                                // If it is a perfect match edit, create or add it to an anchor
-                                
-#ifdef debug_multipath_alignment
-                                cerr << "Mapping " << mapping_index << " edit " << edit_index << " is a perfect match" << endl;
-#endif
-                                
-                                if (current_path_node == numeric_limits<size_t>::max()) {
-                                    // No path node for a match in progress, so make one
-                                    current_path_node = path_nodes.size();
-                                    path_nodes.emplace_back();
-                                    auto& node = path_nodes.at(current_path_node);
-                                    
-                                    // Set its range to be nothing, positioned
-                                    // at where the aln sequence cursor falls
-                                    // in the query alignment
-                                    node.begin = alignment.sequence().begin() + aln_cursor + aln_alignment_offset;
-                                    node.end = node.begin;
-                                    
-#ifdef debug_multipath_alignment
-                                    cerr << "Made new PathNode " << current_path_node << endl;
-#endif
-                                    
-                                    if (last_path_node != numeric_limits<size_t>::max()) {
-                                        // Add an edge from the last PathNode to this new one we just made
-                                        auto& last = path_nodes.at(last_path_node);
-                                        last.edges.emplace_back(current_path_node, from_length_since_match);
-                                        
-#ifdef debug_multipath_alignment
-                                        cerr << "Reachable from " << last_path_node << " at distance " << from_length_since_match << endl;
-#endif
-                                    }
-                                }
-                                
-                                // Grab the PathNode we have to expand
-                                auto& node = path_nodes.at(current_path_node);
-                                
-                                // Add this perfect mapping onto the right of the current anchor path
-                                node.end += edit.to_length();
-                                Mapping* anchor_mapping = node.path.add_mapping();
-                                auto* pos = anchor_mapping->mutable_position();
-                                pos->set_node_id(mapping.position().node_id());
-                                pos->set_is_reverse(mapping.position().is_reverse());
-                                pos->set_offset(traversal_cursor);
-                                // Make sure to copy over the edit
-                                *anchor_mapping->add_edit() = edit;
-                                
-                                // TODO: We assume no adjacent mappings on the
-                                // same node will come in. If they do, we will
-                                // produce adjacent mappings on the same node
-                                // out.
-                                
-                            } else {
-                                // Otherwise, it's not a perfect match.
-                                
-#ifdef debug_multipath_alignment
-                                cerr << "Mapping " << mapping_index << " edit " << edit_index << " is not a match" << endl;
-#endif
-                                
-                                if (current_path_node != numeric_limits<size_t>::max()) {
-                                    // End the current perfect match and make it the previous one
-                                    last_path_node = current_path_node;
-                                    current_path_node = numeric_limits<size_t>::max();
-                                    from_length_since_match = 0;
-                                    
-#ifdef debug_multipath_alignment
-                                    cerr << "Finished off PathNode " << last_path_node << endl;
-                                    cerr << "Sequence: ";
-                                    for (auto c = path_nodes.at(last_path_node).begin; c != path_nodes.at(last_path_node).end; ++c) {
-                                        cerr << *c;
-                                    }
-                                    cerr << endl;
-                                    cerr << "Path: " << pb2json(path_nodes.at(last_path_node).path) << endl; 
-#endif
-                                }
-                                
-                                
-                                // Record how much from_length we used since the last perfect match.
-                                from_length_since_match += edit.from_length();
-                            }
-                            
-                            // Advance our cursors since we are now past this edit
-                            traversal_cursor += edit.from_length();
-                            aln_cursor += edit.to_length();
+                        int32_t rank = 1;
+                        
+                        // copy the first mapping, paying attention to the initial position
+                        Mapping* new_mapping = synth_path_node.path.add_mapping();
+                        Position* new_position = new_mapping->mutable_position();
+                        new_position->set_node_id(path.mapping(match_start_mapping_idx).position().node_id());
+                        new_position->set_is_reverse(path.mapping(match_start_mapping_idx).position().is_reverse());
+                        new_position->set_offset(curr_match_start_offset);
+                        
+                        // we should only be able to copy one edit over from this mapping, either because the next one
+                        // is a mismatch or because it's on the next node's mapping
+                        *new_mapping->add_edit() = path.mapping(match_start_mapping_idx).edit(match_start_edit_idx);
+                        
+                        new_mapping->set_rank(rank);
+                        rank++;
+                        
+                        // copy any whole mappings from the middle of the anchor path
+                        for (size_t copy_i = match_start_mapping_idx + 1; copy_i < i; copy_i++) {
+                            assert(path.mapping(copy_i).edit_size() == 1);
+                            *synth_path_node.path.add_mapping() = path.mapping(copy_i);
+                            synth_path_node.path.mutable_mapping(synth_path_node.path.mapping_size() - 1)->set_rank(rank);
+                            rank++;
                         }
-                    }
-                    
-                     if (current_path_node != numeric_limits<size_t>::max()) {
-                        // End the final perfect match and make it the previous one
-                        last_path_node = current_path_node;
-                        current_path_node = numeric_limits<size_t>::max();
-                        from_length_since_match = 0;
+                        
+                        // on the final mapping we don't need to pay special attention to the initial position, but
+                        // we can't copy over the whole mapping since there might be more edits after the match
+                        if (i > match_start_mapping_idx && j > 0) {
+                            assert(j == 1);
+                            new_mapping = synth_path_node.path.add_mapping();
+                            *new_mapping->mutable_position() = path.mapping(i).position();
+                            *new_mapping->add_edit() = path.mapping(i).edit(0);
+                            new_mapping->set_rank(rank);
+                        }
+                        
+                        synth_path_node.end = seq_begin + cumul_to_length;
+                        synth_path_node.begin = synth_path_node.end - curr_match_length;
                         
 #ifdef debug_multipath_alignment
-                        cerr << "Finished off last PathNode " << last_path_node << endl;
-                        cerr << "Sequence: ";
-                        for (auto c = path_nodes.at(last_path_node).begin; c != path_nodes.at(last_path_node).end; ++c) {
-                            cerr << *c;
+                        cerr << "\tyielded anchor with path " << pb2json(synth_path_node.path) << " and seq ";
+                        for (auto it = synth_path_node.begin; it != synth_path_node.end; ++it) {
+                            cerr << *it;
                         }
                         cerr << endl;
-                        cerr << "Path: " << pb2json(path_nodes.at(last_path_node).path) << endl; 
+                        
 #endif
+                        // make an edge from the previous synthetic anchor (if it exists)
+                        if (prev_anchor_path_node != numeric_limits<size_t>::max()) {
+                            path_nodes[prev_anchor_path_node].edges.emplace_back(path_nodes.size() - 1,
+                                                                                 cumul_from_length - curr_match_length - prev_anchor_final_from_length);
+#ifdef debug_multipath_alignment
+                            cerr << "\talso making edge from path node at " << prev_anchor_path_node << " with length " << cumul_from_length - curr_match_length - prev_anchor_final_from_length << endl;
+                            
+#endif
+                        }
+                        
+                        // mark this anchor as the new anchor
+                        prev_anchor_path_node = path_nodes.size() - 1;
+                        prev_anchor_final_from_length = cumul_from_length;
+                    };
+                    
+                    // iterate over the path, updating the tracking variables as we go
+                    for (size_t i = 0; i < path.mapping_size(); i++) {
+                        const Mapping& mapping = path.mapping(i);
+                        
+                        // new node, new offset
+                        offset_on_curr_node = mapping.position().offset();
+                        
+                        for (size_t j = 0; j < mapping.edit_size(); j++) {
+                            
+                            const Edit& edit = mapping.edit(j);
+                            if (edit.from_length() != edit.to_length() || !edit.sequence().empty()) {
+                                // we've found a non-match edit
+                                
+                                if (curr_match_length >= min_anchor_length) {
+                                    // we are coming out of a match that is long enough for us to make a new anchor
+                                    create_synthetic_anchor_node(i, j);
+                                }
+                                
+                                // mark the trackers that indicate that we are not in a match
+                                curr_match_start_offset = numeric_limits<size_t>::max();
+                                curr_match_length = 0;
+                            }
+                            else {
+                                // we've found a match
+                                
+                                if (curr_match_start_offset == numeric_limits<size_t>::max()) {
+                                    // we're starting a new match, update the
+                                    curr_match_start_offset = offset_on_curr_node;
+                                    match_start_mapping_idx = i;
+                                    match_start_edit_idx = j;
+                                }
+                                
+                                // update the length of the match
+                                curr_match_length += edit.from_length();
+                            }
+                            
+                            // update our positional trackers
+                            offset_on_curr_node += edit.from_length();
+                            cumul_from_length += edit.from_length();
+                            cumul_to_length += edit.to_length();
+                        }
                     }
                     
-                    if (!handling_right_tail && last_path_node != numeric_limits<size_t>::max()) {
-                        // We just did the left tail, so attach it to the path node it is a tail off of
-                        path_nodes.at(last_path_node).edges.emplace_back(attached_path_node_index, from_length_since_match);
+                    if (curr_match_length > 0) {
+                        // we were still in a match when we finished up, so we want to finish off the anchor
+                        create_synthetic_anchor_node(path.mapping_size() - 1, path.mapping(path.mapping_size() - 1).edit_size());
+                    }
+                    
+                    if (!handling_right_tail && prev_anchor_path_node != numeric_limits<size_t>::max()) {
+                        // we need to make an edge from the final new anchor to the anchor we pinned to
+                        path_nodes[prev_anchor_path_node].edges.emplace_back(attached_path_node_index,
+                                                                             cumul_from_length - prev_anchor_final_from_length);
+#ifdef debug_multipath_alignment
+                        cerr << "adding final edge to " << attached_path_node_index << " with length " << cumul_from_length - prev_anchor_final_from_length << endl;
+                        
+#endif
                     }
                 }
             }
