@@ -215,7 +215,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     cerr << "Added extended seed between read " 
                         << aln.sequence().substr(extended_seeds.back().second, 1)
                         << " at " << extended_seeds.back().second
-                        << " and graph" << pb2json(extended_seeds.back().first) << endl;
+                        << " and graph " << pb2json(extended_seeds.back().first) << endl;
                     cerr << "Graph sequence: " << gbwt_graph.get_sequence(gbwt_graph.get_handle(extended_seeds.back().first.mapping(0).position().node_id(), extended_seeds.back().first.mapping(0).position().is_reverse())) << endl;
                 }
 
@@ -835,10 +835,20 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             }, [&](const Path& limit_path) {
                 // We have this path going right from start and hitting the walk limit or the edge of the graph.
 
+                for (auto& mapping : limit_path.mapping()) {
+                    // Make sure nothing has a negative offset before flipping.
+                    assert(mapping.position().offset() >= 0);
+                }
+
                 // Flip the path around
                 Path flipped = reverse_complement_path(limit_path, [&](id_t id) -> size_t {
                     return gbwt_graph.get_length(gbwt_graph.get_handle(id));
                 });
+                
+                for (auto& mapping : flipped.mapping()) {
+                    // Make sure nothing has a negative offset after flipping.
+                    assert(mapping.position().offset() >= 0);
+                }
 
                 // Record that as a path from numeric_limits<size_t>::max() to i.
                 to_return[numeric_limits<size_t>::max()][i].emplace_back(std::move(flipped));
@@ -869,8 +879,10 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, c
 
     // The search state represents searching through the end of the node, so we have to consume that much search limit.
 
-    // Tack on how much search limit distance we consume by going to the end of the node to get an inclusive last position in the read.
-    size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - from.offset();
+    // Tack on how much search limit distance we consume by going to the end of
+    // the node. We subtract 1 since this is going to be counting from the
+    // *next* base, not our start base.
+    size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - from.offset() - 1;
     
     // And make a Path that represents the part of the node we're on that goes out to the end.
     // This may be empty if the hit already stopped at the end of the node
@@ -888,6 +900,8 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, c
         e->set_from_length(distance_to_node_end);
         e->set_to_length(distance_to_node_end);
     }
+    
+    cerr << "Starting traversal with " << pb2json(path_to_end) << " from " << pb2json(from) << endl;
     
     // Glom these together into a traversal state and queue it up.
 
