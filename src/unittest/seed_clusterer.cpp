@@ -73,7 +73,7 @@ namespace unittest {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, 10, 
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10, 
                            snarl_manager, dist_index); 
             REQUIRE(clusters.size() == 1); 
 
@@ -88,24 +88,32 @@ namespace unittest {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
                                          seeds, 9,  snarl_manager, dist_index); 
+            vector<hash_set<size_t>> cluster_sets;
+            for (vector<size_t> v : clusters) {
+                hash_set<size_t> h;
+                for (size_t s : v) {
+                    h.insert(s);
+                }
+                cluster_sets.push_back(h);
+            }
             REQUIRE( clusters.size() == 2);
-            REQUIRE (( (clusters[0].count(0) == 1 &&
-                       clusters[0].count(1) == 1 &&
-                       clusters[0].count(2) == 1 &&
-                       clusters[1].count(3) == 1 &&
-                       clusters[1].count(4) == 1 &&
-                       clusters[1].count(5) == 1 &&
-                       clusters[1].count(6) == 1  ) ||
+            REQUIRE (( (cluster_sets[0].count(0) == 1 &&
+                       cluster_sets[0].count(1) == 1 &&
+                       cluster_sets[0].count(2) == 1 &&
+                       cluster_sets[1].count(3) == 1 &&
+                       cluster_sets[1].count(4) == 1 &&
+                       cluster_sets[1].count(5) == 1 &&
+                       cluster_sets[1].count(6) == 1  ) ||
 
-                     ( clusters[1].count(0) == 1 &&
-                       clusters[1].count(1) == 1 &&
-                       clusters[1].count(2) == 1 &&
-                       clusters[0].count(3) == 1 &&
-                       clusters[0].count(4) == 1 &&
-                       clusters[0].count(5) == 1 &&
-                       clusters[0].count(6) == 1  )));
+                     ( cluster_sets[1].count(0) == 1 &&
+                       cluster_sets[1].count(1) == 1 &&
+                       cluster_sets[1].count(2) == 1 &&
+                       cluster_sets[0].count(3) == 1 &&
+                       cluster_sets[0].count(4) == 1 &&
+                       cluster_sets[0].count(5) == 1 &&
+                       cluster_sets[0].count(6) == 1  )));
 
         }
     }//End test case
@@ -149,7 +157,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
                                         seeds, 10,  snarl_manager, dist_index); 
             REQUIRE( clusters.size() == 1);
         }
@@ -221,24 +229,32 @@ namespace unittest {
             seeds.push_back(make_pos_t(6, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
 
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
                                          seeds, 4,  snarl_manager, dist_index); 
             REQUIRE( clusters.size() == 2);
-            REQUIRE (( (clusters[0].count(0) == 1 &&
-                       clusters[0].count(1) == 1 &&
-                       clusters[0].count(2) == 1 &&
-                       clusters[0].count(3) == 1 &&
-                       clusters[1].count(4) == 1 &&
-                       clusters[1].count(5) == 1 &&
-                       clusters[1].count(6) == 1)  ||
+            vector<hash_set<size_t>> cluster_sets;
+            for (vector<size_t> v : clusters) {
+                hash_set<size_t> h;
+                for (size_t s : v) {
+                    h.insert(s);
+                }
+                cluster_sets.push_back(h);
+            }
+            REQUIRE (( (cluster_sets[0].count(0) == 1 &&
+                       cluster_sets[0].count(1) == 1 &&
+                       cluster_sets[0].count(2) == 1 &&
+                       cluster_sets[0].count(3) == 1 &&
+                       cluster_sets[1].count(4) == 1 &&
+                       cluster_sets[1].count(5) == 1 &&
+                       cluster_sets[1].count(6) == 1)  ||
 
-                     ( clusters[1].count(0) == 1 &&
-                       clusters[1].count(1) == 1 &&
-                       clusters[1].count(2) == 1 &&
-                       clusters[0].count(3) == 1 &&
-                       clusters[0].count(4) == 1 &&
-                       clusters[0].count(5) == 1 &&
-                       clusters[0].count(6) == 1  )));
+                     ( cluster_sets[1].count(0) == 1 &&
+                       cluster_sets[1].count(1) == 1 &&
+                       cluster_sets[1].count(2) == 1 &&
+                       cluster_sets[0].count(3) == 1 &&
+                       cluster_sets[0].count(4) == 1 &&
+                       cluster_sets[0].count(5) == 1 &&
+                       cluster_sets[0].count(6) == 1  )));
         }
         SECTION( "Five clusters" ) {
             vector<pos_t> seeds;
@@ -256,7 +272,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(14, false, 0));
             seeds.push_back(make_pos_t(15, false, 0));
 
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
                                          seeds, 3,  snarl_manager, dist_index); 
             REQUIRE( clusters.size() == 5);
         }
@@ -308,13 +324,13 @@ namespace unittest {
 
                 }
                 int64_t lim = 20;// Distance between clusters
-                vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(
+                vector<vector<size_t>> clusters = clusterer.cluster_seeds(
                                       seeds, lim, snarl_manager, dist_index); 
 
                 for (size_t a = 0; a < clusters.size(); a++) {
                     // For each cluster -cluster this cluster to ensure that 
                     // there is only one
-                    hash_set<size_t> clust = clusters[a];
+                    vector<size_t> clust = clusters[a];
                     
                     //vector of verified clusters. should be only one after 
                     //running through all seeds in cluster a 
@@ -364,7 +380,7 @@ namespace unittest {
                         checked_clusters = move(new_checked_clusters);
                         for ( size_t b = 0; b < a ; b ++) {
                             // For each other cluster
-                            hash_set<size_t> clust2 = clusters[b];
+                            vector<size_t> clust2 = clusters[b];
                             for (size_t i2 : clust2) {
                                 // And each position in *that* cluster
                                 pos_t pos1 = seeds[i1];

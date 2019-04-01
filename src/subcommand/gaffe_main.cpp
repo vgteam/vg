@@ -297,7 +297,7 @@ int main_gaffe(int argc, char** argv) {
 #endif
             
         // Cluster the seeds. Get sets of input seed indexes that go together.
-        vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+        vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
         
         // Compute the covered portion of the read represented by each cluster.
         // TODO: Put this and sorting into the clusterer to deduplicate with vg cluster.
@@ -375,7 +375,7 @@ int main_gaffe(int argc, char** argv) {
 #endif
             
                 // For each cluster
-                hash_set<size_t>& cluster = clusters[cluster_indexes_in_order[i]];
+                vector<size_t>& cluster = clusters[cluster_indexes_in_order[i]];
                 
                 // Pack the seeds into (read position, graph position) pairs.
                 vector<pair<size_t, pos_t>> seed_matchings;
