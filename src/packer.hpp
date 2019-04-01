@@ -44,7 +44,7 @@ public:
     vector<Edit> edits_at_position(size_t i) const;
     size_t coverage_at_position(size_t i) const;
     void collect_coverage(const Packer& c);
-    ostream& as_table(ostream& out, bool show_edits = true);
+    ostream& as_table(ostream& out, bool show_edits, vector<vg::id_t> node_ids);
     ostream& show_structure(ostream& out); // debugging
     void write_edits(vector<ofstream*>& out) const; // for merge
     void write_edits(ostream& out, size_t bin) const; // for merge
