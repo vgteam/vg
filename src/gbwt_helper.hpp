@@ -149,6 +149,12 @@ public:
     /// Get node sequence as a pointer and length.
     std::pair<const char*, size_t> get_sequence_view(const handle_t& handle) const;
 
+    /// Determine if the node sequence starts with the given character.
+    bool starts_with(const handle_t& handle, char c) const;
+
+    /// Determine if the node sequence ends with the given character.
+    bool ends_with(const handle_t& handle, char c) const;
+
     /// Convert handle_t to gbwt::SearchState.
     gbwt::SearchState get_state(const handle_t& handle) const { return this->index.find(handle_to_node(handle)); }
 

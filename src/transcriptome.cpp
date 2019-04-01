@@ -759,7 +759,7 @@ void Transcriptome::write_fasta_sequences(ostream * fasta_ostream, VG & graph) c
         *fasta_ostream << graph.path_sequence(path) << endl;
     }
 }
-
+    
 }
 
 
