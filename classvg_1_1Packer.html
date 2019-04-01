@@ -140,8 +140,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aaa9fc101d78e994d81f4da0e4729af41"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6b814828a7b58a786da679cfc667f204"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a6b814828a7b58a786da679cfc667f204">collect_coverage</a> (const <a class="el" href="classvg_1_1Packer.html">Packer</a> &amp;c)</td></tr>
 <tr class="separator:a6b814828a7b58a786da679cfc667f204"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1d0b0653757f94590c375ac21438a284"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a1d0b0653757f94590c375ac21438a284">as_table</a> (ostream &amp;out, bool show_edits=true)</td></tr>
-<tr class="separator:a1d0b0653757f94590c375ac21438a284"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a51f56dd9782bb7841c7b50678f8ed868"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a51f56dd9782bb7841c7b50678f8ed868">as_table</a> (ostream &amp;out, bool show_edits, vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> &gt; node_ids)</td></tr>
+<tr class="separator:a51f56dd9782bb7841c7b50678f8ed868"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4aacf109dc6290d39630e5b25020004e"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a4aacf109dc6290d39630e5b25020004e">show_structure</a> (ostream &amp;out)</td></tr>
 <tr class="separator:a4aacf109dc6290d39630e5b25020004e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae7887294608eba5b47484182d657feb3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ae7887294608eba5b47484182d657feb3">write_edits</a> (vector&lt; ofstream * &gt; &amp;out) const </td></tr>
@@ -297,7 +297,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a1d0b0653757f94590c375ac21438a284"></a>
+<a class="anchor" id="a51f56dd9782bb7841c7b50678f8ed868"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -311,7 +311,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>show_edits</em> = <code>true</code>&#160;</td>
+          <td class="paramname"><em>show_edits</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">vg::id_t</a> &gt;&#160;</td>
+          <td class="paramname"><em>node_ids</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
