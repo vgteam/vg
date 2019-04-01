@@ -5964,12 +5964,7 @@ void VG::to_dot(ostream& out,
     //out << "    splines=line;" << endl;
     //out << "    splines=true;" << endl;
     //out << "    smoothType=spring;" << endl;
-
-    // Nodes merged as much as possible for simple mode
-    if(simple_mode){
-	unchop();
-    }
-
+    
     //map<id_t, vector<
     map<id_t, set<pair<string, string>>> symbols_for_node;
     if (ultrabubble_labeling) {
