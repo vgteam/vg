@@ -821,12 +821,12 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             // Find its start
             Position start = extended_seeds[i].first.mapping(0).position();
             
-            cerr << "\tPosition read-forward to search left from: " << pb2json(start) << endl;
+            cerr << "\tPosition read-forward to search left before: " << pb2json(start) << endl;
 
             // Flip it around to face left
             start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id())));
             
-            cerr << "\tPosition read-reverse to search right from: " << pb2json(start) << endl;
+            cerr << "\tPosition read-reverse to search right after: " << pb2json(start) << endl;
 
             // Start another search, but going left.
             explore_gbwt(start, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
@@ -864,7 +864,8 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
     
 }
 
-void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, const function<bool(const Path&, const handle_t&)>& visit_callback,
+void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
+    const function<bool(const Path&, const handle_t&)>& visit_callback,
     const function<void(const Path&)>& limit_callback) const {
     
     // Holds the gbwt::SearchState we are at, and the Path from the end of the starting
@@ -881,9 +882,10 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, c
     // The search state represents searching through the end of the node, so we have to consume that much search limit.
 
     // Tack on how much search limit distance we consume by going to the end of
-    // the node. We subtract 1 since this is going to be counting from the
-    // *next* base, not our start base.
-    size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - from.offset() - 1;
+    // the node. Our start position is a cut *between* bases, and we take everything after it.
+    // If the cut is at the offset of the whole length of the node, we take 0 bases.
+    // If it is at 0, wer take all the bases in the node.
+    size_t distance_to_node_end = gbwt_graph.get_length(start_handle) - from.offset();    
     
     // And make a Path that represents the part of the node we're on that goes out to the end.
     // This may be empty if the hit already stopped at the end of the node
@@ -891,10 +893,10 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, c
     if (distance_to_node_end != 0) {
         // We didn't hit the end of the node already.
 
-        // Make a mapping that starts 1 after the last position in the node that the hit covers
+        // Make a mapping that starts on the right side of the cut we started our search at.
         Mapping* m = path_to_end.add_mapping();
         *m->mutable_position() = from;
-        m->mutable_position()->set_offset(m->position().offset() + 1);
+        m->mutable_position()->set_offset(m->position().offset());
 
         // Make it the requested length of perfect match.
         Edit* e = m->add_edit();

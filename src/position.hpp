@@ -30,9 +30,11 @@ id_t& get_id(pos_t& pos);
 bool& get_is_rev(pos_t& pos);
 /// Get a reference to the offset field of a pos_t, which counts along the selected strand of the node.
 off_t& get_offset(pos_t& pos);
-/// Reverse a pos_t and get a pos_t at the same base, going the other direction.
+/// Reverse a pos_t and get a pos_t at the same **point between bases**, going the other direction.
+/// To get a pos_t to the same *base*, subtract 1 from the resulting offset.
 pos_t reverse(const pos_t& pos, size_t node_length);
-/// Reverse a Position and get a Position at the same base, going the other direction.
+/// Reverse a Position and get a Position at the same **point between bases**, going the other direction.
+/// To get a Position to the same *base*, subtract 1 from the resulting offset.
 Position reverse(const Position& pos, size_t node_length);
 /// Print a pos_t to a stream.
 ostream& operator<<(ostream& out, const pos_t& pos);

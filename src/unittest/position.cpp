@@ -23,47 +23,51 @@ TEST_CASE( "Position can be reversed", "[position]" ) {
         SECTION( "On single-base node" ) {
             Position reversed = reverse(forward, 1);
             
-            // Should come out as the first base on the reverse strand.
+            // 0 1
+            //  X
+            // 1 0
+            
+            // Should come out as after the last base on the reverse strand.
             REQUIRE(reversed.node_id() == forward.node_id());
             REQUIRE(reversed.is_reverse() == true);
-            REQUIRE(reversed.offset() == 0);
+            REQUIRE(reversed.offset() == 1);
             
         }
         
         SECTION( "On small even node" ) {
             Position reversed = reverse(forward, 2);
             
-            // Should come out as the last base on the reverse strand.
-            REQUIRE(reversed.node_id() == forward.node_id());
-            REQUIRE(reversed.is_reverse() == true);
-            REQUIRE(reversed.offset() == 1);
-        }
-        
-        SECTION( "On small odd node" ) {
-            Position reversed = reverse(forward, 3);
-            
-            // Should come out as the last base on the reverse strand.
+            // Should come out as after the last base on the reverse strand.
             REQUIRE(reversed.node_id() == forward.node_id());
             REQUIRE(reversed.is_reverse() == true);
             REQUIRE(reversed.offset() == 2);
         }
         
+        SECTION( "On small odd node" ) {
+            Position reversed = reverse(forward, 3);
+            
+            // Should come out as after the last base on the reverse strand.
+            REQUIRE(reversed.node_id() == forward.node_id());
+            REQUIRE(reversed.is_reverse() == true);
+            REQUIRE(reversed.offset() == 3);
+        }
+        
         SECTION( "On large even node" ) {
             Position reversed = reverse(forward, 300);
             
-            // Should come out as the last base on the reverse strand.
+            // Should come out as after the last base on the reverse strand.
             REQUIRE(reversed.node_id() == forward.node_id());
             REQUIRE(reversed.is_reverse() == true);
-            REQUIRE(reversed.offset() == 299);
+            REQUIRE(reversed.offset() == 300);
         }
         
         SECTION( "On large odd node" ) {
             Position reversed = reverse(forward, 301);
             
-            // Should come out as the last base on the reverse strand.
+            // Should come out as after the last base on the reverse strand.
             REQUIRE(reversed.node_id() == forward.node_id());
             REQUIRE(reversed.is_reverse() == true);
-            REQUIRE(reversed.offset() == 300);
+            REQUIRE(reversed.offset() == 301);
         }
         
     }
@@ -75,46 +79,42 @@ TEST_CASE( "Position can be reversed", "[position]" ) {
         SECTION( "On even node, before center" ) {
             Position reversed = reverse(forward, 12);
             
-            //           11
-            // 012345678901
-            //      *
-            // 11          
-            // 109876543210
+            //                     1 1 1
+            // 0 1 2 3 4 5 6 7 8 9 0 1 2
+            //  X X X X X*X X X X X X X   
+            // 1 1 1          
+            // 2 1 0 9 8 7 6 5 4 3 2 1 0
             
-            // Should come out as base 6
+            // Should come out as offset 7
             REQUIRE(reversed.node_id() == forward.node_id());
             REQUIRE(reversed.is_reverse() == true);
-            REQUIRE(reversed.offset() == 6);
+            REQUIRE(reversed.offset() == 7);
             
         }
 
         SECTION( "On even node, past center" ) {
             Position reversed = reverse(forward, 10);
             
-            // 0123456789
-            //      *
-            // 9876543210
+            //                     1
+            // 0 1 2 3 4 5 6 7 8 9 0
+            //           *
+            // 1 9 8 7 6 5 4 3 2 1 0
+            // 0
             
-            // Should come out as base 4
+            // Should come out as offset 5
             REQUIRE(reversed.node_id() == forward.node_id());
             REQUIRE(reversed.is_reverse() == true);
-            REQUIRE(reversed.offset() == 4);
+            REQUIRE(reversed.offset() == 5);
             
         }
         
         SECTION( "On odd node, at center" ) {
             Position reversed = reverse(forward, 11);
             
-            //           1
-            // 01234567890
-            //      *
-            // 09876543210
-            // 1
-            
-            // Should come out as base 5
+            // Should come out as offset 6
             REQUIRE(reversed.node_id() == forward.node_id());
             REQUIRE(reversed.is_reverse() == true);
-            REQUIRE(reversed.offset() == 5);
+            REQUIRE(reversed.offset() == 6);
             
         }
     }
