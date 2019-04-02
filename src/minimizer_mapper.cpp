@@ -196,8 +196,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // We need to generate some sub-full-length, maybe-extended seeds.
                 vector<pair<Path, size_t>> extended_seeds;
 
-                cerr << aln.sequence() << endl;
-
                 for (const size_t& seed_index : cluster) {
                     // TODO: Until Jouni implements the extender, we just make each hit a 1-base "extension"
                     
@@ -212,11 +210,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Pair up the path with the read base it is supposed to be mapping
                     extended_seeds.emplace_back(std::move(extended), minimizers[seed_to_source[seed_index]].second);
                     
+#ifdef debug
                     cerr << "Added extended seed between read " 
                         << aln.sequence().substr(extended_seeds.back().second, 1)
                         << " at " << extended_seeds.back().second
                         << " and graph " << pb2json(extended_seeds.back().first) << endl;
-                    cerr << "Graph sequence: " << gbwt_graph.get_sequence(gbwt_graph.get_handle(extended_seeds.back().first.mapping(0).position().node_id(), extended_seeds.back().first.mapping(0).position().is_reverse())) << endl;
+                    cerr << "Graph sequence: " << gbwt_graph.get_sequence(gbwt_graph.get_handle(
+                        extended_seeds.back().first.mapping(0).position().node_id(),
+                        extended_seeds.back().first.mapping(0).position().is_reverse()))
+                        << endl;
+#endif
                 }
 
 #ifdef debug
@@ -273,8 +276,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Grab the part of the read sequence that comes before it
                     string before_sequence = aln.sequence().substr(0, extended_seeds[source].second); 
                     
+#ifdef debug
                     cerr << "There is a path into source extended seed " << source
                         << ": \"" << before_sequence << "\" against " << kv.second.size() << " haplotypes" << endl;
+#endif
 
                     // We want the best alignment, to the base graph, done against any target path
                     Path best_path;
@@ -301,7 +306,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 // Since the softclip consumes no graph, we place it on the node we are going to.
                                 *m->mutable_position() = extended_seeds[source].first.mapping(0).position();
                                 
+#ifdef debug
                                 cerr << "New best alignment: " << pb2json(best_path) << endl;
+#endif
                             }
                         } else {
 
@@ -335,7 +342,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 best_path = subgraph.translate_down(before_alignment.path());
                                 best_score = before_alignment.score();
                                 
+#ifdef debug
                                 cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
+#endif
                             }
                         }
                     }
@@ -351,7 +360,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // And make the edge from it to the correct source
                     s->add_next(source);
                     
+#ifdef debug
                     cerr << "Resulting source subpath: " << pb2json(*s) << endl;
+#endif
                     
                     // And mark it as a start subpath
                     mp.add_start(mp.subpath_size() - 1);
@@ -360,7 +371,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // We must have somewhere to start.
                 assert(mp.start_size() > 0);
 
-#define debug
                 for (auto& from_and_edges : paths_between_seeds) {
                     const size_t& from = from_and_edges.first;
                     if (from == numeric_limits<size_t>::max()) {
@@ -577,12 +587,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Then we take the best linearization of the full MultipathAlignment.
                 // Make sure to force source to sink
                 topologically_order_subpaths(mp);
-                
-                view_multipath_alignment_as_dot(cerr, mp, true);
-                
-                view_multipath_alignment(cerr, mp, gbwt_graph);
 
-                assert(validate_multipath_alignment(mp, gbwt_graph));
+                if (!validate_multipath_alignment(mp, gbwt_graph)) {
+                    // If we generated an invalid multipath alignment, we did something wrong and need to stop
+                    cerr << "error[vg::MinimizerMapper]: invalid MultipathAlignment generated: " << pb2json(mp) << endl;
+                    exit(1);
+                }
                 
                 optimal_alignment(mp, out, true);
 
@@ -590,8 +600,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 continue;
             }
         }
-        
-#undef debug
         
         // If we get here, either there was no cluster or the cluster produced no extension
         
@@ -828,20 +836,28 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
     for (const size_t& i : sources) {
         // For each source
         
+#ifdef debug
         cerr << "Extended seed " << i << " is a source" << endl;
+#endif
         
         if (extended_seeds[i].second > 0) {
+#ifdef debug
             cerr << "\tIt is not at the start of the read, so there is a left tail" << endl;
+#endif
 
             // Find its start
             Position start = extended_seeds[i].first.mapping(0).position();
             
+#ifdef debug
             cerr << "\tPosition read-forward to search left before: " << pb2json(start) << endl;
+#endif
 
             // Flip it around to face left
             start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id())));
             
+#ifdef debug
             cerr << "\tPosition read-reverse to search right after: " << pb2json(start) << endl;
+#endif
 
             // Start another search, but going left.
             explore_gbwt(start, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
