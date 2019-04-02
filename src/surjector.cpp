@@ -52,6 +52,19 @@ using namespace std;
         cerr << endl;
 #endif
         
+        if (source.path().mapping_size() != 0) {
+            // The read is mapped. Check the input alignment for basic
+            // consistency. If the sequence and the graph path don't agree
+            // about the read length, something is very wrong with the input.
+            size_t source_to_length = path_to_length(source.path());
+            if (source.sequence().size() != source_to_length) {
+                cerr << "error[Surjector::surject]: read " << source.name() << " has "
+                    << source.sequence().size() << " sequence bases but an input alignment that aligns "
+                    << source_to_length << " bases instead. This is invalid and uninterpretable; check your mapper." << endl;
+                exit(1);
+            }
+        }
+
         // translate the path names into ranks for the XG
         unordered_map<size_t, string> path_rank_to_name;
         for (const string& path_name : path_names) {

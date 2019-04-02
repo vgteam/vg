@@ -434,21 +434,80 @@ void MinimizerIndex::clear() {
 
 namespace mi {
 
+/*
+  A circular buffer of size 2^i for all minimizer candidates. The candidates are sorted
+  by both key and position. The candidate at position i is removed when we reach position
+  i + w. Candidates at the tail are purged when we advance with a smaller key.
+*/
+struct CircularBuffer {
+    std::vector<MinimizerIndex::minimizer_type> buffer;
+    size_t head, tail;
+    size_t w;
+
+    constexpr static size_t BUFFER_SIZE = 16;
+
+    CircularBuffer(size_t capacity) :
+        buffer(),
+        head(0), tail(0), w(capacity)
+    {
+        size_t buffer_size = BUFFER_SIZE;
+        while (buffer_size < this->w) {
+            buffer_size *= 2;
+        }
+        this->buffer.resize(buffer_size);
+    }
+
+    bool empty() const {
+        return (this->head >= this->tail);
+    }
+
+    MinimizerIndex::minimizer_type& front() {
+        return this->buffer[this->head & (this->buffer.size() - 1)];
+    }
+
+    MinimizerIndex::minimizer_type& back() {
+        return this->buffer[(this->tail - 1) & (this->buffer.size() - 1)];
+    }
+
+    // Advance to the next position with a valid k-mer.
+    void advance(MinimizerIndex::minimizer_type candidate) {
+        if (!(this->empty()) && this->front().second + this->w <= candidate.second) {
+            this->head++;
+        }
+        while (!(this->empty()) && this->back().first > candidate.first) {
+            this->tail--;
+        }
+        this->tail++;
+        this->back() = candidate;
+    }
+
+    // Advance to the next position without a valid k-mer.
+    void advance(size_t pos) {
+        if (!(this->empty()) && this->front().second + this->w <= pos) {
+            this->head++;
+        }
+    }
+};
+
+void
+update_key(MinimizerIndex::key_type& key, size_t k, unsigned char c, size_t& valid_chars) {
+    MinimizerIndex::key_type packed = MinimizerIndex::CHAR_TO_PACK[c];
+    if (packed > MinimizerIndex::PACK_MASK) {
+        key = 0;
+        valid_chars = 0;
+    } else {
+        key = ((key << MinimizerIndex::PACK_WIDTH) | packed) & MinimizerIndex::KMER_MASK[k];
+        valid_chars++;
+    }
+}
+
 MinimizerIndex::minimizer_type
-minimizer(std::string::const_iterator begin, std::string::const_iterator end, size_t k) {
+minimizer(std::string::const_iterator begin, std::string::const_iterator end, size_t k, size_t& valid_chars) {
     MinimizerIndex::minimizer_type result(MinimizerIndex::NO_KEY, 0);
 
     MinimizerIndex::key_type key = 0;
-    size_t valid_chars = 0;
     for (std::string::const_iterator iter = begin; iter != end; ++iter) {
-        MinimizerIndex::key_type packed = MinimizerIndex::CHAR_TO_PACK[static_cast<unsigned char>(*iter)];
-        if (packed > MinimizerIndex::PACK_MASK) {
-            key = 0;
-            valid_chars = 0;
-            continue;
-        }
-        key = ((key << MinimizerIndex::PACK_WIDTH) | packed) & MinimizerIndex::KMER_MASK[k];
-        valid_chars++;
+        update_key(key, k, *iter, valid_chars);
         if (valid_chars >= k && key < result.first) {
             result.first = key;
             result.second = (iter - begin) + 1 - k;
@@ -466,23 +525,47 @@ MinimizerIndex::minimizer(std::string::const_iterator begin, std::string::const_
     if (end - begin < this->k()) {
         return minimizer_type(NO_KEY, 0);
     }
-    return mi::minimizer(begin, end, this->k());
+    size_t valid_chars = 0;
+    return mi::minimizer(begin, end, this->k(), valid_chars);
 }
 
 std::vector<MinimizerIndex::minimizer_type>
 MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const_iterator end) const {
+
     std::vector<minimizer_type> result;
     size_t window_length = this->k() + this->w() - 1, total_length = end - begin;
     if (total_length < window_length) {
         return result;
     }
 
-    for (size_t i = 0; i + window_length <= total_length; i++) {
-        minimizer_type temp = mi::minimizer(begin + i, begin + i + window_length, this->k());
-        if (temp.first != NO_KEY) {
-            temp.second += i;
-            if (result.empty() || temp != result.back()) {
-                result.push_back(temp);
+    // Encode the first k-mer.
+    size_t valid_chars = 0;
+    std::string::const_iterator iter = begin + this->k();
+    MinimizerIndex::minimizer_type candidate = mi::minimizer(begin, iter, this->k(), valid_chars);
+    mi::CircularBuffer buffer(this->w());
+    if (candidate.first != NO_KEY) {
+        buffer.advance(candidate);
+        if (iter - begin >= window_length) {
+            result.push_back(candidate);
+        }
+    } else {
+        buffer.advance(candidate.second);
+    }
+
+    // Find the minimizers.
+    while (iter != end) {
+        mi::update_key(candidate.first, this->k(), *iter, valid_chars);
+        candidate.second++;
+        if (valid_chars >= this->k()) {
+            buffer.advance(candidate);
+        } else {
+            buffer.advance(candidate.second);
+        }
+        ++iter;
+        // We have a full window with a minimizer.
+        if (iter - begin >= window_length && !buffer.empty()) {
+            if (result.empty() || result.back() != buffer.front()) {
+                result.push_back(buffer.front());
             }
         }
     }

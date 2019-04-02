@@ -1,4 +1,5 @@
 #include "packer.hpp"
+#include "../vg.hpp"
 
 namespace vg {
 
@@ -383,9 +384,10 @@ vector<Edit> Packer::edits_at_position(size_t i) const {
     return edits;
 }
 
-ostream& Packer::as_table(ostream& out, bool show_edits) {
+ostream& Packer::as_table(ostream& out, bool show_edits, vector<vg::id_t> node_ids) {
 #ifdef debug
-    cerr << "Packer table of " << coverage_civ.size() << " rows:" << endl;
+    cerr << "Packer table of " << coverage_civ.size() << " rows:" << 
+        l;
 #endif
 
     out << "seq.pos" << "\t"
@@ -397,6 +399,9 @@ ostream& Packer::as_table(ostream& out, bool show_edits) {
     // write the coverage as a vector
     for (size_t i = 0; i < coverage_civ.size(); ++i) {
         id_t node_id = xgidx->node_at_seq_pos(i+1);
+        if (!node_ids.empty() && find(node_ids.begin(), node_ids.end(), node_id) == node_ids.end()) {
+            continue;
+        }
         size_t offset = i - xgidx->node_start(node_id);
         out << i << "\t" << node_id << "\t" << offset << "\t" << coverage_civ[i];
         if (show_edits) {

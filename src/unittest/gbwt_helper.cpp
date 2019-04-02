@@ -156,6 +156,23 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
         }
     }
 
+    // get_sequence_view() and starts_with() / ends_with().
+    SECTION("direct access to the sequence") {
+        for (id_t id : correct_nodes) {
+            for (bool orientation : { false, true }) {
+                handle_t handle = gbwt_graph.get_handle(id, orientation);
+                std::string sequence = gbwt_graph.get_sequence(handle);
+                std::pair<const char*, size_t> view = gbwt_graph.get_sequence_view(handle);
+                std::string view_sequence(view.first, view.second);
+                REQUIRE(sequence == view_sequence);
+                REQUIRE(gbwt_graph.starts_with(handle, sequence.front()));
+                REQUIRE(!gbwt_graph.starts_with(handle, 'x'));
+                REQUIRE(gbwt_graph.ends_with(handle, sequence.back()));
+                REQUIRE(!gbwt_graph.ends_with(handle, 'x'));
+            }
+        }
+    }
+
     // Verify edges.
     typedef std::pair<gbwt::node_type, gbwt::node_type> gbwt_edge;
     std::set<gbwt_edge> correct_edges {
