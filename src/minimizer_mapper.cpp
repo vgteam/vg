@@ -675,23 +675,24 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
     for (size_t i = 0; i < extended_seeds.size(); i++) {
         // For each starting seed
 
-        // Where does it end (inclusive) in the graph and the read?
+        // Where do we cut the graph just after its end?
         auto& last_mapping = extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1);
-        Position last_pos_graph = last_mapping.position();
-        last_pos_graph.set_offset(last_pos_graph.offset() + mapping_from_length(last_mapping) - 1);
-        size_t last_pos_read = extended_seeds[i].second + path_to_length(extended_seeds[i].first) - 1;
+        Position cut_pos_graph = last_mapping.position();
+        cut_pos_graph.set_offset(cut_pos_graph.offset() + mapping_from_length(last_mapping));
+        // And the read?
+        size_t cut_pos_read = extended_seeds[i].second + path_to_length(extended_seeds[i].first);
 
 #ifdef debug
-        cerr << "Extended seed " << i << " ends on node " << last_pos_graph.node_id() << " " << last_pos_graph.is_reverse()
-            << " at offset " << last_pos_graph.offset() << endl;
+        cerr << "Extended seed " << i << ": cut after on node " << cut_pos_graph.node_id() << " " << cut_pos_graph.is_reverse()
+            << " at point " << cut_pos_graph.offset() << endl;
 #endif
 
         // Get a handle in the GBWTGraph
-        handle_t start_handle = gbwt_graph.get_handle(last_pos_graph.node_id(), last_pos_graph.is_reverse());
+        handle_t start_handle = gbwt_graph.get_handle(cut_pos_graph.node_id(), cut_pos_graph.is_reverse());
 
         // Decide if we need to actually do GBWT search, or if we can find a destination on the same node we ended on
         bool do_gbwt_search = true;
-
+#define debug
         // Look on the same graph node.
         // See if we hit any other extensions on this node.
         auto same_node_found = extensions_by_handle.find(start_handle);
@@ -702,24 +703,27 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                 // Scan them in order.
                 // TODO: Skip to after ourselves.
                 
-                if (extended_seeds[next_offset_and_index.second].second > last_pos_read && next_offset_and_index.first > last_pos_graph.offset()) { 
-                    // As soon as we find one that starts after us in both the read and the node
+                if (extended_seeds[next_offset_and_index.second].second >= cut_pos_read && next_offset_and_index.first >= cut_pos_graph.offset()) { 
+                    // As soon as we find one that starts after we end in both the read and the node
 
                     // Emit a connecting Path 
                     Path connecting;
 
-                    if (next_offset_and_index.first - last_pos_graph.offset() > 1) {
+                    if (next_offset_and_index.first > cut_pos_graph.offset()) {
                         // There actually is intervening graph material
                         Mapping* m = connecting.add_mapping();
-                        *m->mutable_position() = last_pos_graph;
-                        m->mutable_position()->set_offset(m->position().offset() + 1);
+                        *m->mutable_position() = cut_pos_graph;
                         Edit* e = m->add_edit();
                         e->set_from_length(next_offset_and_index.first - m->position().offset());
                         e->set_to_length(next_offset_and_index.first - m->position().offset());
                     }
 
 #ifdef debug
-                    cerr << "Found graph path on node between seeds " << i << " and " << next_offset_and_index.second << ": " << pb2json(connecting) <<  endl;
+                    cerr << "Found path on node between seed at "
+                    << pb2json(extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1).position())
+                    << " and seed at "
+                    << pb2json(extended_seeds[next_offset_and_index.second].first.mapping(0).position())
+                    << ":" << endl << "\t" << pb2json(connecting) <<  endl;
 #endif
 
                     // Emit that connection
@@ -741,7 +745,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
         }
 
         // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
-        explore_gbwt(last_pos_graph, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+        explore_gbwt(cut_pos_graph, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
             // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
 
             // See if we hit any other extensions on this next node
@@ -752,7 +756,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                 for (auto& next_offset_and_index : found->second) {
                     // Look at them in order along the node
                     
-                    if (extended_seeds[next_offset_and_index.second].second > last_pos_read) { 
+                    if (extended_seeds[next_offset_and_index.second].second >= cut_pos_read) { 
                         // As soon as we find one that starts in the read after our start extended seed ended
 
                         // Extend the Path to connect to it.
@@ -771,7 +775,11 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                         }
 
 #ifdef debug
-                        cerr << "Found graph path between seeds " << i << " and " << next_offset_and_index.second << ": " << pb2json(extended) <<  endl;
+                        cerr << "Found graph path between seed at "
+                            << pb2json(extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1).position())
+                            << " and seed at "
+                            << pb2json(extended_seeds[next_offset_and_index.second].first.mapping(0).position())
+                            << ":" << endl << "\t" << pb2json(extended) <<  endl;
 #endif
 
                         // And emit that connection
@@ -797,6 +805,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             to_return[i][numeric_limits<size_t>::max()].emplace_back(limit_path);
         });
     }
+#undef debug
 
     for (auto& kv : to_return) {
         // For each seed, if it can reach anything *other* than numeric_limits<size_t>::max(), erase anything going to numeric_limits<size_t>::max()
