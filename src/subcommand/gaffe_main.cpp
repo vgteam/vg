@@ -72,6 +72,8 @@ int main_gaffe(int argc, char** argv) {
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
     size_t hit_cap = 10;
+    // Should we try chaining or just give up if we can't find a full length gapless alignment?
+    bool do_chaining = false;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -246,6 +248,7 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_multimaps = max_multimaps;
     minimizer_mapper.hit_cap = hit_cap;
     minimizer_mapper.distance_limit = distance_limit;
+    minimizer_mapper.do_chaining = do_chaining;
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
     

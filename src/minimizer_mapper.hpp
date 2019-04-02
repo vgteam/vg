@@ -35,10 +35,11 @@ public:
 
     // Mapping settings.
     // TODO: document each
-    size_t max_alignments;
-    size_t max_multimaps;
-    size_t hit_cap;
-    size_t distance_limit;
+    size_t max_alignments = 10;
+    size_t max_multimaps = 1;
+    size_t hit_cap = 10;
+    size_t distance_limit = 1000;
+    bool do_chaining = true;
     string sample_name;
     string read_group;
 

@@ -192,7 +192,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 
                 // Read mapped successfully!
                 continue;
-            } else {
+            } else if (do_chaining) {
                 // We need to generate some sub-full-length, maybe-extended seeds.
                 // Call back into the extender and get the unambiguous perfect match extensions of the seeds in the cluster.
                 vector<pair<Path, size_t>> extended_seeds = extender.maximal_extensions(seed_matchings, aln.sequence());
