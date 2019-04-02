@@ -909,6 +909,12 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
 
     // Turn it into a SearchState
     gbwt::SearchState start_state = gbwt_graph.get_state(start_handle);
+    
+    if (start_state.empty()) {
+        // No haplotypes even visit the first node. Have a 0-mapping dead end.
+        limit_callback(Path());
+        return;
+    }
 
     // The search state represents searching through the end of the node, so we have to consume that much search limit.
 
