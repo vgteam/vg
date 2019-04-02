@@ -953,8 +953,6 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     size_t limit_hits = 0;
     // And dead ends sweparately
     size_t dead_ends = 0;
-    // And track end node IDs
-    unordered_set<id_t> end_ids;
 
     while (!queue.empty()) {
         // While there are things in the queue
@@ -1006,7 +1004,6 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
                     // Report that, with this extension, we hit the limit.
                     limit_callback(extended);
                     limit_hits++;
-                    end_ids.insert(gbwt_graph.get_id(there_handle));
                 }
             }
 
@@ -1021,7 +1018,9 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
         }
     }
     
-    cerr << "Queue max: " << queue_max << " Limit hits: " << limit_hits << " Dead ends: " << dead_ends << " End IDs: " << end_ids.size() << endl;
+#ifdef debug
+    cerr << "Queue max: " << queue_max << " Limit hits: " << limit_hits << " Dead ends: " << dead_ends << endl;
+#endif
 }
 
 
