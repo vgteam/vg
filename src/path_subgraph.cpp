@@ -8,8 +8,6 @@
 #include <handlegraph/util.hpp>
 #include <iostream>
 
-#define debug
-
 namespace vg {
 
 using namespace std;
@@ -70,44 +68,55 @@ using namespace std;
         size_t wanted_length = get_length(handle);
         size_t backing_first = 0;
         
+#ifdef debug
         cerr << "Start selecting " << wanted_length << " bp starting at " << backing_first << endl;
+#endif
         
-        // If we have an offset
-        if (pos.offset() != 0) {
-            // Work out whether we should do it from the
-            // start or end of the backing sequence in its local forward orientation.
-            // If the path visits the node forward, we cut from the start.
-            // Otherwise, we cut from the end.
-            bool cut_from_start = !pos.is_reverse();
+        // For every offset, even 0
             
-            // Reposition the window
-            // accordingly.
-            size_t budge;
-            if (cut_from_start) {
-                // Account for the space at the start of the node consumed by the offset
-                budge = pos.offset();
-            } else {
-                // Leave only the space at the end of the node consumed by the offset.
-                // Budge by all the unwanted bases not consumed by the offset.
-                budge = backing_sequence.size() - wanted_length - pos.offset();
-            }
-            
-            cerr << "Budge by " << budge << endl;
-            
-            backing_first += budge;
+        // Work out whether we should do it from the
+        // start or end of the backing sequence in its local forward orientation.
+        // If the path visits the node forward, we cut from the start.
+        // Otherwise, we cut from the end.
+        bool cut_from_start = !pos.is_reverse();
+        
+        // Reposition the window
+        // accordingly.
+        size_t budge;
+        if (cut_from_start) {
+            // Account for the space at the start of the node consumed by the offset
+            budge = pos.offset();
+        } else {
+            // Leave only the space at the end of the node consumed by the offset.
+            // Budge by all the unwanted bases not consumed by the offset.
+            budge = backing_sequence.size() - wanted_length - pos.offset();
         }
         
+#ifdef debug
+        cerr << "Budge by " << budge << endl;
+#endif
+        
+        backing_first += budge;
+        
+#ifdef debug
         cerr << "End selecting " << wanted_length << " bp starting at " << backing_first << endl;
+#endif
         
         // Pull out and reverse complement if necessary
         string wanted_sequence = backing_sequence.substr(backing_first, wanted_length);
         if (get_is_reverse(handle) != pos.is_reverse()) {
             // If we reverse the backing sequence only once, flip it.
             wanted_sequence = reverse_complement(wanted_sequence);
+#ifdef debug
             cerr << "Flip it" << endl;
+#endif
         }
         
-        cerr << "Mapping " << pb2json(defining_path.mapping(index)) << " on sequence " << backing_sequence << " visited " << (get_is_reverse(handle) ? "rev" : "fwd") << " produces " << wanted_sequence << endl;
+#ifdef debug
+        cerr << "Mapping " << pb2json(defining_path.mapping(index)) << " on sequence "
+            << backing_sequence << " visited " << (get_is_reverse(handle) ? "rev" : "fwd")
+            << " produces " << wanted_sequence << endl;
+#endif
         
         // Return it
         return wanted_sequence;

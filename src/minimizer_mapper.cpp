@@ -536,6 +536,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                     if (between_alignment.score() > best_score) {
                                         // This is a new best alignment. Translate from subgraph into base graph and keep it
                                         best_path = subgraph.translate_down(between_alignment.path());
+#ifdef debug
+                                        cerr << "\tNew best: " << pb2json(best_path) << endl;
+#endif
+                                        
                                         best_score = between_alignment.score();
                                     }
                                 }
