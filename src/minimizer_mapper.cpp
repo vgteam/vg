@@ -194,33 +194,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 continue;
             } else {
                 // We need to generate some sub-full-length, maybe-extended seeds.
-                vector<pair<Path, size_t>> extended_seeds;
-
-                for (const size_t& seed_index : cluster) {
-                    // TODO: Until Jouni implements the extender, we just make each hit a 1-base "extension"
-                    
-                    // Turn the pos_t into a Path
-                    Path extended;
-                    Mapping* m = extended.add_mapping();
-                    *m->mutable_position() = make_position(seeds[seed_index]);
-                    Edit* e = m->add_edit();
-                    e->set_from_length(1);
-                    e->set_to_length(1);
-
-                    // Pair up the path with the read base it is supposed to be mapping
-                    extended_seeds.emplace_back(std::move(extended), minimizers[seed_to_source[seed_index]].second);
-                    
-#ifdef debug
-                    cerr << "Added extended seed between read " 
-                        << aln.sequence().substr(extended_seeds.back().second, 1)
-                        << " at " << extended_seeds.back().second
-                        << " and graph " << pb2json(extended_seeds.back().first) << endl;
-                    cerr << "Graph sequence: " << gbwt_graph.get_sequence(gbwt_graph.get_handle(
-                        extended_seeds.back().first.mapping(0).position().node_id(),
-                        extended_seeds.back().first.mapping(0).position().is_reverse()))
-                        << endl;
-#endif
-                }
+                // Call back into the extender and get the unambiguous perfect match extensions of the seeds in the cluster.
+                vector<pair<Path, size_t>> extended_seeds = extender.maximal_extensions(seed_matchings, aln.sequence());
 
 #ifdef debug
                 cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;

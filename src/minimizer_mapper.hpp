@@ -83,8 +83,8 @@ protected:
      * is being extended with.
      *
      * Only considers paths that visit at least one node after the node the
-     * from Position is on. The from Position is not included; the paths start
-     * after it.
+     * from Position is on. The from Position cuts immediately before the
+     * first included base.
      *
      * If the callback returns false, that GBWT search state is not extended
      * further.
