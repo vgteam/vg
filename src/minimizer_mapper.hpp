@@ -71,6 +71,10 @@ protected:
      * ending before sources (which cannot be reached from other extended
      * seeds) and starting after sinks (which cannot reach any other extended
      * seeds).
+     *
+     * Note that paths from all sinks are included, even if there would be no
+     * read sequence to align against the path, because the read sequence
+     * length is not passed.
      */
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds,
         size_t walk_distance) const;

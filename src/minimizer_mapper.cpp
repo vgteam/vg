@@ -359,94 +359,104 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     for (auto& to_and_paths : from_and_edges.second) {
                         const size_t& to = to_and_paths.first;
                         // For all the edges to other extended seeds
+                        
+#ifdef debug
+                        cerr << "Consider " << to_and_paths.second.size() << " paths between extended seeds " << to << " and " << from << endl;
+#endif
 
                         if (to == numeric_limits<size_t>::max()) {
                             // Do a bunch of left pinned alignments for the tails.
                             
                             // Find the sequence
-                            string trailing_sequence = aln.sequence().substr(from_end); 
+                            string trailing_sequence = aln.sequence().substr(from_end);
+                            
+                            if (!trailing_sequence.empty()) {
+                                // There is actual trailing sequence to align on this escape path
 
-                            // Find the best path in backing graph space
-                            Path best_path;
-                            // And its score
-                            int64_t best_score = numeric_limits<int64_t>::min();
+                                // Find the best path in backing graph space
+                                Path best_path;
+                                // And its score
+                                int64_t best_score = numeric_limits<int64_t>::min();
 
-                            // We can align it once per target path
-                            for (auto& path : to_and_paths.second) {
-                                // For each path we can take to leave the "from" sink
-                                
-                                if (path.mapping_size() == 0) {
-                                    // Consider the case of a nonempty trailing
-                                    // softclip that bumped up against the end
-                                    // of the underlying graph.
+                                // We can align it once per target path
+                                for (auto& path : to_and_paths.second) {
+                                    // For each path we can take to leave the "from" sink
                                     
-                                    if (best_score < 0) {
-                                        best_score = 0;
-                                        best_path.clear_mapping();
-                                        Mapping* m = best_path.add_mapping();
-                                        Edit* e = m->add_edit();
-                                        e->set_from_length(0);
-                                        e->set_to_length(trailing_sequence.size());
-                                        e->set_sequence(trailing_sequence);
-                                        // We need to set a position at the end of where we are coming from.
-                                        const Mapping& prev_mapping = extended_seeds[from].first.mapping(
-                                            extended_seeds[from].first.mapping_size() - 1);
-                                        const Position& coming_from = prev_mapping.position();
-                                        size_t last_node_length = gbwt_graph.get_length(gbwt_graph.get_handle(coming_from.node_id()));
-                                        m->mutable_position()->set_node_id(coming_from.node_id());
-                                        m->mutable_position()->set_is_reverse(coming_from.is_reverse());
-                                        m->mutable_position()->set_offset(last_node_length);
+                                    if (path.mapping_size() == 0) {
+                                        // Consider the case of a nonempty trailing
+                                        // softclip that bumped up against the end
+                                        // of the underlying graph.
                                         
-                                        // We should only have this case if we are coming from the end of a node.
-                                        assert(mapping_from_length(prev_mapping) + coming_from.offset() == last_node_length);
-                                    }
-                                } else {
+                                        if (best_score < 0) {
+                                            best_score = 0;
+                                            best_path.clear_mapping();
+                                            Mapping* m = best_path.add_mapping();
+                                            Edit* e = m->add_edit();
+                                            e->set_from_length(0);
+                                            e->set_to_length(trailing_sequence.size());
+                                            e->set_sequence(trailing_sequence);
+                                            // We need to set a position at the end of where we are coming from.
+                                            const Mapping& prev_mapping = extended_seeds[from].first.mapping(
+                                                extended_seeds[from].first.mapping_size() - 1);
+                                            const Position& coming_from = prev_mapping.position();
+                                            size_t last_node_length = gbwt_graph.get_length(gbwt_graph.get_handle(coming_from.node_id()));
+                                            m->mutable_position()->set_node_id(coming_from.node_id());
+                                            m->mutable_position()->set_is_reverse(coming_from.is_reverse());
+                                            m->mutable_position()->set_offset(last_node_length);
+                                            
+                                            // We should only have this case if we are coming from the end of a node.
+                                            assert(mapping_from_length(prev_mapping) + coming_from.offset() == last_node_length);
+                                        }
+                                    } else {
 
-                                    // Make a subgraph.
-                                    // TODO: don't copy the path
-                                    PathSubgraph subgraph(&gbwt_graph, path);
-                                    
-                                    // Do left-pinned alignment to the path subgraph
-                                    Alignment after_alignment;
-                                    after_alignment.set_sequence(trailing_sequence);
-                                    // TODO: pre-make the topological order
+                                        // Make a subgraph.
+                                        // TODO: don't copy the path
+                                        PathSubgraph subgraph(&gbwt_graph, path);
+                                        
+                                        // Do left-pinned alignment to the path subgraph
+                                        Alignment after_alignment;
+                                        after_alignment.set_sequence(trailing_sequence);
+                                        // TODO: pre-make the topological order
 
-#ifdef debug
-                                    cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
-                                    subgraph.for_each_handle([&](const handle_t& here) {
-                                        cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
-                                        subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                            cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+    #ifdef debug
+                                        cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
+                                        subgraph.for_each_handle([&](const handle_t& here) {
+                                            cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                                            subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                                cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                                            });
+                                            subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                                cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                                            });
                                         });
-                                        subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                            cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
-                                        });
-                                    });
-#endif
+    #endif
 
-                                    get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                                        get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
 
-                                    if (after_alignment.score() > best_score) {
-                                        // This is a new best alignment. Translate from subgraph into base graph and keep it
-                                        best_path = subgraph.translate_down(after_alignment.path());
-                                        best_score = after_alignment.score();
+                                        if (after_alignment.score() > best_score) {
+                                            // This is a new best alignment. Translate from subgraph into base graph and keep it
+                                            best_path = subgraph.translate_down(after_alignment.path());
+                                            best_score = after_alignment.score();
+                                        }
                                     }
                                 }
+                                
+                                // We need to come after from with this path
+
+                                // We really should have gotten something
+                                assert(best_path.mapping_size() != 0);
+
+                                // Put it in the MultipathAlignment
+                                Subpath* s = mp.add_subpath();
+                                *s->mutable_path() = std::move(best_path);
+                                s->set_score(best_score);
+                                
+                                // And make the edge to hook it up
+                                mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
                             }
                             
-                            // We need to come after from with this path
-
-                            // We really should have gotten something
-                            assert(best_path.mapping_size() != 0);
-
-                            // Put it in the MultipathAlignment
-                            Subpath* s = mp.add_subpath();
-                            *s->mutable_path() = std::move(best_path);
-                            s->set_score(best_score);
+                            // If there's no sequence to align on the path going off to nowhere, don't do anything.
                             
-                            // And make the edge to hook it up
-                            mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
-
                         } else {
                             // Do alignments between from and to
 
@@ -793,9 +803,14 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             // When we blow past the walk distance limit or hit a dead end
 
             // We have a way to escape.
-            // Save that as a path. If we end up with paths anywhere else we will destroy it, so we will only keep it for sinks.
-            
+            // Save that as a path.
             to_return[i][numeric_limits<size_t>::max()].emplace_back(limit_path);
+            
+            // If we end up with paths anywhere else we will destroy it, so we
+            // will only keep it for sinks. Note that we might not have any
+            // sequence to escape *with*! The caller has to look out for that
+            // case and not waste time trying to align nothing, since we don't
+            // have access to the read length here.
         });
     }
 
