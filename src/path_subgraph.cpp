@@ -53,59 +53,64 @@ using namespace std;
     size_t PathSubgraph::get_length(const handle_t& handle) const {
         size_t index = (size_t)get_id(handle) - 1;
         // No need to go back to the backing graph; the path knows lengths.
-        size_t length = mapping_from_length(defining_path.mapping(index));
-        assert(length == get_sequence(handle).size());
-        return length; 
+        return mapping_from_length(defining_path.mapping(index));
     }
     
     string PathSubgraph::get_sequence(const handle_t& handle) const {
+        // Find the backing node in its local forward orientation
         size_t index = (size_t)get_id(handle) - 1;
         assert(index >= 0 && index < defining_path.mapping_size());
-        bool backward = get_is_reverse(handle);
         auto& pos = defining_path.mapping(index).position();
-        // Get the backing handle to the node we are visiting, in the orientation we are visiting it.
-        handle_t backing_handle = super->get_handle(pos.node_id(), pos.is_reverse() != backward);
-
-        // Grab its full sequence in the correct orientation.
+        handle_t backing_handle = super->get_handle(pos.node_id(), false);
+        
+        // Get its sequence in its local forward orientation
         string backing_sequence = super->get_sequence(backing_handle);
-
-        if (index == 0 && pos.offset() != 0) {
-            // We are the first node.
+        
+        // Work out what range of that sequence we want.
+        size_t wanted_length = get_length(handle);
+        size_t backing_first = 0;
+        
+        cerr << "Start selecting " << wanted_length << " bp starting at " << backing_first << endl;
+        
+        // If we have an offset
+        if (pos.offset() != 0) {
+            // Work out whether we should do it from the
+            // start or end of the backing sequence in its local forward orientation.
+            // If the path visits the node forward, we cut from the start.
+            // Otherwise, we cut from the end.
+            bool cut_from_start = !pos.is_reverse();
             
-            // We need to trim off the start of the backing node in its orientation along the path.
-
-            size_t desired_length = mapping_from_length(defining_path.mapping(index));
-
-            if (backward) {
-                // Its orientation along the path is opposite our visit orientation.
-                // Trim the end of the string.
-                return backing_sequence.substr(0, desired_length); 
+            // Reposition the window
+            // accordingly.
+            size_t budge;
+            if (cut_from_start) {
+                // Account for the space at the start of the node consumed by the offset
+                budge = pos.offset();
             } else {
-                // Its orientation along the path is our visit orientation.
-                // Trim the start of the string.
-                return backing_sequence.substr(backing_sequence.size() - desired_length);
+                // Leave only the space at the end of the node consumed by the offset.
+                // Budge by all the unwanted bases not consumed by the offset.
+                budge = backing_sequence.size() - wanted_length - pos.offset();
             }
-        } else if (index == defining_path.mapping_size() - 1) {
-            // We are the last node
             
-            // We may need to trim off the end of the backing node in its orientation along the path.
-
-            size_t desired_length = mapping_from_length(defining_path.mapping(index));
-
-            if (backward) {
-                // Its orientation along the path is opposite our visit orientation.
-                // Trim the start of the string.
-                return backing_sequence.substr(backing_sequence.size() - desired_length);
-            } else {
-                // Its orientation along the path is our visit orientation.
-                // Trim the end of the string.
-                return backing_sequence.substr(0, desired_length); 
-            }
-
-        } else {
-            // Just send the sequence as is
-            return backing_sequence;
+            cerr << "Budge by " << budge << endl;
+            
+            backing_first += budge;
         }
+        
+        cerr << "End selecting " << wanted_length << " bp starting at " << backing_first << endl;
+        
+        // Pull out and reverse complement if necessary
+        string wanted_sequence = backing_sequence.substr(backing_first, wanted_length);
+        if (get_is_reverse(handle) != pos.is_reverse()) {
+            // If we reverse the backing sequence only once, flip it.
+            wanted_sequence = reverse_complement(wanted_sequence);
+            cerr << "Flip it" << endl;
+        }
+        
+        cerr << "Mapping " << pb2json(defining_path.mapping(index)) << " on sequence " << backing_sequence << " visited " << (get_is_reverse(handle) ? "rev" : "fwd") << " produces " << wanted_sequence << endl;
+        
+        // Return it
+        return wanted_sequence;
     }
     
     bool PathSubgraph::follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const {

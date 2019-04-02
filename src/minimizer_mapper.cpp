@@ -360,6 +360,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // We must have somewhere to start.
                 assert(mp.start_size() > 0);
 
+#define debug
                 for (auto& from_and_edges : paths_between_seeds) {
                     const size_t& from = from_and_edges.first;
                     if (from == numeric_limits<size_t>::max()) {
@@ -586,6 +587,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
         }
         
+#undef debug
+        
         // If we get here, either there was no cluster or the cluster produced no extension
         
         // Read was not able to be mapped.
@@ -692,7 +695,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
         // Decide if we need to actually do GBWT search, or if we can find a destination on the same node we ended on
         bool do_gbwt_search = true;
-#define debug
+
         // Look on the same graph node.
         // See if we hit any other extensions on this node.
         auto same_node_found = extensions_by_handle.find(start_handle);
@@ -805,7 +808,6 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             to_return[i][numeric_limits<size_t>::max()].emplace_back(limit_path);
         });
     }
-#undef debug
 
     for (auto& kv : to_return) {
         // For each seed, if it can reach anything *other* than numeric_limits<size_t>::max(), erase anything going to numeric_limits<size_t>::max()
