@@ -594,7 +594,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     exit(1);
                 }
                 
+                // Fill in the path and score
                 optimal_alignment(mp, out, true);
+                // Compute the identity from the path.
+                out.set_identity(identity(out.path()));
 
                 // Then continue so we don't emit the unaligned Alignment
                 continue;
