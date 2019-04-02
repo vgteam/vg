@@ -64,6 +64,9 @@ protected:
      * Find for each pair of extended seeds all the haplotype-consistent graph
      * paths against which the intervening read sequence needs to be aligned.
      *
+     * Limits walks to the longest detectable gap plus the remaining
+     * to-be-alinged sequence, both computed using the read length.
+     *
      * extended_seeds must be sorted by read start position. Any extended seeds
      * that overlap in the read will be precluded from connecting.
      *
@@ -77,7 +80,7 @@ protected:
      * length is not passed.
      */
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds,
-        size_t walk_distance) const;
+        size_t read_length) const;
 
     /**
      * Given a Position, explore the GBWT graph out to the given maximum walk

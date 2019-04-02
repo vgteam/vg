@@ -207,12 +207,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
                 // Then we need to find all the haplotypes between each pair of seeds that can connect.
 
-                // We accomplish that by working out past the maximum detectable gap using the code in the mapper,
-                // and then trace that far through all haplotypes from each extension.
-                size_t max_gap = get_aligner()->longest_detectable_gap(aln); 
-                // If we walk the read length plus the max gap we are guaranteed to walk far enough
-                size_t walk_distance = max_gap + aln.sequence().size();
-
                 // Sort the extended seeds by read start position.
                 // We won't be able to match them back to the minimizers anymore but we won't need to.
                 std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const pair<Path, size_t>& a, const pair<Path, size_t>& b) -> bool {
@@ -222,9 +216,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 });
 
                 // Find the paths between pairs of extended seeds that agree with haplotypes.
-                // We don't actually need the read sequence for this; the paths in the seeds know the hit length.
+                // We don't actually need the read sequence for this, just the read length for longest gap computation.
+                // The paths in the seeds know the hit length.
                 // We assume all overlapping hits are exclusive.
-                unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds, walk_distance);
+                unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
+                    aln.sequence().size());
 
                 // Make a MultipathAlignment and feed in all the extended seeds as subpaths
                 MultipathAlignment mp;
@@ -631,7 +627,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 }
 
 unordered_map<size_t, unordered_map<size_t, vector<Path>>>
-MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds, size_t walk_distance) const {
+MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds, size_t read_length) const {
 
     // Now this will hold, for each extended seed, for each other
     // reachable extended seed, the graph Paths that the
@@ -747,8 +743,11 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             continue;
         }
 
+        // How long should we search? It should be the longest detectable gap plus the remaining sequence.
+        size_t search_limit = get_regular_aligner()->longest_detectable_gap(cut_pos_read, read_length) + (read_length - cut_pos_read);
+
         // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
-        explore_gbwt(cut_pos_graph, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+        explore_gbwt(cut_pos_graph, search_limit, [&](const Path& here_path, const handle_t& there_handle) -> bool {
             // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
 
             // See if we hit any other extensions on this next node
@@ -852,8 +851,12 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             cerr << "\tPosition read-reverse to search right after: " << pb2json(start) << endl;
 #endif
 
+            // Now the search limit is all the read *before* the seed, plus the detectable gap
+            size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].second) +
+                extended_seeds[i].second;
+
             // Start another search, but going left.
-            explore_gbwt(start, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+            explore_gbwt(start, search_limit, [&](const Path& here_path, const handle_t& there_handle) -> bool {
                 // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
                 // So always keep going.
                 return true;
@@ -891,6 +894,10 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     const function<bool(const Path&, const handle_t&)>& visit_callback,
     const function<void(const Path&)>& limit_callback) const {
+    
+#ifdef debug
+    cerr << "Exploring GBWT out from " << pb2json(from) << " to distance " << walk_distance << endl;
+#endif
     
     // Holds the gbwt::SearchState we are at, and the Path from the end of the starting
     // seed up through the end of the node we just searched.
@@ -936,23 +943,40 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
 
     // Holds a queue of search states to extend.
     list<traversal_state_t> queue{{start_state, path_to_end}};
+    // Track queue size separately since getting it form the queue is O(n)
+    size_t queue_size = 1;
+    // Track queue high-water mark for debugging.
+    size_t queue_max = 1;
+    
+    
+    // Track how many times we hit the end/limit
+    size_t limit_hits = 0;
+    // And dead ends sweparately
+    size_t dead_ends = 0;
+    // And track end node IDs
+    unordered_set<id_t> end_ids;
 
     while (!queue.empty()) {
         // While there are things in the queue
-
-#ifdef debug
-        cerr << "Queue size: " << queue.size() << endl;
-#endif
+        
+        // Record max size
+        queue_max = max(queue_max, queue_size);
 
         // Grab one
         traversal_state_t here(std::move(queue.front()));
         queue.pop_front();
+        queue_size--;
         gbwt::SearchState& here_state = here.first;
         Path& here_path = here.second;
         
         // follow_paths on it
         bool got_anywhere = false;
         gbwt_graph.follow_paths(here_state, [&](const gbwt::SearchState& there_state) -> bool {
+            if (there_state.empty()) {
+                // Ignore places that no haplotypes go, and get the next place instead.
+                return true;
+            }
+            
             // For each place it can go
             handle_t there_handle = gbwt_graph.node_to_handle(there_state.node);
             
@@ -977,9 +1001,12 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
                 if (path_from_length(here_path) + gbwt_graph.get_length(there_handle) <= walk_distance) {
                     // If so, continue the search
                     queue.emplace_back(there_state, extended);
+                    queue_size++;
                 } else {
                     // Report that, with this extension, we hit the limit.
                     limit_callback(extended);
+                    limit_hits++;
+                    end_ids.insert(gbwt_graph.get_id(there_handle));
                 }
             }
 
@@ -990,8 +1017,11 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
         if (!got_anywhere) {
             // We hit a dead end here. Report that.
             limit_callback(here_path);
+            dead_ends++;
         }
     }
+    
+    cerr << "Queue max: " << queue_max << " Limit hits: " << limit_hits << " Dead ends: " << dead_ends << " End IDs: " << end_ids.size() << endl;
 }
 
 
