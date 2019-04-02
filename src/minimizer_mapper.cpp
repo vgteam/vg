@@ -253,8 +253,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 mp.set_sequence(aln.sequence());
                 mp.set_quality(aln.quality());
                 for (auto& extended_seed : extended_seeds) {
-                    cerr << "Extended seed at read position " << extended_seed.second << " becomes subpath " << mp.subpath_size() << endl;
-                
                     Subpath* s = mp.add_subpath();
                     // Copy in the path.
                     *s->mutable_path() = extended_seed.first;
@@ -265,7 +263,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     if (extended_seed.second == 0) {
                         // But if it occurs at the very start of the read we need to mark that now.
                         mp.add_start(mp.subpath_size() - 1);
-                        cerr << "\tIt should be a start" << endl;
                     }
                 }
 
@@ -304,7 +301,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 // Since the softclip consumes no graph, we place it on the node we are going to.
                                 *m->mutable_position() = extended_seeds[source].first.mapping(0).position();
                                 
-                                cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
+                                cerr << "New best alignment: " << pb2json(best_path) << endl;
                             }
                         } else {
 
@@ -823,9 +820,13 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
             // Find its start
             Position start = extended_seeds[i].first.mapping(0).position();
+            
+            cerr << "\tPosition read-forward to search left from: " << pb2json(start) << endl;
 
             // Flip it around to face left
-            start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id()))); 
+            start = reverse(start, gbwt_graph.get_length(gbwt_graph.get_handle(start.node_id())));
+            
+            cerr << "\tPosition read-reverse to search right from: " << pb2json(start) << endl;
 
             // Start another search, but going left.
             explore_gbwt(start, walk_distance, [&](const Path& here_path, const handle_t& there_handle) -> bool {
@@ -900,8 +901,10 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance, c
         e->set_from_length(distance_to_node_end);
         e->set_to_length(distance_to_node_end);
     }
-    
+   
+#ifdef debug   
     cerr << "Starting traversal with " << pb2json(path_to_end) << " from " << pb2json(from) << endl;
+#endif
     
     // Glom these together into a traversal state and queue it up.
 
