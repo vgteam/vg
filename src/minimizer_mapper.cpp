@@ -712,13 +712,15 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
         // See if we hit any other extensions on this node.
         auto same_node_found = extensions_by_handle.find(start_handle);
         if (same_node_found != extensions_by_handle.end()) {
-            // If we have extended seeds
+            // If we have extended seeds on this node
             
             for (auto& next_offset_and_index : same_node_found->second) {
                 // Scan them in order.
                 // TODO: Skip to after ourselves.
                 
-                if (extended_seeds[next_offset_and_index.second].second >= cut_pos_read && next_offset_and_index.first >= cut_pos_graph.offset()) { 
+                if (extended_seeds[next_offset_and_index.second].second >= cut_pos_read &&
+                    next_offset_and_index.first >= cut_pos_graph.offset()) { 
+                    
                     // As soon as we find one that starts after we end in both the read and the node
 
                     // Emit a connecting Path 
@@ -762,6 +764,9 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
         // How long should we search? It should be the longest detectable gap plus the remaining sequence.
         size_t search_limit = get_regular_aligner()->longest_detectable_gap(cut_pos_read, read_length) + (read_length - cut_pos_read);
 
+        // Have we found a way to get to any other extended seeds yet?
+        bool reachable_extended_seeds = false;
+
         // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
         explore_gbwt(cut_pos_graph, search_limit, [&](const Path& here_path, const handle_t& there_handle) -> bool {
             // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
@@ -802,11 +807,13 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
                         // And emit that connection
                         to_return[i][next_offset_and_index.second].emplace_back(std::move(extended));
+                        reachable_extended_seeds = true;
 
                         // Record that the destination is not a source
                         sources.erase(next_offset_and_index.second);
 
-                        // Don't look at any more destinations, or any extensions past this node of this search state.
+                        // Don't look at any more destinations on this node, or
+                        // any extensions past this node of this search state.
                         return false;
                     }
                 }
@@ -816,26 +823,24 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
             return true;
         }, [&](const Path& limit_path) {
             // When we blow past the walk distance limit or hit a dead end
-
-            // We have a way to escape.
-            // Save that as a path.
-            to_return[i][numeric_limits<size_t>::max()].emplace_back(limit_path);
             
-            // If we end up with paths anywhere else we will destroy it, so we
-            // will only keep it for sinks. Note that we might not have any
-            // sequence to escape *with*! The caller has to look out for that
-            // case and not waste time trying to align nothing, since we don't
-            // have access to the read length here.
+            if (cut_pos_read < read_length && !reachable_extended_seeds) {
+                // We have sequence to align and a way to escape and align it, and nowhere else we know of (yet) to go with it.
+                // Save that as a path.
+                to_return[i][numeric_limits<size_t>::max()].emplace_back(limit_path);
+                // If we end up with paths anywhere else after all, we will destroy it, so we
+                // will only keep it for sinks.
+            }
         });
-    }
-
-    for (auto& kv : to_return) {
-        // For each seed, if it can reach anything *other* than numeric_limits<size_t>::max(), erase anything going to numeric_limits<size_t>::max()
-        auto found = kv.second.find(numeric_limits<size_t>::max());
-        if (kv.second.size() > 1 && found != kv.second.end()) {
-            // We have a going-off-to-nothing path and also a path to somewhere else.
-            // Don't go off to nothing.
-            kv.second.erase(found);
+        
+        if (reachable_extended_seeds) {
+            // Make sure that if we can go anywhere else we *don't* consider wandering off to nowhere.
+            auto found = to_return[i].find(numeric_limits<size_t>::max());
+            if (to_return[i].size() > 1 && found != to_return[i].end()) {
+                // We have a going-off-to-nothing path and also a path to somewhere else.
+                // Don't go off to nothing.
+                to_return[i].erase(found);
+            }
         }
     }
 

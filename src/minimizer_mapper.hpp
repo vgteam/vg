@@ -65,20 +65,17 @@ protected:
      * Find for each pair of extended seeds all the haplotype-consistent graph
      * paths against which the intervening read sequence needs to be aligned.
      *
-     * Limits walks to the longest detectable gap plus the remaining
-     * to-be-alinged sequence, both computed using the read length.
+     * Limits walks from each extended seed end to the longest detectable gap
+     * plus the remaining to-be-alinged sequence, both computed using the read
+     * length.
      *
      * extended_seeds must be sorted by read start position. Any extended seeds
      * that overlap in the read will be precluded from connecting.
      *
-     * numeric_limits<size_t>::max() is used to store sufficeintly long Paths
+     * numeric_limits<size_t>::max() is used to store sufficiently long Paths
      * ending before sources (which cannot be reached from other extended
      * seeds) and starting after sinks (which cannot reach any other extended
-     * seeds).
-     *
-     * Note that paths from all sinks are included, even if there would be no
-     * read sequence to align against the path, because the read sequence
-     * length is not passed.
+     * seeds). Only sources and sinks have these "tail" paths.
      */
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds,
         size_t read_length) const;
