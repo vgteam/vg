@@ -10,15 +10,54 @@
 #include <seqan/graph_align.h>
 #include "../msa_converter.hpp"
 #include "../snarls.hpp"
+#include "../gbwt_helper.hpp"
+#include "../stream/vpkg.hpp"
 
 namespace vg {
 
+void print_kmer(const std::vector<std::pair<pos_t, size_t>>&, const std::string& string){
+    cout << string << endl;
+}
+
+void test_gbwt(MutablePathDeletableHandleGraph& graph){
+    ifstream gbwt_stream;
+    string gbwt_name = "test/robin_haplotypes/simple/chr10_subgraph_2dels-shift-729006.gbwt";
+    gbwt_stream.open(gbwt_name);
+
+    unique_ptr<gbwt::GBWT> gbwt;
+    // Load the GBWT from its container
+    gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+
+    size_t k = 20;
+    for_each_kmer(graph, *gbwt, k, print_kmer, false);
+
+
+}
+
+
 void clean_all_snarls(MutablePathDeletableHandleGraph& graph, ifstream& snarl_stream){
     SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
+
+/* Use this code to count number of snarls in graph.
+*    int top_count = 0;
+*    for (const Snarl* snarl : snarl_manager->top_level_snarls()){
+*        top_count++;
+*    }
+*    cerr << "number of top_level snarls in graph: " << top_count << endl;
+*
+*    int general_count = 0;
+*    snarl_manager->for_each_snarl_preorder([&](const vg::Snarl * ignored){
+*        general_count++;
+*    });
+*    cerr << "number of total snarls in graph: " << general_count << endl;
+*/
+
+
     vector<const Snarl*> snarl_roots = snarl_manager->top_level_snarls();
     for (auto roots : snarl_roots){
         clean_snarl(graph, roots->start().node_id(), roots->end().node_id());
     }
+    
     delete snarl_manager;
 
     
@@ -171,7 +210,6 @@ VG strings_to_graph(const vector<string>& walks){
     
 
     globalMsaAlignment(align, seqan::SimpleScore(5, -3, -1, -3));
-    cerr << align << "\n";
 
     stringstream ss;
     ss << align;

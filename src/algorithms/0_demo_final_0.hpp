@@ -1,3 +1,7 @@
+/*
+Robin Rounthwaite
+Find function call in ./subcommand/main.cpp
+*/
 #include <string>
 #include "../vg.hpp"
 #include "../handle.hpp"
@@ -5,6 +9,8 @@
 #include "count_walks.hpp"
 
 namespace vg {
+    void test_gbwt(MutablePathDeletableHandleGraph& graph);
+
     void clean_all_snarls(MutablePathDeletableHandleGraph& graph, ifstream& snarl_stream);
 
     void clean_snarl(MutablePathDeletableHandleGraph& graph, const id_t& start_id, const id_t& end_id);
