@@ -605,7 +605,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Drop the lowest scoring alignments
         aligned.resize(max_multimaps);
     }
-    
+   
+    // We will use this vector of scores to get a MAPQ for the winning alignment
+    vector<double> scores;
+    scores.reserve(aligned.size());
+   
     for (size_t i = 0; i < aligned.size(); i++) {
         // For each output alignment in score order
         auto& out = aligned[i];
@@ -613,7 +617,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Assign primary and secondary status
         out.set_is_secondary(i > 0);
         out.set_mapping_quality(0);
+        
+        // Copy the score
+        scores.push_back(out.score());
     }
+    
+    if (!aligned.empty()) {
+        // Give the winning alignment a MAPQ.
+        size_t winning_index;
+        double mapq = get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
+        aligned.front().set_mapping_quality(mapq);
+    }
+   
     
     std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end-start;
