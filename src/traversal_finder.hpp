@@ -17,6 +17,7 @@
 #include <list>
 
 #include <structures/immutable_list.hpp>
+#include "Variant.h"
 
 #include "vg.pb.h"
 #include "vg.hpp"
@@ -336,6 +337,70 @@ public:
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
     
 };
+
+
+/**
+ * Let a VCF (that ideally was used to construct the graph with -f) dictate the snarls.  Return
+ * one snarl per line in the VCF, and one traversal per alt (and ref).  
+ * This is an abuse of the term "snarl", but provides a 
+ * simple interface for genotyping exiting variants independently (when used in conjuction with 
+ * the matching VCF traversal finder) using the exiting snarl-based code. 
+ *
+ * To keep to the snarl interface, we need to either find snarls and traversals in one
+ * pass keeping everything in memory (like done here) or take two passes over the VCF
+ * (which shuold be easy to refactor this into if memory becomes an issue)
+ */
+class VCFSnarlFinder : public SnarlFinder, public TraversalFinder {
+public:
+        
+    /**
+     * Make a new VCFSnarlFinder
+     */
+    VCFSnarlFinder(VG& graph, vcflib::VariantCallFile* vcf);
+    
+    /**
+     * Find all the snarls with Cactus, and put them into a SnarlManager.
+     */
+    virtual SnarlManager find_snarls();
+
+    /**
+     * Get a traversal for each alt path and the ref path
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& stite);
+
+    /**
+     * Because these aren't real snarls, we can't use these functions from
+     * the snarl manager.  we provide overrides here for now.  To fix, we'd need
+     * to either generalize the snarl manager interface to be able to overload them,
+     * or combine overlapping variants into one snarl here and add logic to tease them apart
+     * maybe at the traversal level...
+     */
+    pair<unordered_set<Node*>, unordered_set<Edge*> > deep_contents(const Snarl* snarl,
+                                                                    bool include_boundary_nodes);
+    pair<unordered_set<Node*>, unordered_set<Edge*> > shallow_contents(const Snarl* snarl,
+                                                                       bool include_boundary_nodes);
+    
+protected:
+    /**
+     * Load the traversals from a variant into our map
+     */
+    void extract_traversals(vcflib::Variant& var, PathIndex* path_index,
+                            PathIndex::iterator start_it, PathIndex::iterator end_it,
+                            bool has_snp);
+
+
+    /// Holds the vg graph we are looking for sites in.
+    VG& graph;
+
+    /// This is our VCF.  We want to return a "snarl" for each line in this.
+    vcflib::VariantCallFile* vcf;
+
+    /// Traversals are pre-computed while reading the VCF to get the snarls.
+    /// The ith traversal corresponds to the ith allele from the VCF.
+    unordered_map<pair<int64_t, int64_t>, vector<SnarlTraversal> > snarl_to_traversals;
+    
+};
+
 
 }
 

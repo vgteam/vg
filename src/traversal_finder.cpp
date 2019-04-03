@@ -2,9 +2,10 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/is_acyclic.hpp"
+#include "algorithms/dfs.hpp"
 #include "cactus.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -2404,5 +2405,251 @@ size_t RepresentativeTraversalFinder::bp_length(const structures::ImmutableList<
     return length;
 }
 
+VCFSnarlFinder::VCFSnarlFinder(VG& graph, vcflib::VariantCallFile* vcf) :
+  graph(graph),
+  vcf(vcf)
+{
+}
+
+SnarlManager VCFSnarlFinder::find_snarls() {
+        
+    // We'll fill this with all the snarls
+    SnarlManager snarl_manager;
+
+    // We'll maintain a single path index, with the assumption that
+    // our vcf is sorted.  We can relax this by maintaining an index for each path.
+    // We may be able to speed up some applications by accepting a PathIndex as
+    // an input parameter to avoid rebuilding. For now, keep it simple.
+    unique_ptr<PathIndex> path_index(nullptr);
+    string path_name;
+    
+    // for every variant in the VCF
+    vcflib::Variant var(*vcf);
+    while (vcf->getNextVariant(var)) {
+        // update our path index
+        if (var.sequenceName != path_name) {
+            path_index = unique_ptr<PathIndex>(new PathIndex(graph, var.sequenceName));
+            path_name = var.sequenceName;
+        }
+
+        if (var.position == 1) {
+            
+        }
+#ifdef debug
+        cerr << "VCFSnarlFinder looking up " << path_name << ":" << var.position << "-"
+             << (var.position + var.ref.length()) << endl;
+#endif
+        // everything but snps start after the reference position, so we need to know if
+        // there's a snp on this line
+        bool has_snp = false;
+        for (auto& var_alt : var.alt) {
+            if (var_alt.length() == var.ref.length()) {
+                has_snp = true;
+                break;
+            }
+        }
+                            
+        // look up our reference position in the path
+        PathIndex::iterator start_it = path_index->find_position(var.position - 1 - (has_snp ? 1 : 0));
+        PathIndex::iterator end_it = path_index->find_position(var.position + var.ref.length() - 1);
+        const NodeSide& start = start_it->second;
+        const NodeSide& end = end_it->second;
+
+        // todo: test on reversed paths
+
+#ifdef debug
+        cerr << "Path index gives " <<start << ", " << end << " as snarl ends" << endl;
+#endif
+
+        // a sanity check: we make sure our reference sequence matches the VCF
+        PathIndex::iterator it = start_it;
+        ++it;
+        string ref_string;
+        while (it != end_it && it != path_index->end()) {
+            ref_string += graph.get_sequence(graph.get_handle(it->second.node));
+            ++it;
+        }
+        assert(ref_string == var.ref.substr(has_snp ? 0 : 1));
+
+        // make a snarl from the reference positions
+        Snarl snarl;
+        *snarl.mutable_start() = start.to_visit();
+        *snarl.mutable_end() = end.to_visit();
+        snarl.set_type(ULTRABUBBLE);
+        // todo: fill out other stuff
+        snarl_manager.add_snarl(snarl);
+
+        // extract the traversals and store them in our map
+        extract_traversals(var, path_index.get(), start_it, end_it, has_snp);
+    }
+
+    // Finish the SnarlManager
+    snarl_manager.finish();
+    
+    // Return the completed SnarlManager
+    return snarl_manager;
+}
+
+vector<SnarlTraversal> VCFSnarlFinder::find_traversals(const Snarl& site) {
+    cerr << "returning " << snarl_to_traversals[make_pair(site.start().node_id(), site.end().node_id())].size()
+         << " traversals for " << pb2json(site) << endl;
+    for (auto y : snarl_to_traversals[make_pair(site.start().node_id(), site.end().node_id())]) {
+        cerr << pb2json(y) << endl;
+    }
+    
+    return snarl_to_traversals[make_pair(site.start().node_id(), site.end().node_id())];
+}
+
+pair<unordered_set<Node*>, unordered_set<Edge*> > VCFSnarlFinder::deep_contents(const Snarl* snarl,
+                                                                                bool include_boundary_nodes) {
+    unordered_set<Node*> nodes;
+    unordered_set<Edge*> edges;
+    for (const auto& snarl_traversal : snarl_to_traversals[make_pair(snarl->start().node_id(), snarl->end().node_id())]) {
+        for (int i = 0; i < snarl_traversal.visit_size(); ++i) {
+            const Visit& visit = snarl_traversal.visit(i);
+            nodes.insert(graph.get_node(visit.node_id()));
+            if (i < snarl_traversal.visit_size() - 1) {
+                const Visit& next = snarl_traversal.visit(i + 1);
+                edges.insert(graph.get_edge(make_pair(NodeSide(visit.node_id(), !visit.backward()),
+                                                      NodeSide(next.node_id(), next.backward()))));
+            }
+            if (i == 0 && include_boundary_nodes) {
+                nodes.insert(graph.get_node(snarl->start().node_id()));
+                edges.insert(graph.get_edge(make_pair(NodeSide(snarl->start().node_id(), !snarl->start().backward()),
+                                                      NodeSide(visit.node_id(), visit.backward()))));
+            }
+            if (i == snarl_traversal.visit_size() - 1 && include_boundary_nodes) {
+                nodes.insert(graph.get_node(snarl->end().node_id()));
+                edges.insert(graph.get_edge(make_pair(NodeSide(visit.node_id(), !visit.backward()),
+                                                      NodeSide(snarl->end().node_id(), !snarl->end().backward()))));
+            }
+        }
+    }
+    return make_pair(nodes, edges);
+}
+
+pair<unordered_set<Node*>, unordered_set<Edge*> > VCFSnarlFinder::shallow_contents(const Snarl* snarl,
+                                                                                   bool include_boundary_nodes) {
+    return deep_contents(snarl, include_boundary_nodes);
+}
+
+
+void VCFSnarlFinder::extract_traversals(vcflib::Variant& var, PathIndex* path_index,
+                                        PathIndex::iterator start_it, PathIndex::iterator end_it,
+                                        bool has_snp) {
+    vector<SnarlTraversal> traversals(var.alleles.size());
+    size_t allele = 0;
+
+    // the first traversal added must be the reference.  we can get it straight from the path index
+    for (auto it = start_it; it != end_it; ++it) {
+        if (it != start_it && it != end_it) { // traversals don't include endpoints
+            *traversals[allele].add_visit() = it->second.to_visit();
+        }
+    }
+    ++allele;
+
+    // now we do a traversal for each alt.  we do a substring search in the graph starting
+    // at the start of the "snarl" to look for the alt allele string.
+    for (auto& alt_string : var.alt) {
+
+        // this is the string we expect to find in the graph (made with construct -f)
+        // if it's a snp, then we just look for the alt.
+        string alt_path_string = alt_string;
+        // if it's an insert or delete, then we trim out the common prefix
+        if (!has_snp) {
+            size_t prefix = 0;
+            size_t scan_length = std::min(var.ref.length(), alt_string.length());
+            for (; prefix < scan_length && toupper(var.ref[prefix]) == toupper(alt_string[prefix]); ++prefix);
+            if (prefix > 0) {
+                // todo: verify!!
+                alt_path_string = alt_string.substr(1);
+            }
+        }
+        
+        // this is our depth-first search state.  we build out paths which have sequences
+        string search_seq;
+        vector<Visit> search_trav;
+
+#ifdef debug
+        cerr << "searching for alt sequence " << alt_path_string << endl;
+#endif
+
+        auto begin_fn = [&] (const handle_t& handle) {
+            bool to_ret = true;
+            
+            // we're not looking at the sequence on our site endpoints, just the stuff in between
+            if (graph.get_id(handle) != start_it->second.node &&
+                graph.get_id(handle) != end_it->second.node) {
+
+                string node_seq = graph.get_sequence(handle);
+            
+                // we will only continue if adding this node to the current traversal
+                // is consistent with the alt path we want to trace
+                to_ret = search_seq.length() + node_seq.length() <= alt_path_string.length() &&
+                    alt_path_string.substr(search_seq.length(), node_seq.length()) == node_seq;
+
+#ifdef debug
+                cerr << "adding node sequence " << node_seq << " to current path " << search_seq << endl;
+                cerr << "pushing node " << graph.get_id(handle) << " to path: ";
+                for (auto x : search_trav) { cerr << pb2json(x) << ","; }
+                cerr << endl;
+#endif
+                
+                // update our search_seq and search_traversal regardless
+                search_seq += node_seq;
+            }
+            Visit visit;
+            visit.set_node_id(graph.get_id(handle));
+            visit.set_backward(graph.get_is_reverse(handle));
+            search_trav.push_back(visit);
+            return to_ret;
+        };
+
+        auto end_fn = [&] (const handle_t& handle) {
+            assert(search_trav.back().node_id() == graph.get_id(handle));
+#ifdef  debug
+            cerr << "removing node sequence " << graph.get_sequence(handle) << " from path" << endl;
+            cerr << "popping node " << graph.get_id(handle) << " from path of size " << search_trav.size() << endl;
+#endif
+            search_trav.pop_back();
+            search_seq = search_seq.substr(0, search_seq.length() - graph.get_sequence(handle).length());
+        };
+
+        auto break_fn = [&] () {
+            return search_trav.begin()->node_id() == start_it->second.node &&
+            search_trav.rbegin()->node_id() == end_it->second.node &&
+            search_seq == alt_path_string;
+        };
+       
+        auto edge_noop = [](const edge_t& e) { };
+        
+        algorithms::dfs(graph,
+                        begin_fn,
+                        end_fn,
+                        break_fn,
+                        edge_noop,
+                        edge_noop,
+                        edge_noop,
+                        edge_noop,
+                        vector<handle_t>({ graph.get_handle(start_it->second.node) }),
+                        unordered_set<handle_t>({ graph.get_handle(end_it->second.node) }));
+        
+        assert(search_seq == alt_path_string);
+        assert(search_trav.begin()->node_id() == start_it->second.node);
+        assert(search_trav.rbegin()->node_id() == end_it->second.node);
+
+#ifdef debug
+        cerr << "found path for alt string " << alt_path_string << ": ";
+        for (auto x : search_trav) { cerr << pb2json(x) << ","; }
+        cerr << endl << endl;
+#endif
+        // note that traversal finders don't store the snarl ends, so we drop them here
+        for (size_t i = 1; i < search_trav.size() - 1; ++i) {
+            *traversals[allele].add_visit() = search_trav[i];
+        }
+        ++allele;
+    }
+    snarl_to_traversals[make_pair(start_it->second.node, end_it->second.node)] = traversals;
+}
 
 }
