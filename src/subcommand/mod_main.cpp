@@ -863,19 +863,23 @@ int main_mod(int argc, char** argv) {
     }
 
     if ( !demo_0.empty() ) {
-        
-        std::ifstream snarl_stream;
-        snarl_stream.open(demo_0);
-        
-        if (!snarl_stream) {
-            cerr << "error:[vg mod] Cannot open Snarls file " << demo_0 << endl;
-            exit(1);
-        }
 
-        clean_all_snarls(*graph, snarl_stream);
-    }
-    graph->serialize_to_ostream(std::cout);
-    delete graph;
+        ///Testing gbwt_helper.hpp's for_each_kmer function. This issue is that I don't know how to construct a gbwt::GBWT haplotypes object. Nor do I know how to determine what size k I should use.
+        test_gbwt(*graph);
+
+        //     std::ifstream snarl_stream;
+        //     snarl_stream.open(demo_0);
+            
+        //     if (!snarl_stream) {
+        //         cerr << "error:[vg mod] Cannot open Snarls file " << demo_0 << endl;
+        //         exit(1);
+        //     }
+
+        //     clean_all_snarls(*graph, snarl_stream);
+        }
+        // graph->serialize_to_ostream(std::cout);
+        // delete graph;
+
 
 
     return 0;
