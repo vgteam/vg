@@ -798,7 +798,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
         bool reachable_extended_seeds = false;
 
         // Search everything in the GBWT graph right from the end of the start extended seed, up to the limit.
-        explore_gbwt(cut_pos_graph, search_limit, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+        explore_gbwt(cut_pos_graph, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
             // When we encounter a new handle visited by haplotypes extending off of the last node in a Path
 
             // See if we hit any other extensions on this next node
@@ -814,17 +814,19 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
                         // Extend the Path to connect to it.
                         // TODO: Make these shared tail lists for better algorithmics
-                        Path extended = here_path;
+                        ImmutablePath extended = here_path;
                         
                         if (next_offset_and_index.first > 0) {
                             // There is actual material on this new node before the extended seed we have to hit.
-                            Mapping* m = extended.add_mapping();
-                            m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
-                            m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
-                            Edit* e = m->add_edit();
+                            Mapping m; 
+                            m.mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
+                            m.mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
+                            Edit* e = m.add_edit();
                             // Make sure it runs through the last base *before* the extended seed we are going for
                             e->set_from_length(next_offset_and_index.first);
                             e->set_to_length(next_offset_and_index.first);
+                            
+                            extended = extended.push_front(m);
                         }
 
 #ifdef debug
@@ -832,11 +834,11 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                             << pb2json(extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1).position())
                             << " and seed at "
                             << pb2json(extended_seeds[next_offset_and_index.second].first.mapping(0).position())
-                            << ":" << endl << "\t" << pb2json(extended) <<  endl;
+                            << ":" << endl << "\t" << pb2json(to_path(extended)) <<  endl;
 #endif
 
                         // And emit that connection
-                        to_return[i][next_offset_and_index.second].emplace_back(std::move(extended));
+                        to_return[i][next_offset_and_index.second].emplace_back(to_path(extended));
                         reachable_extended_seeds = true;
 
                         // Record that the destination is not a source
@@ -851,13 +853,13 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
             // Otherwise we didn't hit anything we can stop at. Keep extending.
             return true;
-        }, [&](const Path& limit_path) {
+        }, [&](const ImmutablePath& limit_path) {
             // When we blow past the walk distance limit or hit a dead end
             
             if (cut_pos_read < read_length && !reachable_extended_seeds) {
                 // We have sequence to align and a way to escape and align it, and nowhere else we know of (yet) to go with it.
                 // Save that as a path.
-                to_return[i][numeric_limits<size_t>::max()].emplace_back(limit_path);
+                to_return[i][numeric_limits<size_t>::max()].emplace_back(to_path(limit_path));
                 // If we end up with paths anywhere else after all, we will destroy it, so we
                 // will only keep it for sinks.
             }
@@ -907,20 +909,20 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                 extended_seeds[i].second;
 
             // Start another search, but going left.
-            explore_gbwt(start, search_limit, [&](const Path& here_path, const handle_t& there_handle) -> bool {
+            explore_gbwt(start, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
                 // If we weren't reachable from anyone, nobody should be reachable from us going the other way.
                 // So always keep going.
                 return true;
-            }, [&](const Path& limit_path) {
+            }, [&](const ImmutablePath& limit_path) {
                 // We have this path going right from start and hitting the walk limit or the edge of the graph.
 
-                for (auto& mapping : limit_path.mapping()) {
+                for (auto& mapping : limit_path) {
                     // Make sure nothing has a negative offset before flipping.
                     assert(mapping.position().offset() >= 0);
                 }
 
-                // Flip the path around
-                Path flipped = reverse_complement_path(limit_path, [&](id_t id) -> size_t {
+                // Convert to Path and flip around
+                Path flipped = reverse_complement_path(to_path(limit_path), [&](id_t id) -> size_t {
                     return gbwt_graph.get_length(gbwt_graph.get_handle(id));
                 });
                 
@@ -942,18 +944,42 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
     
 }
 
+size_t MinimizerMapper::immutable_path_from_length(const ImmutablePath& path) {
+    size_t to_return;
+    for (auto& m : path) {
+        // Sum up the from lengths of all the component Mappings
+        to_return += mapping_from_length(m);
+    }
+    return to_return;
+}
+
+Path MinimizerMapper::to_path(const ImmutablePath& path) {
+    Path to_return;
+    for (auto& m : path) {
+        // Copy all the Mappings into the Path.
+        *to_return.add_mapping() = m;
+    }
+    
+    // Flip the order around to actual path order.
+    std::reverse(to_return.mutable_mapping()->begin(), to_return.mutable_mapping()->end());
+    
+    // Return the completed path
+    return to_return;
+}
+
 void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
-    const function<bool(const Path&, const handle_t&)>& visit_callback,
-    const function<void(const Path&)>& limit_callback) const {
+    const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
+    const function<void(const ImmutablePath&)>& limit_callback) const {
     
 #ifdef debug
     cerr << "Exploring GBWT out from " << pb2json(from) << " to distance " << walk_distance << endl;
 #endif
     
-    // Holds the gbwt::SearchState we are at, and the Path from the end of the starting
-    // seed up through the end of the node we just searched.
-    // The from_length of the path tracks our consumption of distance limit.
-    using traversal_state_t = pair<gbwt::SearchState, Path>;
+    // Holds the gbwt::SearchState we are at, and the ImmutablePath (backward)
+    // from the end of the starting seed up through the end of the node we just
+    // searched. The from_length of the path tracks our consumption of distance
+    // limit.
+    using traversal_state_t = pair<gbwt::SearchState, ImmutablePath>;
     
     // Get a handle to the node the from position is on, in its forward orientation
     handle_t start_handle = gbwt_graph.get_handle(from.node_id(), from.is_reverse());
@@ -963,7 +989,7 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     
     if (start_state.empty()) {
         // No haplotypes even visit the first node. Have a 0-mapping dead end.
-        limit_callback(Path());
+        limit_callback(ImmutablePath());
         return;
     }
 
@@ -977,19 +1003,22 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     
     // And make a Path that represents the part of the node we're on that goes out to the end.
     // This may be empty if the hit already stopped at the end of the node
-    Path path_to_end;
+    ImmutablePath path_to_end;
     if (distance_to_node_end != 0) {
         // We didn't hit the end of the node already.
 
         // Make a mapping that starts on the right side of the cut we started our search at.
-        Mapping* m = path_to_end.add_mapping();
-        *m->mutable_position() = from;
-        m->mutable_position()->set_offset(m->position().offset());
+        Mapping m;
+        *m.mutable_position() = from;
+        m.mutable_position()->set_offset(m.position().offset());
 
         // Make it the requested length of perfect match.
-        Edit* e = m->add_edit();
+        Edit* e = m.add_edit();
         e->set_from_length(distance_to_node_end);
         e->set_to_length(distance_to_node_end);
+        
+        // Put it in the list
+        path_to_end = path_to_end.push_front(m);
     }
    
 #ifdef debug   
@@ -1022,7 +1051,7 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
         queue.pop_front();
         queue_size--;
         gbwt::SearchState& here_state = here.first;
-        Path& here_path = here.second;
+        const ImmutablePath& here_path = here.second;
         
         // follow_paths on it
         bool got_anywhere = false;
@@ -1043,17 +1072,17 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
 
             if (continue_extending) {
                 // Generate the path we take if we take up all of that node.
-                Path extended = here_path;
-                Mapping* m = extended.add_mapping();
-                m->mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
-                m->mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
-                Edit* e = m->add_edit();
+                Mapping m;
+                m.mutable_position()->set_node_id(gbwt_graph.get_id(there_handle));
+                m.mutable_position()->set_is_reverse(gbwt_graph.get_is_reverse(there_handle));
+                Edit* e = m.add_edit();
                 e->set_from_length(gbwt_graph.get_length(there_handle));
                 e->set_to_length(gbwt_graph.get_length(there_handle));
-
+                
+                ImmutablePath extended = here_path.push_front(m);
 
                 // See if we can get to the end of the node without going outside the search length.
-                if (path_from_length(here_path) + gbwt_graph.get_length(there_handle) <= walk_distance) {
+                if (immutable_path_from_length(here_path) + gbwt_graph.get_length(there_handle) <= walk_distance) {
                     // If so, continue the search
                     queue.emplace_back(there_state, extended);
                     queue_size++;

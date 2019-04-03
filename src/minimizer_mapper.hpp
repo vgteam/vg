@@ -15,6 +15,8 @@
 #include "distance.hpp"
 #include "seed_clusterer.hpp"
 
+#include <structures/immutable_list.hpp>
+
 namespace vg {
 
 using namespace std;
@@ -79,13 +81,30 @@ protected:
      */
     unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds,
         size_t read_length) const;
+        
+    /// We define a type for shared-tail lists of Mappings, to avoid constantly
+    /// copying Path objects.
+    using ImmutablePath = structures::ImmutableList<Mapping>;
+    
+    /**
+     * Get the from length of an ImmutabelPath.
+     *
+     * Can't be called path_from_length or it will shadow the one for Paths
+     * instead of overloading.
+     */
+    static size_t immutable_path_from_length(const ImmutablePath& path);
+    
+    /**
+     * Convert an ImmutablePath to a Path.
+     */
+    static Path to_path(const ImmutablePath& path);
 
     /**
      * Given a Position, explore the GBWT graph out to the given maximum walk
      * distance.
      *
-     * Calls the visit callback with the Path being extended and the handle it
-     * is being extended with.
+     * Calls the visit callback with the list of Mappings being extended (in
+     * reverse order) and the handle it is being extended with.
      *
      * Only considers paths that visit at least one node after the node the
      * from Position is on. The from Position cuts immediately before the
@@ -95,12 +114,12 @@ protected:
      * further.
      *
      * If the walk_distance limit is exceeded, or a dead end in the graph is
-     * hit, calls the limit callback with the Path that passed the limit or hit
-     * the dead end.
+     * hit, calls the limit callback with the list of Mappings (in reverse
+     * order) that passed the limit or hit the dead end.
      */
-    void explore_gbwt(const Position& from, size_t walk_distance, const function<bool(const Path&, const handle_t&)>& visit_callback,
-        const function<void(const Path&)>& limit_callback) const;
-
+    void explore_gbwt(const Position& from, size_t walk_distance, const function<bool(const ImmutablePath&, const handle_t&)>& visit_callback,
+        const function<void(const ImmutablePath&)>& limit_callback) const;
+     
 };
 
 }
