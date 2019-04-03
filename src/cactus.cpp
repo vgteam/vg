@@ -901,7 +901,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
             };
             
             algorithms::dfs(graph,
-                handle_noop,
+                [] (handle_t) { return true; },
                 handle_noop,
                 dfs_break,
                 [&](const edge_t& edge) {

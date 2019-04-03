@@ -63,6 +63,7 @@ using namespace std;
             // And it's on the stack
             stack.push_back(trav);
             on_stack.insert(trav);
+            return true;
         },
         [&](const handle_t& trav) {
             // When a NodeTraversal is done being recursed into

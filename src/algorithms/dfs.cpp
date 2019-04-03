@@ -8,7 +8,8 @@ using namespace std;
 // depth first search across node traversals with interface to traversal tree via callback
 void dfs(
     const HandleGraph& graph,
-    const function<void(const handle_t&)>& handle_begin_fn,  // called when node orientation is first encountered
+    const function<bool(const handle_t&)>& handle_begin_fn,  // called when node orientation is first encountered
+                                                             // if false rerturned, edges of this node won't be traversed
     const function<void(const handle_t&)>& handle_end_fn,    // called when node orientation goes out of scope
     const function<bool(void)>& break_fn,                    // called to check if we should stop the DFS; we stop when true is returned.
     const function<void(const edge_t&)>& edge_fn,            // called when an edge is encountered
@@ -55,20 +56,24 @@ void dfs(
             // Collect all the edges attached to the outgoing side of the
             // traversal.
             auto& es = edges[root];
+
+            // run our discovery-time callback
+            bool search_edges = handle_begin_fn(root);
+
             // follow edges?
-            graph.follow_edges(root, false, [&](const handle_t& next) {
-                    es.push_back(graph.edge_handle(root, next));
+            if (search_edges == true) {
+                graph.follow_edges(root, false, [&](const handle_t& next) {
+                        es.push_back(graph.edge_handle(root, next));
                     
 #ifdef debug
-                    cerr << "\t\tWill need to investigate edge to "
-                        << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
+                        cerr << "\t\tWill need to investigate edge to "
+                             << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
 #endif
                     
-                });
+                    });
                 
-            todo.push_back(Frame(root, es.begin(), es.end()));
-            // run our discovery-time callback
-            handle_begin_fn(root);
+                todo.push_back(Frame(root, es.begin(), es.end()));
+            }
             // and check if we should break
             if (break_fn()) {
                 return true;
@@ -132,23 +137,31 @@ void dfs(
                     state[handle] = SearchState::CURR;
                     auto& es = edges[handle];
 
+                    // run our discovery-time callback
+                    bool search_edges = handle_begin_fn(handle);
+
                     // only walk out of handle that are not the sink
                     if (sinks.empty() || sinks.count(handle) == false) {
                         // follow edges?
-                        graph.follow_edges(handle, false, [&](const handle_t& next) {
-                                es.push_back(graph.edge_handle(handle, next));
+                        if (search_edges) {
+                            graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                    es.push_back(graph.edge_handle(handle, next));
                                 
 #ifdef debug
-                                cerr << "\t\t\tWill need to investigate edge to "
-                                    << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
+                                    cerr << "\t\t\tWill need to investigate edge to "
+                                         << graph.get_id(next) << " " << graph.get_is_reverse(next) << endl;
 #endif
                                 
-                            });
+                                });
+                        }
                     }
+                    // and check if we should break
+                    if (break_fn()) {
+                        return true;
+                    }
+
                     edges_begin = es.begin();
                     edges_end = es.end();
-                    // run our discovery-time callback
-                    handle_begin_fn(handle);
                     
                     // We will continue with edges_begin and edges_end and handle adjusted to this new loaded stack frame.
                     
@@ -199,7 +212,7 @@ void dfs(
 }
 
 void dfs(const HandleGraph& graph,
-                      const function<void(const handle_t&)>& handle_begin_fn,
+                      const function<bool(const handle_t&)>& handle_begin_fn,
                       const function<void(const handle_t&)>& handle_end_fn,
                       const vector<handle_t>& sources,
                       const unordered_set<handle_t>& sinks) {
@@ -217,7 +230,7 @@ void dfs(const HandleGraph& graph,
 }
 
 void dfs(const HandleGraph& graph,
-                      const function<void(const handle_t&)>& handle_begin_fn,
+                      const function<bool(const handle_t&)>& handle_begin_fn,
                       const function<void(const handle_t&)>& handle_end_fn,
                       const function<bool(void)>& break_fn) {
     auto edge_noop = [](const edge_t& e) { };
