@@ -125,6 +125,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         aln.set_read_group(read_group);
     }
     
+    // Clear any old refpos annotation and path
+    aln.clear_refpos();
+    aln.clear_path();
+    aln.set_score(0);
+    aln.set_identity(0);
+    
     for (size_t i = 0; i < max(min(max_alignments, cluster_indexes_in_order.size()), (size_t)1); i++) {
         // For each output alignment we will produce (always at least 1,
         // and possibly up to our alignment limit or the cluster count)
@@ -132,8 +138,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Produce an output Alignment
         aligned.emplace_back(aln);
         Alignment& out = aligned.back();
-        // Clear any old refpos annotation
-        out.clear_refpos();
         
         if (i < clusters.size()) {
             // We have a cluster; it actually mapped
@@ -224,8 +228,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
                 // Make a MultipathAlignment and feed in all the extended seeds as subpaths
                 MultipathAlignment mp;
-                mp.set_sequence(aln.sequence());
-                mp.set_quality(aln.quality());
+                // Pull over all the non-alignment data (to get copied back out when linearizing)
+                transfer_read_metadata(aln, mp);
                 for (auto& extended_seed : extended_seeds) {
                     Subpath* s = mp.add_subpath();
                     // Copy in the path.
@@ -575,7 +579,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     exit(1);
                 }
                 
-                // Fill in the path and score
+                
+                // Linearize into the out alignment, copying path, score, and also sequence and other read metadata
                 optimal_alignment(mp, out, true);
                 // Compute the identity from the path.
                 out.set_identity(identity(out.path()));
@@ -585,13 +590,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
         }
         
-        // If we get here, either there was no cluster or the cluster produced no extension
+        // If we get here, either there was no cluster or the cluster produced no extension or chained mapping
         
-        // Read was not able to be mapped.
-        // Make our output alignment un-aligned.
-        out.clear_path();
-        out.set_score(0);
-        out.set_identity(0);
+        // Read was not able to be mapped. Leave it unaligned.
     }
     
     // Sort again by actual score instead of cluster coverage
