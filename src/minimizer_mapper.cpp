@@ -225,6 +225,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // We assume all overlapping hits are exclusive.
                 unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
                     aln.sequence().size());
+                    
+                // We're going to record source and sink path count distributions, for debugging
+                vector<double> tail_path_counts;
+                
+                // We're also going to record read sequence lengths for tails
+                vector<double> tail_lengths;
+                
+                // And DP matrix areas for tails
+                vector<double> tail_dp_areas;
 
                 // Make a MultipathAlignment and feed in all the extended seeds as subpaths
                 MultipathAlignment mp;
@@ -255,7 +264,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     cerr << "There is a path into source extended seed " << source
                         << ": \"" << before_sequence << "\" against " << kv.second.size() << " haplotypes" << endl;
 #endif
-
+                    
+                    // Record that a source has this many incoming haplotypes to process.
+                    tail_path_counts.push_back(kv.second.size());
+                    // Against a sequence this long
+                    tail_lengths.push_back(before_sequence.size());
+                    
                     // We want the best alignment, to the base graph, done against any target path
                     Path best_path;
                     // And its score
@@ -309,8 +323,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             });
 #endif
 
+                            // Align, accounting for full length bonus
                             get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
-                            // TODO: This should assign full length bonus! Does it?
+                            
+                            // Record size of DP matrix filled
+                            tail_dp_areas.push_back(before_sequence.size() * path_from_length(path));
 
                             if (before_alignment.score() > best_score) {
                                 // This is a new best alignment. Translate from subgraph into base graph and keep it
@@ -372,6 +389,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             
                             if (!trailing_sequence.empty()) {
                                 // There is actual trailing sequence to align on this escape path
+                                
+                                // Record that a sink has this many outgoing haplotypes to process.
+                                tail_path_counts.push_back(to_and_paths.second.size());
+                                // Against a sequence this size
+                                tail_lengths.push_back(trailing_sequence.size());
 
                                 // Find the best path in backing graph space
                                 Path best_path;
@@ -418,7 +440,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                         after_alignment.set_sequence(trailing_sequence);
                                         // TODO: pre-make the topological order
 
-    #ifdef debug
+#ifdef debug
                                         cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
                                         subgraph.for_each_handle([&](const handle_t& here) {
                                             cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
@@ -429,9 +451,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                                 cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                                             });
                                         });
-    #endif
+#endif
 
                                         get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                                        
+                                        // Record size of DP matrix filled
+                                        tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));
 
                                         if (after_alignment.score() > best_score) {
                                             // This is a new best alignment. Translate from subgraph into base graph and keep it
@@ -584,6 +609,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 optimal_alignment(mp, out, true);
                 // Compute the identity from the path.
                 out.set_identity(identity(out.path()));
+                
+                // Save all the tail alignment debugging statistics
+                set_annotation(out, "tail_path_counts", tail_path_counts);
+                set_annotation(out, "tail_lengths", tail_lengths);
+                set_annotation(out, "tail_dp_areas", tail_dp_areas);
 
                 // Then continue so we don't emit the unaligned Alignment
                 continue;
