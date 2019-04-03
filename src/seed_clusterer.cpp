@@ -181,12 +181,13 @@ for (auto& n : node_to_seed){
         // We track seen-ness by chain, so we don't have to do O(N) work to tag
         // all snarls in chromosome-spanning chains as seen.
         unordered_set<const Chain*> seen_chains;
-        const vector<const Snarl*>& top_snarls = snarl_manager.top_level_snarls();
-        for (const Snarl* root_snarl : top_snarls) {
-            if (snarls_to_node.count(root_snarl) == 0 ) {
+        for (auto& snarl : snarls_to_node) {
+            //Find clusters for each disconnected snarl/chain
+            const Snarl* root_snarl = snarl.first;
+            if (snarl_manager.parent_of(root_snarl) != nullptr) {
+                //If this is not a top level snarl
                 continue;
             }
-            //Find clusters for each disconnected snarl/chain
             
             // Look up the (possibly trivial) chain for the snarl
             const Chain* root_chain = snarl_manager.chain_of(root_snarl);
