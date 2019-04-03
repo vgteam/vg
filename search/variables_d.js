@@ -131,6 +131,7 @@ var searchData=
   ['min_5fscore_5fper_5fbase',['min_score_per_base',['../classvg_1_1Genotyper.html#a8fc1fdccfa9829bb29903ed5d7b21b28',1,'vg::Genotyper']]],
   ['min_5fsecondary',['min_secondary',['../classvg_1_1ReadFilter.html#a8f0ecf4f3140e483ba93592231929dbb',1,'vg::ReadFilter']]],
   ['min_5fsize',['min_size',['../classvg_1_1SmallSnarlSimplifier.html#a6efa9c6d0dc38da336a5723f87e20e46',1,'vg::SmallSnarlSimplifier']]],
+  ['min_5ftail_5fanchor_5flength',['min_tail_anchor_length',['../classvg_1_1MultipathMapper.html#a9616c4b8786af795cfd1f007c5e0c1dc',1,'vg::MultipathMapper']]],
   ['min_5ftotal_5fsupport_5ffor_5fcall',['min_total_support_for_call',['../classvg_1_1SupportCaller.html#a8db9e682e135333e47b6ecb0b5374efb',1,'vg::SupportCaller']]],
   ['min_5funique_5fper_5fstrand',['min_unique_per_strand',['../classvg_1_1Genotyper.html#a6b1feebb10944e684e417115e880fe39',1,'vg::Genotyper']]],
   ['min_5fversion',['MIN_VERSION',['../structvg_1_1MinimizerIndex_1_1Header.html#ac7c0beb2db9ddf26e6390982f415e88c',1,'vg::MinimizerIndex::Header']]],

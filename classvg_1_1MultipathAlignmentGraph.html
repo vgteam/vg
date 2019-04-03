@@ -135,8 +135,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac3199fb5e097873e2635e3fb34a8eafe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac3543fd819b9bf29db1b49267c7a6b75"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#ac3543fd819b9bf29db1b49267c7a6b75">resect_snarls_from_paths</a> (<a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *cutting_snarls, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;projection_trans, int64_t max_snarl_cut_size=5)</td></tr>
 <tr class="separator:ac3543fd819b9bf29db1b49267c7a6b75"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a843233ec344e29a282da262391c75b9a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a843233ec344e29a282da262391c75b9a">synthesize_tail_anchors</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t max_alt_alns, bool dynamic_alt_alns)</td></tr>
-<tr class="separator:a843233ec344e29a282da262391c75b9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8ca4ca727f888dfde453616c292d2a77"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#a8ca4ca727f888dfde453616c292d2a77">synthesize_tail_anchors</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;align_graph, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns)</td></tr>
+<tr class="separator:a8ca4ca727f888dfde453616c292d2a77"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab425ee12b86f18592c1f948bf745ae6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathAlignmentGraph.html#aab425ee12b86f18592c1f948bf745ae6">add_reachability_edges</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;vg, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;projection_trans, const unordered_multimap&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt;&gt; &amp;injection_trans)</td></tr>
 <tr class="memdesc:aab425ee12b86f18592c1f948bf745ae6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add edges between reachable nodes and split nodes at overlaps.  <a href="#aab425ee12b86f18592c1f948bf745ae6">More...</a><br/></td></tr>
 <tr class="separator:aab425ee12b86f18592c1f948bf745ae6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1079,7 +1079,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a843233ec344e29a282da262391c75b9a"></a>
+<a class="anchor" id="a8ca4ca727f888dfde453616c292d2a77"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -1100,6 +1100,12 @@ Private Attributes</h2></td></tr>
           <td></td>
           <td class="paramtype">const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *&#160;</td>
           <td class="paramname"><em>aligner</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>min_anchor_size</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
