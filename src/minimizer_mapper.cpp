@@ -945,7 +945,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 }
 
 size_t MinimizerMapper::immutable_path_from_length(const ImmutablePath& path) {
-    size_t to_return;
+    size_t to_return = 0;
     for (auto& m : path) {
         // Sum up the from lengths of all the component Mappings
         to_return += mapping_from_length(m);
