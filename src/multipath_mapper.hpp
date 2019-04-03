@@ -9,7 +9,7 @@
 
 #include "hash_map.hpp"
 #include "mapper.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "types.hpp"
 #include "multipath_alignment.hpp"
 #include "xg.hpp"
@@ -97,6 +97,7 @@ namespace vg {
         size_t max_branch_trim_length = 1;
         int64_t max_snarl_cut_size = 5;
         bool suppress_tail_anchors = false;
+        size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;
@@ -142,6 +143,7 @@ namespace vg {
         bool simplify_topologies = false;
         bool delay_population_scoring = false;
         bool use_tvs_clusterer = false;
+        bool use_min_dist_clusterer = false;
         // length of reversing walks during graph extraction
         size_t reversing_walk_length = 0;
         

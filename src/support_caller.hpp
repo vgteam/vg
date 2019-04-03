@@ -164,6 +164,16 @@ public:
         const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr,
         const SnarlTraversal* ref_traversal = nullptr);
 
+    /** 
+     * Get the edge supports of an inversion.  This is to be used for computing genotypes with average support,
+     * as the normal supports will almost always return 0/1 due to the nodes having the same support.  If 
+     * the alleles don't refer to a simple inversion, an empty vector is returned (and should be ignored)
+     */
+    vector<Support>  get_inversion_supports(
+        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+        const vector<SnarlTraversal>& traversals, const vector<size_t>& traversal_sizes,
+        int best_allele, int second_best_allele);   
+
     /**
      * For the given snarl, find the reference traversal, the best traversal,
      * and the second-best traversal, recursively, if any exist. These
@@ -362,8 +372,16 @@ public:
     Option<bool> leave_shared_ends{this, "leave-shared-ends", "X", false,
             "don't collapse shared prefix and suffix of alleles in VCF output"};
 
+    Option<int> max_inversion_size{this, "max-inv", "e", 1000,
+            "maximum detectable inversion size in number of nodes"};
+    
     /// print warnings etc. to stderr
     bool verbose = false;
+
+    /// inversion or deletion edges greater than this length with 0 support
+    /// will clamp average support down to 0.  this is primarily to prevent
+    /// FP inversions when using average support
+    int max_unsupported_edge_size = 20;
     
 };
 

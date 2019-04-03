@@ -1,6 +1,6 @@
 #include "vg.hpp"
 #include "stream/stream.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "vg.pb.h"
 #include "flow_sort.hpp"
 #include <raptor2/raptor2.h>

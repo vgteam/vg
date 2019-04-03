@@ -5,7 +5,7 @@
 #include <gcsa/lcp.h>
 #include <structures/union_find.hpp>
 #include "position.hpp"
-#include "gssw_aligner.hpp"
+#include "aligner.hpp"
 #include "utility.hpp"
 #include "mem.hpp"
 #include "xg.hpp"
@@ -170,7 +170,7 @@ public:
     /// contains a pointer to the original MEM and the position of that particular hit in the graph.
     vector<cluster_t> clusters(const Alignment& alignment,
                                const vector<MaximalExactMatch>& mems,
-                               BaseAligner* Aligner,
+                               const GSSWAligner* Aligner,
                                size_t min_mem_length = 1,
                                int32_t max_qual_score = 60,
                                int32_t log_likelihood_approx_factor = 0,
@@ -205,12 +205,12 @@ protected:
     /// Initializes a hit graph and adds edges to it, this must be implemented by any inheriting
     /// class
     virtual HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                    BaseAligner* aligner, size_t min_mem_length) = 0;
+                                    const GSSWAligner* aligner, size_t min_mem_length) = 0;
     
     /// Once the distance between two hits has been estimated, estimate the score of the hit graph edge
     /// connecting them
     int32_t estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2, int64_t graph_dist,
-                                BaseAligner* aligner) const;
+                                const GSSWAligner* aligner) const;
     
     /// Sorts cluster pairs and removes copies of the same cluster pair, choosing only the one whose distance
     /// is closest to the optimal separation
@@ -221,7 +221,7 @@ class MEMClusterer::HitGraph {
 public:
     
     /// Initializes nodes in the hit graph, but does not add edges
-    HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
+    HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
              size_t min_mem_length = 1);
     
     /// Add an edge
@@ -229,7 +229,7 @@ public:
     
     /// Returns the top scoring connected components
     vector<cluster_t> clusters(const Alignment& alignment,
-                               BaseAligner* aligner,
+                               const GSSWAligner* aligner,
                                int32_t max_qual_score,
                                int32_t log_likelihood_approx_factor,
                                size_t min_median_mem_coverage_for_split,
@@ -521,7 +521,7 @@ private:
                                                            const vector<MaximalExactMatch>& mems);
     
     /// Concrete implementation of virtual method from MEMClusterer
-    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
                             size_t min_mem_length);
     
     OrientedDistanceMeasurer& distance_measurer;
@@ -594,9 +594,11 @@ public:
     /// Returns a path from pos_1 to pos_2 with length closest to the target value. If there is no such
     /// path within the tolerance of the target value, returns an empty vector.
     vector<handle_t> tv_path(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance);
-    vector<handle_t> tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, hash_map<pair<id_t, bool>,int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t> node_to_target_longer, pair<int64_t, pair<pair<id_t, bool>,int64_t>> best_lng, pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path);
     
 private:
+    
+    vector<handle_t> tv_phase2(const pos_t& pos_1, const pos_t& pos_2, int64_t target_value, int64_t tolerance, hash_map<pair<id_t, bool>,int64_t> node_to_target_shorter, hash_map<pair<id_t, bool>, int64_t> node_to_target_longer, pair<int64_t, pair<pair<id_t, bool>,int64_t>> best_lng, pair<int64_t, pair<pair<id_t, bool>, int64_t>> next_best, hash_map<pair<pair<id_t, bool>, int64_t>, pair<pair<id_t, bool>, int64_t>> node_to_path);
+    
     const HandleGraph& handle_graph;
     unique_ptr<DistanceHeuristic> upper_bound_heuristic;
     unique_ptr<DistanceHeuristic> lower_bound_heuristic;
@@ -623,11 +625,37 @@ public:
 private:
     
     /// Concrete implementation of virtual method from MEMClusterer
-    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, BaseAligner* aligner,
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
                             size_t min_mem_length);
     
     TargetValueSearch tvs;
 };
+    
+class MinDistanceClusterer : public MEMClusterer {
+public:
+    MinDistanceClusterer(DistanceIndex* distance_index);
+    ~MinDistanceClusterer() = default;
+    
+    /// Concrete implementation of virtual method from MEMClusterer
+    vector<pair<pair<size_t, size_t>, int64_t>> pair_clusters(const Alignment& alignment_1,
+                                                              const Alignment& alignment_2,
+                                                              const vector<cluster_t*>& left_clusters,
+                                                              const vector<cluster_t*>& right_clusters,
+                                                              const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                              const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                              int64_t optimal_separation,
+                                                              int64_t max_deviation);
+    
+private:
+    
+    /// Concrete implementation of virtual method from MEMClusterer
+    HitGraph make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems, const GSSWAligner* aligner,
+                            size_t min_mem_length);
+    
+    const HandleGraph* handle_graph;
+    DistanceIndex* distance_index;
+};
+    
 
 /// get the handles that a mem covers
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);

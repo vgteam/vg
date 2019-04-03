@@ -523,7 +523,7 @@ then
         if [ -z "${CI_MERGE_REQUEST_IID}" ] && [ "${CI_COMMIT_REF_NAME}" == "master" ]
         then
             echo "Updating baseline"
-            aws s3 sync --delete \
+            aws s3 sync --only-show-errors --delete \
                 "${LOAD_WORK_DIR}/" "${OUTPUT_DESTINATION}/vgci_regression_baseline" \
                 --grants "read=uri=http://acs.amazonaws.com/groups/global/AllUsers" "full=id=${OUTPUT_OWNER}"
             if [ "$?" -ne 0 ]

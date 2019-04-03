@@ -24,6 +24,7 @@
  *   minimizers can start.
  */
 
+#include "../gapless_extender.hpp"
 #include "../gbwt_helper.hpp"
 #include "../minimizer.hpp"
 #include "subcommand.hpp"
@@ -62,9 +63,12 @@ void help_minimizer(char** argv) {
     std::cerr << "    -G, --gcsa-name X      also benchmark the GCSA2 index in file X" << std::endl;
     std::cerr << "    -L, --locate           locate the minimizer/MEM occurrences" << std::endl;
     std::cerr << "    -m, --max-occs N       do not locate minimizers with more than N occurrences" << std::endl;
+    std::cerr << "    -e, --extend N         try gapless extension of unique hits with up to N mismatches (requires -g, -L)" << std::endl;
+    std::cerr << "    -g, --gbwt-name X      extend using the GBWT index in file X" << std::endl;
+    std::cerr << "    -M, --min-hits N       only extend reads with at least N minimizer hits" << std::endl;
 }
 
-int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool progress);
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_hits, bool progress);
 
 int main_minimizer(int argc, char** argv) {
 
@@ -77,8 +81,9 @@ int main_minimizer(int argc, char** argv) {
     size_t kmer_length = MinimizerIndex::KMER_LENGTH;
     size_t window_length = MinimizerIndex::WINDOW_LENGTH;
     size_t max_occs = MinimizerIndex::MAX_OCCS;
+    size_t max_errors = 0, min_hits = 1;
     std::string index_name, load_index, gbwt_name, xg_name, reads_name, gcsa_name;
-    bool progress = false, locate = false;
+    bool progress = false, locate = false, gapless_extend = false;
     int threads = omp_get_max_threads();
 
     int c;
@@ -97,11 +102,13 @@ int main_minimizer(int argc, char** argv) {
             { "benchmark", required_argument, 0, 'b' },
             { "gcsa-name", required_argument, 0, 'G' },
             { "locate", no_argument, 0, 'L' },
+            { "extend", required_argument, 0, 'e' },
+            { "min-hits", required_argument, 0, 'M' },
             { 0, 0, 0, 0 }
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:L", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:Le:M:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -142,6 +149,13 @@ int main_minimizer(int argc, char** argv) {
         case 'L':
             locate = true;
             break;
+        case 'e':
+            max_errors = parse<size_t>(optarg);
+            gapless_extend = true;
+            break;
+        case 'M':
+            min_hits = std::max(static_cast<size_t>(1), parse<size_t>(optarg));
+            break;
 
         case 'h':
         case '?':
@@ -155,8 +169,12 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "[vg minimizer]: option --index-name is required" << std::endl;
         return 1;
     }
+    if (gapless_extend && (!locate || gbwt_name.empty())) {
+        std::cerr << "[vg minimizer]: option --extend requires --gbwt-name and --locate" << std::endl;
+        return 1;
+    }
     if (!reads_name.empty()) {
-        return query_benchmarks(index_name, reads_name, gcsa_name, locate, max_occs, progress);
+        load_index = index_name;
     }
     if (optind + 1 != argc) {
         help_minimizer(argv);
@@ -177,50 +195,85 @@ int main_minimizer(int argc, char** argv) {
     std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length, max_occs));
     if (!load_index.empty()) {
         if (progress) {
-            std::cerr << "Loading the index from " << load_index << std::endl;
+            std::cerr << "Loading minimizer index " << load_index << std::endl;
         }
         index = stream::VPKG::load_one<MinimizerIndex>(load_index);
     }
 
-    // GBWT index.
+    // GBWT-backed graph.
     std::unique_ptr<gbwt::GBWT> gbwt_index;
+    std::unique_ptr<GBWTGraph> gbwt_graph;
     if (!gbwt_name.empty()) {
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
         gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+        if (progress) {
+            std::cerr << "Building GBWT-backed graph" << std::endl;
+        }
+        gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
+        xg_index.reset(nullptr); // The XG index is no longer needed.
     }
+
+    // Run the benchmarks and return.
+    if (!reads_name.empty()) {
+        return query_benchmarks(index, gbwt_graph, reads_name, gcsa_name, locate, max_occs, gapless_extend, max_errors, min_hits, progress);
+    }
+
+    // Minimizer caching.
+    std::vector<std::vector<std::pair<MinimizerIndex::key_type, pos_t>>> cache(threads);
+    constexpr size_t MINIMIZER_CACHE_SIZE = 1024;
+    auto flush_cache = [&](int thread_id) {
+        gbwt::removeDuplicates(cache[thread_id], false);
+        #pragma omp critical (minimizer_index)
+        {
+            for (auto& minimizer : cache[thread_id]) {
+                index->insert(minimizer.first, minimizer.second);
+            }
+        }
+        cache[thread_id].clear();
+    };
 
     // Build the index.
     if (progress) {
         std::cerr << "Building the index" << std::endl;
     }
-    auto lambda = [&index](const std::vector<std::pair<pos_t, size_t>>& traversal, const std::string& seq) {
+    const HandleGraph& graph = *(gbwt_name.empty() ?
+                                 static_cast<const HandleGraph*>(xg_index.get()) :
+                                 static_cast<const HandleGraph*>(gbwt_graph.get()));
+    auto lambda = [&](const std::vector<handle_t>& traversal, const std::string& seq) {
         std::vector<MinimizerIndex::minimizer_type> minimizers = index->minimizers(seq);
         auto iter = traversal.begin();
-        size_t starting_offset = 0;
-#pragma omp critical (minimizer_index)
-        {
-            for (MinimizerIndex::minimizer_type minimizer : minimizers) {
-                if (minimizer.first == MinimizerIndex::NO_KEY) {
-                    continue;
-                }
-                // Find the node covering minimizer starting position.
-                while (starting_offset + iter->second <= minimizer.second) {
-                    starting_offset += iter->second;
-                    ++iter;
-                }
-                pos_t pos = iter->first;
-                get_offset(pos) += minimizer.second - starting_offset;
-                index->insert(minimizer.first, pos);
+        size_t node_start = 0;
+        int thread_id = omp_get_thread_num();
+        for (MinimizerIndex::minimizer_type minimizer : minimizers) {
+            if (minimizer.first == MinimizerIndex::NO_KEY) {
+                continue;
             }
+            // Find the node covering minimizer starting position.
+            size_t node_length = graph.get_length(*iter);
+            while (node_start + node_length <= minimizer.second) {
+                node_start += node_length;
+                ++iter;
+                node_length = graph.get_length(*iter);
+            }
+            pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.second - node_start };
+            cache[thread_id].emplace_back(minimizer.first, pos);
+        }
+        if (cache[thread_id].size() >= MINIMIZER_CACHE_SIZE) {
+            flush_cache(thread_id);
         }
     };
     if (gbwt_name.empty()) {
         for_each_window(*xg_index, index->k() + index->w() - 1, lambda, (threads > 1));
     } else {
-        for_each_window(*xg_index, *gbwt_index, index->k() + index->w() - 1, lambda, (threads > 1));
+        for_each_haplotype_window(*gbwt_graph, index->k() + index->w() - 1, lambda, (threads > 1));
     }
+    for (int thread_id = 0; thread_id < threads; thread_id++) {
+        flush_cache(thread_id);
+    }
+    xg_index.reset(nullptr);
+    gbwt_graph.reset(nullptr);
     gbwt_index.reset(nullptr);
 
     // Index statistics.
@@ -228,6 +281,8 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << index->size() << " keys (" << index->unique_keys() << " unique, " << index->frequent_keys() << " too frequent)" << std::endl;
         std::cerr << "Minimizer occurrences: " << index->values() << std::endl;
         std::cerr << "Load factor: " << index->load_factor() << std::endl;
+        double seconds = gbwt::readTimer() - start;
+        std::cerr << "Construction so far: " << seconds << " seconds" << std::endl;
     }
 
     // Serialize the index.
@@ -236,8 +291,8 @@ int main_minimizer(int argc, char** argv) {
     }
     stream::VPKG::save(*index, index_name);
 
-    double seconds = gbwt::readTimer() - start;
     if (progress) {
+        double seconds = gbwt::readTimer() - start;
         std::cerr << "Time usage: " << seconds << " seconds" << std::endl;
         std::cerr << "Memory usage: " << gbwt::inGigabytes(gbwt::memoryUsage()) << " GiB" << std::endl;
     }
@@ -245,15 +300,9 @@ int main_minimizer(int argc, char** argv) {
     return 0;
 }
 
-int query_benchmarks(const std::string& index_name, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool progress) {
+int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::unique_ptr<GBWTGraph>& gbwt_graph, const std::string& reads_name, const std::string& gcsa_name, bool locate, size_t max_occs, bool gapless_extend, size_t max_errors, size_t min_hits, bool progress) {
 
     double start = gbwt::readTimer();
-
-    // Load the minimizer index.
-    if (progress) {
-        std::cerr << "Loading the minimizer index from " << index_name << std::endl;
-    }
-    std::unique_ptr<MinimizerIndex> index(stream::VPKG::load_one<MinimizerIndex>(index_name));
 
     // Load the GCSA index.
     bool benchmark_gcsa = !(gcsa_name.empty());
@@ -261,7 +310,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
     std::unique_ptr<gcsa::LCPArray> lcp_index;
     if (benchmark_gcsa) {
         if (progress) {
-            std::cerr << "Loading the GCSA index from " << gcsa_name << std::endl;
+            std::cerr << "Loading GCSA index " << gcsa_name << std::endl;
         }
         gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         std::string lcp_name = gcsa_name + gcsa::LCPArray::EXTENSION;
@@ -291,20 +340,47 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
     {
         double phase_start = gbwt::readTimer();
 
+        GaplessExtender extender;
+        if (gapless_extend) {
+            extender = GaplessExtender(*gbwt_graph);
+        }
         std::vector<size_t> min_counts(threads, 0);
         std::vector<size_t> occ_counts(threads, 0);
-#pragma omp parallel for schedule(static)
+        std::vector<size_t> extend_counts(threads, 0);
+        std::vector<size_t> seed_counts(threads, 0);
+        std::vector<size_t> success_counts(threads, 0);
+        std::vector<size_t> success_seed_counts(threads, 0);
+        std::vector<size_t> partial_match_counts(threads, 0);
+        #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
             size_t thread = omp_get_thread_num();
             std::vector<MinimizerIndex::minimizer_type> result = index->minimizers(reads[i]);
             min_counts[thread] += result.size();
             if (locate) {
+                std::vector<std::pair<size_t, pos_t>> hits; // (read offset, pos) for unique hits.
                 for (auto minimizer : result) {
                     if (index->count(minimizer.first) <= max_occs) {
-                        std::vector<pos_t> result = index->find(minimizer.first);
-                        if (result.size() != 1 || !vg::is_empty(result.front())) {
-                            occ_counts[thread] += result.size();
+                        std::vector<pos_t> occs = index->find(minimizer.first);
+                        if (occs.size() != 1 || !vg::is_empty(occs.front())) {
+                            occ_counts[thread] += occs.size();
+                            if (gapless_extend) {
+                                for (pos_t occ : occs) {
+                                    hits.emplace_back(minimizer.second, occ);
+                                }
+                            }
                         }
+                    }
+                }
+                if (hits.size() >= min_hits) {
+                    extend_counts[thread]++;
+                    seed_counts[thread] += hits.size();
+                    auto result = extender.extend_seeds(hits, reads[i], max_errors);
+                    if (result.second <= max_errors) {
+                        success_counts[thread]++;
+                        success_seed_counts[thread] += hits.size();
+                    } else {
+                        auto partial_matches = extender.maximal_extensions(hits, reads[i]);
+                        partial_match_counts[thread] += partial_matches.size();
                     }
                 }
             } else {
@@ -314,15 +390,31 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
             }
         }
         size_t min_count = 0, occ_count = 0;
+        size_t extend_count = 0, seed_count = 0, success_count = 0, success_seed_count = 0, partial_match_count = 0;
         for (size_t i = 0; i < threads; i++) {
             min_count += min_counts[i];
             occ_count += occ_counts[i];
+            extend_count += extend_counts[i];
+            seed_count += seed_counts[i];
+            success_count += success_counts[i];
+            success_seed_count += success_seed_counts[i];
+            partial_match_count += partial_match_counts[i];
         }
 
         double phase_seconds = gbwt::readTimer() - phase_start;
-        std::string query_type = (locate ? "locate" : "count");
+        std::string query_type = "count";
+        if (locate) { 
+            query_type = "locate";
+        }
+        if (gapless_extend) {
+            query_type = "extend";
+        }
         std::cerr << "Minimizers (" << query_type << "): " << phase_seconds << " seconds (" << (reads.size() / phase_seconds) << " reads/second)" << std::endl;
         std::cerr << min_count << " minimizers with " << occ_count << " occurrences" << std::endl;
+        if (gapless_extend) {
+            std::cerr << extend_count << " reads with " << seed_count << " seeds, " << success_count << " extended with up to " << max_errors << " mismatches" << std::endl;
+            std::cerr << "Extended " << (extend_count - success_count) << " reads with " << (seed_count - success_seed_count) << " seeds into " << partial_match_count << " partial matches" << std::endl;
+        }
         std::cerr << std::endl;
     }
 
@@ -332,7 +424,7 @@ int query_benchmarks(const std::string& index_name, const std::string& reads_nam
 
         std::vector<size_t> mem_counts(threads, 0);
         std::vector<size_t> mem_lengths(threads, 0);
-#pragma omp parallel for schedule(static)
+        #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
             size_t thread = omp_get_thread_num();
             const std::string& read = reads[i];

@@ -254,38 +254,38 @@ class TestDistanceIndex : public DistanceIndex {
             NetGraph ng2 = NetGraph(snarl2->start(), snarl2->end(), snarl_manager.chains_of(snarl2), &graph);
             NetGraph ng3 = NetGraph(snarl3->start(), snarl3->end(), snarl_manager.chains_of(snarl3), &graph);
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng1,start1, make_pair(2, false)) == 3); 
-            REQUIRE(sd1.snarlDistance(&graph, &ng1,start1, make_pair(2, true)) == -1); 
+            REQUIRE(sd1.snarlDistance(start1, make_pair(2, false)) == 3); 
+            REQUIRE(sd1.snarlDistance(start1, make_pair(2, true)) == -1); 
             REQUIRE(sd1.snarlDistanceShort(start1, make_pair(2, false)) == 0); 
-            REQUIRE(sd1.snarlDistance(&graph , &ng1, start2r, make_pair(1,true)) == 3); 
+            REQUIRE(sd1.snarlDistance(start2r, make_pair(1,true)) == 3); 
             REQUIRE(sd1.snarlDistanceShort(make_pair(8, true), make_pair(1, true)) == 0); 
             REQUIRE(sd1.snarlDistanceShort(make_pair(1, false), make_pair(8, false)) == 0); 
  
 
-             REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(3, false), make_pair(7, false)) == 4);          
-             REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(7, true), make_pair(2, true)) == 2);
+             REQUIRE(sd2.snarlDistance(make_pair(3, false), make_pair(7, false)) == 4);          
+             REQUIRE(sd2.snarlDistance(make_pair(7, true), make_pair(2, true)) == 2);
 
-             REQUIRE(((sd2.snarlDistance(&graph, &ng2, end2r, start3r) == 1 && //3 is start
-                      sd2.snarlDistance(&graph, &ng2, start2, start3) == 1) || 
-                     (sd2.snarlDistance(&graph, &ng2, end2r, start3) == 1 &&   //5 is start
-                      sd2.snarlDistance(&graph, &ng2, start2, start3r) == 1)
+             REQUIRE(((sd2.snarlDistance(end2r, start3r) == 1 && //3 is start
+                      sd2.snarlDistance(start2, start3) == 1) || 
+                     (sd2.snarlDistance( end2r, start3) == 1 &&   //5 is start
+                      sd2.snarlDistance(start2, start3r) == 1)
               ));
 
-             REQUIRE(((sd1.snarlDistance(&graph, &ng1, end1r, start2r) == 4 && //3 is start
-                      sd1.snarlDistance(&graph, &ng1, start1, start2) == 3) || 
-                     (sd1.snarlDistance(&graph, &ng1, end1r, start2) == 4 &&   //5 is start
-                      sd1.snarlDistance(&graph, &ng1, start1, start2r) == 3)
+             REQUIRE(((sd1.snarlDistance(end1r, start2r) == 4 && //3 is start
+                      sd1.snarlDistance(start1, start2) == 3) || 
+                     (sd1.snarlDistance( end1r, start2) == 4 &&   //5 is start
+                      sd1.snarlDistance( start1, start2r) == 3)
               ));
 
-             REQUIRE(sd3.snarlDistance(&graph, &ng3, make_pair(5, true), make_pair(4, true))
+             REQUIRE(sd3.snarlDistance( make_pair(5, true), make_pair(4, true))
                                                                           == 3);
-             REQUIRE((sd2.snarlDistance(&graph, &ng2, make_pair(2, false), start3) == 1 ||
-                       sd2.snarlDistance(&graph, &ng2, make_pair(2, false), start3r) == 1 ) );
-             REQUIRE(( sd2.snarlDistance(&graph, &ng2, start2, start3) == 1 || 
-                       sd2.snarlDistance(&graph, &ng2, start2, start3r) == 1)   );
+             REQUIRE((sd2.snarlDistance( make_pair(2, false), start3) == 1 ||
+                       sd2.snarlDistance( make_pair(2, false), start3r) == 1 ) );
+             REQUIRE(( sd2.snarlDistance( start2, start3) == 1 || 
+                       sd2.snarlDistance( start2, start3r) == 1)   );
 
-             REQUIRE(( sd2.snarlDistance(&graph, &ng2, end2r, start3) == 1 || 
-                       sd2.snarlDistance(&graph, &ng2, end2r, start3r) == 1)   );
+             REQUIRE(( sd2.snarlDistance( end2r, start3) == 1 || 
+                       sd2.snarlDistance( end2r, start3r) == 1)   );
             REQUIRE(di.chainDistances.size() == 0);
         }
 
@@ -520,9 +520,9 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.checkChainDist(get_start_of(*chain).node_id(), 2) == 5);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 0) == -1);
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng, make_pair(1, false), make_pair(8, false))
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(8, false))
                                                                          == 3);
-            REQUIRE(sd1.snarlDistance(&graph, &ng, make_pair(8, true), make_pair(1, true))
+            REQUIRE(sd1.snarlDistance(make_pair(8, true), make_pair(1, true))
                                                                           == 4);
             REQUIRE(di.chainDistances.size() == 1);
     
@@ -682,17 +682,17 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.checkChainLoopRev(get_start_of(*chain).node_id(), 0) == -1);
             REQUIRE(di.checkChainLoopRev(get_start_of(*chain).node_id(), 1) == -1);
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, false), make_pair(8, false))
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(8, false))
                                                                          == 3);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(8, true), make_pair(1, true))
+            REQUIRE(sd1.snarlDistance(make_pair(8, true), make_pair(1, true))
                                                                           == 4);
-            REQUIRE(sd5.snarlDistance(&graph, &ng5, make_pair(5, false), make_pair(5, true))
+            REQUIRE(sd5.snarlDistance(make_pair(5, false), make_pair(5, true))
                                                                           == 3);
-            REQUIRE(sd5.snarlDistance(&graph, &ng5, make_pair(6, false), make_pair(6, true))
+            REQUIRE(sd5.snarlDistance(make_pair(6, false), make_pair(6, true))
                                                                         == 12);
-            REQUIRE(sd5.snarlDistance(&graph, &ng5, make_pair(5, false), make_pair(6, true))
+            REQUIRE(sd5.snarlDistance(make_pair(5, false), make_pair(6, true))
                                                                         == 5);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(3, false), make_pair(4, true))
+            REQUIRE(sd2.snarlDistance( make_pair(3, false), make_pair(4, true))
                                                                          == 7);
             REQUIRE(di.chainDistances.size() == 1);
             REQUIRE(cd.chainDistance(make_pair(2, false), make_pair(5, false), snarl2, snarl5) == 2);
@@ -835,11 +835,11 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.checkChainLoopRev(get_start_of(*chain).node_id(),1)== 3);
             REQUIRE(di.checkChainLoopRev(get_start_of(*chain).node_id(),0)==-1);
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, false), make_pair(8, false))
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(8, false))
                                                                          == 3);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(8, true), make_pair(1, true))
+            REQUIRE(sd1.snarlDistance(make_pair(8, true), make_pair(1, true))
                                                                           == 4);
-            REQUIRE(sd5.snarlDistance(&graph, &ng5, make_pair(6, true), make_pair(6, false))
+            REQUIRE(sd5.snarlDistance(make_pair(6, true), make_pair(6, false))
                                                                           == 7);
             REQUIRE(di.chainDistances.size() == 2);
     
@@ -997,7 +997,7 @@ class TestDistanceIndex : public DistanceIndex {
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 2) == 5);
             REQUIRE(di.checkChainLoopFd(get_start_of(*chain).node_id(), 3) == -1);
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, false), make_pair(10, false))
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(10, false))
                                                                          == 3);
             REQUIRE(di.chainDistances.size() == 1);
 
@@ -1127,21 +1127,21 @@ class TestDistanceIndex : public DistanceIndex {
             NetGraph ng7 = NetGraph(snarl7->start(), snarl7->end(), snarl_manager.chains_of(snarl7), &graph);
             TestDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, true), make_pair(1, false))
+            REQUIRE(sd1.snarlDistance(make_pair(1, true), make_pair(1, false))
                                                                          == 3);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, false), make_pair(1, true))
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(1, true))
                                                                          == -1);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(2, true), make_pair(1, true))
+            REQUIRE(sd2.snarlDistance(make_pair(2, true), make_pair(1, true))
                                                                          == 1);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(2, true), make_pair(1, false))
+            REQUIRE(sd2.snarlDistance(make_pair(2, true), make_pair(1, false))
                                                                          == -1);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(1, false), make_pair(3, false))
+            REQUIRE(sd2.snarlDistance(make_pair(1, false), make_pair(3, false))
                                                                          == 6);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(3, true), make_pair(1, true))
+            REQUIRE(sd2.snarlDistance(make_pair(3, true), make_pair(1, true))
                                                                          == 1);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(3, true), make_pair(1, false))
+            REQUIRE(sd2.snarlDistance(make_pair(3, true), make_pair(1, false))
                                                                          == -1);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(3, true), make_pair(3, false))
+            REQUIRE(sd2.snarlDistance(make_pair(3, true), make_pair(3, false))
                                                                          == 7);
              
             REQUIRE(cd.chainDistance(make_pair(6, true), make_pair(3, true), snarl3, snarl3) 
@@ -1160,15 +1160,15 @@ class TestDistanceIndex : public DistanceIndex {
                                                                     == 11);
             REQUIRE(di.chainDistances.size() == 1);
 
-            REQUIRE(sd7.snarlDistance(&graph, &ng7, make_pair(7, true), make_pair(2, false))
+            REQUIRE(sd7.snarlDistance(make_pair(7, true), make_pair(2, false))
                                                                          == 1);
-            REQUIRE(sd7.snarlDistance(&graph, &ng7, make_pair(7, true), make_pair(2, true))
+            REQUIRE(sd7.snarlDistance(make_pair(7, true), make_pair(2, true))
                                                                          == 1);
-            REQUIRE(sd7.snarlDistance(&graph, &ng7, make_pair(7, true), make_pair(7, false))
+            REQUIRE(sd7.snarlDistance(make_pair(7, true), make_pair(7, false))
                                                                        == 9);
-            REQUIRE(sd7.snarlDistance(&graph, &ng7, make_pair(2, true), make_pair(7, false))
+            REQUIRE(sd7.snarlDistance(make_pair(2, true), make_pair(7, false))
                                                                         == 12);
-            REQUIRE(sd7.snarlDistance(&graph, &ng7, make_pair(2, false), make_pair(7, true))
+            REQUIRE(sd7.snarlDistance(make_pair(2, false), make_pair(7, true))
                                                                         == -1);
 
             }
@@ -1275,7 +1275,7 @@ class TestDistanceIndex : public DistanceIndex {
 #endif
             NetGraph ng = NetGraph(snarl3->start(), snarl3->end(), snarl_manager.chains_of(snarl3), &graph);
 
-            REQUIRE(sd3.snarlDistance(&graph, &ng, make_pair(5, false), make_pair(5, false)) == 12); 
+            REQUIRE(sd3.snarlDistance(make_pair(5, false), make_pair(5, false)) == 12); 
         }
 
 
@@ -1376,10 +1376,10 @@ class TestDistanceIndex : public DistanceIndex {
 
             NetGraph ng = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng, make_pair(1, false), make_pair(2, false)) == 3); 
-            REQUIRE(sd1.snarlDistance(&graph, &ng, make_pair(1, false), make_pair(2, true)) == 6); 
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(2, false)) == 3); 
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(2, true)) == 6); 
             REQUIRE(sd1.snarlDistanceShort(make_pair(1, false), make_pair(2, false)) == 0); 
-            REQUIRE(sd1.snarlDistance(&graph, &ng, make_pair(2, true), make_pair(1,true)) == 3); 
+            REQUIRE(sd1.snarlDistance( make_pair(2, true), make_pair(1,true)) == 3); 
 
         }
 
@@ -1568,16 +1568,16 @@ class TestDistanceIndex : public DistanceIndex {
 
             NetGraph ng2 = NetGraph(snarl2->start(), snarl2->end(), snarl_manager.chains_of(snarl2), &graph);
 
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, false), make_pair(7, false)) == 3);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(1, false), make_pair(7, false)) == 3);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(7, false)) == 3);
+            REQUIRE(sd1.snarlDistance(make_pair(1, false), make_pair(7, false)) == 3);
+            REQUIRE(sd1.snarlDistance(make_pair(
                        snarl2->start().node_id(), !snarl2->start().backward()), 
                       make_pair(snarl2->start().node_id(), 
                                            snarl2->start().backward())) == -1);
-            REQUIRE(sd2.snarlDistance(&graph, &ng2, make_pair(4, true), make_pair(4, false)) == 6);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(5, true), make_pair(5, false)) == 13);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(5, true), make_pair(7, false)) == 14);
-            REQUIRE(sd1.snarlDistance(&graph, &ng1, make_pair(7, true), make_pair(7, false)) == 13);
+            REQUIRE(sd2.snarlDistance(make_pair(4, true), make_pair(4, false)) == 6);
+            REQUIRE(sd1.snarlDistance(make_pair(5, true), make_pair(5, false)) == 13);
+            REQUIRE(sd1.snarlDistance(make_pair(5, true), make_pair(7, false)) == 14);
+            REQUIRE(sd1.snarlDistance(make_pair(7, true), make_pair(7, false)) == 13);
 
         }
 

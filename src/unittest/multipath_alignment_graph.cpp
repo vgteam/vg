@@ -88,7 +88,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Tries multiple traversals of snarls in tails") {
         
             // Generate 2 fake tail anchors
-            mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
             
             // Cut new anchors on snarls
             mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
@@ -184,7 +184,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Tries multiple traversals of snarls in tails") {
         
             // Generate 2 fake tail anchors
-            mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
             
             // Cut new anchors on snarls
             mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);
@@ -278,7 +278,7 @@ TEST_CASE( "MultipathAlignmentGraph::align handles tails correctly", "[multipath
         SECTION("Tries multiple traversals of snarls in tails") {
         
             // Generate 2 fake tail anchors
-            mpg.synthesize_tail_anchors(query, vg, &aligner, 2, false);
+            mpg.synthesize_tail_anchors(query, vg, &aligner, 1, 2, false);
             
             // Cut new anchors on snarls
             mpg.resect_snarls_from_paths(&snarl_manager, identity, 5);

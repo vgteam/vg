@@ -1,4 +1,4 @@
-    /**
+/**
  * \file mpmap_main.cpp: multipath mapping of reads to a graph
  */
 
@@ -55,8 +55,9 @@ void help_mpmap(char** argv) {
     << "advanced options:" << endl
     << "algorithm:" << endl
     << "  -v, --tvs-clusterer           use the target value search based clusterer (requies a distance index from -d)" << endl
+    << "      --min-dist-cluster        use the minimum distance based clusterer (requies a distance index from -d)" << endl
     << "  -X, --snarl-max-cut INT       do not align to alternate paths in a snarl if an exact match is at least this long (0 for no limit) [5]" << endl
-    << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [4]" << endl
+    << "  -a, --alt-paths INT           align to (up to) this many alternate paths in between MEMs or in snarls [10]" << endl
     << "      --suppress-tail-anchors   don't produce extra anchors when aligning to alternate paths in snarls" << endl
     << "  -n, --unstranded              use lazy strand consistency when clustering MEMs" << endl
     << "  -b, --frag-sample INT         look for this many unambiguous mappings to estimate the fragment length distribution [1000]" << endl
@@ -72,7 +73,7 @@ void help_mpmap(char** argv) {
     << "  -M, --max-multimaps INT       report (up to) this many mappings per read [1]" << endl
     << "  -r, --reseed-length INT       reseed SMEMs for internal MEMs if they are at least this long (0 for no reseeding) [28]" << endl
     << "  -W, --reseed-diff FLOAT       require internal MEMs to have length within this much of the SMEM's length [0.45]" << endl
-    << "  -K, --clust-length INT        minimum MEM length form clusters [automatic]" << endl
+    << "  -K, --clust-length INT        minimum MEM length used in clustering [automatic]" << endl
     << "  -c, --hit-max INT             use at most this many hits for any MEM (0 for no limit) [1024]" << endl
     << "  -w, --approx-exp FLOAT        let the approximate likelihood miscalculate likelihood ratios by this power [10.0]" << endl
     << "  --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
@@ -110,6 +111,7 @@ int main_mpmap(int argc, char** argv) {
     #define OPT_FORCE_HAPLOTYPE_COUNT 1004
     #define OPT_SUPPRESS_TAIL_ANCHORS 1005
     #define OPT_TOP_TRACEBACKS 1006
+    #define OPT_MIN_DIST_CLUSTER 1007
     string matrix_file_name;
     string xg_name;
     string gcsa_name;
@@ -128,7 +130,7 @@ int main_mpmap(int argc, char** argv) {
     int full_length_bonus = default_full_length_bonus;
     bool interleaved_input = false;
     int snarl_cut_size = 5;
-    int max_branch_trim_length = 1;
+    int max_branch_trim_length = 4;
     bool suppress_tail_anchors = false;
     int max_paired_end_map_attempts = 24;
     int max_single_end_mappings_for_rescue = 64;
@@ -150,12 +152,13 @@ int main_mpmap(int argc, char** argv) {
     bool use_adaptive_reseed = true;
     double cluster_ratio = 0.2;
     bool use_tvs_clusterer = false;
+    bool use_min_dist_clusterer = false;
     bool qual_adjusted = true;
     bool strip_full_length_bonus = false;
     MappingQualityMethod mapq_method = Adaptive;
     double band_padding_multiplier = 1.0;
     int max_dist_error = 12;
-    int num_alt_alns = 4;
+    int num_alt_alns = 10;
     double suboptimal_path_exponent = 1.25;
     double likelihood_approx_exp = 10.0;
     double recombination_penalty = 20.7;
@@ -246,6 +249,7 @@ int main_mpmap(int argc, char** argv) {
             {"always-check-population", no_argument, 0, OPT_ALWAYS_CHECK_POPULATION},
             {"delay-population", no_argument, 0, OPT_DELAY_POPULATION_SCORING},
             {"force-haplotype-count", required_argument, 0, OPT_FORCE_HAPLOTYPE_COUNT},
+            {"min-dist-cluster", no_argument, 0, OPT_MIN_DIST_CLUSTER},
             {"drop-subgraph", required_argument, 0, 'C'},
             {"prune-exp", required_argument, 0, 'U'},
             {"long-read-scoring", no_argument, 0, 'E'},
@@ -480,6 +484,10 @@ int main_mpmap(int argc, char** argv) {
                 
             case OPT_FORCE_HAPLOTYPE_COUNT:
                 force_haplotype_count = parse<size_t>(optarg);
+                break;
+                
+            case OPT_MIN_DIST_CLUSTER:
+                use_min_dist_clusterer = true;
                 break;
                 
             case 'C':
@@ -726,6 +734,16 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
+    if (use_min_dist_clusterer && distance_index_name.empty()) {
+        cerr << "error:[vg mpmap] The minimum distance clusterer (--min-dist-cluster) requires a distance index (-d)." << endl;
+        exit(1);
+    }
+    
+    if (use_min_dist_clusterer && use_tvs_clusterer) {
+        cerr << "error:[vg mpmap] Cannot perform both minimum distance clustering (--min-dist-cluster) and target value clustering (-v)." << endl;
+        exit(1);
+    }
+    
     if (suboptimal_path_exponent < 1.0) {
         cerr << "error:[vg mpmap] Suboptimal path likelihood root (-R) set to " << suboptimal_path_exponent << ", must set to at least 1.0." << endl;
         exit(1);
@@ -927,17 +945,31 @@ int main_mpmap(int argc, char** argv) {
     }
     // TODO: Allow using haplo::XGScoreProvider?
     
-    SnarlManager* snarl_manager = nullptr;
+    unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
-        snarl_manager = new SnarlManager(snarl_stream);
+        snarl_manager = stream::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
-    DistanceIndex* distance_index = nullptr;
+    unique_ptr<DistanceIndex> distance_index;
     if (!distance_index_name.empty()) {
-        distance_index = new DistanceIndex(xg_index.get(), snarl_manager, distance_index_stream);
+        // We want a diatance index.
+        // We know we have an XG already.
+        // But we don't know that we have a snarl manager.
+        if (!snarl_manager) {
+            cerr << "error:[vg mpmap] distance index requires snarls (-s)" << endl;
+            exit(1);
+        }
+        
+        // Load the index
+        distance_index = stream::VPKG::load_one<DistanceIndex>(distance_index_stream);
+        
+        // Hook it up
+        distance_index->setGraph(xg_index.get());
+        distance_index->setSnarlManager(snarl_manager.get());
     }
     
-    MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider, snarl_manager, distance_index);
+    MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider,
+        snarl_manager.get(), distance_index.get());
     
     // set alignment parameters
     multipath_mapper.set_alignment_scores(match_score, mismatch_score, gap_open_score, gap_extension_score, full_length_bonus);
@@ -1017,9 +1049,8 @@ int main_mpmap(int argc, char** argv) {
         multipath_mapper.calibrate_mismapping_detection(num_calibration_simulations, calibration_read_length);
     }
     
-    // set computational paramters
+    // Count our threads 
     int thread_count = get_thread_count();
-    multipath_mapper.set_alignment_threads(thread_count);
     
     // Establish a watchdog to find reads that take too long to map.
     // If we see any, we will issue a warning.
@@ -1440,10 +1471,6 @@ int main_mpmap(int argc, char** argv) {
     //cerr << "attempted to split " << OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER << " of " << OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER << " clusters with " << OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER << " splits successful (" << 100.0 * double(OrientedDistanceClusterer::SUCCESSFUL_SPLIT_ATTEMPT_COUNTER) / OrientedDistanceClusterer::SPLIT_ATTEMPT_COUNTER << "%) resulting in " << OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER << " total clusters (" << OrientedDistanceClusterer::POST_SPLIT_CLUSTER_COUNTER - OrientedDistanceClusterer::PRE_SPLIT_CLUSTER_COUNTER << " new)" << endl;
     //cerr << "entered secondary rescue " << MultipathMapper::SECONDARY_RESCUE_TOTAL << " times with " << MultipathMapper::SECONDARY_RESCUE_COUNT << " actually attempting rescues, totaling " << MultipathMapper::SECONDARY_RESCUE_ATTEMPT << " rescues (" << double(MultipathMapper::SECONDARY_RESCUE_ATTEMPT) / MultipathMapper::SECONDARY_RESCUE_COUNT << " average per attempt)" << endl;
     
-    if (snarl_manager != nullptr) {
-        delete snarl_manager;
-    }
-   
     if (haplo_score_provider != nullptr) {
         delete haplo_score_provider;
     }
@@ -1452,10 +1479,6 @@ int main_mpmap(int argc, char** argv) {
         delete sublinearLS;
     }
    
-    if (distance_index != nullptr) {
-        delete distance_index;
-    }
-    
     return 0;
 }
 

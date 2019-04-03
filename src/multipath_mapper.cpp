@@ -151,6 +151,11 @@ namespace vg {
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
                                       log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
+            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+        }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
             return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
@@ -205,6 +210,13 @@ namespace vg {
                                            fragment_length_distr.mean(),
                                            ceil(10.0 * fragment_length_distr.stdev()));
         }
+        else if (use_min_dist_clusterer) {
+            MinDistanceClusterer clusterer(distance_index);
+            return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
+                                           alt_anchors_1, alt_anchors_2,
+                                           fragment_length_distr.mean(),
+                                           ceil(10.0 * fragment_length_distr.stdev()));
+        }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering);
             return clusterer.pair_clusters(alignment1, alignment2, cluster_mems_1, cluster_mems_2,
@@ -223,7 +235,7 @@ namespace vg {
         
         
 #ifdef debug_multipath_mapper
-        cerr << "aligning to subgraphs..." << endl;
+        cerr << "aligning to (up to) " << cluster_graphs.size() << " subgraphs..." << endl;
 #endif
       
         // we may need to compute an extra mapping above the one we'll report if we're computing mapping quality
@@ -711,9 +723,28 @@ namespace vg {
 #ifdef debug_multipath_mapper
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
-        return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
-                                                             id(pos_2), offset(pos_2), is_rev(pos_2),
-                                                             forward_strand);
+        
+        if (use_min_dist_clusterer) {
+            assert(!forward_strand);
+            int64_t dist = distance_index->minDistance(pos_1, pos_2);
+            if (dist == -1) {
+                dist = distance_index->minDistance(pos_2, pos_1);
+                if (dist == -1) {
+                    return numeric_limits<int64_t>::max();
+                }
+                else {
+                    return -dist;
+                }
+            }
+            else {
+                return dist;
+            }
+        }
+        else {
+            return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+                                                                 id(pos_2), offset(pos_2), is_rev(pos_2),
+                                                                 forward_strand);
+        }
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
@@ -2538,7 +2569,7 @@ namespace vg {
                                                const vector<memcluster_t>& clusters) -> vector<clustergraph_t> {
         
         // Figure out the aligner to use
-        BaseAligner* aligner = get_aligner();
+        const GSSWAligner* aligner = get_aligner();
         
         // We populate this with all the cluster graphs.
         vector<clustergraph_t> cluster_graphs_out;
@@ -2935,6 +2966,9 @@ namespace vg {
 
         // if necessary, convert from cyclic to acylic
         if (!algorithms::is_directed_acyclic(&align_graph)) {
+#ifdef debug_multipath_mapper_alignment
+            cerr << "graph contains directed cycles, performing dagification" << endl;
+#endif
             // make a dagified graph and translation
             HashGraph dagified;
             unordered_map<id_t,id_t> dagify_trans = algorithms::dagify(&align_graph, &dagified, target_length);
@@ -2975,7 +3009,7 @@ namespace vg {
 #endif
 
                 // Make fake anchor paths to cut the snarls out of in the tails
-                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), num_alt_alns, dynamic_max_alt_alns);
+                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), min_tail_anchor_length, 1, false);
                 
             }
        
@@ -3143,9 +3177,9 @@ namespace vg {
         // We should never actually compute a MAPQ with the None method. If we try, it means something has gonbe wrong.
         assert(mapq_method != None);
    
-        // TODO: BaseAligner's mapping quality computation insists on sometimes appending a 0 to your score list.
+        // TODO: GSSWAligner's mapping quality computation insists on sometimes appending a 0 to your score list.
         // We don't want to take a mutable score list, so we copy it here.
-        // This can be removed when BaseAligner is fixed to take const score lists.
+        // This can be removed when GSSWAligner is fixed to take const score lists.
         vector<double> mutable_scores(scores.begin(), scores.end());
    
         int32_t raw_mapq;
@@ -3491,6 +3525,16 @@ namespace vg {
         // the scores of the optimal alignments and fragments, ignoring population
         vector<double> base_scores(multipath_aln_pairs.size(), 0.0);
         
+#ifdef debug_multipath_mapper
+        // trackers that let us keep track of the alignment and population components separately
+        vector<pair<double, double>> chosen_align_score(multipath_aln_pairs.size(),
+                                                        make_pair(numeric_limits<double>::quiet_NaN(),
+                                                                  numeric_limits<double>::quiet_NaN()));
+        vector<pair<double, double>> chosen_population_score(multipath_aln_pairs.size(),
+                                                             make_pair(numeric_limits<double>::quiet_NaN(),
+                                                                       numeric_limits<double>::quiet_NaN()));
+#endif
+        
         // the scores of the optimal alignments and fragments, accounting for population
         vector<double> pop_adjusted_scores;
         if (include_population_component) {
@@ -3633,6 +3677,16 @@ namespace vg {
                                 best_total_score[end] = total_score;
                                 best_pop_score[end] = pop_score.first / log_base;
                                 have_best_linearization[end] = true;
+#ifdef debug_multipath_mapper
+                                if (end == 0) {
+                                    chosen_align_score[i].first = alignments[end][j].score();
+                                    chosen_population_score[i].first = pop_score.first / log_base;
+                                }
+                                else {
+                                    chosen_align_score[i].second = alignments[end][j].score();
+                                    chosen_population_score[i].second = pop_score.first / log_base;
+                                }
+#endif
                             }
                             
                         }
@@ -3726,6 +3780,10 @@ namespace vg {
                 std::swap(scores[index[i]], scores[i]);
                 std::swap(cluster_pairs[index[i]], cluster_pairs[i]);
                 std::swap(multipath_aln_pairs[index[i]], multipath_aln_pairs[i]);
+#ifdef debug_multipath_mapper
+                std::swap(chosen_align_score[index[i]], chosen_align_score[i]);
+                std::swap(chosen_population_score[index[i]], chosen_population_score[i]);
+#endif
                 std::swap(index[index[i]], index[i]);
                 
             }
@@ -3744,7 +3802,7 @@ namespace vg {
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
             << ", length: " << cluster_pairs[i].second;
             if (include_population_component && all_multipaths_pop_consistent) {
-                cerr << ", pop: " << scores[i] - base_scores[i];
+                cerr << ", pop adjusted aligns: " << chosen_align_score[i].first << " " << chosen_align_score[i].second << ", population: " << chosen_population_score[i].first << " " << chosen_population_score[i].second;
             }
             cerr << ", combined: " << scores[i] << endl;
         }

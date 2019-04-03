@@ -52,7 +52,7 @@ using namespace std;
     }
     
     bool BackwardsGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
-        return forward_graph->for_each_handle(iteratee);
+        return forward_graph->for_each_handle(iteratee, parallel);
     }
     
     size_t BackwardsGraph::node_size() const {
