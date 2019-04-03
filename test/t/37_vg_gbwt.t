@@ -53,8 +53,8 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 # Unpackage the indexes, remove metadata from the merged indexes and compare them
 vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
 vg view --extract-tag GBWT xy2.gbwt > xy2.bare.gbwt
-../deps/gbwt/metadata -r xy.bare > /dev/null
-../deps/gbwt/metadata -r xy2.bare > /dev/null
+../deps/gbwt/metadata_tool -r xy.bare > /dev/null
+../deps/gbwt/metadata_tool -r xy2.bare > /dev/null
 cmp xy.bare.gbwt xy2.bare.gbwt
 is $? 0 "the merged indexes are identical"
 

@@ -62,7 +62,7 @@ is $? 0 "storing a VCF parse for a graph with haplotypes"
 is $? 0 "building a GBWT index from the VCF parse"
 
 # Add the metadata manually, dump the tagged stream, and compare the indexes
-../deps/gbwt/metadata -c 1 -h 2 -s 1 parse_x > /dev/null
+../deps/gbwt/metadata_tool -c 1 -h 2 -s 1 parse_x > /dev/null
 vg view --extract-tag GBWT x.gbwt > x.bare.gbwt
 
 cmp parse_x.gbwt x.bare.gbwt
@@ -136,7 +136,7 @@ is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
 is $? 0 "building a GBWT index from the VCF parses"
 
 # Add the metadata manually, extract the packaged GBWT, and compare the indexes
-../deps/gbwt/metadata -c 2 -h 2 -s 1 parse_xy > /dev/null
+../deps/gbwt/metadata_tool -c 2 -h 2 -s 1 parse_xy > /dev/null
 vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
 
 cmp parse_xy.gbwt xy.bare.gbwt

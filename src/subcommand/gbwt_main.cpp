@@ -35,7 +35,7 @@ void help_gbwt(char** argv) {
          << "    -c, --count-threads    print the number of threads" << endl
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
          << "    -r, --remove-thread N  remove the thread with identifier N (may repeat; use -o to change output)" << endl
-         << "metadata (use deps/gbwt/metadata to modify):" << endl
+         << "metadata (use deps/gbwt/metadata_tool to modify):" << endl
          << "    -M, --metadata         print all metadata" << endl
          << "    -C, --contigs          print the number of contigs" << endl
          << "    -H, --haplotypes       print the number of haplotypes" << endl
