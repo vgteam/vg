@@ -712,11 +712,46 @@ int32_t Transcriptome::size() const {
     return _transcriptome.size();
 }
 
-void Transcriptome::edit_graph(VG * graph, const bool add_paths) {
+void Transcriptome::add_junctions_to_graph(VG * graph) {
 
     // Edit graph with transcript paths and update path traversals
     // to match the augmented graph. 
-    graph->edit(_transcriptome, add_paths, true, true);
+    graph->edit(_transcriptome, false, true, true);
+}
+
+void Transcriptome::add_paths_to_graph(VG * graph) const {
+
+    // Add paths to graph and rebuild paths indexes
+    graph->paths.extend(_transcriptome, false, true);
+}
+
+void Transcriptome::remove_non_transcribed(VG * graph) const {
+
+    // Find all nodes that are in a transcript path
+    unordered_set<vg::id_t> transcribed_nodes;
+    for (auto & path: _transcriptome) {
+    
+        for (auto & mapping: path.mapping()) {
+
+            transcribed_nodes.emplace(mapping.position().node_id());
+        }
+    }
+
+    // Find all nodes that are not in a transcript path
+    vector<vg::id_t> non_transcribed_nodes;
+    graph->for_each_node([&](const Node * node) {
+        
+        if (transcribed_nodes.count(node->id()) == 0) {
+
+             non_transcribed_nodes.emplace_back(node->id());   
+        }
+    });
+
+    for (auto & node: non_transcribed_nodes) {
+
+        // Delete node and in/out edges  
+        graph->destroy_node(node);
+    }
 }
 
 void Transcriptome::construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const {

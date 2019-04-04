@@ -27,6 +27,7 @@ void help_rna(char** argv) {
          << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
          << "    -r, --filter-reference     filter transcripts on reference chromosomes/contigs" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
+         << "    -d, --remove-non-gene      remove intergenic and intronic regions (includes reference paths)" << endl
          << "    -a, --add-paths            add transcripts as embedded paths in the graph" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -g, --write-gam FILE       write transcripts as alignments to GAM file" << endl
@@ -50,6 +51,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool use_embedded_paths = false;
     bool filter_reference_transcript_paths = false;
     bool collapse_transcript_paths = true;
+    bool remove_non_transcribed = false;
     bool add_transcript_paths = false;
     string gbwt_out_filename = "";
     string gam_out_filename = "";
@@ -69,6 +71,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"use-embeded-paths",  no_argument, 0, 'e'},
                 {"filter-reference",  no_argument, 0, 'r'},
                 {"do-not-collapse",  no_argument, 0, 'c'},
+                {"remove-non-gene",  no_argument, 0, 'd'},
                 {"add-paths",  no_argument, 0, 'a'},
                 {"write-gbwt",  no_argument, 0, 'b'},
                 {"write-gam",  no_argument, 0, 'g'},
@@ -80,7 +83,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:s:l:ercab:g:f:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:s:l:ercdab:g:f:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -111,6 +114,10 @@ int32_t main_rna(int32_t argc, char** argv) {
             
         case 'c':
             collapse_transcript_paths = false;
+            break;
+
+        case 'd':
+            remove_non_transcribed = true;
             break;
 
         case 'a':
@@ -215,13 +222,31 @@ int32_t main_rna(int32_t argc, char** argv) {
     // Release and delete GBWT index pointer.
     haplotype_index.reset(nullptr);
 
-    if (show_progress) { cerr << "[vg rna] Adding splice-junctions " << (add_transcript_paths ? "and transcript paths " : "") << "to graph ..." << endl; }
+    if (show_progress) { cerr << "[vg rna] Adding splice-junctions to graph ..." << endl; }
 
     // Edit graph with transcriptome splice-junctions and update transcript
     // path traversals in transcriptome to match the augmented graph. 
-    // Optinally add transcript paths to graph.  
     // TODO: Add handlegraph support to edit so that the handlegraph interface can be used.
-    transcriptome.edit_graph(graph, add_transcript_paths);
+    transcriptome.add_junctions_to_graph(graph);
+
+    if (remove_non_transcribed) {
+
+        if (show_progress) { cerr << "[vg rna] Remove non-transcribed regions and paths ..." << endl; }
+
+        // Remove non transcript paths
+        graph->clear_paths();
+
+        // Remove non transcribed nodes
+        transcriptome.remove_non_transcribed(graph);
+    }
+
+    if (add_transcript_paths) {
+
+        if (show_progress) { cerr << "[vg rna] Adding transcript paths to graph ..." << endl; }
+
+        // Add transcript as embedded paths in the graph
+        transcriptome.add_paths_to_graph(graph);
+    }
 
     // Construct and write GBWT index of transcript paths in transcriptome.
     if (!gbwt_out_filename.empty()) {

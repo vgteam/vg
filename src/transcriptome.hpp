@@ -98,8 +98,12 @@ class Transcriptome {
 
         /// Edits variation graph with transcript path splice-junctions and 
         /// updates transcript path traversals to match the augmented graph. 
-        /// Optionally embed transcript paths in variation graph.
-        void edit_graph(VG * graph, const bool add_paths);  
+        void add_junctions_to_graph(VG * graph);  
+
+        /// Embeds transcript paths in variation graph.
+        void add_paths_to_graph(VG * graph) const;
+
+        void remove_non_transcribed(VG * graph) const;
 
         /// Add transcript paths as threads in GBWT index.
         void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const;
