@@ -2405,4 +2405,133 @@ size_t RepresentativeTraversalFinder::bp_length(const structures::ImmutableList<
 }
 
 
+VCFTraversalFinder::VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
+                                       function<PathIndex*(const Snarl&)> get_index) :
+    graph(graph),
+    snarl_manager(snarl_manager),
+    get_index(get_index) {
+
+    create_variant_index(vcf);
+}
+
+VCFTraversalFinder::~VCFTraversalFinder() {
+    delete_variant_index();
+}
+
+void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf) {
+
+    vcflib::Variant var;
+    while (vcf.getNextVariant(var)) {
+        bool path_found = false;
+        path_handle_t path_handle;
+        // scan paths in the graph for any alt path that could have come from this variant
+        // then add any node id from the path to our index
+        // we add the first id we find under the assumption that alt paths are entirely contained within sites
+        for (int allele = 0; !path_found && allele < var.alleles.size(); ++allele) {
+            string alt_path_name = "_alt_" + make_variant_id(var) + "_" + to_string(allele);
+            if (graph.has_path(alt_path_name)) {
+                path_handle_t path_handle = graph.get_path_handle(alt_path_name);
+                if (graph.get_occurrence_count(path_handle) > 0) {
+                    path_found = true;
+                    occurrence_handle_t occurrence_handle = graph.get_first_occurrence(path_handle);
+                    handle_t handle = graph.get_occurrence(occurrence_handle);
+                    id_t node_id = graph.get_id(handle);
+                    // copy our variant just this once, and add its new pointer to our map
+                    if (node_to_variant.count(node_id)) {
+                        node_to_variant[node_id].push_back(new vcflib::Variant(var));
+                    } else {
+                        node_to_variant[node_id] = list<vcflib::Variant*>({new vcflib::Variant(var)});
+                    }
+                }
+            }
+        }
+        if (!path_found) {
+            cerr << "[VCFTraversalFinder] Warning: No alt path found in graph for variant.  It will be ignored:\n"
+                 << var << endl;
+        }
+    }
+}
+
+void VCFTraversalFinder::delete_variant_index() {
+    for (auto nv : node_to_variant) {
+        for (auto var : nv.second) {
+            delete var;
+        }
+    }
+    node_to_variant.clear();
+}
+
+vector<vcflib::Variant*> VCFTraversalFinder::get_variants_in_site(const Snarl& site) {
+    vector<vcflib::Variant*> site_variants;
+
+    pair<unordered_set<Node*>, unordered_set<Edge*> > contents = snarl_manager.deep_contents(&site, graph, false);
+
+    for (auto node : contents.first) {
+        auto map_it = node_to_variant.find(node->id());
+        if (map_it != node_to_variant.end()) {
+            for (auto var : map_it->second) {
+                site_variants.push_back(var);
+            }
+        }
+    }
+            
+    return site_variants;
+}
+
+vector<pair<SnarlTraversal, vector<pair<int, vcflib::Variant*>>>>
+VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
+
+    vector<pair<SnarlTraversal, vector<pair<int, vcflib::Variant*>>>> output_traversals;
+    
+    vector<vcflib::Variant*> site_variants = get_variants_in_site(site);
+
+    if (site_variants.empty()) {
+        return output_traversals;
+    }
+
+    // take the reference traversal from our path index
+    PathIndex* path_index = get_index(site);
+    if (path_index == nullptr) {
+        return output_traversals;
+    }
+    
+    PathIndex::iterator start_it = path_index->find_in_orientation(site.start().node_id(), site.start().backward());
+    PathIndex::iterator end_it = path_index->find_in_orientation(site.end().node_id(), site.end().backward());
+
+    // currently limited to sites on the reference
+    assert(start_it != path_index->end() && end_it != path_index->end());
+
+    SnarlTraversal ref_trav;
+
+    PathIndex::iterator it = start_it;
+    ++it;
+    for (; it != end_it; ++it) {
+        Visit* visit = ref_trav.add_visit();
+        visit->set_node_id(it->second.node);
+        // todo: do we get an orientation out of the path index?  
+        visit->set_backward(!it->second.is_end);
+    }
+
+    vector<pair<int, vcflib::Variant*>> ref_genotypes;
+    for (auto var : site_variants) {
+        ref_genotypes.push_back(make_pair(0, var));
+    }
+
+    // explore all the alt traversals
+    
+    output_traversals.push_back(make_pair(ref_trav, ref_genotypes));
+
+    return output_traversals;
+}
+
+vector<SnarlTraversal> VCFTraversalFinder::find_traversals(const Snarl& site) {
+    vector<pair<SnarlTraversal, vector<pair<int, vcflib::Variant*>>>> allele_travs = find_allele_traversals(site);
+    vector<SnarlTraversal> traversals;
+    traversals.reserve(allele_travs.size());
+    for (auto& trav : allele_travs) {
+        traversals.push_back(trav.first);
+    }
+    return traversals;
+}
+
 }

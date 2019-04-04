@@ -337,6 +337,77 @@ public:
     
 };
 
+
+/**
+ * This TraversalFinder returns a traversals and their corresponding genotypes
+ * from an input vcf. It relies on alt-paths in the graph (via construct -a)
+ * to map between the vcf and the graph.  
+ */
+class VCFTraversalFinder : public TraversalFinder {
+
+protected:
+    VG& graph;
+    
+    /// The SnarlManager managiung the snarls we use
+    SnarlManager& snarl_manager;
+
+    /// We keep this around from the RepresentativeTraversalFinder for now:
+    /// We use a path index for accessing the reference path
+    /// We keep around a function that can be used to get an index for the
+    /// appropriate path to use to scaffold a given site, or null if no
+    /// appropriate index exists.
+    function<PathIndex*(const Snarl&)> get_index;
+
+    /// Store variants indexed by an arbitrary node in one of their associated
+    /// alt paths. We can then use this to find all variants in a top-level snarl
+    unordered_map<id_t, list<vcflib::Variant*>> node_to_variant;
+    
+public:
+
+    /**
+     * Make a new VCFTraversalFinder.  Builds the indexes needed to find all the 
+     * variants in a site.
+     *
+     */
+    VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
+                       function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
+        
+    virtual ~VCFTraversalFinder();
+    
+    /**
+     * Find traversals for the site.  Each traversal is associated with a list of 
+     * genotype-variant pairs.
+     *
+     * So <trav, <(0, var1), (0, var2), (1, var3)>> would imply that traversal "trav"
+     * spans the reference allele in var1 and var2, and the 1st alt allele in var3
+     * Anything in "trav" not covered by those three variants will be on the reference.
+     *
+     * This is done exhaustively for now which should suffice for SV graphs.  Something
+     * more sophisticated would be needed if adding in SNPs, perhaps taking into
+     * account the snarl hierarchy and/or support. 
+     */
+    vector<pair<SnarlTraversal, vector<pair<int, vcflib::Variant*>>>> find_allele_traversals(const Snarl& site);
+
+    /**
+     * Return a list of traversals for the site.  The same traversals as above, only the
+     * genotype information not included
+     */
+    virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
+
+    /** 
+     * Get all the variants that are contained in a site */
+    vector<vcflib::Variant*> get_variants_in_site(const Snarl& site);
+
+    
+protected:
+
+    /** Load up all the variants into our node index
+     */
+    void create_variant_index(vcflib::VariantCallFile& vcf);
+    void delete_variant_index();
+
+};
+
 }
 
 #endif

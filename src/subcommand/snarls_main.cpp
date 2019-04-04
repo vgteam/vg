@@ -15,6 +15,7 @@
 #include "../traversal_finder.hpp"
 #include "../stream/stream.hpp"
 
+//#define debug
 
 using namespace std;
 using namespace vg;
@@ -30,7 +31,8 @@ void help_snarl(char** argv) {
          << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
          << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes [10]" << endl
          << "    -t, --include-trivial  report snarls that consist of a single edge" << endl
-         << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl;
+         << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
+         << "    -v, --vcf FILE         convert the given vcf into snarls, one for each line" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -49,6 +51,7 @@ int main_snarl(int argc, char** argv) {
     bool filter_trivial_snarls = true;
     bool sort_snarls = false;
     bool fill_path_names = false;
+    string vcf_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -56,18 +59,19 @@ int main_snarl(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"traversals", required_argument, 0, 'r'},
-		        {"pathnames", no_argument, 0, 'p'},
+                {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
                 {"max-nodes", required_argument, 0, 'm'},
                 {"include-trivial", no_argument, 0, 't'},
                 {"sort-snarls", no_argument, 0, 's'},
+                {"vcf", required_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "sr:ltopm:h?",
+        c = getopt_long (argc, argv, "sr:ltopm:v:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -102,6 +106,9 @@ int main_snarl(int argc, char** argv) {
             break;
         case 'p':
             fill_path_names = true;
+            break;
+        case 'v':
+            vcf_filename = optarg;
             break;
             
         case 'h':
@@ -141,12 +148,52 @@ int main_snarl(int argc, char** argv) {
 
     // The only implemented snarl finder:
     SnarlFinder* snarl_finder = new CactusSnarlFinder(*graph);
+
+    TraversalFinder* trav_finder = nullptr;
+    vcflib::VariantCallFile variant_file;
+
+    // vcftraversal finder is dependent on this relic of the support_caller (for now)
+    map<string, PathIndex*> path_index;
+    
+    if (!vcf_filename.empty()) {
+        variant_file.parseSamples = false;
+        variant_file.open(vcf_filename);
+        if (!variant_file.is_open()) {
+            cerr << "error: [vg snarls] could not open " << vcf_filename << endl;
+            return 1;
+        }
+
+        // load every reference path into the index
+        graph->paths.for_each_name([&] (const string& path_name) {
+                if (!Paths::is_alt(path_name)) {
+                    path_index[path_name] = new PathIndex(*graph, path_name);
+                }
+            });
+    }
+    auto delete_path_index = [&] () {
+        for (auto name_index : path_index) {
+            delete name_index.second;
+        }
+    };
+    auto get_path_index = [&] (const Snarl& site) -> PathIndex* {
+        for(auto name_index : path_index) { 
+            if (name_index.second->by_id.count(site.start().node_id()) &&
+                name_index.second->by_id.count(site.end().node_id())) {
+                return name_index.second;
+            }
+        }
+        return nullptr;
+    };
     
     // Load up all the snarls
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
-        TraversalFinder* trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
+        if (vcf_filename.empty()) {
+            trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
+        } else {
+            trav_finder = new VCFTraversalFinder(*graph, snarl_manager, variant_file, get_path_index);
+        }
         for (const Snarl* snarl : snarl_roots ){
             if (filter_trivial_snarls) {
                 auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
@@ -162,12 +209,16 @@ int main_snarl(int argc, char** argv) {
         delete trav_finder;
         delete snarl_finder;
         delete graph;
+        delete_path_index();
 
         exit(0);
     }
 
-
-    TraversalFinder* trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
+    if (vcf_filename.empty()) {
+        trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
+    } else {
+        trav_finder = new VCFTraversalFinder(*graph, snarl_manager, variant_file, get_path_index);
+    }
     
     // Sort the top level Snarls
     if (sort_snarls) {
@@ -220,7 +271,7 @@ int main_snarl(int argc, char** argv) {
             // Write our snarl tree
             snarl_buffer.push_back(*snarl);
             stream::write_buffered(cout, snarl_buffer, buffer_size);
-            
+
             // Optionally write our traversals
             if (!traversal_file.empty() && snarl->type() == ULTRABUBBLE &&
                 (!leaf_only || snarl_manager.is_leaf(snarl)) &&
@@ -257,7 +308,6 @@ int main_snarl(int argc, char** argv) {
             }
         }
         
-        
     }
     // flush
     stream::write_buffered(cout, snarl_buffer, 0);
@@ -268,6 +318,7 @@ int main_snarl(int argc, char** argv) {
     delete snarl_finder;
     delete trav_finder;
     delete graph;
+    delete_path_index();
 
     return 0;
 }
