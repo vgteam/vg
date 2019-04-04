@@ -36,7 +36,8 @@ class SnarlSeedClusterer {
                            snarls_to_node_t& snarls_to_node, 
                            node_to_seed_t& node_to_seed);
 
-        hash_set<size_t> get_clusters_node(const vector<pos_t>& seeds, 
+        tuple<hash_set<size_t>, size_t, size_t> 
+             get_clusters_node(const vector<pos_t>& seeds, 
                              structures::UnionFind& union_find_clusters,
                              hash_map<size_t, pair<int64_t, int64_t>>& cluster_dists,
                              const node_to_seed_t& node_to_seed,
@@ -44,7 +45,8 @@ class SnarlSeedClusterer {
                              DistanceIndex& dist_index, id_t root, 
                              int64_t node_length);
 
-        hash_set<size_t> get_clusters_chain(const vector<pos_t>& seeds,
+        tuple<hash_set<size_t>, size_t, size_t> get_clusters_chain(
+                             const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,
                              hash_map<size_t, pair<int64_t, int64_t>>& cluster_dists,
                              const chains_to_snarl_t& chains_to_snarl,
@@ -53,7 +55,8 @@ class SnarlSeedClusterer {
                              size_t distance_limit, const SnarlManager& snarl_manager,
                              DistanceIndex& dist_index, const Chain* root);
 
-        hash_set<size_t> get_clusters_snarl(const vector<pos_t>& seeds,
+        tuple<hash_set<size_t>, size_t, size_t> get_clusters_snarl(
+                             const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,
                              hash_map<size_t, pair<int64_t, int64_t>>& cluster_dists,
                              const chains_to_snarl_t& chains_to_snarl,
