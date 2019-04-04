@@ -23,7 +23,7 @@
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 
-#define USE_CALLGRIND
+//#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
