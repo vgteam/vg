@@ -437,45 +437,16 @@ public:
     ~VG(void);
 
     /// Copy constructor.
-    VG(const VG& other) {
-        init();
-        if (this != &other) {
-            // cleanup
-            clear_indexes();
-            // assign
-            graph = other.graph;
-            paths = other.paths;
-            // re-index
-            build_indexes();
-        }
-    }
+    VG(const VG& other);
 
     /// Move constructor.
-    VG(VG&& other) noexcept {
-        init();
-        graph = other.graph;
-        paths = other.paths;
-        other.graph.Clear();
-        rebuild_indexes();
-        // should copy over indexes
-    }
+    VG(VG&& other) noexcept;
 
     /// Copy assignment operator.
-    VG& operator=(const VG& other) {
-        VG tmp(other);
-        *this = std::move(tmp);
-        return *this;
-    }
+    VG& operator=(const VG& other);
 
     /// Move assignment operator.
-    VG& operator=(VG&& other) noexcept {
-        std::swap(graph, other.graph);
-        clear_indexes();
-        build_indexes();
-        paths.clear();
-        paths.append(graph);
-        return *this;
-    }
+    VG& operator=(VG&& other) noexcept;
 
     // TODO: document all these
 

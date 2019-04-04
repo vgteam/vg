@@ -578,7 +578,6 @@ int main_mod(int argc, char** argv) {
                     
                     // Remember to keep this node
                     called_nodes.insert(graph->get_node(m.position().node_id()));
-                    cerr << "inserted node " << graph->get_node(m.position().node_id()) << " with id " << m.position().node_id() << endl;
                     
                     if (i + 1 < allele.mapping_size()) {
                         // Look at the next mapping, which exists
@@ -599,7 +598,6 @@ int main_mod(int argc, char** argv) {
         set<Edge*> unused_edges;
         
         graph->for_each_node([&](Node* n) {
-            cerr << "checking for node " << n << " with ID " << n->id() << endl;
             if (!called_nodes.count(n)) {
                 unused_nodes.insert(n);
             }
@@ -611,9 +609,6 @@ int main_mod(int argc, char** argv) {
             }
         });
         
-        cerr << "num unused nodes " << unused_nodes.size() << " / " << graph->graph.node_size() << endl;
-        cerr << "num unused edges " << unused_edges.size() << " / " << graph->graph.edge_size() << endl;
-        
         // Destroy all the extra edges (in case they use extra nodes)
         for (auto* e : unused_edges) {
             graph->destroy_edge(e);
@@ -623,9 +618,6 @@ int main_mod(int argc, char** argv) {
             graph->destroy_node(n);
         }
     }
-    
-    cerr << "after subsetting operation" << endl;
-    cerr << pb2json(graph->graph) << endl;
 
     if (bluntify) {
         graph->bluntify();

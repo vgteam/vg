@@ -493,20 +493,20 @@ int main_augment(int argc, char** argv) {
                 return 1;
             }
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                    vector<Alignment> gam_buffer;
-                    function<void(Alignment&)> lambda = [&gam_out_file, &gam_buffer, &augmenter](Alignment& alignment) {
-                        list<mapping_t> aug_path;
-                        augmenter.map_path(alignment.path(), aug_path, true);
-                        alignment.mutable_path()->clear_mapping();
-                        for (auto& aug_mapping : aug_path) {
-                            *alignment.mutable_path()->add_mapping() = aug_mapping.to_mapping();
-                        }
-                        gam_buffer.push_back(alignment);
-                        stream::write_buffered(gam_out_file, gam_buffer, 100);
-                    };
-                    stream::for_each(alignment_stream, lambda);
-                    stream::write_buffered(gam_out_file, gam_buffer, 0);
-                });
+                vector<Alignment> gam_buffer;
+                function<void(Alignment&)> lambda = [&gam_out_file, &gam_buffer, &augmenter](Alignment& alignment) {
+                    list<mapping_t> aug_path;
+                    augmenter.map_path(alignment.path(), aug_path, true);
+                    alignment.mutable_path()->clear_mapping();
+                    for (auto& aug_mapping : aug_path) {
+                        *alignment.mutable_path()->add_mapping() = aug_mapping.to_mapping();
+                    }
+                    gam_buffer.push_back(alignment);
+                    stream::write_buffered(gam_out_file, gam_buffer, 100);
+                };
+                stream::for_each(alignment_stream, lambda);
+                stream::write_buffered(gam_out_file, gam_buffer, 0);
+            });
         }
 
         // write the translation
