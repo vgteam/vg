@@ -714,7 +714,7 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
             
                 // Otherwise, it's unsafe to try the tight banded alignment
                 // (because our bands might get too big). Try a Mapper-based
-                // fake-banded alignment, and trturn its alignment if it finds a
+                // fake-banded alignment, and return its alignment if it finds a
                 // good one.
                 
                 // Generate an XG index
@@ -744,10 +744,9 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                         
                 // Make the Mapper
                 Mapper mapper(&xg_index, gcsa_index, lcp_index);
-                // Set up the threads
-                mapper.set_alignment_threads(omp_get_num_threads());
                 // Copy over alignment scores
-                mapper.set_alignment_scores(aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension, aligner.full_length_bonus);
+                mapper.set_alignment_scores(aligner.match, aligner.mismatch, aligner.gap_open, aligner.gap_extension,
+                                            aligner.full_length_bonus);
                 
                 // Map. Will invoke the banded aligner if the read is long, and
                 // the normal index-based aligner otherwise.

@@ -392,7 +392,7 @@ bool ShuffledPairs::iterator::operator!=(const iterator& other) const {
 }
     
 int32_t MEMClusterer::estimate_edge_score(const MaximalExactMatch* mem_1, const MaximalExactMatch* mem_2,
-                                          int64_t graph_dist, BaseAligner* aligner) const {
+                                          int64_t graph_dist, const GSSWAligner* aligner) const {
     
     // the length of the sequence in between the MEMs (can be negative if they overlap)
     int64_t between_length = mem_2->begin - mem_1->end;
@@ -469,7 +469,7 @@ void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, i
 #endif
 }
     
-MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, BaseAligner* aligner,
+MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
                                  size_t min_mem_length) {
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
@@ -1015,7 +1015,7 @@ void MEMClusterer::HitGraph::identify_sources_and_sinks(vector<size_t>& sources_
 }
 
 vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment& alignment,
-                                                                 BaseAligner* aligner,
+                                                                 const GSSWAligner* aligner,
                                                                  int32_t max_qual_score,
                                                                  int32_t log_likelihood_approx_factor,
                                                                  size_t min_median_mem_coverage_for_split,
@@ -1193,7 +1193,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::HitGraph::clusters(const Alignment
     
 vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignment,
                                                        const vector<MaximalExactMatch>& mems,
-                                                       BaseAligner* aligner,
+                                                       const GSSWAligner* aligner,
                                                        size_t min_mem_length ,
                                                        int32_t max_qual_score,
                                                        int32_t log_likelihood_approx_factor,
@@ -1537,7 +1537,7 @@ vector<pair<size_t, size_t>> SnarlOrientedDistanceMeasurer::exclude_merges(vecto
     
     
 MEMClusterer::HitGraph OrientedDistanceClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                                 BaseAligner* aligner, size_t min_mem_length) {
+                                                                 const GSSWAligner* aligner, size_t min_mem_length) {
     
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
     
@@ -3008,7 +3008,7 @@ TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* dista
 }
     
 MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
-                                                    BaseAligner* aligner, size_t min_mem_length) {
+                                                    const GSSWAligner* aligner, size_t min_mem_length) {
     
     
     // intialize with nodes
@@ -3051,8 +3051,8 @@ MEMClusterer::HitGraph TVSClusterer::make_hit_graph(const Alignment& alignment, 
 #endif
             
             if (tv_len == read_separation
-                && hit_node_2.mem->begin >= hit_node_1.mem->begin
-                && hit_node_2.mem->end <= hit_node_1.mem->end) {
+                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
+                    || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
                 // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
                 // a separate cluster
                 
@@ -3158,6 +3158,181 @@ vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Al
     return to_return;
 }
 
+MinDistanceClusterer::MinDistanceClusterer(DistanceIndex* distance_index) : distance_index(distance_index) {
+    // nothing to do
+}
+    
+vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(const Alignment& alignment_1,
+                                                                                const Alignment& alignment_2,
+                                                                                const vector<cluster_t*>& left_clusters,
+                                                                                const vector<cluster_t*>& right_clusters,
+                                                                                const vector<pair<size_t, size_t>>& left_alt_cluster_anchors,
+                                                                                const vector<pair<size_t, size_t>>& right_alt_cluster_anchors,
+                                                                                int64_t optimal_separation,
+                                                                                int64_t max_deviation) {
+#ifdef debug_mem_clusterer
+    cerr << "clustering pairs of clusters" << endl;
+#endif
+    
+    vector<pair<pair<size_t, size_t>, int64_t>> to_return;
+    
+    for (size_t i = 0, i_end = left_clusters.size() + left_alt_cluster_anchors.size(); i < i_end; i++) {
+        
+        // choose the appropriate left cluster and assign it a position
+        size_t left_clust_idx;
+        hit_t left_clust_hit;
+        if (i < left_clusters.size()) {
+            left_clust_idx = i;
+            left_clust_hit = left_clusters[i]->front();
+        }
+        else {
+            auto& alt_anchor = left_alt_cluster_anchors[i - left_clusters.size()];
+            left_clust_idx = alt_anchor.first;
+            left_clust_hit = left_clusters[left_clust_idx]->at(alt_anchor.second);
+        }
+        
+        for (size_t j = 0, j_end  = right_clusters.size() + right_alt_cluster_anchors.size(); j < j_end; j++) {
+            
+            // choose the appropriate right cluster and assign it a position
+            size_t right_clust_idx;
+            hit_t right_clust_hit;
+            if (j < right_clusters.size()) {
+                right_clust_idx = j;
+                right_clust_hit = right_clusters[j]->front();
+            }
+            else {
+                auto& alt_anchor = right_alt_cluster_anchors[j - right_clusters.size()];
+                right_clust_idx = alt_anchor.first;
+                right_clust_hit = right_clusters[right_clust_idx]->at(alt_anchor.second);
+            }
+            
+#ifdef debug_mem_clusterer
+            cerr << "measuring distance between cluster " << left_clust_idx << " (" << left_clust_hit.second << ") and " << right_clust_idx << " (" << right_clust_hit.second << ") with target of " << optimal_separation << " and max deviation " << max_deviation << endl;
+#endif
+            
+            // what is the minimum distance between these hits?
+            int64_t min_dist = distance_index->minDistance(left_clust_hit.second, right_clust_hit.second);
+            if (min_dist == -1) {
+                int64_t rev_min_dist = distance_index->minDistance(left_clust_hit.second, right_clust_hit.second);
+                if (rev_min_dist == -1) {
+                    // these are not reachable, don't make a pair
+                    continue;
+                }
+                else {
+                    // this is reachable by traversing backwards, give it negative distance
+                    min_dist = -rev_min_dist;
+                }
+            }
+            
+            
+#ifdef debug_mem_clusterer
+            cerr << "estimate distance at " << min_dist << endl;
+#endif
+            
+            // adjust the distance by how far away we are from the ends of the fragment
+            int64_t left_clip = left_clust_hit.first->begin - alignment_1.sequence().begin();
+            int64_t right_clip = alignment_2.sequence().end() - right_clust_hit.first->begin;
+            int64_t adjusted_dist = min_dist + left_clip + right_clip;
+            
+            if (adjusted_dist >= optimal_separation - max_deviation
+                && adjusted_dist <= optimal_separation + max_deviation) {
+                // we found a suitable path, add it to the return vector
+                to_return.emplace_back(make_pair(left_clust_idx, right_clust_idx), adjusted_dist);
+                
+            }
+        }
+    }
+    
+    if (!left_alt_cluster_anchors.empty() || !right_alt_cluster_anchors.empty()) {
+        // get rid of extra copies of pairs due to alternate anchor positions
+        deduplicate_cluster_pairs(to_return, optimal_separation);
+    }
+    
+    return to_return;
+}
+    
+    MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
+                                                           const vector<MaximalExactMatch>& mems,
+                                                           const GSSWAligner* aligner,
+                                                           size_t min_mem_length) {
+    
+    // intialize with nodes
+    HitGraph hit_graph(mems, alignment, aligner, min_mem_length);
+    
+    // assumes that MEMs are given in lexicographic order by read interval
+    for (size_t i = 0; i < hit_graph.nodes.size(); i++) {
+        HitNode& hit_node_1 = hit_graph.nodes[i];
+        
+        for (size_t j = i + 1; j < hit_graph.nodes.size(); j++){
+            
+            HitNode& hit_node_2 = hit_graph.nodes[j];
+            
+            if (hit_node_2.mem->begin <= hit_node_1.mem->begin
+                && hit_node_2.mem->end <= hit_node_1.mem->end) {
+                // this node is at the same place or earlier in the read, so they can't be colinear
+                
+#ifdef debug_mem_clusterer
+                cerr << "nodes " << i << " (" << hit_node_1.start_pos << ") and " << j << " (" << hit_node_2.start_pos << ") are not read colinear" << endl;
+#endif
+                continue;
+            }
+            
+
+            
+            // what is the minimum distance between these hits?
+            int64_t min_dist = distance_index->minDistance(hit_node_1.start_pos, hit_node_2.start_pos);
+            if (min_dist == -1) {
+                int64_t rev_min_dist = distance_index->minDistance(hit_node_2.start_pos, hit_node_1.start_pos);
+                if (rev_min_dist == -1) {
+                    // these are not reachable, don't make an edge
+                    continue;
+                }
+                else {
+                    // this is reachable by traversing backwards, give it negative distance
+                    min_dist = -rev_min_dist;
+                }
+            }
+            
+            // how far apart do we expect them to be based on the read?
+            int64_t read_separation = hit_node_2.mem->begin - hit_node_1.mem->begin;
+            
+            // how long of an insert/deletion could we detect based on the scoring parameters?
+            size_t longest_gap = min(aligner->longest_detectable_gap(alignment, hit_node_1.mem->end),
+                                     aligner->longest_detectable_gap(alignment, hit_node_2.mem->begin));
+            
+            // is it possible that an alignment containing both could be detected with local alignment?
+            if (abs(read_separation - min_dist) > longest_gap) {
+                continue;
+            }
+            
+            if (min_dist == read_separation
+                && ((hit_node_2.mem->begin >= hit_node_1.mem->begin && hit_node_2.mem->begin < hit_node_1.mem->begin)
+                    || (hit_node_2.mem->begin > hit_node_1.mem->begin && hit_node_2.mem->end <= hit_node_1.mem->end))) {
+                // this has the appearance of being a redundant hit of a sub-MEM, which we don't want to form
+                // a separate cluster
+                
+                // we add a dummy edge, but only to connect the nodes' components and join the clusters,
+                // not to actually use in dynamic programming (given arbitrary low weight that should not
+                // cause overflow)
+                hit_graph.add_edge(i, j, numeric_limits<int32_t>::lowest() / 2, min_dist);
+            }
+            else if (hit_node_2.mem->begin >= hit_node_1.mem->begin
+                     && hit_node_2.mem->end >= hit_node_1.mem->end) {
+                // there's a path within in the limit, and these hits are read colinear
+                
+                // the distance from the end of the first hit to the beginning of the next
+                int64_t graph_dist = min_dist - (hit_node_1.mem->end - hit_node_1.mem->begin);
+                
+                // add the corresponding edge
+                hit_graph.add_edge(i, j, estimate_edge_score(hit_node_1.mem, hit_node_2.mem, graph_dist, aligner), graph_dist);
+                
+            }
+        }
+    }
+    
+    return hit_graph;
+}
+    
 // collect node starts to build out graph
 vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
     // walk the match, getting all the nodes that it touches

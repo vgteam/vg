@@ -380,7 +380,7 @@ size_t XdropAligner::push_edit(
 	char const *alt,
 	size_t len)
 {
-	/* see gssw_aligner.cpp:gssw_mapping_to_alignment */
+	/* see aligner.cpp:gssw_mapping_to_alignment */
 	#define _add_edit(_from_len, _to_len, _subseq) { \
 		Edit *e = mapping->add_edit(); \
 		e->set_from_length((_from_len)); \
