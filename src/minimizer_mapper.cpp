@@ -130,6 +130,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     aln.clear_path();
     aln.set_score(0);
     aln.set_identity(0);
+    aln.set_mapping_quality(0);
     
     for (size_t i = 0; i < max(min(max_alignments, cluster_indexes_in_order.size()), (size_t)1); i++) {
         // For each output alignment we will produce (always at least 1,
@@ -631,14 +632,36 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return a.score() > b.score();
     });
     
+    if (!aligned.empty()) {
+        // Give the winning alignment a MAPQ, *before* dropping extra multimaps
+        
+        // We will use this vector of scores to get a MAPQ for the winning alignment
+        vector<double> scores;
+        scores.reserve(aligned.size());
+        for (auto& out : aligned) {
+            scores.push_back(out.score());
+        }
+        
+#ifdef debug
+        cerr << "For scores ";
+        for (auto& score : scores) cerr << score << " ";
+#endif
+
+        size_t winning_index;
+        double mapq = get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
+        
+#ifdef debug
+        cerr << "MAPQ is " << mapq << endl;
+#endif
+        
+        // Make sure to clamp 0-60.
+        aligned.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+    }
+    
     if (aligned.size() > max_multimaps) {
         // Drop the lowest scoring alignments
         aligned.resize(max_multimaps);
     }
-   
-    // We will use this vector of scores to get a MAPQ for the winning alignment
-    vector<double> scores;
-    scores.reserve(aligned.size());
    
     for (size_t i = 0; i < aligned.size(); i++) {
         // For each output alignment in score order
@@ -646,19 +669,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         // Assign primary and secondary status
         out.set_is_secondary(i > 0);
-        out.set_mapping_quality(0);
-        
-        // Copy the score
-        scores.push_back(out.score());
     }
-    
-    if (!aligned.empty()) {
-        // Give the winning alignment a MAPQ.
-        size_t winning_index;
-        double mapq = get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
-        aligned.front().set_mapping_quality(mapq);
-    }
-   
     
     std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end-start;
