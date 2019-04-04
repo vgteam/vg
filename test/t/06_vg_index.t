@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 61
+plan tests 56
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -68,11 +68,17 @@ vg view --extract-tag GBWT x.gbwt > x.bare.gbwt
 cmp parse_x.gbwt x.bare.gbwt
 is $? 0 "the indexes are identical"
 
+# Exclude a sample from the GBWT index
+vg index -G empty.gbwt -v small/x.vcf.gz --exclude 1 x.vg
+is $? 0 "samples can be excluded from haplotype indexing"
+is $(vg gbwt -c empty.gbwt) 0 "excluded samples were not included in the GBWT index"
+
 rm -f x.vg
 rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
 rm -f parse_x parse_x_0_1 parse_x.gbwt x.bare.gbwt
+rm -f empty.gbwt
 
 
 # Subregion graph with haplotypes
@@ -214,27 +220,6 @@ is "$(md5sum <x1337.sorted.gam.gai)" "$(md5sum <x1337.sorted.gam.gai2)" "vg inde
 
 rm -rf x.idx x.vg.map x.vg.aln x1337.gam x1337.sorted.gam.gai2 x1337.sorted.gam.gai x1337.sorted.gam
 
-vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
-vg index -x x.xg -v small/x.vcf.gz x.vg
-is $? 0 "building an xg index containing a gPBWT"
-
-vg find -t -x x.xg >part.vg
-is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 2 "the gPBWT can be queried for two threads for each haplotype"
-
-is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L -v - | wc -l) 1 "a specific thread may be pulled from the graph by name"
-
-vg index -x x.xg -v small/x.vcf.gz x.vg --exclude 1
-vg find -t -x x.xg >part.vg
-is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 0 "samples can be excluded from haplotype indexing"
-
-rm -f x.vg x.xg part.vg x.gcsa
-
-
-vg construct -r small/xy.fa -v small/xy.vcf.gz -a >xy.vg
-vg index -x xy.xg -v small/xy.vcf.gz xy.vg
-is $(vg find -x xy.xg -t | vg paths -L -v - | wc -l) 4 "a thread is stored per haplotype, sample, and reference sequence"
-is $(vg find -x xy.xg -q _thread_1_y | vg paths -L -v - | wc -l) 2 "we have the expected number of threads per chromosome"
-rm -f xy.vg xy.xg
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz -H haps.bin x.vg
@@ -289,9 +274,6 @@ is $(vg construct -r tiny/tiny.fa | vg index -g t.gcsa -k 16 -V - 2>&1 | grep 'I
 
 is $(vg index -g t.gcsa reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing succeeds on graph with heads but no tails"
 
-vg construct -r ins_and_del/ins_and_del.fa -v ins_and_del/ins_and_del.vcf.gz -a >ins_and_del.vg
-is $(vg index -x ins_and_del.vg.xg -v ins_and_del/ins_and_del.vcf.gz ins_and_del.vg 2>&1 | wc -l) 0 "indexing with allele paths handles combination insert-and-deletes"
-
 vg construct -m 1025 -r 1mb1kgp/z.fa > big.vg
 
 is $(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep 'Found kmer with offset' | wc -l) 1 "a useful error message is produced when nodes are too large"
@@ -301,7 +283,7 @@ rm -f big.vg
 rm -f t.gcsa
 rm -f x.vg
 
-rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp ins_and_del.vg ins_and_del.vg.xg
+rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp
 
 # Test distance index 
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg

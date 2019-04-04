@@ -142,7 +142,7 @@ int main_index(int argc, char** argv) {
     #define OPT_BUILD_VGI_INDEX 1000
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, write_threads = false, build_gpbwt = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
+    bool build_xg = false, build_gbwt = false, write_threads = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
     // Files we should read.
     string vcf_name, mapping_name;
@@ -482,8 +482,13 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    if (parse_only && (index_paths || index_gam)) {
-        cerr << "error: [vg index] --parse-only does not work with --store-threads or --store-gam" << endl;
+    if (parse_only && (!index_haplotypes || index_paths || index_gam)) {
+        cerr << "error: [vg index] --parse-only works with --vcf-phasing only" << endl;
+        return 1;
+    }
+
+    if ((index_haplotypes || index_paths || index_gam) && !(build_gbwt || parse_only || write_threads)) {
+        cerr << "error: [vg index] no output format specified for the threads" << endl;
         return 1;
     }
 
@@ -516,6 +521,11 @@ int main_index(int argc, char** argv) {
         cerr << "error: [vg index] cannot use multiple thread database files with -G or -H" << endl;
         return 1;
     }
+
+    if (!thread_db_names.empty()) {
+        cerr << "warning: [vg index] thread names are now stored in the GBWT index" << endl;
+        cerr << "warning: [vg index] option -F is deprecated and will be removed soon" << endl;
+    }
     
     if (build_xg && build_gcsa && file_names.empty()) {
         // Really we want to build a GCSA by *reading* and XG
@@ -533,8 +543,7 @@ int main_index(int argc, char** argv) {
             return 1;
         }
         VGset graphs(file_names);
-        build_gpbwt = !build_gbwt & !write_threads & !parse_only;
-        graphs.to_xg(*xg_index, index_paths & build_gpbwt, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
+        graphs.to_xg(*xg_index, false, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
         if (show_progress) {
             cerr << "Built base XG index" << endl;
         }
@@ -550,7 +559,7 @@ int main_index(int argc, char** argv) {
     // Generate threads
     if (index_haplotypes || index_paths || index_gam) {
 
-        if (!build_gbwt && !(parse_only && index_haplotypes) && !write_threads && !build_gpbwt) {
+        if (!build_gbwt && !(parse_only && index_haplotypes) && !write_threads) {
             cerr << "error: [vg index] no output format specified for the threads" << endl;
             return 1;
         }
@@ -587,7 +596,6 @@ int main_index(int argc, char** argv) {
 
         // GBWT metadata.
         vector<string> thread_names;                // Store thread names in insertion order.
-        vector<xg::XG::thread_t> all_phase_threads; // Store all threads if building gPBWT.
         size_t sample_count = 0, haplotype_count = 0, contig_count = 0;
 
         // Do we build GBWT?
@@ -616,17 +624,11 @@ int main_index(int argc, char** argv) {
                 for (auto node : to_save) { binary_file.push_back(node); }
                 binary_file.push_back(gbwt::ENDMARKER);
             }
-            if (build_gpbwt) {
-                xg::XG::thread_t temp;
-                temp.reserve(to_save.size());
-                for (auto node : to_save) { temp.push_back(gbwt_to_thread_mapping(node)); }
-                all_phase_threads.push_back(temp);
-            }
             thread_names.push_back(thread_name);
         };
 
         // Convert paths to threads
-        if (index_paths & !build_gpbwt) {
+        if (index_paths) {
             if (show_progress) {
                 cerr << "Converting paths to threads..." << endl;
             }
@@ -960,13 +962,6 @@ int main_index(int argc, char** argv) {
                     xg_index->set_thread_names(thread_names);
                     xg_index->set_haplotype_count(haplotype_count);
                 }
-            }
-            if (build_gpbwt) {
-                if (show_progress) {
-                    cerr << "Inserting all phase threads into DAG..." << endl;
-                }
-                xg_index->insert_threads_into_dag(all_phase_threads, thread_names);
-                xg_index->set_haplotype_count(haplotype_count);
             }
         }
     } // End of thread indexing.
