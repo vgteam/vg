@@ -492,6 +492,11 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
+    if (index_gam && (index_haplotypes || index_paths)) {
+        cerr << "error: [vg index] GAM threads are incompatible with haplotype/path threads" << endl;
+        return 1;
+    }
+
     if (file_names.size() <= 0 && dbg_names.empty()){
         //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
@@ -559,11 +564,6 @@ int main_index(int argc, char** argv) {
     // Generate threads
     if (index_haplotypes || index_paths || index_gam) {
 
-        if (!build_gbwt && !(parse_only && index_haplotypes) && !write_threads) {
-            cerr << "error: [vg index] no output format specified for the threads" << endl;
-            return 1;
-        }
-
         // Use the same temp directory as VG.
         gbwt::TempFile::setDirectory(temp_file::get_dir());
 
@@ -595,8 +595,10 @@ int main_index(int argc, char** argv) {
         }
 
         // GBWT metadata.
-        vector<string> thread_names;                // Store thread names in insertion order.
-        size_t sample_count = 0, haplotype_count = 0, contig_count = 0;
+        std::vector<std::string> thread_names; // Store thread names in insertion order. TODO deprecated, remove
+        std::vector<std::string> sample_names, contig_names;
+        size_t haplotype_count = 0;
+        size_t true_sample_offset = 0; // Id of the first VCF sample.
 
         // Do we build GBWT?
         gbwt::GBWTBuilder* gbwt_builder = 0;
@@ -627,6 +629,20 @@ int main_index(int argc, char** argv) {
             thread_names.push_back(thread_name);
         };
 
+        // Store the name of the thread in GBWT metadata,
+        auto store_thread_name = [&](gbwt::size_type sample, gbwt::size_type contig, gbwt::size_type phase, gbwt::size_type count) {
+            if (build_gbwt) {
+                gbwt_builder->index.metadata.addPath({ sample, contig, phase, count });
+            }
+        };
+
+        // Store contig names.
+        if (index_paths || index_haplotypes) {
+            for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
+                contig_names.push_back(xg_index->path_name(path_rank));
+            }
+        }
+
         // Convert paths to threads
         if (index_paths) {
             if (show_progress) {
@@ -642,10 +658,17 @@ int main_index(int argc, char** argv) {
                     buffer[i] = xg_path_to_gbwt(path, i);
                 }
                 store_thread(buffer, xg_index->path_name(path_rank));
+                store_thread_name(true_sample_offset, path_rank - 1, 0, 0);
             }
-            haplotype_count++; // We assume that the XG index contains the reference paths.
+            // GBWT metadata: We assume that the XG index contains the reference paths.
+            sample_names.push_back("ref");
+            haplotype_count++;
+            true_sample_offset++;
         }
 
+        // Index GAM without sample/contig/path names.
+        // TODO Alignment names in GBWT metadata?
+        // TODO Is this thread-safe?
         if (index_gam) {
             if (show_progress) {
                 cerr << "Converting GAM to threads..." << endl;
@@ -687,12 +710,11 @@ int main_index(int argc, char** argv) {
                 return 1;
             }
 
-            // Remember the sample names
-            const vector<string>& sample_names = variant_file.sampleNames;
-
-            // Determine the range of samples.
+            // Determine the samples we want to index.
             sample_range.second = std::min(sample_range.second, num_samples);
-            sample_count += sample_range.second - sample_range.first;
+            sample_names.insert(sample_names.end(),
+                                variant_file.sampleNames.begin() + sample_range.first,
+                                variant_file.sampleNames.begin() + sample_range.second);
             haplotype_count += 2 * (sample_range.second - sample_range.first);  // Assuming a diploid genome
             if (show_progress) {
                 cerr << "Haplotype generation parameters:" << endl;
@@ -715,7 +737,6 @@ int main_index(int argc, char** argv) {
                     cerr << "Processing path " << path_name << " as VCF contig " << vcf_contig_name << endl;
                 }
                 string parse_file = parse_name + '_' + vcf_contig_name;
-                contig_count++;
 
                 // Structures to parse the VCF file into.
                 const xg::XGPath& path = xg_index->get_path(path_name);
@@ -850,7 +871,6 @@ int main_index(int argc, char** argv) {
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         std::vector<gbwt::Phasing> current_phasings;
                         for (size_t sample = phasings[batch].offset(); sample < phasings[batch].limit(); sample++) {
-                            string& sample_name = variant_file.sampleNames[sample];
                             current_phasings.emplace_back(genotypes[sample], was_diploid[sample]);
                             was_diploid[sample] = current_phasings.back().diploid;
                             if(force_phasing) {
@@ -897,15 +917,19 @@ int main_index(int argc, char** argv) {
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         gbwt::generateHaplotypes(variants, phasings[batch],
                             [&](gbwt::size_type sample) -> bool {
-                                return (excluded_samples.find(sample_names[sample]) == excluded_samples.end());
+                                return (excluded_samples.find(variant_file.sampleNames[sample]) == excluded_samples.end());
                             },
                             [&](const gbwt::Haplotype& haplotype) {
                                 stringstream sn;
-                                sn  << "_thread_" << sample_names[haplotype.sample]
+                                sn  << "_thread_" << variant_file.sampleNames[haplotype.sample]
                                     << "_" << path_name
                                     << "_" << haplotype.phase
                                     << "_" << haplotype.count;
                                 store_thread(haplotype.path, sn.str());
+                                store_thread_name(haplotype.sample + true_sample_offset - sample_range.first,
+                                                  path_rank - 1,
+                                                  haplotype.phase,
+                                                  haplotype.count);
                             },
                             [&](gbwt::size_type, gbwt::size_type) -> bool {
                                 return discard_overlaps;
@@ -935,9 +959,9 @@ int main_index(int argc, char** argv) {
             if (build_gbwt) {
                 gbwt_builder->finish();
                 gbwt_builder->index.addMetadata();
-                gbwt_builder->index.metadata.setSamples(sample_count);
+                gbwt_builder->index.metadata.setSamples(sample_names);
                 gbwt_builder->index.metadata.setHaplotypes(haplotype_count);
-                gbwt_builder->index.metadata.setContigs(contig_count);
+                gbwt_builder->index.metadata.setContigs(contig_names);
                 if (show_progress) {
                     cerr << "GBWT metadata: "; gbwt::operator<<(cerr, gbwt_builder->index.metadata); cerr << endl;
                     cerr << "Saving GBWT to disk..." << endl;

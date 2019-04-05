@@ -38,9 +38,9 @@ is $(vg gbwt -S y.gbwt) 1 "chromosome y: 1 sample"
 vg gbwt -m -o xy.gbwt x.gbwt y.gbwt
 is $? 0 "GBWT indexes can be merged"
 is $(vg gbwt -c xy.gbwt) 4 "merge: 4 threads"
-is $(vg gbwt -C xy.gbwt) 1 "merge: 1 contig"
-is $(vg gbwt -H xy.gbwt) 4 "merge: 4 haplotypes"
-is $(vg gbwt -S xy.gbwt) 2 "merge: 2 samples"
+is $(vg gbwt -C xy.gbwt) 2 "merge: 2 contigs"
+is $(vg gbwt -H xy.gbwt) 2 "merge: 2 haplotypes"
+is $(vg gbwt -S xy.gbwt) 1 "merge: 1 sample"
 
 # Fast merging
 vg gbwt -f -o xy2.gbwt x.gbwt y.gbwt
