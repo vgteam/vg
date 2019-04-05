@@ -80,21 +80,29 @@ void match_backward(const std::string& seq, std::pair<const char*, size_t> targe
     }
 }
 
-// Convert the gapless match to a path.
-Path gapless_match_to_path(GaplessMatch& match, const GBWTGraph& graph, const std::string& sequence) {
+// Convert the GaplessMatch to GaplessExtension.
+GaplessExtension match_to_extension(GaplessMatch& match, const GBWTGraph& graph, const std::string& sequence) {
 
-    Path result;
-    if (match.empty()) {
+    GaplessExtension result {
+        Path(),
+        match.state,
+        { match.start, match.limit },
+        (match.start == 0 && match.limit == sequence.length()),
+        { match.start, match.limit },
+        { }
+    };
+    if (result.empty()) {
         return result;
     }
 
+    // Build the path.
     std::sort(match.mismatches.begin(), match.mismatches.end());
     size_t sequence_offset = 0; // Start of the unmapped part in the sequence.
     size_t mismatch_offset = 0; // In match.mismatches.
     size_t node_offset = match.offset; // Start of the alignment in the current node.
     for (size_t i = 0; i < match.path.size(); i++) {
         size_t limit = std::min(sequence_offset + graph.get_length(match.path[i]) - node_offset, match.limit);
-        Mapping& mapping = *(result.add_mapping());
+        Mapping& mapping = *(result.path.add_mapping());
         mapping.mutable_position()->set_node_id(graph.get_id(match.path[i]));
         mapping.mutable_position()->set_offset(node_offset);
         mapping.mutable_position()->set_is_reverse(graph.get_is_reverse(match.path[i]));
@@ -121,10 +129,11 @@ Path gapless_match_to_path(GaplessMatch& match, const GBWTGraph& graph, const st
         node_offset = 0;
     }
 
+    result.mismatch_positions.swap(match.mismatches);
     return result;
 }
 
-std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence, size_t max_mismatches) const {
+GaplessExtension GaplessExtender::extend_seeds(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence, size_t max_mismatches) const {
 
     GaplessMatch best_match {
         max_mismatches + 1,
@@ -134,7 +143,7 @@ std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size
         { }
     };
     if (this->graph == nullptr) {
-        return std::make_pair(gapless_match_to_path(best_match, *(this->graph), sequence), best_match.score);
+        return match_to_extension(best_match, *(this->graph), sequence);
     }
 
     // Process the seeds in sorted order.
@@ -180,7 +189,7 @@ std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size
                 forward.push(match);
             }
             if (best_match.score == 0) {
-                return std::make_pair(gapless_match_to_path(best_match, *(this->graph), sequence), best_match.score);
+                return match_to_extension(best_match, *(this->graph), sequence);
             }
         }
 
@@ -222,7 +231,7 @@ std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size
                 return true;
             });
             if (best_match.score == 0) {
-                return std::make_pair(gapless_match_to_path(best_match, *(this->graph), sequence), best_match.score);
+                return match_to_extension(best_match, *(this->graph), sequence);
             }
         }
 
@@ -260,17 +269,17 @@ std::pair<Path, size_t> GaplessExtender::extend_seeds(std::vector<std::pair<size
                 return true;
             });
             if (best_match.score == 0) {
-                return std::make_pair(gapless_match_to_path(best_match, *(this->graph), sequence), best_match.score);
+                return match_to_extension(best_match, *(this->graph), sequence);
             }
         }
     }
 
-    return std::make_pair(gapless_match_to_path(best_match, *(this->graph), sequence), best_match.score);
+    return match_to_extension(best_match, *(this->graph), sequence);
 }
 
 //------------------------------------------------------------------------------
 
-struct MaximalGBWTMatch {
+struct UnambiguousMatch {
     size_t seq_start, seq_limit; // Sequence range.
     size_t node_start, node_limit; // In the initial/final nodes of the path.
     gbwt::BidirectionalState state;
@@ -281,7 +290,7 @@ struct MaximalGBWTMatch {
     bool empty() const { return (this->length() == 0); }
 
     // Compare sequence ranges, start/end nodes, and node offsets.
-    bool operator<(const MaximalGBWTMatch& another) const {
+    bool operator<(const UnambiguousMatch& another) const {
         if (this->seq_start != another.seq_start) {
             return (this->seq_start < another.seq_start);
         }
@@ -305,7 +314,7 @@ struct MaximalGBWTMatch {
 };
 
 // Match forward as long as the characters match,
-void match_forward(const std::string& seq, std::pair<const char*, size_t> target, MaximalGBWTMatch& match) {
+void match_forward(const std::string& seq, std::pair<const char*, size_t> target, UnambiguousMatch& match) {
     while (match.seq_limit < seq.length() && match.node_limit < target.second) {
         if (seq[match.seq_limit] != target.first[match.node_limit]) {
             break;
@@ -316,7 +325,7 @@ void match_forward(const std::string& seq, std::pair<const char*, size_t> target
 }
 
 // Match backward as long as the characters match.
-void match_backward(const std::string& seq, std::pair<const char*, size_t> target, MaximalGBWTMatch& match) {
+void match_backward(const std::string& seq, std::pair<const char*, size_t> target, UnambiguousMatch& match) {
     while (match.seq_start > 0 && match.node_start > 0) {
         if (seq[match.seq_start - 1] != target.first[match.node_start - 1]) {
             break;
@@ -326,11 +335,18 @@ void match_backward(const std::string& seq, std::pair<const char*, size_t> targe
     }
 }
 
-// Convert the exact match to a path.
-Path maximal_match_to_path(const MaximalGBWTMatch& match, const GBWTGraph& graph) {
+// Convert UnambiguousMatch to GaplessExtension.
+GaplessExtension unambiguous_match_to_extension(const UnambiguousMatch& match, const GBWTGraph& graph, const std::string& sequence) {
 
-    Path result;
-    if (match.empty()) {
+    GaplessExtension result {
+        Path(),
+        match.state,
+        { match.seq_start, match.seq_limit },
+        (match.seq_start == 0 && match.seq_limit == sequence.length()),
+        { match.seq_start, match.seq_limit },
+        { }
+    };
+    if (result.empty()) {
         return result;
     }
 
@@ -338,7 +354,7 @@ Path maximal_match_to_path(const MaximalGBWTMatch& match, const GBWTGraph& graph
         size_t start = (i == 0 ? match.node_start : 0);
         size_t limit = (i + 1 == match.path.size() ? match.node_limit : graph.get_length(match.path[i]));
 
-        Mapping& mapping = *(result.add_mapping());
+        Mapping& mapping = *(result.path.add_mapping());
         mapping.mutable_position()->set_node_id(graph.get_id(match.path[i]));
         mapping.mutable_position()->set_offset(start);
         mapping.mutable_position()->set_is_reverse(graph.get_is_reverse(match.path[i]));
@@ -353,13 +369,13 @@ Path maximal_match_to_path(const MaximalGBWTMatch& match, const GBWTGraph& graph
     return result;
 }
 
-std::vector<std::pair<Path, size_t>> GaplessExtender::maximal_extensions(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const {
+std::vector<GaplessExtension> GaplessExtender::maximal_extensions(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const {
 
     // Process the seeds in sorted order.
     std::pair<size_t, pos_t> prev(0, make_pos_t(0, false, 0));
     size_t prev_limit = 0; // Limit in the initial node.
     std::sort(cluster.begin(), cluster.end());
-    std::set<MaximalGBWTMatch> matches;
+    std::set<UnambiguousMatch> matches;
     for (size_t i = 0; i < cluster.size(); i++) {
 
         // Skip redundant seeds.
@@ -375,7 +391,7 @@ std::vector<std::pair<Path, size_t>> GaplessExtender::maximal_extensions(std::ve
 
         // Match the initial node.
         handle_t handle = GBWTGraph::node_to_handle(pos_to_gbwt(cluster[i].second));
-        MaximalGBWTMatch match {
+        UnambiguousMatch match {
             cluster[i].first, cluster[i].first,
             static_cast<size_t>(offset(cluster[i].second)), static_cast<size_t>(offset(cluster[i].second)),
             this->graph->get_bd_state(handle),
@@ -465,10 +481,11 @@ std::vector<std::pair<Path, size_t>> GaplessExtender::maximal_extensions(std::ve
         }
     }
 
-    // Convert the matches to Path objects.
-    std::vector<std::pair<Path, size_t>> result;
-    for(const MaximalGBWTMatch& match : matches) {
-        result.emplace_back(maximal_match_to_path(match, *(this->graph)), match.seq_start);
+    // Convert the matches to GaplessExtension objects.
+    std::vector<GaplessExtension> result;
+    result.reserve(matches.size());
+    for(const UnambiguousMatch& match : matches) {
+        result.emplace_back(unambiguous_match_to_extension(match, *(this->graph), sequence));
     }
     return result;
 }

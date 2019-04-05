@@ -375,7 +375,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                     extend_counts[thread]++;
                     seed_counts[thread] += hits.size();
                     auto result = extender.extend_seeds(hits, reads[i], max_errors);
-                    if (result.second <= max_errors) {
+                    if (result.mismatches() <= max_errors) {
                         success_counts[thread]++;
                         success_seed_counts[thread] += hits.size();
                     } else {

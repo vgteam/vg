@@ -142,8 +142,10 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         };
         size_t error_bound = 0;
         auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(result.second <= error_bound);
-        alignment_matches(result.first, correct_alignment);
+        REQUIRE(!result.empty());
+        REQUIRE(result.full());
+        REQUIRE(result.mismatches() <= error_bound);
+        alignment_matches(result.path, correct_alignment);
     }
 
     SECTION("read matches with errors") {
@@ -161,8 +163,10 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         };
         size_t error_bound = 1;
         auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(result.second <= error_bound);
-        alignment_matches(result.first, correct_alignment);
+        REQUIRE(!result.empty());
+        REQUIRE(result.full());
+        REQUIRE(result.mismatches() <= error_bound);
+        alignment_matches(result.path, correct_alignment);
     }
 
     SECTION("false seeds do not matter") {
@@ -181,8 +185,10 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         };
         size_t error_bound = 1;
         auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(result.second <= error_bound);
-        alignment_matches(result.first, correct_alignment);
+        REQUIRE(!result.empty());
+        REQUIRE(result.full());
+        REQUIRE(result.mismatches() <= error_bound);
+        alignment_matches(result.path, correct_alignment);
     }
 
     SECTION("read matches reverse complement and ends within a node") {
@@ -199,8 +205,10 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         };
         size_t error_bound = 1;
         auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(result.second <= error_bound);
-        alignment_matches(result.first, correct_alignment);
+        REQUIRE(!result.empty());
+        REQUIRE(result.full());
+        REQUIRE(result.mismatches() <= error_bound);
+        alignment_matches(result.path, correct_alignment);
     }
 
     SECTION("a non-matching read cannot be extended") {
@@ -211,7 +219,8 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         };
         size_t error_bound = 1;
         auto result = extender.extend_seeds(cluster, read, error_bound);
-        REQUIRE(result.second > error_bound);
+        REQUIRE(result.empty());
+        REQUIRE(!result.full());
     }
 }
 
@@ -253,8 +262,9 @@ TEST_CASE("Haplotype-aware maximal extension works correctly", "[gapless_extende
         auto result = extender.maximal_extensions(cluster, read);
         REQUIRE(result.size() == correct_extensions.size());
         for (size_t i = 0; i < result.size(); i++) {
-            alignment_matches(result[i].first, correct_extensions[i]);
-            REQUIRE(result[i].second == correct_offsets[i]);
+            REQUIRE(!(result[i].empty()));
+            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
+            alignment_matches(result[i].path, correct_extensions[i]);
         }
     }
 
@@ -288,8 +298,9 @@ TEST_CASE("Haplotype-aware maximal extension works correctly", "[gapless_extende
         auto result = extender.maximal_extensions(cluster, read);
         REQUIRE(result.size() == correct_extensions.size());
         for (size_t i = 0; i < result.size(); i++) {
-            alignment_matches(result[i].first, correct_extensions[i]);
-            REQUIRE(result[i].second == correct_offsets[i]);
+            REQUIRE(!(result[i].empty()));
+            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
+            alignment_matches(result[i].path, correct_extensions[i]);
         }
     }
 
@@ -330,8 +341,9 @@ TEST_CASE("Haplotype-aware maximal extension works correctly", "[gapless_extende
         auto result = extender.maximal_extensions(cluster, read);
         REQUIRE(result.size() == correct_extensions.size());
         for (size_t i = 0; i < result.size(); i++) {
-            alignment_matches(result[i].first, correct_extensions[i]);
-            REQUIRE(result[i].second == correct_offsets[i]);
+            REQUIRE(!(result[i].empty()));
+            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
+            alignment_matches(result[i].path, correct_extensions[i]);
         }
     }
 
@@ -357,8 +369,9 @@ TEST_CASE("Haplotype-aware maximal extension works correctly", "[gapless_extende
         auto result = extender.maximal_extensions(cluster, read);
         REQUIRE(result.size() == correct_extensions.size());
         for (size_t i = 0; i < result.size(); i++) {
-            alignment_matches(result[i].first, correct_extensions[i]);
-            REQUIRE(result[i].second == correct_offsets[i]);
+            REQUIRE(!(result[i].empty()));
+            REQUIRE(result[i].core_interval.first == correct_offsets[i]);
+            alignment_matches(result[i].path, correct_extensions[i]);
         }
     }
 }
