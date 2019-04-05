@@ -222,6 +222,9 @@ namespace vg {
         /// The longest gap detectable from a read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const;
         
+        /// The longest gap detectable from a read position without soft-clipping, for a generic read.
+        size_t longest_detectable_gap(size_t read_length, size_t read_pos) const;
+        
         /// The longest gap detectable from any read position without soft-clipping
         size_t longest_detectable_gap(const Alignment& alignment) const;
         
