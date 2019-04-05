@@ -27,7 +27,6 @@ var searchData=
   ['index',['index',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#a31633fcd29284243b0e98d5a174b1b1e',1,'vg::DistanceIndex::SnarlIndex::index()'],['../classvg_1_1StreamIndex.html#a8ee1930510b5d02e9a00ba1a246ba146',1,'vg::StreamIndex::index()'],['../classvg_1_1Index.html#adb022550b02c2f07099f8543177cef51',1,'vg::Index::Index(void)'],['../classvg_1_1Index.html#a15127be3fa63cfa8e1f8639c7609f496',1,'vg::Index::Index(string &amp;name)']]],
   ['index_5fcomponent_5fpath_5fsets',['index_component_path_sets',['../classxg_1_1XG.html#a704934dcb270a20db91d4e82fd43bbaa',1,'xg::XG']]],
   ['index_5fedge_5fby_5fnode_5fsides',['index_edge_by_node_sides',['../classvg_1_1VG.html#a53ff7033966852f5fb3852716cab21a9',1,'vg::VG']]],
-  ['index_5fpaths',['index_paths',['../classvg_1_1VG.html#a70998a8e262e0afa074a2a287807705f',1,'vg::VG']]],
   ['index_5fpositions',['index_positions',['../namespacevg.html#a3ad3588bcc84b46c6ed107e604f9128e',1,'vg']]],
   ['indexedvg',['IndexedVG',['../classvg_1_1IndexedVG.html#a89030b52047b0e005a5c86b7f9a206f6',1,'vg::IndexedVG::IndexedVG(string graph_filename)'],['../classvg_1_1IndexedVG.html#a4f034462276f6e3ed4b1ab86979d699c',1,'vg::IndexedVG::IndexedVG(IndexedVG &amp;&amp;other)=default'],['../classvg_1_1IndexedVG.html#a0972bd3bf8d93bfa8b41aff828aab070',1,'vg::IndexedVG::IndexedVG(const IndexedVG &amp;other)=delete']]],
   ['indexopenexception',['indexOpenException',['../classvg_1_1indexOpenException.html#a6f40b99e24b3edb813bb9a8054269e20',1,'vg::indexOpenException']]],
