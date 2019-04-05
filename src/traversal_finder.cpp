@@ -4,7 +4,7 @@
 #include "algorithms/is_acyclic.hpp"
 #include "cactus.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -2500,6 +2500,14 @@ VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
     // currently limited to sites on the reference
     assert(start_it != path_index->end() && end_it != path_index->end());
 
+#ifdef debug
+    cerr << "Computing alt traversals for site " << pb2json(site) << " that spans the following "
+         << site_variants.size() << " variants:\n";
+    for (auto site_var : site_variants) {
+      cerr << " ->" << *site_var << endl;
+    }
+#endif
+
     // take the reference traversal from our path index
     SnarlTraversal ref_trav;
     PathIndex::iterator it = start_it;
@@ -2511,6 +2519,10 @@ VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
         visit->set_backward(it->second.is_end);
     }
     output_traversals.push_back(make_pair(ref_trav, vector<int>(site_variants.size(), 0)));
+
+#ifdef debug
+    cerr << "Ref traversal: " << pb2json(ref_trav) << endl;
+#endif
 
     // fill in the alt traversals
     brute_force_alt_traversals(site, site_variants, path_index, start_it, end_it, output_traversals);
@@ -2538,14 +2550,19 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     vector<pair<SnarlTraversal, vector<int> > >& output_traversals) {
 
     // the haplotype we're going to look for a traversal for
-    vector<int> haplotype(0, site_variants.size());
+    vector<int> haplotype(site_variants.size(), 0);
 
     // increment the haplotype.  we can use this to loop over every possible haplotype
     auto next_haplotype = [&] () -> bool {
+        // do this by "adding" 1 to our haplotype. each digit is in base-|alleles|
         for (int i = site_variants.size() - 1; i >= 0; --i) {
             if (haplotype[i] < site_variants[i]->alleles.size() - 1) {
+                // add to column
                 ++haplotype[i];
                 return true;
+            } else if (i > 0) {
+                // carry 1 to left
+                haplotype[i] = 0;
             }
         }
         return false;
@@ -2556,6 +2573,14 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     while (next_haplotype()) {
         pair<SnarlTraversal, bool> alt_traversal = get_alt_traversal(site, site_variants, path_index,
                                                                      start_it, end_it, haplotype);
+#ifdef debug
+        cerr << "bf haplotype <";
+        for (auto allele : haplotype) {
+            cerr << allele << ",";
+        }
+        cerr << "> gives " << (alt_traversal.second ? "valid" : "invalid") <<  " trav: "
+             << pb2json(alt_traversal.first) << endl;
+#endif
         if (alt_traversal.second) {
             output_traversals.push_back(make_pair(alt_traversal.first, haplotype));
         }
@@ -2578,17 +2603,40 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
     // the edges of our reference path.  we must follow these in our traversal
     // unless we're going to an alt
     unordered_set<pair<handle_t, handle_t> > ref_edges;
+    // nodes of the reference path.  we use these to see if we can go from
+    // an alt path back to the reference
+    unordered_set<handle_t> ref_nodes;
     for (auto it = start_it; it != end_it; ++it) {
         auto next = it;
         ++next;
         // todo: assuming forward ref path
         ref_edges.insert(graph.edge_handle(graph.get_handle(it->second.node),
                                               graph.get_handle(next->second.node)));
+        ref_nodes.insert(graph.get_handle(it->second.node));
     }
+    ref_nodes.insert(graph.get_handle(end_it->second.node));
+
+#ifdef debug
+    cerr << "  alt nodes: ";
+    for (auto alt_node : alt_nodes) {
+        cerr << graph.get_id(alt_node) << ",";
+    }
+    cerr << endl << "  alt edges: ";
+    for (auto alt_edge : alt_edges) {
+        cerr << graph.get_id(alt_edge.first) << ":" << graph.get_is_reverse(alt_edge.first) << "-"
+             << graph.get_id(alt_edge.second) << ":" << graph.get_is_reverse(alt_edge.second) << ",";
+    }
+    cerr << endl << "  ref edges: ";
+    for (auto ref_edge : ref_edges) {
+        cerr << graph.get_id(ref_edge.first) << ":" << graph.get_is_reverse(ref_edge.first) << "-"
+             << graph.get_id(ref_edge.second) << ":" << graph.get_is_reverse(ref_edge.second) << ",";
+    }            
+#endif
     
     // we walk by always following reference edges unless we can step into an alt
     // there are some simplifying assumptions about alt paths at play here, like
-    // how there are unique hooks between them and the reference. 
+    // how there are unique hooks between them and the reference.
+    bool in_alt_path = false;
     auto walk_forward = [&] (Visit& visit) {
         handle_t handle = graph.get_handle(visit.node_id(), visit.backward());
         // take an alt edge if we find one
@@ -2603,6 +2651,7 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
                     alt_nodes.erase(next);
                     visit.set_node_id(graph.get_id(next));
                     visit.set_backward(graph.get_is_reverse(next));
+                    in_alt_path = true;
                     return false; // stop, we found an edge to an alt path node
                 } else {
                     return true;
@@ -2614,9 +2663,16 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
                 auto edge = graph.edge_handle(handle, next);
                 if (ref_edges.count(edge)) {
                     ref_edges.erase(edge);
+                    ref_nodes.erase(next);
                     visit.set_node_id(graph.get_id(next));
                     visit.set_backward(graph.get_is_reverse(next));
                     return false; // stop, we found a reference edge
+                } else if (in_alt_path && ref_nodes.count(next)) {
+                    ref_nodes.erase(next);
+                    visit.set_node_id(graph.get_id(next));
+                    visit.set_backward(graph.get_is_reverse(next));
+                    in_alt_path = false;
+                    return false; // stop, we found a reference node after our alt path
                 } else {
                     return true;
                 }
@@ -2632,12 +2688,19 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
     // start at the start
     // todo: should make sure this works if our snarl is backward on reference
     visit.set_node_id(start_it->second.node);
-    visit.set_backward(!start_it->second.is_end);
+    visit.set_backward(start_it->second.is_end);
 
+#ifdef debug
+    cerr << "  start walk: " << pb2json(visit) << endl;
+#endif
+    
     // walk our traversal
     bool found_end;
     while (walk_forward(visit)) {
-        if (visit.node_id() != start_it->second.node) {
+#ifdef debug
+        cerr << "  visit: " << pb2json(visit) << endl;
+#endif
+        if (visit.node_id() != end_it->second.node) {
             *traversal.add_visit() = visit;
         } else {
             found_end = true;
@@ -2660,17 +2723,21 @@ VCFTraversalFinder::get_haplotype_alt_contents(
     unordered_set<pair<handle_t, handle_t> > alt_deletion_edges;
 
     for (size_t allele = 0; allele < haplotype.size(); ++allele) {
+        // ignore reference alleles
+        if (haplotype[allele] == 0) {
+            continue;
+        }
+        
         vcflib::Variant* var = site_variants[allele];
     
-        string alt_path_name = "_alt_" + make_variant_id(*var) + "_" + to_string(allele);
-        if (graph.has_path(alt_path_name)) {
+        string alt_path_name = "_alt_" + make_variant_id(*var) + "_" + to_string(haplotype[allele]);
+        if (graph.has_path(alt_path_name) && !graph.paths.get_path(alt_path_name).empty()) {
             // if there's an alt path, then we're dealing with a snp or insertion.
             // we take the edges from the path, as well as those back to the reference
             list<mapping_t>& path = graph.paths.get_path(alt_path_name);
-            assert(!path.empty());
 
             // fill in the nodes from the path
-            for (auto mapping : path) { 
+            for (auto mapping : path) {
                 alt_nodes.insert(graph.get_handle(mapping.node_id()));
             }
         }  else {
