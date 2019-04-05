@@ -59,10 +59,10 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
-# Remove threads from a GBWT
-vg gbwt -r 1 -r 2 xy.gbwt
-is $? 0 "threads can be removed from a GBWT index"
-is $(vg gbwt -c xy.gbwt) 2 "remove: 2 threads"
+# Remove a sample from a GBWT
+vg gbwt -R 1 xy.gbwt
+is $? 0 "samples can be removed from a GBWT index"
+is $(vg gbwt -c xy.gbwt) 0 "the sample was removed"
 
 rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
 
