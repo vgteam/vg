@@ -12,6 +12,8 @@ var searchData=
   ['path_5fhandle_5fgraph_2ehpp',['path_handle_graph.hpp',['../path__handle__graph_8hpp.html',1,'']]],
   ['path_5findex_2ecpp',['path_index.cpp',['../path__index_8cpp.html',1,'']]],
   ['path_5findex_2ehpp',['path_index.hpp',['../path__index_8hpp.html',1,'']]],
+  ['path_5fsubgraph_2ecpp',['path_subgraph.cpp',['../path__subgraph_8cpp.html',1,'']]],
+  ['path_5fsubgraph_2ehpp',['path_subgraph.hpp',['../path__subgraph_8hpp.html',1,'']]],
   ['paths_5fmain_2ecpp',['paths_main.cpp',['../paths__main_8cpp.html',1,'']]],
   ['phase_5funfolder_2ecpp',['phase_unfolder.cpp',['../phase__unfolder_8cpp.html',1,'']]],
   ['phase_5funfolder_2ehpp',['phase_unfolder.hpp',['../phase__unfolder_8hpp.html',1,'']]],

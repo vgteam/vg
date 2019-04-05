@@ -12,6 +12,7 @@ var searchData=
   ['identity',['identity',['../namespacevg.html#ab3c5c7a407962a8c735c1d533cc0b186',1,'vg']]],
   ['identity_5ftranslation',['identity_translation',['../classvg_1_1VG.html#abbd7b9f01799a351e0e5ba420fa06679',1,'vg::VG']]],
   ['idify_5fgraph',['idify_graph',['../classxg_1_1XG.html#ac0835a2a24adf2989ad776ba8061cfab',1,'xg::XG']]],
+  ['immutable_5fpath_5ffrom_5flength',['immutable_path_from_length',['../classvg_1_1MinimizerMapper.html#ab3008803e2ce57d5bbcd6a077f9dcde6',1,'vg::MinimizerMapper']]],
   ['in_5fnontrivial_5fchain',['in_nontrivial_chain',['../classvg_1_1SnarlManager.html#abe6a0924ce953c5dd1a43a91558c4391',1,'vg::SnarlManager']]],
   ['include',['include',['../classvg_1_1VG.html#a66e4dac76edcf0218f9749352c19acae',1,'vg::VG']]],
   ['inclusive_5finterval',['inclusive_interval',['../classhaplo_1_1hDP__graph__accessor.html#afcd641ac25078d4920e12940c1516425',1,'haplo::hDP_graph_accessor::inclusive_interval()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a6517cda134051f3447365cfc8996e9d6',1,'haplo::hDP_gbwt_graph_accessor::inclusive_interval()']]],

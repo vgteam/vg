@@ -377,6 +377,8 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathIndex.html">PathIndex</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PathSubgraph.html">PathSubgraph</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PathBranch.html">PathBranch</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1PhaseUnfolder.html">PhaseUnfolder</a></td></tr>
@@ -1493,10 +1495,8 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="memdesc:a716ebc4e690ac383342cc1c750bdddd0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a reference to the offset field of a pos_t, which counts along the selected strand of the node.  <a href="#a716ebc4e690ac383342cc1c750bdddd0">More...</a><br/></td></tr>
 <tr class="separator:a716ebc4e690ac383342cc1c750bdddd0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac52fd5878b0be1d53de644eea3458663"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac52fd5878b0be1d53de644eea3458663">reverse</a> (const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos, size_t node_length)</td></tr>
-<tr class="memdesc:ac52fd5878b0be1d53de644eea3458663"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reverse a pos_t and get a pos_t at the same base, going the other direction.  <a href="#ac52fd5878b0be1d53de644eea3458663">More...</a><br/></td></tr>
 <tr class="separator:ac52fd5878b0be1d53de644eea3458663"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91adfc6327b5709dc73fcc7edbe5da57"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Position.html">Position</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a91adfc6327b5709dc73fcc7edbe5da57">reverse</a> (const <a class="el" href="structvg_1_1Position.html">Position</a> &amp;pos, size_t node_length)</td></tr>
-<tr class="memdesc:a91adfc6327b5709dc73fcc7edbe5da57"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reverse a <a class="el" href="structvg_1_1Position.html">Position</a> and get a <a class="el" href="structvg_1_1Position.html">Position</a> at the same base, going the other direction.  <a href="#a91adfc6327b5709dc73fcc7edbe5da57">More...</a><br/></td></tr>
 <tr class="separator:a91adfc6327b5709dc73fcc7edbe5da57"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8108426a3ac5985b0f86493fc524d131"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a8108426a3ac5985b0f86493fc524d131">operator&lt;&lt;</a> (ostream &amp;out, const <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &amp;pos)</td></tr>
 <tr class="memdesc:a8108426a3ac5985b0f86493fc524d131"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print a pos_t to a stream.  <a href="#a8108426a3ac5985b0f86493fc524d131">More...</a><br/></td></tr>
@@ -12458,8 +12458,7 @@ template&lt;class Decoder &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Reverse a pos_t and get a pos_t at the same base, going the other direction. </p>
+<p>Reverse a pos_t and get a pos_t at the same <b>point between bases</b>, going the other direction. To get a pos_t to the same <em>base</em>, subtract 1 from the resulting offset. </p>
 
 </div>
 </div>
@@ -12486,8 +12485,7 @@ template&lt;class Decoder &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Reverse a <a class="el" href="structvg_1_1Position.html">Position</a> and get a <a class="el" href="structvg_1_1Position.html">Position</a> at the same base, going the other direction. </p>
+<p>Reverse a <a class="el" href="structvg_1_1Position.html">Position</a> and get a <a class="el" href="structvg_1_1Position.html">Position</a> at the same <b>point between bases</b>, going the other direction. To get a <a class="el" href="structvg_1_1Position.html">Position</a> to the same <em>base</em>, subtract 1 from the resulting offset. </p>
 
 </div>
 </div>
