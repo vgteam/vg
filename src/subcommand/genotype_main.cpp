@@ -366,12 +366,7 @@ int main_genotype(int argc, char** argv) {
     AugmentedGraph augmented_graph;
 
     // Move our input graph into the augmented graph
-    // TODO: less terrible interface.  also shouldn't have to re-index.
     swap(augmented_graph.graph, *graph); 
-    swap(augmented_graph.graph.paths, graph->paths);
-    augmented_graph.graph.paths.rebuild_node_mapping();
-    augmented_graph.graph.paths.rebuild_mapping_aux();
-    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
 
     // Do the actual augmentation using vg edit. If augmentation was already
     // done, just embeds the reads. Reads will be taken by the AugmentedGraph

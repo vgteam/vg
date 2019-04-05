@@ -151,12 +151,7 @@ int main_call(int argc, char** argv) {
 
     SupportAugmentedGraph augmented_graph;
     // Move our input graph into the augmented graph
-    // TODO: less terrible interface.  also shouldn't have to re-index.
     swap(augmented_graph.graph, *graph); 
-    swap(augmented_graph.graph.paths, graph->paths);
-    augmented_graph.graph.paths.rebuild_node_mapping();
-    augmented_graph.graph.paths.rebuild_mapping_aux();
-    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
 
     augmented_graph.base_graph = base_graph;
     
