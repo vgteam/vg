@@ -375,22 +375,14 @@ public:
     virtual ~VCFTraversalFinder();
     
     /**
-     * Find traversals for the site.  Each traversal is associated with a list of 
-     * genotype-variant pairs.
-     *
-     * So <trav, <(0, var1), (0, var2), (1, var3)>> would imply that traversal "trav"
-     * spans the reference allele in var1 and var2, and the 1st alt allele in var3
-     * Anything in "trav" not covered by those three variants will be on the reference.
-     *
-     * This is done exhaustively for now which should suffice for SV graphs.  Something
-     * more sophisticated would be needed if adding in SNPs, perhaps taking into
-     * account the snarl hierarchy and/or support. 
+     * Find traversals for the site.  Each traversa is returned in a pair with
+     * its haplotype.  The haplotype refers to the list of variants (also returned)
      */
-    vector<pair<SnarlTraversal, vector<pair<int, vcflib::Variant*>>>> find_allele_traversals(const Snarl& site);
+    pair<vector<pair<SnarlTraversal, vector<int>>>, vector<vcflib::Variant*>> find_allele_traversals(const Snarl& site);
 
     /**
      * Return a list of traversals for the site.  The same traversals as above, only the
-     * genotype information not included
+     * haplotype information not included
      */
     virtual vector<SnarlTraversal> find_traversals(const Snarl& site);
 
@@ -406,6 +398,35 @@ protected:
     void create_variant_index(vcflib::VariantCallFile& vcf);
     void delete_variant_index();
 
+    /** Get a traversal for every possible haplotype (but reference)
+     * in the most naive way possibe.  This will blow up terribly for sites that contain more than a few
+     * variants.  There's an obvious dynamic programming speedup, but the main issue is that
+     * the output size is exponential in the number of variants.
+     */
+    void brute_force_alt_traversals(const Snarl& site,
+                                    const vector<vcflib::Variant*>& site_variants,
+                                    PathIndex* path_index,
+                                    PathIndex::iterator start_it,
+                                    PathIndex::iterator end_it,
+                                    vector<pair<SnarlTraversal, vector<int> > >& output_traversals);
+
+    /** Get a traversal for a given haplotype.  It gets all the nodes and edges from the alt 
+     * paths, and greedily walks over them whenever possible (traversing the reference otherwise).
+     * if there is no traversal that can satisfy the haplotype, then the returned bool is set to false
+     */
+    pair<SnarlTraversal, bool> get_alt_traversal(const Snarl& site,
+                                                 const vector<vcflib::Variant*>& site_variants,
+                                                 PathIndex* path_index,
+                                                 PathIndex::iterator start_it,
+                                                 PathIndex::iterator end_it,
+                                                 const vector<int>& haplotype);
+
+    /** Get a set of all alt path nodes and deletion edges for a halptype.
+     */
+    pair<unordered_set<handle_t>, unordered_set<pair<handle_t, handle_t> >>
+         get_haplotype_alt_contents(const vector<vcflib::Variant*>& site_variants,
+                                    const vector<int>& haplotype,
+                                    PathIndex* path_index);
 };
 
 }
