@@ -128,7 +128,7 @@ namespace vg {
         /// when the MultipathAlignmentGraph was constructed! TODO: Shouldn't
         /// the class hold a reference to the Alignment then?
         void synthesize_tail_anchors(const Alignment& alignment, const HandleGraph& align_graph, const GSSWAligner* aligner,
-                                     size_t max_alt_alns, bool dynamic_alt_alns);
+                                     size_t min_anchor_size, size_t max_alt_alns, bool dynamic_alt_alns);
         
         /// Add edges between reachable nodes and split nodes at overlaps
         void add_reachability_edges(const HandleGraph& vg,

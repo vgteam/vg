@@ -662,6 +662,43 @@ VG::~VG(void) {
 VG::VG(void) {
     init();
 }
+    
+VG::VG(const VG& other) {
+    init();
+    if (this != &other) {
+        // cleanup
+        clear_indexes();
+        // assign
+        graph = other.graph;
+        paths = other.paths;
+        // re-index
+        build_indexes();
+    }
+}
+    
+VG::VG(VG&& other) noexcept {
+    init();
+    graph = other.graph;
+    paths = other.paths;
+    other.graph.Clear();
+    rebuild_indexes();
+    // should copy over indexes
+}
+    
+VG& VG::operator=(const VG& other) {
+    VG tmp(other);
+    *this = std::move(tmp);
+    return *this;
+}
+    
+VG& VG::operator=(VG&& other) noexcept {
+    std::swap(graph, other.graph);
+    clear_indexes();
+    build_indexes();
+    paths.clear();
+    paths.append(graph);
+    return *this;
+}
 
 void VG::init(void) {
     current_id = 1;

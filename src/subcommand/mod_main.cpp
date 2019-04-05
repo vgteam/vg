@@ -609,8 +609,6 @@ int main_mod(int argc, char** argv) {
             }
         });
         
-        
-        
         // Destroy all the extra edges (in case they use extra nodes)
         for (auto* e : unused_edges) {
             graph->destroy_edge(e);

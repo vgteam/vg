@@ -3009,7 +3009,7 @@ namespace vg {
 #endif
 
                 // Make fake anchor paths to cut the snarls out of in the tails
-                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), num_alt_alns, dynamic_max_alt_alns);
+                multi_aln_graph.synthesize_tail_anchors(alignment, align_graph, get_aligner(), min_tail_anchor_length, 1, false);
                 
             }
        
