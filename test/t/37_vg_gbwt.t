@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 30
 
 
 # Build vg graphs for two chromosomes
@@ -20,6 +20,11 @@ is $(vg gbwt -c x.gbwt) 2 "chromosome x: 2 threads"
 is $(vg gbwt -C x.gbwt) 1 "chromosome x: 1 contig"
 is $(vg gbwt -H x.gbwt) 2 "chromosome x: 2 haplotypes"
 is $(vg gbwt -S x.gbwt) 1 "chromosome x: 1 sample"
+
+# Thread / contig / sample names
+is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome x: 2 thread names"
+is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome x: 1 contig name"
+is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome x: 1 sample name"
 
 # Full extraction of threads
 is $(vg paths -x x.xg -g x.gbwt -X -T | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
@@ -50,12 +55,8 @@ is $(vg gbwt -C xy2.gbwt) 2 "fast merge: 2 contigs"
 is $(vg gbwt -H xy2.gbwt) 2 "fast merge: 2 haplotypes"
 is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 
-# Unpackage the indexes, remove metadata from the merged indexes and compare them
-vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
-vg view --extract-tag GBWT xy2.gbwt > xy2.bare.gbwt
-../deps/gbwt/metadata_tool -r xy.bare > /dev/null
-../deps/gbwt/metadata_tool -r xy2.bare > /dev/null
-cmp xy.bare.gbwt xy2.bare.gbwt
+# Both merging algorithms should produce the same results, because metadata merging is based on names
+cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
 # Remove threads from a GBWT
@@ -63,7 +64,7 @@ vg gbwt -r 1 -r 2 xy.gbwt
 is $? 0 "threads can be removed from a GBWT index"
 is $(vg gbwt -c xy.gbwt) 2 "remove: 2 threads"
 
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt xy.bare.gbwt xy2.bare.gbwt x.xg
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
 
 
 # Build a GBWT for paths

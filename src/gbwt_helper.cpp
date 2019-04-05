@@ -1,9 +1,25 @@
 #include "gbwt_helper.hpp"
 
 #include <queue>
+#include <sstream>
 #include <stack>
 
 namespace vg {
+//------------------------------------------------------------------------------
+
+std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
+    if (!gbwt_index.hasMetadata() || !gbwt_index.metadata.hasPathNames() || i >= gbwt_index.metadata.paths()) {
+        return "";
+    }
+
+    const gbwt::PathName& path = gbwt_index.metadata.path(i);
+    std::stringstream stream;
+    stream << "_thread_"
+           << gbwt_index.metadata.sample(path.sample) << "_"
+           << gbwt_index.metadata.contig(path.contig) << "_"
+           << path.phase << "_" << path.count;
+    return stream.str();
+}
 
 //------------------------------------------------------------------------------
 
