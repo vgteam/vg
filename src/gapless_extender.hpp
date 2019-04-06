@@ -55,6 +55,9 @@ struct GaplessExtension
  */
 class GaplessExtender {
 public:
+    typedef std::pair<size_t, pos_t> seed_type;
+    typedef std::vector<seed_type>   cluster_type;
+
     /// The default value for the maximum number of mismatches.
     constexpr static size_t MAX_MISMATCHES = 4;
 
@@ -65,20 +68,39 @@ public:
     explicit GaplessExtender(const GBWTGraph& graph);
 
     /**
+     * 1. Call extend_seeds(). If there is a full-length alignment, return the result.
+     * 2. Call maximal_extensions().
+     * 3. Call extend_flanks() with max_mismatches / 2 mismatches.
+     */
+    std::vector<GaplessExtension> gapless_extension(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES) const;
+
+    /**
      * Find a full-length extension of the seeds with up to 'max_mismatches' mismatches.
      * Return an alignment with the fewest number of mismatches or an empty extension if
      * no full-length alignment exists.
      */
-    GaplessExtension extend_seeds(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES) const;
+    GaplessExtension extend_seeds(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES, bool cluster_is_sorted = false) const;
 
     /**
      * Find the maximal unambiguous extension for each seed. Returns the set of distinct
      * extensions. A maximal unambiguous extension ends when further extensions either
      * contain mismatches or branch with the same character.
      */
-    std::vector<GaplessExtension> maximal_extensions(std::vector<std::pair<size_t, pos_t>>& cluster, const std::string& sequence) const;
+    std::vector<GaplessExtension> maximal_extensions(cluster_type& cluster, const std::string& sequence, bool cluster_is_sorted = false) const;
+
+    /**
+     * Extends the flanks of each unambiguous extension with up to 'max_mismatches'
+     * mismatches in each direction. Trims the mismatches if the flanks start/end with
+     * them. Updates 'flanked_interval' to match the longest trimmed interval.
+     * Note that the extensions must be exact, non-empty, and non-full.
+     */
+    void extend_flanks(std::vector<GaplessExtension>& extensions, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES / 2) const;
 
     const GBWTGraph* graph;
+
+private:
+    static size_t head_offset(const Path& path);
+    static size_t tail_offset(const Path& path);
 };
 
 //------------------------------------------------------------------------------
