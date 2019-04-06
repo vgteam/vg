@@ -939,7 +939,6 @@ assert (group_id == union_find_clusters.find_group(group_id));
 
                         for (size_t k_i = 0 ; k_i <  (i == j ? c_i : children_j.size()) ; k_i++){
                             size_t k = children_j[k_i];
-                        cerr << "K: " << k << endl;
                             //For each other cluster, see which this child cluster belongs to
                             //k will already be part of a cluster in snarl_cluster_ids
                             //but since we need to know the node that the snarl is on we
