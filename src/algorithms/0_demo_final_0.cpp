@@ -15,11 +15,13 @@
 
 namespace vg {
 
-void print_kmer(const std::vector<std::pair<pos_t, size_t>>&, const std::string& string){
-    cout << string << endl;
-}
+// void print_kmer(const std::vector<std::pair<pos_t, size_t>>&, const std::string& string){
+//     cout << string << endl;
+// }
 
-void test_gbwt(MutablePathDeletableHandleGraph& graph){
+vector<string> haplotypes_to_strings(MutablePathDeletableHandleGraph& graph, id_t& source_id, id_t& sink_id){
+
+    ///stuff that will go in mod_main:
     ifstream gbwt_stream;
     string gbwt_name = "test/robin_haplotypes/simple/chr10_subgraph_2dels-shift-729006.gbwt";
     gbwt_stream.open(gbwt_name);
@@ -27,11 +29,38 @@ void test_gbwt(MutablePathDeletableHandleGraph& graph){
     unique_ptr<gbwt::GBWT> gbwt;
     // Load the GBWT from its container
     gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+// -----------------------------------------------------------------
+    /// make subgraph for the snarl:
+    SubHandleGraph snarl = extract_subgraph(graph, source_id, sink_id);
 
-    size_t k = 20;
-    for_each_kmer(graph, *gbwt, k, print_kmer, false);
+    GBWTGraph haploGraph = GBWTGraph(*gbwt, snarl);
+//TODO:identify source and sinks for troubleshooting!
+    unordered_map<handle_t, vector<string>> sequences; // will contain all haplotype walks through snarl
+    handle_t source_handle = haploGraph.get_handle(source_id);
+    sequences[source_handle].push_back(haploGraph.get_sequence(source_handle));
 
+    for (const handle_t& handle : algorithms::lazier_topological_order(&haploGraph)) {
+        
+        vector<string> seqs_here = sequences[handle];
+        gbwt::SearchState cur_state = haploGraph.get_state(handle);
 
+        haploGraph.follow_paths(cur_state, [&](const gbwt::SearchState& next_search) -> bool {
+            handle_t next_handle = haploGraph.get_handle(next_search.node);
+            string next_seq = haploGraph.get_sequence(next_handle);
+            // transfer the sequences for the preceding handle to next_handle's sequences,
+            // plus the new handle's sequence.
+            for (string seq : seqs_here){
+                sequences[next_handle].push_back(seq + next_seq);
+            }
+
+            
+
+        });
+    }
+
+    // all the sequences at the sinks will be all the sequences in the snarl.
+    handle_t sink_handle = haploGraph.get_handle(sink_id);
+    return sequences[sink_handle];
 }
 
 
@@ -227,8 +256,6 @@ VG strings_to_graph(const vector<string>& walks){
 
 
 vector<string> graph_to_strings(MutablePathDeletableHandleGraph& graph, id_t start_id, id_t end_id){
-    // id_t start_id = 220;
-    // id_t end_id = 218;
     SubHandleGraph snarl = extract_subgraph(graph, start_id, end_id);
 
     unordered_map<handle_t, vector<string>> sequences;
@@ -237,7 +264,7 @@ vector<string> graph_to_strings(MutablePathDeletableHandleGraph& graph, id_t sta
     count.reserve(snarl.node_size()); // resize count to contain enough buckets for size of snarl
     sequences.reserve(snarl.node_size()); // resize sequences to contain enough buckets for size of snarl
     
-    // identify sources and sinks
+    // identify sources and sinks //TODO: once we've established that this fxn works, we can just use start_id and end_id. 
     snarl.for_each_handle([&](const handle_t& handle) {
         bool is_source = true, is_sink = true;
         snarl.follow_edges(handle, true, [&](const handle_t& prev) {
