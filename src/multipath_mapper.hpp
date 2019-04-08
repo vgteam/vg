@@ -97,6 +97,7 @@ namespace vg {
         size_t max_branch_trim_length = 1;
         int64_t max_snarl_cut_size = 5;
         bool suppress_tail_anchors = false;
+        size_t min_tail_anchor_length = 3;
         double band_padding_multiplier = 1.0;
         size_t max_expected_dist_approx_error = 8;
         int32_t num_alt_alns = 4;

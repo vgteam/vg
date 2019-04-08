@@ -12,7 +12,6 @@
 #include "../stream/vpkg.hpp"
 #include "../index.hpp"
 #include "../position.hpp"
-#include "../vg.pb.h"
 #include "../path.hpp"
 #include "../genotypekit.hpp"
 #include "../genotyper.hpp"
@@ -23,6 +22,7 @@
 #include "../translator.hpp"
 
 // TODO: Where even are these?
+#include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
 #include "IntervalTree.h"

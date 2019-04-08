@@ -53,6 +53,7 @@ void help_gaffe(char** argv) {
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "computational parameters:" << endl
+    << "  -C, --no-chaining             disable seed chaining and all gapped alignment" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
@@ -72,6 +73,8 @@ int main_gaffe(int argc, char** argv) {
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
     size_t hit_cap = 10;
+    // Should we try chaining or just give up if we can't find a full length gapless alignment?
+    bool do_chaining = true;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -103,12 +106,13 @@ int main_gaffe(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"no-chaining", no_argument, 0, 'C'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:c:G:f:M:t:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:c:G:f:M:Ct:",
                          long_options, &option_index);
 
 
@@ -182,6 +186,10 @@ int main_gaffe(int argc, char** argv) {
                 read_group = optarg;
                 break;
                 
+            case 'C':
+                do_chaining = false;
+                break;
+                
             case 't':
             {
                 int num_threads = parse<int>(optarg);
@@ -246,6 +254,7 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_multimaps = max_multimaps;
     minimizer_mapper.hit_cap = hit_cap;
     minimizer_mapper.distance_limit = distance_limit;
+    minimizer_mapper.do_chaining = do_chaining;
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
     
