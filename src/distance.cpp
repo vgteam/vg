@@ -72,9 +72,13 @@ DistanceIndex::DistanceIndex(const HandleGraph* vg, const SnarlManager* snarlMan
     setSnarlManager(snarlManager);
 }
 
-DistanceIndex::DistanceIndex (istream& in) : graph(nullptr), sm(nullptr) {
+DistanceIndex::DistanceIndex (istream& in) : DistanceIndex() {
     // Load the index
     load(in);
+}
+
+DistanceIndex::DistanceIndex () : graph(nullptr), sm(nullptr) {
+    // Nothing to do
 }
 
 void DistanceIndex::setGraph(const HandleGraph* new_graph) {

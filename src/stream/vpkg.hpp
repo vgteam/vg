@@ -23,8 +23,6 @@ namespace stream {
 
 using namespace std;
 
-#define debug
-
 /**
  * Interface for reading/writing type-tagged files.
  *
@@ -168,40 +166,47 @@ public:
         cerr << "Iterator has a first item? " << it.has_next() << endl;
 #endif
         
-        while (it.has_next()) {
-            // Scan through kinds of tagged messages
-            string current_tag = (*it).first;
-            
+        if (it.has_next()) {
+            // File is not empty
+        
+            while (it.has_next()) {
+                // Scan through kinds of tagged messages
+                string current_tag = (*it).first;
+                
 #ifdef debug
-            cerr << "Iterator found tag \"" << current_tag << "\"" << endl;
+                cerr << "Iterator found tag \"" << current_tag << "\"" << endl;
 #endif
-            
-            // See if we have one that has a registered loader for this type.
-            auto* loader = Registry::find_loader<Wanted>(current_tag);
-            
+                
+                // See if we have one that has a registered loader for this type.
+                auto* loader = Registry::find_loader<Wanted>(current_tag);
+                
 #ifdef debug
-            cerr << "Loader for " << describe<Wanted>() << " from that tag: " << loader << endl;
+                cerr << "Loader for " << describe<Wanted>() << " from that tag: " << loader << endl;
 #endif
-            
-            if (loader == nullptr) {
-                // Skip all these messages with this tag
-                while (it.has_next() && (*it).first == current_tag) {
-                    ++it;
-                }
-            } else {
-                // Load with it and return a unique_ptr for the result.
-                return unique_ptr<Wanted>((Wanted*)(*loader)([&](const message_consumer_function_t& handle_message) {
+                
+                if (loader == nullptr) {
+                    // Skip all these messages with this tag
                     while (it.has_next() && (*it).first == current_tag) {
-                        // Feed in messages from the file until we run out or the tag changes
-                        handle_message((*it).second);
                         ++it;
                     }
-                }));
+                } else {
+                    // Load with it and return a unique_ptr for the result.
+                    return unique_ptr<Wanted>((Wanted*)(*loader)([&](const message_consumer_function_t& handle_message) {
+                        while (it.has_next() && (*it).first == current_tag) {
+                            // Feed in messages from the file until we run out or the tag changes
+                            handle_message((*it).second);
+                            ++it;
+                        }
+                    }));
+                }
             }
+            
+            // If we get here, nothing with an appropriate tag could be found, and it wasn't a bare loadable file.
+            return unique_ptr<Wanted>(nullptr);
+        } else {
+            // If the file is empty, default construct.
+            return make_unique<Wanted>();
         }
-        
-        // If we get here, nothing with an appropriate tag could be found, and it wasn't a bare loadable file.
-        return unique_ptr<Wanted>(nullptr);
     }
     
     /**
@@ -482,7 +487,5 @@ private:
 }
 
 }
-
-#undef debug
 
 #endif

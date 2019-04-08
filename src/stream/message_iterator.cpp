@@ -6,8 +6,6 @@
 #include "message_iterator.hpp"
 #include "registry.hpp"
 
-#define debug
-
 namespace vg {
 
 namespace stream {

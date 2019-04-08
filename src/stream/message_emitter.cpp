@@ -5,8 +5,6 @@
 
 #include "message_emitter.hpp"
 
-#define debug
-
 namespace vg {
 
 namespace stream {
