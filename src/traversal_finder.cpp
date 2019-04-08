@@ -2406,10 +2406,14 @@ size_t RepresentativeTraversalFinder::bp_length(const structures::ImmutableList<
 
 
 VCFTraversalFinder::VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
-                                       function<PathIndex*(const Snarl&)> get_index) :
+                                       function<PathIndex*(const Snarl&)> get_index,
+                                       function<bool(const SnarlTraversal&)> skip_alt,
+                                       size_t max_traversal_cutoff) :
     graph(graph),
     snarl_manager(snarl_manager),
-    get_index(get_index) {
+    get_index(get_index),
+    skip_alt(skip_alt),
+    max_traversal_cutoff(max_traversal_cutoff) {
 
     create_variant_index(vcf);
 }
@@ -2421,6 +2425,9 @@ VCFTraversalFinder::~VCFTraversalFinder() {
 void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf) {
 
     vcflib::Variant var;
+#ifdef debug
+    cerr << "indexing vcf using alt-path information from graph" << endl;
+#endif
     while (vcf.getNextVariant(var)) {
         bool path_found = false;
         path_handle_t path_handle;
@@ -2526,7 +2533,6 @@ VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
 
     // fill in the alt traversals
     brute_force_alt_traversals(site, site_variants, path_index, start_it, end_it, output_traversals);
-    
 
     return make_pair(output_traversals, site_variants);
 }
@@ -2550,13 +2556,33 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     vector<pair<SnarlTraversal, vector<int> > >& output_traversals) {
 
     // the haplotype we're going to look for a traversal for
+    // it's in terms of alt_alleles below (and not the VCF), so needs
+    // to be converted back
     vector<int> haplotype(site_variants.size(), 0);
+
+    // use our skip_alt() method (if defined) to prune the search space
+    vector<vector<int>> alt_alleles = get_pruned_alt_alleles(site, site_variants, path_index);
+    assert(alt_alleles.size() == haplotype.size());
+    
+    // if we failed to prune enough, we print a message here:
+    // todo: we can move to a ranking (eg by support), where instead of filtering, we just
+    // take the K most supported traversals.  this would avoid ever skipping a site
+    if (!check_max_trav_cutoff(alt_alleles)) {
+        cerr << "[VCFTraversalFinder]: Site " << pb2json(site) << " contains too many variants ("
+             << site_variants.size() << ") to exhaustively enumerate (>"
+             << max_traversal_cutoff << "):" << endl;
+        for (auto site_var : site_variants) {
+            cerr << "  " << *site_var << endl;
+        }
+        output_traversals.clear();
+        return;
+    }
 
     // increment the haplotype.  we can use this to loop over every possible haplotype
     auto next_haplotype = [&] () -> bool {
         // do this by "adding" 1 to our haplotype. each digit is in base-|alleles|
-        for (int i = site_variants.size() - 1; i >= 0; --i) {
-            if (haplotype[i] < site_variants[i]->alleles.size() - 1) {
+        for (int i = alt_alleles.size() - 1; i >= 0; --i) {
+            if (haplotype[i] < alt_alleles[i].size() - 1) {
                 // add to column
                 ++haplotype[i];
                 return true;
@@ -2571,8 +2597,15 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     // note: we gobble up the reference as we begin iterating, as it's already done
     // separately
     while (next_haplotype()) {
+        // convert back to vcf allele offsets
+        // todo: can we change the enumeration to avoid this?
+        vector<int> vcf_haplotype(haplotype.size());
+        for (int i = 0; i < site_variants.size(); ++i) {
+            vcf_haplotype[i] = (alt_alleles[i][haplotype[i]]);
+            assert(skip_alt != nullptr || vcf_haplotype[i] == haplotype[i]);
+        }
         pair<SnarlTraversal, bool> alt_traversal = get_alt_traversal(site, site_variants, path_index,
-                                                                     start_it, end_it, haplotype);
+                                                                     start_it, end_it, vcf_haplotype);
 #ifdef debug
         cerr << "bf haplotype <";
         for (auto allele : haplotype) {
@@ -2727,45 +2760,25 @@ VCFTraversalFinder::get_haplotype_alt_contents(
         if (haplotype[allele] == 0) {
             continue;
         }
-        
         vcflib::Variant* var = site_variants[allele];
-    
-        string alt_path_name = "_alt_" + make_variant_id(*var) + "_" + to_string(haplotype[allele]);
-        if (graph.has_path(alt_path_name) && !graph.paths.get_path(alt_path_name).empty()) {
-            // if there's an alt path, then we're dealing with a snp or insertion.
-            // we take the edges from the path, as well as those back to the reference
-            list<mapping_t>& path = graph.paths.get_path(alt_path_name);
 
+        // get the alt path information out of the graph
+        pair<SnarlTraversal, bool> alt_path_info = get_alt_path(var, haplotype[allele], path_index);
+        SnarlTraversal& alt_traversal = alt_path_info.first;
+        bool is_deletion = alt_path_info.second;
+
+        if (!is_deletion) {
             // fill in the nodes from the path
-            for (auto mapping : path) {
-                alt_nodes.insert(graph.get_handle(mapping.node_id()));
+            for (size_t i = 0; i < alt_traversal.visit_size(); ++i) {
+                alt_nodes.insert(graph.get_handle(alt_traversal.visit(i).node_id()));
             }
         }  else {
-            // there's no alt path, it must be a deletion
-            // in this case we use the reference allele path, and try to find an edge that spans
-            // it.  this will be our alt edge
-            // todo: put an alt path maker into utility.hpp
-            alt_path_name = "_alt_" + make_variant_id(*var) + "_0";
-            assert(graph.has_path(alt_path_name));
-
-            list<mapping_t>& path = graph.paths.get_path(alt_path_name);
-            assert(!path.empty());
-
-            // find where this path begins and ends in the reference path index
-            PathIndex::iterator first_path_it = path_index->find_in_orientation(
-                path.begin()->node_id(), path.begin()->is_reverse());
-            PathIndex::iterator last_path_it = path_index->find_in_orientation(
-                path.rbegin()->node_id(), path.rbegin()->is_reverse());
-
-            // some sanity checking
-            assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
-            assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
-
-            // todo: logic needed here if want to support non-forward reference paths.
-            --first_path_it;
-            ++last_path_it;
-            handle_t left = graph.get_handle(first_path_it->second.node);
-            handle_t right = graph.get_handle(last_path_it->second.node);
+            // add the deletion edge from the path
+            assert(alt_traversal.visit_size() == 2);
+            handle_t left = graph.get_handle(alt_traversal.visit(0).node_id(),
+                                             alt_traversal.visit(0).backward());
+            handle_t right = graph.get_handle(alt_traversal.visit(1).node_id(),
+                                              alt_traversal.visit(1).backward());
             alt_deletion_edges.insert(graph.edge_handle(left, right));
         }
     }
@@ -2773,5 +2786,100 @@ VCFTraversalFinder::get_haplotype_alt_contents(
     return make_pair(alt_nodes, alt_deletion_edges);
 }
 
-  
+pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var, int allele, PathIndex* path_index) {
+
+    SnarlTraversal alt_path;
+    bool is_deletion = false;
+    
+    string alt_path_name = "_alt_" + make_variant_id(*var) + "_" + to_string(allele);
+    if (graph.has_path(alt_path_name) && !graph.paths.get_path(alt_path_name).empty()) {
+        // if there's an alt path, then we're dealing with a snp or insertion.
+        // we take the edges from the path, as well as those back to the reference
+        list<mapping_t>& path = graph.paths.get_path(alt_path_name);
+
+        // fill in the nodes from the path
+        for (auto mapping : path) {
+            Visit* visit = alt_path.add_visit();
+            visit->set_node_id(mapping.node_id());
+            visit->set_backward(mapping.is_reverse());
+        }
+    }  else {
+        // there's no alt path, it must be a deletion
+        // in this case we use the reference allele path, and try to find an edge that spans
+        // it.  this will be our alt edge
+        // todo: put an alt path maker into utility.hpp
+        is_deletion = true;
+        alt_path_name = "_alt_" + make_variant_id(*var) + "_0";
+        assert(graph.has_path(alt_path_name));
+
+        list<mapping_t>& path = graph.paths.get_path(alt_path_name);
+        assert(!path.empty());
+
+        // find where this path begins and ends in the reference path index
+        PathIndex::iterator first_path_it = path_index->find_in_orientation(
+            path.begin()->node_id(), path.begin()->is_reverse());
+        PathIndex::iterator last_path_it = path_index->find_in_orientation(
+            path.rbegin()->node_id(), path.rbegin()->is_reverse());
+
+        // some sanity checking
+        assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
+        assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
+
+        // todo: logic needed here if want to support non-forward reference paths.
+        --first_path_it;
+        ++last_path_it;
+        handle_t left = graph.get_handle(first_path_it->second.node);
+        handle_t right = graph.get_handle(last_path_it->second.node);
+
+        Visit* visit = alt_path.add_visit();
+        visit->set_node_id(graph.get_id(left));
+        visit->set_backward(graph.get_is_reverse(left));
+        visit = alt_path.add_visit();
+        visit->set_node_id(graph.get_id(right));
+        visit->set_backward(graph.get_is_reverse(right));
+    }
+    
+    return make_pair(alt_path, is_deletion);
+}
+
+vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
+    const Snarl& site,
+    const vector<vcflib::Variant*>& site_variants,
+    PathIndex* path_index) {
+
+    vector<vector<int> > alt_alleles(site_variants.size());
+
+    for (int var_i = 0; var_i < site_variants.size(); ++var_i) {
+        for (int allele = 0; allele < site_variants[var_i]->alleles.size(); ++allele) {
+            if (skip_alt == nullptr ||
+                skip_alt(get_alt_path(site_variants[var_i], allele, path_index).first) == false) {
+                alt_alleles[var_i].push_back(allele);
+            }
+        }
+        // always leave at least one path through the site, even if that means
+        // going through a reference allele that fails the skip_alt check.
+        if (alt_alleles[var_i].empty()) {
+            alt_alleles[var_i].push_back(0);
+        }
+    }
+
+    return alt_alleles;
+}
+
+bool VCFTraversalFinder::check_max_trav_cutoff(const vector<vector<int> >& alleles) {
+    if (alleles.empty()) {
+        return true;
+    }    
+    size_t count = 1;
+
+    for (int i = 0; i < alleles.size(); ++i) {
+        count *= alleles[i].size();
+        if (count > max_traversal_cutoff) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 }

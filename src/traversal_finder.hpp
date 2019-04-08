@@ -361,6 +361,17 @@ protected:
     /// Store variants indexed by an arbitrary node in one of their associated
     /// alt paths. We can then use this to find all variants in a top-level snarl
     unordered_map<id_t, list<vcflib::Variant*>> node_to_variant;
+
+    /// Use this method to prune the search space by selecting alt-alleles
+    /// to skip by considering their paths (in SnarlTraversal) format
+    function<bool(const SnarlTraversal& alt_path)> skip_alt;
+
+    /// If a snarl has more than this many traversals, return nothing and print
+    /// a warning.  Dense and large deletions will make this happen from time
+    /// to time.  In practice, skip_alt (above) can be used to prune down
+    /// the search space by selecting alleles to ignore.
+    size_t max_traversal_cutoff;
+    
     
 public:
 
@@ -368,9 +379,16 @@ public:
      * Make a new VCFTraversalFinder.  Builds the indexes needed to find all the 
      * variants in a site.
      *
+     * The skip_alt() method is defined, it is run on the alt-path of each variant
+     * allele in the snarl.  If it returns true, that alt-path will never be included
+     * in any traversals returned in find_traversals().  
+     * This is used to, for example, use read support to prune the number of traversals
+     * that are enumerated.
      */
     VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
-                       function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; });
+                       function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; },
+                       function<bool(const SnarlTraversal&)> skip_alt = nullptr,
+                       size_t max_traversal_cutoff = 500000);
         
     virtual ~VCFTraversalFinder();
     
@@ -427,6 +445,31 @@ protected:
          get_haplotype_alt_contents(const vector<vcflib::Variant*>& site_variants,
                                     const vector<int>& haplotype,
                                     PathIndex* path_index);
+
+    /** Get one alt-path out of the graph in the form of a snarl traversal.  bool value
+     *  returned is true if allele is a deletion, and returned traversal will be a pair of nodes
+     *  representing the deletion edge.
+     */
+    pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, PathIndex* path_index);
+
+    /**
+     * Prune our search space using the skip_alt method.  Will return a list of pruned VCF alleles/
+     *
+     * ex, if the input has A --> T
+     *                      G --> C,A
+     * there input alleles are <0,1>, <0,1,2>.  If there's no support for the G->C on the second one,
+     * the output would be <0,1>, <0,2>.
+     *
+     */
+    vector<vector<int>> get_pruned_alt_alleles(const Snarl& site,
+                                               const vector<vcflib::Variant*>& site_variants,
+                                               PathIndex* path_index);
+
+    /**
+     * Count the possible traversal paths.  Return false if we ever get beyond our cutoff
+     */
+    bool check_max_trav_cutoff(const vector<vector<int> >& alleles);
+                                
 };
 
 }
