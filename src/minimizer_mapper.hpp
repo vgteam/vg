@@ -62,7 +62,14 @@ protected:
     
     /// We have a clusterer
     SnarlSeedClusterer clusterer;
-
+    
+    /**
+     * Operating on the given input alignment, chain together the given
+     * extended perfect-match seeds and produce an alignment into the given
+     * output Alignment object.
+     */
+    void chain_extended_seeds(const Alignment& aln, const vector<pair<Path, size_t>>& extended_seeds, Alignment& out); 
+    
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
      * paths against which the intervening read sequence needs to be aligned.
