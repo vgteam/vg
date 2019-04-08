@@ -20,7 +20,7 @@ GaplessExtender::GaplessExtender(const GBWTGraph& graph) :
 
 //------------------------------------------------------------------------------
 
-std::vector<GaplessExtension> GaplessExtender::gapless_extension(cluster_type& cluster, const std::string& sequence, size_t max_mismatches) const {
+std::vector<GaplessExtension> GaplessExtender::extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches) const {
 
     if (this->graph == nullptr) {
         return std::vector<GaplessExtension>();
@@ -526,13 +526,22 @@ struct FlankState {
     std::vector<size_t> head_mismatches, tail_mismatches;
 
     size_t length() const { return this->seq_limit - this->seq_start; }
+    size_t mismatches() const { return this->head_mismatches.size() + this->tail_mismatches.size(); }
 
     bool left_maximal(size_t max_mismatches) const {
         return (this->head_mismatches.size() > max_mismatches || this->seq_start == 0);
     }
 
-    bool right_maximal(size_t max_mismatches, size_t node_length) const {
-        return (this->tail_mismatches.size() > max_mismatches || this->seq_limit >= node_length);
+    bool right_maximal(size_t max_mismatches, size_t read_length) const {
+        return (this->tail_mismatches.size() > max_mismatches || this->seq_limit >= read_length);
+    }
+
+    bool at_start() const {
+        return (this->node_start == 0);
+    }
+
+    bool at_end(size_t node_length) const {
+        return (this->node_limit >= node_length);
     }
 
     void trim_head() {
@@ -552,6 +561,12 @@ struct FlankState {
         }
         this->tail_mismatches.resize(tail);
     }
+
+    // Low-priority elements cover a shorter range or have more mismatches over the same range.
+    bool operator<(const FlankState& another) const {
+        return ((this->length() < another.length()) ||
+                (this->length() == another.length() && this->mismatches() > another.mismatches()));
+    }
 };
 
 // Match forward.
@@ -562,9 +577,9 @@ void match_forward(const std::string& seq, std::pair<const char*, size_t> target
             match.match_limit = match.seq_limit;
             match.node_limit++;
         } else {
+            match.tail_mismatches.push_back(match.seq_limit);
             match.seq_limit++;
             match.node_limit++;
-            match.tail_mismatches.push_back(match.seq_limit);
             if (match.tail_mismatches.size() > error_bound) {
                 return;
             }
@@ -617,14 +632,14 @@ void GaplessExtender::extend_flanks(std::vector<GaplessExtension>& extensions, c
             std::pair<const char*, size_t> forward_view = this->graph->get_sequence_view(forward_handle);
             match_forward(sequence, forward_view, best_match, max_mismatches);
 
-            if (best_match.right_maximal(max_mismatches, forward_view.second)) {
+            if (best_match.right_maximal(max_mismatches, sequence.length())) {
                 best_match.trim_tail();
                 if (best_match.left_maximal(max_mismatches)) {
                     best_match.trim_head();
-                } else {
+                } else if (best_match.at_start()) {
                     backward.push(best_match);
                 }
-            } else {
+            } else if (best_match.at_end(forward_view.second)) {
                 forward.push(best_match);
             }
         }
@@ -633,41 +648,57 @@ void GaplessExtender::extend_flanks(std::vector<GaplessExtension>& extensions, c
         while (!forward.empty()) {
             FlankState curr = forward.top();
             forward.pop();
+            bool extension = false;
             this->graph->follow_paths(curr.state, false, [&](const gbwt::BidirectionalState& next_state) -> bool {
                 if (next_state.empty()) {
                     return true;
                 }
+                extension = true;
                 handle_t handle = GBWTGraph::node_to_handle(next_state.forward.node);
                 std::pair<const char*, size_t> seq_view = this->graph->get_sequence_view(handle);
                 FlankState next = curr;
                 next.state = next_state;
+                next.node_limit = 0;
                 match_forward(sequence, seq_view, next, max_mismatches);
-                if (next.right_maximal(max_mismatches, seq_view.second)) {
+                if (next.right_maximal(max_mismatches, sequence.length())) {
                     next.trim_tail();
                     if (next.left_maximal(max_mismatches)) {
                         next.trim_head();
-                        if (next.length() > best_match.length()) {
+                        if (best_match < next) {
                             best_match = next;
                         }
-                    } else {
+                    } else if (next.at_start()) {
                         backward.push(next);
                     }
-                } else {
+                } else if (next.at_end(seq_view.second)){
                     forward.push(next);
                 }
                 return true;
             });
+            if (!extension) {
+                curr.trim_tail();
+                if (curr.left_maximal(max_mismatches)) {
+                    curr.trim_head();
+                    if (best_match < curr) {
+                        best_match = curr;
+                    }
+                } else if (curr.at_start()) {
+                    backward.push(curr);
+                }
+            }
         }
 
         // Backward.
         while (!backward.empty()) {
             FlankState curr = backward.top();
             backward.pop();
+            bool extension = false;
             this->graph->follow_paths(curr.state, true, [&](const gbwt::BidirectionalState& next_state) -> bool {
                 if (next_state.empty()) {
                     return true;
                 }
-                handle_t handle = GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.forward.node));
+                extension = true;
+                handle_t handle = GBWTGraph::node_to_handle(gbwt::Node::reverse(next_state.backward.node));
                 std::pair<const char*, size_t> seq_view = this->graph->get_sequence_view(handle);
                 FlankState next = curr;
                 next.state = next_state;
@@ -675,14 +706,20 @@ void GaplessExtender::extend_flanks(std::vector<GaplessExtension>& extensions, c
                 match_backward(sequence, seq_view, next, max_mismatches);
                 if (next.left_maximal(max_mismatches)) {
                     next.trim_head();
-                    if (next.length() > best_match.length()) {
+                    if (best_match < next) {
                         best_match = next;
                     }
-                } else {
+                } else if (next.at_start()) {
                     backward.push(next);
                 }
                 return true;
             });
+            if (!extension) {
+                curr.trim_head();
+                if (best_match < curr) {
+                    best_match = curr;
+                }
+            }
         }
 
         // Use best_match as the flanked extension.

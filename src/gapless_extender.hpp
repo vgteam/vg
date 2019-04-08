@@ -72,7 +72,7 @@ public:
      * 2. Call maximal_extensions().
      * 3. Call extend_flanks() with max_mismatches / 2 mismatches.
      */
-    std::vector<GaplessExtension> gapless_extension(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES) const;
+    std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES) const;
 
     /**
      * Find a full-length extension of the seeds with up to 'max_mismatches' mismatches.
