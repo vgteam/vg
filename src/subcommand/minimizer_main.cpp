@@ -351,6 +351,8 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         std::vector<size_t> success_counts(threads, 0);
         std::vector<size_t> success_seed_counts(threads, 0);
         std::vector<size_t> partial_match_counts(threads, 0);
+        std::vector<size_t> core_lengths(threads, 0);
+        std::vector<size_t> flanked_lengths(threads, 0);
         #pragma omp parallel for schedule(static)
         for (size_t i = 0; i < reads.size(); i++) {
             size_t thread = omp_get_thread_num();
@@ -375,12 +377,17 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                     extend_counts[thread]++;
                     seed_counts[thread] += hits.size();
                     auto result = extender.extend_seeds(hits, reads[i], max_errors);
-                    if (result.second <= max_errors) {
+                    if (result.full()) {
                         success_counts[thread]++;
                         success_seed_counts[thread] += hits.size();
                     } else {
                         auto partial_matches = extender.maximal_extensions(hits, reads[i]);
+                        extender.extend_flanks(partial_matches, reads[i], max_errors / 2);
                         partial_match_counts[thread] += partial_matches.size();
+                        for (GaplessExtension& extension : partial_matches) {
+                            core_lengths[thread] += extension.core_length();
+                            flanked_lengths[thread] += extension.flanked_length();
+                        }
                     }
                 }
             } else {
@@ -391,6 +398,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         }
         size_t min_count = 0, occ_count = 0;
         size_t extend_count = 0, seed_count = 0, success_count = 0, success_seed_count = 0, partial_match_count = 0;
+        size_t core_length = 0, flanked_length = 0;
         for (size_t i = 0; i < threads; i++) {
             min_count += min_counts[i];
             occ_count += occ_counts[i];
@@ -399,6 +407,8 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
             success_count += success_counts[i];
             success_seed_count += success_seed_counts[i];
             partial_match_count += partial_match_counts[i];
+            core_length += core_lengths[i];
+            flanked_length += flanked_lengths[i];
         }
 
         double phase_seconds = gbwt::readTimer() - phase_start;
@@ -412,8 +422,9 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         std::cerr << "Minimizers (" << query_type << "): " << phase_seconds << " seconds (" << (reads.size() / phase_seconds) << " reads/second)" << std::endl;
         std::cerr << min_count << " minimizers with " << occ_count << " occurrences" << std::endl;
         if (gapless_extend) {
-            std::cerr << extend_count << " reads with " << seed_count << " seeds, " << success_count << " extended with up to " << max_errors << " mismatches" << std::endl;
-            std::cerr << "Extended " << (extend_count - success_count) << " reads with " << (seed_count - success_seed_count) << " seeds into " << partial_match_count << " partial matches" << std::endl;
+            std::cerr << extend_count << " reads with " << seed_count << " seeds: " << success_count << " full-length alignments with up to " << max_errors << " mismatches" << std::endl;
+            size_t partial_count = extend_count - success_count, partial_seed_count = seed_count - success_seed_count;
+            std::cerr << partial_count << " reads with " << partial_seed_count << " seeds: " << partial_match_count << " partial alignments (core " << (core_length / static_cast<double>(partial_count)) << " bp, flanked " << (flanked_length / static_cast<double>(partial_count)) << " bp/read)" << std::endl;
         }
         std::cerr << std::endl;
     }
