@@ -5,6 +5,8 @@
 
 #include "message_emitter.hpp"
 
+#define debug
+
 namespace vg {
 
 namespace stream {
@@ -50,7 +52,7 @@ MessageEmitter::~MessageEmitter() {
 #endif
 }
 
-void MessageEmitter::write(const string& tag, string&& message) {
+void MessageEmitter::write(const string& tag) {
     if (group.size() >= max_group_size || tag != group_tag) {
         // We have run out of buffer space or changed type
         emit_group();
@@ -59,6 +61,11 @@ void MessageEmitter::write(const string& tag, string&& message) {
         // Adopt the new tag
         group_tag = tag;
     }
+}
+
+void MessageEmitter::write(const string& tag, string&& message) {
+    // Ensure the current group is for the given tag
+    write(tag);
     group.emplace_back(std::move(message));
     
     if (group.back().size() > MAX_MESSAGE_SIZE) {
@@ -67,14 +74,8 @@ void MessageEmitter::write(const string& tag, string&& message) {
 }
 
 void MessageEmitter::write_copy(const string& tag, const string& message) {
-    if (group.size() >= max_group_size || tag != group_tag) {
-        // We have run out of buffer space or changed type
-        emit_group();
-    }
-    if (tag != group_tag) {
-        // Adopt the new tag
-        group_tag = tag;
-    }
+    // Ensure the current group is for the given tag
+    write(tag);
     group.push_back(message);
     
     if (group.back().size() > MAX_MESSAGE_SIZE) {
@@ -87,10 +88,12 @@ void MessageEmitter::on_group(group_listener_t&& listener) {
 }
 
 void MessageEmitter::emit_group() {
-    if (group.empty()) {
-        // Nothing to do
+    if (group_tag.empty()) {
+        // Nothing have been loaded into our buffer, not even an empty group with a tag.
         return;
     }
+    // If we have a tag, we emit a group, even if it is empty.
+    
     
     // We can't write a non-empty buffer if our stream is gone/moved away
     assert(bgzip_out.get() != nullptr);
@@ -142,6 +145,9 @@ void MessageEmitter::emit_group() {
     
     // Empty the buffer because everything in it is written
     group.clear();
+    
+    // Clear the tag out because now nothing is buffered.
+    group_tag.clear();
 }
 
 }

@@ -23,6 +23,8 @@ namespace stream {
 
 using namespace std;
 
+#define debug
+
 /**
  * Interface for reading/writing type-tagged files.
  *
@@ -480,5 +482,7 @@ private:
 }
 
 }
+
+#undef debug
 
 #endif
