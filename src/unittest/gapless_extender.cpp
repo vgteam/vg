@@ -472,8 +472,8 @@ TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]
     SECTION("trim flanking mismatches") {
         std::string read = "GATTxAATC";
         std::vector<std::pair<size_t, pos_t>> cluster {
-            { 0, make_pos_t(1, false, 0) }, // Ambiguous right extension.
-            { 8, make_pos_t(1, true, 0) }   // Ambiguous left extension.
+            { 0, make_pos_t(1, false, 0) },
+            { 8, make_pos_t(1, true, 0) }
         };
         size_t error_bound = 1;
         std::vector<std::pair<size_t, size_t>> core_ranges {
@@ -501,8 +501,8 @@ TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]
     SECTION("extend with mismatches") {
         std::string read = "GTCTxAGAC";
         std::vector<std::pair<size_t, pos_t>> cluster {
-            { 0, make_pos_t(1, false, 0) }, // Ambiguous right extension.
-            { 8, make_pos_t(1, true, 0) }   // Ambiguous left extension.
+            { 0, make_pos_t(1, false, 0) },
+            { 8, make_pos_t(1, true, 0) }
         };
         size_t error_bound = 1;
         std::vector<std::pair<size_t, size_t>> core_ranges {
@@ -516,6 +516,31 @@ TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]
         std::vector<std::vector<size_t>> mismatches {
             { static_cast<size_t>(1) },
             { static_cast<size_t>(7) }
+        };
+        auto result = extender.maximal_extensions(cluster, read);
+        extender.extend_flanks(result, read, error_bound);
+        REQUIRE(result.size() == core_ranges.size());
+        for (size_t i = 0; i < result.size(); i++) {
+            REQUIRE(!(result[i].empty()));
+            REQUIRE(!(result[i].full()));
+            flanks_match(result[i], core_ranges[i], flanked_ranges[i], mismatches[i]);
+        }
+    }
+
+    SECTION("mismatches in both directions") {
+        std::string read = "GAGGTTCA";
+        std::vector<std::pair<size_t, pos_t>> cluster {
+            { 3, make_pos_t(4, false, 2) }
+        };
+        size_t error_bound = 2;
+        std::vector<std::pair<size_t, size_t>> core_ranges {
+            { static_cast<size_t>(2), static_cast<size_t>(5) }
+        };
+        std::vector<std::pair<size_t, size_t>> flanked_ranges {
+            { static_cast<size_t>(0), static_cast<size_t>(8) }
+        };
+        std::vector<std::vector<size_t>> mismatches {
+            { static_cast<size_t>(1), static_cast<size_t>(5) }
         };
         auto result = extender.maximal_extensions(cluster, read);
         extender.extend_flanks(result, read, error_bound);
