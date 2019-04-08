@@ -9,7 +9,7 @@ Find function call in ./subcommand/main.cpp
 #include "count_walks.hpp"
 
 namespace vg {
-    void test_gbwt(MutablePathDeletableHandleGraph& graph);
+    vector<string> haplotypes_to_strings(MutablePathDeletableHandleGraph& graph, id_t& source_id, id_t& sink_id);
 
     void clean_all_snarls(MutablePathDeletableHandleGraph& graph, ifstream& snarl_stream);
 

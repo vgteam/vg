@@ -865,7 +865,15 @@ int main_mod(int argc, char** argv) {
     if ( !demo_0.empty() ) {
 
         ///Testing gbwt_helper.hpp's for_each_kmer function. This issue is that I don't know how to construct a gbwt::GBWT haplotypes object. Nor do I know how to determine what size k I should use.
-        test_gbwt(*graph);
+        vg::id_t source = 1;
+        vg::id_t sink = 8;
+
+        vector<string> haplotypes = haplotypes_to_strings(*graph, source, sink);
+        cout << "here goes!" << endl;
+        for(string haplotype : haplotypes) {
+            
+            cout << haplotype << endl;
+        }
 
         //     std::ifstream snarl_stream;
         //     snarl_stream.open(demo_0);
@@ -878,7 +886,7 @@ int main_mod(int argc, char** argv) {
         //     clean_all_snarls(*graph, snarl_stream);
         }
         // graph->serialize_to_ostream(std::cout);
-        // delete graph;
+        delete graph;
 
 
 
