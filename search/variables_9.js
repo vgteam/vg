@@ -42,6 +42,7 @@ var searchData=
   ['is_5fdeleted',['is_deleted',['../structvg_1_1PackedGraph_1_1PackedPath.html#a4a75015706cc60ec675609a33473857f',1,'vg::PackedGraph::PackedPath']]],
   ['is_5fend',['is_end',['../structvg_1_1CactusSide.html#a960c0e9a2c2dc004aac017030f6ad805',1,'vg::CactusSide::is_end()'],['../classvg_1_1NodeSide.html#a1493cac020ed0c9b1cbd37e2a99eb9b5',1,'vg::NodeSide::is_end()']]],
   ['is_5ffixed',['is_fixed',['../classvg_1_1FragmentLengthDistribution.html#adcfca733e40d173dcbaf2e8c617c74ec',1,'vg::FragmentLengthDistribution']]],
+  ['is_5ffull_5falignment',['is_full_alignment',['../structvg_1_1GaplessExtension.html#a7e28aab9845a5c190ce1b7b6b0abbb82',1,'vg::GaplessExtension']]],
   ['is_5fphased',['is_phased',['../structvg_1_1Genotype.html#a7aceacf9d5e3def3d6e675ef34906aab',1,'vg::Genotype']]],
   ['is_5fpointer',['is_pointer',['../classvg_1_1MinimizerIndex.html#a6fb194d3538dc02b76aa1da6c4ccef23',1,'vg::MinimizerIndex']]],
   ['is_5frend',['is_rend',['../structvg_1_1ChainIterator.html#adb9db0a0ea4cac8bca359c97d293aaa9',1,'vg::ChainIterator']]],

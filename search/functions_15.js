@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['unambiguous_5fmatch_5fto_5fextension',['unambiguous_match_to_extension',['../namespacevg.html#af7f53fe457b7de8452bac607372618c1',1,'vg']]],
   ['unchop',['unchop',['../classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6',1,'vg::VG']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a4317a31a1e419ce6c0d345545518e519',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#ab7a6212ca48ab8bdcd28139297eb41e2',1,'vg::Packer']]],

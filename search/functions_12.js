@@ -101,6 +101,7 @@ var searchData=
   ['reverse_5ffrom_5fstart_5fto_5fend_5fedge',['reverse_from_start_to_end_edge',['../classvg_1_1FlowSort.html#a095e96bd8ef6f016a600bdbc6af730ee',1,'vg::FlowSort']]],
   ['reversing_5ffilter',['reversing_filter',['../classvg_1_1Filter.html#a5ac9ddf9392d973aa726ad6ee4d53b9f',1,'vg::Filter']]],
   ['right_5fdegree',['right_degree',['../classvg_1_1VG.html#a23622195177dff4c7c8416edffb7fc93',1,'vg::VG']]],
+  ['right_5fmaximal',['right_maximal',['../structvg_1_1FlankState.html#a3ebb0d9b8cca862ac76ab45560297b9d',1,'vg::FlankState']]],
   ['right_5frotate',['right_rotate',['../classvg_1_1PackedSplayTree.html#af35a500f9ccdb593a6eb004c9d60d371',1,'vg::PackedSplayTree']]],
   ['round_5foutward',['round_outward',['../structvg_1_1PathIndex.html#aea2128617c520a5435fa46e488d2fd88',1,'vg::PathIndex']]],
   ['rrmemo',['RRMemo',['../structhaplo_1_1haploMath_1_1RRMemo.html#a3958ec23ff1fbaac901d909c5f134f27',1,'haplo::haploMath::RRMemo']]],

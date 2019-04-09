@@ -2,6 +2,8 @@ var searchData=
 [
   ['ultrabubble',['ULTRABUBBLE',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97aea6b4b85aa567a940c7434df2fcb56fb',1,'vg']]],
   ['unaligned_5fbands',['unaligned_bands',['../classvg_1_1AlignmentChainModel.html#a86bcd77b21cc9b8b9c2b9f100fb9ce71',1,'vg::AlignmentChainModel']]],
+  ['unambiguous_5fmatch_5fto_5fextension',['unambiguous_match_to_extension',['../namespacevg.html#af7f53fe457b7de8452bac607372618c1',1,'vg']]],
+  ['unambiguousmatch',['UnambiguousMatch',['../structvg_1_1UnambiguousMatch.html',1,'vg']]],
   ['unary',['UNARY',['../namespacevg.html#ac47f059d08b97304ea21d00dfc19cd97a0e62c0ff8521d5960a5cc819a7bf7230',1,'vg']]],
   ['unary_5fboundaries',['unary_boundaries',['../classvg_1_1NetGraph.html#ae573871a7c3cd0be507222751f870f72',1,'vg::NetGraph']]],
   ['unchop',['unchop',['../classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6',1,'vg::VG']]],
@@ -15,8 +17,8 @@ var searchData=
   ['uniform_5fint_5fdistribution',['uniform_int_distribution',['../classvg_1_1uniform__int__distribution.html',1,'vg']]],
   ['uniform_5fint_5fdistribution_3c_20size_5ft_20_3e',['uniform_int_distribution&lt; size_t &gt;',['../classvg_1_1uniform__int__distribution.html',1,'vg']]],
   ['uniform_5fint_5fdistribution_3c_20uint8_5ft_20_3e',['uniform_int_distribution&lt; uint8_t &gt;',['../classvg_1_1uniform__int__distribution.html',1,'vg']]],
-  ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
   ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html#aaa8046adecf3b01e7e702df2e4fe3abd',1,'vg::uniform_real_distribution']]],
+  ['uniform_5freal_5fdistribution',['uniform_real_distribution',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
   ['uniform_5freal_5fdistribution_3c_20double_20_3e',['uniform_real_distribution&lt; double &gt;',['../classvg_1_1uniform__real__distribution.html',1,'vg']]],
   ['unindex_5fedge_5fby_5fnode_5fsides',['unindex_edge_by_node_sides',['../classvg_1_1VG.html#a1c0b7db8d3043747e8b9a44cba4eaac9',1,'vg::VG::unindex_edge_by_node_sides(const NodeSide &amp;side1, const NodeSide &amp;side2)'],['../classvg_1_1VG.html#a5677da9ff22052f6c6a85bfe66e1256d',1,'vg::VG::unindex_edge_by_node_sides(Edge *edge)']]],
   ['unique',['unique',['../structvg_1_1MinimizerIndex_1_1Header.html#aa5db6819039be258d22ea6c203f513ca',1,'vg::MinimizerIndex::Header']]],

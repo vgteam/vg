@@ -1,6 +1,7 @@
 var searchData=
 [
   ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a47fbc525ed5e9f2a7b00c333f03fe6c8',1,'vg::VG::tail_nodes(vector&lt; Node * &gt; &amp;nodes)']]],
+  ['tail_5foffset',['tail_offset',['../classvg_1_1GaplessExtender.html#a1524a3bb602ed6997e7fc5d2a51c4563',1,'vg::GaplessExtender']]],
   ['target_5falignment',['target_alignment',['../classxg_1_1XG.html#a87dfe8567803bebf9409ab3c2aaea36f',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse) const '],['../classxg_1_1XG.html#a58bf34023594fe938008df643154ff39',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse, Mapping &amp;cigar_mapping) const ']]],
   ['targetvaluesearch',['TargetValueSearch',['../classvg_1_1TargetValueSearch.html#a7b5ec9882ca34d7883ced17ef219b1b4',1,'vg::TargetValueSearch::TargetValueSearch()=default'],['../classvg_1_1TargetValueSearch.html#a66c7161857ea38dab47c4da883435ac4',1,'vg::TargetValueSearch::TargetValueSearch(const HandleGraph &amp;handle_graph, DistanceHeuristic *upper_bound_heuristic, DistanceHeuristic *lower_bound_heuristic)']]],
   ['thread_5fname',['thread_name',['../classxg_1_1XG.html#a7acb5d6ab8d2926b89f860a8cc3b1678',1,'xg::XG']]],
@@ -92,6 +93,8 @@ var searchData=
   ['trim_5fand_5fcheck_5ffor_5fempty',['trim_and_check_for_empty',['../classvg_1_1MultipathAlignmentGraph.html#aba6c4c7e8954cbe789393e5ced260a8d',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fhanging_5fends',['trim_hanging_ends',['../namespacevg.html#a990f54fb0e09dc439dace1519aff5e9f',1,'vg']]],
   ['trim_5fhanging_5findels',['trim_hanging_indels',['../classvg_1_1MultipathAlignmentGraph.html#a1709931c016b2126b6a9d909c2b1c725',1,'vg::MultipathAlignmentGraph']]],
+  ['trim_5fhead',['trim_head',['../structvg_1_1FlankState.html#af3b474680ad837944bff6c59860bcc6b',1,'vg::FlankState']]],
+  ['trim_5ftail',['trim_tail',['../structvg_1_1FlankState.html#a0d7f70b606b3f3ec759565b32147f1c9',1,'vg::FlankState']]],
   ['trim_5fto_5fbranch_5fpoints',['trim_to_branch_points',['../classvg_1_1MultipathAlignmentGraph.html#ac3199fb5e097873e2635e3fb34a8eafe',1,'vg::MultipathAlignmentGraph']]],
   ['trim_5fto_5fvariable',['trim_to_variable',['../classvg_1_1Constructor.html#a428cf1b27e402a304c18e40f87e9dc02',1,'vg::Constructor']]],
   ['trivialtraversalfinder',['TrivialTraversalFinder',['../classvg_1_1TrivialTraversalFinder.html#a7a3ad443fda205c48013fc246bea552e',1,'vg::TrivialTraversalFinder']]],

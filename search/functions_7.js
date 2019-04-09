@@ -1,7 +1,6 @@
 var searchData=
 [
   ['gamma_5fln',['gamma_ln',['../namespacevg.html#a05748ab256c93e2393252aa8ebbdde3d',1,'vg']]],
-  ['gapless_5fmatch_5fto_5fpath',['gapless_match_to_path',['../namespacevg.html#a7c6c351fc5583e717ea614ea1295b2ab',1,'vg']]],
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html#a497cc4e85c6433a3e41f04895703f271',1,'vg::GaplessExtender::GaplessExtender()'],['../classvg_1_1GaplessExtender.html#a08058c1fa9281436ffec780441d9d648',1,'vg::GaplessExtender::GaplessExtender(const GBWTGraph &amp;graph)']]],
   ['gbwt_5fthread_5ft',['gbwt_thread_t',['../structhaplo_1_1gbwt__thread__t.html#a5b148ae0a27b81b4b4af07f200a1255b',1,'haplo::gbwt_thread_t::gbwt_thread_t()'],['../structhaplo_1_1gbwt__thread__t.html#aa52a0e84c11044abd6ce20969629e3a9',1,'haplo::gbwt_thread_t::gbwt_thread_t(const gbwt::vector_type &amp;nodes, const vector&lt; size_t &gt; &amp;node_lengths)']]],
   ['gbwt_5fto_5fhandle',['gbwt_to_handle',['../namespacevg.html#a28c93b1c4a71fadf62fc2582cc8f0ed2',1,'vg']]],

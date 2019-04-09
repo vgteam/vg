@@ -1,6 +1,7 @@
 var searchData=
 [
   ['gaplessextender',['GaplessExtender',['../classvg_1_1GaplessExtender.html',1,'vg']]],
+  ['gaplessextension',['GaplessExtension',['../structvg_1_1GaplessExtension.html',1,'vg']]],
   ['gaplessmatch',['GaplessMatch',['../structvg_1_1GaplessMatch.html',1,'vg']]],
   ['gbwt_5fthread_5ft',['gbwt_thread_t',['../structhaplo_1_1gbwt__thread__t.html',1,'haplo']]],
   ['gbwtgraph',['GBWTGraph',['../classvg_1_1GBWTGraph.html',1,'vg']]],

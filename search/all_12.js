@@ -171,6 +171,7 @@ var searchData=
   ['right_5fdegree',['right_degree',['../classvg_1_1VG.html#a23622195177dff4c7c8416edffb7fc93',1,'vg::VG']]],
   ['right_5fedges',['right_edges',['../structvg_1_1HashGraph_1_1node__t.html#aeed9aa5616260e5205c4e171e47d76a2',1,'vg::HashGraph::node_t']]],
   ['right_5fends',['right_ends',['../structvg_1_1ConstructedChunk.html#ac20dbdc398181350e73bee0429fe2842',1,'vg::ConstructedChunk']]],
+  ['right_5fmaximal',['right_maximal',['../structvg_1_1FlankState.html#a3ebb0d9b8cca862ac76ab45560297b9d',1,'vg::FlankState']]],
   ['right_5frotate',['right_rotate',['../classvg_1_1PackedSplayTree.html#af35a500f9ccdb593a6eb004c9d60d371',1,'vg::PackedSplayTree']]],
   ['right_5ftelomere_5fnode',['right_telomere_node',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a3d771a24b8889ea668939eac31276ea3',1,'vg::PhasedGenome::Haplotype']]],
   ['rna_5fmain_2ecpp',['rna_main.cpp',['../rna__main_8cpp.html',1,'']]],

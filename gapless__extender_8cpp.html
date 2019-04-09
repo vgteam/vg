@@ -102,7 +102,9 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1GaplessMatch.html">vg::GaplessMatch</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1MaximalGBWTMatch.html">vg::MaximalGBWTMatch</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1UnambiguousMatch.html">vg::UnambiguousMatch</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1FlankState.html">vg::FlankState</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -118,14 +120,18 @@ Functions</h2></td></tr>
 <tr class="separator:acf2de89815d682177c09dad884662d11"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3985f24ec3e8b20036650347f4aa99f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af3985f24ec3e8b20036650347f4aa99f">vg::match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, GaplessMatch &amp;match, size_t error_bound)</td></tr>
 <tr class="separator:af3985f24ec3e8b20036650347f4aa99f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7c6c351fc5583e717ea614ea1295b2ab"><td class="memItemLeft" align="right" valign="top">Path&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7c6c351fc5583e717ea614ea1295b2ab">vg::gapless_match_to_path</a> (GaplessMatch &amp;match, const GBWTGraph &amp;graph, const std::string &amp;sequence)</td></tr>
-<tr class="separator:a7c6c351fc5583e717ea614ea1295b2ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a566c614bb0c39d191a8a2a4ed748dd9b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a566c614bb0c39d191a8a2a4ed748dd9b">vg::match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, MaximalGBWTMatch &amp;match)</td></tr>
-<tr class="separator:a566c614bb0c39d191a8a2a4ed748dd9b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac0affb205dbbbfaf986142652705dbbd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ac0affb205dbbbfaf986142652705dbbd">vg::match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, MaximalGBWTMatch &amp;match)</td></tr>
-<tr class="separator:ac0affb205dbbbfaf986142652705dbbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1453eafe2c79d6b7b06d6d38c9f45b1b"><td class="memItemLeft" align="right" valign="top">Path&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1453eafe2c79d6b7b06d6d38c9f45b1b">vg::maximal_match_to_path</a> (const MaximalGBWTMatch &amp;match, const GBWTGraph &amp;graph)</td></tr>
-<tr class="separator:a1453eafe2c79d6b7b06d6d38c9f45b1b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ada5f3fae0cd10fd178d72e5d91163f52"><td class="memItemLeft" align="right" valign="top">GaplessExtension&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ada5f3fae0cd10fd178d72e5d91163f52">vg::match_to_extension</a> (GaplessMatch &amp;match, const GBWTGraph &amp;graph, const std::string &amp;sequence)</td></tr>
+<tr class="separator:ada5f3fae0cd10fd178d72e5d91163f52"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae182bfacb4b234444c1235b5fa764f7e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ae182bfacb4b234444c1235b5fa764f7e">vg::match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, UnambiguousMatch &amp;match)</td></tr>
+<tr class="separator:ae182bfacb4b234444c1235b5fa764f7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a982b32141214326d950a26a111166527"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a982b32141214326d950a26a111166527">vg::match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, UnambiguousMatch &amp;match)</td></tr>
+<tr class="separator:a982b32141214326d950a26a111166527"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7f53fe457b7de8452bac607372618c1"><td class="memItemLeft" align="right" valign="top">GaplessExtension&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af7f53fe457b7de8452bac607372618c1">vg::unambiguous_match_to_extension</a> (const UnambiguousMatch &amp;match, const GBWTGraph &amp;graph, const std::string &amp;sequence)</td></tr>
+<tr class="separator:af7f53fe457b7de8452bac607372618c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade01d86fc638a3129d4aa65c39184d3f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#ade01d86fc638a3129d4aa65c39184d3f">vg::match_forward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, FlankState &amp;match, size_t error_bound)</td></tr>
+<tr class="separator:ade01d86fc638a3129d4aa65c39184d3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af1b4c5931eafe38d41348fd8f29d39cf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#af1b4c5931eafe38d41348fd8f29d39cf">vg::match_backward</a> (const std::string &amp;seq, std::pair&lt; const char *, size_t &gt; target, FlankState &amp;match, size_t error_bound)</td></tr>
+<tr class="separator:af1b4c5931eafe38d41348fd8f29d39cf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
