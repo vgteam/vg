@@ -33,7 +33,7 @@ public:
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
      */
-    void map(Alignment& aln, AlignmentEmitter& alignment_emitter);
+    void map(Alignment& aln, AlignmentEmitter& alignment_emitter) const;
 
     // Mapping settings.
     // TODO: document each
@@ -64,11 +64,24 @@ protected:
     SnarlSeedClusterer clusterer;
     
     /**
+     * Estimate the maximum score it may be possible to achieve using the given group of GaplessExtensions.
+     * Supports single full-length extensions and groups that need chaining.
+     * May reorder the input extended_seeds vector if it is not sorted in read space.
+     */
+    int estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const;
+    
+    /**
+     * Determine if a score estimate is significant enough to justify computing the real Alignment.
+     * Returns true if it might win or affect mapping quality, and false otherwise.
+     */
+    bool score_is_significant(int score_estimate, int best_score, int second_best_score) const; 
+    
+    /**
      * Operating on the given input alignment, chain together the given
      * extended perfect-match seeds and produce an alignment into the given
      * output Alignment object.
      */
-    void chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out); 
+    void chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const; 
     
     /**
      * Find for each pair of extended seeds all the haplotype-consistent graph
