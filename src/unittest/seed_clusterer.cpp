@@ -282,7 +282,8 @@ namespace unittest {
 
         for (int i = 0; i < 1; i++) {
             // For each random graph
-            VG graph = randomGraph(1000, 20, 100);
+            VG graph;
+            random_graph(1000, 20, 100, &graph);
 
 
             CactusSnarlFinder bubble_finder(graph);
