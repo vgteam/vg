@@ -79,7 +79,7 @@ protected:
      * seeds) and starting after sinks (which cannot reach any other extended
      * seeds). Only sources and sinks have these "tail" paths.
      */
-    unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds,
+    unordered_map<size_t, unordered_map<size_t, vector<Path>>> find_connecting_paths(const vector<GaplessExtension>& extended_seeds,
         size_t read_length) const;
         
     /// We define a type for shared-tail lists of Mappings, to avoid constantly
