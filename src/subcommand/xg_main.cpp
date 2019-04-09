@@ -14,10 +14,10 @@
 #include "subcommand.hpp"
 
 #include "sdsl/bit_vectors.hpp"
+#include "vg.pb.h"
 #include "../version.hpp"
 #include "../stream/stream.hpp"
 #include "../stream/vpkg.hpp"
-#include "../cpp/vg.pb.h"
 #include "../xg.hpp"
 #include "../region.hpp"
 #include "../convert_handle.hpp"

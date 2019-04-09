@@ -724,8 +724,12 @@ double GSSWAligner::score_to_unnormalized_likelihood_ln(double score) const {
 }
 
 size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment, const string::const_iterator& read_pos) const {
+    return longest_detectable_gap(alignment.sequence().size(), read_pos - alignment.sequence().begin());
+}
+
+size_t GSSWAligner::longest_detectable_gap(size_t read_length, size_t read_pos) const {
     // algebraic solution for when score is > 0 assuming perfect match other than gap
-    int64_t overhang_length = min(read_pos - alignment.sequence().begin(), alignment.sequence().end() - read_pos);
+    int64_t overhang_length = min(read_pos, read_length - read_pos);
     int64_t numer = match * overhang_length + full_length_bonus;
     int64_t gap_length = (numer - gap_open) / gap_extension + 1;
     return gap_length >= 0 && overhang_length > 0 ? gap_length : 0;
@@ -733,8 +737,7 @@ size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment, const str
 
 size_t GSSWAligner::longest_detectable_gap(const Alignment& alignment) const {
     // longest detectable gap across entire read is in the middle
-    return longest_detectable_gap(alignment, alignment.sequence().begin() + (alignment.sequence().size() / 2));
-    
+    return longest_detectable_gap(alignment.sequence().size(), alignment.sequence().size() / 2);
 }
 
 int32_t GSSWAligner::score_gappy_alignment(const Alignment& aln, const function<size_t(pos_t, pos_t, size_t)>& estimate_distance,

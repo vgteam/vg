@@ -18,7 +18,7 @@ MessageIterator::MessageIterator(istream& in) : MessageIterator(unique_ptr<Block
 
 MessageIterator::MessageIterator(unique_ptr<BlockedGzipInputStream>&& bgzf) :
     value(),
-    backup_tag(),
+    previous_tag(),
     group_count(0),
     group_idx(0),
     group_vo(-1),
@@ -38,9 +38,9 @@ auto MessageIterator::operator*() -> TaggedMessage& {
 
 
 auto MessageIterator::operator++() -> const MessageIterator& {
-    if (group_count == group_idx) {
+    while (group_count == group_idx) {
         // We have made it to the end of the group we are reading. We will
-        // start a new group now.
+        // start a new group now (and skip through empty groups).
         
         // Determine exactly where we are positioned, if possible, before
         // creating the CodedInputStream to read the group's item count
@@ -124,14 +124,14 @@ auto MessageIterator::operator++() -> const MessageIterator& {
         // Work out if this really is a tag.
         bool is_tag = false;
         
-        if (!backup_tag.empty() && backup_tag == value.first) {
+        if (!previous_tag.empty() && previous_tag == value.first) {
 #ifdef debug
-            cerr << "Tag is the same as the last tag of \"" << backup_tag << "\"" << endl;
+            cerr << "Tag is the same as the last tag of \"" << previous_tag << "\"" << endl;
 #endif
             is_tag = true;
         } else {
 #ifdef debug
-            cerr << "Tag does not match cached backup tag or there is no cached backup tag" << endl;
+            cerr << "Tag does not match cached previous tag or there is no cached previous tag" << endl;
 #endif
         }
     
@@ -151,7 +151,7 @@ auto MessageIterator::operator++() -> const MessageIterator& {
             // Assume it is actually a message, and make the group's tag ""
             swap(value.first, value.second);
             value.first.clear();
-            backup_tag.clear();
+            previous_tag.clear();
             
 #ifdef debug
             cerr << "Tag is actually a message probably." << endl;
@@ -167,7 +167,7 @@ auto MessageIterator::operator++() -> const MessageIterator& {
         
         // Otherwise this is a real tag.
         // Back up its value in case our pair gets moved away.
-        backup_tag = value.first;
+        previous_tag = value.first;
         
         // We continue and read the real first message into the message half of our pair.
     }
@@ -207,9 +207,9 @@ auto MessageIterator::operator++() -> const MessageIterator& {
         handle(coded_in.ReadString(&value.second, msgSize));
     }
     
-    // Fill in the tag from the backup to make sure our value pair actually has it.
+    // Fill in the tag from the previous to make sure our value pair actually has it.
     // It may have been moved away.
-    value.first = backup_tag;
+    value.first = previous_tag;
     
 #ifdef debug
     cerr << "Found message " << group_idx << " size " << msgSize << " with tag \"" << value.first << "\"" << endl;

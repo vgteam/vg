@@ -119,9 +119,9 @@ private:
     /// May get moved away.
     TaggedMessage value;
     
-    /// Because the whole value pair may get moved away, we keep a backup copy of the tag and replace it.
+    /// Because the whole value pair may get moved away, we keep a previous copy of the tag and replace it.
     /// TODO: This is a bit of a hack.
-    string backup_tag;
+    string previous_tag;
     
     /// This holds the number of messages that exist in the current group.
     /// Counts the tag, if present.
