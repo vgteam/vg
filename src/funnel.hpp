@@ -93,7 +93,8 @@ public:
     /// Project a single item from the previous stage to a new group item at the current stage, with the given size.
     void project_group(size_t prev_stage_item, size_t group_size);
     
-    /// Kill the given item from the previous stage and do not project it through to this stage
+    /// Kill the given item from the previous stage and do not project it through to this stage.
+    /// Items which are not killed must be projected to something.
     void kill(size_t prev_stage_item);
     
     /// Gill all the given items from the previous stage.
@@ -114,7 +115,7 @@ protected:
     /// How do we record durations internally?
     using Duration = chrono::nanoseconds;
     /// How do we record timepoints internally?
-    using Timepoint = chrono::time_point<chrono::system_clock>;
+    using Timepoint = chrono::time_point<chrono::high_resolution_clock>;
     
     // Members we need for time tracking
     
@@ -180,11 +181,12 @@ protected:
     /// Ensure an item with the given index exists in the current stage and return a reference to it.
     /// We need to do it this way because we might save a production duration before an item is really projected.
     /// The items of the current stage should only be modified through this.
+    /// Note that you do *not* need to create an item in order to get it.
     Item& get_item(size_t index);
     
-    /// Project a new item in the current stage and get its index.
+    /// Create a new item in the current stage and get its index.
     /// Advances the projected count counter.
-    size_t project_item();
+    size_t create_item();
     
     /// Rercord all the stages, including their names and item provenance.
     /// Handles repeated stages.
@@ -195,7 +197,7 @@ template<typename Iterator>
 void Funnel::merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
     assert(!stages.empty());
     // Make a new item holding all the given items.
-    size_t index = project_item();
+    size_t index = create_item();
     std::copy(prev_stage_items_begin, prev_stage_items_end, std::back_inserter(get_item(index).prev_stage_items));
     // Update its size
     get_item(index).group_size = get_item(index).prev_stage_items.size();

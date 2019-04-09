@@ -152,6 +152,78 @@ void Funnel::produced_output() {
         output_in_progress = numeric_limits<size_t>::max();
     }
 }
+
+void Funnel::introduce(size_t count) {
+    // Create that many new items
+    for (size_t i = 0; i < count; i++) {
+        create_item();
+    }
+}
+
+void Funnel::expand(size_t prev_stage_item, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        // Create the requested number of items
+        project(prev_stage_item);
+    }
+}
+
+void Funnel::project(size_t prev_stage_item) {
+    // Expand to just one new item
+    get_item(create_item()).prev_stage_items.push_back(prev_stage_item);
+}
+
+void Funnel::project_group(size_t prev_stage_item, size_t group_size) {
+    // Project the item
+    project(prev_stage_item);
+    // Save the group size
+    get_item(latest()).group_size = group_size;
+}
+
+void Funnel::kill(size_t prev_stage_item) {
+    // TODO: kill is a no-op for now.
+    // We just don't project from it.
+}
+
+void Funnel::score(size_t item, double score) {
+    get_item(item).score = score;
+}
+
+size_t Funnel::latest() const {
+    assert(!stages.empty());
+    assert(!stages.back().items.empty());
+    return stages.back().items.size() - 1;
+}
+
+double Funnel::total_seconds() const {
+    return chrono::duration_cast<chrono::duration<double>>(funnel_duration).count();
+}
+
+Funnel::Timepoint Funnel::now() const {
+    return chrono::high_resolution_clock::now()
+}
+
+Funnel::Item& Funnel::get_item(size_t index) {
+    assert(!stages.empty());
+    if (index >= stages.back().items.size()) {
+        // Allocate up through here
+        stages.back().items.resize(index + 1);
+    }
+    return stages.back().items[index];
+}
+
+size_t Funnel::create_item() {
+    assert(!stages.empty());
+    
+    // Work out where to put it
+    size_t next_index = stages.back().projected_count;
+    // Make sure the item slot exists
+    get_item(next_index);
+    // Record the item's creation
+    stages.back().projected_count++;
+    
+    // Return the index used
+    return next_index;
+}
     
 
 
