@@ -71,6 +71,11 @@ public:
     MessageEmitter(MessageEmitter&& other) = default;
     MessageEmitter& operator=(MessageEmitter&& other) = default;
     
+    /// Ensure that a (possibly empty) group is emitted for the given tag.
+    /// Will coalesce with previous or subsequent write calls for the same tag.
+    /// Note that empty tags are prohibited.
+    void write(const string& tag);
+    
     /// Emit the given message with the given type tag.
     void write(const string& tag, string&& message);
     
@@ -96,6 +101,7 @@ public:
 private:
 
     // This is our internal tag string for what is in our buffer.
+    // If it is empty, no group is buffered, because empty tags are prohibited.
     string group_tag;
     // This is our internal buffer
     vector<string> group;
