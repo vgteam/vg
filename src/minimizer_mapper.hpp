@@ -32,8 +32,9 @@ public:
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
+     * TODO: Can't be const because the clusterer's cluster_seeds isn't const.
      */
-    void map(Alignment& aln, AlignmentEmitter& alignment_emitter) const;
+    void map(Alignment& aln, AlignmentEmitter& alignment_emitter);
 
     // Mapping settings.
     // TODO: document each

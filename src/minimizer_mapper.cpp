@@ -9,7 +9,6 @@
 #include "multipath_alignment.hpp"
 #include "funnel.hpp"
 
-#include <chrono>
 #include <iostream>
 #include <algorithm>
 
@@ -26,11 +25,9 @@ MinimizerMapper::MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_
     // Nothing to do!
 }
 
-void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) const {
+void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // For each input alignment
         
-    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-    
     // Make a new funnel instrumenter to watch us map this read.
     Funnel funnel;
     // Start timing
@@ -75,7 +72,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
             // The minimizer is infrequent enough to be informative, so feed it into clustering
             
             // How many seeds were there before now?
-            size_t seeds_before = seeds.sizer();
+            size_t seeds_before = seeds.size();
             
             // Locate it in the graph
             for (auto& hit : minimizer_index->find(minimizers[i].first)) {
@@ -219,7 +216,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
         funnel.producing_output(i);
         auto& extensions = cluster_extensions[i];
         // Count the matches suggested by the group and use that as a score.
-        cluster_extension_scores.push_back(estimate_extension_group_score(extensions));
+        cluster_extension_scores.push_back(estimate_extension_group_score(aln, extensions));
         // Record the score with the funnel
         funnel.score(i, cluster_extension_scores.back());
         funnel.produced_output();
@@ -239,9 +236,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
     });
     
     // Now start the alignment step. Everything has to become an alignment.
-    funnel.stage("alignments")
+    funnel.stage("alignments");
     
-    // We will fill this with the output alignments (primary and secondaries) in score order.
+    // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
     alignments.reserve(extension_indexes_in_order.size());
     
@@ -267,12 +264,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
             // For later ones, check if this score is significant relative to the running best and second best scores.
             
             // If so, get an Alignment out of it somehow, and throw it in.
-            aligned.emplace_back(aln);
-            Alignment& out = aligned.back();
+            alignments.emplace_back(aln);
+            Alignment& out = alignments.back();
             
             if (extensions.size() == 1 && extensions[0].full()) {
                 // We got a full-length extension, so directly convert to an Alignment.
-                funnel.substage("full length")
+                funnel.substage("full length");
                 *out.mutable_path() = extensions[0].path;
                 
                 // The score estimate is exact.
@@ -333,24 +330,24 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
         }
     }
     
-    if (aligned.size() == 0) {
+    if (alignments.size() == 0) {
         // Produce an unaligned Alignment
-        aligned.emplace_back(aln);
+        alignments.emplace_back(aln);
         // Say it came from nowhere
         funnel.introduce();
     }
     
     // Order the Alignments by score
     vector<size_t> alignments_in_order;
-    alignments_in_order.reserve(aligned.size());
-    for (size_t i = 0; i < aligned.size(); i++) {
+    alignments_in_order.reserve(alignments.size());
+    for (size_t i = 0; i < alignments.size(); i++) {
         alignments_in_order.push_back(i);
     }
     
     // Sort again by actual score instead of extennsion score
-    std::sort(alignments_in_order.begin(), alignments_in_order.end(), [](const size_t& a, const size_t& b) -> bool {
+    std::sort(alignments_in_order.begin(), alignments_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
         // Return true if a must come before b (i.e. it has a larger score)
-        return aligned[a].score() > aligned[b].score();
+        return alignments[a].score() > alignments[b].score();
     });
     
     // Now say we are computing the mappings
@@ -361,7 +358,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
     for (size_t i = 0; i < alignments_in_order.size() && i <= max_multimaps; i++) {
         // For each output slot, fill it with the alignment at that rank if available.
         size_t& alignment_num = alignments_in_order[i];
-        mappings.emplace_back(std::move(aligned[alignment_num]));
+        mappings.emplace_back(std::move(alignments[alignment_num]));
         
         // Tell the funnel
         funnel.project(alignment_num);
@@ -375,14 +372,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
     
     // Grab all the scores for MAPQ computation.
     vector<double> scores;
-    scores.reserve(aligned.size());
+    scores.reserve(alignments.size());
     for (size_t i = 0; i < mappings.size(); i++) {
         // Grab the scores of the alignments we are outputting
         scores.push_back(mappings[i].score());
     }
     for (size_t i = mappings.size(); i < alignments_in_order.size(); i++) {
         // And of the alignments we aren't
-        scores.push_back(aligned[alignments_in_order[i]].score());
+        scores.push_back(alignments[alignments_in_order[i]].score());
     }
         
 #ifdef debug
@@ -400,7 +397,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
     
-    funnel.stop_substage();
+    funnel.substage_stop();
     
     for (size_t i = 0; i < mappings.size(); i++) {
         // For each output alignment in score order
@@ -412,9 +409,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
     
     // Stop timing with the funnel
     funnel.stop();
-    
-    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
     
     // Annotate the primary alignment with mapping runtime
     set_annotation(mappings[0], "map_seconds", funnel.total_seconds());

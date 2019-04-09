@@ -1,5 +1,7 @@
 #include "funnel.hpp"
 
+#include <cassert>
+
 /**
  * \file funnel.hpp: implementation of the Funnel class
  */
@@ -38,7 +40,8 @@ void Funnel::stage(const string& name) {
     stage_stop();
 
     // Allocate new stage structures.
-    stages.emplace_back(name);
+    stages.emplace_back();
+    stages.back().name = name;
     
     // Save the name and start time
     stage_name = name;
@@ -199,7 +202,7 @@ double Funnel::total_seconds() const {
 }
 
 Funnel::Timepoint Funnel::now() const {
-    return chrono::high_resolution_clock::now()
+    return chrono::high_resolution_clock::now();
 }
 
 Funnel::Item& Funnel::get_item(size_t index) {

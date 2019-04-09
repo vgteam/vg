@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <cassert>
 
 /** 
  * \file funnel.hpp
@@ -164,9 +165,9 @@ protected:
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
         /// How long did it take to produce this item, in total?
-        Duration produce_duration = 0;
+        Duration produce_duration{0};
         /// How long was spent processing this item as an input, in total?
-        Duration process_duration = 0;
+        Duration process_duration{0};
     };
     
     /// Represents a Stage which is a series of Items, which track their own provenance.
