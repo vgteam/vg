@@ -22,8 +22,85 @@ namespace vg {
         
     }
     
+    PackedGraph::PackedGraph(istream& in) :
+        graph_iv(PAGE_WIDTH),
+        seq_start_iv(PAGE_WIDTH),
+        edge_lists_iv(PAGE_WIDTH),
+        path_membership_node_iv(PAGE_WIDTH),
+        path_membership_value_iv(PAGE_WIDTH) {
+        
+        deserialize(in);
+    }
+    
     PackedGraph::~PackedGraph() {
         
+    }
+    
+    void PackedGraph::serialize(ostream& out) const {
+        sdsl::write_member(max_id, out);
+        sdsl::write_member(min_id, out);
+        
+        graph_iv.serialize(out);
+        seq_start_iv.serialize(out);
+        seq_length_iv.serialize(out);
+        edge_lists_iv.serialize(out);
+        id_to_graph_iv.serialize(out);
+        seq_iv.serialize(out);
+        
+        path_membership_node_iv.serialize(out);
+        path_membership_value_iv.serialize(out);
+        
+        sdsl::write_member(paths.size(), out);
+        for (const PackedPath& path : paths) {
+            sdsl::write_member(path.name, out);
+            sdsl::write_member(path.is_deleted, out);
+            sdsl::write_member(path.head, out);
+            sdsl::write_member(path.tail, out);
+            path.occurrences_iv.serialize(out);
+        }
+        // note: path_id can be reconstructed from the paths
+        sdsl::write_member(deleted_node_records, out);
+        sdsl::write_member(deleted_edge_records, out);
+        sdsl::write_member(deleted_membership_records, out);
+    }
+    
+    void PackedGraph::deserialize(istream& in) {
+        sdsl::read_member(max_id, in);
+        sdsl::read_member(min_id, in);
+        
+        graph_iv.deserialize(in);
+        seq_start_iv.deserialize(in);
+        seq_length_iv.deserialize(in);
+        edge_lists_iv.deserialize(in);
+        id_to_graph_iv.deserialize(in);
+        seq_iv.deserialize(in);
+        
+        path_membership_node_iv.deserialize(in);
+        path_membership_value_iv.deserialize(in);
+        
+        size_t num_paths;
+        sdsl::read_member(num_paths, in);
+        for (size_t i = 0; i < num_paths; i++) {
+            string name;
+            sdsl::read_member(name, in);
+            paths.emplace_back(name);
+            PackedPath& path = paths.back();
+            sdsl::read_member(path.is_deleted, in);
+            sdsl::read_member(path.head, in);
+            sdsl::read_member(path.tail, in);
+            path.occurrences_iv.deserialize(in);
+        }
+        
+        // reconstruct the path_id mapping
+        for (int64_t i = 0; i < paths.size(); i++) {
+            if (!paths[i].is_deleted) {
+                path_id[paths[i].name] = i;
+            }
+        }
+        
+        sdsl::read_member(deleted_node_records, in);
+        sdsl::read_member(deleted_edge_records, in);
+        sdsl::read_member(deleted_membership_records, in);
     }
     
     
@@ -71,7 +148,12 @@ namespace vg {
     
     handle_t PackedGraph::create_handle(const string& sequence, const id_t& id) {
         
-        // TODO: don't duplicate an existing node
+        if (id >= min_id && id < min_id + id_to_graph_iv.size()) {
+            if (id_to_graph_iv.get(id - min_id) != 0) {
+                cerr << "error:[PackedGraph] tried to create a node with ID " << id << ", but this ID already belongs to a different node" << endl;
+                exit(1);
+            }
+        }
         
         size_t g_iv_idx = new_node_record(id);
         seq_start_iv.set(graph_index_to_seq_start_index(g_iv_idx), seq_iv.size());
@@ -576,8 +658,98 @@ namespace vg {
         defragment();
     }
     
-    void PackedGraph::defragment(void) {
-        if (deleted_node_records > defrag_factor * (graph_iv.size() / GRAPH_RECORD_SIZE)) {
+    void PackedGraph::compactify() {
+        
+        // force the data structures to reallocate in ID order and eject deleted material
+        defragment(true);
+        
+        // make a new id_to_graph_iv of exactly the right size
+        PackedDeque new_id_to_graph_iv;
+        new_id_to_graph_iv.reserve(id_to_graph_iv.size());
+        // transfer of the data
+        for (size_t i = 0; i < id_to_graph_iv.size(); i++) {
+            new_id_to_graph_iv.append_back(id_to_graph_iv.get(i));
+        }
+        // replace the old one
+        id_to_graph_iv = std::move(new_id_to_graph_iv);
+        
+        // count up the total length of all non-deleted sequence (a little costly but we're
+        // not tracking deleted sequence anywhere)
+        size_t total_seq_len = 0;
+        for (size_t i = 0; i < seq_length_iv.size(); i += SEQ_LENGTH_RECORD_SIZE) {
+            total_seq_len += seq_length_iv.get(i);
+        }
+        
+        // make a new seq_iv of exactly the right size
+        PackedVector new_seq_iv;
+        new_seq_iv.reserve(total_seq_len);
+        static_assert(SEQ_START_RECORD_SIZE == SEQ_LENGTH_RECORD_SIZE,
+                      "This loop will need to be rewritten if we change the record sizes");
+        for (size_t i = 0; i < seq_start_iv.size(); i += SEQ_START_RECORD_SIZE) {
+            // get the interval from the current seq_iv
+            size_t begin = seq_start_iv.get(i);
+            size_t end = begin + seq_length_iv.get(i);
+            // switch the pointer to the new seq iv
+            seq_start_iv.set(i, new_seq_iv.size());
+            // transfer the actual sequence over
+            for (size_t j = begin; j < end; j++) {
+                new_seq_iv.append(seq_iv.get(j));
+            }
+        }
+        // replace the old seq iv
+        seq_iv = std::move(new_seq_iv);
+        
+        size_t num_paths_deleted_so_far = 0;
+        for (size_t i = 0; i < paths.size(); i++) {
+            
+            if (paths[i].is_deleted) {
+                num_paths_deleted_so_far++;
+                continue;
+            }
+            
+            if (num_paths_deleted_so_far > 0) {
+                paths[i - num_paths_deleted_so_far] = std::move(paths[i]);
+            }
+            
+            PackedPath& path = paths[i - num_paths_deleted_so_far];
+            
+            if (path.head != 0) {
+                PagedVector new_occurrences_iv(PAGE_WIDTH);
+                // TODO: if we add deletes for paths then this won't be a compact capacity
+                new_occurrences_iv.reserve(path.occurrences_iv.size());
+                size_t copying_from = path.head;
+                size_t prev = 0;
+                while (copying_from != 0) {
+                    
+                    // make a new record
+                    new_occurrences_iv.append(get_occurrence_trav(path, copying_from));
+                    new_occurrences_iv.append(prev);
+                    new_occurrences_iv.append(0);
+                    
+                    size_t here = new_occurrences_iv.size() / PATH_RECORD_SIZE;
+                    
+                    // update the point on the previous node
+                    if (prev != 0) {
+                        set_occurrence_prev(path, prev, here);
+                    }
+                    
+                    prev = here;
+                    
+                    copying_from = get_occurrence_next(path, copying_from);
+                }
+                
+                path.occurrences_iv = move(new_occurrences_iv);
+            }
+        }
+    }
+    
+    void PackedGraph::defragment(bool force) {
+        
+        uint64_t num_nodes = graph_iv.size() / GRAPH_RECORD_SIZE - deleted_node_records;
+        if (deleted_node_records > defrag_factor * (graph_iv.size() / GRAPH_RECORD_SIZE) || force) {
+            
+            // what's the real number of undeleted nodes in the graph?
+            uint64_t num_nodes = graph_iv.size() / GRAPH_RECORD_SIZE - deleted_node_records;
             
             // adjust the start
             while (id_to_graph_iv.empty() ? false : id_to_graph_iv.get(0) == 0) {
@@ -588,11 +760,19 @@ namespace vg {
             while (id_to_graph_iv.empty() ? false : id_to_graph_iv.get(id_to_graph_iv.size() - 1) == 0) {
                 id_to_graph_iv.pop_back();
             }
+            max_id = min_id + id_to_graph_iv.size() - 1;
             
+            // initialize new vectors to construct defragged copies in
             PagedVector new_graph_iv(PAGE_WIDTH);
             PackedVector new_seq_length_iv;
             PagedVector new_seq_start_iv(PAGE_WIDTH);
             PagedVector new_path_membership_node_iv(PAGE_WIDTH);
+            
+            // expand them to the size we need to avoid reallocation and get optimal compression
+            new_graph_iv.reserve(num_nodes * GRAPH_RECORD_SIZE);
+            new_seq_length_iv.reserve(num_nodes * SEQ_LENGTH_RECORD_SIZE);
+            new_seq_start_iv.reserve(num_nodes * SEQ_START_RECORD_SIZE);
+            new_path_membership_node_iv.reserve(num_nodes * NODE_MEMBER_RECORD_SIZE);
             
             for (size_t i = 0; i < id_to_graph_iv.size(); i++) {
                 size_t raw_g_iv_idx = id_to_graph_iv.get(i);
@@ -614,14 +794,19 @@ namespace vg {
             seq_length_iv = std::move(new_seq_length_iv);
             seq_start_iv = std::move(new_seq_start_iv);
             path_membership_node_iv = std::move(new_path_membership_node_iv);
+            
             deleted_node_records = 0;
         }
         
-        // TODO: defrag the seq_iv?
+        // TODO: also defragment seq_iv?
+        // for now only doing that inside compactify
         
-        if (deleted_edge_records > defrag_factor * (edge_lists_iv.size() / EDGE_RECORD_SIZE)) {
+        if (deleted_edge_records > defrag_factor * (edge_lists_iv.size() / EDGE_RECORD_SIZE) || force) {
+            
+            uint64_t num_edge_records = edge_lists_iv.size() / EDGE_RECORD_SIZE - deleted_edge_records;
             
             PagedVector new_edge_lists_iv(PAGE_WIDTH);
+            new_edge_lists_iv.reserve(num_edge_records * EDGE_RECORD_SIZE);
             
             for (size_t i = 0; i < id_to_graph_iv.size(); i++) {
                 size_t raw_g_iv_idx = id_to_graph_iv.get(i);
@@ -658,9 +843,12 @@ namespace vg {
             deleted_edge_records = 0;
         }
         
-        if (deleted_membership_records > defrag_factor * (path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE)) {
+        if (deleted_membership_records > defrag_factor * (path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE) || force) {
+            
+            uint64_t num_membership_records = path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE - deleted_membership_records;
             
             PagedVector new_path_membership_value_iv(PAGE_WIDTH);
+            new_path_membership_value_iv.reserve(num_membership_records * MEMBERSHIP_RECORD_SIZE);
             
             for (size_t i = 0; i < id_to_graph_iv.size(); i++) {
                 size_t raw_g_iv_idx = id_to_graph_iv.get(i);
@@ -698,7 +886,6 @@ namespace vg {
             path_membership_value_iv = std::move(new_path_membership_value_iv);
             
             deleted_membership_records = 0;
-            
         }
     }
     
