@@ -5,6 +5,7 @@ var searchData=
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html',1,'vg']]],
   ['vcfrecordconverter',['VcfRecordConverter',['../classvg_1_1VcfRecordConverter.html',1,'vg']]],
   ['vcfrecordfilter',['VcfRecordFilter',['../classvg_1_1VcfRecordFilter.html',1,'vg']]],
+  ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html',1,'vg']]],
   ['vectorizer',['Vectorizer',['../classVectorizer.html',1,'']]],
   ['version',['Version',['../classvg_1_1Version.html',1,'vg']]],
   ['vg',['VG',['../classvg_1_1VG.html',1,'vg']]],

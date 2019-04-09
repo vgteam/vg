@@ -36,6 +36,7 @@ var searchData=
   ['break_5fcycles',['break_cycles',['../classvg_1_1VG.html#a93cb2d6686e0bb92d7f0b632fc813702',1,'vg::VG']]],
   ['break_5fend',['break_end',['../structvg_1_1NodeDivider.html#a34c7addcced6efc6f7c06e98c7008d99',1,'vg::NodeDivider']]],
   ['breakend_5ffilter',['breakend_filter',['../classvg_1_1Filter.html#ab590f8b51e20860f1af0e40ca22932be',1,'vg::Filter']]],
+  ['brute_5fforce_5falt_5ftraversals',['brute_force_alt_traversals',['../classvg_1_1VCFTraversalFinder.html#af0a89437709e586adc420bbddd9945fd',1,'vg::VCFTraversalFinder']]],
   ['bs_5fbake',['bs_bake',['../classxg_1_1XG.html#a0168417666341fe7a13160b2c938bab8',1,'xg::XG']]],
   ['bs_5fdump',['bs_dump',['../classxg_1_1XG.html#aa3d74f4b6a8da5e9eec9e2ac0591da77',1,'xg::XG']]],
   ['bs_5fget',['bs_get',['../classxg_1_1XG.html#abc6f760ce5fe38ff987e6b3c96ba7916',1,'xg::XG']]],

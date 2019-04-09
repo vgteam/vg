@@ -16,6 +16,7 @@ var searchData=
   ['defragment',['defragment',['../classvg_1_1PackedGraph.html#abf2fb4f1644ae4ba34a3062f84e2dbfe',1,'vg::PackedGraph']]],
   ['delete_5fhaplotype',['delete_haplotype',['../classvg_1_1GenomeState.html#a3abfa8020eb5f6f6229e7b59924dad30',1,'vg::GenomeState']]],
   ['delete_5fnode',['delete_node',['../classvg_1_1PackedSplayTree.html#a7c051794fcbc7306ae0647aebe3248a3',1,'vg::PackedSplayTree']]],
+  ['delete_5fvariant_5findex',['delete_variant_index',['../classvg_1_1VCFTraversalFinder.html#a45b91ad0f95daad0ce2610953873f867',1,'vg::VCFTraversalFinder']]],
   ['deletion_5ffilter',['deletion_filter',['../classvg_1_1Filter.html#a8b867ca7572a1f8687b96cba2687f749',1,'vg::Filter']]],
   ['depart_5fby_5freverse',['depart_by_reverse',['../namespacexg.html#ab6c89558d10050581aa87c709cb927a1',1,'xg']]],
   ['depth_5ffilter',['depth_filter',['../classvg_1_1Filter.html#a554d7fd6bc98d2c7e720e3edcb98c7d0',1,'vg::Filter']]],

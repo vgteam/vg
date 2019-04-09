@@ -82,6 +82,7 @@ var searchData=
   ['max_5fsub_5fmem_5frecursion_5fdepth',['max_sub_mem_recursion_depth',['../classvg_1_1BaseMapper.html#ac12496865e23fd68ba1f579dcb050037',1,'vg::BaseMapper']]],
   ['max_5fsuboptimal_5fpath_5fscore_5fratio',['max_suboptimal_path_score_ratio',['../classvg_1_1MultipathMapper.html#ac117889984b58f3c0fd3d389a8ee7f26',1,'vg::MultipathMapper']]],
   ['max_5ftarget_5ffactor',['max_target_factor',['../classvg_1_1Mapper.html#a5ecf825b76d29c8b8242d8167fae6cc4',1,'vg::Mapper']]],
+  ['max_5ftraversal_5fcutoff',['max_traversal_cutoff',['../classvg_1_1VCFTraversalFinder.html#a2ece2a9a96c909c7859bd88d54daa559',1,'vg::VCFTraversalFinder']]],
   ['max_5funsupported_5fedge_5fsize',['max_unsupported_edge_size',['../classvg_1_1SupportCaller.html#a915a93847b01934900fd4c6dcb61b333',1,'vg::SupportCaller']]],
   ['max_5fwalk',['max_walk',['../classvg_1_1PathOrientedDistanceMeasurer.html#a6d8dc74ae9eaaabf35ba1c89cfae8a11',1,'vg::PathOrientedDistanceMeasurer']]],
   ['max_5fwidth',['max_width',['../classvg_1_1RepresentativeTraversalFinder.html#aac2939337439d7566246889b3a4655c6',1,'vg::RepresentativeTraversalFinder']]],

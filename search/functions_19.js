@@ -96,6 +96,7 @@ var searchData=
   ['_7etvsclusterer',['~TVSClusterer',['../classvg_1_1TVSClusterer.html#ad0bd55ec4d0141dbd6b22cab86e2af85',1,'vg::TVSClusterer']]],
   ['_7evcfrecordconverter',['~VcfRecordConverter',['../classvg_1_1VcfRecordConverter.html#a49013729b000b0fd7c4a380c7ca79da6',1,'vg::VcfRecordConverter']]],
   ['_7evcfrecordfilter',['~VcfRecordFilter',['../classvg_1_1VcfRecordFilter.html#a11f60090fa5e3185bb42ece601457889',1,'vg::VcfRecordFilter']]],
+  ['_7evcftraversalfinder',['~VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#a574fb1c2bdcf2752e75626f4c21bc90c',1,'vg::VCFTraversalFinder']]],
   ['_7evectorizer',['~Vectorizer',['../classVectorizer.html#a9e7ee4e6f8a517a85b6e9ed785958104',1,'Vectorizer']]],
   ['_7evg',['~VG',['../classvg_1_1VG.html#a7513ddb88aeb58bd85a810c2a2ccdf67',1,'vg::VG']]],
   ['_7evgalignmentemitter',['~VGAlignmentEmitter',['../classvg_1_1VGAlignmentEmitter.html#a9c3828b842b37d0fd53f918cdeddc119',1,'vg::VGAlignmentEmitter']]],
