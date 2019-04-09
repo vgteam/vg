@@ -134,8 +134,11 @@ std::function<void(const Item&)> emit_to(ostream& out);
 template<typename T>
 ProtobufEmitter<T>::ProtobufEmitter(std::ostream& out, size_t max_group_size) : message_emitter(out, max_group_size),
     tag(Registry::get_protobuf_tag<T>()) {
-    
-    // Nothing to do!
+    // Make sure to write at least the tag to the file, to represent 0
+    // instances of our type. When trying to load a list of our type from a
+    // file, it's comforting for the loader code to see that as opposed to
+    // nothing mentioning the type it is looking for.
+    message_emitter.write(tag);
 }
 
 template<typename T>

@@ -25,6 +25,9 @@ class DistanceIndex {
     //User must call setGraph and setSnarlManager before using the index.
     DistanceIndex (istream& in);
     
+    //Default constructor; load() must be called next.
+    DistanceIndex ();
+    
     //Associate the DistanceIndex with the given graph. Graph must not be null.
     void setGraph(const HandleGraph* new_graph);
     
