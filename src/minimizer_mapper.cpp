@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <algorithm>
 
 namespace vg {
 
@@ -274,20 +275,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
                 funnel.substage("full length")
                 *out.mutable_path() = extensions[0].path;
                 
-                // Compute a score based on the sequence length and mismatch count.
-                // Alignments will only contain matches and mismatches.
-                size_t mismatch_count = extensions[0].mismatches();
-                int alignment_score = default_match * (out.sequence().size() - mismatch_count) - default_mismatch * mismatch_count;
-                if (out.path().mapping().begin()->edit_size() != 0 && edit_is_match(*out.path().mapping().begin()->edit().begin())) {
-                    // Apply left full length bonus based on the first edit
-                    alignment_score += default_full_length_bonus;
-                }
-                if (out.path().mapping().rbegin()->edit_size() != 0 && edit_is_match(*out.path().mapping().rbegin()->edit().rbegin())) {
-                    // Apply right full length bonus based on the last edit
-                    alignment_score += default_full_length_bonus;
-                }
-               
+                // The score estimate is exact.
+                int alignment_score = cluster_extension_scores[extension_num];
+                
                 // Compute identity from mismatch count.
+                size_t mismatch_count = extensions[0].mismatches();
                 double identity = out.sequence().size() == 0 ? 0.0 : (out.sequence().size() - mismatch_count) / (double) out.sequence().size();
                 
                 // Fill in the score and identity
@@ -301,6 +293,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
                 funnel.substage("chaining");
                 
                 // Sort the extended seeds by read start position.
+                // TODO: Score estimation may have sorted them already.
                 std::sort(extensions.begin(), extensions.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
                     // Return true if a needs to come before b.
                     // This will happen if a is earlier in the read than b.
@@ -428,6 +421,172 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) c
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
+}
+
+int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const {
+    if (extended_seeds.empty()) {
+        // TODO: We should never see an empty group of extensions
+        return 0;
+    } else if (extended_seeds.size() == 1 && extended_seeds[0].full()) {
+        // This is a full length match. Compute exact score.
+        
+        // Compute a score using the Aligner, which handles all the full length bonuses and so on.
+        // To do that we make a fake copy Alignment.
+        Alignment temp = aln;
+        *temp.mutable_path() = extended_seeds[0].path;
+        // TODO: have an implementation of this that takes a Path and a string and/or quality.
+        // TODO: Just do this based on mismatch count and match count but with aligner score parameters.
+        return get_regular_aligner()->score_ungapped_alignment(temp);
+    } else {
+        // This is a collection of one or more non-full-length extended seeds.
+        
+        if (aln.sequence().size() == 0) {
+            // No score here
+            return 0;
+        }
+        
+        // Sort them in read order.
+        std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
+            // Return true if a needs to come before b.
+            // This will happen if a is earlier in the read than b.
+            return a.core_interval.first < b.core_interval.first;
+        });
+        
+        // Now we compute an estimate of the score: match count for all the
+        // flank bases that aren't universal mismatches, mismatch count for
+        // those that are.
+        int score_estimate = 0;
+        
+        // We use a sweep line algorithm.
+        // This records the last base to be covered by the current sweep line.
+        int64_t sweep_line = 0;
+        // This records the first base not covered by the last sweep line.
+        int64_t last_sweep_line = 0;
+        
+        // And we track the next unentered gapless extension
+        size_t unentered = 0;
+        
+        // Extensions we are in are in this min-heap of past-end position and gapless extension number.
+        vector<pair<size_t, size_t>> end_heap;
+        // The heap uses this comparator
+        auto compare = [](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+            // Return true if a must come later in the heap than b
+            return a.first > b.first;
+        };
+        
+        while(last_sweep_line < aln.sequence().size()) {
+            // We are processed through the position before last_sweep_line.
+            
+            // Find a place for sweep_line to go
+            
+            // Find the next seed start
+            int64_t next_seed_start = numeric_limits<int64_t>::max();
+            if (unentered < extended_seeds.size()) {
+                next_seed_start = extended_seeds[unentered].flanked_interval.first;
+            }
+            
+            // Find the next mismatch
+            int64_t next_mismatch = numeric_limits<int64_t>::max();
+            for (auto& overlapping : end_heap) {
+                // For each gapless extension we overlap, find its sorted mismatches
+                auto& mismatches = extended_seeds[overlapping.second].mismatch_positions;
+                for (auto& mismatch : mismatches) {
+                    if (mismatch < last_sweep_line) {
+                        // Already accounted for
+                        continue;
+                    }
+                    if (mismatch < next_mismatch) {
+                        // We found a new one
+                        next_mismatch = mismatch;
+                    }
+                    // We only care about the first one not too early.
+                    break;
+                }
+            }
+            
+            // Find the next seed end
+            int64_t next_seed_end = numeric_limits<int64_t>::max();
+            if (!end_heap.empty()) {
+                next_seed_end = end_heap.front().first;
+            }
+            
+            // Whichever is closer between those points and the end, do that.
+            sweep_line = min(min(min(next_seed_end, next_mismatch), next_seed_start), (int64_t) aln.sequence().size() - 1);
+            
+            // So now we're only interested in things that happen at sweep_line.
+            
+            if (!end_heap.empty()) {
+                // If we were covering anything, count matches between last_sweep_line and here, not including at last_sweep_line.
+                score_estimate += get_regular_aligner()->score_exact_match(aln, last_sweep_line, sweep_line - last_sweep_line);
+            }
+            
+            while(!end_heap.empty() && end_heap.front().first == sweep_line) {
+                // Take out anything that past-ends here
+                std::pop_heap(end_heap.begin(), end_heap.end());
+                end_heap.pop_back();
+            }
+            
+            while (unentered < extended_seeds.size() && extended_seeds[unentered].flanked_interval.first == sweep_line) {
+                // Bring in anything that starts here
+                end_heap.emplace_back(extended_seeds[unentered].flanked_interval.second, unentered);
+                std::push_heap(end_heap.begin(), end_heap.end());
+                unentered++;
+            }
+            
+            if (!end_heap.empty()) {
+                // We overlap some seeds
+            
+                // Count up mismatches that are here and extended seeds that overlap here
+                size_t mismatching_count = 0;
+                for (auto& overlapping : end_heap) {
+                    // For each gapless extension we overlap, find its sorted mismatches
+                    auto& mismatches = extended_seeds[overlapping.second].mismatch_positions;
+                    for (auto& mismatch : mismatches) {
+                        if (mismatch < last_sweep_line) {
+                            // Already accounted for
+                            continue;
+                        }
+                        if (mismatch == sweep_line) {
+                            // We found a new one here
+                            mismatching_count++;
+                        }
+                        // We only care about the first one not too early.
+                        break;
+                    }
+                }
+                
+                if (mismatching_count == end_heap.size()) {
+                    // This is a universal mismatch
+                    // Add a mismatch to the score
+                    score_estimate += get_regular_aligner()->score_mismatch(1);
+                } else {
+                    // Add a 1-base match to the score
+                    score_estimate += get_regular_aligner()->score_exact_match(aln, sweep_line, 1);
+                }
+            }
+            
+            // If we don't overlap any seeds here, we won't score any matches or mismatches.
+            
+            // Move last_sweep_line to sweep_line.
+            // We need to add 1 since last_sweep_line is the next *un*included base
+            last_sweep_line = sweep_line + 1;
+        }
+        
+        // TODO: should we apply full length bonuses?
+        
+        // When we get here, the score estimate is finished.
+        return score_estimate;
+    }
+    
+}
+
+bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, int second_best_score) const {
+    // TODO: Find Jordan's method and apply that.
+    // For now just use a magic relative cutoff.
+    if (score_estimate + 10 >= second_best_score) {
+        return true;
+    }
+    return false;
 }
 
 void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {

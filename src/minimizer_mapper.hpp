@@ -64,9 +64,10 @@ protected:
     SnarlSeedClusterer clusterer;
     
     /**
-     * Estimate the maximum score it may be possible to achieve using the given group of GaplessExtensions.
+     * Estimate the score it may be possible to achieve using the given group of GaplessExtensions.
      * Supports single full-length extensions and groups that need chaining.
      * May reorder the input extended_seeds vector if it is not sorted in read space.
+     * Is not always an overestimate of the actual score.
      */
     int estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const;
     
