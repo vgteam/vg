@@ -227,7 +227,7 @@ protected:
     /// Minimum support for a node to consider travnersal through it
     size_t min_node_support;
     /// Minimum support for a edge to consider travnersal through it
-    size_t min_edge_support;
+    size_t min_edge_support;    
     
     /**
      * Find a Path that runs from the start of the given snarl to the end, which
@@ -372,7 +372,9 @@ protected:
     /// the search space by selecting alleles to ignore.
     size_t max_traversal_cutoff;
     
-    
+    /// Include snarl endpoints in traversals
+    bool include_endpoints = true;
+
 public:
 
     /**
@@ -386,7 +388,9 @@ public:
      * that are enumerated.
      */
     VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
-                       function<PathIndex*(const Snarl&)> get_index = [](const Snarl& s) { return nullptr; },
+                       function<PathIndex*(const Snarl&)> get_index,
+                       FastaReference* fasta_ref = nullptr,
+                       FastaReference* ins_ref = nullptr,
                        function<bool(const SnarlTraversal&)> skip_alt = nullptr,
                        size_t max_traversal_cutoff = 500000);
         
@@ -413,7 +417,8 @@ protected:
 
     /** Load up all the variants into our node index
      */
-    void create_variant_index(vcflib::VariantCallFile& vcf);
+    void create_variant_index(vcflib::VariantCallFile& vcf, FastaReference* ref_fasta = nullptr,
+                              FastaReference* ins_fasta = nullptr);
     void delete_variant_index();
 
     /** Get a traversal for every possible haplotype (but reference)

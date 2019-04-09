@@ -4,7 +4,7 @@
 #include "algorithms/is_acyclic.hpp"
 #include "cactus.hpp"
 
-#define debug
+//#define debug
 
 namespace vg {
 
@@ -2405,8 +2405,11 @@ size_t RepresentativeTraversalFinder::bp_length(const structures::ImmutableList<
 }
 
 
-VCFTraversalFinder::VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, vcflib::VariantCallFile& vcf,
+VCFTraversalFinder::VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager,
+                                       vcflib::VariantCallFile& vcf,
                                        function<PathIndex*(const Snarl&)> get_index,
+                                       FastaReference* ref_fasta,
+                                       FastaReference* ins_fasta,
                                        function<bool(const SnarlTraversal&)> skip_alt,
                                        size_t max_traversal_cutoff) :
     graph(graph),
@@ -2415,22 +2418,43 @@ VCFTraversalFinder::VCFTraversalFinder(VG& graph, SnarlManager& snarl_manager, v
     skip_alt(skip_alt),
     max_traversal_cutoff(max_traversal_cutoff) {
 
-    create_variant_index(vcf);
+    create_variant_index(vcf, ref_fasta, ins_fasta);
 }
 
 VCFTraversalFinder::~VCFTraversalFinder() {
     delete_variant_index();
 }
 
-void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf) {
+void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf, FastaReference* ref_fasta,
+                                              FastaReference* ins_fasta) {
 
     vcflib::Variant var;
 #ifdef debug
     cerr << "indexing vcf using alt-path information from graph" << endl;
 #endif
+    vector<FastaReference*> insertion_fastas;
+    if (ins_fasta != nullptr) {
+        insertion_fastas.push_back(ins_fasta);
+    }
+    
     while (vcf.getNextVariant(var)) {
         bool path_found = false;
         path_handle_t path_handle;
+
+        // we need to run this in order for symbolic alleles to get the same hashes as in construct
+        if (var.isSymbolicSV()) {
+            if (ref_fasta == nullptr) {
+                cerr << "[VCFTraversalFinder] Warning: Unable to canonicalize symbolic variant because no reference fasta"
+                     << " was given:\n" << var << endl;
+                continue;
+            }
+            bool could_canonicalize = var.canonicalize(*ref_fasta, insertion_fastas, true);
+            if (!could_canonicalize) {
+                cerr << "[VCFTraversalFinder] Warning: Failed to canonicalize symbolic variant:\n" << var << endl;
+                continue;
+            }
+        }
+
         // scan paths in the graph for any alt path that could have come from this variant
         // then add any node id from the path to our index
         // we add the first id we find under the assumption that alt paths are entirely contained within sites
@@ -2519,12 +2543,23 @@ VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
     SnarlTraversal ref_trav;
     PathIndex::iterator it = start_it;
     ++it;
+    if (include_endpoints) {
+        Visit* visit = ref_trav.add_visit();
+        visit->set_node_id(start_it->second.node);
+        visit->set_backward(start_it->second.is_end);
+    }
     for (; it != end_it; ++it) {
         Visit* visit = ref_trav.add_visit();
         visit->set_node_id(it->second.node);
         // todo: do we get an orientation out of the path index?  
         visit->set_backward(it->second.is_end);
     }
+    if (include_endpoints) {
+        Visit* visit = ref_trav.add_visit();
+        visit->set_node_id(end_it->second.node);
+        visit->set_backward(end_it->second.is_end);
+    }
+
     output_traversals.push_back(make_pair(ref_trav, vector<int>(site_variants.size(), 0)));
 
 #ifdef debug
@@ -2568,9 +2603,9 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     // todo: we can move to a ranking (eg by support), where instead of filtering, we just
     // take the K most supported traversals.  this would avoid ever skipping a site
     if (!check_max_trav_cutoff(alt_alleles)) {
-        cerr << "[VCFTraversalFinder]: Site " << pb2json(site) << " contains too many variants ("
-             << site_variants.size() << ") to exhaustively enumerate (>"
-             << max_traversal_cutoff << "):" << endl;
+        cerr << "[VCFTraversalFinder]: Site " << pb2json(site) << " with " << site_variants.size()
+             << " variants contains too many traversals (>" << max_traversal_cutoff 
+             << ") to enumerate so it will be skipped:";
         for (auto site_var : site_variants) {
             cerr << "  " << *site_var << endl;
         }
@@ -2652,7 +2687,7 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
 #ifdef debug
     cerr << "  alt nodes: ";
     for (auto alt_node : alt_nodes) {
-        cerr << graph.get_id(alt_node) << ",";
+        cerr << graph.get_id(alt_node) << ":" << graph.get_is_reverse(alt_node) << ",";
     }
     cerr << endl << "  alt edges: ";
     for (auto alt_edge : alt_edges) {
@@ -2675,40 +2710,43 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
         // take an alt edge if we find one
         bool found_edge = !graph.follow_edges(handle, false, [&] (const handle_t& next) {
                 auto edge = graph.edge_handle(handle, next);
+                bool ret = true;
                 if (alt_edges.count(edge)) {
-                    alt_edges.erase(edge);
-                    visit.set_node_id(graph.get_id(next));
-                    visit.set_backward(graph.get_is_reverse(next));
-                    return false; // stop, we found deletion edge
+                    ret = false; // stop, we found deletion edge
                 } else if (alt_nodes.count(next)) {
-                    alt_nodes.erase(next);
+                    in_alt_path = true;
+                    ret = false; // stop, we found an edge to an alt path node
+                }
+                if (ret == false) {
+                    // make sure we never cross this node/edge again in our traversal
+                    alt_edges.erase(edge);
+                    alt_nodes.erase(graph.get_handle(graph.get_id(next), false));
+                    alt_nodes.erase(graph.get_handle(graph.get_id(next), true));
                     visit.set_node_id(graph.get_id(next));
                     visit.set_backward(graph.get_is_reverse(next));
-                    in_alt_path = true;
-                    return false; // stop, we found an edge to an alt path node
-                } else {
-                    return true;
                 }
+                return ret;
             });
         if (!found_edge) {
             // no alt edge found, take a reference edge
             found_edge = !graph.follow_edges(handle, false, [&] (const handle_t& next) {
                 auto edge = graph.edge_handle(handle, next);
-                if (ref_edges.count(edge)) {
-                    ref_edges.erase(edge);
-                    ref_nodes.erase(next);
-                    visit.set_node_id(graph.get_id(next));
-                    visit.set_backward(graph.get_is_reverse(next));
-                    return false; // stop, we found a reference edge
+                bool ret = true;
+                if (ref_edges.count(edge) && ref_nodes.count(next)) {
+                    ret = false; // stop, we found a reference edge
                 } else if (in_alt_path && ref_nodes.count(next)) {
-                    ref_nodes.erase(next);
+                    in_alt_path = false;
+                    ret = false; // stop, we found a reference node after our alt path
+                }
+                if (ret == false) {
+                    // make sure we never cross this node/edge again in our traversal
+                    ref_edges.erase(edge);
+                    ref_nodes.erase(graph.get_handle(graph.get_id(next), false));
+                    ref_nodes.erase(graph.get_handle(graph.get_id(next), true));
                     visit.set_node_id(graph.get_id(next));
                     visit.set_backward(graph.get_is_reverse(next));
-                    in_alt_path = false;
-                    return false; // stop, we found a reference node after our alt path
-                } else {
-                    return true;
                 }
+                return ret;
             });
         }
         return found_edge;
@@ -2717,11 +2755,18 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
     
     Visit visit;
     SnarlTraversal traversal;
-
+    
     // start at the start
     // todo: should make sure this works if our snarl is backward on reference
     visit.set_node_id(start_it->second.node);
     visit.set_backward(start_it->second.is_end);
+    ref_nodes.erase(graph.get_handle(visit.node_id(), false));
+    ref_nodes.erase(graph.get_handle(visit.node_id(), true));
+    
+
+    if (include_endpoints) {
+        *traversal.add_visit() = visit;
+    }
 
 #ifdef debug
     cerr << "  start walk: " << pb2json(visit) << endl;
@@ -2740,6 +2785,13 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
             break;
         }
     }
+
+    if (include_endpoints) {
+        Visit* visit = traversal.add_visit();
+        visit->set_node_id(end_it->second.node);
+        visit->set_backward(end_it->second.is_end);
+    }
+
     
     return make_pair(traversal, found_end && alt_nodes.empty() && alt_edges.empty());    
 }
@@ -2770,7 +2822,8 @@ VCFTraversalFinder::get_haplotype_alt_contents(
         if (!is_deletion) {
             // fill in the nodes from the path
             for (size_t i = 0; i < alt_traversal.visit_size(); ++i) {
-                alt_nodes.insert(graph.get_handle(alt_traversal.visit(i).node_id()));
+                alt_nodes.insert(graph.get_handle(alt_traversal.visit(i).node_id(),
+                                                  alt_traversal.visit(i).backward()));
             }
         }  else {
             // add the deletion edge from the path
