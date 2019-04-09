@@ -29,10 +29,13 @@ void help_snarl(char** argv) {
          << "    -r, --traversals FILE  output SnarlTraversals for ultrabubbles." << endl
          << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
+         << "    -a, --any-snarl-type   compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
          << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes [10]" << endl
          << "    -t, --include-trivial  report snarls that consist of a single edge" << endl
          << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
-         << "    -v, --vcf FILE         convert the given vcf into snarls, one for each line" << endl;
+         << "    -v, --vcf FILE         use vcf-based instead of exhaustive traversal finder with -r" << endl
+         << "    -f  --fasta FILE       reference in FASTA format (required for SVs by -v)" << endl
+         << "    -i  --ins-fasta FILE   insertion sequences in FASTA format (required for SVs by -v)" << endl;
 }
 
 int main_snarl(int argc, char** argv) {
@@ -47,11 +50,14 @@ int main_snarl(int argc, char** argv) {
     string traversal_file;
     bool leaf_only = false;
     bool top_level_only = false;
+    bool ultrabubble_only = true;
     int max_nodes = 10;
     bool filter_trivial_snarls = true;
     bool sort_snarls = false;
     bool fill_path_names = false;
     string vcf_filename;
+    string ref_fasta_filename;
+    string ins_fasta_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -62,16 +68,19 @@ int main_snarl(int argc, char** argv) {
                 {"pathnames", no_argument, 0, 'p'},
                 {"leaf-only", no_argument, 0, 'l'},
                 {"top-level", no_argument, 0, 'o'},
+                {"any-snarl-type", no_argument, 0, 'a'},
                 {"max-nodes", required_argument, 0, 'm'},
                 {"include-trivial", no_argument, 0, 't'},
                 {"sort-snarls", no_argument, 0, 's'},
                 {"vcf", required_argument, 0, 'v'},
+                {"fasta", required_argument, 0, 'f'},
+                {"ins-fasta", required_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "sr:ltopm:v:h?",
+        c = getopt_long (argc, argv, "sr:latopm:v:f:i:h?",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -93,6 +102,10 @@ int main_snarl(int argc, char** argv) {
             top_level_only = true;
             break;
 
+        case 'a':
+            ultrabubble_only = false;
+            break;
+
         case 'm':
             max_nodes = parse<int>(optarg);
             break;
@@ -109,6 +122,12 @@ int main_snarl(int argc, char** argv) {
             break;
         case 'v':
             vcf_filename = optarg;
+            break;
+        case 'f':
+            ref_fasta_filename = optarg;
+            break;
+        case 'i':
+            ins_fasta_filename = optarg;
             break;
             
         case 'h':
@@ -151,6 +170,8 @@ int main_snarl(int argc, char** argv) {
 
     TraversalFinder* trav_finder = nullptr;
     vcflib::VariantCallFile variant_file;
+    unique_ptr<FastaReference> ref_fasta;
+    unique_ptr<FastaReference> ins_fasta;
 
     // vcftraversal finder is dependent on this relic of the support_caller (for now)
     map<string, PathIndex*> path_index;
@@ -169,6 +190,16 @@ int main_snarl(int argc, char** argv) {
                     path_index[path_name] = new PathIndex(*graph, path_name);
                 }
             });
+
+        // load up the fasta
+        if (!ref_fasta_filename.empty()) {
+            ref_fasta = unique_ptr<FastaReference>(new FastaReference);
+            ref_fasta->open(ref_fasta_filename);
+        }
+        if (!ins_fasta_filename.empty()) {
+            ins_fasta = unique_ptr<FastaReference>(new FastaReference);
+            ins_fasta->open(ins_fasta_filename);
+        }
     }
     auto delete_path_index = [&] () {
         for (auto name_index : path_index) {
@@ -189,11 +220,7 @@ int main_snarl(int argc, char** argv) {
     SnarlManager snarl_manager = snarl_finder->find_snarls();
     vector<const Snarl*> snarl_roots = snarl_manager.top_level_snarls();
     if (fill_path_names){
-        if (vcf_filename.empty()) {
-            trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
-        } else {
-            trav_finder = new VCFTraversalFinder(*graph, snarl_manager, variant_file, get_path_index);
-        }
+      trav_finder = new PathBasedTraversalFinder(*graph, snarl_manager);
         for (const Snarl* snarl : snarl_roots ){
             if (filter_trivial_snarls) {
                 auto contents = snarl_manager.shallow_contents(snarl, *graph, false);
@@ -217,7 +244,12 @@ int main_snarl(int argc, char** argv) {
     if (vcf_filename.empty()) {
         trav_finder = new ExhaustiveTraversalFinder(*graph, snarl_manager);
     } else {
-        trav_finder = new VCFTraversalFinder(*graph, snarl_manager, variant_file, get_path_index);
+        // This shuold effectively be the same as above, and is included in this tool
+        // for testing purposes.  The VCFTraversalFinder differs from Exhaustive in that
+        // it's easier to limit traversals using read support, and it takes care of
+        // mapping back to the VCF via the alt paths. 
+        trav_finder = new VCFTraversalFinder(*graph, snarl_manager, variant_file, get_path_index,
+                                             ref_fasta.get(), ins_fasta.get());
     }
     
     // Sort the top level Snarls
@@ -243,7 +275,6 @@ int main_snarl(int argc, char** argv) {
             return snarl_1->start().node_id() < snarl_2->end().node_id();
         });
     }
-
   
 
     // Protobuf output buffers
@@ -273,7 +304,8 @@ int main_snarl(int argc, char** argv) {
             stream::write_buffered(cout, snarl_buffer, buffer_size);
 
             // Optionally write our traversals
-            if (!traversal_file.empty() && snarl->type() == ULTRABUBBLE &&
+            if (!traversal_file.empty() &&
+                (!ultrabubble_only || snarl->type() == ULTRABUBBLE) &&
                 (!leaf_only || snarl_manager.is_leaf(snarl)) &&
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
                 (snarl_manager.deep_contents(snarl, *graph, true).first.size() <= max_nodes)) {
