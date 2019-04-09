@@ -355,7 +355,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     vector<Alignment> mappings;
     mappings.reserve(min(alignments_in_order.size(), max_multimaps));
-    for (size_t i = 0; i < alignments_in_order.size() && i <= max_multimaps; i++) {
+    for (size_t i = 0; i < alignments_in_order.size() && i < max_multimaps; i++) {
         // For each output slot, fill it with the alignment at that rank if available.
         size_t& alignment_num = alignments_in_order[i];
         mappings.emplace_back(std::move(alignments[alignment_num]));
