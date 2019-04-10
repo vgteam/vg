@@ -171,8 +171,20 @@ void Funnel::expand(size_t prev_stage_item, size_t count) {
 }
 
 void Funnel::project(size_t prev_stage_item) {
-    // Expand to just one new item
-    get_item(create_item()).prev_stage_items.push_back(prev_stage_item);
+    // There must be a prev stage to project from
+    assert(stages.size() > 1);
+    auto& prev_stage = stages[stages.size() - 2];
+
+    // Make one new item
+    size_t index = create_item();
+
+    // Record the ancestry
+    get_item(index).prev_stage_items.push_back(prev_stage_item);
+
+    if (prev_stage.items[prev_stage_item].correct) {
+        // Tag the new item correct if it came from something correct
+        tag_correct(index);
+    }
 }
 
 void Funnel::project_group(size_t prev_stage_item, size_t group_size) {
@@ -189,6 +201,23 @@ void Funnel::kill(size_t prev_stage_item) {
 
 void Funnel::score(size_t item, double score) {
     get_item(item).score = score;
+}
+
+void Funnel::tag_correct(size_t item) {
+    // Say the item is correct
+    get_item(item).correct = true;
+    // Say the stage has something correct.
+    stages.back().has_correct = true;
+}
+
+string Funnel::last_correct_stage() const {
+    // Just do a linear scan backward through stages
+    for (auto it = stages.rbegin(); it != stages.rend(); ++it) {
+        if (it->has_correct) {
+            return it->name;
+        }
+    }
+    return "none";
 }
 
 size_t Funnel::latest() const {

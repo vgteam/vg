@@ -93,7 +93,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Say we're done with this input item
         funnel.processed_input();
     }
-    
+
+    // Tag seeds with correctness based on the input read's visited nodes, assuming the input read is the truth.
+    unordered_set<id_t> input_visited_nodes;
+    for (auto& mapping : aln.path().mapping()) {
+        input_visited_nodes.insert(mapping.position().node_id());
+    }
+    for (size_t i = 0; i < seeds.size(); i++) {
+        if (input_visited_nodes.count(id(seeds[i]))) {
+            // This seed hit is to a node represented in the input alignment.
+            // Declare it a correct seed hit that will give rise to correct
+            // alignments.
+            funnel.tag_correct(i);
+        }
+    }
+        
 #ifdef debug
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
     cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
@@ -412,6 +426,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Annotate the primary alignment with mapping runtime
     set_annotation(mappings[0], "map_seconds", funnel.total_seconds());
+    // And with the last stage at which we had any descendants of the correct seed hit locations
+    set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));

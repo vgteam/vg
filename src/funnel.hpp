@@ -104,6 +104,14 @@ public:
     
     /// Assign the given score to the given item at the current stage.
     void score(size_t item, double score);
+
+    /// Tag the given item as "correct" at the current stage. Future items that
+    /// derive from it will also be tagged as correct.
+    void tag_correct(size_t item);
+
+    /// Get the name of the most recent stage that had a correct-tagged item
+    /// survive into it, or "none" if no items were ever tagged correct.
+    string last_correct_stage() const;
     
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
@@ -162,6 +170,8 @@ protected:
     struct Item {
         size_t group_size = 0;
         double score = 0;
+        /// Is this item tagged as correct, or a descendant of a tagged item?
+        bool correct = false;
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
         /// How long did it take to produce this item, in total?
@@ -177,6 +187,8 @@ protected:
         /// How many of the items were actually projected?
         /// Needed because items may need to expand to hold production times for items that have not been projected yet.
         size_t projected_count = 0;
+        /// Does this stage contain any items tagged as correct?
+        bool has_correct = false;
     };
     
     /// Ensure an item with the given index exists in the current stage and return a reference to it.
@@ -196,10 +208,29 @@ protected:
 
 template<typename Iterator>
 void Funnel::merge_group(Iterator prev_stage_items_begin, Iterator prev_stage_items_end) {
-    assert(!stages.empty());
-    // Make a new item holding all the given items.
+    // There must be a prev stage to merge from
+    assert(stages.size() > 1);
+    auto& prev_stage = stages[stages.size() - 2];
+
+    // Make a new item to hold all the given items.
     size_t index = create_item();
-    std::copy(prev_stage_items_begin, prev_stage_items_end, std::back_inserter(get_item(index).prev_stage_items));
+
+    for (Iterator& i = prev_stage_items_begin; i != prev_stage_items_end; ++i) {
+        // For each prev stage item (not copying the iterator)
+        size_t prev_stage_item = *i;
+
+        // Make sure it existed
+        assert(prev_stage.items.size() > prev_stage_item);
+
+        // Record the dependency
+        get_item(index).prev_stage_items.push_back(prev_stage_item);
+         
+        if (prev_stage.items[prev_stage_item].correct) {
+            // Tag the new item correct if it came from something correct.
+            tag_correct(index);
+        }
+    }
+
     // Update its size
     get_item(index).group_size = get_item(index).prev_stage_items.size();
 }
