@@ -5065,7 +5065,8 @@ namespace vg {
                 
                 for (size_t graph_iter = 0; graph_iter < num_graphs; graph_iter++) {
                     
-                    VG graph = randomGraph(seq_size, avg_struct_var_len, var_count);
+                    VG graph;
+                    random_graph(seq_size, avg_struct_var_len, var_count, &graph);
                     
                     size_t total_seq_len = 0;
                     vector<handle_t> all_handles;
@@ -5155,7 +5156,8 @@ namespace vg {
                 size_t num_trials_per_graph = 10;
                 
                 for (size_t graph_iter = 0; graph_iter < num_graphs; graph_iter++) {
-                    VG graph = randomGraph(seq_size, avg_struct_var_len, var_count);
+                    VG graph;
+                    random_graph(seq_size, avg_struct_var_len, var_count, &graph);
                     
                     size_t total_seq_len = 0;
                     vector<handle_t> all_handles;

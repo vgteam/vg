@@ -27,56 +27,69 @@ public:
     PackedGraph();
     ~PackedGraph();
     
-    // Method to check if a node exists by ID
-    virtual bool has_node(id_t node_id) const;
+    /// Construct from a stream
+    PackedGraph(istream& in);
+    
+    /// Output to a stream
+    void serialize(ostream& out) const;
+    
+    /// Load contents from a stream and replace current contents
+    void deserialize(istream& in);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // HandleGraph interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Method to check if a node exists by ID
+    bool has_node(id_t node_id) const;
     
     /// Look up the handle for the node with the given ID in the given orientation
-    virtual handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
+    handle_t get_handle(const id_t& node_id, bool is_reverse = false) const;
     
     /// Get the ID from a handle
-    virtual id_t get_id(const handle_t& handle) const;
+    id_t get_id(const handle_t& handle) const;
     
     /// Get the orientation of a handle
-    virtual bool get_is_reverse(const handle_t& handle) const;
+    bool get_is_reverse(const handle_t& handle) const;
     
     /// Invert the orientation of a handle (potentially without getting its ID)
-    virtual handle_t flip(const handle_t& handle) const;
+    handle_t flip(const handle_t& handle) const;
     
     /// Get the length of a node
-    virtual size_t get_length(const handle_t& handle) const;
+    size_t get_length(const handle_t& handle) const;
     
     /// Get the sequence of a node, presented in the handle's local forward orientation.
-    virtual string get_sequence(const handle_t& handle) const;
+    string get_sequence(const handle_t& handle) const;
     
     /// Loop over all the handles to next/previous (right/left) nodes. Passes
     /// them to a callback which returns false to stop iterating and true to
     /// continue. Returns true if we finished and false if we stopped early.
-    virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
+    bool follow_edges_impl(const handle_t& handle, bool go_left, const std::function<bool(const handle_t&)>& iteratee) const;
     
     /// Loop over all the nodes in the graph in their local forward
     /// orientations, in their internal stored order. Stop if the iteratee
     /// returns false. Can be told to run in parallel, in which case stopping
     /// after a false return value is on a best-effort basis and iteration
     /// order is not defined.
-    virtual bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+    bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
-    virtual size_t node_size(void) const;
+    size_t node_size(void) const;
     
     /// Return the smallest ID in the graph, or some smaller number if the
     /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
-    virtual id_t min_node_id(void) const;
+    id_t min_node_id(void) const;
     
     /// Return the largest ID in the graph, or some larger number if the
     /// largest ID is unavailable. Return value is unspecified if the graph is empty.
-    virtual id_t max_node_id(void) const;
+    id_t max_node_id(void) const;
 
     /// Create a new node with the given sequence and return the handle.
-    virtual handle_t create_handle(const std::string& sequence);
+    handle_t create_handle(const std::string& sequence);
 
     /// Create a new node with the given id and sequence, then return the handle.
-    virtual handle_t create_handle(const std::string& sequence, const id_t& id);
+    handle_t create_handle(const std::string& sequence, const id_t& id);
     
     /// Remove the node belonging to the given handle and all of its edges.
     /// Does not update any stored paths.
@@ -84,19 +97,19 @@ public:
     /// May be called during serial for_each_handle iteration **ONLY** on the node being iterated.
     /// May **NOT** be called during parallel for_each_handle iteration.
     /// May **NOT** be called on the node from which edges are being followed during follow_edges.
-    virtual void destroy_handle(const handle_t& handle);
+    void destroy_handle(const handle_t& handle);
     
     /// Create an edge connecting the given handles in the given order and orientations.
     /// Ignores existing edges.
-    virtual void create_edge(const handle_t& left, const handle_t& right);
+    void create_edge(const handle_t& left, const handle_t& right);
     
     /// Remove the edge connecting the given handles in the given order and orientations.
     /// Ignores nonexistent edges.
     /// Does not update any stored paths.
-    virtual void destroy_edge(const handle_t& left, const handle_t& right);
+    void destroy_edge(const handle_t& left, const handle_t& right);
     
     /// Remove all nodes and edges. Does not update any stored paths.
-    virtual void clear(void);
+    void clear(void);
     
     /// TODO: swap_handles is actually not yet supported
     
@@ -107,7 +120,7 @@ public:
     /// traversed during the current traversal (so swapping an already seen
     /// handle to a later handle's position will make the seen handle be visited
     /// again and the later handle not be visited at all).
-    virtual void swap_handles(const handle_t& a, const handle_t& b);
+    void swap_handles(const handle_t& a, const handle_t& b);
     
     /// Alter the node that the given handle corresponds to so the orientation
     /// indicated by the handle becomes the node's local forward orientation.
@@ -117,7 +130,7 @@ public:
     /// orientation. Note that it is possible for the node's ID to change.
     /// Does not update any stored paths. May change the ordering of the underlying
     /// graph.
-    virtual handle_t apply_orientation(const handle_t& handle);
+    handle_t apply_orientation(const handle_t& handle);
     
     /// Split a handle's underlying node at the given offsets in the handle's
     /// orientation. Returns all of the handles to the parts. Other handles to
@@ -126,65 +139,65 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     /// Updates stored paths.
-    virtual vector<handle_t> divide_handle(const handle_t& handle, const std::vector<size_t>& offsets);
+    vector<handle_t> divide_handle(const handle_t& handle, const std::vector<size_t>& offsets);
     
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
 
     /// Determine if a path name exists and is legal to get a path handle for.
-    virtual bool has_path(const std::string& path_name) const;
+    bool has_path(const std::string& path_name) const;
 
     /// Look up the path handle for the given path name.
     /// The path with that name must exist.
-    virtual path_handle_t get_path_handle(const std::string& path_name) const;
+    path_handle_t get_path_handle(const std::string& path_name) const;
 
     /// Look up the name of a path from a handle to it
-    virtual string get_path_name(const path_handle_t& path_handle) const;
+    string get_path_name(const path_handle_t& path_handle) const;
 
     /// Returns the number of node occurrences in the path
-    virtual size_t get_occurrence_count(const path_handle_t& path_handle) const;
+    size_t get_occurrence_count(const path_handle_t& path_handle) const;
 
     /// Returns the number of paths stored in the graph
-    virtual size_t get_path_count() const;
+    size_t get_path_count() const;
 
     /// Execute a function on each path in the graph
-    virtual bool for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const;
+    bool for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const;
 
     /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
-    virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
 
     /// Get a handle to the first occurrence in a path.
     /// The path MUST be nonempty.
-    virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
+    occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
 
     /// Get a handle to the last occurrence in a path
     /// The path MUST be nonempty.
-    virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
+    occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
 
     /// Returns true if the occurrence is not the last occurence on the path, else false
-    virtual bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
 
     /// Returns true if the occurrence is not the first occurence on the path, else false
-    virtual bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
 
     /// Returns a handle to the next occurrence on the path
-    virtual occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
 
     /// Returns a handle to the previous occurrence on the path
-    virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
 
     /// Returns a handle to the path that an occurrence is on
-    virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
+    path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
     /// Calls the given function for each occurrence of the given handle on a path.
-    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle,
+    bool for_each_occurrence_on_handle_impl(const handle_t& handle,
                                                     const function<bool(const occurrence_handle_t&)>& iteratee) const;
     
     /**
      * Destroy the given path. Invalidates handles to the path and its node occurrences.
      */
-    virtual void destroy_path(const path_handle_t& path);
+    void destroy_path(const path_handle_t& path);
 
     /**
      * Create a path with the given name. The caller must ensure that no path
@@ -192,15 +205,23 @@ public:
      * Returns a handle to the created empty path. Handles to other paths must
      * remain valid.
      */
-    virtual path_handle_t create_path_handle(const string& name);
+    path_handle_t create_path_handle(const string& name);
 
     /**
      * Append a visit to a node to the given path. Returns a handle to the new
      * final occurrence on the path which is appended. Handles to prior
      * occurrences on the path, and to other paths, must remain valid.
      */
-    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
+    occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
 
+    ////////////////////////////////////////////////////////////////////////////
+    /// Specialized PackedGraph methods
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Attempt to compress data into less memory, possibly using more memory temporarily
+    /// (especially useful before serializing).
+    void compactify(void);
+    
 private:
     
     /// The maximum ID in the graph
@@ -216,8 +237,9 @@ private:
     void remove_edge_reference(const handle_t& on, const handle_t& to);
     
     /// Check if have orphaned enough records in the graph's various linked lists to
-    /// warrant reallocating and defragmenting them. If so, do it.
-    void defragment(void);
+    /// warrant reallocating and defragmenting them. If so, do it. Optionally, defragment
+    /// even if we have not deleted many things.
+    void defragment(bool force = false);
     
     /// Defragment when the orphaned records are this fraction of the whole.
     const static double defrag_factor;
@@ -311,11 +333,11 @@ private:
     const static size_t PATH_PREV_OFFSET = 1;
     const static size_t PATH_NEXT_OFFSET = 2;
     
-    /// Vector of the embedded paths in the graph
-    vector<PackedPath> paths;
-    
     /// Map from path names to index in the paths vector.
     string_hash_map<string, int64_t> path_id;
+    
+    /// Vector of the embedded paths in the graph
+    vector<PackedPath> paths;
     
     ///////////////////////////////////////////////////////////////////////
     /// Convenience functions to translate between encodings in the vectors
