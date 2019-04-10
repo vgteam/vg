@@ -173,17 +173,9 @@ int32_t main_rna(int32_t argc, char** argv) {
     }
 
     if (show_progress) { cerr << "[vg rna] Parsing graph file ..." << endl; }
-    
-    // Load the variation graph.
-    VG* graph = nullptr;
-    get_input_file(optind, argc, argv, [&](istream& in) {
-        graph = new VG(in, show_progress);
-    });
 
-    if (!graph) {
-        cerr << "[vg rna] ERROR: Could not load graph." << endl;
-        return 1;
-    }
+    // Construct transcriptome and parse variation graph.
+    Transcriptome transcriptome(get_input_file_name(optind, argc, argv), show_progress);
 
     unique_ptr<gbwt::GBWT> haplotype_index;
 
@@ -199,9 +191,6 @@ int32_t main_rna(int32_t argc, char** argv) {
         haplotype_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
     }
 
-    // Construct transcriptome and set member variables.
-    Transcriptome transcriptome;
-
     transcriptome.num_threads = num_threads;
     transcriptome.transcript_tag = transcript_tag;
     transcriptome.use_embedded_paths = use_embedded_paths;
@@ -211,33 +200,24 @@ int32_t main_rna(int32_t argc, char** argv) {
     if (show_progress) { cerr << "[vg rna] Parsing and projecting transcripts ..." << endl; }
 
     // Add transcripts to transcriptome by projecting them onto embedded paths 
-    // in a graph and/or haplotypes in a GBWT index.
+    // in a graph and/or haplotypes in a GBWT index. Edit graph with 
+    // transcriptome splice-junctions.
     for (auto & filename: transcript_filenames) {
 
         get_input_file(filename, [&](istream& transcript_stream) {
-                   transcriptome.add_transcripts(transcript_stream, *graph, *haplotype_index);
+                   transcriptome.add_transcripts(transcript_stream, *haplotype_index);
         });
     }
 
     // Release and delete GBWT index pointer.
     haplotype_index.reset(nullptr);
 
-    if (show_progress) { cerr << "[vg rna] Adding splice-junctions to graph ..." << endl; }
-
-    // Edit graph with transcriptome splice-junctions and update transcript
-    // path traversals in transcriptome to match the augmented graph. 
-    // TODO: Add handlegraph support to edit so that the handlegraph interface can be used.
-    transcriptome.add_junctions_to_graph(graph);
-
     if (remove_non_transcribed) {
 
         if (show_progress) { cerr << "[vg rna] Remove non-transcribed regions and paths ..." << endl; }
 
-        // Remove non transcript paths
-        graph->clear_paths();
-
-        // Remove non-transcribed nodes
-        transcriptome.remove_non_transcribed(graph);
+        // Remove non-transcribed nodes and non transcript paths
+        transcriptome.remove_non_transcribed();
     }
 
     if (add_transcript_paths) {
@@ -245,7 +225,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         if (show_progress) { cerr << "[vg rna] Adding transcript paths to graph ..." << endl; }
 
         // Add transcript as embedded paths in the graph
-        transcriptome.add_paths_to_graph(graph);
+        transcriptome.add_paths_to_graph();
     }
 
     // Construct and write GBWT index of transcript paths in transcriptome.
@@ -255,7 +235,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         // Silence GBWT index construction. 
         gbwt::Verbosity::set(gbwt::Verbosity::SILENT); 
-        gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(graph->max_node_id(), true)));
+        gbwt::GBWTBuilder gbwt_builder(gbwt::bit_length(gbwt::Node::encode(transcriptome.splice_graph().max_node_id(), true)));
 
         transcriptome.construct_gbwt(&gbwt_builder);
 
@@ -290,18 +270,18 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream fasta_ostream;
         fasta_ostream.open(fasta_out_filename);
-        transcriptome.write_fasta_sequences(&fasta_ostream, *graph);
+        transcriptome.write_fasta_sequences(&fasta_ostream);
         fasta_ostream.close();
     }    
 
     if (show_progress) { cerr << "[vg rna] Writing graph to stdout ..." << endl; }
 
-    graph->serialize_to_ostream(std::cout);
-    delete graph;    
+    // Write spliced variation graph to stdout 
+    transcriptome.write_splice_graph(&cout);
 
     return 0;
 }
 
 // Register subcommand
-static Subcommand vg_rna("rna", "construct spliced variant graphs and transcript paths", main_rna);
+static Subcommand vg_rna("rna", "construct spliced variation graphs and transcript paths", main_rna);
 
