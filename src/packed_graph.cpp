@@ -552,8 +552,10 @@ namespace vg {
             if (path_trav_rev) {
                 // update connection to the original node that should now be to the final divided node
                 size_t other_idx = get_occurrence_prev(packed_path, occ_idx);
-                set_occurrence_next(packed_path, other_idx, divided_trav_offsets.back());
-                set_occurrence_prev(packed_path, divided_trav_offsets.back(), other_idx);
+                if (other_idx != 0) {
+                    set_occurrence_next(packed_path, other_idx, divided_trav_offsets.back());
+                    set_occurrence_prev(packed_path, divided_trav_offsets.back(), other_idx);
+                }
                 
                 // add connections between the divided segments
                 for (size_t i = 1; i < divided_trav_offsets.size(); i++) {
@@ -564,8 +566,10 @@ namespace vg {
             else {
                 // update connection to the original node that should now be to the final divided node
                 size_t other_idx = get_occurrence_next(packed_path, occ_idx);
-                set_occurrence_prev(packed_path, other_idx, divided_trav_offsets.back());
-                set_occurrence_next(packed_path, divided_trav_offsets.back(), other_idx);
+                if (other_idx != 0) {
+                    set_occurrence_prev(packed_path, other_idx, divided_trav_offsets.back());
+                    set_occurrence_next(packed_path, divided_trav_offsets.back(), other_idx);
+                }
                 
                 // add connections between the divided segments
                 for (size_t i = 1; i < divided_trav_offsets.size(); i++) {
@@ -730,7 +734,7 @@ namespace vg {
                     
                     // update the point on the previous node
                     if (prev != 0) {
-                        set_occurrence_prev(path, prev, here);
+                        new_occurrences_iv.set(new_occurrences_iv.size() - 2 * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, here);
                     }
                     
                     prev = here;

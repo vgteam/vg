@@ -42,7 +42,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
         auto n = --index_to_id.upper_bound(index); //orig node containing pos
         size_t first_index = n->first;               //Index of first node
         handle_t first_handle = graph->get_handle(n->second);    //handle of first node
-
+        
         pair<handle_t, handle_t> return_val;
         
         if (index > first_index) {
