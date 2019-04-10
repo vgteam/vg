@@ -14,10 +14,19 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {
 
     const gbwt::PathName& path = gbwt_index.metadata.path(i);
     std::stringstream stream;
-    stream << "_thread_"
-           << gbwt_index.metadata.sample(path.sample) << "_"
-           << gbwt_index.metadata.contig(path.contig) << "_"
-           << path.phase << "_" << path.count;
+    stream << "_thread_";
+    if (gbwt_index.metadata.hasSampleNames()) {
+        stream << gbwt_index.metadata.sample(path.sample);
+    } else {
+        stream << path.sample;
+    }
+    stream << "_";
+    if (gbwt_index.metadata.hasContigNames()) {
+        stream << gbwt_index.metadata.contig(path.contig);
+    } else {
+        stream << path.contig;
+    }
+    stream << "_" << path.phase << "_" << path.count;
     return stream.str();
 }
 
