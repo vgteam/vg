@@ -55,7 +55,6 @@ var searchData=
   ['_7eorienteddistancemeasurer',['~OrientedDistanceMeasurer',['../classvg_1_1OrientedDistanceMeasurer.html#a5352a20621ca5018d567728fac12a44f',1,'vg::OrientedDistanceMeasurer']]],
   ['_7epackeddeque',['~PackedDeque',['../classvg_1_1PackedDeque.html#abf7208168e2823d3633a5c1300f8281e',1,'vg::PackedDeque']]],
   ['_7epackedgraph',['~PackedGraph',['../classvg_1_1PackedGraph.html#a624885b445c2e1d3b184d9c0c7a21d2e',1,'vg::PackedGraph']]],
-  ['_7epackedsplaytree',['~PackedSplayTree',['../classvg_1_1PackedSplayTree.html#a87c5ebc7bbd4599dee8a5e8501d5cce5',1,'vg::PackedSplayTree']]],
   ['_7epackedvector',['~PackedVector',['../classvg_1_1PackedVector.html#a537b5fb3bacaea3de24016f95563b121',1,'vg::PackedVector']]],
   ['_7epacker',['~Packer',['../classvg_1_1Packer.html#a65a8bbaf02215e1e8c4f1385101ffbd4',1,'vg::Packer']]],
   ['_7epagedvector',['~PagedVector',['../classvg_1_1PagedVector.html#ab740fd33b0390eaf9a5b6c36553e92f2',1,'vg::PagedVector']]],

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
   ['tail',['tail',['../structvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['tail_5fmismatches',['tail_mismatches',['../structvg_1_1FlankState.html#a06ea0743b34705d80c16fb67d89314c3',1,'vg::FlankState']]],
   ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a47fbc525ed5e9f2a7b00c333f03fe6c8',1,'vg::VG::tail_nodes(vector&lt; Node * &gt; &amp;nodes)']]],
@@ -156,11 +156,11 @@ var searchData=
   ['travs_5ffrom',['travs_from',['../classvg_1_1VG.html#a34a493a0628857a3bfae181295ba541d',1,'vg::VG']]],
   ['travs_5fof',['travs_of',['../classvg_1_1VG.html#ae065082f817e9bc0e278cf71f31af1e2',1,'vg::VG']]],
   ['travs_5fto',['travs_to',['../classvg_1_1VG.html#a0a962957210c079fa242b383d5c65de3',1,'vg::VG']]],
-  ['tree',['tree',['../classvg_1_1PackedSplayTree.html#ab0c4135c256e5320d55750a44be607e4',1,'vg::PackedSplayTree::tree()'],['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree::Tree()']]],
+  ['tree',['Tree',['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree']]],
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode']]],
-  ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],
   ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree']]],
+  ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],
   ['trim_5falignment',['trim_alignment',['../namespacevg.html#ad83da8607e104967dd51d9230f4b51bb',1,'vg']]],
   ['trim_5fambiguous_5fend',['trim_ambiguous_end',['../classvg_1_1ReadFilter.html#a8747e6039bbfad158530aa4d28e385de',1,'vg::ReadFilter']]],
   ['trim_5fambiguous_5fends',['trim_ambiguous_ends',['../classvg_1_1ReadFilter.html#a4cfa43ebe0d20d09262da65e5a7377a0',1,'vg::ReadFilter']]],

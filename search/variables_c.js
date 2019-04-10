@@ -13,7 +13,6 @@ var searchData=
   ['leave_5fshared_5fends',['leave_shared_ends',['../classvg_1_1SupportCaller.html#a3251426f491b2efad76f0db8f28512f4',1,'vg::SupportCaller']]],
   ['left',['left',['../structvg_1_1Support.html#a31d59f62a09c71915856740c5450ecf5',1,'vg::Support']]],
   ['left_5fborder',['left_border',['../classvg_1_1Viz.html#a4c472c524f9bdfc37d9073f9257ca529',1,'vg::Viz']]],
-  ['left_5fchild_5foffset',['LEFT_CHILD_OFFSET',['../classvg_1_1PackedSplayTree.html#ab2f786b9e2f9718866753b34958f7226',1,'vg::PackedSplayTree']]],
   ['left_5fedges',['left_edges',['../structvg_1_1HashGraph_1_1node__t.html#a7c7166d8531ae358e31cadf6235d904d',1,'vg::HashGraph::node_t']]],
   ['left_5fends',['left_ends',['../structvg_1_1ConstructedChunk.html#a0d6c6d4304190097a7a832d11a31bf3d',1,'vg::ConstructedChunk']]],
   ['left_5ftelomere_5fnode',['left_telomere_node',['../classvg_1_1PhasedGenome_1_1Haplotype.html#ac4abe06cebb2edac649930a7597cc126',1,'vg::PhasedGenome::Haplotype']]],

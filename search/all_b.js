@@ -18,7 +18,6 @@ var searchData=
   ['key_5ffor_5fnode_5fpath_5fposition',['key_for_node_path_position',['../classvg_1_1Index.html#ae629b6f96c483367c77156f2483c51f0',1,'vg::Index']]],
   ['key_5ffor_5fpath_5fposition',['key_for_path_position',['../classvg_1_1Index.html#a63c04e2bb7add378db03a64aef446b38',1,'vg::Index']]],
   ['key_5ffor_5ftraversal',['key_for_traversal',['../classvg_1_1Index.html#a83d547136b87603572504b36d690f5db',1,'vg::Index']]],
-  ['key_5foffset',['KEY_OFFSET',['../classvg_1_1PackedSplayTree.html#a9838fa69d58cb04278712a23ad2e3379',1,'vg::PackedSplayTree']]],
   ['key_5fprefix_5ffor_5fedges_5fon_5fnode_5fend',['key_prefix_for_edges_on_node_end',['../classvg_1_1Index.html#aae14a669e93fa8f3712fd8189ba0c289',1,'vg::Index']]],
   ['key_5fprefix_5ffor_5fedges_5fon_5fnode_5fstart',['key_prefix_for_edges_on_node_start',['../classvg_1_1Index.html#a77134aa6423cfdbfe5bad27ec178018d',1,'vg::Index']]],
   ['key_5fprefix_5ffor_5fkmer',['key_prefix_for_kmer',['../classvg_1_1Index.html#ac1cf69b986649867350efdc859d58c1d',1,'vg::Index']]],
