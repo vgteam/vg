@@ -58,7 +58,7 @@ var searchData=
   ['traceback_5finternal',['traceback_internal',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab96ec549cc9e77d5c7cdd919d69cb36e',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['transcript',['Transcript',['../structvg_1_1Transcript.html#a4288cce67676bd01f7c32a578fb4e75c',1,'vg::Transcript']]],
   ['transcript_5fpaths',['transcript_paths',['../classvg_1_1Transcriptome.html#a79f5fde9d7133ce828600482705c985e',1,'vg::Transcriptome']]],
-  ['transcriptome',['Transcriptome',['../classvg_1_1Transcriptome.html#a28cf9247552f4c54c2852a63effb588e',1,'vg::Transcriptome']]],
+  ['transcriptome',['Transcriptome',['../classvg_1_1Transcriptome.html#adf99e1739f5c150ad4c96b5b947a920d',1,'vg::Transcriptome']]],
   ['transcriptpath',['TranscriptPath',['../structvg_1_1TranscriptPath.html#aa8ceff947358c0b1d97e1aa76dc75941',1,'vg::TranscriptPath']]],
   ['transfer_5fboundary_5finfo',['transfer_boundary_info',['../namespacevg.html#a82a83d7c54d733abee06d328f91ef5ee',1,'vg']]],
   ['transfer_5fread_5fmetadata',['transfer_read_metadata',['../namespacevg.html#a741300a76b92c74a269946d7f859646c',1,'vg::transfer_read_metadata(const MultipathAlignment &amp;from, MultipathAlignment &amp;to)'],['../namespacevg.html#a43d6f299474100353ddcec9cc68a14b2',1,'vg::transfer_read_metadata(const Alignment &amp;from, MultipathAlignment &amp;to)'],['../namespacevg.html#af5a29ae37efd47f324b7d9d50f132271',1,'vg::transfer_read_metadata(const MultipathAlignment &amp;from, Alignment &amp;to)']]],
