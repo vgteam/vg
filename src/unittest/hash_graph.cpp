@@ -1,6 +1,6 @@
-/// \file packed_graph.cpp
+/// \file hash_graph.cpp
 ///  
-/// Unit tests for the PackedGraph class.
+/// Unit tests for the HashGraph class.
 ///
 
 #include <iostream>
