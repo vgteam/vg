@@ -59,7 +59,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     funnel.introduce(minimizers.size());
     
     // Start the minimizer locating stage
-    funnel.stage("seeds");
+    funnel.stage("seed");
 
     size_t rejected_count = 0;
     for (size_t i = 0; i < minimizers.size(); i++) {
@@ -95,7 +95,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
 
     // Tag seeds with correctness based on proximity along paths to the input read's refpos
-    funnel.substage("correctness");
+    funnel.substage("correct");
     
     if (aln.refpos_size() != 0) {
         // Take the first refpos as the true position.
@@ -120,14 +120,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
 
     // Begin the clustering stage
-    funnel.stage("clusters");
+    funnel.stage("cluster");
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
     vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
     
     // Compute the covered portion of the read represented by each cluster.
     // TODO: Put this and sorting into the clusterer to deduplicate with vg cluster.
-    funnel.substage("scoring");
+    funnel.substage("score");
     vector<double> read_coverage_by_cluster;
     for (size_t i = 0; i < clusters.size(); i++) {
         // For each cluster
@@ -189,7 +189,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     });
     
     // Now we go from clusters to gapless extensions
-    funnel.stage("gapless extensions");
+    funnel.stage("extend");
     
     // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
     vector<vector<GaplessExtension>> cluster_extensions;
@@ -228,7 +228,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
     
     // Now score all the gapless extensions by max match count accounted for.
-    funnel.substage("scoring");
+    funnel.substage("score");
     vector<int> cluster_extension_scores;
     cluster_extension_scores.reserve(cluster_extensions.size());
     for (size_t i = 0; i < cluster_extensions.size(); i++) {
@@ -256,7 +256,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     });
     
     // Now start the alignment step. Everything has to become an alignment.
-    funnel.stage("alignments");
+    funnel.stage("align");
     
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
@@ -289,7 +289,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (extensions.size() == 1 && extensions[0].full()) {
                 // We got a full-length extension, so directly convert to an Alignment.
-                funnel.substage("full length");
+                funnel.substage("direct");
                 *out.mutable_path() = extensions[0].path;
                 
                 // The score estimate is exact.
@@ -307,7 +307,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.substage_stop();
             } else if (do_chaining) {
                 // We need to do chaining.
-                funnel.substage("chaining");
+                funnel.substage("chain");
                 
                 // Sort the extended seeds by read start position.
                 // TODO: Score estimation may have sorted them already.
@@ -370,8 +370,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return alignments[a].score() > alignments[b].score();
     });
     
-    // Now say we are computing the mappings
-    funnel.stage("mappings");
+    // Now say we are finding the winner(s)
+    funnel.stage("winner");
     
     vector<Alignment> mappings;
     mappings.reserve(min(alignments_in_order.size(), max_multimaps));
@@ -430,8 +430,22 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Stop timing with the funnel
     funnel.stop();
     
-    // Annotate the primary alignment with mapping runtime
-    set_annotation(mappings[0], "map_seconds", funnel.total_seconds());
+    // Annotate with total, stage, and substage runtimes
+    funnel.for_each_time([&](const string& stage, const string& substage, double seconds) {
+        if (stage == "") {
+            // Overall runtime
+            set_annotation(mappings[0], "map_seconds", seconds);
+        } else {
+            if (substage == "") {
+                // Overall time for this stage
+                set_annotation(mappings[0], "stage_" + stage + "_seconds", seconds);
+            } else {
+                // Time for just this substage
+                set_annotation(mappings[0], "stage_" + stage + "_" + substage + "_seconds", seconds);
+            }
+        }
+    });
+
     // And with the last stage at which we had any descendants of the correct seed hit locations
     set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
     

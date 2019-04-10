@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cassert>
+#include <functional>
 
 /** 
  * \file funnel.hpp
@@ -118,6 +119,10 @@ public:
     
     /// Get the total number of seconds elapsed between start() and stop()
     double total_seconds() const;
+
+    /// Call the given callback with stage name (or ""), substage name (or ""), and
+    /// time in seconds overasll, for each stage, and for each substage in a stage.
+    void for_each_time(const function<void(const string&, const string&, double)>& callback);
     
 protected:
     

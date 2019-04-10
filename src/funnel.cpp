@@ -230,6 +230,23 @@ double Funnel::total_seconds() const {
     return chrono::duration_cast<chrono::duration<double>>(funnel_duration).count();
 }
 
+void Funnel::for_each_time(const function<void(const string&, const string&, double)>& callback) {
+    // Handle overall
+    callback("", "", total_seconds());
+
+    for (auto& kv : stage_durations) {
+        // Handle each stage
+        callback(kv.first, "", chrono::duration_cast<chrono::duration<double>>(kv.second).count());
+    }
+
+    for (auto& kv : substage_durations) {
+        for (auto& kv2 : kv.second) {
+            // Handle each substage
+            callback(kv.first, kv2.first, chrono::duration_cast<chrono::duration<double>>(kv2.second).count());
+        }
+    }
+}
+
 Funnel::Timepoint Funnel::now() const {
     return chrono::high_resolution_clock::now();
 }
