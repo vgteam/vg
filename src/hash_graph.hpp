@@ -200,6 +200,15 @@ public:
      */
     virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
 
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Non-handle methods
+    ////////////////////////////////////////////////////////////////////////////
+    
+    void serialize(ostream& out) const;
+    
+    void deserialize(istream& in);
+    
 private:
     
     /*
@@ -211,6 +220,9 @@ private:
         string sequence;
         vector<handle_t> left_edges;
         vector<handle_t> right_edges;
+        
+        void serialize(ostream& out) const;
+        void deserialize(istream& in);
     };
     
     /*
@@ -229,189 +241,42 @@ private:
     /*
      * A simple linked list implementation of an embedded path
      */
-    struct path_t {
-        path_t() {}
-        path_t(const string& name, const int64_t& path_id) : name(name), path_id(path_id) {}
+    class path_t {
+    public:
+        
+        path_t();
+        path_t(const string& name, const int64_t& path_id);
         
         /// Move constructor
-        path_t(path_t&& other) : head(other.head), tail(other.tail), path_id(other.path_id), count(other.count), name(move(other.name)) {
-            
-            other.head = nullptr;
-            other.tail = nullptr;
-            other.path_id = 0;
-            other.count = 0;
-        }
+        path_t(path_t&& other);
         
         /// Move assignment
-        path_t& operator=(path_t&& other) {
-            if (this != &other) {
-                // free existing list
-                for (path_mapping_t* mapping = head; mapping != nullptr;) {
-                    path_mapping_t* next = mapping->next;
-                    delete mapping;
-                    mapping = next;
-                }
-                
-                // steal other list
-                head = other.head;
-                tail = other.tail;
-                other.head = nullptr;
-                other.tail = nullptr;
-                
-                name = move(other.name);
-                
-                path_id = other.path_id;
-                other.path_id = 0;
-                
-                count = other.count;
-                other.count = 0;
-            }
-            return *this;
-        }
+        path_t& operator=(path_t&& other);
         
         /// Copy constructor
-        path_t(const path_t& other) : path_id(other.path_id), count(other.count), name(other.name) {
-            
-            path_mapping_t* prev = nullptr;
-            for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
-                
-                path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
-                
-                if (!head) {
-                    head = copied;
-                }
-                if (prev) {
-                    prev->next = copied;
-                    copied->prev = prev;
-                }
-                prev = copied;
-            }
-            tail = prev;
-        }
+        path_t(const path_t& other);
         
         /// Copy assignment
-        path_t& operator=(const path_t& other) {
-            if (this != &other) {
-                // free existing list
-                for (path_mapping_t* mapping = head; mapping != nullptr;) {
-                    path_mapping_t* next = mapping->next;
-                    delete mapping;
-                    mapping = next;
-                }
-                
-                // copy the other list
-                path_mapping_t* prev = nullptr;
-                for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
-                    
-                    path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
-                    
-                    if (!head) {
-                        head = copied;
-                    }
-                    if (prev) {
-                        prev->next = copied;
-                        copied->prev = prev;
-                    }
-                    prev = copied;
-                }
-                tail = prev;
-                
-                // copy the rest of the info
-                path_id = other.path_id;
-                name = other.name;
-                count = other.count;
-            }
-            return *this;
-        }
+        path_t& operator=(const path_t& other);
         
-        ~path_t() {
-            for (path_mapping_t* mapping = head; mapping != nullptr;) {
-                path_mapping_t* next = mapping->next;
-                delete mapping;
-                mapping = next;
-            }
-        }
+        ~path_t();
         
         /// Add a node to the end of the path
-        path_mapping_t* push_back(const handle_t& handle) {
-            path_mapping_t* pushing = new path_mapping_t(handle, path_id);
-            if (!tail) {
-                tail = head = pushing;
-            }
-            else {
-                tail->next = pushing;
-                pushing->prev = tail;
-                tail = pushing;
-            }
-            count++;
-            return pushing;
-        }
+        path_mapping_t* push_back(const handle_t& handle);
         
         /// Add a node to the front of the path
-        path_mapping_t* push_front(const handle_t& handle) {
-            path_mapping_t* pushing = new path_mapping_t(handle, path_id);
-            if (!head) {
-                tail = head = pushing;
-            }
-            else {
-                head->prev = pushing;
-                pushing->next = head;
-                head = pushing;
-            }
-            count++;
-            return pushing;
-        }
+        path_mapping_t* push_front(const handle_t& handle);
         
         /// Remove the mapping from the path and free its memory
-        void remove(path_mapping_t* mapping) {
-            if (mapping == head) {
-                head = mapping->next;
-            }
-            if (mapping == tail) {
-                tail = mapping->prev;
-            }
-            if (mapping->next) {
-                mapping->next->prev = mapping->prev;
-            }
-            if (mapping->prev) {
-                mapping->prev->next = mapping->next;
-            }
-            count--;
-            delete mapping;
-        }
+        void remove(path_mapping_t* mapping);
         
         /// Insert a new node into the middle of the path. If the the profvided node
         /// is null, inserts at the beginning.
-        path_mapping_t* insert_after(const handle_t& handle, path_mapping_t* mapping) {
-            path_mapping_t* inserting = new path_mapping_t(handle, path_id);
-            if (mapping) {
-                inserting->next = mapping->next;
-                if (mapping->next) {
-                    mapping->next->prev = inserting;
-                }
-                mapping->next = inserting;
-                inserting->prev = mapping;
-                
-                if (mapping == tail) {
-                    tail = inserting;
-                }
-            }
-            else {
-                if (head) {
-                    inserting->next = head;
-                    head->prev = inserting;
-                    head = inserting;
-                }
-                else {
-                    head = tail = inserting;
-                }
-            }
-            
-            count++;
-            return inserting;
-        }
+        path_mapping_t* insert_after(const handle_t& handle, path_mapping_t* mapping);
         
+        void serialize(ostream& out) const;
         
+        void deserialize(istream& in);
         
         path_mapping_t* head = nullptr;
         path_mapping_t* tail = nullptr;
