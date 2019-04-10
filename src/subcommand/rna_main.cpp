@@ -236,7 +236,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         // Remove non transcript paths
         graph->clear_paths();
 
-        // Remove non transcribed nodes
+        // Remove non-transcribed nodes
         transcriptome.remove_non_transcribed(graph);
     }
 

@@ -103,6 +103,7 @@ class Transcriptome {
         /// Embeds transcript paths in variation graph.
         void add_paths_to_graph(VG * graph) const;
 
+        /// Removes non-transcribed (not in transcript paths) nodes
         void remove_non_transcribed(VG * graph) const;
 
         /// Add transcript paths as threads in GBWT index.
