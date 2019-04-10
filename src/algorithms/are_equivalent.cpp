@@ -4,10 +4,13 @@ namespace vg {
 namespace algorithms {
 
     bool are_equivalent(const HandleGraph* graph_1,
-                        const HandleGraph* graph_2) {
+                        const HandleGraph* graph_2, bool verbose) {
         
         
         if (graph_1->node_size() != graph_2->node_size()) {
+            if (verbose) {
+                cerr << "graphs have different numbers of nodes: " << graph_1->node_size() << " and " << graph_2->node_size() << endl;
+            }
             return false;
         }
         
@@ -15,6 +18,9 @@ namespace algorithms {
         graph_1->for_each_handle([&](const handle_t& handle_1) {
             
             if (!graph_2->has_node(graph_1->get_id(handle_1))) {
+                if (verbose) {
+                    cerr << "node " << graph_1->get_id(handle_1) << " from graph 1 was not found in graph 2" << endl;
+                }
                 equivalent = false;
                 return false;
             }
@@ -23,6 +29,9 @@ namespace algorithms {
                                                     graph_1->get_is_reverse(handle_1));
             
             if (graph_1->get_sequence(handle_1) != graph_2->get_sequence(handle_2)) {
+                if (verbose) {
+                    cerr << "node " << graph_1->get_id(handle_1) << " has different sequence in the two graphs: " << graph_1->get_sequence(handle_1) << " and " << graph_2->get_sequence(handle_2) << endl;
+                }
                 equivalent = false;
                 return false;
             }
@@ -37,6 +46,9 @@ namespace algorithms {
                 });
                 
                 if (nexts_1.size() != nexts_2.size()) {
+                    if (verbose) {
+                        cerr << "node " << graph_1->get_id(handle_1) << " has a different number of edges on the " << (direction ? "left" : "right") << " side in the two graphs: " << nexts_1.size() << " and " << nexts_2.size() << endl;
+                    }
                     equivalent = false;
                     return false;
                 }
@@ -55,6 +67,9 @@ namespace algorithms {
                 for (size_t i = 0; i < nexts_1.size(); i++) {
                     if (graph_1->get_id(nexts_1[i]) != graph_2->get_id(nexts_2[i]) ||
                         graph_1->get_is_reverse(nexts_1[i]) != graph_2->get_is_reverse(nexts_2[i])) {
+                        if (verbose) {
+                            cerr << "node " << graph_1->get_id(handle_1) << " has edges to different nodes on the " << (direction ? "left" : "right") << " side in the two graphs" << endl;
+                        }
                         equivalent = false;
                         return false;
                     }
@@ -67,19 +82,25 @@ namespace algorithms {
     }
     
     bool are_equivalent_with_paths(const PathHandleGraph* graph_1,
-                                   const PathHandleGraph* graph_2) {
+                                   const PathHandleGraph* graph_2, bool verbose) {
         
-        if (!are_equivalent(graph_1, graph_2)) {
+        if (!are_equivalent(graph_1, graph_2, verbose)) {
             return false;
         }
         
         if (graph_1->get_path_count() != graph_2->get_path_count()) {
+            if (verbose) {
+                cerr << "graphs have different numbers of paths: " << graph_1->get_path_count() << " and " << graph_2->get_path_count() << endl;
+            }
             return false;
         }
         
         bool equivalent = true;
         graph_1->for_each_path_handle([&](const path_handle_t& path_handle_1){
             if (!graph_2->has_path(graph_1->get_path_name(path_handle_1))) {
+                if (verbose) {
+                    cerr << "path " << graph_1->get_path_name(path_handle_1) << " from graph 1 was not found in graph 2" << endl;
+                }
                 equivalent = false;
                 return false;
             }
@@ -98,9 +119,13 @@ namespace algorithms {
                                        const occurrence_handle_t& occ_2) {
                     handle_t handle_1 = graph_1->get_occurrence(occ_1);
                     handle_t handle_2 = graph_2->get_occurrence(occ_2);
+                    bool match = (graph_1->get_id(handle_1) == graph_2->get_id(handle_2) &&
+                                  graph_1->get_is_reverse(handle_1) == graph_2->get_is_reverse(handle_2));
+                    if (verbose && !match) {
+                        cerr << "path " << graph_1->get_path_name(path_handle_1) << " has mismatching occurrences " << graph_1->get_id(handle_1) << (graph_1->get_is_reverse(handle_1) ? "-" : "+") << " and " << graph_2->get_id(handle_2) << (graph_2->get_is_reverse(handle_2) ? "-" : "+") << endl;
+                    }
                     
-                    return (graph_1->get_id(handle_1) == graph_2->get_id(handle_2) &&
-                            graph_1->get_is_reverse(handle_1) != graph_2->get_is_reverse(handle_2));
+                    return match;
                 };
                 
                 occurrence_handle_t occ_1 = graph_1->get_first_occurrence(path_handle_1);
