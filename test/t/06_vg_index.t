@@ -61,9 +61,8 @@ is $? 0 "storing a VCF parse for a graph with haplotypes"
 ../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parse"
 
-# Dump the tagged stream and remove path/sample/contig names
+# Dump the tagged stream and compare the indexes built with build_gbwt and vg index
 vg view --extract-tag GBWT x.gbwt > x.bare.gbwt
-../deps/gbwt/metadata_tool -P -S -C x.bare > /dev/null
 cmp parse_x.gbwt x.bare.gbwt
 is $? 0 "the indexes are identical"
 
@@ -140,9 +139,8 @@ is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
 ../deps/gbwt/build_gbwt -p -r -o parse_xy parse_x parse_y > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parses"
 
-# Dump the tagged stream and remove path/sample/contig names
+# Dump the tagged stream and compare the indexes built with build_gbwt and vg index
 vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
-../deps/gbwt/metadata_tool -P -S -C xy.bare > /dev/null
 cmp parse_xy.gbwt xy.bare.gbwt
 is $? 0 "the indexes are identical"
 

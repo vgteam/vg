@@ -741,6 +741,8 @@ int main_index(int argc, char** argv) {
                 // Structures to parse the VCF file into.
                 const xg::XGPath& path = xg_index->get_path(path_name);
                 gbwt::VariantPaths variants(path.ids.size());
+                variants.setSampleNames(sample_names);
+                variants.setContigName(path_name);
                 std::vector<gbwt::PhasingInformation> phasings;
 
                 // Add the reference to VariantPaths.
