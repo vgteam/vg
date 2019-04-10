@@ -23,7 +23,10 @@ public:
     HashGraph();
     ~HashGraph();
     
-    // Method to check if a node exists by ID
+    /// Deserialize from a stream of data
+    HashGraph(istream& in);
+    
+    /// Method to check if a node exists by ID
     virtual bool has_node(id_t node_id) const;
     
     /// Look up the handle for the node with the given ID in the given orientation

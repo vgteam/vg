@@ -18,6 +18,10 @@ namespace vg {
         
     }
     
+    HashGraph::HashGraph(istream& in) {
+        deserialize(in);
+    }
+    
     
     handle_t HashGraph::create_handle(const string& sequence) {
         return create_handle(sequence, max_id + 1);
@@ -641,6 +645,7 @@ namespace vg {
         while (mapping) {
             int64_t step = as_integer(mapping->handle);
             out.write((const char*) &step, sizeof(step) / sizeof(char));
+            mapping = mapping->next;
         }
     }
     

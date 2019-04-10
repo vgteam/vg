@@ -266,7 +266,7 @@ using namespace std;
             strm.seekg(0);
             PackedGraph loaded(strm);
             
-            REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded, true));
+            REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded));
         }
     }
 }
