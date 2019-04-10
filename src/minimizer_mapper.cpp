@@ -253,7 +253,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Keep track of best and second best scores.
     int best_score = 0;
     int second_best_score = 0;
-    for (size_t i = 0; i < extension_indexes_in_order.size(); i++) {
+    for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments; i++) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
         funnel.processing_input(extension_num);
@@ -575,9 +575,11 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
 }
 
 bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, int second_best_score) const {
-    // TODO: Find Jordan's method and apply that.
-    // For now just use a magic relative cutoff.
-    if (score_estimate + 10 >= second_best_score) {
+    // mpmap uses a heuristic of if the read coverage of the cluster is less than half the best cluster's read coverage, stop.
+    // We do something similar, but with scores. And we make sure to get at least one second best score.
+    // If it's not more than half the best score, it doesn't matter if it beats the second best score; both secondaries are sufficiently bad.
+    // TODO: real scores from full-length gapless extensions aren't quite directly comparable with estimates.
+    if (score_estimate * 2 >= best_score || second_best_score < 1) {
         return true;
     }
     return false;

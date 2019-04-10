@@ -82,8 +82,8 @@ int main_gaffe(int argc, char** argv) {
     vector<string> fastq_filenames;
     // How many mappings per read can we emit?
     size_t max_multimaps = 1;
-    // How many clusters per read should we examine/extend?
-    size_t max_alignments = 10;
+    // How many extended clusters should we align, max?
+    size_t max_alignments = 48;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
