@@ -42,7 +42,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
     
     // Start the minimizer finding stage
-    funnel.stage("minimizers");
+    funnel.stage("minimizer");
     
     // We will find all the seed hits
     vector<pos_t> seeds;
@@ -382,6 +382,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         // Tell the funnel
         funnel.project(alignment_num);
+        funnel.score(alignment_num, mappings.back().score());
     }
     if (max_multimaps < alignments_in_order.size()) {
         // Some things stop here
@@ -451,6 +452,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
+
+#ifdef debug
+    // Dump the funnel info graph.
+    funnel.to_dot(cerr);
+#endif
 }
 
 int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const {

@@ -226,8 +226,12 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
+double Funnel::to_seconds(const Duration& time) const {
+    return chrono::duration_cast<chrono::duration<double>>(time).count();
+}
+
 double Funnel::total_seconds() const {
-    return chrono::duration_cast<chrono::duration<double>>(funnel_duration).count();
+    return to_seconds(funnel_duration);
 }
 
 void Funnel::for_each_time(const function<void(const string&, const string&, double)>& callback) {
@@ -236,15 +240,125 @@ void Funnel::for_each_time(const function<void(const string&, const string&, dou
 
     for (auto& kv : stage_durations) {
         // Handle each stage
-        callback(kv.first, "", chrono::duration_cast<chrono::duration<double>>(kv.second).count());
+        callback(kv.first, "", to_seconds(kv.second));
     }
 
     for (auto& kv : substage_durations) {
         for (auto& kv2 : kv.second) {
             // Handle each substage
-            callback(kv.first, kv2.first, chrono::duration_cast<chrono::duration<double>>(kv2.second).count());
+            callback(kv.first, kv2.first, to_seconds(kv2.second));
         }
     }
+}
+
+void Funnel::to_dot(ostream& out) {
+    out << "digraph graphname {" << endl;
+    out << "rankdir=\"TB\";" << endl;
+
+    // Get total time
+    double total_time = total_seconds();
+
+    for (size_t s = 0; s < stages.size(); s++) {
+        // For each stage in order
+        auto& stage = stages[s];
+
+        // Compute a GraphViz ID part for the stage
+        string stage_id = "s" + to_string(s);
+
+        // Start a subgraph.
+        // Prepend cluster so it draws as a box.
+        out << "subgraph cluster_" << stage_id << " {" << endl;
+        out << "label = \"" << stage.name << "\";" << endl;
+        out << "graph[style=solid];" << endl;
+        out << "rank=same;" << endl;
+
+        for (size_t i = 0; i < stage.items.size(); i++) {
+            // For each item in the stage
+            auto& item = stage.items[i];
+
+            // Compute a GraphViz ID
+            string item_id = stage_id + "i" + to_string(i);
+
+            // Emit a node
+            out << item_id << "[label=\"" << i << "\" shape=circle tooltip=\"";
+            if (item.group_size != 0) {
+                out << "size " << item.group_size;
+            }
+            if (item.score != 0) {
+                if (item.group_size != 0) {
+                    out << ", ";
+                }
+                out << "score " << item.score;
+            }
+            out << "\"";
+            if (item.correct) {
+                // Make it green if it is correct
+                out << " color=green";
+            }
+            out << "];" << endl;
+
+            if (s > 0) {
+                // There is a previous stage, so we can draw edges from it.
+                for (auto& p : item.prev_stage_items) {
+                    // Connect everything from the previous stage to it
+                    auto& prev_item = stages[s - 1].items.at(p);
+
+                    out << "s" << (s - 1) << "i" << p << " -> " << item_id << "[";
+                    if (item.correct && prev_item.correct) {
+                        // Correctness came this way
+                        out << "color=green";
+                    }
+                    out << "];" << endl;
+                }
+            }
+
+            // Assign generation time
+            double item_time = to_seconds(item.produce_duration);
+            if (item_time > 0 && total_time > 0) {
+                // We can have a time node attached to this item
+                double item_portion = item_time / total_time;
+
+                // Make an ID for the time node
+                string time_id = item_id + "t1";
+                
+                // Make the time node like a little bar chart
+                out << time_id << "[shape=box style=filled label=\"\" color=red fixedsize=true width=\"0.5\" height=\""
+                    << item_portion << "\" tooltip=\"" << item_time << " seconds" << "\"];" << endl;
+
+                // Attach it to the item
+                out << item_id << "->" << time_id << "[dir=none style=dashed constraint=false];" << endl;
+            }
+
+        }
+
+        if (s > 1) {
+            // Make time nodes in this stage for processing things from the previous stage
+            for (size_t prev_stage_item = 0; prev_stage_item < stages[s - 1].items.size(); prev_stage_item++) {
+                auto& item = stages[s - 1].items[prev_stage_item];
+
+                double item_time = to_seconds(item.process_duration);
+                if (item_time > 0 && total_time > 0) {
+                    // We can have a time node attached to this item
+                    double item_portion = item_time / total_time;
+
+                    // Make an ID for the time node
+                    string item_id = "s" + to_string(s - 1) + "i" + to_string(prev_stage_item);
+                    string time_id = item_id + "t2";
+                    
+                    // Make the time node like a little bar chart
+                    out << time_id << "[shape=box style=filled label=\"\" color=red fixedsize=true width=\"0.5\" height=\""
+                        << item_portion << "\" tooltip=\"" << item_time << " seconds" << "\"];" << endl;
+
+                    // Attach it to the item
+                    out << item_id << "->" << time_id << "[dir=none style=dashed];" << endl;
+                }
+            }
+        }
+
+        out << "}" << endl;
+    }
+
+    out << "}" << endl;
 }
 
 Funnel::Timepoint Funnel::now() const {

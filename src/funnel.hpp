@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <cassert>
 #include <functional>
+#include <iostream>
 
 /** 
  * \file funnel.hpp
@@ -123,6 +124,10 @@ public:
     /// Call the given callback with stage name (or ""), substage name (or ""), and
     /// time in seconds overasll, for each stage, and for each substage in a stage.
     void for_each_time(const function<void(const string&, const string&, double)>& callback);
+
+    /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
+    /// Illustrates stages, provenance, and runtime assignment.
+    void to_dot(ostream& out);
     
 protected:
     
@@ -168,6 +173,9 @@ protected:
     
     /// Produce the current time
     Timepoint now() const;
+
+    /// Convert a Duration to fractional seconds
+    double to_seconds(const Duration& time) const;
     
     // Now members we need for provenance tracking
     
