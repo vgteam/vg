@@ -120,7 +120,7 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">path_mapping_t</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1HashGraph_1_1path__t.html">path_t</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph_1_1path__t.html">path_t</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
@@ -129,7 +129,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5fb6c35e5ef4c8d4d816398fc5c8d4cb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5795c9e2e3f893e514e45268e3103c38"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#a5795c9e2e3f893e514e45268e3103c38">~HashGraph</a> ()</td></tr>
 <tr class="separator:a5795c9e2e3f893e514e45268e3103c38"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a29999ce4218c1cea889fa5b57ca261ce"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#a29999ce4218c1cea889fa5b57ca261ce">HashGraph</a> (istream &amp;in)</td></tr>
+<tr class="memdesc:a29999ce4218c1cea889fa5b57ca261ce"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deserialize from a stream of data.  <a href="#a29999ce4218c1cea889fa5b57ca261ce">More...</a><br/></td></tr>
+<tr class="separator:a29999ce4218c1cea889fa5b57ca261ce"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aefb348c5eeabcde13c11fdbb41cae1c0"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#aefb348c5eeabcde13c11fdbb41cae1c0">has_node</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id) const </td></tr>
+<tr class="memdesc:aefb348c5eeabcde13c11fdbb41cae1c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Method to check if a node exists by ID.  <a href="#aefb348c5eeabcde13c11fdbb41cae1c0">More...</a><br/></td></tr>
 <tr class="separator:aefb348c5eeabcde13c11fdbb41cae1c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa0737709e736c855691e4ce222408907"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#aa0737709e736c855691e4ce222408907">get_handle</a> (const <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &amp;node_id, bool is_reverse=false) const </td></tr>
 <tr class="memdesc:aa0737709e736c855691e4ce222408907"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#aa0737709e736c855691e4ce222408907">More...</a><br/></td></tr>
@@ -232,6 +236,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ad0d3d60790d6da614822d24269940cb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a378eebdbfd87aae0098e342ced05325b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#a378eebdbfd87aae0098e342ced05325b">append_occurrence</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_append)</td></tr>
 <tr class="separator:a378eebdbfd87aae0098e342ced05325b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aadea5fc540908b3061b10d39e0fc4180"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#aadea5fc540908b3061b10d39e0fc4180">serialize</a> (ostream &amp;out) const </td></tr>
+<tr class="separator:aadea5fc540908b3061b10d39e0fc4180"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7ee9a975a807aaf69e7a412bc5b61dae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#a7ee9a975a807aaf69e7a412bc5b61dae">deserialize</a> (istream &amp;in)</td></tr>
+<tr class="separator:a7ee9a975a807aaf69e7a412bc5b61dae"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1MutablePathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">handlegraph::MutablePathHandleGraph</a></td></tr>
 <tr class="memitem:a2fc36c06e32b7cb5339f046a0c5a45d7 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a2fc36c06e32b7cb5339f046a0c5a45d7">create_path_handle</a> (const std::string &amp;name)=0</td></tr>
 <tr class="separator:a2fc36c06e32b7cb5339f046a0c5a45d7 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -299,7 +307,7 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a5c3d6ba66905470b785ea8c4f754b148"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1string__hash__map.html">string_hash_map</a>&lt; string, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#a5c3d6ba66905470b785ea8c4f754b148">path_id</a></td></tr>
 <tr class="memdesc:a5c3d6ba66905470b785ea8c4f754b148"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maps path names to path IDs.  <a href="#a5c3d6ba66905470b785ea8c4f754b148">More...</a><br/></td></tr>
 <tr class="separator:a5c3d6ba66905470b785ea8c4f754b148"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac4311440e4ef60ffd00a8d8ef575b0aa"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; int64_t, <a class="el" href="structvg_1_1HashGraph_1_1path__t.html">path_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#ac4311440e4ef60ffd00a8d8ef575b0aa">paths</a></td></tr>
+<tr class="memitem:ac4311440e4ef60ffd00a8d8ef575b0aa"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; int64_t, <a class="el" href="classvg_1_1HashGraph_1_1path__t.html">path_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph.html#ac4311440e4ef60ffd00a8d8ef575b0aa">paths</a></td></tr>
 <tr class="memdesc:ac4311440e4ef60ffd00a8d8ef575b0aa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maps path IDs to the actual paths.  <a href="#ac4311440e4ef60ffd00a8d8ef575b0aa">More...</a><br/></td></tr>
 <tr class="separator:ac4311440e4ef60ffd00a8d8ef575b0aa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab92287302405c3d227d95f348ffa6dd7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, vector<br class="typebreak"/>
@@ -344,6 +352,24 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a29999ce4218c1cea889fa5b57ca261ce"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::HashGraph::HashGraph </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Deserialize from a stream of data. </p>
 
 </div>
 </div>
@@ -565,6 +591,22 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 <p>Create a path with the given name. The caller must ensure that no path with the given name exists already, or the behavior is undefined. Returns a handle to the created empty path. Handles to other paths must remain valid. </p>
+
+</div>
+</div>
+<a class="anchor" id="a7ee9a975a807aaf69e7a412bc5b61dae"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HashGraph::deserialize </td>
+          <td>(</td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>in</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -1382,6 +1424,8 @@ Additional Inherited Members</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
+<p>Method to check if a node exists by ID. </p>
+
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a6e58a79001cd7d839ac1f1adaff34dfb">handlegraph::HandleGraph</a>.</p>
 
 </div>
@@ -1520,6 +1564,22 @@ Additional Inherited Members</h2></td></tr>
 <p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab76511940f95dceb5fb162f39d316a1d">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="aadea5fc540908b3061b10d39e0fc4180"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HashGraph::serialize </td>
+          <td>(</td>
+          <td class="paramtype">ostream &amp;&#160;</td>
+          <td class="paramname"><em>out</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
 
 </div>
 </div>
@@ -1703,7 +1763,7 @@ Additional Inherited Members</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt;int64_t, <a class="el" href="structvg_1_1HashGraph_1_1path__t.html">path_t</a>&gt; vg::HashGraph::paths</td>
+          <td class="memname"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt;int64_t, <a class="el" href="classvg_1_1HashGraph_1_1path__t.html">path_t</a>&gt; vg::HashGraph::paths</td>
         </tr>
       </table>
   </td>

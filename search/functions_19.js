@@ -58,7 +58,7 @@ var searchData=
   ['_7epackedvector',['~PackedVector',['../classvg_1_1PackedVector.html#a537b5fb3bacaea3de24016f95563b121',1,'vg::PackedVector']]],
   ['_7epacker',['~Packer',['../classvg_1_1Packer.html#a65a8bbaf02215e1e8c4f1385101ffbd4',1,'vg::Packer']]],
   ['_7epagedvector',['~PagedVector',['../classvg_1_1PagedVector.html#ab740fd33b0390eaf9a5b6c36553e92f2',1,'vg::PagedVector']]],
-  ['_7epath_5ft',['~path_t',['../structvg_1_1HashGraph_1_1path__t.html#aca9f1db9bba06dd13a7f092a081b1b35',1,'vg::HashGraph::path_t']]],
+  ['_7epath_5ft',['~path_t',['../classvg_1_1HashGraph_1_1path__t.html#aca9f1db9bba06dd13a7f092a081b1b35',1,'vg::HashGraph::path_t']]],
   ['_7epathbasedtraversalfinder',['~PathBasedTraversalFinder',['../classvg_1_1PathBasedTraversalFinder.html#ad60a772a43a10e819d2b2655f1602762',1,'vg::PathBasedTraversalFinder']]],
   ['_7epathchunker',['~PathChunker',['../classvg_1_1PathChunker.html#a49b9500998c8e6faace1206d587ac67d',1,'vg::PathChunker']]],
   ['_7epathorienteddistancemeasurer',['~PathOrientedDistanceMeasurer',['../classvg_1_1PathOrientedDistanceMeasurer.html#a6ae7fe802887b8e9c1dbd4ab0106a2e3',1,'vg::PathOrientedDistanceMeasurer']]],

@@ -88,7 +88,7 @@ var searchData=
   ['relative_5forientation',['relative_orientation',['../namespacexg.html#a7f07f5b9c54d98a39c76b0d20db0a652',1,'xg']]],
   ['remap',['remap',['../classvg_1_1Filter.html#a66768cd6584270f71d190d525c99a9c4',1,'vg::Filter::remap(Alignment &amp;aln)'],['../classvg_1_1Filter.html#aea9d6813e578a5957131fa6c4c8eff52',1,'vg::Filter::remap(string seq)'],['../classvg_1_1Homogenizer.html#a0ad18f7ec95dbeb681a147f3ae7c621f',1,'vg::Homogenizer::remap()']]],
   ['remember_5fkmer_5fsize',['remember_kmer_size',['../classvg_1_1Index.html#a314fdb721b7cc6831d95528fc34c75a0',1,'vg::Index']]],
-  ['remove',['remove',['../structvg_1_1HashGraph_1_1path__t.html#a0103b4fab605e9a1aef047671e6d6324',1,'vg::HashGraph::path_t::remove()'],['../classvg_1_1PhasedGenome.html#a3706e208421ac10d5695ed5d5ec45090',1,'vg::PhasedGenome::remove()'],['../namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5',1,'vg::temp_file::remove()']]],
+  ['remove',['remove',['../classvg_1_1HashGraph_1_1path__t.html#a0103b4fab605e9a1aef047671e6d6324',1,'vg::HashGraph::path_t::remove()'],['../classvg_1_1PhasedGenome.html#a3706e208421ac10d5695ed5d5ec45090',1,'vg::PhasedGenome::remove()'],['../namespacevg_1_1temp__file.html#a9885078330e16129fccc5fb6d8717ec5',1,'vg::temp_file::remove()']]],
   ['remove_5fbonuses',['remove_bonuses',['../classvg_1_1GSSWAligner.html#abf04b69ff918cd022caba3a068108550',1,'vg::GSSWAligner']]],
   ['remove_5fclipped_5fportion',['remove_clipped_portion',['../classvg_1_1Filter.html#ac246ae985a763a2d10edc92c81639913',1,'vg::Filter']]],
   ['remove_5fduplicate_5fedges',['remove_duplicate_edges',['../namespacevg.html#add4d3a3d1917566a8df138c80b38e548',1,'vg']]],

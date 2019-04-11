@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
-  ['tail',['tail',['../structvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
+  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tail',['tail',['../classvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['tail_5fmismatches',['tail_mismatches',['../structvg_1_1FlankState.html#a06ea0743b34705d80c16fb67d89314c3',1,'vg::FlankState']]],
   ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a47fbc525ed5e9f2a7b00c333f03fe6c8',1,'vg::VG::tail_nodes(vector&lt; Node * &gt; &amp;nodes)']]],
   ['tail_5foffset',['tail_offset',['../classvg_1_1GaplessExtender.html#a1524a3bb602ed6997e7fc5d2a51c4563',1,'vg::GaplessExtender']]],
