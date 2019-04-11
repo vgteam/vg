@@ -80,7 +80,6 @@ var searchData=
   ['finish',['finish',['../classvg_1_1SnarlManager.html#aacf5fd439b35298107ddf2900559259c',1,'vg::SnarlManager']]],
   ['finish_5fcurrent_5fedit',['finish_current_edit',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#a7bafadc0a8c3160bcc2b3949edc3de17',1,'vg::BandedGlobalAligner::BABuilder']]],
   ['finish_5fcurrent_5fnode',['finish_current_node',['../classvg_1_1BandedGlobalAligner_1_1BABuilder.html#ad460ee763b7b15cf8206038283423e89',1,'vg::BandedGlobalAligner::BABuilder']]],
-  ['finished',['finished',['../classvg_1_1SnarlManager.html#a50a58df9b2afd9febff530a9505f9dd0',1,'vg::SnarlManager']]],
   ['first',['first',['../structvg_1_1FeatureSet_1_1Feature.html#ade37c17b95cc0314dc381e93b04ff7b4',1,'vg::FeatureSet::Feature']]],
   ['first_5fhit_5fpositions_5fby_5findex',['first_hit_positions_by_index',['../classvg_1_1BaseMapper.html#a26dfca3a19af4caf8746f1e28eacf646',1,'vg::BaseMapper']]],
   ['first_5fkmer_5fkey',['first_kmer_key',['../classvg_1_1Index.html#afc5035b858c22439a9c9e86c53149f76',1,'vg::Index']]],
