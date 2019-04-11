@@ -53,11 +53,6 @@ is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
-# Remove a sample from a GBWT
-vg gbwt -R 1 xy.gbwt
-is $? 0 "samples can be removed from a GBWT index"
-is $(vg gbwt -c xy.gbwt) 0 "the sample was removed"
-
 rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
 
 
@@ -68,6 +63,11 @@ is $(vg gbwt -c x_ref.gbwt) 1 "there is 1 thread in the index"
 # Build a GBWT for both paths and threads
 vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $(vg gbwt -c x_both.gbwt) 3 "there are 3 threads in the index"
+
+# Remove a sample (actually the reference) from a GBWT
+vg gbwt -R ref x_both.gbwt
+is $? 0 "samples can be removed from a GBWT index"
+is $(vg gbwt -c x_both.gbwt) 2 "the sample was removed"
 
 rm x_ref.gbwt x_both.gbwt
 
