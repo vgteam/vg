@@ -163,9 +163,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
             
             // Extend seed hits in the cluster into a real alignment path and mismatch count.
-            std::pair<Path, size_t> extended = extender.extend_seeds(seed_matchings, aln.sequence());
-            auto& path = extended.first;
-            auto& mismatch_count = extended.second;
+            auto extended = extender.extend_seeds(seed_matchings, aln.sequence());
+            Path& path = extended.path;
+            size_t mismatch_count = extended.mismatches();
 
 #ifdef debug
             cerr << "Produced path with " << path.mapping_size() << " mappings and " << mismatch_count << " mismatches" << endl;
@@ -176,7 +176,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 
                 // Compute a score based on the sequence length and mismatch count.
                 // Alignments will only contain matches and mismatches.
-                int alignment_score = default_match * (aln.sequence().size() - mismatch_count) - default_mismatch * extended.second;
+                int alignment_score = default_match * (aln.sequence().size() - mismatch_count) - default_mismatch * mismatch_count;
                 
                 if (path.mapping().begin()->edit_size() != 0 && edit_is_match(*path.mapping().begin()->edit().begin())) {
                     // Apply left full length bonus based on the first edit
@@ -200,7 +200,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             } else if (do_chaining) {
                 // We need to generate some sub-full-length, maybe-extended seeds.
                 // Call back into the extender and get the unambiguous perfect match extensions of the seeds in the cluster.
-                vector<pair<Path, size_t>> extended_seeds = extender.maximal_extensions(seed_matchings, aln.sequence());
+                auto extended_seeds = extender.maximal_extensions(seed_matchings, aln.sequence());
 
 #ifdef debug
                 cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
@@ -214,10 +214,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
                 // Sort the extended seeds by read start position.
                 // We won't be able to match them back to the minimizers anymore but we won't need to.
-                std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const pair<Path, size_t>& a, const pair<Path, size_t>& b) -> bool {
+                std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
                     // Return true if a needs to come before b.
                     // This will happen if a is earlier in the read than b.
-                    return a.second < b.second;
+                    return a.core_interval.first < b.core_interval.first;
                 });
 
                 // Find the paths between pairs of extended seeds that agree with haplotypes.
@@ -243,12 +243,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 for (auto& extended_seed : extended_seeds) {
                     Subpath* s = mp.add_subpath();
                     // Copy in the path.
-                    *s->mutable_path() = extended_seed.first;
+                    *s->mutable_path() = extended_seed.path;
                     // Score it
-                    s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extended_seed.first,
-                        aln.sequence().begin() + extended_seed.second));
+                    s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extended_seed.path,
+                        aln.sequence().begin() + extended_seed.core_interval.first));
                     // The position in the read it occurs at will be handled by the multipath topology.
-                    if (extended_seed.second == 0) {
+                    if (extended_seed.core_interval.first == 0) {
                         // But if it occurs at the very start of the read we need to mark that now.
                         mp.add_start(mp.subpath_size() - 1);
                     }
@@ -259,7 +259,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     const size_t& source = kv.first;
                     
                     // Grab the part of the read sequence that comes before it
-                    string before_sequence = aln.sequence().substr(0, extended_seeds[source].second); 
+                    string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first); 
                     
 #ifdef debug
                     cerr << "There is a path into source extended seed " << source
@@ -294,7 +294,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                 e->set_to_length(before_sequence.size());
                                 e->set_sequence(before_sequence);
                                 // Since the softclip consumes no graph, we place it on the node we are going to.
-                                *m->mutable_position() = extended_seeds[source].first.mapping(0).position();
+                                *m->mutable_position() = extended_seeds[source].path.mapping(0).position();
                                 
 #ifdef debug
                                 cerr << "New best alignment: " << pb2json(best_path) << endl;
@@ -372,7 +372,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     // Then for all the other from extended seeds
 
                     // Work out where the extended seed ends in the read
-                    size_t from_end = extended_seeds[from].second + path_from_length(extended_seeds[from].first);
+                    size_t from_end = extended_seeds[from].core_interval.second;
                     
                     for (auto& to_and_paths : from_and_edges.second) {
                         const size_t& to = to_and_paths.first;
@@ -419,8 +419,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                             e->set_to_length(trailing_sequence.size());
                                             e->set_sequence(trailing_sequence);
                                             // We need to set a position at the end of where we are coming from.
-                                            const Mapping& prev_mapping = extended_seeds[from].first.mapping(
-                                                extended_seeds[from].first.mapping_size() - 1);
+                                            const Mapping& prev_mapping = extended_seeds[from].path.mapping(
+                                                extended_seeds[from].path.mapping_size() - 1);
                                             const Position& coming_from = prev_mapping.position();
                                             size_t last_node_length = gbwt_graph.get_length(gbwt_graph.get_handle(coming_from.node_id()));
                                             m->mutable_position()->set_node_id(coming_from.node_id());
@@ -487,8 +487,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             // Do alignments between from and to
 
                             // Find the sequence
-                            assert(extended_seeds[to].second >= from_end);
-                            string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].second - from_end); 
+                            assert(extended_seeds[to].core_interval.first >= from_end);
+                            string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end); 
 
                             // Find the best path in backing graph space (which may be empty)
                             Path best_path;
@@ -522,7 +522,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                                             e->set_to_length(intervening_sequence.size());
                                             e->set_sequence(intervening_sequence);
                                             // We can copy the position of where we are going to, since we consume no graph.
-                                            *m->mutable_position() = extended_seeds[to].first.mapping(0).position();
+                                            *m->mutable_position() = extended_seeds[to].path.mapping(0).position();
                                         }
                                     }
                                 } else {
@@ -684,7 +684,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 }
 
 unordered_map<size_t, unordered_map<size_t, vector<Path>>>
-MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extended_seeds, size_t read_length) const {
+MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_seeds, size_t read_length) const {
 
     // Now this will hold, for each extended seed, for each other
     // reachable extended seed, the graph Paths that the
@@ -702,7 +702,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
     for (size_t i = 0; i < extended_seeds.size(); i++) {
         // For each extension
         // Where does it start?
-        auto& pos = extended_seeds[i].first.mapping(0).position();
+        auto& pos = extended_seeds[i].path.mapping(0).position();
 
         // Get the handle it is on
         handle_t handle = gbwt_graph.get_handle(pos.node_id(), pos.is_reverse());
@@ -732,11 +732,11 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
         // For each starting seed
 
         // Where do we cut the graph just after its end?
-        auto& last_mapping = extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1);
+        auto& last_mapping = extended_seeds[i].path.mapping(extended_seeds[i].path.mapping_size() - 1);
         Position cut_pos_graph = last_mapping.position();
         cut_pos_graph.set_offset(cut_pos_graph.offset() + mapping_from_length(last_mapping));
         // And the read?
-        size_t cut_pos_read = extended_seeds[i].second + path_to_length(extended_seeds[i].first);
+        size_t cut_pos_read = extended_seeds[i].core_interval.second;
 
 #ifdef debug
         cerr << "Extended seed " << i << ": cut after on node " << cut_pos_graph.node_id() << " " << cut_pos_graph.is_reverse()
@@ -759,7 +759,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                 // Scan them in order.
                 // TODO: Skip to after ourselves.
                 
-                if (extended_seeds[next_offset_and_index.second].second >= cut_pos_read &&
+                if (extended_seeds[next_offset_and_index.second].core_interval.first >= cut_pos_read &&
                     next_offset_and_index.first >= cut_pos_graph.offset()) { 
                     
                     // As soon as we find one that starts after we end in both the read and the node
@@ -778,9 +778,9 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
 #ifdef debug
                     cerr << "Found path on node between seed at "
-                    << pb2json(extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1).position())
+                    << pb2json(extended_seeds[i].path.mapping(extended_seeds[i].path.mapping_size() - 1).position())
                     << " and seed at "
-                    << pb2json(extended_seeds[next_offset_and_index.second].first.mapping(0).position())
+                    << pb2json(extended_seeds[next_offset_and_index.second].path.mapping(0).position())
                     << ":" << endl << "\t" << pb2json(connecting) <<  endl;
 #endif
 
@@ -820,7 +820,7 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
                 for (auto& next_offset_and_index : found->second) {
                     // Look at them in order along the node
                     
-                    if (extended_seeds[next_offset_and_index.second].second >= cut_pos_read) { 
+                    if (extended_seeds[next_offset_and_index.second].core_interval.first >= cut_pos_read) { 
                         // As soon as we find one that starts in the read after our start extended seed ended
 
                         // Extend the Path to connect to it.
@@ -842,9 +842,9 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 
 #ifdef debug
                         cerr << "Found graph path between seed at "
-                            << pb2json(extended_seeds[i].first.mapping(extended_seeds[i].first.mapping_size() - 1).position())
+                            << pb2json(extended_seeds[i].path.mapping(extended_seeds[i].path.mapping_size() - 1).position())
                             << " and seed at "
-                            << pb2json(extended_seeds[next_offset_and_index.second].first.mapping(0).position())
+                            << pb2json(extended_seeds[next_offset_and_index.second].path.mapping(0).position())
                             << ":" << endl << "\t" << pb2json(to_path(extended)) <<  endl;
 #endif
 
@@ -896,13 +896,13 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
         cerr << "Extended seed " << i << " is a source" << endl;
 #endif
         
-        if (extended_seeds[i].second > 0) {
+        if (extended_seeds[i].core_interval.first > 0) {
 #ifdef debug
             cerr << "\tIt is not at the start of the read, so there is a left tail" << endl;
 #endif
 
             // Find its start
-            Position start = extended_seeds[i].first.mapping(0).position();
+            Position start = extended_seeds[i].path.mapping(0).position();
             
 #ifdef debug
             cerr << "\tPosition read-forward to search left before: " << pb2json(start) << endl;
@@ -916,8 +916,8 @@ MinimizerMapper::find_connecting_paths(const vector<pair<Path, size_t>>& extende
 #endif
 
             // Now the search limit is all the read *before* the seed, plus the detectable gap
-            size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].second) +
-                extended_seeds[i].second;
+            size_t search_limit = get_regular_aligner()->longest_detectable_gap(read_length, extended_seeds[i].core_interval.first) +
+                extended_seeds[i].core_interval.first;
 
             // Start another search, but going left.
             explore_gbwt(start, search_limit, [&](const ImmutablePath& here_path, const handle_t& there_handle) -> bool {
