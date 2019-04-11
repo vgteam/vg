@@ -613,7 +613,12 @@ int main_index(int argc, char** argv) {
         // Store the name of the thread in GBWT metadata.
         auto store_thread_name = [&](gbwt::size_type sample, gbwt::size_type contig, gbwt::size_type phase, gbwt::size_type count) {
             if (build_gbwt) {
-                gbwt_builder->index.metadata.addPath({ sample, contig, phase, count });
+                gbwt_builder->index.metadata.addPath({
+                    static_cast<gbwt::PathName::path_name_type>(sample),
+                    static_cast<gbwt::PathName::path_name_type>(contig),
+                    static_cast<gbwt::PathName::path_name_type>(phase),
+                    static_cast<gbwt::PathName::path_name_type>(count)
+                });
             }
         };
 
