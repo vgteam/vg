@@ -402,7 +402,7 @@ namespace unittest {
                                       && (dist2 == -1 ||  dist2 >= lim-2) 
                                       && (dist3 == -1 ||  dist3 >= lim-2)  
                                       && (dist4 == -1 || dist4 >= lim-2))){
-                                    //graph.serialize_to_file("testGraph");
+                                    graph.serialize_to_file("testGraph");
                                     cerr << "These should have been in the same cluster: ";
                                     cerr << pos1 << " " << pos2 << endl;
                                     cerr << dist1 << " " << dist2 << " " << dist3<< " " << dist4 << endl;
@@ -413,7 +413,7 @@ namespace unittest {
                         }
                     }
                     if (checked_clusters.size() != 1) {
-                        //graph.serialize_to_file("testGraph");
+                        graph.serialize_to_file("testGraph");
                         cerr << "These should be different clusters: " << endl;
                         for (hash_set<size_t> c : checked_clusters) {
                             cerr << "cluster: " ; 
