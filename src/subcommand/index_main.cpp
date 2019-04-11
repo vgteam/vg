@@ -568,10 +568,9 @@ int main_index(int argc, char** argv) {
                 }
                 alignments_in_gam++;
             };
-            // TODO: Is for_each_parallel() safe?
             for (auto& file_name : gam_file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each_parallel(in, lambda);
+                    stream::for_each(in, lambda);
                 });
             }
             id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
@@ -649,7 +648,6 @@ int main_index(int argc, char** argv) {
         }
 
         // Index GAM, using alignment names as sample names.
-        // TODO Is for_each_parallel() safe?
         if (index_gam) {
             if (show_progress) {
                 cerr << "Converting GAM to threads..." << endl;
@@ -667,7 +665,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : gam_file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each_parallel(in, lambda);
+                    stream::for_each(in, lambda);
                 });
             }
         }
@@ -1127,7 +1125,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each_parallel(in, lambda);
+                    stream::for_each(in, lambda);
                 });
             }
             index.flush();
@@ -1141,7 +1139,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each_parallel(in, lambda);
+                    stream::for_each(in, lambda);
                 });
             }
             index.flush();
@@ -1170,7 +1168,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each_parallel(in, lambda);
+                    stream::for_each(in, lambda);
                 });
             }
             index.flush();
