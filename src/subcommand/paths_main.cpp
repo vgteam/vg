@@ -37,7 +37,8 @@ void help_paths(char** argv) {
          << "    -L, --list            return (as a list of names, one per line) the path (or thread) names" << endl
          << "    -E, --lengths         return list of path names (as with -L) but paired with their lengths" << endl
          << "  path selection:" << endl
-         << "    -Q, --paths-by STR    select the paths with the given name prefix (XG, GBWT)" << endl;
+         << "    -Q, --paths-by STR    select the paths with the given name prefix (XG, GBWT)" << endl
+         << "    -S, --sample STR      select the threads for this sample (GBWT)" << endl;
 }
 
 int main_paths(int argc, char** argv) {
@@ -54,8 +55,9 @@ int main_paths(int argc, char** argv) {
     string vg_file;
     string gbwt_file;
     string path_prefix;
+    string sample_name;
     bool list_lengths = false;
-    size_t output_formats = 0;
+    size_t output_formats = 0, selection_criteria = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -69,14 +71,14 @@ int main_paths(int argc, char** argv) {
             {"extract-gam", no_argument, 0, 'X'},
             {"extract-vg", no_argument, 0, 'V'},
             {"list", no_argument, 0, 'L'},
-            {"max-length", required_argument, 0, 'l'},
-            {"paths-by", required_argument, 0, 'Q'},
             {"lengths", no_argument, 0, 'E'},
+            {"paths-by", required_argument, 0, 'Q'},
+            {"sample", required_argument, 0, 'S'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VE",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VES:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -121,6 +123,12 @@ int main_paths(int argc, char** argv) {
 
         case 'Q':
             path_prefix = optarg;
+            selection_criteria++;
+            break;
+
+        case 'S':
+            sample_name = optarg;
+            selection_criteria++;
             break;
 
         case 'h':
@@ -151,6 +159,14 @@ int main_paths(int argc, char** argv) {
     }
     if (output_formats != 1) {
         std::cerr << "error: [vg paths] one output format (-X, -V, -L, or -E) must be specified" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if (selection_criteria > 1) {
+        std::cerr << "error: [vg paths] multiple selection criteria (-Q, -S) cannot be used" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if (!sample_name.empty() && gbwt_file.empty()) {
+        std::cerr << "error: [vg paths] selection by sample name only works with a GBWT index" << std::endl;
         std::exit(EXIT_FAILURE);
     }
     
@@ -195,20 +211,28 @@ int main_paths(int argc, char** argv) {
             std::exit(EXIT_FAILURE);
         }
 
-        // FIXME also selection by sample
         // Select the threads we are interested in.
-        std::vector<size_t> thread_ids;
-        if (path_prefix.empty()) {
-            thread_ids.reserve(gbwt_index->metadata.paths());
-            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
-                thread_ids.push_back(i);
+        std::vector<gbwt::size_type> thread_ids;
+        if (!sample_name.empty()) {
+            if (!gbwt_index->metadata.hasSampleNames()) {
+                std::cerr << "error: [vg paths] the GBWT index does not contain sample names" << std::endl;
+                std::exit(EXIT_FAILURE);
             }
-        } else {
+            gbwt::size_type sample_id = gbwt_index->metadata.sample(sample_name);
+            if (sample_id < gbwt_index->metadata.samples()) {
+                thread_ids = gbwt_index->metadata.pathsForSample(sample_id);
+            }
+        } else if(!path_prefix.empty()) {
             for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
                 std::string name = thread_name(*gbwt_index, i);
                 if (name.length() >= path_prefix.length() && std::equal(path_prefix.begin(), path_prefix.end(), name.begin())) {
                     thread_ids.push_back(i);
                 }
+            }
+        } else {
+            thread_ids.reserve(gbwt_index->metadata.paths());
+            for (size_t i = 0; i < gbwt_index->metadata.paths(); i++) {
+                thread_ids.push_back(i);
             }
         }
         
@@ -225,7 +249,7 @@ int main_paths(int argc, char** argv) {
         }
 
         // Process the threads.
-        for (size_t id : thread_ids) {
+        for (gbwt::size_type id : thread_ids) {
             std::string name = thread_name(*gbwt_index, id);        
 
             // We are only interested in the name

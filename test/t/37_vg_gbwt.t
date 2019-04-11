@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 30
+plan tests 28
 
 
 # Build vg graphs for two chromosomes
@@ -25,12 +25,6 @@ is $(vg gbwt -S x.gbwt) 1 "chromosome x: 1 sample"
 is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome x: 2 thread names"
 is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome x: 1 contig name"
 is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome x: 1 sample name"
-
-# Full extraction of threads
-is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
-
-# Query test
-is $(vg paths -x x.xg -g x.gbwt -X -Q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
 
 # Chromosome Y
 vg index -G y.gbwt -v small/xy2.vcf.gz y.vg
