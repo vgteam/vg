@@ -15,6 +15,8 @@ vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 vg index -x x.xg -G x.gbwt -v small/x.vcf.gz x.vg
 
 is "$(vg paths --list -x x.xg)" "x" "path listing works from an xg"
-is "$(vg paths --threads --list -x x.xg -g x.gbwt | wc -l)" "2" "thread listing works from a gbwt"
+is "$(vg paths --list -g x.gbwt | wc -l)" "2" "thread listing works from a gbwt"
 
 rm -f x.xg x.gbwt x.vg
+
+# Other output options are tested elsewhere (e.g. in 37_vg_gbwt.t)

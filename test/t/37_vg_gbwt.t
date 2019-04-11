@@ -27,10 +27,10 @@ is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome x: 1 contig name"
 is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome x: 1 sample name"
 
 # Full extraction of threads
-is $(vg paths -x x.xg -g x.gbwt -X -T | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
+is $(vg paths -x x.xg -g x.gbwt -X | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
 
 # Query test
-is $(vg paths -x x.xg -g x.gbwt -X -q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
+is $(vg paths -x x.xg -g x.gbwt -X -Q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
 
 # Chromosome Y
 vg index -G y.gbwt -v small/xy2.vcf.gz y.vg
@@ -74,9 +74,6 @@ is $(vg gbwt -c x_ref.gbwt) 1 "there is 1 thread in the index"
 # Build a GBWT for both paths and threads
 vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $(vg gbwt -c x_both.gbwt) 3 "there are 3 threads in the index"
-
-# Use vg paths to extract the gbwt
-
 
 rm x_ref.gbwt x_both.gbwt
 
