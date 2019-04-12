@@ -1453,11 +1453,12 @@ int main_mpmap(int argc, char** argv) {
     
     // flush output buffers
     for (int i = 0; i < thread_count; i++) {
-        vector<Alignment>& single_path_buffer = single_path_output_buffer[i];
-        stream::write_buffered(cout, single_path_buffer, 0);
-        
-        vector<MultipathAlignment>& multipath_buffer = multipath_output_buffer[i];
-        stream::write_buffered(cout, multipath_buffer, 0);
+        if (single_path_alignment_mode) {
+            stream::write_buffered(cout, single_path_output_buffer[i], 0);
+        }
+        else {
+            stream::write_buffered(cout, multipath_output_buffer[i], 0);
+        }
     }
     cout.flush();
     

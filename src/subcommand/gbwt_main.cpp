@@ -34,12 +34,14 @@ void help_gbwt(char** argv) {
          << "threads:" << endl
          << "    -c, --count-threads    print the number of threads" << endl
          << "    -e, --extract FILE     extract threads in SDSL format to FILE" << endl
-         << "    -r, --remove-thread N  remove the thread with identifier N (may repeat; use -o to change output)" << endl
-         << "metadata (use deps/gbwt/metadata to modify):" << endl
-         << "    -M, --metadata         print all metadata" << endl
+         << "metadata (use deps/gbwt/metadata_tool to modify):" << endl
+         << "    -M, --metadata         print basic metadata" << endl
          << "    -C, --contigs          print the number of contigs" << endl
          << "    -H, --haplotypes       print the number of haplotypes" << endl
          << "    -S, --samples          print the number of samples" << endl
+         << "    -L, --list-names       list contig/sample names (use with -C or -S)" << endl
+         << "    -T, --thread-names     list thread names" << endl
+         << "    -R, --remove-sample X  remove sample X from the index (use -o to change output)" << endl
          << endl;
 }
 
@@ -54,10 +56,10 @@ int main_gbwt(int argc, char** argv)
     bool fast_merging = false;
     bool show_progress = false;
     bool count_threads = false;
-    bool metadata = false, contigs = false, haplotypes = false, samples = false;
+    bool metadata = false, contigs = false, haplotypes = false, samples = false, list_names = false, thread_names = false;
     bool load_index = false;
     string gbwt_output, thread_output;
-    std::vector<gbwt::size_type> to_remove;
+    std::string to_remove;
 
     int c;
     optind = 2; // force optind past command positional argument    
@@ -73,20 +75,22 @@ int main_gbwt(int argc, char** argv)
                 // Threads
                 {"count-threads", no_argument, 0, 'c'},
                 {"extract", required_argument, 0, 'e'},
-                {"remove-thread", required_argument, 0, 'r'},
 
                 // Metadata
                 {"metadata", no_argument, 0, 'M'},
                 {"contigs", no_argument, 0, 'C'},
                 {"haplotypes", no_argument, 0, 'H'},
                 {"samples", no_argument, 0, 'S'},
+                {"list_names", no_argument, 0, 'L'},
+                {"thread_names", no_argument, 0, 'T'},
+                {"remove-sample", required_argument, 0, 'R'},
 
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "mo:fpce:r:MCHSh?", long_options, &option_index);
+        c = getopt_long(argc, argv, "mo:fpce:MCHSLTR:h?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -118,9 +122,6 @@ int main_gbwt(int argc, char** argv)
             thread_output = optarg;
             load_index = true;
             break;
-        case 'r':
-            to_remove.push_back(parse<size_t>(optarg));
-            break;
 
         // Metadata
         case 'M':
@@ -138,6 +139,16 @@ int main_gbwt(int argc, char** argv)
         case 'S':
             samples = true;
             load_index = true;
+            break;
+        case 'L':
+            list_names = true;
+            break;
+        case 'T':
+            thread_names = true;
+            load_index = true;
+            break;
+        case 'R':
+            to_remove = optarg;
             break;
 
         case 'h':
@@ -274,7 +285,7 @@ int main_gbwt(int argc, char** argv)
         cout.rdbuf(cout_buf);
     }
 
-    // Remove threads before extracting or counting them.
+    // Remove threads before displaying metadata.
     if (!to_remove.empty()) {
         if (optind + 1 != argc) {
             cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
@@ -288,13 +299,19 @@ int main_gbwt(int argc, char** argv)
             cerr << "error: [vg gbwt]: could not load dynamic GBWT " << argv[optind] << endl;
             exit(1);
         }
-        
-        gbwt::size_type total_length = index->remove(to_remove);
-        if (total_length > 0) {
-            std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
-            
-            // Save as an encapsulated file
-            stream::VPKG::save(*index, output);
+
+        if (index->hasMetadata() && index->metadata.hasPathNames() && index->metadata.hasSampleNames()) {
+            gbwt::size_type sample_id = index->metadata.sample(to_remove);
+            std::vector<gbwt::size_type> path_ids = index->metadata.removeSample(sample_id);
+            if (!path_ids.empty()) {
+                size_t foo = index->remove(path_ids);
+                std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
+                stream::VPKG::save(*index, output);
+            } else {
+                std::cerr << "error: [vg gbwt] the index does not contain sample " << to_remove << std::endl;
+            }
+        } else {
+            std::cerr << "error: [vg gbwt] the index does not contain metadata with thread and sample names" << std::endl;
         }
     }
 
@@ -338,7 +355,17 @@ int main_gbwt(int argc, char** argv)
 
         if (contigs) {
             if (index->hasMetadata()) {
-                cout << index->metadata.contigs() << endl;
+                if (list_names) {
+                    if (index->metadata.hasContigNames()) {
+                        for (size_t i = 0; i < index->metadata.contigs(); i++) {
+                            std::cout << index->metadata.contig(i) << std::endl;
+                        }
+                    } else {
+                        std::cerr << "error: [vg gbwt] the metadata does not contain contig names" << std::endl;
+                    }
+                } else {
+                    cout << index->metadata.contigs() << endl;
+                }
             } else {
                 cout << -1 << endl;
             }
@@ -354,9 +381,29 @@ int main_gbwt(int argc, char** argv)
 
         if (samples) {
             if (index->hasMetadata()) {
-                cout << index->metadata.samples() << endl;
+                if (list_names) {
+                    if (index->metadata.hasSampleNames()) {
+                        for (size_t i = 0; i < index->metadata.samples(); i++) {
+                            std::cout << index->metadata.sample(i) << std::endl;
+                        }
+                    } else {
+                        std::cerr << "error: [vg gbwt] the metadata does not contain sample names" << std::endl;
+                    }
+                } else {
+                    cout << index->metadata.samples() << endl;
+                }
             } else {
                 cout << -1 << endl;
+            }
+        }
+
+        if (thread_names) {
+            if (index->hasMetadata() && index->metadata.hasPathNames()) {
+                for (size_t i = 0; i < index->metadata.paths(); i++) {
+                    std::cout << thread_name(*index, i) << std::endl;
+                }
+            } else {
+                std::cerr << "error: [vg gbwt] the metadata does not contain thread names" << std::endl;
             }
         }
     }
