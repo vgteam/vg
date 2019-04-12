@@ -53,6 +53,9 @@ inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
     return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
 
+/// Get a string representation of a thread name stored in GBWT metadata.
+std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
+
 //------------------------------------------------------------------------------
 
 /**

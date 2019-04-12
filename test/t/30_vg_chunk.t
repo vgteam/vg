@@ -5,11 +5,11 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 16
 
 # Construct a graph with alt paths so we can make a gPBWT and later a GBWT
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
-vg index -x x.xg -v small/x.vcf.gz  x.vg
+vg index -x x.xg -G x.gbwt -v small/x.vcf.gz  x.vg
 vg view -a small/x-l100-n1000-s10-e0.01-i0.01.gam > x.gam.json
 
 # sanity check: does passing no options preserve input
@@ -40,13 +40,8 @@ is "$(vg view -aj _chunk_test_1_x_500_627.gam | wc -l)" "225" "chunk contains th
 is $(vg chunk -x x.xg -r 1:3 -c 0 | vg view - -j | jq .node | grep id |  wc -l) 3 "id chunker produces correct chunk size"
 is $(vg chunk -x x.xg -r 1 -c 0 | vg view - -j | jq .node | grep id | wc -l) 1 "id chunker produces correct single chunk"
 
-#check that traces work
-is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
-is $(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length') 3 "chunker can extract a partial haplotype"
-
 # Check that traces work on a GBWT
-# Reindex making the GBWT and not the gPBWT
-vg index -x x.xg -G x.gbwt -v small/x.vcf.gz  x.vg
+is $(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq .node | grep id | wc -l) 5 "id chunker traces correct chunk size"
 is "$(vg chunk -x x.xg -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x")' | wc -l)" 0 "chunker extracts no threads from an empty gPBWT"
 is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -c '.path[] | select(.name != "x")' | wc -l)" 2 "chunker extracts 2 local threads from a gBWT with 2 locally distinct threads in it"
 is "$(vg chunk -x x.xg -G x.gbwt -r 1:1 -c 2 -T | vg view - -j | jq -r '.path[] | select(.name == "thread_0") | .mapping | length')" 3 "chunker can extract a partial haplotype from a GBWT"
