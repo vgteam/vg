@@ -74,11 +74,16 @@ int main_paths(int argc, char** argv) {
             {"lengths", no_argument, 0, 'E'},
             {"paths-by", required_argument, 0, 'Q'},
             {"sample", required_argument, 0, 'S'},
+
+            // Hidden options for backward compatibility.
+            {"threads", no_argument, 0, 'T'},
+            {"threads-by", required_argument, 0, 'q'},
+
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hLXv:x:g:Q:VES:",
+        c = getopt_long (argc, argv, "hLXv:x:g:Q:VES:Tq:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -128,6 +133,16 @@ int main_paths(int argc, char** argv) {
 
         case 'S':
             sample_name = optarg;
+            selection_criteria++;
+            break;
+
+        case 'T':
+            std::cerr << "warning: [vg paths] option --threads is obsolete and unnecessary" << std::endl;
+            break;
+
+        case 'q':
+            std::cerr << "warning: [vg paths] option --threads-by is deprecated; please use --paths-by" << std::endl;
+            path_prefix = optarg;
             selection_criteria++;
             break;
 
