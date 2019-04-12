@@ -4,7 +4,7 @@ namespace vg {
 namespace unittest {
 
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
-                  MutablePathDeletableHandleGraph* graph) {
+                  MutablePathMutableHandleGraph* graph) {
     //Create a random graph for a sequence of length seq_size
     //variant_len is the mean length of a larger variation and variationCount
     //is the number of variations in the graph

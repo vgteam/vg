@@ -286,8 +286,12 @@ path_handle_t VG::get_path_handle(const string& path_name) const {
 string VG::get_path_name(const path_handle_t& path_handle) const {
     return paths.get_path_name(as_integer(path_handle));
 }
+    
+bool VG::get_is_circular(const path_handle_t& path_handle) const {
+    return paths.circular.count(get_path_name(path_handle));
+}
 
-size_t VG::get_occurrence_count(const path_handle_t& path_handle) const {
+size_t VG::get_step_count(const path_handle_t& path_handle) const {
     return paths._paths.at(paths.get_path_name(as_integer(path_handle))).size();
 }
 
@@ -301,66 +305,81 @@ bool VG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& i
     });
 }
 
-handle_t VG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return get_handle(reinterpret_cast<const mapping_t*>(as_integers(occurrence_handle)[1])->node_id(),
-                      reinterpret_cast<const mapping_t*>(as_integers(occurrence_handle)[1])->is_reverse());
+handle_t VG::get_handle_of_step(const step_handle_t& step_handle) const {
+    return get_handle(reinterpret_cast<const mapping_t*>(as_integers(step_handle)[1])->node_id(),
+                      reinterpret_cast<const mapping_t*>(as_integers(step_handle)[1])->is_reverse());
 }
 
-occurrence_handle_t VG::get_first_occurrence(const path_handle_t& path_handle) const {
-    occurrence_handle_t occurrence_handle;
-    as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).front());
-    return occurrence_handle;
-}
-
-occurrence_handle_t VG::get_last_occurrence(const path_handle_t& path_handle) const {
-    occurrence_handle_t occurrence_handle;
-    as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).back());
-    return occurrence_handle;
-}
-
-bool VG::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    iter++;
-    return iter != paths._paths.at(paths.get_path_name(as_integers(occurrence_handle)[0])).end();
-}
-
-bool VG::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    return iter != paths._paths.at(paths.get_path_name(as_integers(occurrence_handle)[0])).begin();
-}
-
-occurrence_handle_t VG::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    occurrence_handle_t next_occurence_handle;
-    as_integers(next_occurence_handle)[0] = as_integers(occurrence_handle)[0];
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    iter++;
-    as_integers(next_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
-    return next_occurence_handle;
-}
-
-occurrence_handle_t VG::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    occurrence_handle_t prev_occurence_handle;
-    as_integers(prev_occurence_handle)[0] = as_integers(occurrence_handle)[0];
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    iter--;
-    as_integers(prev_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
-    return prev_occurence_handle;
-}
-
-path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return as_path_handle(as_integers(occurrence_handle)[0]);
+path_handle_t VG::get_path_handle_of_step(const step_handle_t& step_handle) const {
+    return as_path_handle(as_integers(step_handle)[0]);
 }
     
-bool VG::for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const {
+step_handle_t VG::path_begin(const path_handle_t& path_handle) const {
+    step_handle_t step_handle;
+    as_integers(step_handle)[0] = as_integer(path_handle);
+    as_integers(step_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).front());
+    return step_handle;
+}
+
+step_handle_t VG::path_end(const path_handle_t& path_handle) const {
+    step_handle_t step_handle;
+    as_integers(step_handle)[0] = as_integer(path_handle);
+    as_integers(step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
+    return step_handle;
+}
+
+step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
+    step_handle_t next_step_handle;
+    as_integers(next_step_handle)[0] = as_integers(step_handle)[0];
+    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+    ++iter;
+    if (iter == paths._paths.at(paths.get_path_name(as_integer(path_handle))).end()) {
+        if (get_is_circular(get_path_handle_of_step(step_handle))) {
+            next_step_handle = path_begin(get_path_handle_of_step(step_handle)));
+        }
+        else {
+            as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
+        }
+    }
+    else {
+        as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+    }
+    return next_step_handle;
+}
+
+step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
+    step_handle_t prev_step_handle;
+    as_integers(prev_step_handle)[0] = as_integers(step_handle)[0];
+    if (reinterpret_cast<void*>(as_integers(prev_step_handle)[1]) == nullptr) {
+        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).back());
+    }
+    else {
+        list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+        if (get_is_circular(get_path_handle_of_step(step_handle))) {
+            auto& path_list = paths._paths.at(paths.get_path_name(as_integer(path_handle)));
+            if (iter == path_list.begin()) {
+                iter == --path_list.end();
+            }
+            else {
+                --iter;
+            }
+        }
+        else {
+            --iter;
+        }
+        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+    }
+    return prev_step_handle;
+}
+    
+bool VG::for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const {
     const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
     for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
         for (const mapping_t* mapping : path_occs.second) {
-            occurrence_handle_t occurrence_handle;
-            as_integers(occurrence_handle)[0] = path_occs.first;
-            as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
-            if (!iteratee(occurrence_handle)) {
+            step_handle_t step_handle;
+            as_integers(step_handle)[0] = path_occs.first;
+            as_integers(step_handle)[1] = reinterpret_cast<int64_t>(mapping);
+            if (!iteratee(step_handle)) {
                 return false;
             }
         }
@@ -531,19 +550,34 @@ void VG::destroy_path(const path_handle_t& path) {
     paths.remove_path(get_path_name(path));
 }
 
-path_handle_t VG::create_path_handle(const string& name) {
+path_handle_t VG::create_path_handle(const string& name, bool is_circular) {
     // Create the path
     paths.create_path(name);
+    if (is_circular) {
+        paths.make_circular(name);
+    }
     // Grab the handle
     return get_path_handle(name);
     
 }
     
-occurrence_handle_t VG::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+step_handle_t VG::append_step(const path_handle_t& path, const handle_t& to_append) {
     // Make the new path mapping/visit (which weirdly requires the node length)
     paths.append_mapping(get_path_name(path), get_id(to_append), get_is_reverse(to_append), get_length(to_append));
-    // Get the occurrence we just made, now last on the path.
-    return get_last_occurrence(path);
+    // Make a handle for the step we just made, now last on the path.
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path);
+    as_integers(step)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path))).back());
+    return step;
+}
+
+void set_circularity(const path_handle_t& path, bool circular) {
+    if (circular) {
+        paths.make_circular(get_path_name(path));
+    }
+    else {
+        paths.make_linear(get_path_name(path));
+    }
 }
 
 void VG::clear_paths(void) {
