@@ -84,11 +84,6 @@ namespace vg {
                                       : graph.at(get_id(handle)).sequence;
     }
     
-    void HashGraph::swap_handles(const handle_t& a, const handle_t& b) {
-        
-        // TODO: implement?
-    }
-    
     bool HashGraph::follow_edges_impl(const handle_t& handle, bool go_left,
                                       const std::function<bool(const handle_t&)>& iteratee) const {
         
@@ -333,6 +328,10 @@ namespace vg {
         occurrences.clear();
     }
     
+    size_t HashGraph::get_path_count() const {
+        return paths.size();
+    }
+    
     bool HashGraph::has_path(const std::string& path_name) const {
         return path_id.count(path_name);
     }
@@ -345,12 +344,12 @@ namespace vg {
         return paths.at(as_integer(path_handle)).name;
     }
     
-    size_t HashGraph::get_occurrence_count(const path_handle_t& path_handle) const {
-        return paths.at(as_integer(path_handle)).count;
+    bool HashGraph::get_is_circular(const path_handle_t& path_handle) const {
+        return paths.at(as_integer(path_handle)).is_circular;
     }
     
-    size_t HashGraph::get_path_count() const {
-        return paths.size();
+    size_t HashGraph::get_step_count(const path_handle_t& path_handle) const {
+        return paths.at(as_integer(path_handle)).count;
     }
     
     bool HashGraph::for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const {
@@ -362,60 +361,52 @@ namespace vg {
         return true;
     }
     
-    handle_t HashGraph::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        return ((path_mapping_t*) intptr_t(as_integers(occurrence_handle)[1]))->handle;
+    handle_t HashGraph::get_handle_of_step(const step_handle_t& step_handle) const {
+        return ((path_mapping_t*) intptr_t(as_integers(step_handle)[1]))->handle;
     }
     
-    occurrence_handle_t HashGraph::get_first_occurrence(const path_handle_t& path_handle) const {
-        occurrence_handle_t occ;
-        as_integers(occ)[0] = as_integer(path_handle);
-        as_integers(occ)[1] = intptr_t(paths.at(as_integer(path_handle)).head);
-        return occ;
+    step_handle_t HashGraph::path_begin(const path_handle_t& path_handle) const {
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path_handle);
+        as_integers(step)[1] = intptr_t(paths.at(as_integer(path_handle)).head);
+        return step;
     }
     
-    occurrence_handle_t HashGraph::get_last_occurrence(const path_handle_t& path_handle) const {
-        occurrence_handle_t occ;
-        as_integers(occ)[0] = as_integer(path_handle);
-        as_integers(occ)[1] = intptr_t(paths.at(as_integer(path_handle)).tail);
-        return occ;
+    step_handle_t HashGraph::path_end(const path_handle_t& path_handle) const {
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path_handle);
+        as_integers(step)[1] = intptr_t(nullptr);
+        return step;
     }
     
-    bool HashGraph::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        return ((path_mapping_t*) intptr_t(as_integers(occurrence_handle)[1]))->next != nullptr;
-    }
-    
-    bool HashGraph::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        return ((path_mapping_t*) intptr_t(as_integers(occurrence_handle)[1]))->prev != nullptr;
-    }
-    
-    occurrence_handle_t HashGraph::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        occurrence_handle_t next;
-        as_integers(next)[0] = as_integers(occurrence_handle)[0];
-        as_integers(next)[1] = intptr_t(((path_mapping_t*) intptr_t(as_integers(occurrence_handle)[1]))->next);
+    step_handle_t HashGraph::get_next_step(const step_handle_t& step_handle) const {
+        step_handle_t next;
+        as_integers(next)[0] = as_integers(step_handle)[0];
+        as_integers(next)[1] = intptr_t(((path_mapping_t*) intptr_t(as_integers(step_handle)[1]))->next);
         return next;
     }
     
-    occurrence_handle_t HashGraph::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        occurrence_handle_t prev;
-        as_integers(prev)[0] = as_integers(occurrence_handle)[0];
-        as_integers(prev)[1] = intptr_t(((path_mapping_t*) intptr_t(as_integers(occurrence_handle)[1]))->prev);
+    step_handle_t HashGraph::get_previous_step(const step_handle_t& step_handle) const {
+        step_handle_t prev;
+        as_integers(prev)[0] = as_integers(step_handle)[0];
+        as_integers(prev)[1] = intptr_t(((path_mapping_t*) intptr_t(as_integers(step_handle)[1]))->prev);
         return prev;
     }
     
-    path_handle_t HashGraph::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        return as_path_handle(as_integers(occurrence_handle)[0]);
+    path_handle_t HashGraph::get_path_handle_of_step(const step_handle_t& step_handle) const {
+        return as_path_handle(as_integers(step_handle)[0]);
     }
     
-    bool HashGraph::for_each_occurrence_on_handle_impl(const handle_t& handle,
-                                                       const function<bool(const occurrence_handle_t&)>& iteratee) const {
+    bool HashGraph::for_each_step_on_handle_impl(const handle_t& handle,
+                                                 const function<bool(const step_handle_t&)>& iteratee) const {
         auto it = occurrences.find(get_id(handle));
         if (it != occurrences.end()) {
             for (path_mapping_t* mapping : it->second) {
-                occurrence_handle_t occ;
-                as_integers(occ)[0] = mapping->path_id;
-                as_integers(occ)[1] = intptr_t(mapping);
+                step_handle_t step;
+                as_integers(step)[0] = mapping->path_id;
+                as_integers(step)[1] = intptr_t(mapping);
                 
-                if (!iteratee(occ)) {
+                if (!iteratee(step)) {
                     return false;
                 }
             }
@@ -426,8 +417,8 @@ namespace vg {
     void HashGraph::destroy_path(const path_handle_t& path) {
         
         // remove the records of nodes occurring on this path
-        for_each_occurrence_in_path(path, [&](const occurrence_handle_t& occ) {
-            path_mapping_t* mapping = (path_mapping_t*) intptr_t(as_integers(occ)[1]);
+        for_each_step_in_path(path, [&](const step_handle_t& step) {
+            path_mapping_t* mapping = (path_mapping_t*) intptr_t(as_integers(step)[1]);
             vector<path_mapping_t*>& node_occs = occurrences[get_id(mapping->handle)];
             for (size_t i = 0; i < node_occs.size(); i++) {
                 if (node_occs[i] == mapping) {
@@ -443,36 +434,54 @@ namespace vg {
         paths.erase(as_integer(path));
     }
     
-    path_handle_t HashGraph::create_path_handle(const string& name) {
+    path_handle_t HashGraph::create_path_handle(const string& name, bool is_circular) {
         path_id[name] = next_path_id;
-        paths[next_path_id] = path_t(name, next_path_id);
+        paths[next_path_id] = path_t(name, next_path_id, is_circular);
         next_path_id++;
         return as_path_handle(next_path_id - 1);
     }
     
-    occurrence_handle_t HashGraph::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+    step_handle_t HashGraph::append_step(const path_handle_t& path, const handle_t& to_append) {
         
         path_t& path_list = paths[as_integer(path)];
         path_mapping_t* mapping = path_list.push_back(to_append);
         occurrences[get_id(to_append)].push_back(mapping);
         
-        occurrence_handle_t occ;
-        as_integers(occ)[0] = as_integer(path);
-        as_integers(occ)[1] = intptr_t(mapping);
-        return occ;
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path);
+        as_integers(step)[1] = intptr_t(mapping);
+        return step;
+    }
+    
+    void HashGraph::set_circularity(const path_handle_t& path, bool circular) {
+        // set the annotation
+        path_t& path_list = paths[as_integer(path)];
+        path_list.is_circular = circular;
+        
+        // set the circular connection between the head and tail
+        if (path_list.head) {
+            if (circular) {
+                path_list.head->prev = path_list.tail;
+                path_list.tail->next = path_list.head;
+            }
+            else {
+                path_list.head->prev = nullptr;
+                path_list.tail->next = nullptr;
+            }
+        }
     }
     
     HashGraph::path_t::path_t() {
         
     }
     
-    HashGraph::path_t::path_t(const string& name, const int64_t& path_id) : name(name), path_id(path_id) {
+    HashGraph::path_t::path_t(const string& name, const int64_t& path_id, bool is_circular) : name(name), path_id(path_id), is_circular(is_circular) {
         
         
     }
     
-    HashGraph::path_t::path_t(path_t&& other) : head(other.head), tail(other.tail), path_id(other.path_id), count(other.count), name(move(other.name)) {
-        
+    HashGraph::path_t::path_t(path_t&& other) : head(other.head), tail(other.tail), path_id(other.path_id), count(other.count), name(move(other.name)), is_circular(other.is_circular) {
+        // we grabbed the data in the initializer, now make sure the other one is in a valid state
         other.head = nullptr;
         other.tail = nullptr;
         other.path_id = 0;
@@ -501,10 +510,13 @@ namespace vg {
         return *this;
     }
     
-    HashGraph::path_t::path_t(const path_t& other) : path_id(other.path_id), count(other.count), name(other.name) {
+    HashGraph::path_t::path_t(const path_t& other) : path_id(other.path_id), count(other.count), name(other.name), is_circular(other.is_circular) {
         
         path_mapping_t* prev = nullptr;
-        for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+        bool first_iter = true;
+        for (path_mapping_t* mapping = other.head;
+             mapping != nullptr && (first_iter || mapping != other.head); // in case we loop around a circular path
+             mapping = mapping->next) {
             
             path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
             
@@ -516,8 +528,16 @@ namespace vg {
                 copied->prev = prev;
             }
             prev = copied;
+            first_iter = false;
         }
         tail = prev;
+        
+        // we only loop over each mapping one time, so we may need to add in the last connection
+        // in a circular path
+        if (is_circular) {
+            tail->next = head;
+            head->prev = tail;
+        }
     }
     
     HashGraph::path_t& HashGraph::path_t::operator=(const path_t& other) {
@@ -527,7 +547,10 @@ namespace vg {
             
             // copy the other list
             path_mapping_t* prev = nullptr;
-            for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+            bool first_iter = true;
+            for (path_mapping_t* mapping = other.head;
+                 mapping != nullptr && (first_iter || mapping != other.head); // in case we loop around a circular path
+                 mapping = mapping->next) {
                 
                 path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
                 
@@ -539,6 +562,7 @@ namespace vg {
                     copied->prev = prev;
                 }
                 prev = copied;
+                first_iter = false;
             }
             tail = prev;
             
@@ -546,52 +570,45 @@ namespace vg {
             path_id = other.path_id;
             name = other.name;
             count = other.count;
+            is_circular = other.is_circular;
+            
+            // we only loop over each mapping one time, so we may need to add in the last connection
+            // in a circular path
+            if (is_circular) {
+                tail->next = head;
+                head->prev = tail;
+            }
         }
         return *this;
     }
     
     HashGraph::path_t::~path_t() {
-        for (path_mapping_t* mapping = head; mapping != nullptr;) {
+        bool first_iter = true;
+        for (path_mapping_t* mapping = head;
+             mapping != nullptr && (first_iter || mapping != head);) { // for circular paths
+             
             path_mapping_t* next = mapping->next;
             delete mapping;
             mapping = next;
+            
+            first_iter = false;
         }
     }
     
     HashGraph::path_mapping_t* HashGraph::path_t::push_back(const handle_t& handle) {
-        path_mapping_t* pushing = new path_mapping_t(handle, path_id);
-        if (!tail) {
-            tail = head = pushing;
-        }
-        else {
-            tail->next = pushing;
-            pushing->prev = tail;
-            tail = pushing;
-        }
-        count++;
-        return pushing;
+        return insert_after(handle, tail);
     }
     
     HashGraph::path_mapping_t* HashGraph::path_t::push_front(const handle_t& handle) {
-        path_mapping_t* pushing = new path_mapping_t(handle, path_id);
-        if (!head) {
-            tail = head = pushing;
-        }
-        else {
-            head->prev = pushing;
-            pushing->next = head;
-            head = pushing;
-        }
-        count++;
-        return pushing;
+        return insert_after(handle, nullptr);
     }
     
     void HashGraph::path_t::remove(path_mapping_t* mapping) {
         if (mapping == head) {
-            head = mapping->next;
+            head = mapping->next != mapping ? mapping->next : nullptr;
         }
         if (mapping == tail) {
-            tail = mapping->prev;
+            tail = mapping->prev != mapping ? mapping->prev : nullptr;
         }
         if (mapping->next) {
             mapping->next->prev = mapping->prev;
@@ -604,7 +621,9 @@ namespace vg {
     }
     
     HashGraph::path_mapping_t* HashGraph::path_t::insert_after(const handle_t& handle, path_mapping_t* mapping) {
+        
         path_mapping_t* inserting = new path_mapping_t(handle, path_id);
+        
         if (mapping) {
             inserting->next = mapping->next;
             if (mapping->next) {
@@ -617,14 +636,26 @@ namespace vg {
                 tail = inserting;
             }
         }
-        else {
-            if (head) {
-                inserting->next = head;
-                head->prev = inserting;
-                head = inserting;
+        else if (head) {
+            
+            // handle the potential circular connection
+            inserting->prev = head->prev;
+            if (inserting->prev) {
+                inserting->prev->next = inserting;
             }
-            else {
-                head = tail = inserting;
+            
+            inserting->next = head;
+            head->prev = inserting;
+            
+            head = inserting;
+        }
+        else {
+            // the list is empty so far, so initialize it
+            head = tail = inserting;
+            
+            // make an initial circular connection
+            if (is_circular) {
+                inserting->next = inserting->prev = inserting;
             }
         }
         
@@ -635,6 +666,8 @@ namespace vg {
     void HashGraph::path_t::serialize(ostream& out) const {
         out.write((const char*) &path_id, sizeof(path_id) / sizeof(char));
         
+        out.write((const char*) &is_circular, sizeof(is_circular) / sizeof(char));
+        
         size_t name_size = name.size();
         out.write((const char*) &name_size, sizeof(name_size) / sizeof(char));
         out.write(name.c_str(), name.size());
@@ -642,10 +675,14 @@ namespace vg {
         out.write((const char*) &count, sizeof(count) / sizeof(char));
         
         path_mapping_t* mapping = head;
-        while (mapping) {
+        bool first_iter = true;
+        while (mapping && (first_iter || mapping != head)) { // extra condition for circular paths
+            
             int64_t step = as_integer(mapping->handle);
             out.write((const char*) &step, sizeof(step) / sizeof(char));
             mapping = mapping->next;
+            
+            first_iter = false;
         }
     }
     
@@ -654,6 +691,8 @@ namespace vg {
         this->~path_t();
         
         in.read((char*) &path_id, sizeof(path_id) / sizeof(char));
+        
+        in.read((char*) &is_circular, sizeof(is_circular) / sizeof(char));
         
         size_t name_size;
         in.read((char*) &name_size, sizeof(name_size) / sizeof(char));
