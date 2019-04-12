@@ -168,8 +168,10 @@ int main_paths(int argc, char** argv) {
             std::exit(EXIT_FAILURE);
         }
         if (!need_xg && !xg_file.empty()) {
-            std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
-            std::exit(EXIT_FAILURE);
+            // TODO: This should be an error, but we display a warning instead for backward compatibility.
+            //std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
+            //std::exit(EXIT_FAILURE);
+            std::cerr << "warning: [vg paths] XG index is unnecessary for listing GBWT threads" << std::endl;
         }
     }
     if (output_formats != 1) {
