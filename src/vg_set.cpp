@@ -13,7 +13,7 @@ void VGset::transform(std::function<void(VG*)> lambda) {
             g = new VG(std::cin, show_progress & progress_bars);
         } else {
             ifstream in(name.c_str());
-            if (!in) throw ifvg::io::failure("failed to open " + name);
+            if (!in) throw ifstream::failure("failed to open " + name);
             g = new VG(in, show_progress & progress_bars);
             in.close();
         }
@@ -36,7 +36,7 @@ void VGset::for_each(std::function<void(VG*)> lambda) {
             g = new VG(std::cin, show_progress & progress_bars);
         } else {
             ifstream in(name.c_str());
-            if (!in) throw ifvg::io::failure("failed to open " + name);
+            if (!in) throw ifstream::failure("failed to open " + name);
             g = new VG(in, show_progress & progress_bars);
             in.close();
         }
@@ -104,10 +104,10 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const function<bool(const s
             std::ifstream in(name);
             
             if (name == "-"){
-                if (!in) throw ifvg::io::failure("vg_set: cannot read from stdin. Failed to open " + name);
+                if (!in) throw ifstream::failure("vg_set: cannot read from stdin. Failed to open " + name);
             }
             
-            if (!in) throw ifvg::io::failure("failed to open " + name);
+            if (!in) throw ifstream::failure("failed to open " + name);
             
             function<void(Graph&)> handle_graph = [&](Graph& graph) {
 #ifdef debug

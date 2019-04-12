@@ -3,7 +3,7 @@
  * Defines IO for a SnarlManager from stream files.
  */
 
-#include "registry.hpp"
+#include <vg/io/registry.hpp>
 #include "register_loader_saver_snarl_manager.hpp"
 
 #include "../snarls.hpp"
@@ -13,6 +13,7 @@ namespace vg {
 namespace stream {
 
 using namespace std;
+using namespace vg::io;
 
 void register_loader_saver_snarl_manager() {
     Registry::register_loader_saver<SnarlManager>(vector<string>{"SNARL", ""}, [](const message_sender_function_t& for_each_message) -> void* {

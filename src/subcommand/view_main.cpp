@@ -550,7 +550,7 @@ int main_view(int argc, char** argv) {
                 return 1;
             }
         } else {
-            vg::io::JSONStreamHelper<Alignment> json_helper(file_name);
+            stream::JSONStreamHelper<Alignment> json_helper(file_name);
             if (output_type == "json" || output_type == "gam") {
                 json_helper.write(cout, output_type == "json");
             }
@@ -589,7 +589,7 @@ int main_view(int argc, char** argv) {
         }
     } else if (input_type == "multipath") {
         if (input_json) {
-            vg::io::JSONStreamHelper<MultipathAlignment> json_helper(file_name);
+            stream::JSONStreamHelper<MultipathAlignment> json_helper(file_name);
             if (output_type == "multipath") {
                 json_helper.write(cout, false);
             }
@@ -730,7 +730,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "pileup") {
-                vg::io::JSONStreamHelper<Pileup> json_helper(file_name);
+                stream::JSONStreamHelper<Pileup> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
@@ -769,7 +769,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "locus") {
-                vg::io::JSONStreamHelper<Locus> json_helper(file_name);
+                stream::JSONStreamHelper<Locus> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;

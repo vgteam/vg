@@ -23,7 +23,7 @@
 namespace vg {
 namespace unittest {
 using namespace std;
-using namespace vg::stream;
+using namespace vg::io;
 
 // We have a tiny function to get virtual offsets, based on the block's start
 // offset in the file, and the offset in the block

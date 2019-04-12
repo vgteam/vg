@@ -3,7 +3,7 @@
  * Defines IO for a VG graph from stream files of Graph objects.
  */
 
-#include "registry.hpp"
+#include <vg/io/registry.hpp>
 #include "register_loader_saver_vg.hpp"
 
 #include "../vg.hpp"
@@ -13,6 +13,7 @@ namespace vg {
 namespace stream {
 
 using namespace std;
+using namespace vg::io;
 
 void register_loader_saver_vg() {
     // We register for "" so we can handle untagged old-style vg files and make them into HandleGraphs
