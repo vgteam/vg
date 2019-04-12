@@ -18,7 +18,7 @@
 #include "path.hpp"
 #include "path_index.hpp"
 #include "support_caller.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "nested_traversal_finder.hpp"
 
 //#define debug
@@ -1398,7 +1398,7 @@ void SupportCaller::call(
         // We have to load some pileups
         ifstream in;
         in.open(pileup_filename.c_str());
-        stream::for_each(in, handle_pileup);
+        vg::io::for_each(in, handle_pileup);
     }
         
     // Make a VCF because we need it in scope later, if we are outputting VCF.
@@ -2079,7 +2079,7 @@ void SupportCaller::call(
             } else {
                 // Emit the locus itself
                 locus_buffer.push_back(locus);
-                stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
             }
             
             // We called a site
@@ -2158,7 +2158,7 @@ void SupportCaller::call(
                 
                 // Send out the locus
                 locus_buffer.push_back(locus);
-                stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
                 
                 extra_loci++;
                 
@@ -2233,7 +2233,7 @@ void SupportCaller::call(
                     
                     // Send out the locus
                     locus_buffer.push_back(locus);
-                    stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                    vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
                     
                     extra_loci++;
                     
@@ -2246,7 +2246,7 @@ void SupportCaller::call(
         }
         
         // Flush the buffer of Locus objects we have to write
-        stream::write_buffered(cout, locus_buffer, 0);
+        vg::io::write_buffered(cout, locus_buffer, 0);
         
         if (verbose) {
             cerr << "Called " << extra_loci << " extra loci with copy number estimates" << endl;

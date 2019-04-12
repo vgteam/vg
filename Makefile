@@ -32,7 +32,7 @@ CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP -msse4.2 $(CXXF
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
 
-LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lhandlegraph -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS -lhts -ldeflate -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvgio -lhandlegraph -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS -lhts -ldeflate -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce
 # Use pkg-config to find Cairo and all the libs it uses
 LD_LIB_FLAGS += $(shell pkg-config --libs --static cairo jansson)
 
@@ -171,6 +171,7 @@ ELFUTILS_DIR:=deps/elfutils
 BOOST_DIR:=deps/boost-subset
 VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 LIBDEFLATE_DIR:=deps/libdeflate
+LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
 
 # Dependencies that go into libvg's archive
@@ -209,6 +210,7 @@ LIB_DEPS += $(LIB_DIR)/libvw.a
 LIB_DEPS += $(LIB_DIR)/liballreduce.a
 LIB_DEPS += $(LIB_DIR)/libboost_program_options.a
 LIB_DEPS += $(LIB_DIR)/libdeflate.a
+LIB_DEPS += $(LIB_DIR)/libvgio.a
 LIB_DEPS += $(LIB_DIR)/libhandlegraph.a
 ifneq ($(shell uname -s),Darwin)
     # On non-Mac (i.e. Linux), where ELF binaries are used, pull in libdw which
@@ -333,6 +335,9 @@ $(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/*.hpp $(PROGRESS_BAR_DIR)/*.cpp
 
 $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
+
+$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
+	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_INSTALL_PREFIX=$(CWD) . && $(MAKE) $(FILTER) && $(MAKE) install
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
@@ -619,6 +624,8 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
+	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
+	cd $(DEP_DIR) && cd libvgio && $(MAKE) claen 
 	rm -Rf $(RAPTOR_DIR)/build/*
 	# lru_cache is never built because it is header-only.
 	# bash-tap is never built either.

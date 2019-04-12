@@ -3,7 +3,7 @@
 #include <regex>
 #include "json2pb.h"
 #include "pileup.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 //#define debug
 
@@ -50,7 +50,7 @@ void Pileups::load(istream& in) {
     function<void(Pileup&)> lambda = [this](Pileup& pileup) {
         extend(pileup);
     };
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
 }
 
 void Pileups::write(ostream& out, size_t chunk_size) {
@@ -81,8 +81,8 @@ void Pileups::write(ostream& out, size_t chunk_size) {
         return pileup;
     };
 
-    stream::write(out, count, lambda);
-    stream::finish(out);
+    vg::io::write(out, count, lambda);
+    vg::io::finish(out);
 }
 
 void Pileups::for_each_node_pileup(const function<void(NodePileup&)>& lambda) {

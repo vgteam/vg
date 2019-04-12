@@ -1,5 +1,5 @@
 #include "../stream_sorter.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../stream_index.hpp"
 #include <getopt.h>
 #include "subcommand.hpp"
@@ -117,14 +117,14 @@ int main_gamsort(int argc, char **argv)
             function<void(Alignment&)> lambda_reader = [&rocks](Alignment& aln) {
                     rocks.put_alignment(aln);
             };
-            stream::for_each_parallel(gam_in, lambda_reader);
+            vg::io::for_each_parallel(gam_in, lambda_reader);
             
             // Maintain our own group buffer at a higher scope than the emitter.
             vector<Alignment> group_buffer;
             
             {
                 // Set up the emitter
-                stream::ProtobufEmitter<Alignment> output(cout);
+                vg::io::ProtobufEmitter<Alignment> output(cout);
                 if (index.get() != nullptr) {
                 
                     output.on_message([&](const Alignment& a) {

@@ -5,7 +5,7 @@
 #include <vector>
 #include <iostream>
 
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "json2pb.h"
 
 namespace vg {
@@ -103,7 +103,7 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
         }
         if (!good || buf.size() >= buf_size) {
             if (!json_out) {
-                stream::write(out, buf.size(), lambda);
+                vg::io::write(out, buf.size(), lambda);
             } else {
                 for (int i = 0; i < buf.size(); ++i) {
                     out << pb2json(buf[i]);
@@ -115,7 +115,7 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
     }
     
     if (!json_out) {
-        stream::finish(out);
+        vg::io::finish(out);
     }
     
     out.flush();

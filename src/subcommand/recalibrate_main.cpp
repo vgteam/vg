@@ -11,7 +11,7 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 #include <vowpalwabbit/vw.h>
 
@@ -182,7 +182,7 @@ int main_recalibrate(int argc, char** argv) {
             };
             
             // TODO: We have to go in serial because vw isn't thread safe I think.
-            stream::for_each(gam_stream, train_on);
+            vg::io::for_each(gam_stream, train_on);
             
             // Now we want to output the model.
             // TODO: We had to specify that already. I think it is magic?
@@ -204,7 +204,7 @@ int main_recalibrate(int argc, char** argv) {
             vw* model = VW::initialize(vw_args);
        
             // Define a buffering emitter to print the alignments
-            stream::ProtobufEmitter<Alignment> buf(cout);
+            vg::io::ProtobufEmitter<Alignment> buf(cout);
             
             // Specify how to recalibrate an alignment
             function<void(Alignment&)> recalibrate = [&](Alignment& aln) {
@@ -248,7 +248,7 @@ int main_recalibrate(int argc, char** argv) {
             
             // For each read, recalibrate and buffer and maybe print it.
             // TODO: It would be nice if this could be parallel...
-            stream::for_each(gam_stream, recalibrate);
+            vg::io::for_each(gam_stream, recalibrate);
             
             VW::finish(*model);
             

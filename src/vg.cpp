@@ -1,5 +1,5 @@
 #include "vg.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
@@ -71,7 +71,7 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
         extend(g, warn_on_duplicates);
     };
 
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
     
     update_progress(file_size);
 
@@ -635,7 +635,7 @@ void VG::serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_si
 }
 
 
-void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+void VG::serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
     // Serialize and make the emitter write every chunk
     serialize_to_function([&emitter](const Graph& chunk) {
         emitter.write_copy(chunk);
@@ -645,7 +645,7 @@ void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chun
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
     // Make an emitter that serializes each chunk as its own group, like we did before using emitters.
     // This is good for indexing.
-    stream::ProtobufEmitter<Graph> emitter(out, 1);
+    vg::io::ProtobufEmitter<Graph> emitter(out, 1);
     serialize_to_emitter(emitter, chunk_size);
 }
 
@@ -6809,7 +6809,7 @@ Alignment VG::align(const Alignment& alignment,
     // trans is only required in the X-drop aligner; can be nullptr
     auto do_align = [&](VG& g) {
 #ifdef debug
-        stream::write_to_file(alignment, hash_alignment(alignment) + ".gam");
+        vg::io::write_to_file(alignment, hash_alignment(alignment) + ".gam");
         serialize_to_file(hash_alignment(alignment) + ".vg");
 #endif
         if (aligner && qual_adj_aligner) {
@@ -6909,7 +6909,7 @@ Alignment VG::align(const Alignment& alignment,
                          << pb2json(a) << endl
                          << "expect:\t" << a.sequence() << endl
                          << "got:\t" << seq << endl;
-                    stream::write_to_file(a, "fail.gam");
+                    vg::io::write_to_file(a, "fail.gam");
                     graph.serialize_to_file("fail.vg");
                     assert(false);
                 }

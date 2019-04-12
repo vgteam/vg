@@ -2,8 +2,8 @@
 ///  
 /// Unit tests for BlockedGzipOutputStream 
 
-#include "../stream/blocked_gzip_output_stream.hpp"
-#include "../stream/hfile_cppstream.hpp"
+#include <vg/io/blocked_gzip_output_stream.hpp>
+#include <vg/io/hfile_cppstream.hpp>
 #include "catch.hpp"
 
 #include <htslib/hfile.h>

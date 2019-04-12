@@ -2,9 +2,9 @@
 #define VG_STREAM_SORTER_HPP_INCLUDED
 
 #include "vg.pb.h"
-#include "stream/protobuf_emitter.hpp"
-#include "stream/protobuf_iterator.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/protobuf_iterator.hpp>
+#include <vg/io/stream.hpp>
 #include "types.hpp"
 #include "progressive.hpp"
 #include "stream_index.hpp"
@@ -98,8 +98,8 @@ public:
     /// This will be computed based on the max file descriptor limit from the OS.
     size_t max_fan_in;
     
-    using cursor_t = stream::ProtobufIterator<Message>;
-    using emitter_t = stream::ProtobufEmitter<Message>;
+    using cursor_t = vg::io::ProtobufIterator<Message>;
+    using emitter_t = vg::io::ProtobufEmitter<Message>;
     
     /// Open all the given input files, keeping the streams and cursors in the given lists.
     /// We use lists because none of these should be allowed to move after creation.
@@ -182,7 +182,7 @@ template<typename Message>
 void StreamSorter<Message>::easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to) {
     std::vector<Message> sort_buffer;
 
-    stream::for_each<Message>(stream_in, [&](Message &msg) {
+    vg::io::for_each<Message>(stream_in, [&](Message &msg) {
         sort_buffer.push_back(msg);
     });
 
@@ -193,7 +193,7 @@ void StreamSorter<Message>::easy_sort(istream& stream_in, ostream& stream_out, S
     
     {
         // Make an output emitter
-        stream::ProtobufEmitter<Message> emitter(stream_out);
+        vg::io::ProtobufEmitter<Message> emitter(stream_out);
         
         if (index_to != nullptr) {
             emitter.on_message([&](const Message& m) {
@@ -291,7 +291,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
             ofstream temp_stream(temp_name);
             // OK to save as one massive group here.
             // TODO: This write could also be in a thread.
-            stream::write_buffered(temp_stream, thread_buffer, 0);
+            vg::io::write_buffered(temp_stream, thread_buffer, 0);
             
             #pragma omp critical (outstanding_temp_files)
             {

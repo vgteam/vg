@@ -14,7 +14,7 @@
 
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -203,7 +203,7 @@ int main_gbwt(int argc, char** argv)
                 string input_name = argv[i];
                 
                 // Try loading the GBWT
-                unique_ptr<gbwt::GBWT> loaded = stream::VPKG::load_one<gbwt::GBWT>(input_name);
+                unique_ptr<gbwt::GBWT> loaded = vg::io::VPKG::load_one<gbwt::GBWT>(input_name);
                 if (loaded.get() == nullptr) {
                     cerr << "error: [vg gbwt] could not load GBWT " << input_name << endl;
                     exit(1);
@@ -222,7 +222,7 @@ int main_gbwt(int argc, char** argv)
             gbwt::GBWT merged(indexes);
             
             // Save to a file in VPKG-encapsulated format.
-            stream::VPKG::save(merged, gbwt_output);
+            vg::io::VPKG::save(merged, gbwt_output);
             
             if (show_progress) {
                 gbwt::printStatistics(merged, gbwt_output);
@@ -235,7 +235,7 @@ int main_gbwt(int argc, char** argv)
                 string input_name = argv[optind];
                 
                 // Try to load the first GBWT as a dynamic one
-                index = stream::VPKG::load_one<gbwt::DynamicGBWT>(input_name);
+                index = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(input_name);
                 
                 if (index.get() == nullptr) {
                     cerr << "error: [vg gbwt] could not load dynamic GBWT " << input_name << endl;
@@ -249,7 +249,7 @@ int main_gbwt(int argc, char** argv)
             for (int curr = optind + 1; curr < argc; curr++)
             {
                 string input_name = argv[curr];
-                unique_ptr<gbwt::GBWT> next = stream::VPKG::load_one<gbwt::GBWT>(input_name);
+                unique_ptr<gbwt::GBWT> next = vg::io::VPKG::load_one<gbwt::GBWT>(input_name);
                 
                 if (next.get() == nullptr) {
                     cerr << "error: [vg gbwt]: could not load GBWT " << input_name << endl;
@@ -264,7 +264,7 @@ int main_gbwt(int argc, char** argv)
             }
             
             // Save to a file in VPKG-encapsulated format.
-            stream::VPKG::save(*index, gbwt_output);
+            vg::io::VPKG::save(*index, gbwt_output);
             
             if (show_progress) { 
                 gbwt::printStatistics(*index, gbwt_output);
@@ -293,7 +293,7 @@ int main_gbwt(int argc, char** argv)
         }
         
         // Try to load the GBWT as a dynamic one
-        unique_ptr<gbwt::DynamicGBWT> index = stream::VPKG::load_one<gbwt::DynamicGBWT>(argv[optind]);
+        unique_ptr<gbwt::DynamicGBWT> index = vg::io::VPKG::load_one<gbwt::DynamicGBWT>(argv[optind]);
         
         if (index.get() == nullptr) {
             cerr << "error: [vg gbwt]: could not load dynamic GBWT " << argv[optind] << endl;
@@ -306,7 +306,7 @@ int main_gbwt(int argc, char** argv)
             if (!path_ids.empty()) {
                 size_t foo = index->remove(path_ids);
                 std::string output = (gbwt_output.empty() ? argv[optind] : gbwt_output);
-                stream::VPKG::save(*index, output);
+                vg::io::VPKG::save(*index, output);
             } else {
                 std::cerr << "error: [vg gbwt] the index does not contain sample " << to_remove << std::endl;
             }
@@ -321,7 +321,7 @@ int main_gbwt(int argc, char** argv)
             cerr << "error: [vg gbwt] non-merge options require one input file" << endl;
             return 1;
         }
-        unique_ptr<gbwt::GBWT> index = stream::VPKG::load_one<gbwt::GBWT>(argv[optind]);
+        unique_ptr<gbwt::GBWT> index = vg::io::VPKG::load_one<gbwt::GBWT>(argv[optind]);
 
         if (index.get() == nullptr) {
             cerr << "error: [vg gbwt]: could not load GBWT " << argv[optind] << endl;

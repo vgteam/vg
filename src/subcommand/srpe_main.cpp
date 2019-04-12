@@ -8,8 +8,8 @@
 #include "subcommand.hpp"
 
 #include "../srpe.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../index.hpp"
 #include "../position.hpp"
 #include "../path.hpp"
@@ -171,23 +171,23 @@ int main_srpe(int argc, char** argv){
     vg::VG* graph;
 
     if (!xg_name.empty()){
-        xg_ind = stream::VPKG::load_one<xg::XG>(xg_name);
+        xg_ind = vg::io::VPKG::load_one<xg::XG>(xg_name);
         
         srpe.ff.set_my_xg_idx(xg_ind.get());
     }
     // Set GCSA indexes
     if (!gcsa_name.empty()){
-            gcsa_ind = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+            gcsa_ind = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
             
             srpe.ff.gcsa_ind = gcsa_ind.get();
             
             string lcp_name = gcsa_name + ".lcp";
-            lcp_ind = stream::VPKG::load_one<gcsa::LCPArray>(lcp_name);
+            lcp_ind = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_name);
             
             srpe.ff.lcp_ind = lcp_ind.get();
     }
     if (!xg_name.empty()){
-        xg_ind = stream::VPKG::load_one<xg::XG>(xg_name);
+        xg_ind = vg::io::VPKG::load_one<xg::XG>(xg_name);
         
         srpe.ff.set_my_xg_idx(xg_ind.get());
     }

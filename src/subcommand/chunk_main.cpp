@@ -13,8 +13,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"
@@ -283,7 +283,7 @@ int main_chunk(int argc, char** argv) {
             return 1;
         }
         
-        xindex = stream::VPKG::load_one<xg::XG>(in);
+        xindex = vg::io::VPKG::load_one<xg::XG>(in);
         in.close();
     }
 
@@ -293,7 +293,7 @@ int main_chunk(int argc, char** argv) {
         // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
     
         // Load the GBWT from its container
-        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
@@ -587,7 +587,7 @@ int main_chunk(int argc, char** argv) {
                 region_id_ranges = {{region.start, region.end}};
             }
             
-            gam_index->find(cursor, region_id_ranges, stream::emit_to<Alignment>(out_gam_file), fully_contained);
+            gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
         }
 
         // trace annotations
@@ -640,7 +640,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
     // Todo: try parallel stream.  The only snag is that we'd have to either know
     // a-priori if it's interleaved or not, or else make a new stream function that handles
     // the last element instead of throwing error (very trivial as for_each_parallel_impl supports this)
-    stream::for_each<Alignment>(gam_stream, [&](Alignment& alignment) {
+    vg::io::for_each<Alignment>(gam_stream, [&](Alignment& alignment) {
             if (count++ % chunk_size == 0) {
                 if (out_file.is_open()) {
                     out_file.close();
@@ -654,7 +654,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                 }
             }
             gam_buffer.push_back(alignment);
-            stream::write_buffered(out_file, gam_buffer, gam_buffer_size);
+            vg::io::write_buffered(out_file, gam_buffer, gam_buffer_size);
         });
     return 0;
 }

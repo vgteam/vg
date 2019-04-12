@@ -14,7 +14,7 @@
 
 #include "types.hpp"
 #include "vg.pb.h"
-#include "stream/protobuf_iterator.hpp"
+#include <vg/io/protobuf_iterator.hpp>
 #include "scanner.hpp"
 
 namespace vg {
@@ -359,7 +359,7 @@ public:
     StreamIndex() = default;
     
     // Methods that actually go get messages for you are going to need a cursor on an open, seekable data file.
-    using cursor_t = stream::ProtobufIterator<Message>;
+    using cursor_t = vg::io::ProtobufIterator<Message>;
     
     ///////////////////
     // Top-level message-based interface

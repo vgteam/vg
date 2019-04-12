@@ -804,7 +804,7 @@ void Transcriptome::construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const {
 
 void Transcriptome::write_gam_alignments(ostream * gam_ostream) const {
 
-    stream::ProtobufEmitter<Alignment> emitter(*gam_ostream);
+    vg::io::ProtobufEmitter<Alignment> emitter(*gam_ostream);
 
     for (auto & path: _transcriptome) {
 

@@ -9,7 +9,7 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../utility.hpp"
 
 

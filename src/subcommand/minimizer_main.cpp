@@ -29,8 +29,8 @@
 #include "../minimizer.hpp"
 #include "subcommand.hpp"
 
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
@@ -189,7 +189,7 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "Loading XG index " << xg_name << std::endl;
     }
     std::unique_ptr<xg::XG> xg_index;
-    xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
+    xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
     // Minimizer index.
     std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length, max_occs));
@@ -197,7 +197,7 @@ int main_minimizer(int argc, char** argv) {
         if (progress) {
             std::cerr << "Loading minimizer index " << load_index << std::endl;
         }
-        index = stream::VPKG::load_one<MinimizerIndex>(load_index);
+        index = vg::io::VPKG::load_one<MinimizerIndex>(load_index);
     }
 
     // GBWT-backed graph.
@@ -207,7 +207,7 @@ int main_minimizer(int argc, char** argv) {
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
-        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
         if (progress) {
             std::cerr << "Building GBWT-backed graph" << std::endl;
         }
@@ -289,7 +289,7 @@ int main_minimizer(int argc, char** argv) {
     if (progress) {
         std::cerr << "Writing the index to " << index_name << std::endl;
     }
-    stream::VPKG::save(*index, index_name);
+    vg::io::VPKG::save(*index, index_name);
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;
@@ -312,9 +312,9 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         if (progress) {
             std::cerr << "Loading GCSA index " << gcsa_name << std::endl;
         }
-        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         std::string lcp_name = gcsa_name + gcsa::LCPArray::EXTENSION;
-        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(lcp_name);
+        lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_name);
     }
 
     // Load the reads.

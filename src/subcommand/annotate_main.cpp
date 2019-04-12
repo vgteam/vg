@@ -2,8 +2,8 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../alignment.hpp"
 #include "../annotation.hpp"
 #include "../gff_reader.hpp"
@@ -172,7 +172,7 @@ int main_annotate(int argc, char** argv) {
     if (!xg_name.empty()) {
         get_input_file(xg_name, [&](istream& in) {
             // Read in the XG index
-            xg_index = stream::VPKG::load_one<xg::XG>(in);
+            xg_index = vg::io::VPKG::load_one<xg::XG>(in);
         });
     } else {
         cerr << "error [vg annotate]: no xg index provided" << endl;
@@ -188,7 +188,7 @@ int main_annotate(int argc, char** argv) {
             cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
             exit(1);
         }
-        snarl_manager = stream::VPKG::load_one<SnarlManager>(snarl_stream);
+        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
     Mapper mapper(xg_index.get(), nullptr, nullptr);
@@ -237,7 +237,7 @@ int main_annotate(int argc, char** argv) {
                 << novel_bp << endl;
             };
             get_input_file(gam_name, [&](istream& in) {
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             });
         } else {
             // We are annotating the actual reads
@@ -295,7 +295,7 @@ int main_annotate(int argc, char** argv) {
             }
             
             get_input_file(gam_name, [&](istream& in) {
-                stream::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
+                vg::io::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
                     // For each read
                     
                     if (add_positions) {
@@ -335,13 +335,13 @@ int main_annotate(int argc, char** argv) {
                     // Output the alignment
                     auto& buffer = buffers.at(omp_get_thread_num());
                     buffer.emplace_back(std::move(aln));
-                    stream::write_buffered(cout, buffer, 1000);
+                    vg::io::write_buffered(cout, buffer, 1000);
                 });
             });
         
             for (auto& buffer : buffers) {
                 // Finish each buffer
-                stream::write_buffered(cout, buffer, 0);
+                vg::io::write_buffered(cout, buffer, 0);
             }
         }
     }
@@ -441,7 +441,7 @@ int main_annotate(int argc, char** argv) {
                 get_input_file(bed_name, [&](istream& bed_stream) {
                     vector<Alignment> buffer;
                     parse_bed_regions(bed_stream, xg_index.get(), &buffer);
-                    stream::write_buffered(cout, buffer, 0); // flush
+                    vg::io::write_buffered(cout, buffer, 0); // flush
                 });
                 
                 // TODO: We'll get an EOF marker per input file.
@@ -451,7 +451,7 @@ int main_annotate(int argc, char** argv) {
                 get_input_file(gff_name, [&](istream& gff_stream) {
                     vector<Alignment> buffer;
                     parse_gff_regions(gff_stream, xg_index.get(), &buffer);
-                    stream::write_buffered(cout, buffer, 0); // flush
+                    vg::io::write_buffered(cout, buffer, 0); // flush
                 });
             }
         }

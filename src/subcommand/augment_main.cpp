@@ -375,11 +375,11 @@ int main_augment(int argc, char** argv) {
                 }
             };
             if (gam_in_file_name == "-") {
-                stream::for_each(std::cin, lambda);
+                vg::io::for_each(std::cin, lambda);
             } else {
                 ifstream in;
                 in.open(gam_in_file_name.c_str());
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             }
             for (auto& p : paths_map) {
                 read_paths.push_back(p.second);
@@ -388,7 +388,7 @@ int main_augment(int argc, char** argv) {
         }
         else {
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                    stream::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
+                    vg::io::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
                             // Trim the softclips off of every read
                             // Work out were to cut
                             int cut_start = softclip_start(alignment);
@@ -437,7 +437,7 @@ int main_augment(int argc, char** argv) {
                 cerr << "[vg augment]: Error opening translation file: " << translation_file_name << endl;
                 return 1;
             }
-            stream::write_buffered(translation_file, translation, 0);
+            vg::io::write_buffered(translation_file, translation, 0);
             translation_file.close();
         }        
         
@@ -460,10 +460,10 @@ int main_augment(int argc, char** argv) {
                 *gam_buffer.back().mutable_path() = read_paths[i];
                 
                 // Write it back out
-                stream::write_buffered(gam_out_file, gam_buffer, 100);
+                vg::io::write_buffered(gam_out_file, gam_buffer, 100);
             }
             // Flush the buffer
-            stream::write_buffered(gam_out_file, gam_buffer, 0);
+            vg::io::write_buffered(gam_out_file, gam_buffer, 0);
         }
     } else if (augmentation_mode == "pileup") {
         // We want to augment with pileups
@@ -502,10 +502,10 @@ int main_augment(int argc, char** argv) {
                         *alignment.mutable_path()->add_mapping() = aug_mapping.to_mapping();
                     }
                     gam_buffer.push_back(alignment);
-                    stream::write_buffered(gam_out_file, gam_buffer, 100);
+                    vg::io::write_buffered(gam_out_file, gam_buffer, 100);
                 };
-                stream::for_each(alignment_stream, lambda);
-                stream::write_buffered(gam_out_file, gam_buffer, 0);
+                vg::io::for_each(alignment_stream, lambda);
+                vg::io::write_buffered(gam_out_file, gam_buffer, 0);
             });
         }
 
@@ -582,7 +582,7 @@ int main_augment(int argc, char** argv) {
                 }
             }
         };
-        stream::for_each(loci_file, lambda);
+        vg::io::for_each(loci_file, lambda);
         
         // Collect all the unused nodes and edges (so we don't try to delete
         // while iterating...)
@@ -643,7 +643,7 @@ Pileups* compute_pileups(VG* graph, const string& gam_file_name, int thread_coun
             int tid = omp_get_thread_num();
             pileups[tid]->compute_from_alignment(aln);
         };
-        stream::for_each_parallel(alignment_stream, lambda);
+        vg::io::for_each_parallel(alignment_stream, lambda);
     });
 
     // single-threaded (!) merge

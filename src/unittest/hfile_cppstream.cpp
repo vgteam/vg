@@ -3,7 +3,7 @@
 /// Unit tests for hFILE* C++ stream wrapper
 ///
 
-#include "../stream/hfile_cppstream.hpp"
+#include <vg/io/hfile_cppstream.hpp>
 #include "catch.hpp"
 
 #include <htslib/hfile.h>

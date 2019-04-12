@@ -2,8 +2,8 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../packer.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -121,7 +121,7 @@ int main_pack(int argc, char** argv) {
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     } else {
-        xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<xg::XG>(xg_name);
     }
 
     // process input node list
@@ -163,10 +163,10 @@ int main_pack(int argc, char** argv) {
             packers[omp_get_thread_num()]->add(aln, record_edits);
         };
         if (gam_in == "-") {
-            stream::for_each_parallel(std::cin, lambda);
+            vg::io::for_each_parallel(std::cin, lambda);
         } else {
             ifstream gam_stream(gam_in);
-            stream::for_each_parallel(gam_stream, lambda);
+            vg::io::for_each_parallel(gam_stream, lambda);
             gam_stream.close();
         }
         if (thread_count == 1) {
