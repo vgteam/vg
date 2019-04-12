@@ -28,7 +28,6 @@ var searchData=
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],
   ['read_5fon_5freverse_5fstrand',['read_on_reverse_strand',['../structvg_1_1Alignment.html#a10b4d599e1812ee007e348f8ce8bfe49',1,'vg::Alignment']]],
   ['read_5fpaired',['read_paired',['../structvg_1_1Alignment.html#a2bfa3fffb5f4ea6ab3e98a6340ad16bb',1,'vg::Alignment']]],
-  ['read_5fthread_5fdb',['read_thread_db',['../index__main_8cpp.html#ab8341e55f5e99a8fe7a07781bc3af92f',1,'index_main.cpp']]],
   ['reader',['reader',['../classvg_1_1WindowedVcfBuffer.html#a064a56b55dbb562f1b52034a54ed3583',1,'vg::WindowedVcfBuffer']]],
   ['readfilter',['ReadFilter',['../classvg_1_1ReadFilter.html',1,'vg']]],
   ['readfilter_2ecpp',['readfilter.cpp',['../readfilter_8cpp.html',1,'']]],

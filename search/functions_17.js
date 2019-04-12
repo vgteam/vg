@@ -33,7 +33,6 @@ var searchData=
   ['write_5fmapping',['write_mapping',['../classvg_1_1PhaseUnfolder.html#a78c276c53410eebfadeafb72539c3f37',1,'vg::PhaseUnfolder']]],
   ['write_5fsplice_5fgraph',['write_splice_graph',['../classvg_1_1Transcriptome.html#a00adbf64d77a3d99945f5a5b3915dc95',1,'vg::Transcriptome']]],
   ['write_5fsupports',['write_supports',['../structvg_1_1SupportAugmentedGraph.html#a4f08f8c78bf0ffbfe7e364d4404b97a9',1,'vg::SupportAugmentedGraph']]],
-  ['write_5fthread_5fdb',['write_thread_db',['../index__main_8cpp.html#a3e967d82afdc3e242c26338f354a96fc',1,'index_main.cpp']]],
   ['write_5ftranslations',['write_translations',['../structvg_1_1AugmentedGraph.html#a70ffd6eb24e80cfa265ae48cdde15a45',1,'vg::AugmentedGraph']]],
   ['write_5fvariant',['write_variant',['../classvg_1_1Genotyper.html#af5b580b6db4e727934f964d00b058038',1,'vg::Genotyper']]],
   ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#a84ce0743c9a27e8b8ed32de37e4064fd',1,'vg::write_vcf_header()']]]

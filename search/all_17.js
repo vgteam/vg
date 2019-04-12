@@ -66,7 +66,6 @@ var searchData=
   ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349',1,'vg::ReadFilter']]],
   ['write_5fsplice_5fgraph',['write_splice_graph',['../classvg_1_1Transcriptome.html#a00adbf64d77a3d99945f5a5b3915dc95',1,'vg::Transcriptome']]],
   ['write_5fsupports',['write_supports',['../structvg_1_1SupportAugmentedGraph.html#a4f08f8c78bf0ffbfe7e364d4404b97a9',1,'vg::SupportAugmentedGraph']]],
-  ['write_5fthread_5fdb',['write_thread_db',['../index__main_8cpp.html#a3e967d82afdc3e242c26338f354a96fc',1,'index_main.cpp']]],
   ['write_5ftranslations',['write_translations',['../structvg_1_1AugmentedGraph.html#a70ffd6eb24e80cfa265ae48cdde15a45',1,'vg::AugmentedGraph']]],
   ['write_5ftrivial_5fcalls',['write_trivial_calls',['../classvg_1_1SupportCaller.html#a216ee27f03698399b7ded8342d846ba1',1,'vg::SupportCaller']]],
   ['write_5fvariant',['write_variant',['../classvg_1_1Genotyper.html#af5b580b6db4e727934f964d00b058038',1,'vg::Genotyper']]],

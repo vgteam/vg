@@ -18,7 +18,7 @@ var searchData=
   ['testdistanceindex',['TestDistanceIndex',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#a1ec37a4a8425b4253c64b249d8eb1a4d',1,'vg::DistanceIndex::SnarlIndex::TestDistanceIndex()'],['../classvg_1_1DistanceIndex_1_1ChainIndex.html#a1ec37a4a8425b4253c64b249d8eb1a4d',1,'vg::DistanceIndex::ChainIndex::TestDistanceIndex()'],['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a1ec37a4a8425b4253c64b249d8eb1a4d',1,'vg::DistanceIndex::MaxDistanceIndex::TestDistanceIndex()'],['../classvg_1_1DistanceIndex.html#a1ec37a4a8425b4253c64b249d8eb1a4d',1,'vg::DistanceIndex::TestDistanceIndex()']]],
   ['thin_5falignment_5fcutoff',['thin_alignment_cutoff',['../classvg_1_1VariantAdder.html#a12ef17f5d02d950a436d20e651588a81',1,'vg::VariantAdder']]],
   ['thread_5fextension',['thread_extension',['../classvg_1_1Mapper.html#ad2f2408aba30a38eda90a10c28cbf410',1,'vg::Mapper']]],
-  ['thread_5fname',['thread_name',['../classxg_1_1XG.html#a7acb5d6ab8d2926b89f860a8cc3b1678',1,'xg::XG']]],
+  ['thread_5fname',['thread_name',['../classxg_1_1XG.html#a7acb5d6ab8d2926b89f860a8cc3b1678',1,'xg::XG::thread_name()'],['../namespacevg.html#a521a6e5bc08cde58a9e9bf6b6bae9e7d',1,'vg::thread_name()']]],
   ['thread_5fstart',['thread_start',['../classxg_1_1XG.html#a837a737f07c534593b631f288b1b24b5',1,'xg::XG::thread_start(int64_t thread_id) const '],['../classxg_1_1XG.html#abc6d0a25a4094f1ade6c045b54d2165b',1,'xg::XG::thread_start(int64_t thread_id, bool is_rev) const ']]],
   ['thread_5fstarting_5fat',['thread_starting_at',['../classxg_1_1XG.html#ac51979da4ceb765ba5ba47c93b14d112',1,'xg::XG']]],
   ['thread_5fstate_5ft',['thread_state_t',['../structvg_1_1Watchdog_1_1thread__state__t.html',1,'vg::Watchdog']]],

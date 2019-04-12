@@ -12,7 +12,6 @@ var searchData=
   ['read_5fcoverage',['read_coverage',['../classvg_1_1MultipathMapper.html#aad3de01816bc0be9ac9f6474c15087af',1,'vg::MultipathMapper']]],
   ['read_5fcoverage_5fz_5fscore',['read_coverage_z_score',['../classvg_1_1MultipathMapper.html#ac5398224011f7ed5f8f200e801b515a6',1,'vg::MultipathMapper']]],
   ['read_5fmapping',['read_mapping',['../classvg_1_1PhaseUnfolder.html#adbf93e421183b64f73276639c3c23dfb',1,'vg::PhaseUnfolder']]],
-  ['read_5fthread_5fdb',['read_thread_db',['../index__main_8cpp.html#ab8341e55f5e99a8fe7a07781bc3af92f',1,'index_main.cpp']]],
   ['readrestrictedtraversalfinder',['ReadRestrictedTraversalFinder',['../classvg_1_1ReadRestrictedTraversalFinder.html#a8cf6a940b0fce108e8af39d8a50a380f',1,'vg::ReadRestrictedTraversalFinder']]],
   ['reassign_5fnode',['reassign_node',['../classvg_1_1Paths.html#aed5ea00a6a8dab5b54eeedd9e8f91a7b',1,'vg::Paths']]],
   ['rebuild_5fedge_5findexes',['rebuild_edge_indexes',['../classvg_1_1VG.html#a6541146b6410cec4be3e2a7379ea3bcf',1,'vg::VG']]],
