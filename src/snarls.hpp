@@ -625,11 +625,6 @@ private:
     /// Master list of the snarls in the graph.
     /// Use a deque so pointers never get invalidated but we still have some locality.
     deque<SnarlRecord> snarls;
-    
-    /// Have we finished adding snarls? This ought to be true for any
-    /// non-trivial read operations. Otherwise the parent/child/chain indexes
-    /// haven't been computed.
-    bool finished = false;
         
     /// Roots of snarl trees
     vector<const Snarl*> roots;

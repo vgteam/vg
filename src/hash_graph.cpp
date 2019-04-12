@@ -18,6 +18,10 @@ namespace vg {
         
     }
     
+    HashGraph::HashGraph(istream& in) {
+        deserialize(in);
+    }
+    
     
     handle_t HashGraph::create_handle(const string& sequence) {
         return create_handle(sequence, max_id + 1);
@@ -456,5 +460,320 @@ namespace vg {
         as_integers(occ)[0] = as_integer(path);
         as_integers(occ)[1] = intptr_t(mapping);
         return occ;
+    }
+    
+    HashGraph::path_t::path_t() {
+        
+    }
+    
+    HashGraph::path_t::path_t(const string& name, const int64_t& path_id) : name(name), path_id(path_id) {
+        
+        
+    }
+    
+    HashGraph::path_t::path_t(path_t&& other) : head(other.head), tail(other.tail), path_id(other.path_id), count(other.count), name(move(other.name)) {
+        
+        other.head = nullptr;
+        other.tail = nullptr;
+        other.path_id = 0;
+        other.count = 0;
+    }
+    
+    HashGraph::path_t& HashGraph::path_t::operator=(path_t&& other) {
+        if (this != &other) {
+            // free existing list
+            this->~path_t();
+            
+            // steal other list
+            head = other.head;
+            tail = other.tail;
+            other.head = nullptr;
+            other.tail = nullptr;
+            
+            name = move(other.name);
+            
+            path_id = other.path_id;
+            other.path_id = 0;
+            
+            count = other.count;
+            other.count = 0;
+        }
+        return *this;
+    }
+    
+    HashGraph::path_t::path_t(const path_t& other) : path_id(other.path_id), count(other.count), name(other.name) {
+        
+        path_mapping_t* prev = nullptr;
+        for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+            
+            path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
+            
+            if (!head) {
+                head = copied;
+            }
+            if (prev) {
+                prev->next = copied;
+                copied->prev = prev;
+            }
+            prev = copied;
+        }
+        tail = prev;
+    }
+    
+    HashGraph::path_t& HashGraph::path_t::operator=(const path_t& other) {
+        if (this != &other) {
+            // free existing list
+            this->~path_t();
+            
+            // copy the other list
+            path_mapping_t* prev = nullptr;
+            for (path_mapping_t* mapping = other.head; mapping != nullptr; mapping = mapping->next) {
+                
+                path_mapping_t* copied = new path_mapping_t(mapping->handle, mapping->path_id);
+                
+                if (!head) {
+                    head = copied;
+                }
+                if (prev) {
+                    prev->next = copied;
+                    copied->prev = prev;
+                }
+                prev = copied;
+            }
+            tail = prev;
+            
+            // copy the rest of the info
+            path_id = other.path_id;
+            name = other.name;
+            count = other.count;
+        }
+        return *this;
+    }
+    
+    HashGraph::path_t::~path_t() {
+        for (path_mapping_t* mapping = head; mapping != nullptr;) {
+            path_mapping_t* next = mapping->next;
+            delete mapping;
+            mapping = next;
+        }
+    }
+    
+    HashGraph::path_mapping_t* HashGraph::path_t::push_back(const handle_t& handle) {
+        path_mapping_t* pushing = new path_mapping_t(handle, path_id);
+        if (!tail) {
+            tail = head = pushing;
+        }
+        else {
+            tail->next = pushing;
+            pushing->prev = tail;
+            tail = pushing;
+        }
+        count++;
+        return pushing;
+    }
+    
+    HashGraph::path_mapping_t* HashGraph::path_t::push_front(const handle_t& handle) {
+        path_mapping_t* pushing = new path_mapping_t(handle, path_id);
+        if (!head) {
+            tail = head = pushing;
+        }
+        else {
+            head->prev = pushing;
+            pushing->next = head;
+            head = pushing;
+        }
+        count++;
+        return pushing;
+    }
+    
+    void HashGraph::path_t::remove(path_mapping_t* mapping) {
+        if (mapping == head) {
+            head = mapping->next;
+        }
+        if (mapping == tail) {
+            tail = mapping->prev;
+        }
+        if (mapping->next) {
+            mapping->next->prev = mapping->prev;
+        }
+        if (mapping->prev) {
+            mapping->prev->next = mapping->next;
+        }
+        count--;
+        delete mapping;
+    }
+    
+    HashGraph::path_mapping_t* HashGraph::path_t::insert_after(const handle_t& handle, path_mapping_t* mapping) {
+        path_mapping_t* inserting = new path_mapping_t(handle, path_id);
+        if (mapping) {
+            inserting->next = mapping->next;
+            if (mapping->next) {
+                mapping->next->prev = inserting;
+            }
+            mapping->next = inserting;
+            inserting->prev = mapping;
+            
+            if (mapping == tail) {
+                tail = inserting;
+            }
+        }
+        else {
+            if (head) {
+                inserting->next = head;
+                head->prev = inserting;
+                head = inserting;
+            }
+            else {
+                head = tail = inserting;
+            }
+        }
+        
+        count++;
+        return inserting;
+    }
+    
+    void HashGraph::path_t::serialize(ostream& out) const {
+        out.write((const char*) &path_id, sizeof(path_id) / sizeof(char));
+        
+        size_t name_size = name.size();
+        out.write((const char*) &name_size, sizeof(name_size) / sizeof(char));
+        out.write(name.c_str(), name.size());
+        
+        out.write((const char*) &count, sizeof(count) / sizeof(char));
+        
+        path_mapping_t* mapping = head;
+        while (mapping) {
+            int64_t step = as_integer(mapping->handle);
+            out.write((const char*) &step, sizeof(step) / sizeof(char));
+            mapping = mapping->next;
+        }
+    }
+    
+    void HashGraph::path_t::deserialize(istream& in) {
+        // free the current path if it exists
+        this->~path_t();
+        
+        in.read((char*) &path_id, sizeof(path_id) / sizeof(char));
+        
+        size_t name_size;
+        in.read((char*) &name_size, sizeof(name_size) / sizeof(char));
+        name.resize(name_size);
+        for (size_t i = 0; i < name.size(); i++) {
+            in.read((char*) &name[i], sizeof(char));
+        }
+        
+        size_t num_mappings;
+        in.read((char*) &num_mappings, sizeof(num_mappings) / sizeof(char));
+        // note: count will be incremented in the push_back method
+        count = 0;
+        for (size_t i = 0; i < num_mappings; i++) {
+            int64_t step;
+            in.read((char*) &step, sizeof(step) / sizeof(char));
+            push_back(as_handle(step));
+        }
+    }
+    
+    void HashGraph::node_t::serialize(ostream& out) const {
+        size_t seq_size = sequence.size();
+        out.write((const char*) &seq_size, sizeof(seq_size) / sizeof(char));
+        out.write(sequence.c_str(), sequence.size());
+        
+        size_t left_edges_size = left_edges.size();
+        out.write((const char*) &left_edges_size, sizeof(left_edges_size) / sizeof(char));
+        for (size_t i = 0; i < left_edges.size(); i++) {
+            int64_t next = as_integer(left_edges[i]);
+            out.write((const char*) &next, sizeof(next) / sizeof(char));
+        }
+        
+        size_t right_edges_size = right_edges.size();
+        out.write((const char*) &right_edges_size, sizeof(right_edges_size) / sizeof(char));
+        for (size_t i = 0; i < right_edges.size(); i++) {
+            int64_t next = as_integer(right_edges[i]);
+            out.write((const char*) &next, sizeof(next) / sizeof(char));
+        }
+    }
+    
+    void HashGraph::node_t::deserialize(istream& in) {
+        
+        size_t seq_size;
+        in.read((char*) &seq_size, sizeof(seq_size) / sizeof(char));
+        sequence.resize(seq_size);
+        for (size_t i = 0; i < sequence.size(); i++) {
+            in.read((char*) &sequence[i], sizeof(char));
+        }
+        
+        size_t num_left_edges;
+        in.read((char*) &num_left_edges, sizeof(num_left_edges) / sizeof(char));
+        left_edges.resize(num_left_edges);
+        for (size_t i = 0; i < left_edges.size(); i++) {
+            int64_t next;
+            in.read((char*) &next, sizeof(next) / sizeof(char));
+            left_edges[i] = as_handle(next);
+        }
+        
+        size_t num_right_edges;
+        in.read((char*) &num_right_edges, sizeof(num_right_edges) / sizeof(char));
+        right_edges.resize(num_right_edges);
+        for (size_t i = 0; i < right_edges.size(); i++) {
+            int64_t next;
+            in.read((char*) &next, sizeof(next) / sizeof(char));
+            right_edges[i] = as_handle(next);
+        }
+    }
+    
+    void HashGraph::serialize(ostream& out) const {
+        out.write((const char*) &max_id, sizeof(max_id) / sizeof(char));
+        out.write((const char*) &min_id, sizeof(min_id) / sizeof(char));
+        out.write((const char*) &next_path_id, sizeof(next_path_id) / sizeof(char));
+        
+        size_t graph_size = graph.size();
+        out.write((const char*) &graph_size, sizeof(graph_size) / sizeof(char));
+        for (const pair<id_t, node_t>& node_record : graph) {
+            out.write((const char*) &node_record.first, sizeof(node_record.first) / sizeof(char));
+            node_record.second.serialize(out);
+        }
+        
+        size_t paths_size = paths.size();
+        out.write((const char*) &paths_size, sizeof(paths_size) / sizeof(char));
+        for (const pair<int64_t, path_t>& path_record : paths) {
+            path_record.second.serialize(out);
+        }
+    }
+    
+    void HashGraph::deserialize(istream& in) {
+        clear();
+        
+        in.read((char*) &max_id, sizeof(max_id) / sizeof(char));
+        in.read((char*) &min_id, sizeof(min_id) / sizeof(char));
+        in.read((char*) &next_path_id, sizeof(next_path_id) / sizeof(char));
+        
+        size_t num_nodes;
+        in.read((char*) &num_nodes, sizeof(num_nodes) / sizeof(char));
+        graph.reserve(num_nodes);
+        for (size_t i = 0; i < num_nodes; i++) {
+            id_t node_id;
+            in.read((char*) &node_id, sizeof(node_id) / sizeof(char));
+            graph[node_id].deserialize(in);
+        }
+        
+        size_t num_paths;
+        in.read((char*) &num_paths, sizeof(num_paths) / sizeof(char));
+        paths.reserve(num_paths);
+        path_id.reserve(num_paths);
+        for (size_t i = 0; i < num_paths; i++) {
+            path_t path;
+            path.deserialize(in);
+            path_id[path.name] = path.path_id;
+            paths[path.path_id] = move(path);
+        }
+        
+        // we need to rebuild the occurrences of node mapping, which is not
+        // part of the serialized format
+        for (pair<const int64_t, path_t>& path_record : paths) {
+            path_t& path = path_record.second;
+            for (path_mapping_t* mapping = path.head; mapping != nullptr; mapping = mapping->next) {
+                occurrences[get_id(mapping->handle)].push_back(mapping);
+            }
+        }
     }
 }

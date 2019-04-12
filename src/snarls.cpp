@@ -841,8 +841,6 @@ void SnarlManager::flip(const Chain* chain) {
 }
     
 const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
-    // Don't let anyone add snarls if we are already finished.
-    assert(!finished);
 
     // Allocate a default SnarlRecord
     snarls.emplace_back();
@@ -865,13 +863,6 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
 }
 
 void SnarlManager::finish() {
-    // We can only do this once
-    assert(!finished);
-    
-    // Mark ourselves finished so nobody can add more snarls.
-    // Do it before indexing so we can use out partly built indexes without hitting asserts.
-    finished = true;
-
     // Build all the indexes from the snarls we were given
     build_indexes();
     
@@ -880,7 +871,6 @@ void SnarlManager::finish() {
 }
 
 const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
-    assert(finished);
     return snarl_into.count(make_pair(id, reverse)) ? snarl_into.at(make_pair(id, reverse)) : nullptr;
 }
     
