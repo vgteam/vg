@@ -637,14 +637,12 @@ namespace vg {
         int64_t path_id_out = endianness<int64_t>::to_big_endian(path_id);
         out.write((const char*) &path_id_out, sizeof(path_id_out) / sizeof(char));
         
-        uint64_t name_size_out = name.size();
-        name_size_out = endianness<uint64_t>::to_big_endian(name_size_out);
+        uint64_t name_size_out = endianness<uint64_t>::to_big_endian(name.size());
         out.write((const char*) &name_size_out, sizeof(name_size_out) / sizeof(char));
         
         out.write(name.c_str(), name.size());
         
-        uint64_t count_out = count;
-        count_out = endianness<uint64_t>::to_big_endian(count_out);
+        uint64_t count_out = endianness<uint64_t>::to_big_endian(count);
         out.write((const char*) &count_out, sizeof(count_out) / sizeof(char));
         
         path_mapping_t* mapping = head;
@@ -687,26 +685,22 @@ namespace vg {
     }
     
     void HashGraph::node_t::serialize(ostream& out) const {
-        uint64_t seq_size = sequence.size();
-        uint64_t seq_size_out = endianness<uint64_t>::to_big_endian(seq_size);
+        
+        uint64_t seq_size_out = endianness<uint64_t>::to_big_endian( sequence.size());
         out.write((const char*) &seq_size_out, sizeof(seq_size_out) / sizeof(char));
         out.write(sequence.c_str(), sequence.size());
         
-        uint64_t left_edges_size = left_edges.size();
-        uint64_t left_edges_size_out = endianness<uint64_t>::to_big_endian(left_edges_size);
+        uint64_t left_edges_size_out = endianness<uint64_t>::to_big_endian(left_edges.size());
         out.write((const char*) &left_edges_size_out, sizeof(left_edges_size_out) / sizeof(char));
         for (size_t i = 0; i < left_edges.size(); i++) {
-            int64_t next = as_integer(left_edges[i]);
-            int64_t next_out = endianness<int64_t>::to_big_endian(next);
+            int64_t next_out = endianness<int64_t>::to_big_endian(as_integer(left_edges[i]));
             out.write((const char*) &next_out, sizeof(next_out) / sizeof(char));
         }
         
-        uint64_t right_edges_size = right_edges.size();
-        uint64_t right_edges_size_out = endianness<uint64_t>::to_big_endian(right_edges_size);
+        uint64_t right_edges_size_out = endianness<uint64_t>::to_big_endian(right_edges.size());
         out.write((const char*) &right_edges_size_out, sizeof(right_edges_size_out) / sizeof(char));
         for (size_t i = 0; i < right_edges.size(); i++) {
-            int64_t next = as_integer(right_edges[i]);
-            int64_t next_out = endianness<int64_t>::to_big_endian(next);
+            int64_t next_out = endianness<int64_t>::to_big_endian(as_integer(right_edges[i]));
             out.write((const char*) &next_out, sizeof(next_out) / sizeof(char));
         }
     }
@@ -755,8 +749,7 @@ namespace vg {
         int64_t next_path_id_out = endianness<int64_t>::to_big_endian(next_path_id);
         out.write((const char*) &next_path_id_out, sizeof(next_path_id_out) / sizeof(char));
         
-        uint64_t graph_size = graph.size();
-        uint64_t graph_size_out = endianness<uint64_t>::to_big_endian(graph_size);
+        uint64_t graph_size_out = endianness<uint64_t>::to_big_endian(graph.size());
         out.write((const char*) &graph_size_out, sizeof(graph_size_out) / sizeof(char));
         
         for (const pair<id_t, node_t>& node_record : graph) {
@@ -765,8 +758,7 @@ namespace vg {
             node_record.second.serialize(out);
         }
         
-        uint64_t paths_size = paths.size();
-        uint64_t paths_size_out = endianness<uint64_t>::to_big_endian(paths_size);
+        uint64_t paths_size_out = endianness<uint64_t>::to_big_endian(paths.size());
         out.write((const char*) &paths_size_out, sizeof(paths_size_out) / sizeof(char));
         for (const pair<int64_t, path_t>& path_record : paths) {
             path_record.second.serialize(out);
