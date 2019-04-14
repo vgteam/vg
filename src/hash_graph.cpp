@@ -633,17 +633,23 @@ namespace vg {
     }
     
     void HashGraph::path_t::serialize(ostream& out) const {
-        out.write((const char*) &path_id, sizeof(path_id) / sizeof(char));
         
-        size_t name_size = name.size();
-        out.write((const char*) &name_size, sizeof(name_size) / sizeof(char));
+        int64_t path_id_out = endianness<int64_t>::to_big_endian(path_id);
+        out.write((const char*) &path_id_out, sizeof(path_id_out) / sizeof(char));
+        
+        uint64_t name_size_out = name.size();
+        name_size_out = endianness<uint64_t>::to_big_endian(name_size_out);
+        out.write((const char*) &name_size_out, sizeof(name_size_out) / sizeof(char));
+        
         out.write(name.c_str(), name.size());
         
-        out.write((const char*) &count, sizeof(count) / sizeof(char));
+        uint64_t count_out = count;
+        count_out = endianness<uint64_t>::to_big_endian(count_out);
+        out.write((const char*) &count_out, sizeof(count_out) / sizeof(char));
         
         path_mapping_t* mapping = head;
         while (mapping) {
-            int64_t step = as_integer(mapping->handle);
+            int64_t step = endianness<int64_t>::to_big_endian(as_integer(mapping->handle));
             out.write((const char*) &step, sizeof(step) / sizeof(char));
             mapping = mapping->next;
         }
@@ -653,88 +659,115 @@ namespace vg {
         // free the current path if it exists
         this->~path_t();
         
-        in.read((char*) &path_id, sizeof(path_id) / sizeof(char));
+        int64_t path_id_in;
+        in.read((char*) &path_id_in, sizeof(path_id_in) / sizeof(char));
+        path_id = endianness<int64_t>::from_big_endian(path_id_in);
         
-        size_t name_size;
-        in.read((char*) &name_size, sizeof(name_size) / sizeof(char));
+        uint64_t name_size_in;
+        in.read((char*) &name_size_in, sizeof(name_size_in) / sizeof(char));
+        uint64_t name_size = endianness<uint64_t>::from_big_endian(name_size_in);
+        
         name.resize(name_size);
         for (size_t i = 0; i < name.size(); i++) {
             in.read((char*) &name[i], sizeof(char));
         }
         
-        size_t num_mappings;
-        in.read((char*) &num_mappings, sizeof(num_mappings) / sizeof(char));
+        uint64_t num_mappings_in;
+        in.read((char*) &num_mappings_in, sizeof(num_mappings_in) / sizeof(char));
+        uint64_t num_mappings = endianness<uint64_t>::from_big_endian(num_mappings_in);
+        
         // note: count will be incremented in the push_back method
         count = 0;
         for (size_t i = 0; i < num_mappings; i++) {
-            int64_t step;
-            in.read((char*) &step, sizeof(step) / sizeof(char));
+            int64_t step_in;
+            in.read((char*) &step_in, sizeof(step_in) / sizeof(char));
+            int64_t step = endianness<int64_t>::from_big_endian(step_in);
             push_back(as_handle(step));
         }
     }
     
     void HashGraph::node_t::serialize(ostream& out) const {
-        size_t seq_size = sequence.size();
-        out.write((const char*) &seq_size, sizeof(seq_size) / sizeof(char));
+        uint64_t seq_size = sequence.size();
+        uint64_t seq_size_out = endianness<uint64_t>::to_big_endian(seq_size);
+        out.write((const char*) &seq_size_out, sizeof(seq_size_out) / sizeof(char));
         out.write(sequence.c_str(), sequence.size());
         
-        size_t left_edges_size = left_edges.size();
-        out.write((const char*) &left_edges_size, sizeof(left_edges_size) / sizeof(char));
+        uint64_t left_edges_size = left_edges.size();
+        uint64_t left_edges_size_out = endianness<uint64_t>::to_big_endian(left_edges_size);
+        out.write((const char*) &left_edges_size_out, sizeof(left_edges_size_out) / sizeof(char));
         for (size_t i = 0; i < left_edges.size(); i++) {
             int64_t next = as_integer(left_edges[i]);
-            out.write((const char*) &next, sizeof(next) / sizeof(char));
+            int64_t next_out = endianness<int64_t>::to_big_endian(next);
+            out.write((const char*) &next_out, sizeof(next_out) / sizeof(char));
         }
         
-        size_t right_edges_size = right_edges.size();
-        out.write((const char*) &right_edges_size, sizeof(right_edges_size) / sizeof(char));
+        uint64_t right_edges_size = right_edges.size();
+        uint64_t right_edges_size_out = endianness<uint64_t>::to_big_endian(right_edges_size);
+        out.write((const char*) &right_edges_size_out, sizeof(right_edges_size_out) / sizeof(char));
         for (size_t i = 0; i < right_edges.size(); i++) {
             int64_t next = as_integer(right_edges[i]);
-            out.write((const char*) &next, sizeof(next) / sizeof(char));
+            int64_t next_out = endianness<int64_t>::to_big_endian(next);
+            out.write((const char*) &next_out, sizeof(next_out) / sizeof(char));
         }
     }
     
     void HashGraph::node_t::deserialize(istream& in) {
         
-        size_t seq_size;
-        in.read((char*) &seq_size, sizeof(seq_size) / sizeof(char));
+        uint64_t seq_size_in;
+        in.read((char*) &seq_size_in, sizeof(seq_size_in) / sizeof(char));
+        uint64_t seq_size = endianness<uint64_t>::from_big_endian(seq_size_in);
         sequence.resize(seq_size);
         for (size_t i = 0; i < sequence.size(); i++) {
             in.read((char*) &sequence[i], sizeof(char));
         }
         
-        size_t num_left_edges;
-        in.read((char*) &num_left_edges, sizeof(num_left_edges) / sizeof(char));
+        uint64_t num_left_edges_in;
+        in.read((char*) &num_left_edges_in, sizeof(num_left_edges_in) / sizeof(char));
+        uint64_t num_left_edges = endianness<uint64_t>::from_big_endian(num_left_edges_in);
         left_edges.resize(num_left_edges);
         for (size_t i = 0; i < left_edges.size(); i++) {
-            int64_t next;
-            in.read((char*) &next, sizeof(next) / sizeof(char));
+            int64_t next_in;
+            in.read((char*) &next_in, sizeof(next_in) / sizeof(char));
+            int64_t next = endianness<int64_t>::from_big_endian(next_in);
             left_edges[i] = as_handle(next);
         }
         
-        size_t num_right_edges;
-        in.read((char*) &num_right_edges, sizeof(num_right_edges) / sizeof(char));
+        uint64_t num_right_edges_in;
+        in.read((char*) &num_right_edges_in, sizeof(num_right_edges_in) / sizeof(char));
+        uint64_t num_right_edges = endianness<uint64_t>::from_big_endian(num_right_edges_in);
         right_edges.resize(num_right_edges);
         for (size_t i = 0; i < right_edges.size(); i++) {
-            int64_t next;
-            in.read((char*) &next, sizeof(next) / sizeof(char));
+            int64_t next_in;
+            in.read((char*) &next_in, sizeof(next_in) / sizeof(char));
+            int64_t next = endianness<int64_t>::from_big_endian(next_in);
             right_edges[i] = as_handle(next);
         }
     }
     
     void HashGraph::serialize(ostream& out) const {
-        out.write((const char*) &max_id, sizeof(max_id) / sizeof(char));
-        out.write((const char*) &min_id, sizeof(min_id) / sizeof(char));
-        out.write((const char*) &next_path_id, sizeof(next_path_id) / sizeof(char));
         
-        size_t graph_size = graph.size();
-        out.write((const char*) &graph_size, sizeof(graph_size) / sizeof(char));
+        id_t max_id_out = endianness<id_t>::to_big_endian(max_id);
+        out.write((const char*) &max_id_out, sizeof(max_id_out) / sizeof(char));
+        
+        id_t min_id_out = endianness<id_t>::to_big_endian(min_id);
+        out.write((const char*) &min_id_out, sizeof(min_id_out) / sizeof(char));
+        
+        int64_t next_path_id_out = endianness<int64_t>::to_big_endian(next_path_id);
+        out.write((const char*) &next_path_id_out, sizeof(next_path_id_out) / sizeof(char));
+        
+        uint64_t graph_size = graph.size();
+        uint64_t graph_size_out = endianness<uint64_t>::to_big_endian(graph_size);
+        out.write((const char*) &graph_size_out, sizeof(graph_size_out) / sizeof(char));
+        
         for (const pair<id_t, node_t>& node_record : graph) {
-            out.write((const char*) &node_record.first, sizeof(node_record.first) / sizeof(char));
+            id_t node_id_out = endianness<id_t>::to_big_endian(node_record.first);
+            out.write((const char*) &node_id_out, sizeof(node_id_out) / sizeof(char));
             node_record.second.serialize(out);
         }
         
-        size_t paths_size = paths.size();
-        out.write((const char*) &paths_size, sizeof(paths_size) / sizeof(char));
+        uint64_t paths_size = paths.size();
+        uint64_t paths_size_out = endianness<uint64_t>::to_big_endian(paths_size);
+        out.write((const char*) &paths_size_out, sizeof(paths_size_out) / sizeof(char));
         for (const pair<int64_t, path_t>& path_record : paths) {
             path_record.second.serialize(out);
         }
@@ -743,21 +776,34 @@ namespace vg {
     void HashGraph::deserialize(istream& in) {
         clear();
         
-        in.read((char*) &max_id, sizeof(max_id) / sizeof(char));
-        in.read((char*) &min_id, sizeof(min_id) / sizeof(char));
-        in.read((char*) &next_path_id, sizeof(next_path_id) / sizeof(char));
+        id_t max_id_in;
+        in.read((char*) &max_id_in, sizeof(max_id_in) / sizeof(char));
+        max_id = endianness<id_t>::from_big_endian(max_id_in);
         
-        size_t num_nodes;
-        in.read((char*) &num_nodes, sizeof(num_nodes) / sizeof(char));
+        id_t min_id_in;
+        in.read((char*) &min_id_in, sizeof(min_id_in) / sizeof(char));
+        min_id = endianness<id_t>::from_big_endian(min_id_in);
+        
+        int64_t next_path_id_in;
+        in.read((char*) &next_path_id_in, sizeof(next_path_id_in) / sizeof(char));
+        next_path_id = endianness<int64_t>::from_big_endian(next_path_id_in);
+        
+        uint64_t num_nodes_in;
+        in.read((char*) &num_nodes_in, sizeof(num_nodes_in) / sizeof(char));
+        uint64_t num_nodes = endianness<uint64_t>::from_big_endian(num_nodes_in);
+        
         graph.reserve(num_nodes);
         for (size_t i = 0; i < num_nodes; i++) {
-            id_t node_id;
-            in.read((char*) &node_id, sizeof(node_id) / sizeof(char));
+            id_t node_id_in;
+            in.read((char*) &node_id_in, sizeof(node_id_in) / sizeof(char));
+            id_t node_id = endianness<id_t>::from_big_endian(node_id_in);
             graph[node_id].deserialize(in);
         }
         
-        size_t num_paths;
-        in.read((char*) &num_paths, sizeof(num_paths) / sizeof(char));
+        uint64_t num_paths_in;
+        in.read((char*) &num_paths_in, sizeof(num_paths_in) / sizeof(char));
+        uint64_t num_paths = endianness<uint64_t>::from_big_endian(num_paths_in);
+        
         paths.reserve(num_paths);
         path_id.reserve(num_paths);
         for (size_t i = 0; i < num_paths; i++) {
