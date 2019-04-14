@@ -177,6 +177,7 @@ for (auto& n : node_to_seed){
 
         SnarlSeedClusterer::seed2subtree(seeds, snarl_manager, dist_index, 
                        chains_to_snarl, snarls_to_node, node_to_seed); 
+        cluster_dists.resize(node_to_seed.size());
         
         // We track seen-ness by chain, so we don't have to do O(N) work to tag
         // all snarls in chromosome-spanning chains as seen.
@@ -271,8 +272,8 @@ bool got_left = false;
 bool got_right = false;
 for (size_t c : result) {
     pair<int64_t, int64_t> dists = cluster_dists[c];
-    assert(dists.first >= best_dist_left);
-    assert(dists.second >= best_dist_right);
+    assert(dists.first == -1 || dists.first >= best_dist_left);
+    assert(dists.second == -1 || dists.second >= best_dist_right);
     if (dists.first == best_dist_left) {got_left = true;}
     if (dists.second == best_dist_right) {got_right = true;}
     cerr << "\t" << c << ": left: " << dists.first << " right : " << dists.second << "\t seeds: ";
@@ -362,8 +363,8 @@ bool got_left = false;
 bool got_right = false;
 for (size_t c : cluster_group_ids) {
     pair<int64_t, int64_t> dists = cluster_dists[c];
-    assert(dists.first >= best_left);
-    assert(dists.second >= best_right);
+    assert(dists.first == -1 || dists.first >= best_left);
+    assert(dists.first == -1 || dists.second >= best_right);
     if (dists.first == best_left) {got_left = true;}
     if (dists.second == best_right) {got_right = true;}
     cerr << "\t" << c << ": left: " << dists.first << " right : " << dists.second << "\t seeds: ";
@@ -631,7 +632,8 @@ cerr << endl;
                     }
                     cluster_dists.erase(i);
                 } else {
-                    //If this chain cluster is on its own
+                    //If this chain cluster is on its own, extend its right 
+                    //distance to the end of the current snarl
                     chain_dists.second += dist_to_end;
                     best_left = DistanceIndex::minPos({best_left, chain_dists.first});
                     best_right = DistanceIndex::minPos({best_right, chain_dists.second});
@@ -690,8 +692,8 @@ bool got_left = false;
 bool got_right = false;
 for (size_t c : chain_cluster_ids) {
     pair<int64_t, int64_t> dists = cluster_dists[c];
-    assert(dists.first >= best_left);
-    assert(dists.second >= best_right);
+    assert(dists.first == -1 || dists.first >= best_left);
+    assert(dists.second == -1 || dists.second >= best_right);
     if (dists.first == best_left) {got_left = true;}
     if (dists.second == best_right) {got_right = true;}
     cerr << "\t" << c << ": left: " << dists.first << " right : " << dists.second << "\t seeds: ";
@@ -782,7 +784,7 @@ assert (group_id == union_find_clusters.find_group(group_id));
         int64_t best_right = -1;
  
         auto combine_clusters = [&] (size_t& new_group, size_t& combined_group, 
-                                    pair<int64_t, int64_t> dists){
+                                    pair<int64_t, int64_t>& dists){
             //Helper function to combine clusters in two nodes of the same snarl 
             if (combined_group == -1) {
                 snarl_cluster_ids.insert(new_group);
@@ -803,9 +805,10 @@ assert (group_id == union_find_clusters.find_group(group_id));
                     cluster_dists.erase(combined_group);
                 }
                 snarl_cluster_ids.insert(new_g);
-                cluster_dists[new_g] = make_pair(
+                dists = make_pair(
                               DistanceIndex::minPos({dists.first, old_dists.first}),
                               DistanceIndex::minPos({dists.second, old_dists.second}));
+                cluster_dists[new_g] = dists;
                 new_group = new_g;
                 combined_group = new_g;
             }
@@ -935,87 +938,94 @@ assert (group_id == union_find_clusters.find_group(group_id));
 
                 pair<int64_t, int64_t> dist_bounds_j = dist_bounds[j];
 
-                for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
-                    //TODO: Make children clusters a set so only go through each combined cluster once
-                    //for each cluster of child node i
-                    size_t c = children_i[c_i];
-                    size_t c_group = union_find_clusters.find_group(c);
+                if (first_pass || 
+                    DistanceIndex::minPos({dist_bounds_j.first, dist_bounds_j.second})
+                                        < distance_limit) {
+                    for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
+                        //TODO: Make children clusters a set so only go through each combined cluster once
+                        //for each cluster of child node i
+                        size_t c = children_i[c_i];
+                        size_t c_group = union_find_clusters.find_group(c);
 
-                    //True if this cluster got combined with an existing cluster
-                    bool combined = false;
+                        //True if this cluster got combined with an existing cluster
+                        bool combined = false;
 
 
-                    pair<int64_t, int64_t> new_dists;
-                    pair<int64_t, int64_t> dists_c;
+                        pair<int64_t, int64_t> new_dists;
+                        pair<int64_t, int64_t> dists_c;
 
-                    if (first_pass) {
-                        dists_c = cluster_dists[c];
-                        old_dists[c] = dists_c;
+                        if (first_pass) {
+                            //If this is the first time looking at these child clusters
+                            dists_c = cluster_dists[c];
+                            old_dists[c] = dists_c;
 
     
-                        //find distances to ends of snarl for this cluster 
-                        int64_t new_dist_s_l = dist_s_l == -1  ||  dists_c.first == -1 
-                                    ? -1 : dist_s_l + dists_c.first;
-                        int64_t new_dist_s_r = dist_s_r == -1 ||  dists_c.second == -1 
-                                    ? -1 : dist_s_r + dists_c.second;
-                        int64_t new_dist_e_l = dist_e_l == -1 || dists_c.first == -1
-                                    ? -1 : dist_e_l + dists_c.first;
-                        int64_t new_dist_e_r = dist_e_r == -1 || dists_c.second == -1
-                                    ? -1 : dist_e_r + dists_c.second;
+                            //find distances to ends of snarl for this cluster 
+                            int64_t new_dist_s_l = dist_s_l == -1  ||  dists_c.first == -1 
+                                        ? -1 : dist_s_l + dists_c.first;
+                            int64_t new_dist_s_r = dist_s_r == -1 ||  dists_c.second == -1 
+                                        ? -1 : dist_s_r + dists_c.second;
+                            int64_t new_dist_e_l = dist_e_l == -1 || dists_c.first == -1
+                                        ? -1 : dist_e_l + dists_c.first;
+                            int64_t new_dist_e_r = dist_e_r == -1 || dists_c.second == -1
+                                        ? -1 : dist_e_r + dists_c.second;
       
-                        new_dists = make_pair (
-                                 DistanceIndex::minPos({new_dist_s_l, new_dist_s_r}), 
-                                 DistanceIndex::minPos({new_dist_e_l,new_dist_e_r}));
-                        if (curr_node == snarl_index.snarlStart.first){
-                            new_dists.first = snarl_index.snarlStart.second ? 
-                                    dists_c.second : dists_c.first ;
+                            new_dists = make_pair (
+                                     DistanceIndex::minPos({new_dist_s_l, new_dist_s_r}), 
+                                     DistanceIndex::minPos({new_dist_e_l,new_dist_e_r}));
+                            if (curr_node == snarl_index.snarlStart.first){
+                                new_dists.first = snarl_index.snarlStart.second ? 
+                                        dists_c.second : dists_c.first ;
+                            }
+                            if (curr_node == snarl_index.snarlEnd.first) {
+                                new_dists.second = snarl_index.snarlEnd.second ? 
+                                         dists_c.first : dists_c.second ;
+                            } 
+                            best_left = DistanceIndex::minPos({best_left, new_dists.first});
+                            best_right = DistanceIndex::minPos({best_right, new_dists.second});
+
+
+                        } else {
+                            dists_c = old_dists[c];
+                            new_dists = cluster_dists[c_group];
+                            combined = true;
                         }
-                        if (curr_node == snarl_index.snarlEnd.first) {
-                            new_dists.second = snarl_index.snarlEnd.second ? 
-                                     dists_c.first : dists_c.second ;
-                        } 
-                        best_left = DistanceIndex::minPos({best_left, new_dists.first});
-                        best_right = DistanceIndex::minPos({best_right, new_dists.second});
+                        
 
+                        if (dist_l_l != -1 && dists_c.first != -1 && dist_bounds_j.first != -1  
+                                 && dist_l_l + dists_c.first +  dist_bounds_j.first < distance_limit) {
+                            //If cluster c can be combined with clusters in j from the left
+                            //of both of them
+                            combined = true;
+                            combine_clusters(c_group, group_l_l, new_dists);
+                        }
+                        if (dist_l_r != -1 && dists_c.first != -1 && dist_bounds_j.second != -1  
+                                    && dist_l_r + dists_c.first + dist_bounds_j.second < distance_limit) {
+                            combined = true;
+                            combine_clusters(c_group, group_l_r, new_dists);
 
-                    } else {
-                        dists_c = old_dists[c];
-                        new_dists = cluster_dists[c_group];
-                        combined = true;
-                    }
-                    
-
-                    if (dist_l_l != -1 && dists_c.first != -1 && dist_bounds_j.first != -1  
-                             && dist_l_l + dists_c.first +  dist_bounds_j.first < distance_limit) {
-                        //If cluster c can be combined with clusters in j from the left
-                        //of both of them
-                        combined = true;
-                        combine_clusters(c_group, group_l_l, new_dists);
-                    }
-                    if (dist_l_r != -1 && dists_c.first != -1 && dist_bounds_j.second != -1  
-                                && dist_l_r + dists_c.first + dist_bounds_j.second < distance_limit) {
-                        combined = true;
-                        combine_clusters(c_group, group_l_r, new_dists);
+                        }
+                        if (dist_r_l != -1 && dists_c.second != -1 && dist_bounds_j.first != -1 
+                                    && dist_r_l + dists_c.second + dist_bounds_j.first < distance_limit) {
+                            combined = true;
+                            combine_clusters(c_group, group_r_l, new_dists);
+                        }
+                        if (dist_r_r != -1 && dists_c.second != -1 && dist_bounds_j.second != -1 
+                                   && dist_r_r + dists_c.second + dist_bounds_j.second < distance_limit) {
+                            combined = true;
+                            combine_clusters(c_group, group_r_r, new_dists);
+                        }
+                        if (!combined) {
+                            snarl_cluster_ids.insert(c_group);
+                            cluster_dists[c_group] = new_dists;
+                        }
 
                     }
-                    if (dist_r_l != -1 && dists_c.second != -1 && dist_bounds_j.first != -1 
-                                && dist_r_l + dists_c.second + dist_bounds_j.first < distance_limit) {
-                        combined = true;
-                        combine_clusters(c_group, group_r_l, new_dists);
-                    }
-                    if (dist_r_r != -1 && dists_c.second != -1 && dist_bounds_j.second != -1 
-                               && dist_r_r + dists_c.second + dist_bounds_j.second < distance_limit) {
-                        combined = true;
-                        combine_clusters(c_group, group_r_r, new_dists);
-                    }
-                    if (!combined) {
-                        snarl_cluster_ids.insert(c_group);
-                        cluster_dists[c_group] = new_dists;
-                    }
-
                 }
                 first_pass = false;
-                if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1) {
+                if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1
+                   && DistanceIndex::minPos({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) < distance_limit 
+                   && DistanceIndex::minPos({child_dist_left, child_dist_right}) < distance_limit) {
                     //If the two nodes are reachable
                     vector<size_t>& children_j =  child_clusters[j];
 
@@ -1064,8 +1074,8 @@ for (size_t c : snarl_cluster_ids) {
     if (dists.second == best_right) {got_right = true;}
     cerr << "\t" << c << ": left: " << dists.first << " right : " << dists.second << "\t seeds: ";
     vector<size_t> seed_is = union_find_clusters.group(c);
-    assert(dists.first >= best_left);
-    assert(dists.second >= best_right);
+    assert(dists.first == -1 || dists.first >= best_left);
+    assert(dists.second == -1 || dists.second >= best_right);
     for (size_t s : seed_is) {
         cerr << seeds[s] << " ";
     }
@@ -1091,8 +1101,8 @@ for (size_t c : snarl_cluster_ids) {
     if (dists.second == best_right) {got_right = true;}
     cerr << "\t" << c << ": left: " << dists.first << " right : " << dists.second << "\t seeds: ";
     vector<size_t> seed_is = union_find_clusters.group(c);
-    assert(dists.first >= best_left);
-    assert(dists.second >= best_right);
+    assert(dists.first == -1 || dists.first >= best_left);
+    assert(dists.second == -1 || dists.second >= best_right);
     for (size_t s : seed_is) {
         cerr << seeds[s] << " ";
     }
