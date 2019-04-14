@@ -193,6 +193,7 @@ var searchData=
   ['frequent_5fkeys',['frequent_keys',['../classvg_1_1MinimizerIndex.html#a02bbdd7bfc454e5d74db5adda6f0d4f1',1,'vg::MinimizerIndex']]],
   ['from',['from',['../structvg_1_1Edge.html#a3dfaeceda2846f9b2562d5e6acafd468',1,'vg::Edge::from()'],['../structvg_1_1Translation.html#af19bb0bf7b6d241f3e61f27b83199a1f',1,'vg::Translation::from()']]],
   ['from_5fbacking',['from_backing',['../classvg_1_1SourceSinkOverlay.html#ae5d76a4c9c7af0dc97e0dc45814c34ea',1,'vg::SourceSinkOverlay']]],
+  ['from_5fbig_5fendian',['from_big_endian',['../structvg_1_1endianness.html#a473244129a68f42dcc05119ffe1132c5',1,'vg::endianness']]],
   ['from_5fcallback',['from_callback',['../classxg_1_1XG.html#a5e53bd7c308b8654d688a45a94f5f550',1,'xg::XG']]],
   ['from_5fdiff',['from_diff',['../classvg_1_1PagedVector.html#a6973d0cdbcedff40e3f336a661e7b08c',1,'vg::PagedVector']]],
   ['from_5fgraph',['from_graph',['../classxg_1_1XG.html#abf68306c47250c7e7740d29be85da39b',1,'xg::XG']]],

@@ -142,6 +142,7 @@ var searchData=
   ['approx_5fposition',['approx_position',['../classvg_1_1Mapper.html#accd2bd6b8ec2db952fd79e0742f1a548',1,'vg::Mapper']]],
   ['approx_5fsize_5fof_5fkmer_5fmatches',['approx_size_of_kmer_matches',['../classvg_1_1Index.html#a1ce56895ffdb9ea147e0b0ead6b1479f',1,'vg::Index']]],
   ['approx_5fsizes_5fof_5fkmer_5fmatches',['approx_sizes_of_kmer_matches',['../classvg_1_1Index.html#ac8e7788125662b6ad41b20b70f24f791',1,'vg::Index']]],
+  ['arch_5fis_5fbig_5fendian',['arch_is_big_endian',['../structvg_1_1endianness.html#a24b1cadacc768c204cfebeff0c9d33f9',1,'vg::endianness']]],
   ['are_5fconsecutive_5fnodes_5fin_5fpath',['are_consecutive_nodes_in_path',['../classvg_1_1Paths.html#a9562c903db44e7328f82c30afea6c643',1,'vg::Paths']]],
   ['are_5fconsistent',['are_consistent',['../classvg_1_1MultipathMapper.html#afa753672aa6739dc7169cf8ff2b7b29c',1,'vg::MultipathMapper']]],
   ['arrive_5fby_5freverse',['arrive_by_reverse',['../namespacexg.html#a225d33b0f33dc5a5d9fae9b90cf93a17',1,'xg']]],
