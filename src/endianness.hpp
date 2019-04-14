@@ -71,7 +71,8 @@ namespace vg {
     template <class IntType>
     bool endianness<IntType>::arch_is_big_endian() {
         
-        IntType val = 1;
+        // mark volatile so the compiler won't optimize it away
+        volatile IntType val = 1;
         
         uint8_t* bytes = (uint8_t*) &val;
         
