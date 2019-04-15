@@ -7,5 +7,6 @@ var searchData=
   ['flankstate',['FlankState',['../structvg_1_1FlankState.html',1,'vg']]],
   ['flowsort',['FlowSort',['../classvg_1_1FlowSort.html',1,'vg']]],
   ['fragmentlengthdistribution',['FragmentLengthDistribution',['../classvg_1_1FragmentLengthDistribution.html',1,'vg']]],
-  ['fragmentlengthstatistics',['FragmentLengthStatistics',['../classvg_1_1FragmentLengthStatistics.html',1,'vg']]]
+  ['fragmentlengthstatistics',['FragmentLengthStatistics',['../classvg_1_1FragmentLengthStatistics.html',1,'vg']]],
+  ['funnel',['Funnel',['../classvg_1_1Funnel.html',1,'vg']]]
 ];

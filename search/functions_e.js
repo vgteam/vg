@@ -68,6 +68,7 @@ var searchData=
   ['normal_5finverse_5fcdf',['normal_inverse_cdf',['../namespacevg.html#adbaafa0c783156a34cb7e16ec2958c1f',1,'vg']]],
   ['normal_5fpdf',['normal_pdf',['../namespacevg.html#a97e831d426c5d0eaed85a981adb0704a',1,'vg']]],
   ['normalize',['normalize',['../classvg_1_1VG.html#a217f8b5abd62bcdb256cf15926c9fe5c',1,'vg::VG']]],
+  ['now',['now',['../classvg_1_1Funnel.html#a38ac7bda14a9c20e93f59073817b3879',1,'vg::Funnel']]],
   ['nullmaskinggraph',['NullMaskingGraph',['../classvg_1_1NullMaskingGraph.html#a2d348fa5aa3bd9216fc4133d320575ef',1,'vg::NullMaskingGraph::NullMaskingGraph(const HandleGraph *graph)'],['../classvg_1_1NullMaskingGraph.html#addeb1ab4002f516c686a5af59018597f',1,'vg::NullMaskingGraph::NullMaskingGraph()=default']]],
   ['num_5fhaplotypes',['num_haplotypes',['../classvg_1_1PhasedGenome.html#af17e5f99a07028d41f94885480cdddf7',1,'vg::PhasedGenome']]]
 ];

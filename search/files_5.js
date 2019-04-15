@@ -7,5 +7,7 @@ var searchData=
   ['filter_5fmain_2ecpp',['filter_main.cpp',['../filter__main_8cpp.html',1,'']]],
   ['find_5fmain_2ecpp',['find_main.cpp',['../find__main_8cpp.html',1,'']]],
   ['flow_5fsort_2ecpp',['flow_sort.cpp',['../flow__sort_8cpp.html',1,'']]],
-  ['flow_5fsort_2ehpp',['flow_sort.hpp',['../flow__sort_8hpp.html',1,'']]]
+  ['flow_5fsort_2ehpp',['flow_sort.hpp',['../flow__sort_8hpp.html',1,'']]],
+  ['funnel_2ecpp',['funnel.cpp',['../funnel_8cpp.html',1,'']]],
+  ['funnel_2ehpp',['funnel.hpp',['../funnel_8hpp.html',1,'']]]
 ];

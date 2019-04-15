@@ -51,5 +51,8 @@ var searchData=
   ['from_5fstart',['from_start',['../structvg_1_1Edge.html#aadc916440008619a27cdd0c388e8ba86',1,'vg::Edge']]],
   ['fs',['fs',['../structvg_1_1StrandSupport.html#ab88dd03472df99d411f4055efa3d0d45',1,'vg::StrandSupport']]],
   ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner']]],
-  ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]]
+  ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]],
+  ['funnel_5fduration',['funnel_duration',['../classvg_1_1Funnel.html#a2068e21a16063030a6eec7444538ec09',1,'vg::Funnel']]],
+  ['funnel_5fname',['funnel_name',['../classvg_1_1Funnel.html#aae00e188df16e84d5ecdb12e6ce5d51e',1,'vg::Funnel']]],
+  ['funnel_5fstart_5ftime',['funnel_start_time',['../classvg_1_1Funnel.html#acaad8aad0e4360c140e0cdd1c9327c8b',1,'vg::Funnel']]]
 ];

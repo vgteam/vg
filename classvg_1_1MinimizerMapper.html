@@ -127,7 +127,8 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a6062b78a7f795cb2a585eb6695bde675"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6062b78a7f795cb2a585eb6695bde675">max_alignments</a> = 10</td></tr>
+<tr class="memitem:a6062b78a7f795cb2a585eb6695bde675"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6062b78a7f795cb2a585eb6695bde675">max_alignments</a> = 48</td></tr>
+<tr class="memdesc:a6062b78a7f795cb2a585eb6695bde675"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many extended clusters should we align, max?  <a href="#a6062b78a7f795cb2a585eb6695bde675">More...</a><br/></td></tr>
 <tr class="separator:a6062b78a7f795cb2a585eb6695bde675"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aede601962425752ec75ea1d890505357"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#aede601962425752ec75ea1d890505357">max_multimaps</a> = 1</td></tr>
 <tr class="separator:aede601962425752ec75ea1d890505357"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -152,6 +153,12 @@ Protected Types</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
+<tr class="memitem:a6a485aa968767c54bc47fdff11bcdd76"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6a485aa968767c54bc47fdff11bcdd76">estimate_extension_group_score</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds) const </td></tr>
+<tr class="separator:a6a485aa968767c54bc47fdff11bcdd76"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a45beb55a9535a9b986506a48703613c9"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a45beb55a9535a9b986506a48703613c9">score_is_significant</a> (int score_estimate, int best_score, int second_best_score) const </td></tr>
+<tr class="separator:a45beb55a9535a9b986506a48703613c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abb836281d5ce79b02655a6c83c92d8ea"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#abb836281d5ce79b02655a6c83c92d8ea">chain_extended_seeds</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;out) const </td></tr>
+<tr class="separator:abb836281d5ce79b02655a6c83c92d8ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6045a66e4c271c4901ad9e539d01a1d6"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; size_t, <br class="typebreak"/>
 unordered_map&lt; size_t, vector<br class="typebreak"/>
 &lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerMapper.html#a6045a66e4c271c4901ad9e539d01a1d6">find_connecting_paths</a> (const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;extended_seeds, size_t read_length) const </td></tr>
@@ -266,6 +273,82 @@ Protected Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a class="anchor" id="abb836281d5ce79b02655a6c83c92d8ea"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MinimizerMapper::chain_extended_seeds </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extended_seeds</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>out</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Operating on the given input alignment, chain together the given extended perfect-match seeds and produce an alignment into the given output <a class="el" href="structvg_1_1Alignment.html">Alignment</a> object. </p>
+
+</div>
+</div>
+<a class="anchor" id="a6a485aa968767c54bc47fdff11bcdd76"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::MinimizerMapper::estimate_extension_group_score </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1GaplessExtension.html">GaplessExtension</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>extended_seeds</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Estimate the score it may be possible to achieve using the given group of GaplessExtensions. Supports single full-length extensions and groups that need chaining. May reorder the input extended_seeds vector if it is not sorted in read space. Is not always an overestimate of the actual score. </p>
+
+</div>
+</div>
 <a class="anchor" id="a47b209592e4ed47ebb5aecd7ce90223c"></a>
 <div class="memitem">
 <div class="memproto">
@@ -404,7 +487,48 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Map the given read, and send output to the given <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a>. May be run from any thread. </p>
+<p>Map the given read, and send output to the given <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a>. May be run from any thread. TODO: Can't be const because the clusterer's cluster_seeds isn't const. </p>
+
+</div>
+</div>
+<a class="anchor" id="a45beb55a9535a9b986506a48703613c9"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MinimizerMapper::score_is_significant </td>
+          <td>(</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>score_estimate</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>best_score</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>second_best_score</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Determine if a score estimate is significant enough to justify computing the real <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. Returns true if it might win or affect mapping quality, and false otherwise. </p>
 
 </div>
 </div>
@@ -581,10 +705,12 @@ Protected Attributes</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::MinimizerMapper::max_alignments = 10</td>
+          <td class="memname">size_t vg::MinimizerMapper::max_alignments = 48</td>
         </tr>
       </table>
 </div><div class="memdoc">
+
+<p>How many extended clusters should we align, max? </p>
 
 </div>
 </div>

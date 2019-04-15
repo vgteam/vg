@@ -1,6 +1,8 @@
 var searchData=
 [
+  ['last_5fcorrect_5fstage',['last_correct_stage',['../classvg_1_1Funnel.html#a5b0f230630e6d79c5031c2041bdf1efd',1,'vg::Funnel']]],
   ['last_5fpath_5fposition',['last_path_position',['../namespacevg.html#aa1c1e5b8ce9f9607976913317102d6dc',1,'vg']]],
+  ['latest',['latest',['../classvg_1_1Funnel.html#acea7ce7b301c778eba610288a096e61c',1,'vg::Funnel']]],
   ['left_5fdegree',['left_degree',['../classvg_1_1VG.html#af9ac6e61dfa9350459dbb9586088c4a5',1,'vg::VG']]],
   ['left_5fmaximal',['left_maximal',['../structvg_1_1FlankState.html#a34ab93f5f10c16a4dae6d88dc401a303',1,'vg::FlankState']]],
   ['length',['length',['../structvg_1_1GaplessMatch.html#a3335154d5b87b94cd70eaabc0c47c5b4',1,'vg::GaplessMatch::length()'],['../structvg_1_1UnambiguousMatch.html#a72818eddcd912889b38d808b58781b03',1,'vg::UnambiguousMatch::length()'],['../structvg_1_1FlankState.html#a19a522e5a0758e3f70762e9cc25dd118',1,'vg::FlankState::length()'],['../classvg_1_1MaximalExactMatch.html#a337debd9fc7219234fc98d2d2462c5fc',1,'vg::MaximalExactMatch::length()'],['../classvg_1_1BitString.html#ab4a80eb1f2c9dc963ee13ad640a92611',1,'vg::BitString::length()'],['../classvg_1_1VG.html#a23641dedefa2b6d573939515fcf5974c',1,'vg::VG::length()']]],

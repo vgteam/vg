@@ -26,6 +26,8 @@ var searchData=
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
   ['initial_5fcapacity',['INITIAL_CAPACITY',['../classvg_1_1MinimizerIndex.html#a044a3cf2e5a0bf7ac29e195ee6e97513',1,'vg::MinimizerIndex']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
+  ['input_5fin_5fprogress',['input_in_progress',['../classvg_1_1Funnel.html#a755941e4c7988487e539256c16b507bb',1,'vg::Funnel']]],
+  ['input_5fstart_5ftime',['input_start_time',['../classvg_1_1Funnel.html#affb3e5cfe02a4996dc0d716d1cb04cb1',1,'vg::Funnel']]],
   ['insert_5fcol',['insert_col',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9a17e99af8ce2b7992fddef79c4e8b18',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['insert_5fmean',['insert_mean',['../classvg_1_1Filter.html#ab8a36803dfa97e61678756f7b7a3a31c',1,'vg::Filter::insert_mean()'],['../classvg_1_1NGSSimulator.html#ae7110e5b235c8a69f66cba73a6570660',1,'vg::NGSSimulator::insert_mean()']]],
   ['insert_5frow',['insert_row',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ade4c512c3713ac162359ed6d9207537d',1,'vg::BandedGlobalAligner::BAMatrix']]],
@@ -50,5 +52,6 @@ var searchData=
   ['is_5freverse',['is_reverse',['../structvg_1_1Genotyper_1_1Affinity.html#ae1707128484386f3a20eb8c6a8f9ec95',1,'vg::Genotyper::Affinity::is_reverse()'],['../structvg_1_1Transcript.html#a9108ebf271cbaed677bbd2c2232729b2',1,'vg::Transcript::is_reverse()'],['../structvg_1_1Position.html#aeb715b329bd7371ca380a2f2abdcbd13',1,'vg::Position::is_reverse()'],['../structxg_1_1XG_1_1ThreadMapping.html#ad76b5bf95182c95540db5f99e449586f',1,'xg::XG::ThreadMapping::is_reverse()']]],
   ['is_5fsecondary',['is_secondary',['../structvg_1_1Alignment.html#a59a4b8c7367fb468e46bcf6ae292888f',1,'vg::Alignment']]],
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
+  ['items',['items',['../structvg_1_1Funnel_1_1Stage.html#a787bab13fd8bd1bccb1ac8e7821688c6',1,'vg::Funnel::Stage']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]]
 ];

@@ -30,5 +30,6 @@ var searchData=
   ['graph_5frecord_5fsize',['GRAPH_RECORD_SIZE',['../classvg_1_1PackedGraph.html#ae2d329b354cd2c995cd12a2c73853167',1,'vg::PackedGraph']]],
   ['graph_5fstart_5fedges_5foffset',['GRAPH_START_EDGES_OFFSET',['../classvg_1_1PackedGraph.html#ab1ebc41729ec0a4515a179b6defddcb9',1,'vg::PackedGraph']]],
   ['greedy_5fpieces',['greedy_pieces',['../classvg_1_1Constructor.html#ac4dce51a25e5f773a0c53e8cd9f07628',1,'vg::Constructor']]],
-  ['group_5fcache',['group_cache',['../classvg_1_1IndexedVG.html#a0024489b3eb887d90d18af839722ce66',1,'vg::IndexedVG']]]
+  ['group_5fcache',['group_cache',['../classvg_1_1IndexedVG.html#a0024489b3eb887d90d18af839722ce66',1,'vg::IndexedVG']]],
+  ['group_5fsize',['group_size',['../structvg_1_1Funnel_1_1Item.html#a23706e46f9ebd56acbea3c612358bb79',1,'vg::Funnel::Item']]]
 ];

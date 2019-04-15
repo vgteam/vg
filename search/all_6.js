@@ -144,6 +144,7 @@ var searchData=
   ['for_5feach_5fsnarl_5fparallel',['for_each_snarl_parallel',['../classvg_1_1SnarlManager.html#a1331fb4dfe5b1fa3f769c6577c8051b1',1,'vg::SnarlManager']]],
   ['for_5feach_5fsnarl_5fpreorder',['for_each_snarl_preorder',['../classvg_1_1SnarlManager.html#a5b8ab565dfb0bc5b5818ec67d4a93404',1,'vg::SnarlManager']]],
   ['for_5feach_5fstream',['for_each_stream',['../classvg_1_1Paths.html#a8ceb67abc89bd22659c751c946906e23',1,'vg::Paths']]],
+  ['for_5feach_5ftime',['for_each_time',['../classvg_1_1Funnel.html#aaebeaf80e44030328e0d61ab5c1e3fbc',1,'vg::Funnel']]],
   ['for_5feach_5ftop_5flevel_5fsnarl',['for_each_top_level_snarl',['../classvg_1_1SnarlManager.html#a6b42f12442007c78fd32607d61ba3ccb',1,'vg::SnarlManager']]],
   ['for_5feach_5ftop_5flevel_5fsnarl_5fparallel',['for_each_top_level_snarl_parallel',['../classvg_1_1SnarlManager.html#a71710865e315d8a49d832ff23938ff12',1,'vg::SnarlManager']]],
   ['for_5feach_5fwindow',['for_each_window',['../namespacevg.html#a38deb09e330017467f53de09f96cfc14',1,'vg']]],
@@ -186,8 +187,8 @@ var searchData=
   ['fragment_5fscore',['fragment_score',['../structvg_1_1Alignment.html#a2a105371920e65f6764f8b723ae6648d',1,'vg::Alignment']]],
   ['fragment_5fsigma',['fragment_sigma',['../classvg_1_1FragmentLengthStatistics.html#aef6f205fdda8e179ef3355218c9c32c1',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5fsize',['fragment_size',['../classvg_1_1FragmentLengthStatistics.html#ad703c2e5fc7b03154ec6861a2be1e98b',1,'vg::FragmentLengthStatistics']]],
-  ['fragmentlengthdistribution',['FragmentLengthDistribution',['../classvg_1_1FragmentLengthDistribution.html',1,'vg']]],
   ['fragmentlengthdistribution',['FragmentLengthDistribution',['../classvg_1_1FragmentLengthDistribution.html#a8788ddb09653e64eb868cbc942df95c6',1,'vg::FragmentLengthDistribution::FragmentLengthDistribution(size_t maximum_sample_size, size_t reestimation_frequency, double robust_estimation_fraction)'],['../classvg_1_1FragmentLengthDistribution.html#a8551fd1f0ad1270145483715f35c7b6b',1,'vg::FragmentLengthDistribution::FragmentLengthDistribution(void)']]],
+  ['fragmentlengthdistribution',['FragmentLengthDistribution',['../classvg_1_1FragmentLengthDistribution.html',1,'vg']]],
   ['fragmentlengthstatistics',['FragmentLengthStatistics',['../classvg_1_1FragmentLengthStatistics.html',1,'vg']]],
   ['frequent',['frequent',['../structvg_1_1MinimizerIndex_1_1Header.html#a8f5bac4fc4675123efc5906d3d6ecd42',1,'vg::MinimizerIndex::Header']]],
   ['frequent_5fkeys',['frequent_keys',['../classvg_1_1MinimizerIndex.html#a02bbdd7bfc454e5d74db5adda6f0d4f1',1,'vg::MinimizerIndex']]],
@@ -213,5 +214,11 @@ var searchData=
   ['full_5flength_5fbonus',['full_length_bonus',['../classvg_1_1GSSWAligner.html#a24ee1a1d5b84c90c7fc77a4b7d8660bd',1,'vg::GSSWAligner']]],
   ['full_5fsiblings_5ffrom',['full_siblings_from',['../classvg_1_1VG.html#ae2eb11662200dc88ef8397a1b2232056',1,'vg::VG']]],
   ['full_5fsiblings_5fto',['full_siblings_to',['../classvg_1_1VG.html#a0a79ae3ab132b28cf72b6c18644fcf2f',1,'vg::VG']]],
-  ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]]
+  ['fulltrace',['fullTrace',['../namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2',1,'vg']]],
+  ['funnel',['Funnel',['../classvg_1_1Funnel.html',1,'vg']]],
+  ['funnel_2ecpp',['funnel.cpp',['../funnel_8cpp.html',1,'']]],
+  ['funnel_2ehpp',['funnel.hpp',['../funnel_8hpp.html',1,'']]],
+  ['funnel_5fduration',['funnel_duration',['../classvg_1_1Funnel.html#a2068e21a16063030a6eec7444538ec09',1,'vg::Funnel']]],
+  ['funnel_5fname',['funnel_name',['../classvg_1_1Funnel.html#aae00e188df16e84d5ecdb12e6ce5d51e',1,'vg::Funnel']]],
+  ['funnel_5fstart_5ftime',['funnel_start_time',['../classvg_1_1Funnel.html#acaad8aad0e4360c140e0cdd1c9327c8b',1,'vg::Funnel']]]
 ];

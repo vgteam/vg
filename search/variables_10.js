@@ -76,6 +76,7 @@ var searchData=
   ['prev_5fchars',['prev_chars',['../structvg_1_1KmerPosition.html#a6c6e2b384e3f9292342999e6f49684c3',1,'vg::KmerPosition']]],
   ['prev_5fcost',['prev_cost',['../classvg_1_1MEMChainModelVertex.html#ad8ad4b22339e6ad06c893c78c63cda5a',1,'vg::MEMChainModelVertex::prev_cost()'],['../classvg_1_1AlignmentChainModelVertex.html#a0dcdae4513868599a6bd50e719f9e4f5',1,'vg::AlignmentChainModelVertex::prev_cost()']]],
   ['prev_5fpos',['prev_pos',['../structvg_1_1kmer__t.html#acf511fd3c535a5d9e2109480ed1528e8',1,'vg::kmer_t']]],
+  ['prev_5fstage_5fitems',['prev_stage_items',['../structvg_1_1Funnel_1_1Item.html#a9ee7530fac67298fbcdb27f8280b4a14',1,'vg::Funnel::Item']]],
   ['prev_5fsubpath',['prev_subpath',['../structvg_1_1MultipathProblem.html#a51f2e682e6721f35d88cae8d1cf4a59d',1,'vg::MultipathProblem']]],
   ['previous_5findex',['previous_index',['../structhaplo_1_1haplo__DP__rectangle.html#addd510174b8c5f83418aa6c23e278b36',1,'haplo::haplo_DP_rectangle']]],
   ['previous_5fsizes',['previous_sizes',['../structhaplo_1_1haplo__DP__column.html#a2ece2d4c8c54fbd7fc8e898ced985e6a',1,'haplo::haplo_DP_column']]],
@@ -88,11 +89,14 @@ var searchData=
   ['priority',['priority',['../classvg_1_1subcommand_1_1Subcommand.html#a3f995aec9b4e2367530e1a6bcccb2e53',1,'vg::subcommand::Subcommand']]],
   ['prng',['prng',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a1452b78239d8d8256d5de172e648a3c0',1,'vg::NGSSimulator::MarkovDistribution::prng()'],['../classvg_1_1NGSSimulator.html#a5f51639901d929d02716db6b2cced7f7',1,'vg::NGSSimulator::prng()']]],
   ['prob_5fsampler',['prob_sampler',['../classvg_1_1NGSSimulator.html#a36ca291ed15a9a3942809d21d0574bc1',1,'vg::NGSSimulator']]],
+  ['process_5fduration',['process_duration',['../structvg_1_1Funnel_1_1Item.html#ad9fe47892c1303e6b2db81063cef7f83',1,'vg::Funnel::Item']]],
+  ['produce_5fduration',['produce_duration',['../structvg_1_1Funnel_1_1Item.html#a52ab54c5e0bd64476820d578e6c2e2f5',1,'vg::Funnel::Item']]],
   ['progress',['progress',['../classvg_1_1Progressive.html#af78e64e28b252828a0ba86439125fea4',1,'vg::Progressive']]],
   ['progress_5fbars',['progress_bars',['../classvg_1_1VGset.html#acc491d0a5c0a54c6bbd0636fa44431b7',1,'vg::VGset']]],
   ['progress_5fcount',['progress_count',['../classvg_1_1Progressive.html#a71e61fe99d71d23542d2d7387c23fd4d',1,'vg::Progressive']]],
   ['progress_5fmessage',['progress_message',['../classvg_1_1Progressive.html#a4bb04fe23ceb41467dd14cdf8cc01a71',1,'vg::Progressive']]],
   ['progress_5fseen',['progress_seen',['../classvg_1_1Progressive.html#ac6745d7e07b4b271f9510cd40f06d18e',1,'vg::Progressive']]],
+  ['projected_5fcount',['projected_count',['../structvg_1_1Funnel_1_1Stage.html#a74c290d50af94a82c196350d3ee7223d',1,'vg::Funnel::Stage']]],
   ['proto',['proto',['../classvg_1_1VGAlignmentEmitter.html#a5a614adac34031f4738d776b1d8788b1',1,'vg::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
   ['pseudo_5flength_5fmultiplier',['pseudo_length_multiplier',['../classvg_1_1MultipathMapper.html#a8c463a9a1350cd7220abd8575d9e7bd3',1,'vg::MultipathMapper']]]
 ];
