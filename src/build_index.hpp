@@ -1,7 +1,7 @@
 #ifndef VG_BUILD_INDEX_HPP_INCLUDED
 #define VG_BUILD_INDEX_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include <iostream>
 #include "json2pb.h"
 #include "handle.hpp"

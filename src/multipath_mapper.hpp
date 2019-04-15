@@ -13,7 +13,7 @@
 #include "types.hpp"
 #include "multipath_alignment.hpp"
 #include "xg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "position.hpp"
 #include "nodeside.hpp"
 #include "path.hpp"

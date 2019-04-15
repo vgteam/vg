@@ -14,7 +14,7 @@
 #include "subcommand.hpp"
 
 #include "sdsl/bit_vectors.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../version.hpp"
 #include <vg/io/stream.hpp>
 #include <vg/io/vpkg.hpp>

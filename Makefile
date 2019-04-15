@@ -13,7 +13,6 @@ UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
 LIB_DIR:=lib
 # INC_DIR must be a relative path
 INC_DIR:=include
-CPP_DIR:=cpp
 CWD:=$(shell pwd)
 
 EXE:=vg
@@ -30,7 +29,7 @@ include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 # We don't ask for -fopenmp here because how we get it can depend on the compiler
 CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
 
-LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
+LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
 
 LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvgio -lhandlegraph -lvcflib -lgssw -lssw -lprotobuf -lsublinearLS -lhts -ldeflate -lpthread -ljansson -lncurses -lgcsa2 -lgbwt -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsdsl -lpinchesandcacti -l3edgeconnected -lsonlib -lfml -llz4 -lstructures -lvw -lboost_program_options -lallreduce
 # Use pkg-config to find Cairo and all the libs it uses
@@ -177,7 +176,6 @@ LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
 DEP_OBJ =
-DEP_OBJ += $(OBJ_DIR)/vg.pb.o 
 DEP_OBJ += $(OBJ_DIR)/progress_bar.o
 DEP_OBJ += $(OBJ_DIR)/sha1.o
 DEP_OBJ += $(OBJ_DIR)/Fasta.o
@@ -224,7 +222,6 @@ endif
 
 # common dependencies to build before all vg src files
 DEPS = $(LIB_DEPS)
-DEPS += $(CPP_DIR)/vg.pb.h
 DEPS += $(INC_DIR)/gcsa/gcsa.h
 DEPS += $(INC_DIR)/gbwt/dynamic_gbwt.h
 DEPS += $(INC_DIR)/lru_cache.h
@@ -263,7 +260,7 @@ deps: $(DEPS)
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf $(VCFLIB_DIR)/bin/vcf2tsv $(FASTAHACK_DIR)/fastahack
 	. ./source_me.sh && cd test && prove -v t
 
-docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp $(CPP_DIR)/vg.pb.cc
+docs: $(SRC_DIR)/*.cpp $(SRC_DIR)/*.hpp $(SUBCOMMAND_SRC_DIR)/*.cpp $(SUBCOMMAND_SRC_DIR)/*.hpp $(UNITTEST_SRC_DIR)/*.cpp $(UNITTEST_SRC_DIR)/*.hpp
 	doxygen
 	echo "View documentation at: file://$(PWD)/doc/doxygen/index.html"
 
@@ -282,7 +279,7 @@ $(LIB_DIR)/libprotobuf.a: deps/protobuf/src/google/protobuf/*.cc
 	rm -Rf include/google/protobuf/
 	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && export DIST_LANG=cpp && ./configure --prefix="$(CWD)" $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
-test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
+test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
 
 # remove annoying large alloc messages from tcmalloc
@@ -339,7 +336,7 @@ $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 # TODO: libvgio.so is linking against system-installed Protobuf .so in preference to the one we provide via pkg-config.
 # So we delete the .so because the .a is fine, and we just use that.
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
-	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) $(MAKE) $(FILTER) && $(MAKE) install && rm $(CWD)/$(LIB_DIR)/libvgio.so
+	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && rm $(CWD)/$(LIB_DIR)/libvgio.so
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
@@ -513,17 +510,6 @@ $(INC_DIR)/vg_environment_version.hpp: .check-environment
 include/stream.hpp: src/stream.hpp
 	cp src/stream.hpp include/stream.hpp
 
-$(OBJ_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.o
-	cp $(CPP_DIR)/vg.pb.o $(OBJ_DIR)/vg.pb.o
-
-$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
-
-$(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h 
-
-$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc $(SRC_DIR)/vg.proto
-	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
-	+cp $@ $(INC_DIR)
-
 $(OBJ_DIR)/version.o: $(SRC_DIR)/version.cpp $(SRC_DIR)/version.hpp $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_environment_version.hpp
 
 ########################
@@ -551,10 +537,6 @@ $(UNITTEST_OBJ): $(UNITTEST_OBJ_DIR)/%.o : $(UNITTEST_SRC_DIR)/%.cpp $(UNITTEST_
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
 	@touch $@
         
-# Protobuf stuff builds into its same directory
-$(CPP_DIR)/%.o : $(CPP_DIR)/%.cc $(DEPS)
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(FILTER)
-
 # Use a fake rule to build .d files, so we don't complain if they don't exist.
 $(OBJ_DIR)/%.d: ;
 $(ALGORITHMS_OBJ_DIR)/%.d: ;
@@ -583,7 +565,6 @@ $(UNITTEST_OBJ_DIR)/%.d: ;
 	@if [ ! -d $(SUBCOMMAND_OBJ_DIR) ]; then mkdir -p $(SUBCOMMAND_OBJ_DIR); fi
 	@if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	@if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
-	@if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
 
 # run .pre-build before we make anything at all.
 -include .pre-build
@@ -594,7 +575,6 @@ clean-vg:
 	$(RM) -r $(UNITTEST_OBJ_DIR)/*.o $(UNITTEST_OBJ_DIR)/*.d
 	$(RM) -r $(SUBCOMMAND_OBJ_DIR)/*.o $(SUBCOMMAND_OBJ_DIR)/*.d
 	$(RM) -r $(OBJ_DIR)/*.o $(OBJ_DIR)/*.d
-	$(RM) -r $(CPP_DIR)/*.o $(CPP_DIR)/*.d $(CPP_DIR)/*.cc $(CPP_DIR)/*.h
 	$(RM) -f $(INC_DIR)/vg_git_version.hpp $(INC_DIR)/vg_system_version.hpp
 
 clean: clean-rocksdb clean-protobuf clean-vcflib
@@ -606,7 +586,6 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	$(RM) -r $(ALGORITHMS_OBJ_DIR)
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
-	$(RM) -r $(CPP_DIR)
 	$(RM) -r share/
 	cd $(DEP_DIR) && cd sonLib && $(MAKE) clean
 	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean

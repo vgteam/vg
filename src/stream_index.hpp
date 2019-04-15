@@ -13,7 +13,7 @@
 #include <type_traits>
 
 #include "types.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include <vg/io/protobuf_iterator.hpp>
 #include "scanner.hpp"
 

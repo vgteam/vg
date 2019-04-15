@@ -18,7 +18,7 @@
 #include <vg/io/protobuf_iterator.hpp>
 #include "vg.hpp"
 #include "handle.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "hash_map.hpp"
 #include "cactus.hpp"
 

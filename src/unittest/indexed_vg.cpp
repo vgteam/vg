@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../indexed_vg.hpp"
 #include "../vg.hpp"
 #include "../utility.hpp"

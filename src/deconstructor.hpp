@@ -11,7 +11,7 @@
 #include "path.hpp"
 #include "vg.hpp"
 #include "genotypekit.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "Fasta.h"
 
 /** \file

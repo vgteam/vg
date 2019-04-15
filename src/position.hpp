@@ -1,7 +1,7 @@
 #ifndef VG_POSITION_HPP_INCLUDED
 #define VG_POSITION_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include "utility.hpp"
 #include "json2pb.h"

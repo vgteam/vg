@@ -14,7 +14,7 @@
 
 #include "structures/rank_pairing_heap.hpp"
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "snarls.hpp"
 #include "multipath_mapper.hpp"

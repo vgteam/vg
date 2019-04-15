@@ -1,7 +1,7 @@
 #ifndef VG_STREAM_SORTER_HPP_INCLUDED
 #define VG_STREAM_SORTER_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include <vg/io/protobuf_emitter.hpp>
 #include <vg/io/protobuf_iterator.hpp>
 #include <vg/io/stream.hpp>

@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../multipath_alignment_graph.hpp"
 #include "catch.hpp"
 

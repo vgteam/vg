@@ -9,7 +9,7 @@
 #include <sstream>
 #include <set>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "snarls.hpp"
 #include "genotypekit.hpp"

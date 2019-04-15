@@ -6,7 +6,7 @@
 #include <vg/io/protobuf_iterator.hpp>
 #include <vg/io/protobuf_emitter.hpp>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 #include "catch.hpp"
 

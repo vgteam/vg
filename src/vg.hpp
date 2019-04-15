@@ -26,7 +26,7 @@
 #include "prune.hpp"
 #include "mem.hpp"
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include <vg/io/stream.hpp>
 #include <vg/io/protobuf_emitter.hpp>
 #include "hash_map.hpp"

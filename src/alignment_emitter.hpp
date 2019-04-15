@@ -14,7 +14,7 @@
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include <vg/io/protobuf_emitter.hpp>
 
 namespace vg {

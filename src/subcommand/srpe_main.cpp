@@ -22,7 +22,7 @@
 #include "../translator.hpp"
 
 // TODO: Where even are these?
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "Variant.h"
 #include "Fasta.h"
 #include "IntervalTree.h"

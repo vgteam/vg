@@ -6,7 +6,7 @@
 
 #include "catch.hpp"
 #include "../position.hpp"
-#include "../vg.pb.h"
+#include <vg/vg.pb.h>
 
 namespace vg {
 namespace unittest {

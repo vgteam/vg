@@ -15,7 +15,7 @@
 #include <handlegraph/util.hpp>
 
 #include "hash_map.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 
 namespace vg {
