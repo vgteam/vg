@@ -1375,6 +1375,7 @@ namespace vg {
                 // And all the alignments off of there
                 auto& alns = kv.second;
 
+                
 #ifdef debug_multipath_alignment
                 cerr << "Handling " << (handling_right_tail ? "right" : "left") << " tail off of PathNode "
                     << attached_path_node_index << " with path " << pb2json(path_nodes.at(attached_path_node_index).path) << endl;
@@ -1384,6 +1385,7 @@ namespace vg {
 #ifdef debug_multipath_alignment
                     cerr << "Tail alignment: " << pb2json(aln) << endl;
 #endif
+                    normalize_alignment(aln);
                     
                     auto seq_begin = alignment.sequence().begin() + (handling_right_tail ? (alignment.sequence().size() - aln.sequence().size()) : 0);
                     
@@ -1440,6 +1442,7 @@ namespace vg {
                         // on the final mapping we don't need to pay special attention to the initial position, but
                         // we can't copy over the whole mapping since there might be more edits after the match
                         if (i > match_start_mapping_idx && j > 0) {
+                            // This condition is broken because N matches get split into separate edits
                             assert(j == 1);
                             new_mapping = synth_path_node.path.add_mapping();
                             *new_mapping->mutable_position() = path.mapping(i).position();
