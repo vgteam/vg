@@ -79,6 +79,9 @@ ifeq ($(shell uname -s),Darwin)
     else
         CXXFLAGS += -fopenmp
     endif
+	
+    # Note shared libraries are dylibs
+    SHARED_SUFFIX = "dylib"
 
 else
     # We are not running on OS X
@@ -93,6 +96,9 @@ else
 
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
+	
+    # Note shared libraries are so files
+    SHARED_SUFFIX = "so"
 endif
 
 # These libs need to come after libdw if used, because libdw depends on them
@@ -334,22 +340,23 @@ $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
 # TODO: libvgio.so is linking against system-installed Protobuf .so in preference to the one we provide via pkg-config.
-# So we delete the .so/.dylib because the .a is fine, and we just use that.
+# So we delete the .so because the .a is fine, and we just use that.
+# But on Mac we keep the dylib around; deleting it upset Travis. There must be something pointing to it somehow.
 $(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
-	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && rm -f $(CWD)/$(LIB_DIR)/libvgio.so $(CWD)/$(LIB_DIR)/libvgio.dylib
+	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && rm -f $(CWD)/$(LIB_DIR)/libvgio.so
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
 
-$(LIB_DIR)/libdeflate.so: $(LIB_DIR)/libdeflate.a
-	+cd $(LIBDEFLATE_DIR) && cp libdeflate.so $(CWD)/$(LIB_DIR)
+$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX): $(LIB_DIR)/libdeflate.a
+	+cd $(LIBDEFLATE_DIR) && cp libdeflate.$(SHARED_SUFFIX) $(CWD)/$(LIB_DIR)
 	
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
 	+cd $(LIBDEFLATE_DIR) && $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
 	
 # We build after libdeflate so it can be used
 # We have to do a full build in order to install, to get the pkg-config file so libvgio can link against it.
-$(LIB_DIR)/libhts.a: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.so $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
+$(LIB_DIR)/libhts.a: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
 	+cd $(HTSLIB_DIR) && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
 # We tell the vcflib build to use our own htslib
