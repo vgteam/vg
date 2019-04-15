@@ -7,9 +7,10 @@
 #include "annotation.hpp"
 #include "path_subgraph.hpp"
 #include "multipath_alignment.hpp"
+#include "funnel.hpp"
 
-#include <chrono>
 #include <iostream>
+#include <algorithm>
 
 namespace vg {
 
@@ -27,8 +28,22 @@ MinimizerMapper::MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // For each input alignment
         
-    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-        
+    // Make a new funnel instrumenter to watch us map this read.
+    Funnel funnel;
+    // Start timing
+    funnel.start(aln.name());
+    
+    // Annotate the original read with metadata
+    if (!sample_name.empty()) {
+        aln.set_sample_name(sample_name);
+    }
+    if (!read_group.empty()) {
+        aln.set_read_group(read_group);
+    }
+    
+    // Start the minimizer finding stage
+    funnel.stage("minimizer");
+    
     // We will find all the seed hits
     vector<pos_t> seeds;
     
@@ -39,13 +54,25 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Find minimizers in the query
     minimizers = minimizer_index->minimizers(aln.sequence());
+    
+    // Record how many we found, as new lines.
+    funnel.introduce(minimizers.size());
+    
+    // Start the minimizer locating stage
+    funnel.stage("seed");
 
     size_t rejected_count = 0;
-    
     for (size_t i = 0; i < minimizers.size(); i++) {
         // For each minimizer
+        
+        // Say we're working on it
+        funnel.processing_input(i);
+        
         if (hit_cap == 0 || minimizer_index->count(minimizers[i].first) <= hit_cap) {
             // The minimizer is infrequent enough to be informative, so feed it into clustering
+            
+            // How many seeds were there before now?
+            size_t seeds_before = seeds.size();
             
             // Locate it in the graph
             for (auto& hit : minimizer_index->find(minimizers[i].first)) {
@@ -53,24 +80,64 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 seeds.push_back(hit);
                 seed_to_source.push_back(i);
             }
+            
+            // Record in the funnel that this minimizer gave rise to these seeds.
+            funnel.expand(i, seeds.size() - seeds_before);
         } else {
             // The minimizer is too frequent
             rejected_count++;
+            // Record in the funnel thast we rejected it
+            funnel.kill(i);
         }
+        
+        // Say we're done with this input item
+        funnel.processed_input();
     }
 
+    // Tag seeds with correctness based on proximity along paths to the input read's refpos
+    funnel.substage("correct");
+    
+    if (aln.refpos_size() != 0) {
+        // Take the first refpos as the true position.
+        auto& true_pos = aln.refpos(0);
+        
+        for (size_t i = 0; i < seeds.size(); i++) {
+            // Find every seed's reference positions. This maps from path name to pairs of offset and orientation.
+            auto offsets = xg_index->nearest_offsets_in_paths(seeds[i], 100);
+            for (auto& hit_pos : offsets[true_pos.name()]) {
+                // Look at all the ones on the path the read's true position is on.
+                if (abs((int64_t)hit_pos.first - (int64_t) true_pos.offset()) < 200) {
+                    // Call this seed hit close enough to be correct
+                    funnel.tag_correct(i);
+                }
+            }
+        }
+    }
+        
 #ifdef debug
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
     cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
+
+    // Begin the clustering stage
+    funnel.stage("cluster");
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
     vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
     
     // Compute the covered portion of the read represented by each cluster.
     // TODO: Put this and sorting into the clusterer to deduplicate with vg cluster.
+    funnel.substage("score");
     vector<double> read_coverage_by_cluster;
-    for (auto& cluster : clusters) {
+    for (size_t i = 0; i < clusters.size(); i++) {
+        // For each cluster
+        auto& cluster = clusters[i];
+        
+        // Say we're making it
+        funnel.producing_output(i);
+        
+        // Score the cluster in read coverage.
+        
         // We set bits in here to true when query anchors cover them
         vector<bool> covered(aln.sequence().size());
         // We use this to convert iterators to indexes
@@ -95,6 +162,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         // Turn that into a fraction
         read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+        
+        // Record the cluster in the funnel as a group of the size of the number of items.
+        funnel.merge_group(cluster.begin(), cluster.end());
+        funnel.score(funnel.latest(), read_coverage_by_cluster.back());
+        
+        // Say we made it.
+        funnel.produced_output();
     }
 
 #ifdef debug
@@ -103,6 +177,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     
     // Make a vector of cluster indexes to sort
     vector<size_t> cluster_indexes_in_order;
+    cluster_indexes_in_order.reserve(clusters.size());
     for (size_t i = 0; i < clusters.size(); i++) {
         cluster_indexes_in_order.push_back(i);
     }
@@ -113,17 +188,79 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
     });
     
-    // We will fill this with the output alignments (primary and secondaries) in score order.
-    vector<Alignment> aligned;
-    aligned.reserve(cluster_indexes_in_order.size());
+    // Now we go from clusters to gapless extensions
+    funnel.stage("extend");
     
-    // Annotate the original read with metadata before copying
-    if (!sample_name.empty()) {
-        aln.set_sample_name(sample_name);
+    // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
+    vector<vector<GaplessExtension>> cluster_extensions;
+    cluster_extensions.reserve(cluster_indexes_in_order.size());
+    
+    for (size_t i = 0; i < clusters.size(); i++) {
+        // For each cluster, in sorted order
+        size_t& cluster_num = cluster_indexes_in_order[i];
+        funnel.processing_input(cluster_num);
+        hash_set<size_t>& cluster = clusters[cluster_num];
+#ifdef debug
+        cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
+#endif
+         
+        // Pack the seeds into (read position, graph position) pairs.
+        vector<pair<size_t, pos_t>> seed_matchings;
+        seed_matchings.reserve(cluster.size());
+        for (auto& seed_index : cluster) {
+            // For each seed in the cluster, generate its matching pair
+            seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].second, seeds[seed_index]);
+#ifdef debug
+            cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].second << " = " << seeds[seed_index]
+                << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]].first) << ")" << endl;
+#endif
+        }
+        
+        // Extend seed hits in the cluster into one or more gapless extensions
+        cluster_extensions.emplace_back(extender.extend(seed_matchings, aln.sequence()));
+        
+        // Record with the funnel that the previous group became a group of this size.
+        // Don't bother recording the seed to extension matching...
+        funnel.project_group(cluster_num, cluster_extensions.back().size());
+        
+        // Say we finished with this cluster, for now.
+        funnel.processed_input();
     }
-    if (!read_group.empty()) {
-        aln.set_read_group(read_group);
+    
+    // Now score all the gapless extensions by max match count accounted for.
+    funnel.substage("score");
+    vector<int> cluster_extension_scores;
+    cluster_extension_scores.reserve(cluster_extensions.size());
+    for (size_t i = 0; i < cluster_extensions.size(); i++) {
+        // For each group of GaplessExtensions
+        funnel.producing_output(i);
+        auto& extensions = cluster_extensions[i];
+        // Count the matches suggested by the group and use that as a score.
+        cluster_extension_scores.push_back(estimate_extension_group_score(aln, extensions));
+        // Record the score with the funnel
+        funnel.score(i, cluster_extension_scores.back());
+        funnel.produced_output();
     }
+    
+    // Now sort them by score
+    vector<size_t> extension_indexes_in_order;
+    extension_indexes_in_order.reserve(cluster_extension_scores.size());
+    for (size_t i = 0; i < cluster_extension_scores.size(); i++) {
+        extension_indexes_in_order.push_back(i);
+    }
+    
+    // Put the most matching group of extensions first
+    std::sort(extension_indexes_in_order.begin(), extension_indexes_in_order.end(), [&](const int& a, const int& b) -> bool {
+        // Return true if a must come before b, and false otherwise
+        return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
+    });
+    
+    // Now start the alignment step. Everything has to become an alignment.
+    funnel.stage("align");
+    
+    // We will fill this with all computed alignments in estimated score order.
+    vector<Alignment> alignments;
+    alignments.reserve(extension_indexes_in_order.size());
     
     // Clear any old refpos annotation and path
     aln.clear_refpos();
@@ -132,173 +269,579 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     aln.set_identity(0);
     aln.set_mapping_quality(0);
     
-    for (size_t i = 0; i < max(min(max_alignments, cluster_indexes_in_order.size()), (size_t)1); i++) {
-        // For each output alignment we will produce (always at least 1,
-        // and possibly up to our alignment limit or the cluster count)
+    // Go through the gapless extension groups in score order.
+    // Keep track of best and second best scores.
+    int best_score = 0;
+    int second_best_score = 0;
+    for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments; i++) {
+        // Find the extension group we are talking about
+        size_t& extension_num = extension_indexes_in_order[i];
+        funnel.processing_input(extension_num);
+        auto& extensions = cluster_extensions[extension_num];
         
-        // Produce an output Alignment
-        aligned.emplace_back(aln);
-        Alignment& out = aligned.back();
-        
-        if (i < clusters.size()) {
-            // We have a cluster; it actually mapped
-
-#ifdef debug
-            cerr << "Cluster " << cluster_indexes_in_order[i] << " rank " << i << ": " << endl;
-#endif
-        
-            // For each cluster
-            hash_set<size_t>& cluster = clusters[cluster_indexes_in_order[i]];
+        if (i < 2 || score_is_significant(cluster_extension_scores[extension_num], best_score, second_best_score)) {
+            // Always take the first and second.
+            // For later ones, check if this score is significant relative to the running best and second best scores.
             
-            // Pack the seeds into (read position, graph position) pairs.
-            vector<pair<size_t, pos_t>> seed_matchings;
-            seed_matchings.reserve(cluster.size());
-            for (auto& seed_index : cluster) {
-                // For each seed in the cluster, generate its matching pair
-                seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].second, seeds[seed_index]);
-#ifdef debug
-                cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].second << " = " << seeds[seed_index]
-                    << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]].first) << ")" << endl;
-#endif
-            }
+            // If so, get an Alignment out of it somehow, and throw it in.
+            alignments.emplace_back(aln);
+            Alignment& out = alignments.back();
             
-            // Extend seed hits in the cluster into a real alignment path and mismatch count.
-            auto extended = extender.extend_seeds(seed_matchings, aln.sequence());
-            Path& path = extended.path;
-            size_t mismatch_count = extended.mismatches();
-
-#ifdef debug
-            cerr << "Produced path with " << path.mapping_size() << " mappings and " << mismatch_count << " mismatches" << endl;
-#endif
-
-            if (path.mapping_size() != 0) {
-                // We have a mapping
+            if (extensions.size() == 1 && extensions[0].full()) {
+                // We got a full-length extension, so directly convert to an Alignment.
+                funnel.substage("direct");
+                *out.mutable_path() = extensions[0].path;
                 
-                // Compute a score based on the sequence length and mismatch count.
-                // Alignments will only contain matches and mismatches.
-                int alignment_score = default_match * (aln.sequence().size() - mismatch_count) - default_mismatch * mismatch_count;
+                // The score estimate is exact.
+                int alignment_score = cluster_extension_scores[extension_num];
                 
-                if (path.mapping().begin()->edit_size() != 0 && edit_is_match(*path.mapping().begin()->edit().begin())) {
-                    // Apply left full length bonus based on the first edit
-                    alignment_score += default_full_length_bonus;
-                }
-                if (path.mapping().rbegin()->edit_size() != 0 && edit_is_match(*path.mapping().rbegin()->edit().rbegin())) {
-                    // Apply right full length bonus based on the last edit
-                    alignment_score += default_full_length_bonus;
-                }
-               
                 // Compute identity from mismatch count.
-                double identity = aln.sequence().size() == 0 ? 0.0 : (aln.sequence().size() - mismatch_count) / (double) aln.sequence().size();
+                size_t mismatch_count = extensions[0].mismatches();
+                double identity = out.sequence().size() == 0 ? 0.0 : (out.sequence().size() - mismatch_count) / (double) out.sequence().size();
                 
-                // Fill in the extension info
-                *out.mutable_path() = path;
+                // Fill in the score and identity
                 out.set_score(alignment_score);
                 out.set_identity(identity);
                 
-                // Read mapped successfully!
-                continue;
+                // Stop the timer on the current substage
+                funnel.substage_stop();
             } else if (do_chaining) {
-                // We need to generate some sub-full-length, maybe-extended seeds.
-                // Call back into the extender and get the unambiguous perfect match extensions of the seeds in the cluster.
-                auto extended_seeds = extender.maximal_extensions(seed_matchings, aln.sequence());
-
-#ifdef debug
-                cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
-#endif
-
-                // TODO: split extended seeds when they overlap in the read, so
-                // they either don't overlap or completely overlap (and are
-                // thus mutually exclusive).
-
-                // Then we need to find all the haplotypes between each pair of seeds that can connect.
-
+                // We need to do chaining.
+                funnel.substage("chain");
+                
                 // Sort the extended seeds by read start position.
-                // We won't be able to match them back to the minimizers anymore but we won't need to.
-                std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
+                // TODO: Score estimation may have sorted them already.
+                std::sort(extensions.begin(), extensions.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
                     // Return true if a needs to come before b.
                     // This will happen if a is earlier in the read than b.
                     return a.core_interval.first < b.core_interval.first;
                 });
-
-                // Find the paths between pairs of extended seeds that agree with haplotypes.
-                // We don't actually need the read sequence for this, just the read length for longest gap computation.
-                // The paths in the seeds know the hit length.
-                // We assume all overlapping hits are exclusive.
-                unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
-                    aln.sequence().size());
-                    
-                // We're going to record source and sink path count distributions, for debugging
-                vector<double> tail_path_counts;
                 
-                // We're also going to record read sequence lengths for tails
-                vector<double> tail_lengths;
+                // Do the chaining and compute an alignment into out.
+                chain_extended_seeds(aln, extensions, out);
                 
-                // And DP matrix areas for tails
-                vector<double> tail_dp_areas;
+                // We're done chaining. Next alignment may not go through this substage.
+                funnel.substage_stop();
+            } else {
+                // We would do chaining but it is disabled.
+                // Leave out unaligned
+            }
+            
+            // Update the running best and second best scores.
+            if (out.score() > best_score) {
+                second_best_score = best_score;
+                best_score = out.score();
+            } else if (out.score() > second_best_score) {
+                second_best_score = out.score();
+            }
+            
+            // Record the Alignment and its score with the funnel
+            funnel.project(extension_num);
+            funnel.score(i, out.score());
+            
+            // We're done with this input item
+            funnel.processed_input();
+        } else {
+            // If this score is insignificant, nothing past here is significant.
+            // Don't do any more.
+            funnel.kill_all(extension_indexes_in_order.begin() + i, extension_indexes_in_order.end());
+            funnel.processed_input();
+            break;
+        }
+    }
+    
+    if (alignments.size() == 0) {
+        // Produce an unaligned Alignment
+        alignments.emplace_back(aln);
+        // Say it came from nowhere
+        funnel.introduce();
+    }
+    
+    // Order the Alignments by score
+    vector<size_t> alignments_in_order;
+    alignments_in_order.reserve(alignments.size());
+    for (size_t i = 0; i < alignments.size(); i++) {
+        alignments_in_order.push_back(i);
+    }
+    
+    // Sort again by actual score instead of extennsion score
+    std::sort(alignments_in_order.begin(), alignments_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
+        // Return true if a must come before b (i.e. it has a larger score)
+        return alignments[a].score() > alignments[b].score();
+    });
+    
+    // Now say we are finding the winner(s)
+    funnel.stage("winner");
+    
+    vector<Alignment> mappings;
+    mappings.reserve(min(alignments_in_order.size(), max_multimaps));
+    for (size_t i = 0; i < alignments_in_order.size() && i < max_multimaps; i++) {
+        // For each output slot, fill it with the alignment at that rank if available.
+        size_t& alignment_num = alignments_in_order[i];
+        mappings.emplace_back(std::move(alignments[alignment_num]));
+        
+        // Tell the funnel
+        funnel.project(alignment_num);
+        funnel.score(alignment_num, mappings.back().score());
+    }
+    if (max_multimaps < alignments_in_order.size()) {
+        // Some things stop here
+        funnel.kill_all(alignments_in_order.begin() + max_multimaps, alignments_in_order.end());
+    }
+    
+    funnel.substage("mapq");
+    
+    // Grab all the scores for MAPQ computation.
+    vector<double> scores;
+    scores.reserve(alignments.size());
+    for (size_t i = 0; i < mappings.size(); i++) {
+        // Grab the scores of the alignments we are outputting
+        scores.push_back(mappings[i].score());
+    }
+    for (size_t i = mappings.size(); i < alignments_in_order.size(); i++) {
+        // And of the alignments we aren't
+        scores.push_back(alignments[alignments_in_order[i]].score());
+    }
+        
+#ifdef debug
+    cerr << "For scores ";
+    for (auto& score : scores) cerr << score << " ";
+#endif
 
-                // Make a MultipathAlignment and feed in all the extended seeds as subpaths
-                MultipathAlignment mp;
-                // Pull over all the non-alignment data (to get copied back out when linearizing)
-                transfer_read_metadata(aln, mp);
-                for (auto& extended_seed : extended_seeds) {
-                    Subpath* s = mp.add_subpath();
-                    // Copy in the path.
-                    *s->mutable_path() = extended_seed.path;
-                    // Score it
-                    s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extended_seed.path,
-                        aln.sequence().begin() + extended_seed.core_interval.first));
-                    // The position in the read it occurs at will be handled by the multipath topology.
-                    if (extended_seed.core_interval.first == 0) {
-                        // But if it occurs at the very start of the read we need to mark that now.
-                        mp.add_start(mp.subpath_size() - 1);
+    size_t winning_index;
+    double mapq = get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
+    
+#ifdef debug
+    cerr << "MAPQ is " << mapq << endl;
+#endif
+        
+    // Make sure to clamp 0-60.
+    mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+    
+    funnel.substage_stop();
+    
+    for (size_t i = 0; i < mappings.size(); i++) {
+        // For each output alignment in score order
+        auto& out = mappings[i];
+        
+        // Assign primary and secondary status
+        out.set_is_secondary(i > 0);
+    }
+    
+    // Stop timing with the funnel
+    funnel.stop();
+    
+    // Annotate with total, stage, and substage runtimes
+    funnel.for_each_time([&](const string& stage, const string& substage, double seconds) {
+        if (stage == "") {
+            // Overall runtime
+            set_annotation(mappings[0], "map_seconds", seconds);
+        } else {
+            if (substage == "") {
+                // Overall time for this stage
+                set_annotation(mappings[0], "stage_" + stage + "_seconds", seconds);
+            } else {
+                // Time for just this substage
+                set_annotation(mappings[0], "stage_" + stage + "_" + substage + "_seconds", seconds);
+            }
+        }
+    });
+
+    // And with the last stage at which we had any descendants of the correct seed hit locations
+    set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
+    
+    // Ship out all the aligned alignments
+    alignment_emitter.emit_mapped_single(std::move(mappings));
+
+#ifdef debug
+    // Dump the funnel info graph.
+    funnel.to_dot(cerr);
+#endif
+}
+
+int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector<GaplessExtension>& extended_seeds) const {
+    if (extended_seeds.empty()) {
+        // TODO: We should never see an empty group of extensions
+        return 0;
+    } else if (extended_seeds.size() == 1 && extended_seeds[0].full()) {
+        // This is a full length match. Compute exact score.
+        
+        // Compute a score using the Aligner, which handles all the full length bonuses and so on.
+        // To do that we make a fake copy Alignment.
+        Alignment temp = aln;
+        *temp.mutable_path() = extended_seeds[0].path;
+        // TODO: have an implementation of this that takes a Path and a string and/or quality.
+        // TODO: Just do this based on mismatch count and match count but with aligner score parameters.
+        return get_regular_aligner()->score_ungapped_alignment(temp);
+    } else {
+        // This is a collection of one or more non-full-length extended seeds.
+        
+        if (aln.sequence().size() == 0) {
+            // No score here
+            return 0;
+        }
+        
+        // Sort them in read order.
+        std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
+            // Return true if a needs to come before b.
+            // This will happen if a is earlier in the read than b.
+            return a.core_interval.first < b.core_interval.first;
+        });
+        
+        // Now we compute an estimate of the score: match count for all the
+        // flank bases that aren't universal mismatches, mismatch count for
+        // those that are.
+        int score_estimate = 0;
+        
+        // We use a sweep line algorithm.
+        // This records the last base to be covered by the current sweep line.
+        int64_t sweep_line = 0;
+        // This records the first base not covered by the last sweep line.
+        int64_t last_sweep_line = 0;
+        
+        // And we track the next unentered gapless extension
+        size_t unentered = 0;
+        
+        // Extensions we are in are in this min-heap of past-end position and gapless extension number.
+        vector<pair<size_t, size_t>> end_heap;
+        // The heap uses this comparator
+        auto compare = [](const pair<size_t, size_t>& a, const pair<size_t, size_t>& b) {
+            // Return true if a must come later in the heap than b
+            return a.first > b.first;
+        };
+        
+        while(last_sweep_line < aln.sequence().size()) {
+            // We are processed through the position before last_sweep_line.
+            
+            // Find a place for sweep_line to go
+            
+            // Find the next seed start
+            int64_t next_seed_start = numeric_limits<int64_t>::max();
+            if (unentered < extended_seeds.size()) {
+                next_seed_start = extended_seeds[unentered].flanked_interval.first;
+            }
+            
+            // Find the next mismatch
+            int64_t next_mismatch = numeric_limits<int64_t>::max();
+            for (auto& overlapping : end_heap) {
+                // For each gapless extension we overlap, find its sorted mismatches
+                auto& mismatches = extended_seeds[overlapping.second].mismatch_positions;
+                for (auto& mismatch : mismatches) {
+                    if (mismatch < last_sweep_line) {
+                        // Already accounted for
+                        continue;
+                    }
+                    if (mismatch < next_mismatch) {
+                        // We found a new one
+                        next_mismatch = mismatch;
+                    }
+                    // We only care about the first one not too early.
+                    break;
+                }
+            }
+            
+            // Find the next seed end
+            int64_t next_seed_end = numeric_limits<int64_t>::max();
+            if (!end_heap.empty()) {
+                next_seed_end = end_heap.front().first;
+            }
+            
+            // Whichever is closer between those points and the end, do that.
+            sweep_line = min(min(min(next_seed_end, next_mismatch), next_seed_start), (int64_t) aln.sequence().size() - 1);
+            
+            // So now we're only interested in things that happen at sweep_line.
+            
+            if (!end_heap.empty()) {
+                // If we were covering anything, count matches between last_sweep_line and here, not including at last_sweep_line.
+                score_estimate += get_regular_aligner()->score_exact_match(aln, last_sweep_line, sweep_line - last_sweep_line);
+            }
+            
+            while(!end_heap.empty() && end_heap.front().first == sweep_line) {
+                // Take out anything that past-ends here
+                std::pop_heap(end_heap.begin(), end_heap.end());
+                end_heap.pop_back();
+            }
+            
+            while (unentered < extended_seeds.size() && extended_seeds[unentered].flanked_interval.first == sweep_line) {
+                // Bring in anything that starts here
+                end_heap.emplace_back(extended_seeds[unentered].flanked_interval.second, unentered);
+                std::push_heap(end_heap.begin(), end_heap.end());
+                unentered++;
+            }
+            
+            if (!end_heap.empty()) {
+                // We overlap some seeds
+            
+                // Count up mismatches that are here and extended seeds that overlap here
+                size_t mismatching_count = 0;
+                for (auto& overlapping : end_heap) {
+                    // For each gapless extension we overlap, find its sorted mismatches
+                    auto& mismatches = extended_seeds[overlapping.second].mismatch_positions;
+                    for (auto& mismatch : mismatches) {
+                        if (mismatch < last_sweep_line) {
+                            // Already accounted for
+                            continue;
+                        }
+                        if (mismatch == sweep_line) {
+                            // We found a new one here
+                            mismatching_count++;
+                        }
+                        // We only care about the first one not too early.
+                        break;
                     }
                 }
+                
+                if (mismatching_count == end_heap.size()) {
+                    // This is a universal mismatch
+                    // Add a mismatch to the score
+                    score_estimate += get_regular_aligner()->score_mismatch(1);
+                } else {
+                    // Add a 1-base match to the score
+                    score_estimate += get_regular_aligner()->score_exact_match(aln, sweep_line, 1);
+                }
+            }
+            
+            // If we don't overlap any seeds here, we won't score any matches or mismatches.
+            
+            // Move last_sweep_line to sweep_line.
+            // We need to add 1 since last_sweep_line is the next *un*included base
+            last_sweep_line = sweep_line + 1;
+        }
+        
+        // TODO: should we apply full length bonuses?
+        
+        // When we get here, the score estimate is finished.
+        return score_estimate;
+    }
+    
+}
 
-                for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
-                    // For each source extended seed
-                    const size_t& source = kv.first;
-                    
-                    // Grab the part of the read sequence that comes before it
-                    string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first); 
+bool MinimizerMapper::score_is_significant(int score_estimate, int best_score, int second_best_score) const {
+    // mpmap uses a heuristic of if the read coverage of the cluster is less than half the best cluster's read coverage, stop.
+    // We do something similar, but with scores. And we make sure to get at least one second best score.
+    // If it's not more than half the best score, it doesn't matter if it beats the second best score; both secondaries are sufficiently bad.
+    // TODO: real scores from full-length gapless extensions aren't quite directly comparable with estimates.
+    if (score_estimate * 2 >= best_score || second_best_score < 1) {
+        return true;
+    }
+    return false;
+}
+
+void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<GaplessExtension>& extended_seeds, Alignment& out) const {
+
+#ifdef debug
+    cerr << "Trying again to chain " << extended_seeds.size() << " extended seeds" << endl;
+#endif
+
+    // Find the paths between pairs of extended seeds that agree with haplotypes.
+    // We don't actually need the read sequence for this, just the read length for longest gap computation.
+    // The paths in the seeds know the hit length.
+    // We assume all overlapping hits are exclusive.
+    unordered_map<size_t, unordered_map<size_t, vector<Path>>> paths_between_seeds = find_connecting_paths(extended_seeds,
+        aln.sequence().size());
+        
+    // We're going to record source and sink path count distributions, for debugging
+    vector<double> tail_path_counts;
+    
+    // We're also going to record read sequence lengths for tails
+    vector<double> tail_lengths;
+    
+    // And DP matrix areas for tails
+    vector<double> tail_dp_areas;
+
+    // Make a MultipathAlignment and feed in all the extended seeds as subpaths
+    MultipathAlignment mp;
+    // Pull over all the non-alignment data (to get copied back out when linearizing)
+    transfer_read_metadata(aln, mp);
+    for (auto& extended_seed : extended_seeds) {
+        Subpath* s = mp.add_subpath();
+        // Copy in the path.
+        *s->mutable_path() = extended_seed.path;
+        // Score it
+        s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extended_seed.path,
+            aln.sequence().begin() + extended_seed.core_interval.first));
+        // The position in the read it occurs at will be handled by the multipath topology.
+        if (extended_seed.core_interval.first == 0) {
+            // But if it occurs at the very start of the read we need to mark that now.
+            mp.add_start(mp.subpath_size() - 1);
+        }
+    }
+
+    for (auto& kv : paths_between_seeds[numeric_limits<size_t>::max()]) {
+        // For each source extended seed
+        const size_t& source = kv.first;
+        
+        // Grab the part of the read sequence that comes before it
+        string before_sequence = aln.sequence().substr(0, extended_seeds[source].core_interval.first); 
+        
+#ifdef debug
+        cerr << "There is a path into source extended seed " << source
+            << ": \"" << before_sequence << "\" against " << kv.second.size() << " haplotypes" << endl;
+#endif
+        
+        // Record that a source has this many incoming haplotypes to process.
+        tail_path_counts.push_back(kv.second.size());
+        // Against a sequence this long
+        tail_lengths.push_back(before_sequence.size());
+        
+        // We want the best alignment, to the base graph, done against any target path
+        Path best_path;
+        // And its score
+        int64_t best_score = numeric_limits<int64_t>::min();
+
+        // We can align it once per target path
+        for (auto& path : kv.second) {
+            // For each path we can take to get to the source
+            
+            if (path.mapping_size() == 0) {
+                // We might have extra read before where the graph starts. Handle leading insertions.
+                // We consider a pure softclip.
+                // We don't consider an empty sequence because if that were the case
+                // we would not have any paths_between_seeds entries for the dangling-left-sequence sentinel.
+                if (best_score < 0) {
+                    best_score = 0;
+                    best_path.clear_mapping();
+                    Mapping* m = best_path.add_mapping();
+                    Edit* e = m->add_edit();
+                    e->set_from_length(0);
+                    e->set_to_length(before_sequence.size());
+                    e->set_sequence(before_sequence);
+                    // Since the softclip consumes no graph, we place it on the node we are going to.
+                    *m->mutable_position() = extended_seeds[source].path.mapping(0).position();
                     
 #ifdef debug
-                    cerr << "There is a path into source extended seed " << source
-                        << ": \"" << before_sequence << "\" against " << kv.second.size() << " haplotypes" << endl;
+                    cerr << "New best alignment: " << pb2json(best_path) << endl;
 #endif
+                }
+            } else {
+
+                // Make a subgraph.
+                // TODO: don't copy the path
+                PathSubgraph subgraph(&gbwt_graph, path);
+                
+                // Do right-pinned alignment to the path subgraph with GSSWAligner.
+                Alignment before_alignment;
+                before_alignment.set_sequence(before_sequence);
+                // TODO: pre-make the topological order
+                
+#ifdef debug
+                cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
+                subgraph.for_each_handle([&](const handle_t& here) {
+                    cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
+                    subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                        cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                    });
+                    subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                        cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
+                    });
+                });
+#endif
+
+                // Align, accounting for full length bonus
+                get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                
+                // Record size of DP matrix filled
+                tail_dp_areas.push_back(before_sequence.size() * path_from_length(path));
+
+                if (before_alignment.score() > best_score) {
+                    // This is a new best alignment. Translate from subgraph into base graph and keep it
+                    best_path = subgraph.translate_down(before_alignment.path());
+                    best_score = before_alignment.score();
                     
-                    // Record that a source has this many incoming haplotypes to process.
-                    tail_path_counts.push_back(kv.second.size());
-                    // Against a sequence this long
-                    tail_lengths.push_back(before_sequence.size());
+#ifdef debug
+                    cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
+#endif
+                }
+            }
+        }
+        
+        // We really should have gotten something
+        assert(best_path.mapping_size() != 0);
+
+        // Put it in the MultipathAlignment
+        Subpath* s = mp.add_subpath();
+        *s->mutable_path() = std::move(best_path);
+        s->set_score(best_score);
+        
+        // And make the edge from it to the correct source
+        s->add_next(source);
+        
+#ifdef debug
+        cerr << "Resulting source subpath: " << pb2json(*s) << endl;
+#endif
+        
+        // And mark it as a start subpath
+        mp.add_start(mp.subpath_size() - 1);
+    }
+    
+    // We must have somewhere to start.
+    assert(mp.start_size() > 0);
+
+    for (auto& from_and_edges : paths_between_seeds) {
+        const size_t& from = from_and_edges.first;
+        if (from == numeric_limits<size_t>::max()) {
+            continue;
+        }
+        // Then for all the other from extended seeds
+
+        // Work out where the extended seed ends in the read
+        size_t from_end = extended_seeds[from].core_interval.second;
+        
+        for (auto& to_and_paths : from_and_edges.second) {
+            const size_t& to = to_and_paths.first;
+            // For all the edges to other extended seeds
+            
+#ifdef debug
+            cerr << "Consider " << to_and_paths.second.size() << " paths between extended seeds " << to << " and " << from << endl;
+#endif
+
+            if (to == numeric_limits<size_t>::max()) {
+                // Do a bunch of left pinned alignments for the tails.
+                
+                // Find the sequence
+                string trailing_sequence = aln.sequence().substr(from_end);
+                
+                if (!trailing_sequence.empty()) {
+                    // There is actual trailing sequence to align on this escape path
                     
-                    // We want the best alignment, to the base graph, done against any target path
+                    // Record that a sink has this many outgoing haplotypes to process.
+                    tail_path_counts.push_back(to_and_paths.second.size());
+                    // Against a sequence this size
+                    tail_lengths.push_back(trailing_sequence.size());
+
+                    // Find the best path in backing graph space
                     Path best_path;
                     // And its score
                     int64_t best_score = numeric_limits<int64_t>::min();
 
                     // We can align it once per target path
-                    for (auto& path : kv.second) {
-                        // For each path we can take to get to the source
+                    for (auto& path : to_and_paths.second) {
+                        // For each path we can take to leave the "from" sink
                         
                         if (path.mapping_size() == 0) {
-                            // We might have extra read before where the graph starts. Handle leading insertions.
-                            // We consider a pure softclip.
-                            // We don't consider an empty sequence because if that were the case
-                            // we would not have any paths_between_seeds entries for the dangling-left-sequence sentinel.
+                            // Consider the case of a nonempty trailing
+                            // softclip that bumped up against the end
+                            // of the underlying graph.
+                            
                             if (best_score < 0) {
                                 best_score = 0;
                                 best_path.clear_mapping();
                                 Mapping* m = best_path.add_mapping();
                                 Edit* e = m->add_edit();
                                 e->set_from_length(0);
-                                e->set_to_length(before_sequence.size());
-                                e->set_sequence(before_sequence);
-                                // Since the softclip consumes no graph, we place it on the node we are going to.
-                                *m->mutable_position() = extended_seeds[source].path.mapping(0).position();
+                                e->set_to_length(trailing_sequence.size());
+                                e->set_sequence(trailing_sequence);
+                                // We need to set a position at the end of where we are coming from.
+                                const Mapping& prev_mapping = extended_seeds[from].path.mapping(
+                                    extended_seeds[from].path.mapping_size() - 1);
+                                const Position& coming_from = prev_mapping.position();
+                                size_t last_node_length = gbwt_graph.get_length(gbwt_graph.get_handle(coming_from.node_id()));
+                                m->mutable_position()->set_node_id(coming_from.node_id());
+                                m->mutable_position()->set_is_reverse(coming_from.is_reverse());
+                                m->mutable_position()->set_offset(last_node_length);
                                 
-#ifdef debug
-                                cerr << "New best alignment: " << pb2json(best_path) << endl;
-#endif
+                                // We should only have this case if we are coming from the end of a node.
+                                assert(mapping_from_length(prev_mapping) + coming_from.offset() == last_node_length);
                             }
                         } else {
 
@@ -306,13 +849,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             // TODO: don't copy the path
                             PathSubgraph subgraph(&gbwt_graph, path);
                             
-                            // Do right-pinned alignment to the path subgraph with GSSWAligner.
-                            Alignment before_alignment;
-                            before_alignment.set_sequence(before_sequence);
+                            // Do left-pinned alignment to the path subgraph
+                            Alignment after_alignment;
+                            after_alignment.set_sequence(trailing_sequence);
                             // TODO: pre-make the topological order
-                            
+
 #ifdef debug
-                            cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
+                            cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
                             subgraph.for_each_handle([&](const handle_t& here) {
                                 cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
                                 subgraph.follow_edges(here, true, [&](const handle_t& there) {
@@ -324,24 +867,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                             });
 #endif
 
-                            // Align, accounting for full length bonus
-                            get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                            get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
                             
                             // Record size of DP matrix filled
-                            tail_dp_areas.push_back(before_sequence.size() * path_from_length(path));
+                            tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));
 
-                            if (before_alignment.score() > best_score) {
+                            if (after_alignment.score() > best_score) {
                                 // This is a new best alignment. Translate from subgraph into base graph and keep it
-                                best_path = subgraph.translate_down(before_alignment.path());
-                                best_score = before_alignment.score();
-                                
-#ifdef debug
-                                cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
-#endif
+                                best_path = subgraph.translate_down(after_alignment.path());
+                                best_score = after_alignment.score();
                             }
                         }
                     }
                     
+                    // We need to come after from with this path
+
                     // We really should have gotten something
                     assert(best_path.mapping_size() != 0);
 
@@ -350,337 +890,144 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                     *s->mutable_path() = std::move(best_path);
                     s->set_score(best_score);
                     
-                    // And make the edge from it to the correct source
-                    s->add_next(source);
-                    
-#ifdef debug
-                    cerr << "Resulting source subpath: " << pb2json(*s) << endl;
-#endif
-                    
-                    // And mark it as a start subpath
-                    mp.add_start(mp.subpath_size() - 1);
+                    // And make the edge to hook it up
+                    mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
                 }
                 
-                // We must have somewhere to start.
-                assert(mp.start_size() > 0);
+                // If there's no sequence to align on the path going off to nowhere, don't do anything.
+                
+            } else {
+                // Do alignments between from and to
 
-                for (auto& from_and_edges : paths_between_seeds) {
-                    const size_t& from = from_and_edges.first;
-                    if (from == numeric_limits<size_t>::max()) {
-                        continue;
-                    }
-                    // Then for all the other from extended seeds
+                // Find the sequence
+                assert(extended_seeds[to].core_interval.first >= from_end);
+                string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end); 
 
-                    // Work out where the extended seed ends in the read
-                    size_t from_end = extended_seeds[from].core_interval.second;
+                // Find the best path in backing graph space (which may be empty)
+                Path best_path;
+                // And its score
+                int64_t best_score = numeric_limits<int64_t>::min();
+
+                // We can align it once per target path
+                for (auto& path : to_and_paths.second) {
+                    // For each path we can take to get to the source
                     
-                    for (auto& to_and_paths : from_and_edges.second) {
-                        const size_t& to = to_and_paths.first;
-                        // For all the edges to other extended seeds
+                    if (path.mapping_size() == 0) {
+                        // We're aligning against nothing
+                        if (intervening_sequence.empty()) {
+                            // Consider the nothing to nothing alignment, score 0
+                            if (best_score < 0) {
+                                best_score = 0;
+                                best_path.clear_mapping();
+                            }
+                        } else {
+                            // Consider the something to nothing alignment.
+                            // We can't use the normal code path because the BandedGlobalAligner 
+                            // wouldn't be able to generate a position form an empty graph.
+                            
+                            // We know the extended seeds we are between won't start/end with gaps, so we own the gap open.
+                            int64_t score = get_regular_aligner()->score_gap(intervening_sequence.size());
+                            if (score > best_score) {
+                                best_path.clear_mapping();
+                                Mapping* m = best_path.add_mapping();
+                                Edit* e = m->add_edit();
+                                e->set_from_length(0);
+                                e->set_to_length(intervening_sequence.size());
+                                e->set_sequence(intervening_sequence);
+                                // We can copy the position of where we are going to, since we consume no graph.
+                                *m->mutable_position() = extended_seeds[to].path.mapping(0).position();
+                            }
+                        }
+                    } else {
+
+                        // Make a subgraph.
+                        // TODO: don't copy the path
+                        PathSubgraph subgraph(&gbwt_graph, path);
+                        
+                        // Do global alignment to the path subgraph
+                        Alignment between_alignment;
+                        between_alignment.set_sequence(intervening_sequence);
                         
 #ifdef debug
-                        cerr << "Consider " << to_and_paths.second.size() << " paths between extended seeds " << to << " and " << from << endl;
+                        cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
+                        cerr << "Defining path: " << pb2json(path) << endl;
+                        subgraph.for_each_handle([&](const handle_t& here) {
+                            cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
+                                << " (" << subgraph.get_sequence(here) << "): " << endl;
+                            subgraph.follow_edges(here, true, [&](const handle_t& there) {
+                                cerr << "\t" << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                                    << " (" << subgraph.get_sequence(there) << ") ->" << endl;
+                            });
+                            subgraph.follow_edges(here, false, [&](const handle_t& there) {
+                                cerr << "\t-> " << subgraph.get_id(there) << " len " << subgraph.get_length(there)
+                                    << " (" << subgraph.get_sequence(there) << ")" << endl;
+                            });
+                        });
 #endif
-
-                        if (to == numeric_limits<size_t>::max()) {
-                            // Do a bunch of left pinned alignments for the tails.
-                            
-                            // Find the sequence
-                            string trailing_sequence = aln.sequence().substr(from_end);
-                            
-                            if (!trailing_sequence.empty()) {
-                                // There is actual trailing sequence to align on this escape path
-                                
-                                // Record that a sink has this many outgoing haplotypes to process.
-                                tail_path_counts.push_back(to_and_paths.second.size());
-                                // Against a sequence this size
-                                tail_lengths.push_back(trailing_sequence.size());
-
-                                // Find the best path in backing graph space
-                                Path best_path;
-                                // And its score
-                                int64_t best_score = numeric_limits<int64_t>::min();
-
-                                // We can align it once per target path
-                                for (auto& path : to_and_paths.second) {
-                                    // For each path we can take to leave the "from" sink
-                                    
-                                    if (path.mapping_size() == 0) {
-                                        // Consider the case of a nonempty trailing
-                                        // softclip that bumped up against the end
-                                        // of the underlying graph.
-                                        
-                                        if (best_score < 0) {
-                                            best_score = 0;
-                                            best_path.clear_mapping();
-                                            Mapping* m = best_path.add_mapping();
-                                            Edit* e = m->add_edit();
-                                            e->set_from_length(0);
-                                            e->set_to_length(trailing_sequence.size());
-                                            e->set_sequence(trailing_sequence);
-                                            // We need to set a position at the end of where we are coming from.
-                                            const Mapping& prev_mapping = extended_seeds[from].path.mapping(
-                                                extended_seeds[from].path.mapping_size() - 1);
-                                            const Position& coming_from = prev_mapping.position();
-                                            size_t last_node_length = gbwt_graph.get_length(gbwt_graph.get_handle(coming_from.node_id()));
-                                            m->mutable_position()->set_node_id(coming_from.node_id());
-                                            m->mutable_position()->set_is_reverse(coming_from.is_reverse());
-                                            m->mutable_position()->set_offset(last_node_length);
-                                            
-                                            // We should only have this case if we are coming from the end of a node.
-                                            assert(mapping_from_length(prev_mapping) + coming_from.offset() == last_node_length);
-                                        }
-                                    } else {
-
-                                        // Make a subgraph.
-                                        // TODO: don't copy the path
-                                        PathSubgraph subgraph(&gbwt_graph, path);
-                                        
-                                        // Do left-pinned alignment to the path subgraph
-                                        Alignment after_alignment;
-                                        after_alignment.set_sequence(trailing_sequence);
-                                        // TODO: pre-make the topological order
-
+                        
+                        get_regular_aligner()->align_global_banded(between_alignment, subgraph, 5, true);
+                        
+                        if (between_alignment.score() > best_score) {
+                            // This is a new best alignment. Translate from subgraph into base graph and keep it
+                            best_path = subgraph.translate_down(between_alignment.path());
 #ifdef debug
-                                        cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
-                                        subgraph.for_each_handle([&](const handle_t& here) {
-                                            cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
-                                            subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                                cerr << "\t" << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ") ->" << endl;
-                                            });
-                                            subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                                cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
-                                            });
-                                        });
+                            cerr << "\tNew best: " << pb2json(best_path) << endl;
 #endif
-
-                                        get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
-                                        
-                                        // Record size of DP matrix filled
-                                        tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));
-
-                                        if (after_alignment.score() > best_score) {
-                                            // This is a new best alignment. Translate from subgraph into base graph and keep it
-                                            best_path = subgraph.translate_down(after_alignment.path());
-                                            best_score = after_alignment.score();
-                                        }
-                                    }
-                                }
-                                
-                                // We need to come after from with this path
-
-                                // We really should have gotten something
-                                assert(best_path.mapping_size() != 0);
-
-                                // Put it in the MultipathAlignment
-                                Subpath* s = mp.add_subpath();
-                                *s->mutable_path() = std::move(best_path);
-                                s->set_score(best_score);
-                                
-                                // And make the edge to hook it up
-                                mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
-                            }
                             
-                            // If there's no sequence to align on the path going off to nowhere, don't do anything.
-                            
-                        } else {
-                            // Do alignments between from and to
-
-                            // Find the sequence
-                            assert(extended_seeds[to].core_interval.first >= from_end);
-                            string intervening_sequence = aln.sequence().substr(from_end, extended_seeds[to].core_interval.first - from_end); 
-
-                            // Find the best path in backing graph space (which may be empty)
-                            Path best_path;
-                            // And its score
-                            int64_t best_score = numeric_limits<int64_t>::min();
-
-                            // We can align it once per target path
-                            for (auto& path : to_and_paths.second) {
-                                // For each path we can take to get to the source
-                                
-                                if (path.mapping_size() == 0) {
-                                    // We're aligning against nothing
-                                    if (intervening_sequence.empty()) {
-                                        // Consider the nothing to nothing alignment, score 0
-                                        if (best_score < 0) {
-                                            best_score = 0;
-                                            best_path.clear_mapping();
-                                        }
-                                    } else {
-                                        // Consider the something to nothing alignment.
-                                        // We can't use the normal code path because the BandedGlobalAligner 
-                                        // wouldn't be able to generate a position form an empty graph.
-                                        
-                                        // We know the extended seeds we are between won't start/end with gaps, so we own the gap open.
-                                        int64_t score = get_regular_aligner()->score_gap(intervening_sequence.size());
-                                        if (score > best_score) {
-                                            best_path.clear_mapping();
-                                            Mapping* m = best_path.add_mapping();
-                                            Edit* e = m->add_edit();
-                                            e->set_from_length(0);
-                                            e->set_to_length(intervening_sequence.size());
-                                            e->set_sequence(intervening_sequence);
-                                            // We can copy the position of where we are going to, since we consume no graph.
-                                            *m->mutable_position() = extended_seeds[to].path.mapping(0).position();
-                                        }
-                                    }
-                                } else {
-
-                                    // Make a subgraph.
-                                    // TODO: don't copy the path
-                                    PathSubgraph subgraph(&gbwt_graph, path);
-                                    
-                                    // Do global alignment to the path subgraph
-                                    Alignment between_alignment;
-                                    between_alignment.set_sequence(intervening_sequence);
-                                    
-#ifdef debug
-                                    cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
-                                    cerr << "Defining path: " << pb2json(path) << endl;
-                                    subgraph.for_each_handle([&](const handle_t& here) {
-                                        cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
-                                            << " (" << subgraph.get_sequence(here) << "): " << endl;
-                                        subgraph.follow_edges(here, true, [&](const handle_t& there) {
-                                            cerr << "\t" << subgraph.get_id(there) << " len " << subgraph.get_length(there)
-                                                << " (" << subgraph.get_sequence(there) << ") ->" << endl;
-                                        });
-                                        subgraph.follow_edges(here, false, [&](const handle_t& there) {
-                                            cerr << "\t-> " << subgraph.get_id(there) << " len " << subgraph.get_length(there)
-                                                << " (" << subgraph.get_sequence(there) << ")" << endl;
-                                        });
-                                    });
-#endif
-                                    
-                                    get_regular_aligner()->align_global_banded(between_alignment, subgraph, 5, true);
-                                    
-                                    if (between_alignment.score() > best_score) {
-                                        // This is a new best alignment. Translate from subgraph into base graph and keep it
-                                        best_path = subgraph.translate_down(between_alignment.path());
-#ifdef debug
-                                        cerr << "\tNew best: " << pb2json(best_path) << endl;
-#endif
-                                        
-                                        best_score = between_alignment.score();
-                                    }
-                                }
-                                
-                            }
-                            
-                            // We may have an empty path. That's fine.
-
-                            if (best_path.mapping_size() == 0 && intervening_sequence.empty()) {
-                                // We just need an edge from from to to
-                                mp.mutable_subpath(from)->add_next(to);
-                            } else {
-                                // We need to connect from and to with a Subpath with this path
-
-                                // We really should have gotten something
-                                assert(best_path.mapping_size() != 0);
-
-                                // Put it in the MultipathAlignment
-                                Subpath* s = mp.add_subpath();
-                                *s->mutable_path() = std::move(best_path);
-                                s->set_score(best_score);
-                                
-                                // And make the edges to hook it up
-                                s->add_next(to);
-                                mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
-                            }
-
+                            best_score = between_alignment.score();
                         }
-
                     }
-
-                }
-
                     
-                // Then we take the best linearization of the full MultipathAlignment.
-                // Make sure to force source to sink
-                topologically_order_subpaths(mp);
-
-                if (!validate_multipath_alignment(mp, gbwt_graph)) {
-                    // If we generated an invalid multipath alignment, we did something wrong and need to stop
-                    cerr << "error[vg::MinimizerMapper]: invalid MultipathAlignment generated: " << pb2json(mp) << endl;
-                    exit(1);
                 }
                 
-                
-                // Linearize into the out alignment, copying path, score, and also sequence and other read metadata
-                optimal_alignment(mp, out, true);
-                // Compute the identity from the path.
-                out.set_identity(identity(out.path()));
-                
-                // Save all the tail alignment debugging statistics
-                set_annotation(out, "tail_path_counts", tail_path_counts);
-                set_annotation(out, "tail_lengths", tail_lengths);
-                set_annotation(out, "tail_dp_areas", tail_dp_areas);
+                // We may have an empty path. That's fine.
 
-                // Then continue so we don't emit the unaligned Alignment
-                continue;
+                if (best_path.mapping_size() == 0 && intervening_sequence.empty()) {
+                    // We just need an edge from from to to
+                    mp.mutable_subpath(from)->add_next(to);
+                } else {
+                    // We need to connect from and to with a Subpath with this path
+
+                    // We really should have gotten something
+                    assert(best_path.mapping_size() != 0);
+
+                    // Put it in the MultipathAlignment
+                    Subpath* s = mp.add_subpath();
+                    *s->mutable_path() = std::move(best_path);
+                    s->set_score(best_score);
+                    
+                    // And make the edges to hook it up
+                    s->add_next(to);
+                    mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+                }
+
             }
-        }
-        
-        // If we get here, either there was no cluster or the cluster produced no extension or chained mapping
-        
-        // Read was not able to be mapped. Leave it unaligned.
-    }
-    
-    // Sort again by actual score instead of cluster coverage
-    std::sort(aligned.begin(), aligned.end(), [](const Alignment& a, const Alignment& b) -> bool {
-        // Return true if a must come before b (i.e. it has a larger score)
-        return a.score() > b.score();
-    });
-    
-    if (!aligned.empty()) {
-        // Give the winning alignment a MAPQ, *before* dropping extra multimaps
-        
-        // We will use this vector of scores to get a MAPQ for the winning alignment
-        vector<double> scores;
-        scores.reserve(aligned.size());
-        for (auto& out : aligned) {
-            scores.push_back(out.score());
-        }
-        
-#ifdef debug
-        cerr << "For scores ";
-        for (auto& score : scores) cerr << score << " ";
-#endif
 
-        size_t winning_index;
-        double mapq = get_regular_aligner()->maximum_mapping_quality_exact(scores, &winning_index);
+        }
+
+    }
+
         
-#ifdef debug
-        cerr << "MAPQ is " << mapq << endl;
-#endif
-        
-        // Make sure to clamp 0-60.
-        aligned.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
+    // Then we take the best linearization of the full MultipathAlignment.
+    // Make sure to force source to sink
+    topologically_order_subpaths(mp);
+
+    if (!validate_multipath_alignment(mp, gbwt_graph)) {
+        // If we generated an invalid multipath alignment, we did something wrong and need to stop
+        cerr << "error[vg::MinimizerMapper]: invalid MultipathAlignment generated: " << pb2json(mp) << endl;
+        exit(1);
     }
     
-    if (aligned.size() > max_multimaps) {
-        // Drop the lowest scoring alignments
-        aligned.resize(max_multimaps);
-    }
-   
-    for (size_t i = 0; i < aligned.size(); i++) {
-        // For each output alignment in score order
-        auto& out = aligned[i];
-        
-        // Assign primary and secondary status
-        out.set_is_secondary(i > 0);
-    }
     
-    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
+    // Linearize into the out alignment, copying path, score, and also sequence and other read metadata
+    optimal_alignment(mp, out, true);
+    // Compute the identity from the path.
+    out.set_identity(identity(out.path()));
     
-    if (!aligned.empty()) {
-        // Annotate the primary alignment with mapping runtime
-        set_annotation(aligned[0], "map_seconds", elapsed_seconds.count());
-    }
-    
-    // Ship out all the aligned alignments
-    alignment_emitter.emit_mapped_single(std::move(aligned));
+    // Save all the tail alignment debugging statistics
+    set_annotation(out, "tail_path_counts", tail_path_counts);
+    set_annotation(out, "tail_lengths", tail_lengths);
+    set_annotation(out, "tail_dp_areas", tail_dp_areas);
 }
 
 unordered_map<size_t, unordered_map<size_t, vector<Path>>>
