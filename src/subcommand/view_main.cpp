@@ -16,7 +16,7 @@
 #include "../multipath_alignment.hpp"
 #include "../vg.hpp"
 #include "../gfa.hpp"
-#include "../stream/json_stream_helper.hpp"
+#include "../io/json_stream_helper.hpp"
 #include <vg/io/message_iterator.hpp>
 
 using namespace std;
@@ -484,7 +484,7 @@ int main_view(int argc, char** argv) {
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
         assert(input_json);
-        stream::JSONStreamHelper<Graph> json_helper(file_name);
+        vg::io::JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         // TODO: This is less inversion of control and more putting control in the middle.
         graph = new VG([&](const function<void(Graph&)> use_graph) {
@@ -550,7 +550,7 @@ int main_view(int argc, char** argv) {
                 return 1;
             }
         } else {
-            stream::JSONStreamHelper<Alignment> json_helper(file_name);
+            vg::io::JSONStreamHelper<Alignment> json_helper(file_name);
             if (output_type == "json" || output_type == "gam") {
                 json_helper.write(cout, output_type == "json");
             }
@@ -589,7 +589,7 @@ int main_view(int argc, char** argv) {
         }
     } else if (input_type == "multipath") {
         if (input_json) {
-            stream::JSONStreamHelper<MultipathAlignment> json_helper(file_name);
+            vg::io::JSONStreamHelper<MultipathAlignment> json_helper(file_name);
             if (output_type == "multipath") {
                 json_helper.write(cout, false);
             }
@@ -730,7 +730,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "pileup") {
-                stream::JSONStreamHelper<Pileup> json_helper(file_name);
+                vg::io::JSONStreamHelper<Pileup> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
@@ -769,7 +769,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "locus") {
-                stream::JSONStreamHelper<Locus> json_helper(file_name);
+                vg::io::JSONStreamHelper<Locus> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;

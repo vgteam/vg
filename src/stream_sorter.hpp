@@ -26,7 +26,7 @@
 
 /**
  * \file stream_sorter.hpp
- * stream/stream.hpp-format file sorting tools.
+ * VPKG-format file sorting tools.
  */
 using namespace std;
 namespace vg {
@@ -56,12 +56,12 @@ public:
     /// show_progress is true.
     StreamSorter(bool show_progress = false);
     
-    /// Sort a stream of stream/stream.hpp-format data, using temporary files,
+    /// Sort a stream of VPKG-format Protobuf data, using temporary files,
     /// limiting the number of simultaneously open input files and the size of
     /// in-memory data. Optionally index the sorted file into the given index.
     void stream_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);
     
-    /// Sort a stream of stream/stream.hpp-format data, loading it all into memory and
+    /// Sort a stream of VPKG-format Protobuf data, loading it all into memory and
     /// doing a single giant sort operation. Optionally index the sorted file
     /// into the given index.
     void easy_sort(istream& stream_in, ostream& stream_out, StreamIndex<Message>* index_to = nullptr);

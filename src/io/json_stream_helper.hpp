@@ -1,5 +1,5 @@
-#ifndef VG_JSON_STREAM_HELPER_HPP_INCLUDED
-#define VG_JSON_STREAM_HELPER_HPP_INCLUDED
+#ifndef VG_IO_JSON_STREAM_HELPER_HPP_INCLUDED
+#define VG_IO_JSON_STREAM_HELPER_HPP_INCLUDED
 
 #include <functional>
 #include <vector>
@@ -10,7 +10,7 @@
 
 namespace vg {
 
-namespace stream {
+namespace io {
 
 // It's handy to be able to stream in JSON via vg view for testing.
 // This helper class takes this functionality from vg view -J and

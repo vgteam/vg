@@ -14,7 +14,7 @@
 #include "utility.hpp"
 #include "crash.hpp"
 #include "preflight.hpp"
-#include "stream/register_libvg_io.hpp"
+#include "io/register_libvg_io.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     
     // Tell the IO library about libvg types.
     // TODO: Make a more generic libvg startup function?
-    if (!vg::stream::register_libvg_io()) {
+    if (!vg::io::register_libvg_io()) {
         cerr << "error[vg]: Could not register libvg types with libvgio" << endl;
         return 1;
     }

@@ -14,10 +14,12 @@
 #include "register_loader_saver_vg.hpp"
 #include "register_loader_saver_xg.hpp"
 
+#include "register_libvg_io.hpp"
+
 
 namespace vg {
 
-namespace stream {
+namespace io {
 
 using namespace std;
 
