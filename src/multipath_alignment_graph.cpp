@@ -1382,10 +1382,10 @@ namespace vg {
 #endif
                 
                 for (auto& aln : alns) {
+                    
 #ifdef debug_multipath_alignment
                     cerr << "Tail alignment: " << pb2json(aln) << endl;
 #endif
-                    normalize_alignment(aln);
                     
                     auto seq_begin = alignment.sequence().begin() + (handling_right_tail ? (alignment.sequence().size() - aln.sequence().size()) : 0);
                     
@@ -3768,6 +3768,17 @@ namespace vg {
                 }
             }
         }
+        
+        // GSSW does some weird things with N's that we want to normalize away
+         if (find(alignment.sequence().begin(), alignment.sequence().end(), 'N') != alignment.sequence().end()) {
+             for (bool side : {true, false}) {
+                 for (pair<const size_t, vector<Alignment>>& tail_alignments : to_return[side]) {
+                     for (Alignment& aln : tail_alignments.second) {
+                         normalize_alignment(aln);
+                     }
+                 }
+             }
+         }
         
 #ifdef debug_multipath_alignment
         cerr << "made alignments for " << to_return[false].size() << " source PathNodes and " << to_return[true].size() << " sink PathNodes" << endl;

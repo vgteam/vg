@@ -1480,18 +1480,11 @@ void normalize_alignment(Alignment& alignment) {
             for (size_t k = 0; k < j; k++) {
                 *mapping->add_edit() = path.mapping(i).edit(k);
             }
+            doing_normalization = true;
         }
-        doing_normalization = true;
     };
     
     edit_type_t prev = None;
-    
-    auto walk_non_gap_edit = [&](const edit_type_t& type,
-                                 string::const_iterator begin,
-                                 string::const_iterator end) {
-        
-        
-    };
     
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         
@@ -1539,6 +1532,7 @@ void normalize_alignment(Alignment& alignment) {
                         // merge with the previous
                         Edit* norm_edit = norm_mapping->mutable_edit(norm_mapping->edit_size() - 1);
                         norm_edit->set_to_length(norm_edit->to_length() + edit.to_length());
+                        norm_edit->mutable_sequence()->append(edit.sequence());
                     }
                     else {
                         // just copy
@@ -1552,20 +1546,33 @@ void normalize_alignment(Alignment& alignment) {
             else {
                 auto begin = seq.begin() + cumul_to_length;
                 auto end = begin + edit.to_length();
+                
                 edit_type_t type =  edit.sequence().empty() ? Mismatch : Match;
                 
-                auto next_pos = find(begin, end, 'N');
-                if (prev == type || next_pos != end || doing_normalization) {
+                auto first_N = find(begin, end, 'N');
+                if (prev == type || first_N != end || doing_normalization) {
                     // we have to do some normalization here
                     ensure_init_normalized_path(i, j);
                     
                     Mapping* norm_mapping = normalized.mutable_mapping(normalized.mapping_size() - 1);
-                    if (next_pos == end && prev != type) {
+                    if (first_N == end && prev != type) {
                         // just need to copy, no fancy normalization
                         *norm_mapping->add_edit() = edit;
+                        prev = type;
+                    }
+                    else if (first_N == end) {
+                        // we need to extend the previous edit, but we don't need
+                        // to worry about Ns
+                        Edit* norm_edit = norm_mapping->mutable_edit(norm_mapping->edit_size() - 1);
+                        norm_edit->set_from_length(norm_edit->from_length() + edit.from_length());
+                        norm_edit->set_to_length(norm_edit->to_length() + edit.to_length());
+                        if (type == Mismatch) {
+                            norm_edit->mutable_sequence()->append(edit.sequence());
+                        }
                     }
                     else {
-                        bool on_Ns = next_pos == begin;
+                        bool on_Ns = first_N == begin;
+                        auto next_pos = begin;
                         // iterate until we've handled the whole edit sequence
                         while (next_pos != end) {
                             // find the next place where we switch from N to non-N or the reverse
@@ -1581,13 +1588,15 @@ void normalize_alignment(Alignment& alignment) {
                                 
                                 // we copy sequence for Ns and for mismatches only
                                 if ((prev == N && on_Ns) || (prev == type && !on_Ns && type == Mismatch)) {
-                                    norm_edit->mutable_sequence()->insert(norm_edit->sequence().end(),
-                                                                          next_pos, next_end);
+                                    norm_edit->mutable_sequence()->append(next_pos, next_end);
                                 }
                             }
                             else {
                                 // we can just copy
-                                *norm_mapping->add_edit() = edit;
+                                Edit* norm_edit = norm_mapping->add_edit();
+                                norm_edit->set_from_length(next_end - next_pos);
+                                norm_edit->set_to_length(next_end - next_pos);
+                                *norm_edit->mutable_sequence() = string(next_pos, next_end);
                             }
                             
                             next_pos = next_end;
