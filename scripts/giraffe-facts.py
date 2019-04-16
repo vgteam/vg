@@ -171,6 +171,13 @@ class Table(object):
         
         self.last_widths = None
         
+    def inner_width(self):
+        """
+        Get the total width of the table across all columns, between the outer edges.
+        """
+        
+        return sum(self.widths) + len(self.widths) - 1
+        
     # Internal methods
         
     def box(self, part):
@@ -351,7 +358,8 @@ class Table(object):
             # For each item and its column and width...
             if width is None:
                 # Too many items
-                raise RuntimeError("Ran out of table widths for {} columns".format(len(values)))
+                raise RuntimeError("Ran out of table width values ({}) for {} columns".format(
+                    len(widths), len(values)))
               
             # Compute the item string
             item_string = str(value) if value is not None else ''
@@ -415,25 +423,48 @@ def print_table(read_count, time_totals, stages=STAGES, out=sys.stdout):
     rps_header2 = "(cumulative)"
     rps_width = max(len(rps_header), len(rps_header2))
     
-    table = Table([stage_width, rps_width])
+    # And the time percent column
+    time_header = "Time"
+    time_header2 = "(%)"
+    # Make sure to leave room for "100%"
+    time_width = max(len(time_header), len(time_header2), 4)
     
-    table.row(["Giraffe Facts"], 'c', merge=[2])
+    table = Table([stage_width, rps_width, time_width])
+    
+    table.row(["Giraffe Facts"], 'c', merge=[3])
     table.line()
-    table.row([stage_header, rps_header], 'cc' )
-    table.row(['', rps_header2], 'cc')
+    table.row(['Reads' + str(read_count).rjust(table.inner_width() - 5)], merge=[3])
+    table.line()
+    table.row([stage_header, rps_header, time_header], 'c' )
+    table.row(['', rps_header2, time_header2], 'c')
     table.line()
     
+    
+    # Get the total overall time for all reads
+    overall_time = time_totals[-1]
+    
+    # Remember cumulative time from last iteration so we can take a difference again.
+    last_cumulative_time = 0
     for stage, total_cumulative_time in zip(STAGES, time_totals):
         # Compute cumulative reads per second values
         reads_per_second = read_count / total_cumulative_time if total_cumulative_time != 0 else float('NaN')
         
-        table.row([stage, '{:.2f}'.format(reads_per_second)], 'cr')
+        # Compute time for just this stage
+        stage_time = total_cumulative_time - last_cumulative_time
+        # And get the portion that is this stage out of all time
+        stage_portion = stage_time / overall_time if overall_time != 0 else float('NaN')
+        # And make a percent
+        stage_percent = stage_portion * 100
+        
+        table.row([stage, '{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent)], 'crr')
+        
+        last_cumulative_time = total_cumulative_time
         
     table.line()
         
     # And do overall reads per second
-    reads_per_second_overall = read_count / time_totals[-1] if time_totals[-1] != 0 else float('NaN')
-    table.row([stage_overall, '{:.2f}'.format(reads_per_second_overall)], 'cr')
+    reads_per_second_overall = read_count / overall_time if overall_time != 0 else float('NaN')
+    table.row([stage_overall, '{:.2f}'.format(reads_per_second_overall), '100%'], 'crr')
     
     # Close off table
     table.close()
