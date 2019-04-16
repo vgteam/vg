@@ -352,8 +352,9 @@ $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp
 # On Mac, it does *not* build a dylib.
 # So we have a rule to grab the shared library on Linux
 ifneq ($(shell uname -s),Darwin)
-$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX): $(LIB_DIR)/libdeflate.a
+"$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)": $(LIB_DIR)/libdeflate.a
 	+cd $(LIBDEFLATE_DIR) && cp libdeflate.$(SHARED_SUFFIX) $(CWD)/$(LIB_DIR)
+	+touch $(CWD)/$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
 endif
 	
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
@@ -366,7 +367,7 @@ ifneq ($(shell uname -s),Darwin)
     # htslib is going to try and build a shared library.
     # It needs to link against the shared libdeflate, which exists off of Mac,
     # or it will complain libdeflate doesn't have position-independent code.
-    HTSLIB_DEPS += $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
+    HTSLIB_DEPS += "$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)"
 endif
 # If we need either the library or the pkg-config file (which we didn't used to ship), run the whole build.
 # We use a wildcard match to make sure make understands that both files come from one command run.
