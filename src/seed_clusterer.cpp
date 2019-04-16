@@ -180,8 +180,8 @@ for (auto& n : node_to_seed){
                        chains_to_snarl, snarls_to_node, node_to_seed); 
 
         //Maps each cluster group ID to the left and right distances
-        hash_map<size_t, pair<int64_t, int64_t>> cluster_dists;
-        cluster_dists.resize(node_to_seed.size());
+        vector<pair<int64_t, int64_t>> cluster_dists (seeds.size(), 
+                                       make_pair(-1, -1));
         
         // We track seen-ness by chain, so we don't have to do O(N) work to tag
         // all snarls in chromosome-spanning chains as seen.
@@ -216,7 +216,7 @@ for (auto& n : node_to_seed){
              SnarlSeedClusterer::get_clusters_node(
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters, 
-                       hash_map<size_t, pair<int64_t, int64_t>>& cluster_dists,
+                       vector< pair<int64_t, int64_t>>& cluster_dists,
                        const node_to_seed_t& node_to_seed,
                        size_t distance_limit, const SnarlManager& snarl_manager,
                        DistanceIndex& dist_index, id_t root,
@@ -336,10 +336,8 @@ assert(got_right);
                     if (new_group_id == i_group) {
                         to_add.push_back(i_group);
                         to_remove.push_back(j);
-                        cluster_dists.erase(j);
                     } else {
                         to_remove.push_back(i_group);
-                        cluster_dists.erase(i_group);
                     }
 
                     dist_left = DistanceIndex::minPos({dist_left, 
@@ -398,7 +396,7 @@ assert (group_id == union_find_clusters.find_group(group_id));
                 SnarlSeedClusterer::get_clusters_chain(
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters,
-                       hash_map<size_t, pair<int64_t, int64_t>>& cluster_dists,
+                       vector<pair<int64_t, int64_t>>& cluster_dists,
                        const chains_to_snarl_t& chains_to_snarl,
                        const snarls_to_node_t& snarls_to_node,
                        const node_to_seed_t& node_to_seed,
@@ -534,7 +532,6 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
                     seen.insert(i); 
                 }
                 for (size_t i : to_remove) {
-                    cluster_dists.erase(i);
                     snarl_clusters.erase(i);
                 }
             }
@@ -598,7 +595,6 @@ cerr << endl;
                                                            snarl_dists.second});
 
                     }
-                    cluster_dists.erase(j);
                         
                 } else {
                     //This snarl becomes a new chain cluster
@@ -628,7 +624,6 @@ cerr << endl;
                         size_t new_group = union_find_clusters.find_group(i);
                         if (new_group == i) {
                             to_erase.push_back(combined_cluster);
-                            cluster_dists.erase(combined_cluster);
                         } else {
                             to_erase.push_back(i);
                         }
@@ -638,7 +633,6 @@ cerr << endl;
                         combined_right = DistanceIndex::minPos({combined_right,
                                              chain_dists.second + dist_to_end});
                     }
-                    cluster_dists.erase(i);
                 } else {
                     //If this chain cluster is on its own, extend its right 
                     //distance to the end of the current snarl
@@ -732,7 +726,7 @@ assert (group_id == union_find_clusters.find_group(group_id));
                SnarlSeedClusterer::get_clusters_snarl(
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters,
-                       hash_map<size_t, pair<int64_t, int64_t>>& cluster_dists,
+                       vector<pair<int64_t, int64_t>>& cluster_dists,
                        const chains_to_snarl_t& chains_to_snarl,
                        const snarls_to_node_t& snarls_to_node,
                        const node_to_seed_t& node_to_seed,
@@ -782,11 +776,9 @@ assert (group_id == union_find_clusters.find_group(group_id));
                 size_t new_g = union_find_clusters.find_group(new_group);
                 if (new_g != new_group) {
                     snarl_cluster_ids.erase(new_group);
-                    cluster_dists.erase(new_group); 
                 } 
                 if (new_g != combined_group) {
                     snarl_cluster_ids.erase(combined_group);
-                    cluster_dists.erase(combined_group);
                 }
                 snarl_cluster_ids.insert(new_g);
                 dists = make_pair(
