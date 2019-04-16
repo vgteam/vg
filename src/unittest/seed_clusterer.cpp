@@ -280,7 +280,7 @@ namespace unittest {
 /*
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 1000; i++) {
             // For each random graph
             VG graph;
             random_graph(1000, 20, 100, &graph);

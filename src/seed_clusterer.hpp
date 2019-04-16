@@ -22,10 +22,10 @@ class SnarlSeedClusterer {
         typedef hash_map< const Chain*, vector<const Snarl*>> chains_to_snarl_t;
 
         //Maps each snarl to its child nodes that contain seeds
+        //nodes are a pair of id and orientation and an indicator for the 
+        //node type: 0 = chain, 1 = snarl, 2 = node
         typedef hash_map< const Snarl*, 
-                          tuple< hash_set<const Chain*>,
-                                 hash_set<const Snarl*>,
-                                 hash_set<id_t> >> 
+                          hash_set<pair<pair<id_t, bool>, int64_t>>> 
                 snarls_to_node_t;
 
         //Maps each node to the indices of seeds
