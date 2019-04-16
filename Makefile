@@ -516,7 +516,7 @@ $(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.
 .check-environment:
-	@echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp
+	@echo "#define VG_COMPILER_VERSION \"$(shell $(CXX) --version 2>/dev/null | head -n 1)\"" > $(INC_DIR)/vg_environment_version.hpp.tmp
 	@echo "#define VG_OS \"$(shell uname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
 	@echo "#define VG_BUILD_USER \"$(shell whoami)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
 	@echo "#define VG_BUILD_HOST \"$(shell hostname)\"" >> $(INC_DIR)/vg_environment_version.hpp.tmp
