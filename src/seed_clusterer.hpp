@@ -17,9 +17,10 @@ class SnarlSeedClusterer {
                DistanceIndex& dist_index);
     private:
 
-        //Maps each chain to an ordered vector of its component snarls that contain
-        //seeds 
-        typedef hash_map< const Chain*, vector<const Snarl*>> chains_to_snarl_t;
+        //Maps each chain to an ordered map of its component snarls that 
+        //contain seeds 
+        typedef hash_map< const Chain*, map<size_t, const Snarl*>> 
+                                                          chains_to_snarl_t;
 
         //Maps each snarl to its child nodes that contain seeds
         //nodes are a pair of id and orientation and an indicator for the 
