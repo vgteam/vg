@@ -339,24 +339,39 @@ $(OBJ_DIR)/progress_bar.o: $(PROGRESS_BAR_DIR)/*.hpp $(PROGRESS_BAR_DIR)/*.cpp
 $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 	+cd $(FASTAHACK_DIR) && $(MAKE) $(FILTER) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-# TODO: libvgio.so is linking against system-installed Protobuf .so in preference to the one we provide via pkg-config.
-# So we delete the .so because the .a is fine, and we just use that.
-# But on Mac we keep the dylib around; deleting it upset Travis. There must be something pointing to it somehow.
-$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
-	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && rm -f $(CWD)/$(LIB_DIR)/libvgio.so
+# TODO: libvgio.so gets built to link against system-installed Protobuf .so, if the linker finds one when making libvgio.so.
+# It *shouldn't* do this, but cmake and pkg-config don't quite work right together inside libvgio's build process yet.
+# So we delete libvgio.so and always link statically against libvgio.a.
+$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
+	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && rm -f $(CWD)/$(LIB_DIR)/libvgio.$(SHARED_SUFFIX)
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
 
+# On Linux, libdeflate builds a .so.
+# On Mac, it does *not* build a dylib.
+# So we have a rule to grab the shared library on Linux
+ifneq ($(shell uname -s),Darwin)
 $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX): $(LIB_DIR)/libdeflate.a
 	+cd $(LIBDEFLATE_DIR) && cp libdeflate.$(SHARED_SUFFIX) $(CWD)/$(LIB_DIR)
+endif
 	
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
 	+cd $(LIBDEFLATE_DIR) && $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
 	
-# We build after libdeflate so it can be used
+# We build htslib after libdeflate so it can use libdeflate
 # We have to do a full build in order to install, to get the pkg-config file so libvgio can link against it.
-$(LIB_DIR)/libhts.a: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
+HTSLIB_DEPS := $(LIB_DIR)/libdeflate.a $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
+ifneq ($(shell uname -s),Darwin)
+    # htslib is going to try and build a shared library.
+    # It needs to link against the shared libdeflate, which exists off of Mac,
+    # or it will complain libdeflate doesn't have position-independent code.
+    HTSLIB_DEPS += $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
+endif
+# If we need either the library or the pkg-config file (which we didn't used to ship), run the whole build.
+# We use a wildcard match to make sure make understands that both files come from one command run.
+# See https://stackoverflow.com/a/3077254
+$(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(HTSLIB_DEPS)
 	+cd $(HTSLIB_DIR) && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
 # We tell the vcflib build to use our own htslib
