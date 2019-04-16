@@ -3960,8 +3960,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         } else if (!aln1.has_path() && aln2.has_path()) {
             return 0.0;
         }
-        auto aln1_end = make_pos_t(path_end(aln1.path()));
-        auto aln2_begin = make_pos_t(path_start(aln2.path()));
+        auto aln1_end = make_pos_t(path_end_position(aln1.path()));
+        auto aln2_begin = make_pos_t(path_start_position(aln2.path()));
         pair<int64_t, int64_t> distances = min_oriented_distances(pos1, pos2);
         // consider both the forward and inversion case
         // counter[3]++; bench_t b; bench_init(b); bench_start(b);

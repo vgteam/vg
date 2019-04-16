@@ -499,7 +499,7 @@ int main_msga(int argc, char** argv) {
         auto build_graph = [&graph,&node_max](const string& seq, const string& name) {
             graph->create_node(seq);
             graph->dice_nodes(node_max);
-            algorithms::topological_sort(graph);
+            graph->sort();
             graph->compact_ids();
             // the graph will have a single embedded path in it
             Path& path = *graph->graph.add_path();
@@ -550,7 +550,7 @@ int main_msga(int argc, char** argv) {
         lcpidx = nullptr;
     
         //stringstream s; s << iter++ << ".vg";
-        algorithms::topological_sort(graph);
+        graph->sort();
         graph->sync_paths();
         graph->graph.clear_path();
         graph->paths.to_graph(graph->graph);
@@ -744,7 +744,7 @@ int main_msga(int argc, char** argv) {
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
-            algorithms::topological_sort(graph);
+            graph->sort();
             //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
             //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
@@ -828,7 +828,7 @@ int main_msga(int argc, char** argv) {
         }
         graph->normalize();
         graph->dice_nodes(node_max);
-        algorithms::topological_sort(graph);
+        graph->sort();
         graph->compact_ids();
         if (!graph->is_valid()) {
             cerr << "[vg msga] warning! graph is not valid after normalization" << endl;

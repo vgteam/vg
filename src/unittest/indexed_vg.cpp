@@ -95,7 +95,7 @@ TEST_CASE("IndexedVG works on random graphs", "[handle][indexed-vg]") {
         random_graph(300, 3, 30, &random);
         
         // Sort each by ID
-        algorithms::id_sort(&random);
+        random.id_sort();
         
         string filename = temp_file::create();
         random.serialize_to_file(filename, 10);

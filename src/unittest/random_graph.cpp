@@ -32,7 +32,7 @@ void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
     handle_t h = graph->create_handle(seq);
     
     path_handle_t p = graph->create_path_handle("path");
-    graph->append_occurrence(p, h);
+    graph->append_step(p, h);
     
     index_to_id[0] = graph->get_id(h);
 

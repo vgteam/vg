@@ -312,8 +312,8 @@ pair<Path, Path> cut_path(const Path& path, const Position& pos);
 pair<Path, Path> cut_path(const Path& path, size_t offset);
 bool maps_to_node(const Path& p, id_t id);
 // the position that starts just after the path ends
-Position path_start(const Path& path);
-Position path_end(const Path& path);
+Position path_start_position(const Path& path);
+Position path_end_position(const Path& path);
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 // Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);

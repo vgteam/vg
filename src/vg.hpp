@@ -542,7 +542,20 @@ public:
     /// node. Invalidates the paths. Invalidates any paths containing the node,
     /// since they are not updated.
     void swap_node_id(Node* node, id_t new_id);
-
+    
+    /// Topologically sort the graph, and then apply that sort to re- order the nodes in the backing
+    /// data structure. The sort is guaranteed to be stable. This sort is well-defined  on graphs that
+    /// are not DAGs, but instead of finding a topological sort it does a heuristic sort to minimize
+    /// a feedback arc set.
+    void sort();
+    
+    /// Order the backing graph data structure by node ID
+    void id_sort();
+    
+    /// Modifies underlying graph so that nodes occur in the same order as in the provided vector. Vector
+    /// must contain exactly one handle for each node.
+    void apply_ordering(const vector<handle_t>& ordering);
+    
     /// Iteratively add when nodes and edges are novel. Good when there are very
     /// many overlaps. TODO: If you are using this with warn on duplicates on,
     /// and you know there shouldn't be any duplicates, maybe you should use

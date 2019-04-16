@@ -1843,7 +1843,7 @@ string XG::get_path_name(const path_handle_t& path_handle) const {
 }
 
 bool XG::get_is_circular(const path_handle_t& path_handle) const {
-    return paths[as_integer(path_handle) - 1].is_circular;
+    return paths[as_integer(path_handle) - 1]->is_circular;
 }
 
 size_t XG::get_step_count(const path_handle_t& path_handle) const {
@@ -1868,14 +1868,14 @@ step_handle_t XG::path_begin(const path_handle_t& path_handle) const {
     step_handle_t step;
     as_integers(step)[0] = as_integer(path_handle);
     as_integers(step)[1] = 0;
-    return step_handle;
+    return step;
 }
 
 step_handle_t XG::path_end(const path_handle_t& path_handle) const {
     step_handle_t step;
     as_integers(step)[0] = as_integer(path_handle);
     as_integers(step)[1] = get_step_count(path_handle);
-    return step_handle;
+    return step;
 }
 
 step_handle_t XG::get_next_step(const step_handle_t& step_handle) const {

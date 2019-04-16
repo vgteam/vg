@@ -54,9 +54,10 @@ namespace vg {
         for (const PackedPath& path : paths) {
             sdsl::write_member(path.name, out);
             sdsl::write_member(path.is_deleted, out);
+            sdsl::write_member(path.is_circular, out);
             sdsl::write_member(path.head, out);
             sdsl::write_member(path.tail, out);
-            path.occurrences_iv.serialize(out);
+            path.steps_iv.serialize(out);
         }
         // note: path_id can be reconstructed from the paths
         sdsl::write_member(deleted_node_records, out);
@@ -83,12 +84,13 @@ namespace vg {
         for (size_t i = 0; i < num_paths; i++) {
             string name;
             sdsl::read_member(name, in);
-            paths.emplace_back(name);
+            paths.emplace_back(name, false); // dummy circularity for now
             PackedPath& path = paths.back();
             sdsl::read_member(path.is_deleted, in);
+            sdsl::read_member(path.is_circular, in);
             sdsl::read_member(path.head, in);
             sdsl::read_member(path.tail, in);
-            path.occurrences_iv.deserialize(in);
+            path.steps_iv.deserialize(in);
         }
         
         // reconstruct the path_id mapping
@@ -410,10 +412,10 @@ namespace vg {
                 // get the path that this membership record is on
                 PackedPath& packed_path = paths[get_membership_path(path_membership)];
                 
-                // access and flip the occurrence on the path
-                size_t occ_idx = get_membership_occurrence(path_membership);
-                handle_t occ = decode_traversal(get_occurrence_trav(packed_path, occ_idx));
-                set_occurrence_trav(packed_path, occ_idx, encode_traversal(flip(occ)));
+                // access and flip the step on the path
+                size_t occ_idx = get_membership_step(path_membership);
+                handle_t occ = decode_traversal(get_step_trav(packed_path, occ_idx));
+                set_step_trav(packed_path, occ_idx, encode_traversal(flip(occ)));
                 
                 // move to the next membership record
                 path_membership = get_next_membership(path_membership);
@@ -525,24 +527,24 @@ namespace vg {
             PackedPath& packed_path = paths[get_membership_path(path_membership)];
             
             // split up the occurrence on the path
-            size_t occ_idx = get_membership_occurrence(path_membership);
-            bool path_trav_rev = get_is_reverse(decode_traversal(get_occurrence_trav(packed_path, occ_idx)));
+            size_t occ_idx = get_membership_step(path_membership);
+            bool path_trav_rev = get_is_reverse(decode_traversal(get_step_trav(packed_path, occ_idx)));
             
             // make new occurrence records for the divided segments (except the first, which stays
             // in place)
             vector<size_t> divided_trav_offsets{occ_idx};
             for (size_t i = 1; i < return_val.size(); i++) {
                 // the new traversals will have the same strandedness as the original occurrence
-                packed_path.occurrences_iv.append(encode_traversal(path_trav_rev ? flip(return_val[i]) : return_val[i]));
-                packed_path.occurrences_iv.append(0);
-                packed_path.occurrences_iv.append(0);
+                packed_path.steps_iv.append(encode_traversal(path_trav_rev ? flip(return_val[i]) : return_val[i]));
+                packed_path.steps_iv.append(0);
+                packed_path.steps_iv.append(0);
                 
-                divided_trav_offsets.push_back(packed_path.occurrences_iv.size() / PATH_RECORD_SIZE);
+                divided_trav_offsets.push_back(packed_path.steps_iv.size() / PATH_RECORD_SIZE);
                 
                 // record the membership of this node in this path
                 size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(return_val[i]));
                 path_membership_value_iv.append(get_membership_path(path_membership));
-                path_membership_value_iv.append(packed_path.occurrences_iv.size() / PATH_RECORD_SIZE);
+                path_membership_value_iv.append(packed_path.steps_iv.size() / PATH_RECORD_SIZE);
                 path_membership_value_iv.append(path_membership_node_iv.get(node_member_idx));
                 
                 // make this new membership record the head of the linked list
@@ -551,30 +553,30 @@ namespace vg {
             
             if (path_trav_rev) {
                 // update connection to the original node that should now be to the final divided node
-                size_t other_idx = get_occurrence_prev(packed_path, occ_idx);
+                size_t other_idx = get_step_prev(packed_path, occ_idx);
                 if (other_idx != 0) {
-                    set_occurrence_next(packed_path, other_idx, divided_trav_offsets.back());
-                    set_occurrence_prev(packed_path, divided_trav_offsets.back(), other_idx);
+                    set_step_next(packed_path, other_idx, divided_trav_offsets.back());
+                    set_step_prev(packed_path, divided_trav_offsets.back(), other_idx);
                 }
                 
                 // add connections between the divided segments
                 for (size_t i = 1; i < divided_trav_offsets.size(); i++) {
-                    set_occurrence_prev(packed_path, divided_trav_offsets[i - 1], divided_trav_offsets[i]);
-                    set_occurrence_next(packed_path, divided_trav_offsets[i], divided_trav_offsets[i - 1]);
+                    set_step_prev(packed_path, divided_trav_offsets[i - 1], divided_trav_offsets[i]);
+                    set_step_next(packed_path, divided_trav_offsets[i], divided_trav_offsets[i - 1]);
                 }
             }
             else {
                 // update connection to the original node that should now be to the final divided node
-                size_t other_idx = get_occurrence_next(packed_path, occ_idx);
+                size_t other_idx = get_step_next(packed_path, occ_idx);
                 if (other_idx != 0) {
-                    set_occurrence_prev(packed_path, other_idx, divided_trav_offsets.back());
-                    set_occurrence_next(packed_path, divided_trav_offsets.back(), other_idx);
+                    set_step_prev(packed_path, other_idx, divided_trav_offsets.back());
+                    set_step_next(packed_path, divided_trav_offsets.back(), other_idx);
                 }
                 
                 // add connections between the divided segments
                 for (size_t i = 1; i < divided_trav_offsets.size(); i++) {
-                    set_occurrence_next(packed_path, divided_trav_offsets[i - 1], divided_trav_offsets[i]);
-                    set_occurrence_prev(packed_path, divided_trav_offsets[i], divided_trav_offsets[i - 1]);
+                    set_step_next(packed_path, divided_trav_offsets[i - 1], divided_trav_offsets[i]);
+                    set_step_prev(packed_path, divided_trav_offsets[i], divided_trav_offsets[i - 1]);
                 }
             }
             
@@ -718,31 +720,31 @@ namespace vg {
             PackedPath& path = paths[i - num_paths_deleted_so_far];
             
             if (path.head != 0) {
-                PagedVector new_occurrences_iv(PAGE_WIDTH);
+                PagedVector new_steps_iv(PAGE_WIDTH);
                 // TODO: if we add deletes for paths then this won't be a compact capacity
-                new_occurrences_iv.reserve(path.occurrences_iv.size());
+                new_steps_iv.reserve(path.steps_iv.size());
                 size_t copying_from = path.head;
                 size_t prev = 0;
                 while (copying_from != 0) {
                     
                     // make a new record
-                    new_occurrences_iv.append(get_occurrence_trav(path, copying_from));
-                    new_occurrences_iv.append(prev);
-                    new_occurrences_iv.append(0);
+                    new_steps_iv.append(get_step_trav(path, copying_from));
+                    new_steps_iv.append(prev);
+                    new_steps_iv.append(0);
                     
-                    size_t here = new_occurrences_iv.size() / PATH_RECORD_SIZE;
+                    size_t here = new_steps_iv.size() / PATH_RECORD_SIZE;
                     
                     // update the point on the previous node
                     if (prev != 0) {
-                        new_occurrences_iv.set(new_occurrences_iv.size() - 2 * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, here);
+                        new_steps_iv.set(new_steps_iv.size() - 2 * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, here);
                     }
                     
                     prev = here;
                     
-                    copying_from = get_occurrence_next(path, copying_from);
+                    copying_from = get_step_next(path, copying_from);
                 }
                 
-                path.occurrences_iv = move(new_occurrences_iv);
+                path.steps_iv = move(new_steps_iv);
             }
         }
     }
@@ -864,7 +866,7 @@ namespace vg {
                     if (member_idx) {
                         // make a new membership record
                         new_path_membership_value_iv.append(get_membership_path(member_idx));
-                        new_path_membership_value_iv.append(get_membership_occurrence(member_idx));
+                        new_path_membership_value_iv.append(get_membership_step(member_idx));
                         new_path_membership_value_iv.append(0);
                         
                         // point the membership vector here
@@ -875,7 +877,7 @@ namespace vg {
                         while (member_idx) {
                             // make a new membership record
                             new_path_membership_value_iv.append(get_membership_path(member_idx));
-                            new_path_membership_value_iv.append(get_membership_occurrence(member_idx));
+                            new_path_membership_value_iv.append(get_membership_step(member_idx));
                             new_path_membership_value_iv.append(0);
                             // point the previous link at this one
                             new_path_membership_value_iv.set(new_path_membership_value_iv.size() - 2 * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET,
@@ -923,9 +925,14 @@ namespace vg {
         return paths.at(as_integer(path_handle)).name;
     }
     
-    size_t PackedGraph::get_occurrence_count(const path_handle_t& path_handle) const {
+    bool PackedGraph::get_is_circular(const path_handle_t& path_handle) const {
+        return paths.at(as_integer(path_handle)).is_circular;
+    }
+    
+    size_t PackedGraph::get_step_count(const path_handle_t& path_handle) const {
+        // TODO: if we every allow step deletes, this will need to be adjusted
         const PackedPath& path = paths.at(as_integer(path_handle));
-        return path.occurrences_iv.size() / PATH_RECORD_SIZE;
+        return path.steps_iv.size() / PATH_RECORD_SIZE;
     }
     
     size_t PackedGraph::get_path_count() const {
@@ -941,58 +948,48 @@ namespace vg {
         return true;
     }
     
-    handle_t PackedGraph::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        const PackedPath& path = paths.at(as_integers(occurrence_handle)[0]);
-        return decode_traversal(get_occurrence_trav(path, as_integers(occurrence_handle)[1]));
+    handle_t PackedGraph::get_handle_of_step(const step_handle_t& step_handle) const {
+        const PackedPath& path = paths.at(as_integers(step_handle)[0]);
+        return decode_traversal(get_step_trav(path, as_integers(step_handle)[1]));
     }
     
-    occurrence_handle_t PackedGraph::get_first_occurrence(const path_handle_t& path_handle) const {
-        occurrence_handle_t occ;
-        as_integers(occ)[0] = as_integer(path_handle);
-        as_integers(occ)[1] = paths.at(as_integer(path_handle)).head;
-        return occ;
+    step_handle_t PackedGraph::path_begin(const path_handle_t& path_handle) const {
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path_handle);
+        as_integers(step)[1] = paths.at(as_integer(path_handle)).head;
+        return step;
     }
     
-    occurrence_handle_t PackedGraph::get_last_occurrence(const path_handle_t& path_handle) const {
-        occurrence_handle_t occ;
-        as_integers(occ)[0] = as_integer(path_handle);
-        as_integers(occ)[1] = paths.at(as_integer(path_handle)).tail;
-        return occ;
+    step_handle_t PackedGraph::path_end(const path_handle_t& path_handle) const {
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path_handle);
+        as_integers(step)[1] = 0;
+        return step;
     }
     
-    bool PackedGraph::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        path_handle_t path_handle = get_path_handle_of_occurrence(occurrence_handle);
-        return as_integers(occurrence_handle)[1] != paths.at(as_integer(path_handle)).tail;
-    }
-    
-    bool PackedGraph::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        path_handle_t path_handle = get_path_handle_of_occurrence(occurrence_handle);
-        return as_integers(occurrence_handle)[1] != paths.at(as_integer(path_handle)).head;
-    }
-    
-    occurrence_handle_t PackedGraph::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        occurrence_handle_t next;
-        as_integers(next)[0] = as_integers(occurrence_handle)[0];
-        as_integers(next)[1] = get_occurrence_next(paths.at(as_integers(occurrence_handle)[0]),
-                                                   as_integers(occurrence_handle)[1]);
+    step_handle_t PackedGraph::get_next_step(const step_handle_t& step_handle) const {
+        step_handle_t next;
+        as_integers(next)[0] = as_integers(step_handle)[0];
+        as_integers(next)[1] = get_step_next(paths.at(as_integers(step_handle)[0]),
+                                             as_integers(step_handle)[1]);
         return next;
     }
     
-    occurrence_handle_t PackedGraph::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        occurrence_handle_t prev;
-        as_integers(prev)[0] = as_integers(occurrence_handle)[0];
-        as_integers(prev)[1] = get_occurrence_prev(paths.at(as_integers(occurrence_handle)[0]),
-                                                   as_integers(occurrence_handle)[1]);
+    step_handle_t PackedGraph::get_previous_step(const step_handle_t& step_handle) const {
+        step_handle_t prev;
+        as_integers(prev)[0] = as_integers(step_handle)[0];
+        as_integers(prev)[1] = get_step_prev(paths.at(as_integers(step_handle)[0]),
+                                             as_integers(step_handle)[1]);
         return prev;
     }
     
-    path_handle_t PackedGraph::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-        return as_path_handle(as_integers(occurrence_handle)[0]);
+    path_handle_t PackedGraph::get_path_handle_of_step(const step_handle_t& step_handle) const {
+        return as_path_handle(as_integers(step_handle)[0]);
     }
     
     
-    bool PackedGraph::for_each_occurrence_on_handle_impl(const handle_t& handle,
-                                                         const function<bool(const occurrence_handle_t&)>& iteratee) const {
+    bool PackedGraph::for_each_step_on_handle_impl(const handle_t& handle,
+                                                   const function<bool(const step_handle_t&)>& iteratee) const {
         
         size_t path_membership = path_membership_node_iv.get(graph_index_to_node_member_index(graph_iv_index(handle)));
         while (path_membership) {
@@ -1002,14 +999,14 @@ namespace vg {
             const PackedPath& packed_path = paths[path_id];
             
             // get the traversal
-            size_t occ_idx = get_membership_occurrence(path_membership);
-            handle_t trav = decode_traversal(get_occurrence_trav(packed_path, occ_idx));
+            size_t occ_idx = get_membership_step(path_membership);
+            handle_t trav = decode_traversal(get_step_trav(packed_path, occ_idx));
             
-            // send along this occurrence
-            occurrence_handle_t occ_handle;
-            as_integers(occ_handle)[0] = path_id;
-            as_integers(occ_handle)[1] = occ_idx;
-            if (!iteratee(occ_handle)) {
+            // send along this step
+            step_handle_t step_handle;
+            as_integers(step_handle)[0] = path_id;
+            as_integers(step_handle)[1] = occ_idx;
+            if (!iteratee(step_handle)) {
                 return false;
             }
             
@@ -1025,8 +1022,8 @@ namespace vg {
         PackedPath& packed_path = paths.at(as_integer(path));
         
         // remove node membership records corresponding to this path
-        for (size_t i = 0; i < packed_path.occurrences_iv.size(); i += PATH_RECORD_SIZE) {
-            uint64_t trav = packed_path.occurrences_iv.get(i + PATH_TRAV_OFFSET);
+        for (size_t i = 0; i < packed_path.steps_iv.size(); i += PATH_RECORD_SIZE) {
+            uint64_t trav = packed_path.steps_iv.get(i + PATH_TRAV_OFFSET);
             size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(decode_traversal(trav)));
             
             // find a membership record for this path
@@ -1035,7 +1032,7 @@ namespace vg {
             while (as_path_handle(get_membership_path(here)) != path) {
                 prev = here;
                 here = get_next_membership(here);
-                // note: we don't need to be careful about getting the exact corresponding occurrence since this node
+                // note: we don't need to be careful about getting the exact corresponding step since this node
                 // should try to delete a membership record exactly as many times as it occurs on this path -- all of
                 // the records will get deleted
             }
@@ -1055,7 +1052,7 @@ namespace vg {
         path_id.erase(packed_path.name);
         
         packed_path.is_deleted = true;
-        packed_path.occurrences_iv.clear();
+        packed_path.steps_iv.clear();
         packed_path.name.clear();
         packed_path.head = 0;
         packed_path.tail = 0;
@@ -1063,50 +1060,70 @@ namespace vg {
         defragment();
     }
     
-    path_handle_t PackedGraph::create_path_handle(const string& name) {
+    path_handle_t PackedGraph::create_path_handle(const string& name, bool is_circular) {
         path_id[name] = paths.size();
         path_handle_t path_handle = as_path_handle(paths.size());
-        paths.emplace_back(name);
+        paths.emplace_back(name, is_circular);
         return path_handle;
-        
     }
     
-    occurrence_handle_t PackedGraph::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+    step_handle_t PackedGraph::append_step(const path_handle_t& path, const handle_t& to_append) {
         
         PackedPath& packed_path = paths.at(as_integer(path));
         
         // create a new path record
-        packed_path.occurrences_iv.append(as_integer(to_append));
-        packed_path.occurrences_iv.append(packed_path.tail);
-        packed_path.occurrences_iv.append(0);
+        packed_path.steps_iv.append(as_integer(to_append));
+        packed_path.steps_iv.append(packed_path.tail);
+        packed_path.steps_iv.append(0);
         
         // the offset associated with the new record
-        size_t occ_offset = packed_path.occurrences_iv.size() / PATH_RECORD_SIZE;
+        size_t step_offset = packed_path.steps_iv.size() / PATH_RECORD_SIZE;
         
         // update the pointer from the current tail
         if (packed_path.tail != 0) {
-            set_occurrence_next(packed_path, packed_path.tail, occ_offset);
+            set_step_next(packed_path, packed_path.tail, step_offset);
         }
         
         // update the head and tail of the list
-        packed_path.tail = occ_offset;
+        packed_path.tail = step_offset;
         if (packed_path.head == 0) {
-            packed_path.head = occ_offset;
+            packed_path.head = step_offset;
+        }
+        
+        // update the looping connection if this is a circular path
+        if (packed_path.is_circular) {
+            set_step_prev(packed_path, packed_path.head, packed_path.tail);
+            set_step_next(packed_path, packed_path.tail, packed_path.head);
         }
         
         // record the membership of this node in this path
         size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(to_append));
         path_membership_value_iv.append(as_integer(path));
-        path_membership_value_iv.append(occ_offset);
+        path_membership_value_iv.append(step_offset);
         path_membership_value_iv.append(path_membership_node_iv.get(node_member_idx));
         
         // make this new membership record the head of the linked list
         path_membership_node_iv.set(node_member_idx, path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
         
-        // make and return an occurrence handle
-        occurrence_handle_t occ;
-        as_integers(occ)[0] = as_integer(path);
-        as_integers(occ)[1] = occ_offset;
-        return occ;
+        // make and return an step handle
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path);
+        as_integers(step)[1] = step_offset;
+        return step;
+    }
+    
+    void PackedGraph::set_circularity(const path_handle_t& path, bool circular) {
+        PackedPath& packed_path = paths[as_integer(path)];
+        // set the looping connection as appropriate
+        if (circular && !packed_path.steps_iv.empty()) {
+            set_step_prev(packed_path, packed_path.head, packed_path.tail);
+            set_step_next(packed_path, packed_path.tail, packed_path.head);
+        }
+        else if (!circular && !packed_path.steps_iv.empty()) {
+            set_step_prev(packed_path, packed_path.head, 0);
+            set_step_next(packed_path, packed_path.tail, 0);
+        }
+        // set the annotation
+        packed_path.is_circular = circular;
     }
 }

@@ -4,6 +4,7 @@
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/id_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -333,9 +334,9 @@ step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
     as_integers(next_step_handle)[0] = as_integers(step_handle)[0];
     list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
     ++iter;
-    if (iter == paths._paths.at(paths.get_path_name(as_integer(path_handle))).end()) {
+    if (iter == paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).end()) {
         if (get_is_circular(get_path_handle_of_step(step_handle))) {
-            next_step_handle = path_begin(get_path_handle_of_step(step_handle)));
+            next_step_handle = path_begin(get_path_handle_of_step(step_handle));
         }
         else {
             as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
@@ -349,24 +350,19 @@ step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
 
 step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
     step_handle_t prev_step_handle;
-    as_integers(prev_step_handle)[0] = as_integers(step_handle)[0];
+    as_integers(prev_step_handle)[0] = as_integers(step_handle)[0]  ;
     if (reinterpret_cast<void*>(as_integers(prev_step_handle)[1]) == nullptr) {
-        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).back());
+        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).back());
     }
     else {
-        list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+        list<mapping_t>::const_iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
         if (get_is_circular(get_path_handle_of_step(step_handle))) {
-            auto& path_list = paths._paths.at(paths.get_path_name(as_integer(path_handle)));
+            auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle))));
             if (iter == path_list.begin()) {
-                iter == --path_list.end();
-            }
-            else {
-                --iter;
+                iter = path_list.end();
             }
         }
-        else {
-            --iter;
-        }
+        --iter;
         as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
     }
     return prev_step_handle;
@@ -571,7 +567,7 @@ step_handle_t VG::append_step(const path_handle_t& path, const handle_t& to_appe
     return step;
 }
 
-void set_circularity(const path_handle_t& path, bool circular) {
+void VG::set_circularity(const path_handle_t& path, bool circular) {
     if (circular) {
         paths.make_circular(get_path_name(path));
     }
@@ -743,7 +739,7 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     init();
     add_nodes(nodes);
     add_edges(edges);
-    algorithms::topological_sort(this);
+    sort();
 }
 
 
@@ -827,8 +823,8 @@ void VG::circularize(id_t head, id_t tail) {
 void VG::circularize(vector<string> pathnames){
     for(auto p : pathnames){
         Path curr_path = paths.path(p);
-        Position start_pos = path_start(curr_path);
-        Position end_pos = path_end(curr_path);
+        Position start_pos = path_start_position(curr_path);
+        Position end_pos = path_end_position(curr_path);
         id_t head = start_pos.node_id();
         id_t tail = end_pos.node_id();
         if (start_pos.offset() != 0){
@@ -3022,6 +3018,47 @@ void VG::swap_node_id(Node* node, id_t new_id) {
     //assert(is_valid());
 
 }
+        
+void VG::sort() {
+    if (node_size() <= 1) {
+        // A graph with <2 nodes has only one sort.
+        return;
+    }
+    
+    apply_ordering(algorithms::topological_order(this));
+}
+    
+void VG::id_sort() {
+    if (node_size() <= 1) {
+        // A graph with <2 nodes has only one sort.
+        return;
+    }
+    
+    apply_ordering(algorithms::id_order(this));
+}
+        
+void VG::apply_ordering(const vector<handle_t>& ordering) {
+    
+    if (node_size() != ordering.size()) {
+        cerr << "error:[algorithms] attempting to sort a graph with an incomplete ordering" << endl;
+        exit(1);
+    }
+    
+    // TODO: we don't check that all nodes are present only once, which might be nice to do
+    
+    size_t index = 0;
+    for_each_handle([&](const handle_t& at_index) {
+        // For each handle in the graph, along with its index
+        
+        // Swap the handle we observe at this index with the handle that we know belongs at this index.
+        // The loop invariant is that all the handles before index are the correct sorted handles in the right order.
+        // Note that this ignores orientation
+        swap_handles(at_index, ordering.at(index));
+        
+        // Now we've written the sorted handles through one more space.
+        index++;
+    });
+}
 
 map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
     map<id_t, vcflib::Variant> ret;
@@ -3745,7 +3782,7 @@ int VG::node_rank(id_t id) {
 
 vector<Edge> VG::break_cycles(void) {
     // ensure we are sorted
-    algorithms::topological_sort(this);
+    sort();
     // remove any edge whose from has a higher index than its to
     vector<Edge*> to_remove;
     for_each_edge([&](Edge* e) {
@@ -3760,7 +3797,7 @@ vector<Edge> VG::break_cycles(void) {
         removed.push_back(*edge);
         destroy_edge(edge);
     }
-    algorithms::topological_sort(this);
+    sort();
     return removed;
 }
     
@@ -4900,7 +4937,7 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
         });
 
     // execute a semi partial order sort on the nodes
-    algorithms::topological_sort(this);
+    sort();
 
     // make the translation
     return make_translation(node_translation, added_nodes, orig_node_sizes);
@@ -6928,7 +6965,7 @@ Alignment VG::align(const Alignment& alignment,
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
-        algorithms::topological_sort(&dag);
+        dag.sort();
         
         // run the alignment with id translation table
         do_align(dag);
@@ -8279,7 +8316,7 @@ VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
                 stable = true;
             }
             // sort the graph
-            algorithms::topological_sort(&dag);
+            dag.sort();
         } while (!stable);
     }
 

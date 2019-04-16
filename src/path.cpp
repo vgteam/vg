@@ -2077,7 +2077,7 @@ bool maps_to_node(const Path& p, id_t id) {
 }
 
 // returns the start position, or an empty position if the path has no mappings with positions
-Position path_start(const Path& path) {
+Position path_start_position(const Path& path) {
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         if (mapping.has_position()) return mapping.position();
@@ -2099,7 +2099,7 @@ string path_to_string(Path p){
 }
 
 // determine the path end
-Position path_end(const Path& path) {
+Position path_end_position(const Path& path) {
     Position pos;
     if (!path.mapping_size()) return pos;
     auto& last = path.mapping(path.mapping_size()-1);

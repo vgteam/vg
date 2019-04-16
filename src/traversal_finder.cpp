@@ -2462,10 +2462,10 @@ void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf, Fast
             string alt_path_name = "_alt_" + make_variant_id(var) + "_" + to_string(allele);
             if (graph.has_path(alt_path_name)) {
                 path_handle_t path_handle = graph.get_path_handle(alt_path_name);
-                if (graph.get_occurrence_count(path_handle) > 0) {
+                if (!graph.is_empty(path_handle)) {
                     path_found = true;
-                    occurrence_handle_t occurrence_handle = graph.get_first_occurrence(path_handle);
-                    handle_t handle = graph.get_occurrence(occurrence_handle);
+                    step_handle_t step_handle = graph.path_begin(path_handle);
+                    handle_t handle = graph.get_handle_of_step(step_handle);
                     id_t node_id = graph.get_id(handle);
                     // copy our variant just this once, and add its new pointer to our map
                     if (node_to_variant.count(node_id)) {
