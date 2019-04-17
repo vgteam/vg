@@ -45,6 +45,7 @@ namespace vg {
                     const Chain* chain = snarl_manager.chain_of(snarl);
 
                     bool rev_in_chain=snarl_manager.chain_orientation_of(snarl);
+                    id_t chain_start = get_start_of(*chain).node_id();
 
                     //A boundary node on a chain is assigned to the snarl 
                     //preceding it in the chain
@@ -53,7 +54,7 @@ namespace vg {
                         (id == snarl->end().node_id() && rev_in_chain)){ 
                         //If seed is on first boundary node of snarl 
                         //relative to traversal in the chain
-                        if (id != get_start_of(*chain).node_id()) {
+                        if (id != chain_start) {
                             //Unless this is the first node in the chain,
                             //The snarl is switched 
                             snarl = move(snarl_manager.into_which_snarl(
@@ -67,8 +68,7 @@ namespace vg {
                                                      snarl->start().node_id(); 
   
                     DistanceIndex::ChainIndex& chain_index = 
-                                dist_index.chainDistances.at(
-                                                get_start_of(*chain).node_id());
+                                dist_index.chainDistances.at(chain_start);
                     //rank of first snarl node relative to orientation in chain 
                     size_t rank = chain_index.snarlToIndex[start_node];
 
@@ -85,7 +85,7 @@ namespace vg {
                         } 
                     }
                     prev_type = 0;
-                    prev_node = make_pair(get_start_of(*chain).node_id(),
+                    prev_node = make_pair(chain_start,
                                           get_start_of(*chain).backward());
                 } else {
                     prev_type = 1;
@@ -255,10 +255,10 @@ node_length << endl;
                                         dist_right, best_dist_right});
 
                 union_find_clusters.union_groups(group_id, seed_i);
-                group_id = union_find_clusters.find_group(seed_i);
 
                                 
             }
+            group_id = union_find_clusters.find_group(group_id);
             cluster_dists[group_id] = make_pair(best_dist_left, 
                                                 best_dist_right);
             group_id = union_find_clusters.find_group(group_id);
@@ -266,7 +266,7 @@ node_length << endl;
             cluster_group_ids.insert(group_id);
 #ifdef DEBUG 
 assert (group_id == union_find_clusters.find_group(group_id));
-cerr << "Found clusters on node " << root << endl;
+cerr << "Found single cluster on node " << root << endl;
 bool got_left = false;
 bool got_right = false;
 for (size_t c : cluster_group_ids) {
@@ -401,7 +401,7 @@ assert (group_id == union_find_clusters.find_group(group_id));
                        const snarls_to_node_t& snarls_to_node,
                        const node_to_seed_t& node_to_seed,
                        size_t distance_limit, const SnarlManager& snarl_manager,
-                         DistanceIndex& dist_index, const Chain* root) {
+                       DistanceIndex& dist_index, const Chain* root) {
 #ifdef DEBUG 
 cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
 #endif
@@ -745,7 +745,7 @@ assert (group_id == union_find_clusters.find_group(group_id));
         int64_t end_length = snarl_index.nodeLength(snarl_index.snarlEnd.first);
 
         //Get the child nodes of this snarl
-        hash_set<pair<pair<id_t, bool>, int64_t>> children = 
+        const hash_set<pair<pair<id_t, bool>, int64_t>>& children = 
                                                         snarls_to_node.at(root);
         vector<pair<pair<id_t, bool>, int64_t>> child_nodes(children.begin(),
                                                               children.end());
@@ -793,8 +793,8 @@ assert (group_id == union_find_clusters.find_group(group_id));
         //Maps each cluster of child nodes to its left and right distances
         hash_map<size_t, pair<int64_t, int64_t>> old_dists;
         //Maps each child node to the left and right bounds of its clusters
-        hash_map<size_t, pair<int64_t, int64_t>> dist_bounds;
-        dist_bounds.resize(num_children);
+        vector<pair<int64_t, int64_t>> dist_bounds(num_children, 
+                                            make_pair(-1, -1));
 
         for (size_t i = 0; i < num_children ; i++) {
             //Go through each child node of the netgraph and find clusters
