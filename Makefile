@@ -350,12 +350,15 @@ $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp
 	+. ./source_me.sh && cd $(LIBHANDLEGRAPH_DIR) && cmake . && $(MAKE) $(FILTER) && cp libhandlegraph.a $(CWD)/$(LIB_DIR) && cp -r src/include/handlegraph $(CWD)/$(INC_DIR)
 
 # On Linux, libdeflate builds a .so.
-# On Mac, it does *not* build a dylib.
-# So we have a rule to grab the shared library on Linux
-ifneq ($(shell uname -s),Darwin)
+# On Mac, it *still* builds an so, which is just a dylib with .so extension.
+# On Mac we need to make sure to set the install name. We do that by renaming to dylib.
+# We don't just leave it as .so because we need to deal with outdated .so files with no paths set.
 $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX): $(LIB_DIR)/libdeflate.a
-	+cd $(LIBDEFLATE_DIR) && cp "libdeflate.$(SHARED_SUFFIX)" $(CWD)/$(LIB_DIR)
-	+touch "$(CWD)/$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)"
+	+cd $(LIBDEFLATE_DIR) && cp libdeflate.so $(CWD)/$(LIB_DIR)
+	+touch $(CWD)/$(LIB_DIR)/libdeflate.so
+ifeq ($(shell uname -s),Darwin)
+	+mv $(LIB_DIR)/libdeflate.so $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
+	+install_name_tool -id $(CWD)/$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
 endif
 	
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
@@ -363,17 +366,11 @@ $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDE
 	
 # We build htslib after libdeflate so it can use libdeflate
 # We have to do a full build in order to install, to get the pkg-config file so libvgio can link against it.
-HTSLIB_DEPS := $(LIB_DIR)/libdeflate.a $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
-ifneq ($(shell uname -s),Darwin)
-    # htslib is going to try and build a shared library.
-    # It needs to link against the shared libdeflate, which exists off of Mac,
-    # or it will complain libdeflate doesn't have position-independent code.
-    HTSLIB_DEPS += $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
-endif
+# We also have to have the shared libdeflate or we will get complaints that the static one is not position independent.
 # If we need either the library or the pkg-config file (which we didn't used to ship), run the whole build.
 # We use a wildcard match to make sure make understands that both files come from one command run.
 # See https://stackoverflow.com/a/3077254
-$(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(HTSLIB_DEPS)
+$(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(HTSLIB_DIR)/*.c $(HTSLIB_DIR)/*.h $(HTSLIB_DIR)/htslib/*.h $(HTSLIB_DIR)/cram/*.c $(HTSLIB_DIR)/cram/*.h
 	+cd $(HTSLIB_DIR) && autoheader && autoconf && CFLAGS="-I$(CWD)/$(INC_DIR)" LDFLAGS="-L$(CWD)/$(LIB_DIR)" ./configure --with-libdeflate --disable-s3 --disable-gcs --disable-libcurl --disable-plugins --prefix=$(CWD) $(FILTER) && $(MAKE) clean && $(MAKE) $(FILTER) && $(MAKE) install
 
 # We tell the vcflib build to use our own htslib
