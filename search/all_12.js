@@ -146,7 +146,7 @@ var searchData=
   ['rev_5fcomp_5fmultipath_5falignment',['rev_comp_multipath_alignment',['../namespacevg.html#a40132bfddc17b143e18279d1e176652d',1,'vg']]],
   ['rev_5fcomp_5fmultipath_5falignment_5fin_5fplace',['rev_comp_multipath_alignment_in_place',['../namespacevg.html#afd751a7942664d45206cc1754755a1d9',1,'vg']]],
   ['rev_5fcomp_5fsubpath',['rev_comp_subpath',['../namespacevg.html#ad41446f39233ac6ca5343d95b50329b2',1,'vg']]],
-  ['rev_5fmask',['REV_MASK',['../classvg_1_1MinimizerIndex.html#aa63d83b6faa4dbd090bce4c203450f7a',1,'vg::MinimizerIndex']]],
+  ['rev_5fmask',['REV_MASK',['../classvg_1_1MinimizerIndex.html#a4f4c00c5b73be36b4a6ae86ee9cfb486',1,'vg::MinimizerIndex']]],
   ['rev_5foffset',['REV_OFFSET',['../classvg_1_1MinimizerIndex.html#afb0c45406bb1374ae4f48a4e4905bb44',1,'vg::MinimizerIndex']]],
   ['revdna3bit',['revdna3bit',['../namespacexg.html#a09a061b73b78b2ba029940f09ccb6f5b',1,'xg']]],
   ['reverse',['reverse',['../structvg_1_1Support.html#acc2aa2a4b0278503817664600938c8a2',1,'vg::Support::reverse()'],['../classvg_1_1NodeTraversal.html#a3bbc8e2425c8fa46faa99e115205e6e0',1,'vg::NodeTraversal::reverse()'],['../namespacevg.html#ac52fd5878b0be1d53de644eea3458663',1,'vg::reverse(const pos_t &amp;pos, size_t node_length)'],['../namespacevg.html#a91adfc6327b5709dc73fcc7edbe5da57',1,'vg::reverse(const Position &amp;pos, size_t node_length)'],['../namespacevg.html#a2e300d25fd8281f9453366f68b484196',1,'vg::reverse(const Visit &amp;visit)']]],

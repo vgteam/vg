@@ -6,7 +6,7 @@ var searchData=
   ['occurrences_5fiv',['occurrences_iv',['../structvg_1_1PackedGraph_1_1PackedPath.html#a98c102a0192e95b2f2a1a8680e72f721',1,'vg::PackedGraph::PackedPath']]],
   ['occurrences_5fof_5fhandle',['occurrences_of_handle',['../classhandlegraph_1_1PathHandleGraph.html#a632498485896564a0f91c07eb18488cb',1,'handlegraph::PathHandleGraph']]],
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
-  ['off_5fmask',['OFF_MASK',['../classvg_1_1MinimizerIndex.html#a2fc676c781d0dfa963b5d549fd375847',1,'vg::MinimizerIndex']]],
+  ['off_5fmask',['OFF_MASK',['../classvg_1_1MinimizerIndex.html#aba6a8d15678c7391be9824cbee18eefd',1,'vg::MinimizerIndex']]],
   ['off_5ft',['off_t',['../namespacevg.html#a9cdb6d0305bd8cbf46efed9b2799877a',1,'vg::off_t()'],['../namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462',1,'handlegraph::off_t()']]],
   ['offset',['offset',['../structvg_1_1GaplessMatch.html#ab292ae1f8fc20b77bf4240180bc130e5',1,'vg::GaplessMatch::offset()'],['../structvg_1_1PathBranch.html#ad07bed1fbba0e7c94c218f285c2e51cd',1,'vg::PathBranch::offset()'],['../structvg_1_1Position.html#a1244220d4c8ae90633fd7a7e361d309a',1,'vg::Position::offset()'],['../namespacevg.html#a416939020600ce2996331c350f1fe68c',1,'vg::offset()']]],
   ['offset_5fat_5fposition',['offset_at_position',['../classxg_1_1XGPath.html#a04977ce25eff23220765586de660b37c',1,'xg::XGPath']]],
