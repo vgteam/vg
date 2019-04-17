@@ -48,6 +48,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "general options:" << endl
          << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [direct]" << endl
          << "    -i, --include-paths         merge the paths implied by alignments into the graph" << endl
+         << "    -C, --cut-softclips         when including paths, drop softclips from the paths" << endl
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
@@ -93,6 +94,9 @@ int main_augment(int argc, char** argv) {
 
     // Include a path in the graph for each GAM
     bool include_paths = false;
+
+    // Include the softclips for each path
+    bool include_softclips = true;
 
     // Just label the paths with the GAM
     bool label_paths = false;
@@ -149,6 +153,7 @@ int main_augment(int argc, char** argv) {
         {"translation", required_argument, 0, 'Z'},
         {"alignment-out", required_argument, 0, 'A'},
         {"include-paths", no_argument, 0, 'i'},
+        {"cut-softclips", no_argument, 0, 'C'},
         {"label-paths", no_argument, 0, 'B'},
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
@@ -169,7 +174,7 @@ int main_augment(int argc, char** argv) {
         {"recall", no_argument, 0, 'r'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iBhpvt:l:L:P:S:q:m:w:Mg:Ur";
+    static const char* short_options = "a:Z:A:iBhpvt:l:L:P:S:q:m:w:Mg:UrC";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -189,6 +194,9 @@ int main_augment(int argc, char** argv) {
             break;
         case 'i':
             include_paths = true;
+            break;
+        case 'C':
+            include_softclips = false;
             break;
         case 'B':
             label_paths = true;
@@ -360,16 +368,21 @@ int main_augment(int argc, char** argv) {
 
         if (include_paths) {
             // verbatim from vg mod -i
-            map<string, Path> paths_map;
             function<void(Alignment&)> lambda = [&](Alignment& aln) {
+                if (!include_softclips) {
+                    int cut_start = softclip_start(aln);
+                    int cut_end = softclip_end(aln);
+                    // Cut the sequence and quality
+                    aln.set_sequence(aln.sequence().substr(cut_start, aln.sequence().size() - cut_start - cut_end));
+                    if (aln.quality().size() != 0) {
+                        aln.set_quality(aln.quality().substr(cut_start, aln.quality().size() - cut_start - cut_end));
+                    }
+                    // Trim the path
+                    *aln.mutable_path() = trim_hanging_ends(aln.path());
+                }
                 Path path = simplify(aln.path());
                 path.set_name(aln.name());
-                auto f = paths_map.find(path.name());
-                if (f != paths_map.end()) {
-                    paths_map[path.name()] = concat_paths(f->second, path);
-                } else {
-                    paths_map[path.name()] = path;
-                }
+                read_paths.push_back(path);
                 if (!gam_out_file_name.empty()) {
                     reads.push_back(aln);
                 }
@@ -381,10 +394,6 @@ int main_augment(int argc, char** argv) {
                 in.open(gam_in_file_name.c_str());
                 stream::for_each(in, lambda);
             }
-            for (auto& p : paths_map) {
-                read_paths.push_back(p.second);
-            }
-            paths_map.clear();
         }
         else {
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
