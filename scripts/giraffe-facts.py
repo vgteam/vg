@@ -56,6 +56,8 @@ def accumulate_read_times(reads, stages=STAGES):
     Given an iterator that emits parsed JSON reads dicts, yield one list of
     cumulative runtimes, in stages order, for each read. Each list also ends
     with the total runtime, after all the stages.
+    
+    If a stage doesn't have a recorded time, it gets None for a cumulative time.
     """
     
     for read in reads:
@@ -70,13 +72,17 @@ def accumulate_read_times(reads, stages=STAGES):
             # For each stage in order
             
             # Grab its runtime from the read
-            stage_time = read.get('annotation', {}).get('stage_' + stage + '_seconds', 0.0)
+            stage_time = read.get('annotation', {}).get('stage_' + stage + '_seconds', None)
             
-            # Sum it in
-            time_counter += stage_time
-            
-            # Record the cumulative sum through this stage
-            cumulative_times.append(time_counter)
+            if stage_time is not None:
+                # Sum it in
+                time_counter += stage_time
+                
+                # Record the cumulative sum through this stage
+                cumulative_times.append(time_counter)
+            else:
+                # Stage never happened or wasn't instrumented. Substitute None.
+                cumulative_times.append(None)
             
         # Now do the total time
         cumulative_times.append(read.get('annotation', {}).get('map_seconds', 0.0))
@@ -486,7 +492,8 @@ def main(args):
     tsv_path = os.path.join(options.outdir, 'times.tsv')
     tsv = open(tsv_path, 'w')
     
-    # Make a place to total up times by stage and cumulative time
+    # Make a place to total up total cumulative times by stage and total
+    # overall time
     time_totals = [0.0 for _ in STAGES] + [0.0]
     
     # Count all the reads
@@ -497,14 +504,18 @@ def main(args):
         
         for stage, cumulative_time in zip(STAGES, times):
             # Dump cumulative times to the TSV we will plot a histogram from
+            if cumulative_time is None:
+                # This stage didn't happen or wasn't recorded
+                continue
             tsv.write('{}\t{}\n'.format(stage, cumulative_time))
         
         # Also include total time
         tsv.write('total\t{}\n'.format(times[-1]))
         
-        # Sum up all times in accumulator
+        # Sum up all cumulative times in time_totals
         for i, time in enumerate(times):
-            time_totals[i] += time
+            if time is not None:
+                time_totals[i] += time
             
         # Count the read
         read_count += 1

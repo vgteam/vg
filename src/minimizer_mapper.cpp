@@ -12,6 +12,14 @@
 #include <iostream>
 #include <algorithm>
 
+// We define this to turn on the detailed funnel instrumentation and correctness tracking.
+// Without this we just track per-read time.
+#define INSTRUMENT_MAPPING
+// With INSTRUMENT_MAPPING on, set this to track provenance of intermediate results
+//#define TRACK_PROVENANCE
+// With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
+//#define TRACK_CORRECTNESS
+
 namespace vg {
 
 using namespace std;
@@ -41,8 +49,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         aln.set_read_group(read_group);
     }
     
+#ifdef INSTRUMENT_MAPPING
     // Start the minimizer finding stage
     funnel.stage("minimizer");
+#endif
     
     // We will find all the seed hits
     vector<pos_t> seeds;
@@ -55,18 +65,26 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Find minimizers in the query
     minimizers = minimizer_index->minimizers(aln.sequence());
     
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     // Record how many we found, as new lines.
     funnel.introduce(minimizers.size());
+#endif
     
     // Start the minimizer locating stage
     funnel.stage("seed");
+#endif
 
     size_t rejected_count = 0;
     for (size_t i = 0; i < minimizers.size(); i++) {
         // For each minimizer
         
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Say we're working on it
         funnel.processing_input(i);
+#endif
+#endif
         
         if (hit_cap == 0 || minimizer_index->count(minimizers[i].first) <= hit_cap) {
             // The minimizer is infrequent enough to be informative, so feed it into clustering
@@ -81,19 +99,35 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 seed_to_source.push_back(i);
             }
             
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
             // Record in the funnel that this minimizer gave rise to these seeds.
             funnel.expand(i, seeds.size() - seeds_before);
+#endif
+#endif
         } else {
             // The minimizer is too frequent
             rejected_count++;
+            
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
             // Record in the funnel thast we rejected it
             funnel.kill(i);
+#endif
+#endif
         }
         
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Say we're done with this input item
         funnel.processed_input();
+#endif
+#endif
     }
 
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
+#ifdef TRACK_CORRECTNESS
     // Tag seeds with correctness based on proximity along paths to the input read's refpos
     funnel.substage("correct");
     
@@ -113,28 +147,40 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             }
         }
     }
+#endif
+#endif
+#endif
         
 #ifdef debug
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
     cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
 
+#ifdef INSTRUMENT_MAPPING
     // Begin the clustering stage
     funnel.stage("cluster");
+#endif
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
     vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
     
+#ifdef INSTRUMENT_MAPPING
+    funnel.substage("score");
+#endif
+
     // Compute the covered portion of the read represented by each cluster.
     // TODO: Put this and sorting into the clusterer to deduplicate with vg cluster.
-    funnel.substage("score");
     vector<double> read_coverage_by_cluster;
     for (size_t i = 0; i < clusters.size(); i++) {
         // For each cluster
         auto& cluster = clusters[i];
         
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Say we're making it
         funnel.producing_output(i);
+#endif
+#endif
         
         // Score the cluster in read coverage.
         
@@ -163,12 +209,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Turn that into a fraction
         read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
         
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Record the cluster in the funnel as a group of the size of the number of items.
         funnel.merge_group(cluster.begin(), cluster.end());
         funnel.score(funnel.latest(), read_coverage_by_cluster.back());
         
         // Say we made it.
         funnel.produced_output();
+#endif
+#endif
     }
 
 #ifdef debug
@@ -188,8 +238,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
     });
     
+#ifdef INSTRUMENT_MAPPING
     // Now we go from clusters to gapless extensions
     funnel.stage("extend");
+#endif
     
     // These are the GaplessExtensions for all the clusters, in cluster_indexes_in_order order.
     vector<vector<GaplessExtension>> cluster_extensions;
@@ -198,7 +250,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < clusters.size(); i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
+        
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         funnel.processing_input(cluster_num);
+#endif
+#endif
+        
         hash_set<size_t>& cluster = clusters[cluster_num];
 #ifdef debug
         cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
@@ -219,27 +277,45 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Extend seed hits in the cluster into one or more gapless extensions
         cluster_extensions.emplace_back(extender.extend(seed_matchings, aln.sequence()));
         
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Record with the funnel that the previous group became a group of this size.
         // Don't bother recording the seed to extension matching...
         funnel.project_group(cluster_num, cluster_extensions.back().size());
         
         // Say we finished with this cluster, for now.
         funnel.processed_input();
+#endif
+#endif
     }
     
-    // Now score all the gapless extensions by max match count accounted for.
+#ifdef INSTRUMENT_MAPPING
     funnel.substage("score");
+#endif
+    
+    // Now score all the gapless extensions by max match count accounted for.
     vector<int> cluster_extension_scores;
     cluster_extension_scores.reserve(cluster_extensions.size());
     for (size_t i = 0; i < cluster_extensions.size(); i++) {
         // For each group of GaplessExtensions
+        
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         funnel.producing_output(i);
+#endif
+#endif
+        
         auto& extensions = cluster_extensions[i];
         // Count the matches suggested by the group and use that as a score.
         cluster_extension_scores.push_back(estimate_extension_group_score(aln, extensions));
+        
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Record the score with the funnel
         funnel.score(i, cluster_extension_scores.back());
         funnel.produced_output();
+#endif
+#endif
     }
     
     // Now sort them by score
@@ -255,8 +331,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
     });
     
-    // Now start the alignment step. Everything has to become an alignment.
+#ifdef INSTRUMENT_MAPPING
     funnel.stage("align");
+#endif
+    
+    // Now start the alignment step. Everything has to become an alignment.
     
     // We will fill this with all computed alignments in estimated score order.
     vector<Alignment> alignments;
@@ -276,7 +355,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments; i++) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
+        
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         funnel.processing_input(extension_num);
+#endif
+#endif
+
         auto& extensions = cluster_extensions[extension_num];
         
         if (i < 2 || score_is_significant(cluster_extension_scores[extension_num], best_score, second_best_score)) {
@@ -289,7 +374,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             
             if (extensions.size() == 1 && extensions[0].full()) {
                 // We got a full-length extension, so directly convert to an Alignment.
+                
+#ifdef INSTRUMENT_MAPPING
                 funnel.substage("direct");
+#endif
+
                 *out.mutable_path() = extensions[0].path;
                 
                 // The score estimate is exact.
@@ -303,11 +392,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 out.set_score(alignment_score);
                 out.set_identity(identity);
                 
+#ifdef INSTRUMENT_MAPPING
                 // Stop the timer on the current substage
                 funnel.substage_stop();
+#endif
             } else if (do_chaining) {
                 // We need to do chaining.
+                
+#ifdef INSTRUMENT_MAPPING
                 funnel.substage("chain");
+#endif
                 
                 // Sort the extended seeds by read start position.
                 // TODO: Score estimation may have sorted them already.
@@ -320,8 +414,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Do the chaining and compute an alignment into out.
                 chain_extended_seeds(aln, extensions, out);
                 
+#ifdef INSTRUMENT_MAPPING
                 // We're done chaining. Next alignment may not go through this substage.
                 funnel.substage_stop();
+#endif
             } else {
                 // We would do chaining but it is disabled.
                 // Leave out unaligned
@@ -335,17 +431,27 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 second_best_score = out.score();
             }
             
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
             // Record the Alignment and its score with the funnel
             funnel.project(extension_num);
             funnel.score(i, out.score());
             
             // We're done with this input item
             funnel.processed_input();
+#endif
+#endif
         } else {
             // If this score is insignificant, nothing past here is significant.
             // Don't do any more.
+            
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
             funnel.kill_all(extension_indexes_in_order.begin() + i, extension_indexes_in_order.end());
             funnel.processed_input();
+#endif
+#endif
+            
             break;
         }
     }
@@ -353,8 +459,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
+        
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Say it came from nowhere
         funnel.introduce();
+#endif
+#endif
     }
     
     // Order the Alignments by score
@@ -370,8 +481,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return alignments[a].score() > alignments[b].score();
     });
     
+#ifdef INSTRUMENT_MAPPING
     // Now say we are finding the winner(s)
     funnel.stage("winner");
+#endif
     
     vector<Alignment> mappings;
     mappings.reserve(min(alignments_in_order.size(), max_multimaps));
@@ -380,16 +493,25 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         size_t& alignment_num = alignments_in_order[i];
         mappings.emplace_back(std::move(alignments[alignment_num]));
         
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
         // Tell the funnel
         funnel.project(alignment_num);
         funnel.score(alignment_num, mappings.back().score());
+#endif
+#endif
     }
+
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     if (max_multimaps < alignments_in_order.size()) {
         // Some things stop here
         funnel.kill_all(alignments_in_order.begin() + max_multimaps, alignments_in_order.end());
     }
+#endif
     
     funnel.substage("mapq");
+#endif
     
     // Grab all the scores for MAPQ computation.
     vector<double> scores;
@@ -418,7 +540,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
     
+#ifdef INSTRUMENT_MAPPING
     funnel.substage_stop();
+#endif
     
     for (size_t i = 0; i < mappings.size(); i++) {
         // For each output alignment in score order
@@ -431,7 +555,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Stop timing with the funnel
     funnel.stop();
     
-    // Annotate with total, stage, and substage runtimes
+    // Annotate with total, stage, and substage runtimes.
+    // If we didn't record stages, we just get the total.
     funnel.for_each_time([&](const string& stage, const string& substage, double seconds) {
         if (stage == "") {
             // Overall runtime
@@ -447,8 +572,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
     });
 
+#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
+#ifdef TRACK_CORRECTNESS
     // And with the last stage at which we had any descendants of the correct seed hit locations
     set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
+#endif
+#endif
+#endif
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
