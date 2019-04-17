@@ -4,7 +4,7 @@
 #include "algorithms/is_acyclic.hpp"
 #include "cactus.hpp"
 
-//#define debug
+#define debug
 
 namespace vg {
 
@@ -2481,6 +2481,9 @@ void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf, Fast
                  << var << endl;
         }
     }
+#ifdef debug
+    cerr << "Indexed " << node_to_variant.size() << " nodes" << endl;
+#endif
 }
 
 void VCFTraversalFinder::delete_variant_index() {

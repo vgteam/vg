@@ -131,6 +131,26 @@ int main_call(int argc, char** argv) {
         cerr << "[vg call]: Translation file must be specified with -Z" << endl;
         return 1;
     }
+
+    // read the vcf and accompanying fasta files if specified
+    if (!((string)(support_caller.recall_vcf_filename)).empty()) {
+        support_caller.variant_file.parseSamples = false;
+        support_caller.variant_file.open(support_caller.recall_vcf_filename);
+        if (!support_caller.variant_file.is_open()) {
+            cerr << "error: [vg call] could not open " << (string)support_caller.recall_vcf_filename << endl;
+            return 1;
+        }
+
+        // load up the fasta
+        if (!((string)support_caller.recall_ref_fasta_filename).empty()) {
+            support_caller.ref_fasta = unique_ptr<FastaReference>(new FastaReference);
+            support_caller.ref_fasta->open(support_caller.recall_ref_fasta_filename);
+        }
+        if (!((string)support_caller.recall_ins_fasta_filename).empty()) {
+            support_caller.ins_fasta = unique_ptr<FastaReference>(new FastaReference);
+            support_caller.ins_fasta->open(support_caller.recall_ins_fasta_filename);
+        }
+    }
     
     // read the graph
     if (show_progress) {
