@@ -343,7 +343,7 @@ $(OBJ_DIR)/Fasta.o: $(FASTAHACK_DIR)/*.h $(FASTAHACK_DIR)/*.cpp
 # It *shouldn't* do this, but cmake and pkg-config don't quite work right together inside libvgio's build process yet.
 # So we delete libvgio.so and always link statically against libvgio.a.
 # But we don't delete libvgio.dylib; Mac insists on it for some reason.
-$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
+$(LIB_DIR)/libvgio.a: $(LIB_DIR)/libhts.a $(LIB_DIR)/pkgconfig/htslib.pc $(LIB_DIR)/libprotobuf.a $(LIBVGIO_DIR)/CMakeLists.txt $(LIBVGIO_DIR)/src/*.cpp $(LIBVGIO_DIR)/include/vg/io/*.hpp
 	+. ./source_me.sh && cd $(LIBVGIO_DIR) && PKG_CONFIG_PATH=$(CWD)/$(LIB_DIR)/pkgconfig:$(PKG_CONFIG_PATH) cmake -DCMAKE_PREFIX_PATH=$(CWD) -DCMAKE_LIBRARY_PATH=$(CWD)/$(LIB_DIR) -DCMAKE_INSTALL_PREFIX=$(CWD) -DCMAKE_INSTALL_LIBDIR=lib . $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && rm -f $(CWD)/$(LIB_DIR)/libvgio.so
 
 $(LIB_DIR)/libhandlegraph.a: $(LIBHANDLEGRAPH_DIR)/src/include/handlegraph/*.hpp $(LIBHANDLEGRAPH_DIR)/src/*.cpp
