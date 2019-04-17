@@ -8,6 +8,12 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+// Numerical class constants.
+
+constexpr size_t GaplessExtender::MAX_MISMATCHES;
+
+//------------------------------------------------------------------------------
+
 GaplessExtender::GaplessExtender() :
     graph(nullptr)
 {
