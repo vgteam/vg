@@ -2,8 +2,8 @@
 #define VG_VIZ_HPP_INCLUDED
 
 #include <vector>
-#include <cairo.h>
-#include <cairo-svg.h>
+#include <cairo/cairo.h>
+#include <cairo/cairo-svg.h>
 #include <iostream>
 #include <chrono>
 #include <ctime>
