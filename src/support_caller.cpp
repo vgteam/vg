@@ -1726,7 +1726,7 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
     int best_allele = genotype.allele_size() > 0 ? genotype.allele(0) : -1;
     int second_best_allele = genotype.allele_size() > 1 ? genotype.allele(1) : -1;   
 
-    vector<int> used_alleles;
+    vector<int> used_alleles(1, 0);
     
     if (locus.genotype_size() > 0) {
         // We actually made a call. Emit the first genotype, which is the call.
@@ -1744,7 +1744,9 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
                 // Write a separator after all but the last one
                 stream << (genotype.is_phased() ? '|' : '/');
             }
-            used_alleles.push_back(genotype.allele(i));
+            if (std::find(used_alleles.begin(), used_alleles.end(), genotype.allele(i)) == used_alleles.end()) { 
+                used_alleles.push_back(genotype.allele(i));
+            }
         }
         // Save the finished genotype
         genotype_vector.push_back(stream.str());
