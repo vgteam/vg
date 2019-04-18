@@ -4,7 +4,7 @@
 #include "algorithms/is_acyclic.hpp"
 #include "cactus.hpp"
 
-#define debug
+//#define debug
 
 namespace vg {
 
@@ -2613,18 +2613,29 @@ void VCFTraversalFinder::brute_force_alt_traversals(
             vcf_haplotype[i] = (alt_alleles[i][haplotype[i]]);
             assert(skip_alt != nullptr || vcf_haplotype[i] == haplotype[i]);
         }
+        // make sure we don't forget the reference.  I'm sure there's a more elegant way to
+        // do this, but it's fussy in light of pruning logic
+        if (output_traversals.empty() &&
+            !std::all_of(vcf_haplotype.begin(), vcf_haplotype.end(), [](int i) {return i == 0;})) {
+            vector<int> ref_haplotype(vcf_haplotype.size(), 0);
+            pair<SnarlTraversal, bool> alt_traversal = get_alt_traversal(
+                site, site_variants, path_index, start_it, end_it, ref_haplotype);
+            assert(alt_traversal.second == true);
+            output_traversals.push_back(make_pair(alt_traversal.first, ref_haplotype));
+        }
+        
         pair<SnarlTraversal, bool> alt_traversal = get_alt_traversal(site, site_variants, path_index,
                                                                      start_it, end_it, vcf_haplotype);
 #ifdef debug
         cerr << "bf haplotype <";
-        for (auto allele : haplotype) {
+        for (auto allele : vcf_haplotype) {
             cerr << allele << ",";
         }
         cerr << "> gives " << (alt_traversal.second ? "valid" : "invalid") <<  " trav: "
              << pb2json(alt_traversal.first) << endl;
 #endif
         if (alt_traversal.second) {
-            output_traversals.push_back(make_pair(alt_traversal.first, haplotype));
+            output_traversals.push_back(make_pair(alt_traversal.first, vcf_haplotype));
         }
     } while (next_haplotype());   
 }
@@ -2767,8 +2778,8 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
     }
 
     // sanity check: we compare the output to something gotten directly from the
-    // path index when doing the reference haplotype. 
-    if (haplotype == vector<int>(0, haplotype.size())) {
+    // path index when doing the reference haplotype.
+    if (all_of(haplotype.begin(), haplotype.end(), [] (int i) {return i == 0;})) { 
         SnarlTraversal ref_trav;
         PathIndex::iterator it = start_it;
         ++it;

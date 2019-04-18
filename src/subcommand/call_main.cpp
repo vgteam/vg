@@ -134,6 +134,10 @@ int main_call(int argc, char** argv) {
 
     // read the vcf and accompanying fasta files if specified
     if (!((string)(support_caller.recall_vcf_filename)).empty()) {
+        if (support_caller.variant_offset != 0) {
+            cerr << "error: [vg call] vcf offset (-o) not supported in recall mode (-f)" << endl;
+            return 1;
+        }
         support_caller.variant_file.parseSamples = false;
         support_caller.variant_file.open(support_caller.recall_vcf_filename);
         if (!support_caller.variant_file.is_open()) {
