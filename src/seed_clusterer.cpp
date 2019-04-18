@@ -295,6 +295,8 @@ assert(got_right);
         int64_t best_left = -1;
         int64_t best_right = -1;
 
+        vector<size_t> to_remove;
+        vector<size_t> to_add;
         for ( size_t i : seed_indices) {
             //For each seed, see if it belongs to a new cluster
             //i is also its own group id
@@ -311,8 +313,6 @@ assert(got_right);
             bool combined = false;//True if i got combined with another cluster
 
             //ids in cluster_group_ids that are no longer the heads of groups
-            vector<size_t> to_remove;
-            vector<size_t> to_add;
             for (size_t j : cluster_group_ids) {
                 //Check which new clusters this seed belongs in 
 
@@ -357,6 +357,8 @@ assert(got_right);
                 //Remove old cluster group ids from cluster_group_ids
                 cluster_group_ids.erase(j);
             }
+            to_add.clear();
+            to_remove.clear();
             if (!combined) {
                 //If i was not added to any clusters
                 cluster_group_ids.insert(i);
