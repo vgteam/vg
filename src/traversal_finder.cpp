@@ -2542,33 +2542,6 @@ VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
     }
 #endif
 
-    // take the reference traversal from our path index
-    SnarlTraversal ref_trav;
-    PathIndex::iterator it = start_it;
-    ++it;
-    if (include_endpoints) {
-        Visit* visit = ref_trav.add_visit();
-        visit->set_node_id(start_it->second.node);
-        visit->set_backward(start_it->second.is_end);
-    }
-    for (; it != end_it; ++it) {
-        Visit* visit = ref_trav.add_visit();
-        visit->set_node_id(it->second.node);
-        // todo: do we get an orientation out of the path index?  
-        visit->set_backward(it->second.is_end);
-    }
-    if (include_endpoints) {
-        Visit* visit = ref_trav.add_visit();
-        visit->set_node_id(end_it->second.node);
-        visit->set_backward(end_it->second.is_end);
-    }
-
-    output_traversals.push_back(make_pair(ref_trav, vector<int>(site_variants.size(), 0)));
-
-#ifdef debug
-    cerr << "Ref traversal: " << pb2json(ref_trav) << endl;
-#endif
-
     // fill in the alt traversals
     brute_force_alt_traversals(site, site_variants, path_index, start_it, end_it, output_traversals);
 
@@ -2632,9 +2605,7 @@ void VCFTraversalFinder::brute_force_alt_traversals(
         return false;
     };
 
-    // note: we gobble up the reference as we begin iterating, as it's already done
-    // separately
-    while (next_haplotype()) {
+    do {
         // convert back to vcf allele offsets
         // todo: can we change the enumeration to avoid this?
         vector<int> vcf_haplotype(haplotype.size());
@@ -2655,7 +2626,7 @@ void VCFTraversalFinder::brute_force_alt_traversals(
         if (alt_traversal.second) {
             output_traversals.push_back(make_pair(alt_traversal.first, haplotype));
         }
-    }    
+    } while (next_haplotype());   
 }
 
 pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& site,
@@ -2795,6 +2766,30 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
         visit->set_backward(end_it->second.is_end);
     }
 
+    // sanity check: we compare the output to something gotten directly from the
+    // path index when doing the reference haplotype. 
+    if (haplotype == vector<int>(0, haplotype.size())) {
+        SnarlTraversal ref_trav;
+        PathIndex::iterator it = start_it;
+        ++it;
+        if (include_endpoints) {
+            Visit* visit = ref_trav.add_visit();
+            visit->set_node_id(start_it->second.node);
+            visit->set_backward(start_it->second.is_end);
+        }
+        for (; it != end_it; ++it) {
+            Visit* visit = ref_trav.add_visit();
+            visit->set_node_id(it->second.node);
+            // todo: do we get an orientation out of the path index?  
+            visit->set_backward(it->second.is_end);
+        }
+        if (include_endpoints) {
+            Visit* visit = ref_trav.add_visit();
+            visit->set_node_id(end_it->second.node);
+            visit->set_backward(end_it->second.is_end);
+        }
+        assert(found_end && ref_trav == traversal);
+    }
     
     return make_pair(traversal, found_end && alt_nodes.empty() && alt_edges.empty());    
 }
@@ -2913,6 +2908,11 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
                 skip_alt(get_alt_path(site_variants[var_i], allele, path_index).first) == false) {
                 alt_alleles[var_i].push_back(allele);
             }
+#ifdef debug
+            else if (skip_alt != nullptr) {
+                cerr << "Pruning allele " << allele << " from variant " << site_variants[var_i]->id << endl;
+            }
+#endif
         }
         // always leave at least one path through the site, even if that means
         // going through a reference allele that fails the skip_alt check.
