@@ -15,13 +15,65 @@ import subprocess
 import collections
 import itertools
 import json
+import random
 
 # We depend on our local histogram.py
 import histogram
 
 # Define a constant list of all the stages, in order.
 STAGES = ['minimizer', 'seed', 'cluster', 'extend', 'align', 'winner']
-    
+
+FACTS = ["Giraffes are the tallest living terrestrial animal.",
+         "There are nine subspecies of giraffe, each occupying separate regions of Africa. Some researchers consider some subspecies to be separate species entirely.",
+         "Giraffes' horn-like structures are called 'ossicones'. They consist mostly of ossified cartilage.",
+         "Male giraffes compete for dominance in fights in which they strike each other with their necks.",
+         "There are more than 1600 giraffes in captivity worldwide.",
+         "The name 'giraffe' has roots in the Arabic 'zarafah', meaning 'fast-walker'.",
+         "Before the name 'giraffe' came into standard use, giraffes were commonly called 'camelopards'.",
+         "There are 10 known extinct species of giraffe.",
+         "The closest living relative to the giraffe is the okapi, an endangered hoofed mammal from the Congo.",
+         "Full grown giraffes are usually between 14 and 18 feet tall.",
+         "The tallest recorded giraffe was 19.3 feet tall.",
+         "Adult male giraffes weigh an average of 2628 lbs., whereas females weight 1825 lbs.",
+         "Giraffes have the ability to close their nostrils to protect against sandstorms and ants.",
+         "Giraffes have 18-inch-long prehensile tongues, which they use for grasping foliage and for grooming.",
+         "Male giraffes' spots grow darker as they age.",
+         "Under their fur coat, giraffes have grey skin.",
+         "Female giraffes have hair on their ossicones, whereas males' ossicones are bald.",
+         "Giraffes use the weight of their head to maintain their balance when they gallop.",
+         "Giraffes can run at 37 miles per hour for short distances, and 31 miles per hour for several miles.",
+         "Giraffes sleep for about half an hour a day.",
+         "Giraffes have the same number of vertebrae as most mammals. The length of their neck comes from longer vertebrae (over 10 inches each).",
+         "Giraffes' neck is fairly short at birth, probably to make birthing easier for mothers.",
+         "A giraffe's heart can weigh more than 25 lbs.",
+         "Giraffes have structures like check valves in their necks' veins to prevent blood from rushing to their head when they bend down to drink.",
+         "Giraffes have a four-chambered stomach similar to cattle.",
+         "An adult girafffe can eat 75 lbs. of foliage per day.",
+         "While generally herbivorous, giraffes have been observed eating meat and bone from carcasses.",
+         "The giraffe's gestation period is 14 months.",
+         "Newborn giraffes are about 6 feet tall.",
+         "Giraffes are lions' most common prey.",
+         "Most of giraffes' mounting behavior is between two males, often after a fight for dominance.",
+         "Giraffes allow red-billed oxpeckers (a bird species) to perch on them to feed on ticks.",
+         "Egyptian heiroglyphs use the giraffe as a character, pronounced 'sr'.",
+         "Designers of suits for fighter pilots studied giraffe skin, since figher pilots are also at risk of passing out when blood rushes to the legs.",
+         "The Humr people of Sudan use giraffe liver to create a putatively hallucinogenic drink called 'umm nyolokh'. The drink's psychoactive properties may come from the giraffe's diet of acacia plants.",
+         "The giraffe is the national animal of Tanzania.",
+         "There are around 100,000 giraffes in the wild as of 2016.",
+         "Giraffes only need to drink every few days. Most of their water comes from the vegetation they eat.",
+         "Giraffes give birth standing up, so newborn giraffes fall over 5 feet upon being born.",
+         "Giraffes usually sleep standing upright.",
+         "Male giraffes detect oestrus in females by tasting their urine.",
+         "June 21 is World Giraffe Day.",
+         "Toys R' Us has used Geoffrey the Giraffe as its mascot since 1965, although earlier advertisements in the 1950's used another giraffe: Dr. G. Raffe.",
+         "Giraffe hooves are 1 foot in diameter.",
+         "About 50% of giraffe calves die in their first year, mostly due to predation.",
+         "The giraffe's average walking speed is 10 miles per hour.",
+         "The giraffe's tongue is colored dark blue.",
+         "Some of giraffes' vocalizations are too low to be heard by human ears.",
+         "Giraffes have never been observed swimming.",
+         "Mozambique requires power lines to be 39 feet high so giraffes can safely pass underneath."]
+
 def parse_args(args):
     """
     Takes in the command-line arguments list (args), and returns a nice argparse
@@ -482,6 +534,8 @@ def main(args):
     "args" specifies the program arguments, with args[0] being the executable
     name. The return value should be used as the program's exit code.
     """
+    
+    print(random.choice(FACTS), file = sys.stderr)
     
     options = parse_args(args) # This holds the nicely-parsed options object
     
