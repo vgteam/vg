@@ -160,7 +160,7 @@ public:
      * diluted by shared reference.
      */
     tuple<Support, Support, size_t> get_traversal_support(
-        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
+        SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl* site,
         const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr,
         const SnarlTraversal* ref_traversal = nullptr);
 
@@ -415,7 +415,7 @@ public:
             "maximum detectable inversion size in number of nodes"};
 
     Option<string> recall_vcf_filename{this, "recall-vcf", "f", "",
-            "VCF to genotype against"};
+            "VCF to genotype against.  Must have been used to create input graph with vg construct -a"};
 
     Option<string> recall_ref_fasta_filename{this, "recall-fasta", "a", "",
             "Reference FASTA required for --recall-vcf in the presence of symbolic deletions or inversions"};
@@ -427,6 +427,8 @@ public:
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;
     unique_ptr<FastaReference> ins_fasta;
+    /// minimum average base support on alt path for it to be considered
+    double min_alt_path_support = 0.2;
     
     /// print warnings etc. to stderr
     bool verbose = false;

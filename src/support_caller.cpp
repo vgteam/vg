@@ -402,16 +402,26 @@ size_t SupportCaller::get_deletion_length(const NodeSide& end1, const NodeSide& 
  * Trace out the given traversal, handling nodes, child snarls, and edges
  * associated with particular visit numbers.
  */
-void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, function<void(size_t,id_t,bool)> handle_node,
-    function<void(size_t,NodeSide,NodeSide)> handle_edge, function<void(size_t,Snarl,bool)> handle_child) {
+static void trace_traversal(const SnarlTraversal& traversal, const Snarl* site,
+                            function<void(size_t,id_t,bool)> handle_node,
+                            function<void(size_t,NodeSide,NodeSide)> handle_edge,
+                            function<void(size_t,Snarl,bool)> handle_child) {
 
     // Must at least have start and end
-    assert(traversal.visit_size() >= 2);
+    assert(site == nullptr || traversal.visit_size() >= 2);
+
+    // If we're given a site, we assume we have snarl endpoints that we want to skip
+    // Otherise, we handle the endpoints.  This is toggled with the three variables below.
+    int first_i = site != nullptr ? 1 : 0;
+    int last_i = site != nullptr ? traversal.visit_size() - 1 : traversal.visit_size();
+    int idx_offset = site != nullptr ? -1 : 0;
     
     // Look at the edge leading from the start (also handles deletion traversals)
-    handle_edge(0, to_right_side(traversal.visit(0)), to_left_side(traversal.visit(1)));
+    if (site != nullptr || traversal.visit_size() > 1) { 
+        handle_edge(0, to_right_side(traversal.visit(0)), to_left_side(traversal.visit(1)));
+    }
     
-    for(int64_t i = 1; i < traversal.visit_size() - 1; i++) {
+    for(int64_t i = first_i; i < last_i; i++) {
         // For all the (internal) visits...
         auto& visit = traversal.visit(i);
         
@@ -419,30 +429,31 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
             // This is a visit to a node
             
             // Find the node
-            handle_node(i - 1, visit.node_id(), visit.backward());
+            handle_node(i + idx_offset, visit.node_id(), visit.backward());
         } else {
             // This is a snarl
-            handle_child(i - 1, visit.snarl(), visit.backward());
+            handle_child(i + idx_offset, visit.snarl(), visit.backward());
         }
+
+        if (i < traversal.visit_size() - 1) {
+            auto& next_visit = traversal.visit(i + 1);
         
-        auto& next_visit = traversal.visit(i + 1);
-        
-        if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
-            to_right_side(visit).flip() == to_left_side(next_visit)) {
+            if (visit.node_id() == 0 && next_visit.node_id() == 0 &&
+                to_right_side(visit).flip() == to_left_side(next_visit)) {
             
-            // These are two back-to-back child snarl visits, which
-            // share a node and have no connecting edge.
+                // These are two back-to-back child snarl visits, which
+                // share a node and have no connecting edge.
 #ifdef debug
-            cerr << "No edge needed for back-to-back child snarls" << endl;
+                cerr << "No edge needed for back-to-back child snarls" << endl;
 #endif
             
-        }
-        else {
-            // Do the edge to it
-            handle_edge(i - 1, to_right_side(visit), to_left_side(next_visit));
+            }
+            else {
+                // Do the edge to it
+                handle_edge(i + idx_offset, to_right_side(visit), to_left_side(next_visit));
+            }
         }
     }
-
 }
 
 /**
@@ -452,7 +463,7 @@ void trace_traversal(const SnarlTraversal& traversal, const Snarl& site, functio
  * makes half its coverage available to this traversal.
  */
 tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugmentedGraph& augmented,
-    SnarlManager& snarl_manager, const Snarl& site, const SnarlTraversal& traversal,
+    SnarlManager& snarl_manager, const Snarl* site, const SnarlTraversal& traversal,
     const SnarlTraversal* already_used, const SnarlTraversal* ref_traversal) {
 
 #ifdef debug
@@ -501,8 +512,8 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
     }    
     
     // Compute min and total supports, and bp sizes, for all the visits by
-    // number.
-    size_t record_count = max(1, traversal.visit_size() - 2);
+    // number.  If we have a site, we subtract two here as trace_traversal skips the endpoints
+    size_t record_count = max(1, site != nullptr ? traversal.visit_size() - 2 : traversal.visit_size());
     // What's the min support observed at every visit (inclusing edges)?
     // Support is on the forward and reverse strand relative to the visits.
     vector<Support> min_supports(record_count, make_support(INFINITY, INFINITY, INFINITY));
@@ -748,7 +759,7 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
         Support min_support;
         // Trace the traversal and get its support
         tie(min_support, total_support, total_size) = get_traversal_support(
-            augmented, snarl_manager, site, traversal, minus_traversal, &traversals.front());
+            augmented, snarl_manager, &site, traversal, minus_traversal, &traversals.front());
             
         // Add average and min supports to vectors. Note that average support
         // ignores edges.
@@ -1365,24 +1376,25 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
 
         // find the maximum allele
         int max_allele = -1;
-        for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-            max_allele = max(max_allele, (int)locus.genotype(0).allele(i));
-        }
-        // pad our supports
-        for (int i = 0; i <= max_allele; ++i) {
-            vcf_locus.add_support();
-        }
+        if (locus.genotype_size() > 0) {
+            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
+                max_allele = max(max_allele, (int)locus.genotype(0).allele(i));
+            }
+            // pad our supports
+            for (int i = 0; i <= max_allele; ++i) {
+                vcf_locus.add_support();
+            }
 
-        // convert the allele we called from our traversal list into the corresponding
-        // allele for this variant in the VCF
-        for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-            int called_allele = locus.genotype(0).allele(i);
-            int vcf_allele = trav_alleles[called_allele][var_idx];
-            vcf_genotype.add_allele(vcf_allele);
-            // we still write out supports in terms of the whole snarl
-            *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
-        }
-        
+            // convert the allele we called from our traversal list into the corresponding
+            // allele for this variant in the VCF
+            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
+                int called_allele = locus.genotype(0).allele(i);
+                int vcf_allele = trav_alleles[called_allele][var_idx];
+                vcf_genotype.add_allele(vcf_allele);
+                // we still write out supports in terms of the whole snarl
+                *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
+            }
+        }        
         *vcf_locus.mutable_overall_support() = locus.overall_support();
 
         emit_locus(vcf_locus, &site, site_variants[var_idx]);
@@ -2148,11 +2160,21 @@ void SupportCaller::call(
     unique_ptr<TraversalFinder> traversal_finder;
 
     if (!((string)recall_vcf_filename).empty()) {
+
+        auto skip_alt = [&] (const SnarlTraversal& alt_path) -> bool {
+            Support avg_support;
+            size_t total_size;
+            tie(std::ignore, avg_support, total_size) = get_traversal_support(
+                augmented, site_manager, nullptr, alt_path, nullptr, nullptr);
+            return total_size > 0 && total(avg_support) / (double)total_size < min_alt_path_support;
+        };
+        
         // we are genotyping a VCF.  load it and make sure we only traverse its alleles
         traversal_finder = unique_ptr<TraversalFinder>(new VCFTraversalFinder(augmented.graph, site_manager,
                                                                               variant_file, get_path_index,
                                                                               ref_fasta.get(),
-                                                                              ins_fasta.get()));
+                                                                              ins_fasta.get(),
+                                                                              skip_alt));
         (bool&)leave_shared_ends = true;
     }
 

@@ -2869,30 +2869,32 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
         assert(graph.has_path(alt_path_name));
 
         list<mapping_t>& path = graph.paths.get_path(alt_path_name);
-        assert(!path.empty());
+        if (!path.empty()) {
+            // find where this path begins and ends in the reference path index
+            PathIndex::iterator first_path_it = path_index->find_in_orientation(
+                path.begin()->node_id(), path.begin()->is_reverse());
+            PathIndex::iterator last_path_it = path_index->find_in_orientation(
+                path.rbegin()->node_id(), path.rbegin()->is_reverse());
 
-        // find where this path begins and ends in the reference path index
-        PathIndex::iterator first_path_it = path_index->find_in_orientation(
-            path.begin()->node_id(), path.begin()->is_reverse());
-        PathIndex::iterator last_path_it = path_index->find_in_orientation(
-            path.rbegin()->node_id(), path.rbegin()->is_reverse());
+            // some sanity checking
+            assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
+            assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
 
-        // some sanity checking
-        assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
-        assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
+            // todo: logic needed here if want to support non-forward reference paths.
+            --first_path_it;
+            ++last_path_it;
+            handle_t left = graph.get_handle(first_path_it->second.node);
+            handle_t right = graph.get_handle(last_path_it->second.node);
 
-        // todo: logic needed here if want to support non-forward reference paths.
-        --first_path_it;
-        ++last_path_it;
-        handle_t left = graph.get_handle(first_path_it->second.node);
-        handle_t right = graph.get_handle(last_path_it->second.node);
-
-        Visit* visit = alt_path.add_visit();
-        visit->set_node_id(graph.get_id(left));
-        visit->set_backward(graph.get_is_reverse(left));
-        visit = alt_path.add_visit();
-        visit->set_node_id(graph.get_id(right));
-        visit->set_backward(graph.get_is_reverse(right));
+            Visit* visit = alt_path.add_visit();
+            visit->set_node_id(graph.get_id(left));
+            visit->set_backward(graph.get_is_reverse(left));
+            visit = alt_path.add_visit();
+            visit->set_node_id(graph.get_id(right));
+            visit->set_backward(graph.get_is_reverse(right));
+        } else {
+            assert(allele == 0);
+        }
     }
     
     return make_pair(alt_path, is_deletion);
