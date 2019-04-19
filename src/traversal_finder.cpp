@@ -2481,6 +2481,9 @@ void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf, Fast
                  << var << endl;
         }
     }
+#ifdef debug
+    cerr << "Indexed " << node_to_variant.size() << " nodes" << endl;
+#endif
 }
 
 void VCFTraversalFinder::delete_variant_index() {
@@ -2537,33 +2540,6 @@ VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
     for (auto site_var : site_variants) {
       cerr << " ->" << *site_var << endl;
     }
-#endif
-
-    // take the reference traversal from our path index
-    SnarlTraversal ref_trav;
-    PathIndex::iterator it = start_it;
-    ++it;
-    if (include_endpoints) {
-        Visit* visit = ref_trav.add_visit();
-        visit->set_node_id(start_it->second.node);
-        visit->set_backward(start_it->second.is_end);
-    }
-    for (; it != end_it; ++it) {
-        Visit* visit = ref_trav.add_visit();
-        visit->set_node_id(it->second.node);
-        // todo: do we get an orientation out of the path index?  
-        visit->set_backward(it->second.is_end);
-    }
-    if (include_endpoints) {
-        Visit* visit = ref_trav.add_visit();
-        visit->set_node_id(end_it->second.node);
-        visit->set_backward(end_it->second.is_end);
-    }
-
-    output_traversals.push_back(make_pair(ref_trav, vector<int>(site_variants.size(), 0)));
-
-#ifdef debug
-    cerr << "Ref traversal: " << pb2json(ref_trav) << endl;
 #endif
 
     // fill in the alt traversals
@@ -2629,9 +2605,7 @@ void VCFTraversalFinder::brute_force_alt_traversals(
         return false;
     };
 
-    // note: we gobble up the reference as we begin iterating, as it's already done
-    // separately
-    while (next_haplotype()) {
+    do {
         // convert back to vcf allele offsets
         // todo: can we change the enumeration to avoid this?
         vector<int> vcf_haplotype(haplotype.size());
@@ -2639,20 +2613,31 @@ void VCFTraversalFinder::brute_force_alt_traversals(
             vcf_haplotype[i] = (alt_alleles[i][haplotype[i]]);
             assert(skip_alt != nullptr || vcf_haplotype[i] == haplotype[i]);
         }
+        // make sure we don't forget the reference.  I'm sure there's a more elegant way to
+        // do this, but it's fussy in light of pruning logic
+        if (output_traversals.empty() &&
+            !std::all_of(vcf_haplotype.begin(), vcf_haplotype.end(), [](int i) {return i == 0;})) {
+            vector<int> ref_haplotype(vcf_haplotype.size(), 0);
+            pair<SnarlTraversal, bool> alt_traversal = get_alt_traversal(
+                site, site_variants, path_index, start_it, end_it, ref_haplotype);
+            assert(alt_traversal.second == true);
+            output_traversals.push_back(make_pair(alt_traversal.first, ref_haplotype));
+        }
+        
         pair<SnarlTraversal, bool> alt_traversal = get_alt_traversal(site, site_variants, path_index,
                                                                      start_it, end_it, vcf_haplotype);
 #ifdef debug
         cerr << "bf haplotype <";
-        for (auto allele : haplotype) {
+        for (auto allele : vcf_haplotype) {
             cerr << allele << ",";
         }
         cerr << "> gives " << (alt_traversal.second ? "valid" : "invalid") <<  " trav: "
              << pb2json(alt_traversal.first) << endl;
 #endif
         if (alt_traversal.second) {
-            output_traversals.push_back(make_pair(alt_traversal.first, haplotype));
+            output_traversals.push_back(make_pair(alt_traversal.first, vcf_haplotype));
         }
-    }    
+    } while (next_haplotype());   
 }
 
 pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& site,
@@ -2792,6 +2777,30 @@ pair <SnarlTraversal, bool> VCFTraversalFinder::get_alt_traversal(const Snarl& s
         visit->set_backward(end_it->second.is_end);
     }
 
+    // sanity check: we compare the output to something gotten directly from the
+    // path index when doing the reference haplotype.
+    if (all_of(haplotype.begin(), haplotype.end(), [] (int i) {return i == 0;})) { 
+        SnarlTraversal ref_trav;
+        PathIndex::iterator it = start_it;
+        ++it;
+        if (include_endpoints) {
+            Visit* visit = ref_trav.add_visit();
+            visit->set_node_id(start_it->second.node);
+            visit->set_backward(start_it->second.is_end);
+        }
+        for (; it != end_it; ++it) {
+            Visit* visit = ref_trav.add_visit();
+            visit->set_node_id(it->second.node);
+            // todo: do we get an orientation out of the path index?  
+            visit->set_backward(it->second.is_end);
+        }
+        if (include_endpoints) {
+            Visit* visit = ref_trav.add_visit();
+            visit->set_node_id(end_it->second.node);
+            visit->set_backward(end_it->second.is_end);
+        }
+        assert(found_end && ref_trav == traversal);
+    }
     
     return make_pair(traversal, found_end && alt_nodes.empty() && alt_edges.empty());    
 }
@@ -2866,30 +2875,32 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
         assert(graph.has_path(alt_path_name));
 
         list<mapping_t>& path = graph.paths.get_path(alt_path_name);
-        assert(!path.empty());
+        if (!path.empty()) {
+            // find where this path begins and ends in the reference path index
+            PathIndex::iterator first_path_it = path_index->find_in_orientation(
+                path.begin()->node_id(), path.begin()->is_reverse());
+            PathIndex::iterator last_path_it = path_index->find_in_orientation(
+                path.rbegin()->node_id(), path.rbegin()->is_reverse());
 
-        // find where this path begins and ends in the reference path index
-        PathIndex::iterator first_path_it = path_index->find_in_orientation(
-            path.begin()->node_id(), path.begin()->is_reverse());
-        PathIndex::iterator last_path_it = path_index->find_in_orientation(
-            path.rbegin()->node_id(), path.rbegin()->is_reverse());
+            // some sanity checking
+            assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
+            assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
 
-        // some sanity checking
-        assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
-        assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
+            // todo: logic needed here if want to support non-forward reference paths.
+            --first_path_it;
+            ++last_path_it;
+            handle_t left = graph.get_handle(first_path_it->second.node);
+            handle_t right = graph.get_handle(last_path_it->second.node);
 
-        // todo: logic needed here if want to support non-forward reference paths.
-        --first_path_it;
-        ++last_path_it;
-        handle_t left = graph.get_handle(first_path_it->second.node);
-        handle_t right = graph.get_handle(last_path_it->second.node);
-
-        Visit* visit = alt_path.add_visit();
-        visit->set_node_id(graph.get_id(left));
-        visit->set_backward(graph.get_is_reverse(left));
-        visit = alt_path.add_visit();
-        visit->set_node_id(graph.get_id(right));
-        visit->set_backward(graph.get_is_reverse(right));
+            Visit* visit = alt_path.add_visit();
+            visit->set_node_id(graph.get_id(left));
+            visit->set_backward(graph.get_is_reverse(left));
+            visit = alt_path.add_visit();
+            visit->set_node_id(graph.get_id(right));
+            visit->set_backward(graph.get_is_reverse(right));
+        } else {
+            assert(allele == 0);
+        }
     }
     
     return make_pair(alt_path, is_deletion);
@@ -2908,6 +2919,11 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
                 skip_alt(get_alt_path(site_variants[var_i], allele, path_index).first) == false) {
                 alt_alleles[var_i].push_back(allele);
             }
+#ifdef debug
+            else if (skip_alt != nullptr) {
+                cerr << "Pruning allele " << allele << " from variant " << site_variants[var_i]->id << endl;
+            }
+#endif
         }
         // always leave at least one path through the site, even if that means
         // going through a reference allele that fails the skip_alt check.
