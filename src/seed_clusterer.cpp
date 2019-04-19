@@ -6,147 +6,7 @@ namespace vg {
 
     SnarlSeedClusterer::SnarlSeedClusterer() {
     };
-
-
-    vector<const Snarl*> SnarlSeedClusterer::seed2subtree( 
-               const vector<pos_t>& seeds,  const SnarlManager& snarl_manager, 
-               DistanceIndex& dist_index, chains_to_snarl_t& chains_to_snarl,
-               snarls_to_node_t& snarls_to_node, node_to_seed_t& node_to_seed) {
-
-        /* Given a snarl tree and seeds, find the subtree of the snarl tree
-         * that contains seeds */ 
-
-        vector<const Snarl*> root_snarls;
-        for (size_t i = 0; i < seeds.size(); i++) {
-            //For each seed, add its containing snarls and chains to the
-            //subtree of the snarl tree
-            pos_t pos = seeds[i];
-            id_t id = get_id(pos);
-            const Snarl* snarl = dist_index.snarlOf(id);
-            auto s = node_to_seed.find(id);
-            if (s != node_to_seed.end()) {
-                s->second.push_back(i);
-            } else {
-                node_to_seed.emplace(id, vector<size_t>({i}));
-            }
-
-            //type of the previous node (0,1,2 for chain, snarl, node)
-            int64_t prev_type = 2; 
-            pair<id_t, bool> prev_node (id, false);
-
-            while (snarl != nullptr) { 
-                bool seen = false;
-                //Add ancestors of snarl to the snarl subtree
-                pair<id_t, bool> old_node = move(prev_node);
-                int64_t old_type = prev_type;
-
-                if (snarl_manager.in_nontrivial_chain(snarl)) {
-                    //Add chain to snarl subtree
-                    const Chain* chain = snarl_manager.chain_of(snarl);
-
-                    bool rev_in_chain=snarl_manager.chain_orientation_of(snarl);
-                    id_t chain_start = get_start_of(*chain).node_id();
-
-                    //A boundary node on a chain is assigned to the snarl 
-                    //preceding it in the chain
-                    //First node in the chain is assigned to the first snarl 
-                    if ((id == snarl->start().node_id() && !rev_in_chain) ||
-                        (id == snarl->end().node_id() && rev_in_chain)){ 
-                        //If seed is on first boundary node of snarl 
-                        //relative to traversal in the chain
-                        if (id != chain_start) {
-                            //Unless this is the first node in the chain,
-                            //The snarl is switched 
-                            snarl = move(snarl_manager.into_which_snarl(
-                                       snarl->start().node_id(),
-                                      !snarl->start().backward()));
-                        }
-                    }
-
-                     
-                    id_t start_node = rev_in_chain ? snarl->end().node_id() :
-                                                     snarl->start().node_id(); 
-  
-                    DistanceIndex::ChainIndex& chain_index = 
-                                dist_index.chainDistances.at(chain_start);
-                    //rank of first snarl node relative to orientation in chain 
-                    size_t rank = chain_index.snarlToIndex[start_node];
-
-                    auto found_chain = chains_to_snarl.find(chain);
-                    if (found_chain == chains_to_snarl.end()) {
-                        //If this chain has no seeds yet
-                        map<size_t, const Snarl*> chain_snarls;
-                        chain_snarls.emplace(rank, snarl);
-                        chains_to_snarl.emplace(chain, move(chain_snarls));
-                    } else {
-                        if (found_chain->second.count(rank) == 0) {
-                            //Add snarl to chain
-                            found_chain->second.emplace(rank, snarl); 
-                        } 
-                    }
-                    prev_type = 0;
-                    prev_node = make_pair(chain_start,
-                                          get_start_of(*chain).backward());
-                } else {
-                    prev_type = 1;
-                    prev_node = make_pair(snarl->start().node_id(),
-                                          snarl->start().backward());
-                }
-                auto found_snarl = snarls_to_node.find(snarl);
-                if (found_snarl == snarls_to_node.end()) {
-                    hash_set<pair<pair<id_t, bool>, int64_t>>  c;
-                    c.insert(make_pair(old_node, old_type));
-                    snarls_to_node.emplace(snarl, move(c));
-                } else {
-                    found_snarl->second.insert(make_pair(old_node, old_type));
-                    seen = true;
-                }
-                if (seen) {
-                    snarl = nullptr;
-                } else {
-                    const Snarl* parent_snarl = snarl_manager.parent_of(snarl);
-                    if (parent_snarl == nullptr) {
-                        //If snarl is a root
-                        root_snarls.push_back(snarl);
-                    }
-                    snarl = move(parent_snarl);
-                }
-
-            }
-        }
-#ifdef DEBUG
-
-cerr << "CHAINS: " << endl;
-for (auto& c : chains_to_snarl) {
-    cerr << get_start_of(*c.first).node_id() << ": ";
-    for (auto s : c.second) {
-        cerr << s->second->start() << " ";
-    }
-    cerr << endl;
-}
-
-cerr << "SNARLS: " << endl; 
-for (auto& s : snarls_to_node) {
-    cerr << s.first->start() << "  : " << endl;
-    cerr << "\t children";
-    for (auto& n : s.second) {
-        cerr << n.first.first << " " << n.first.second << ", "; 
-    }
-    cerr << endl;
-}
-
-cerr << "NODES: " << endl;
-for (auto& n : node_to_seed){
-    cerr << n.first << ": " << endl;
-    for (size_t s : n.second ) {
-        cerr << seeds[s] << ", ";
-    }
-    cerr << endl;
-} 
-#endif
-    return root_snarls;
-    }
-
+        
     vector<vector<size_t>> SnarlSeedClusterer::cluster_seeds ( 
                   vector<pos_t> seeds, size_t distance_limit,
                   SnarlManager& snarl_manager, DistanceIndex& dist_index ){
@@ -155,61 +15,182 @@ for (auto& n : node_to_seed){
          * Returns a vector of cluster assignments 
          */ 
 
-
-        /*Store the subtree of the snarl tree that contains seeds*/
-        
-        //Maps each chain to an ordered vector of child snarls with seeds
-        chains_to_snarl_t chains_to_snarl;
-
-        //Maps each snarl to the nodes in its netgraph that contain seeds
-        //To prevent the same node from being assigned to multiple snarls,
-        //  if a snarl is in a chain, then only the second boundary node of the
-        //  snarl (relative to the order of the chain) will be assigned to
-        //  that snarl. The first node in a chain is assigned to the first snarl
-        snarls_to_node_t snarls_to_node; 
-
-        //Maps nodes to the indexes of the seeds it contains
-        node_to_seed_t node_to_seed;
-
         //Create a union find structure to hold the cluster assignments of
         //each seed. Each seed is initially its own cluster 
         structures::UnionFind union_find_clusters (seeds.size());
 
-        vector<const Snarl*> root_snarls = SnarlSeedClusterer::seed2subtree(
-                       seeds, snarl_manager, dist_index, 
-                       chains_to_snarl, snarls_to_node, node_to_seed); 
+
+        //Map each node to a vector of seed indices
+        hash_map<id_t, vector<size_t>> node_to_seeds;
+
+        //For each level of the snarl tree, maps snarls at that level to 
+        //node + node lengths belonging to the snarl
+        vector<hash_map<const Snarl*, vector<pair<pair<id_t, bool>,int64_t>>>> 
+                                                                 snarl_to_nodes;
+
+        get_nodes(seeds, snarl_manager, dist_index,
+                  node_to_seeds, snarl_to_nodes);
 
         //Maps each cluster group ID to the left and right distances
         vector<pair<int64_t, int64_t>> cluster_dists (seeds.size(), 
                                        make_pair(-1, -1));
-        
-        // We track seen-ness by chain, so we don't have to do O(N) work to tag
-        // all snarls in chromosome-spanning chains as seen.
-        unordered_set<const Chain*> seen_chains;
-        for (const Snarl* root_snarl : root_snarls) {
-            
-            // Look up the (possibly trivial) chain for the snarl
-            const Chain* root_chain = snarl_manager.chain_of(root_snarl);
 
-            if (seen_chains.count(root_chain) == 0) {
-                // This is the first snarl we are visiting in its chain
-                if (snarl_manager.in_nontrivial_chain(root_snarl)){
-                    get_clusters_chain( seeds, union_find_clusters,
-                                cluster_dists, chains_to_snarl, snarls_to_node, 
-                                node_to_seed, distance_limit,
-                                snarl_manager, dist_index, root_chain);
+        size_t tree_depth = snarl_to_nodes.size()-1; 
+
+        //Maps snarls in the current level to be clustered to its children
+        hash_map<const Snarl*, vector<pair<pair<id_t, bool>, int64_t>>>& 
+                            curr_snarl_children = snarl_to_nodes[tree_depth];
+        //Maps children to the results of clustering - cluster heads and dists
+        hash_map<pair<id_t, bool>, tuple<hash_set<size_t>, int64_t, int64_t>>
+                                child_clusters;
+
+        for (size_t depth = tree_depth ; depth >= 0 ; depth --) {
+            /*Go through each level of the tree, bottom up, and cluster that 
+             * level. Each level includes the snarl at that level, the nodes
+             * belonging to those snarls, and the chains comprised of them*/
+
+            //For each snarl in the level above this one, map to snarls/chains 
+            //in this level
+            hash_map<const Snarl*, vector<pair<pair<id_t, bool>, int64_t>>>
+                                                          parent_snarl_children;
+            hash_map<pair<id_t, bool>, 
+                     tuple<hash_set<size_t>, int64_t, int64_t>> parent_clusters;
+
+            //Maps each chain to the snarls that comprise it
+            //Snarls are unordered in the vector
+            hash_map<const Chain*, vector<const Snarl*>> chain_to_snarls;
+
+            for (auto it : curr_snarl_children){
+                //Go through each of the snarls at this level, cluster them,
+                //and find which chains they belong to, if any
+                const Snarl* snarl = it.first;
+                const Snarl* parent_snarl = snarl_manager.parent_of(snarl);
+
+                DistanceIndex::SnarlIndex& snarl_index = 
+                            dist_index.snarlDistances.at(
+                               make_pair(snarl->start().node_id(),
+                                         snarl->start().backward()));
+                if (snarl_manager.in_nontrivial_chain(snarl)){
+                    //If this snarl is in a chain, add it to chains
+                    const Chain* chain = snarl_manager.chain_of(snarl);
+                    auto found_chain = chain_to_snarls.find(chain);
+                    if (found_chain == chain_to_snarls.end()){
+                        chain_to_snarls.emplace(chain, 
+                                                vector<const Snarl*>(1, snarl));
+                        parent_snarl_children.emplace(parent_snarl, 
+                           vector<pair<pair<id_t, bool>, int64_t>>(1, make_pair(
+                                  make_pair(get_start_of(*chain).node_id(),
+                                          get_start_of(*chain).backward()),0)));
+                    } else {
+                        found_chain->second.push_back(snarl);
+                    }
                 } else {
-                    get_clusters_snarl( seeds, union_find_clusters,
-                                cluster_dists, chains_to_snarl, snarls_to_node, 
-                                  node_to_seed, distance_limit, 
-                              snarl_manager, dist_index, root_snarl, false);
+                    //If this snarl is not in a chain, add it as a child of the
+                    //parent snarl for the next level
+                    if (depth != 0 && parent_snarl != nullptr){
+                        auto found = parent_snarl_children.find(parent_snarl); 
+                        if (found == parent_snarl_children.end()){
+                            parent_snarl_children.emplace(parent_snarl, 
+                                  vector<pair<pair<id_t, bool>, int64_t>>
+                                  (1, make_pair(
+                                     make_pair(snarl->start().node_id(),
+                                               snarl->start().backward()), 1)));
+                        }
+                        parent_clusters[make_pair(snarl->start().node_id(),
+                                                 snarl->start().backward())] = 
+                               get_clusters_snarl(seeds, union_find_clusters,
+                                    cluster_dists, it.second, child_clusters, 
+                                    node_to_seeds, distance_limit,
+                                    snarl_manager, dist_index, snarl, false);
+                    }
                 }
-                seen_chains.insert(root_chain);
             }
+            for (auto it : chain_to_snarls) {
+                //For each chain in this level, find the clusters 
+                //get_clusters_chain will order and cluster component snarls
+                const Chain* chain = it.first;
+                auto chain_start = get_start_of(*chain);
+                parent_clusters[make_pair(chain_start.node_id(), 
+                                          chain_start.backward())] = 
+                    get_clusters_chain( seeds, union_find_clusters,
+                             cluster_dists, it.second, snarl_to_nodes[depth],
+                             curr_snarl_children, child_clusters, node_to_seeds,
+                             distance_limit, snarl_manager,  dist_index, chain);
+            }
+
+            curr_snarl_children= move(parent_snarl_children);
+            child_clusters = move(parent_clusters);
         }
         return union_find_clusters.all_groups();
         
     };
+
+
+    void SnarlSeedClusterer::get_nodes( 
+              const vector<pos_t>& seeds,  const SnarlManager& snarl_manager, 
+              DistanceIndex& dist_index, 
+              hash_map<id_t, vector<size_t>>& node_to_seeds,
+              vector<hash_map<const Snarl*, 
+                                   vector<pair<pair<id_t, bool>, int64_t>>>>&
+                                                               snarl_to_nodes) {
+
+        /* Given a snarl tree and seeds, find the nodes containing seeds and
+         * assign each node to a level in the snarl tree*/ 
+
+        for (size_t i = 0; i < seeds.size(); i++) {
+            //For each seed, add its containing snarls and chains to the
+            //subtree of the snarl tree
+            pos_t pos = seeds[i];
+            id_t id = get_id(pos);
+            const Snarl* snarl = dist_index.snarlOf(id);
+            size_t depth = snarl_manager.get_depth(snarl);
+
+            if (snarl_manager.in_nontrivial_chain(snarl)) {
+                //If the snarl is in a chain
+                const Chain* chain = snarl_manager.chain_of(snarl);
+
+                bool rev_in_chain=snarl_manager.chain_orientation_of(snarl);
+                id_t chain_start = get_start_of(*chain).node_id();
+
+                //A boundary node on a chain is assigned to the snarl 
+                //preceding it in the chain
+                //First node in the chain is assigned to the first snarl 
+                if ((id == snarl->start().node_id() && !rev_in_chain) ||
+                    (id == snarl->end().node_id() && rev_in_chain)){ 
+                    //If seed is on first boundary node of snarl 
+                    //relative to traversal in the chain
+                    if (id != chain_start) {
+                        //Unless this is the first node in the chain,
+                        //The snarl is switched 
+                        snarl = move(snarl_manager.into_which_snarl(
+                                   snarl->start().node_id(),
+                                  !snarl->start().backward()));
+                    }
+                }
+            }
+
+            auto s = node_to_seeds.find(id);
+            if (s != node_to_seeds.end()) {
+                s->second.push_back(i);
+            } else {
+                if (snarl_to_nodes.size() < depth+1) {
+                    snarl_to_nodes.resize(depth+1); 
+                }
+                node_to_seeds.emplace(id, vector<size_t>({i}));
+                int64_t node_length = dist_index.snarlDistances.at(
+                          make_pair(snarl->start().node_id(),
+                                    snarl->start().backward())).nodeLength(id);
+                auto found_snarl = snarl_to_nodes[depth].find(snarl);
+                if (found_snarl == snarl_to_nodes[depth].end()) {
+                    snarl_to_nodes[depth].emplace(snarl, 
+                             vector<pair<pair<id_t, bool>, int64_t>> (1, 
+                                    make_pair(make_pair(id, false), 2)));
+                } else {
+                    found_snarl->second.emplace_back(make_pair(id, false), 2);
+                }
+            }
+        }
+    }
 
 
     tuple<hash_set<size_t>, int64_t, int64_t> 
@@ -217,7 +198,7 @@ for (auto& n : node_to_seed){
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters, 
                        vector< pair<int64_t, int64_t>>& cluster_dists,
-                       const node_to_seed_t& node_to_seed,
+                       vector<size_t>& seed_indices,
                        size_t distance_limit, const SnarlManager& snarl_manager,
                        DistanceIndex& dist_index, id_t root,
                        int64_t node_length) {
@@ -231,7 +212,6 @@ node_length << endl;
          * the group id of the cluster with seeds furthest to the left, and
          * the group id of the cluster furthest to the right*/
 
-        const vector<size_t>& seed_indices = node_to_seed.at(root);
         if (distance_limit > node_length) {
             //If the limit is greater than the node length, then all the 
             //seeds on this node must be in the same cluster
@@ -399,29 +379,50 @@ assert (group_id == union_find_clusters.find_group(group_id));
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters,
                        vector<pair<int64_t, int64_t>>& cluster_dists,
-                       const chains_to_snarl_t& chains_to_snarl,
-                       const snarls_to_node_t& snarls_to_node,
-                       const node_to_seed_t& node_to_seed,
+                       vector<const Snarl*>& snarls,
+                       hash_map<const Snarl*, vector<pair<pair<id_t, bool>,int64_t>>>& 
+                                                                 snarl_to_nodes,
+                       hash_map<const Snarl*, vector<pair<pair<id_t, bool>, int64_t>>>& 
+                            curr_snarl_children,
+                       hash_map<pair<id_t, bool>, 
+                                  tuple<hash_set<size_t>, int64_t, int64_t>>&
+                            child_clusters,
+                       hash_map<id_t, vector<size_t>>& node_to_seeds,
                        size_t distance_limit, const SnarlManager& snarl_manager,
                        DistanceIndex& dist_index, const Chain* root) {
+        /*Find all the clusters in the given chain */
 #ifdef DEBUG 
 cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
 #endif
+  
+        DistanceIndex::ChainIndex& chain_index = dist_index.chainDistances.at(
+                                                 get_start_of(*root).node_id());
+        //Order the snarls
+        map<size_t, pair<const Snarl*, DistanceIndex::SnarlIndex*>> 
+                                                                snarls_in_chain;
+        for (const Snarl* snarl : snarls) {
+
+            DistanceIndex::SnarlIndex& snarl_index = 
+                            dist_index.snarlDistances.at(
+                               make_pair(snarl->start().node_id(),
+                                         snarl->start().backward()));
+            bool rev_in_chain=snarl_manager.chain_orientation_of(snarl);
+            id_t start_node = rev_in_chain ? snarl->end().node_id() :
+                                             snarl->start().node_id(); 
+            size_t rank = chain_index.snarlToIndex[start_node];
+            snarls_in_chain.emplace(rank, make_pair(snarl, &snarl_index));
+        }
     
         hash_set<size_t> chain_cluster_ids;
 
         int64_t best_left = -1;
         int64_t best_right = -1;
-        DistanceIndex::ChainIndex& chain_index = dist_index.chainDistances.at(
-                                                 get_start_of(*root).node_id());
         ChainIterator chain_e = chain_end(*root);
         //The node at which the chain clusters reach
         id_t last_snarl = get_start_of(*root).node_id();
         int64_t last_len = 0;
         id_t start_node;
         id_t end_node;
-        const map<size_t, const Snarl*>& snarls_in_chain = 
-                                                       chains_to_snarl.at(root);
 
         for (auto x : snarls_in_chain) {
             /* For each child snarl in the chain, find the clusters of just the
@@ -429,13 +430,11 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
              * snarl
              * Snarls are in the order that they are traversed in the chain
              */
-            const Snarl* curr_snarl = x.second;
+            const Snarl* curr_snarl = x.second.first;
+            DistanceIndex::SnarlIndex& snarl_index = *x.second.second;
+
             bool rev_in_chain = snarl_manager.chain_orientation_of( curr_snarl);
 
-            DistanceIndex::SnarlIndex& snarl_index = 
-                            dist_index.snarlDistances.at(
-                               make_pair(curr_snarl->start().node_id(),
-                                         curr_snarl->start().backward()));
 
             //Start and end node of snarl relative to chain
             id_t start_node = rev_in_chain ? curr_snarl->end().node_id() :
@@ -471,10 +470,11 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
             hash_set<size_t> snarl_clusters; 
             int64_t child_dist_left; int64_t child_dist_right; 
             tie (snarl_clusters, child_dist_left, child_dist_right) = 
-                  get_clusters_snarl( seeds, union_find_clusters, cluster_dists,
-                          chains_to_snarl, snarls_to_node, node_to_seed, 
-                          distance_limit, snarl_manager, dist_index, curr_snarl,
-                          rev_in_chain);
+                  get_clusters_snarl(seeds, union_find_clusters,
+                                 cluster_dists, curr_snarl_children[curr_snarl],
+                                 child_clusters, node_to_seeds, distance_limit,
+                                 snarl_manager, dist_index, curr_snarl, 
+                                 rev_in_chain);
             last_snarl = end_node;
             last_len = end_length;
            
@@ -729,12 +729,18 @@ assert (group_id == union_find_clusters.find_group(group_id));
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters,
                        vector<pair<int64_t, int64_t>>& cluster_dists,
-                       const chains_to_snarl_t& chains_to_snarl,
-                       const snarls_to_node_t& snarls_to_node,
-                       const node_to_seed_t& node_to_seed,
+                       vector<pair<pair<id_t, bool>, int64_t>>& child_nodes,
+                       hash_map<pair<id_t, bool>,
+                                  tuple<hash_set<size_t>, int64_t, int64_t>>&
+                            child_clusters_set,
+                       hash_map<id_t, vector<size_t>>& node_to_seeds,
                        size_t distance_limit, const SnarlManager& snarl_manager,
                        DistanceIndex& dist_index, const Snarl* root, 
                        bool rev) {
+        /*Get the clusters on this snarl. snarl_children stores the children of
+         * this snarl, 0 for chain, 1 for snarl, 2 for node. child_clusters 
+         * stores the output of clustering for snarls and chains. 
+         * Nodes have not yet been clustered */
         #ifdef DEBUG 
         cerr << "Finding clusters on snarl " << root->start() << endl;
         #endif
@@ -746,13 +752,7 @@ assert (group_id == union_find_clusters.find_group(group_id));
                                                   snarl_index.snarlStart.first);
         int64_t end_length = snarl_index.nodeLength(snarl_index.snarlEnd.first);
 
-        //Get the child nodes of this snarl
-        const hash_set<pair<pair<id_t, bool>, int64_t>>& children = 
-                                                        snarls_to_node.at(root);
-        vector<pair<pair<id_t, bool>, int64_t>> child_nodes(children.begin(),
-                                                              children.end());
-
-        size_t num_children = children.size();
+        size_t num_children = child_nodes.size();
 
         //clusters of children, indices assume child node, snarl, and chain
         //vectors are contiguous 
@@ -808,49 +808,32 @@ assert (group_id == union_find_clusters.find_group(group_id));
             //The clusters furthest to the left and right for this child node
             int64_t child_dist_left; int64_t child_dist_right;
             if (child.second == 2) {
-                //If this node is a node
+                //If this node is a node, we need to find the clusters
                 int64_t node_len = snarl_index.nodeLength(curr_node);
                 //If this node has seeds, cluster them
                 hash_set<size_t> c; 
                 tie (c, child_dist_left, child_dist_right) = get_clusters_node(
                          seeds, union_find_clusters, cluster_dists, 
-                         node_to_seed, distance_limit, snarl_manager, 
+                         node_to_seeds[curr_node], distance_limit, snarl_manager, 
                          dist_index, curr_node, node_len);
                 child_clusters[i].insert(child_clusters[i].end(),
                            make_move_iterator(c.begin()),
                            make_move_iterator(c.end())); 
 
-            } else if (child.second == 1) {
-                //If this node is a snarl
+            } else  {
+                //If this node is a snarl or chain, the clusters have already
+                //been found, we just need to put them in a vector
 
                 const Snarl* curr_snarl = snarl_manager.into_which_snarl(
                                                            curr_node, curr_rev);
-                hash_set<size_t> c; 
-                tie (c, child_dist_left, child_dist_right) = 
-                  get_clusters_snarl(
-                     seeds, union_find_clusters, cluster_dists, chains_to_snarl,
-                     snarls_to_node, node_to_seed,distance_limit, snarl_manager,
-                     dist_index, curr_snarl, false);
+                tuple<hash_set<size_t>, int64_t, int64_t>& children = 
+                                              child_clusters_set[child.first];
+                hash_set<size_t>& c = get<0>(children);
+                child_dist_left = get<1>(children);
+                child_dist_right = get<2>(children);
                 child_clusters[i].insert(child_clusters[i].end(),
                                             make_move_iterator(c.begin()),
                                             make_move_iterator(c.end())); 
-            } else {
-                const Snarl* curr_snarl = snarl_manager.into_which_snarl(
-                                                           curr_node, curr_rev);
-                const Chain* curr_chain =  snarl_manager.chain_of(curr_snarl);
-                Visit start = get_start_of(*curr_chain);
-                curr_node = start.node_id();
-                curr_rev = start.backward();
-                hash_set<size_t> c; 
-                tie (c, child_dist_left, child_dist_right) =
-                       get_clusters_chain(seeds, 
-                            union_find_clusters, cluster_dists, chains_to_snarl,
-                             snarls_to_node, node_to_seed, distance_limit,
-                             snarl_manager, dist_index, curr_chain);
-
-                child_clusters[i].insert(child_clusters[i].end(),
-                                         make_move_iterator(c.begin()),
-                                         make_move_iterator(c.end())); 
             }
             dist_bounds[i] = make_pair(child_dist_left, child_dist_right);
 

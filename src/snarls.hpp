@@ -453,7 +453,7 @@ public:
     //Returns the depth of the snarl in the snarl tree
     //Root level snarls have depth 0, its children have depth 1, etc
     //Depth ignores chains
-    size_t get_depth(const Snarl*);
+    size_t get_depth(const Snarl*) const;
         
     /// Returns the Snarl that a traversal points into at either the start
     /// or end, or nullptr if the traversal does not point into any Snarl.

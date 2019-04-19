@@ -590,7 +590,7 @@ const Snarl* SnarlManager::snarl_sharing_start(const Snarl* here) const {
         
 }
 
-size_t SnarlManager::get_depth(const Snarl* snarl) {
+size_t SnarlManager::get_depth(const Snarl* snarl) const {
 
     return record(snarl)->depth;
 }
