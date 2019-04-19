@@ -123,7 +123,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     funnel.stage("cluster");
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
-    vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
     
     // Compute the covered portion of the read represented by each cluster.
     // TODO: Put this and sorting into the clusterer to deduplicate with vg cluster.
@@ -199,7 +199,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
         funnel.processing_input(cluster_num);
-        hash_set<size_t>& cluster = clusters[cluster_num];
+        vector<size_t>& cluster = clusters[cluster_num];
 #ifdef debug
         cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
 #endif
