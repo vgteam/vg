@@ -933,6 +933,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
         // Blit supports over to the locus
         *locus.add_support() = support;
     }
+    assert(locus.support_size() == here_traversals.size());
     
     ////////////////////////////////////////////////////////////////////////////
 
@@ -1196,6 +1197,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
 #endif
             
             // Don't add the genotype to the locus
+            assert(locus.genotype_size() == 0);
         }
     } else {
         // Depth too low. Say we have no idea.
@@ -1799,24 +1801,26 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
     // And total alt allele depth for the alt alleles
     Support alt_support;
 
-    for (int allele : used_alleles) {
-        // For all the alleles we are using, look at the support.
-        auto& support = locus.support(allele);
+    if (best_allele >= 0) { //only add info if we made a call
+        for (int allele : used_alleles) {
+            // For all the alleles we are using, look at the support.
+            auto& support = locus.support(allele);
                 
-        // Set up allele-specific stats for the allele
-        variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(support))));
-        variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.forward())));
-        variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.reverse())));
+            // Set up allele-specific stats for the allele
+            variant.samples[sample_name]["AD"].push_back(to_string((int64_t)round(total(support))));
+            variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.forward())));
+            variant.samples[sample_name]["SB"].push_back(to_string((int64_t)round(support.reverse())));
                 
-        // Sum up into total depth
-        total_support += support;
+            // Sum up into total depth
+            total_support += support;
                 
-        if (allele != 0) {
-            // It's not the primary reference allele
-            alt_support += support;
+            if (allele != 0) {
+                // It's not the primary reference allele
+                alt_support += support;
+            }
         }
     }
-
+    
     // Find the min total support of anything called
     double min_site_support = INFINITY;
     double min_site_quality = INFINITY;

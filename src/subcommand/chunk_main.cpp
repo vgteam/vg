@@ -490,9 +490,9 @@ int main_chunk(int argc, char** argv) {
                     cerr << "error[vg chunk]: unable to open GAM file " << gam_file << endl;
                     return 1;
                 }
+                // And wrap it in a cursor
+                cursors.emplace_back(gam_streams.back());
             }
-            // And wrap it in a cursor
-            cursors.emplace_back(gam_streams.back());
         }
     }
 
@@ -643,7 +643,7 @@ string chunk_name(const string& out_chunk_prefix, int i, const Region& region, s
     string seq = region.seq.empty() ? "ids" : region.seq;
     chunk_name << out_chunk_prefix;
     if (gi > 0) {
-        chunk_name << gi;
+        chunk_name << "-" << gi;
     }
     chunk_name << "_" << i << "_" << seq << "_"
                << region.start << "_" << region.end << ext;
