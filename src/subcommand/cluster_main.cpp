@@ -271,7 +271,7 @@ int main_cluster(int argc, char** argv) {
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             
