@@ -103,6 +103,7 @@ var searchData=
   ['merged_5fgroup',['merged_group',['../structvg_1_1IndexedVG_1_1CacheEntry.html#acd6301aa5e085df9fa56ba8b102cdde6',1,'vg::IndexedVG::CacheEntry']]],
   ['message',['message',['../classvg_1_1NoAlignmentInBandException.html#a3cc1fd5899066709228ecea9e5a25956',1,'vg::NoAlignmentInBandException::message()'],['../classvg_1_1indexOpenException.html#ad2e9c28b9dd893378b1cd5af79ec2efb',1,'vg::indexOpenException::message()']]],
   ['min_5fad_5flog_5flikelihood_5ffor_5ffilter',['min_ad_log_likelihood_for_filter',['../classvg_1_1SupportCaller.html#aca2588765531eceb32bfc8a487d6503d',1,'vg::SupportCaller']]],
+  ['min_5falt_5fpath_5fsupport',['min_alt_path_support',['../classvg_1_1SupportCaller.html#a999d3ecc21ca9cab7ac9b14159ae1c44',1,'vg::SupportCaller']]],
   ['min_5favg_5fqual',['min_avg_qual',['../classvg_1_1Filter.html#aa2f91d1daf04d2fdd6eb75183994d834',1,'vg::Filter']]],
   ['min_5fbanded_5fmq',['min_banded_mq',['../classvg_1_1Mapper.html#a4fe883a960df0bbef6d08cfbe483c179',1,'vg::Mapper']]],
   ['min_5fbase_5fquality',['min_base_quality',['../classvg_1_1ReadFilter.html#a52c77d9ed319e6f7cf3e38582621fce1',1,'vg::ReadFilter']]],

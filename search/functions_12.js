@@ -18,6 +18,7 @@ var searchData=
   ['rebuild_5findexes',['rebuild_indexes',['../classvg_1_1VG.html#a63d4e45a9a410c451b1cad44ef7068ad',1,'vg::VG']]],
   ['rebuild_5fmapping_5faux',['rebuild_mapping_aux',['../classvg_1_1Paths.html#a5f80df5846bdac0b502a70af97dc65de',1,'vg::Paths']]],
   ['rebuild_5fnode_5fmapping',['rebuild_node_mapping',['../classvg_1_1Paths.html#a7e9d9388475dcd8f23af072430e7383c',1,'vg::Paths']]],
+  ['recall_5flocus',['recall_locus',['../classvg_1_1SupportCaller.html#a7d2b7d632acf148d00dd28755657c000',1,'vg::SupportCaller']]],
   ['record',['record',['../classvg_1_1SnarlManager.html#a17e285d4331385073da27ecc70c7268b',1,'vg::SnarlManager::record(const Snarl *snarl) const '],['../classvg_1_1SnarlManager.html#a3ce002195299049e9925e94546d989b9',1,'vg::SnarlManager::record(Snarl *snarl)']]],
   ['record_5ffragment_5fconfiguration',['record_fragment_configuration',['../classvg_1_1FragmentLengthStatistics.html#ae63195a980c56907de548ba00098c794',1,'vg::FragmentLengthStatistics']]],
   ['record_5fread_5fpair_5fquality',['record_read_pair_quality',['../classvg_1_1NGSSimulator.html#aec434f0c212aec15e1760f4c4b1185e2',1,'vg::NGSSimulator']]],

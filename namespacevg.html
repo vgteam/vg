@@ -1648,8 +1648,6 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:aa7c96d053af80e78f785ea1ba4232a10"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aad98d082285cd6dcc92302924095d666"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aad98d082285cd6dcc92302924095d666">get_pileup_line</a> (const map&lt; int64_t, <a class="el" href="structvg_1_1NodePileup.html">NodePileup</a> &gt; &amp;node_pileups, const set&lt; pair&lt; int64_t, size_t &gt;&gt; &amp;refCrossreferences, const set&lt; pair&lt; int64_t, size_t &gt;&gt; &amp;altCrossreferences)</td></tr>
 <tr class="separator:aad98d082285cd6dcc92302924095d666"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a41a22f4c38561e62e9c752b5dbb9ee12"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a41a22f4c38561e62e9c752b5dbb9ee12">trace_traversal</a> (const <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a> &amp;traversal, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, function&lt; void(size_t, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool)&gt; handle_node, function&lt; void(size_t, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>, <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a>)&gt; handle_edge, function&lt; void(size_t, <a class="el" href="structvg_1_1Snarl.html">Snarl</a>, bool)&gt; handle_child)</td></tr>
-<tr class="separator:a41a22f4c38561e62e9c752b5dbb9ee12"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a52292dfd3869a811170f7c5c0d9da564"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a52292dfd3869a811170f7c5c0d9da564">is_match</a> (const <a class="el" href="structvg_1_1Translation.html">Translation</a> &amp;translation)</td></tr>
 <tr class="separator:a52292dfd3869a811170f7c5c0d9da564"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa65de7dea52585f07bee6ae7f762eb95"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#aa65de7dea52585f07bee6ae7f762eb95">reverse_complement</a> (const char &amp;c)</td></tr>
@@ -14689,51 +14687,6 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a41a22f4c38561e62e9c752b5dbb9ee12"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::trace_traversal </td>
-          <td>(</td>
-          <td class="paramtype">const SnarlTraversal &amp;&#160;</td>
-          <td class="paramname"><em>traversal</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const Snarl &amp;&#160;</td>
-          <td class="paramname"><em>site</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">function&lt; void(size_t, id_t, bool)&gt;&#160;</td>
-          <td class="paramname"><em>handle_node</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">function&lt; void(size_t, NodeSide, NodeSide)&gt;&#160;</td>
-          <td class="paramname"><em>handle_edge</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">function&lt; void(size_t, Snarl, bool)&gt;&#160;</td>
-          <td class="paramname"><em>handle_child</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Trace out the given traversal, handling nodes, child snarls, and edges associated with particular visit numbers. </p>
 
 </div>
 </div>

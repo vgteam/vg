@@ -28,6 +28,7 @@ var searchData=
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
   ['input_5fin_5fprogress',['input_in_progress',['../classvg_1_1Funnel.html#a755941e4c7988487e539256c16b507bb',1,'vg::Funnel']]],
   ['input_5fstart_5ftime',['input_start_time',['../classvg_1_1Funnel.html#affb3e5cfe02a4996dc0d716d1cb04cb1',1,'vg::Funnel']]],
+  ['ins_5ffasta',['ins_fasta',['../classvg_1_1SupportCaller.html#afc1209f27455e07ab97aae155418e5e6',1,'vg::SupportCaller']]],
   ['insert_5fcol',['insert_col',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a9a17e99af8ce2b7992fddef79c4e8b18',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['insert_5fmean',['insert_mean',['../classvg_1_1Filter.html#ab8a36803dfa97e61678756f7b7a3a31c',1,'vg::Filter::insert_mean()'],['../classvg_1_1NGSSimulator.html#ae7110e5b235c8a69f66cba73a6570660',1,'vg::NGSSimulator::insert_mean()']]],
   ['insert_5frow',['insert_row',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ade4c512c3713ac162359ed6d9207537d',1,'vg::BandedGlobalAligner::BAMatrix']]],

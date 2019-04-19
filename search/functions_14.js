@@ -57,7 +57,6 @@ var searchData=
   ['trace',['trace',['../classvg_1_1SnarlState.html#a0035e60db21d7b025e667ec240921bb8',1,'vg::SnarlState']]],
   ['trace_5fhaplotype',['trace_haplotype',['../classvg_1_1GenomeState.html#ae913ac64674d5fbf8abaa1ac7d18a102',1,'vg::GenomeState']]],
   ['trace_5fhaplotypes_5fand_5fpaths',['trace_haplotypes_and_paths',['../namespacevg.html#a2fa834f81743ae8666dd9071ce1b6443',1,'vg']]],
-  ['trace_5ftraversal',['trace_traversal',['../namespacevg.html#a41a22f4c38561e62e9c752b5dbb9ee12',1,'vg']]],
   ['traceback',['traceback',['../classvg_1_1BandedGlobalAligner.html#a2a2b4909d5eb88633680ea071c5551f4',1,'vg::BandedGlobalAligner::traceback()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a5aaf286d1b8f4fb70084cee02833c18d',1,'vg::BandedGlobalAligner::BAMatrix::traceback()'],['../classvg_1_1MEMChainModel.html#ae142b05be3a27922e9387108bb052706',1,'vg::MEMChainModel::traceback()'],['../classvg_1_1AlignmentChainModel.html#ac774ed2018837e64c7ef88ae28c2794a',1,'vg::AlignmentChainModel::traceback()']]],
   ['traceback_5finternal',['traceback_internal',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#ab96ec549cc9e77d5c7cdd919d69cb36e',1,'vg::BandedGlobalAligner::BAMatrix']]],
   ['transcript',['Transcript',['../structvg_1_1Transcript.html#a4288cce67676bd01f7c32a578fb4e75c',1,'vg::Transcript']]],
