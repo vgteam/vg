@@ -36,6 +36,7 @@ var searchData=
   ['score_5fungapped_5falignment',['score_ungapped_alignment',['../classvg_1_1GSSWAligner.html#ad995b64736e8aec26f98b83b84a6b2a0',1,'vg::GSSWAligner']]],
   ['search_5fleft',['search_left',['../classvg_1_1NestedTraversalFinder.html#a04465d6248557f427e5d35b657292e25',1,'vg::NestedTraversalFinder']]],
   ['search_5fright',['search_right',['../classvg_1_1NestedTraversalFinder.html#a2b020fead8b7c40b06f9c0e1041b2cb5',1,'vg::NestedTraversalFinder']]],
+  ['seed2subtree',['seed2subtree',['../classvg_1_1SnarlSeedClusterer.html#a2bac78c2f64e6f9516b232807bf83e7a',1,'vg::SnarlSeedClusterer']]],
   ['select_5fcontinuing',['select_continuing',['../classxg_1_1XG.html#a65ff0e57a71769742bcca3de4de283b2',1,'xg::XG']]],
   ['select_5fstarting',['select_starting',['../classxg_1_1XG.html#a52fb1ef14bc061bc70f6500268222ae4',1,'xg::XG']]],
   ['sequence',['sequence',['../classvg_1_1MaximalExactMatch.html#aad668ccb5017d395e8c186a6bb16a2ad',1,'vg::MaximalExactMatch::sequence()'],['../classvg_1_1Sampler.html#a355de4870a71a88834406f3e7f297272',1,'vg::Sampler::sequence()']]],

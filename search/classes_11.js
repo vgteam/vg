@@ -2,7 +2,6 @@ var searchData=
 [
   ['sampler',['Sampler',['../classvg_1_1Sampler.html',1,'vg']]],
   ['scoreprovider',['ScoreProvider',['../classhaplo_1_1ScoreProvider.html',1,'haplo']]],
-  ['seed_5findex_5flist',['seed_index_list',['../structvg_1_1SnarlSeedClusterer_1_1seed__index__list.html',1,'vg::SnarlSeedClusterer']]],
   ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs.html',1,'vg']]],
   ['simpleconsistencycalculator',['SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html',1,'vg']]],
   ['simpletraversalsupportcalculator',['SimpleTraversalSupportCalculator',['../classvg_1_1SimpleTraversalSupportCalculator.html',1,'vg']]],

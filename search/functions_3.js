@@ -84,7 +84,7 @@ var searchData=
   ['cluster_5fcover',['cluster_cover',['../namespacevg.html#afe3e65f9aafb5ab9ce5455cc72fa0b56',1,'vg']]],
   ['cluster_5fcoverage',['cluster_coverage',['../namespacevg.html#a3380e0f81fc879601afe493949814a4d',1,'vg']]],
   ['cluster_5fnodes',['cluster_nodes',['../namespacevg.html#af6c60d6eb4cafd02a45384cf71a12bfe',1,'vg']]],
-  ['cluster_5fseeds',['cluster_seeds',['../classvg_1_1SnarlSeedClusterer.html#a847cc5628b63e472ade9e2d24f8fe441',1,'vg::SnarlSeedClusterer']]],
+  ['cluster_5fseeds',['cluster_seeds',['../classvg_1_1SnarlSeedClusterer.html#a51dd30bf33edf1355fda11f3f8408dd4',1,'vg::SnarlSeedClusterer']]],
   ['cluster_5fsubgraph',['cluster_subgraph',['../namespacevg.html#a6de30198879002058213d22de2ce3b4b',1,'vg::cluster_subgraph(const xg::XG &amp;xg, const Alignment &amp;aln, const vector&lt; vg::MaximalExactMatch &gt; &amp;mems, double expansion)'],['../namespacevg.html#af55dd67908e8c8a11e0d9effcb5aa725',1,'vg::cluster_subgraph(const xg::XG &amp;xg, const Alignment &amp;aln, const vector&lt; MaximalExactMatch &gt; &amp;mems, double expansion)']]],
   ['cluster_5fsubgraph_5fstrict',['cluster_subgraph_strict',['../classvg_1_1Mapper.html#a1a47059a349f16c139cb2851c14e858c',1,'vg::Mapper']]],
   ['cluster_5fsubgraph_5fwalk',['cluster_subgraph_walk',['../namespacevg.html#a3763744eb52f4ac12c14443e6ce31623',1,'vg']]],

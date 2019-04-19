@@ -20,8 +20,6 @@ var searchData=
   ['secondary_5fscore',['secondary_score',['../structvg_1_1Alignment.html#a58502a21a2588a5ac8baaa6e31c81eb4',1,'vg::Alignment']]],
   ['seed',['seed',['../classvg_1_1NGSSimulator.html#ae24dec0a78bc0166a7f27356632f135a',1,'vg::NGSSimulator']]],
   ['seeds',['seeds',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7451a72162f19b00d1bd44fc62be0297',1,'vg::BandedGlobalAligner::BAMatrix']]],
-  ['seeds_5fend',['seeds_end',['../structvg_1_1SnarlSeedClusterer_1_1cluster__t.html#abf68d9cf4fe3b3590854e32255efd18e',1,'vg::SnarlSeedClusterer::cluster_t']]],
-  ['seeds_5fstart',['seeds_start',['../structvg_1_1SnarlSeedClusterer_1_1cluster__t.html#ada3770791bf084bfed2393e726798ff8',1,'vg::SnarlSeedClusterer::cluster_t']]],
   ['seq',['seq',['../structvg_1_1kmer__t.html#a98b04ac70a36cf6feae80b03b3a32eb2',1,'vg::kmer_t::seq()'],['../structvg_1_1Region.html#a938cc852fd08f11656bdfbd204843017',1,'vg::Region::seq()'],['../structvg_1_1VG_1_1Plan.html#a4bb5a9fa8f5bb32c2e94d3c038f9cf95',1,'vg::VG::Plan::seq()']]],
   ['seq_5fiv',['seq_iv',['../classvg_1_1PackedGraph.html#ab99e2f08212cbff6a091fe37e618cc4b',1,'vg::PackedGraph']]],
   ['seq_5flength',['seq_length',['../classxg_1_1XG.html#a7eadd7681a21479f7f31c240047cdffe',1,'xg::XG']]],
