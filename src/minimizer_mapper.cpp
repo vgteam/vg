@@ -162,7 +162,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
-    vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
     
 #ifdef INSTRUMENT_MAPPING
     funnel.substage("score");
@@ -256,8 +256,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.processing_input(cluster_num);
 #endif
 #endif
-        
-        hash_set<size_t>& cluster = clusters[cluster_num];
+
+        vector<size_t>& cluster = clusters[cluster_num];
+
 #ifdef debug
         cerr << "Cluster " << cluster_num << " rank " << i << ": " << endl;
 #endif
