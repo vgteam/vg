@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['valid_5foffset',['valid_offset',['../classvg_1_1MinimizerIndex.html#a92b74f9bea5a73534359ecb656a7d4b2',1,'vg::MinimizerIndex']]],
   ['validate_5fmultipath_5falignment',['validate_multipath_alignment',['../namespacevg.html#a89a7010176a6425c2a8183054cc9781f',1,'vg']]],
   ['validate_5fstrand_5fconsistency',['validate_strand_consistency',['../classxg_1_1XG.html#a9fa4086c01164b61bae7f24b93453e7e',1,'xg::XG']]],
   ['value_5fcast',['value_cast',['../namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ac84a9621d5108f53976d51f1188e7214',1,'vg::value_cast(const T &amp;wrap)'],['../namespacevg.html#a12109d27c9801031e32a408e75af2bd1',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#aca53457219a2ced000f439df5bd0d71f',1,'vg::value_cast(const Container &amp;wrap)']]],

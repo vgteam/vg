@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
   ['tag_5fcorrect',['tag_correct',['../classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b',1,'vg::Funnel']]],
   ['tail',['tail',['../classvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['tail_5fmismatches',['tail_mismatches',['../structvg_1_1FlankState.html#a06ea0743b34705d80c16fb67d89314c3',1,'vg::FlankState']]],
@@ -134,7 +134,7 @@ var searchData=
   ['translation',['Translation',['../structvg_1_1Translation.html',1,'vg']]],
   ['translations',['translations',['../classvg_1_1Translator.html#aba17cd4fd008c2dbee1da376db1807be',1,'vg::Translator']]],
   ['translator',['Translator',['../classvg_1_1Translator.html',1,'vg']]],
-  ['translator',['Translator',['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)'],['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()']]],
+  ['translator',['translator',['../structvg_1_1AugmentedGraph.html#a3ac035d37452eb611b943cfa4754d6c6',1,'vg::AugmentedGraph::translator()'],['../classvg_1_1Genotyper.html#ad14928554aace83524e80d8c109e17b2',1,'vg::Genotyper::translator()'],['../classvg_1_1Homogenizer.html#add991c227017ff02250cbaac2b81ca72',1,'vg::Homogenizer::translator()'],['../classvg_1_1Translator.html#ac23acdcea38566f2e68005eca4afff73',1,'vg::Translator::Translator(void)'],['../classvg_1_1Translator.html#aeab811097e483365bbd273efc4c4445e',1,'vg::Translator::Translator(istream &amp;in)'],['../classvg_1_1Translator.html#a99602b3868ae6f8f1efc6bf7adcde6f6',1,'vg::Translator::Translator(const vector&lt; Translation &gt; &amp;trans)']]],
   ['translator_2ecpp',['translator.cpp',['../translator_8cpp.html',1,'']]],
   ['translator_2ehpp',['translator.hpp',['../translator_8hpp.html',1,'']]],
   ['trav_5fid',['trav_id',['../namespacexg.html#ac6fad23f04daf243502ea3cbdb8335f7',1,'xg']]],

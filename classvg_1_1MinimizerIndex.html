@@ -208,6 +208,9 @@ Public Member Functions</h2></td></tr>
 Static Public Member Functions</h2></td></tr>
 <tr class="memitem:aa3cb8896de83fbc99e62930ec2478a9a"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1MinimizerIndex.html#aa29bcf5b604cec909b58f794a194ad66">cell_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#aa3cb8896de83fbc99e62930ec2478a9a">empty_cell</a> ()</td></tr>
 <tr class="separator:aa3cb8896de83fbc99e62930ec2478a9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92b74f9bea5a73534359ecb656a7d4b2"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a92b74f9bea5a73534359ecb656a7d4b2">valid_offset</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos)</td></tr>
+<tr class="memdesc:a92b74f9bea5a73534359ecb656a7d4b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Is the offset small enough to fit in the low-order bits of the encoding?  <a href="#a92b74f9bea5a73534359ecb656a7d4b2">More...</a><br/></td></tr>
+<tr class="separator:a92b74f9bea5a73534359ecb656a7d4b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a73d39eb7e0a338336c9fa188a404b554"><td class="memItemLeft" align="right" valign="top">static <a class="el" href="classvg_1_1MinimizerIndex.html#a551a6600cdb9eb86be5f39e5488e3c8f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a73d39eb7e0a338336c9fa188a404b554">encode</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos)</td></tr>
 <tr class="memdesc:a73d39eb7e0a338336c9fa188a404b554"><td class="mdescLeft">&#160;</td><td class="mdescRight">Encode pos_t as code_type.  <a href="#a73d39eb7e0a338336c9fa188a404b554">More...</a><br/></td></tr>
 <tr class="separator:a73d39eb7e0a338336c9fa188a404b554"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -847,7 +850,7 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Inserts the minimizer encoded in the key at the given position into the index. Minimizers with key NO_KEY or a position encoded as NO_VALUE are not inserted. Use <a class="el" href="classvg_1_1MinimizerIndex.html#a7d7841a604899b4ef911e68494606b58">minimizer()</a> or <a class="el" href="classvg_1_1MinimizerIndex.html#a39a26258077c455a778770f07aebc60b">minimizers()</a> to get the key. </p>
+<p>Inserts the minimizer encoded in the key at the given position into the index. Minimizers with key NO_KEY or a position encoded as NO_VALUE (node id 0) are not inserted. The offset will be truncated to fit in REV_OFFSET bits. Use <a class="el" href="classvg_1_1MinimizerIndex.html#a7d7841a604899b4ef911e68494606b58">minimizer()</a> or <a class="el" href="classvg_1_1MinimizerIndex.html#a39a26258077c455a778770f07aebc60b">minimizers()</a> to get the key and <a class="el" href="classvg_1_1MinimizerIndex.html#a92b74f9bea5a73534359ecb656a7d4b2" title="Is the offset small enough to fit in the low-order bits of the encoding? ">valid_offset()</a> to check if the offset fits in the available space. </p>
 
 </div>
 </div>
@@ -1290,6 +1293,32 @@ Private Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Number of minimizers with a single occurrence. </p>
+
+</div>
+</div>
+<a class="anchor" id="a92b74f9bea5a73534359ecb656a7d4b2"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static bool vg::MinimizerIndex::valid_offset </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>&#160;</td>
+          <td class="paramname"><em>pos</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Is the offset small enough to fit in the low-order bits of the encoding? </p>
 
 </div>
 </div>
