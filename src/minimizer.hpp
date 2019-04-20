@@ -130,8 +130,10 @@ public:
     }
 
     /// Inserts the minimizer encoded in the key at the given position into the index.
-    /// Minimizers with key NO_KEY or a position encoded as NO_VALUE are not inserted.
-    /// Use minimizer() or minimizers() to get the key.
+    /// Minimizers with key NO_KEY or a position encoded as NO_VALUE (node id 0) are
+    /// not inserted. The offset will be truncated to fit in REV_OFFSET bits.
+    /// Use minimizer() or minimizers() to get the key and valid_offset() to check if
+    /// the offset fits in the available space.
     void insert(key_type key, pos_t pos);
 
     /// Returns the sorted set of occurrences of the kmer encoded in the key.
@@ -201,6 +203,11 @@ public:
     constexpr static size_t    REV_OFFSET = 10;
     constexpr static code_type REV_MASK   = 0x400;
     constexpr static code_type OFF_MASK   = 0x3FF;
+
+    /// Is the offset small enough to fit in the low-order bits of the encoding?
+    static bool valid_offset(pos_t pos) {
+        return (std::get<2>(pos) <= OFF_MASK);
+    }
 
     /// Encode pos_t as code_type.
     static code_type encode(pos_t pos) {
