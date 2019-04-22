@@ -389,7 +389,8 @@ namespace vg {
     step_handle_t HashGraph::get_previous_step(const step_handle_t& step_handle) const {
         step_handle_t prev;
         as_integers(prev)[0] = as_integers(step_handle)[0];
-        as_integers(prev)[1] = intptr_t(((path_mapping_t*) intptr_t(as_integers(step_handle)[1]))->prev);
+        as_integers(prev)[1] = as_integers(step_handle)[1] != intptr_t(nullptr) ? intptr_t(((path_mapping_t*) intptr_t(as_integers(step_handle)[1]))->prev)
+                                                                                : intptr_t(paths.at(as_integers(step_handle)[0]).tail);
         return prev;
     }
     

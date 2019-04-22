@@ -30,9 +30,17 @@ using namespace std;
                 
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
+                
+                step = graph.get_next_step(step);
             }
             
-            REQUIRE(step == graph.path_end(p));
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(step == graph.path_begin(p));
+            }
+            else {
+                REQUIRE(step == graph.path_end(p));
+            }
+            
             step = graph.get_previous_step(step);
             
             for (int i = steps.size() - 1; i >= 0; i--){
@@ -40,12 +48,17 @@ using namespace std;
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
                 
-                if (i != 0) {
+                if (i != 0 || (graph.get_is_circular(p) && !graph.is_empty(p))) {
                     step = graph.get_previous_step(step);
                 }
             }
             
-            REQUIRE(step == graph.path_begin(p));
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(graph.get_handle_of_step(step) == steps.back());
+            }
+            else {
+                REQUIRE(step == graph.path_begin(p));
+            }
         };
         
         auto check_flips = [&](const path_handle_t& p, const vector<handle_t>& steps) {

@@ -538,7 +538,7 @@ TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
     }
 }
 
-TEST_CASE("DeletableHandleGraphs that we know to be non-compliant on swapping are otherwise correct", "[handle][vg][packed][hashgraph]") {
+TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]") {
     
     vector<DeletableHandleGraph*> implementations;
     
@@ -1637,6 +1637,7 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
     Mapping* m24 = path2.add_mapping();
     m24->mutable_position()->set_node_id(n9->id());
     m24->set_rank(5);
+    path2.set_is_circular(true);
     
     Mapping* m30 = path3.add_mapping();
     m30->mutable_position()->set_node_id(n8->id());
@@ -1692,8 +1693,7 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
             
             // check that steps is pointing to the same index along the path
             auto check_step = [&](const step_handle_t& step_handle,
-                                        int mapping_idx) {
-                
+                                  int mapping_idx) {
                 REQUIRE(graph.get_path_handle_of_step(step_handle) == path_handle);
                 
                 const Mapping& mapping = path.mapping(mapping_idx);
@@ -1704,7 +1704,7 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
                 REQUIRE(graph.get_is_reverse(handle) == mapping.position().is_reverse());
             };
             
-            step_handle_t step_handle;
+            step_handle_t step_handle = graph.path_begin(path_handle);
             
             // iterate front to back
             for (int i = 0; i < path.mapping_size(); i++) {
@@ -1713,12 +1713,21 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
                     step_handle_t previous = graph.get_previous_step(step_handle);
                     check_step(previous, i - 1);
                 }
+                else if (path.is_circular()) {
+                    step_handle_t previous = graph.get_previous_step(step_handle);
+                    check_step(previous, path.mapping_size() - 1);
+                }
                 
                 check_step(step_handle, i);
                 step_handle = graph.get_next_step(step_handle);
             }
             
-            REQUIRE(step_handle == graph.path_end(path_handle));
+            if (path.is_circular() && path.mapping_size() > 0) {
+                REQUIRE(step_handle == graph.path_begin(path_handle));
+            }
+            else {
+                REQUIRE(step_handle == graph.path_end(path_handle));
+            }
 
             // iterate front to back with the iteration function
             {
@@ -1938,7 +1947,7 @@ TEST_CASE("Deletable handle graphs behave correctly when a graph has multiple ed
     }
 }
     
-TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][hashgraph]") {
+TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][hashgraph]") {
     
     vector<MutablePathDeletableHandleGraph*> implementations;
     
@@ -1964,9 +1973,17 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
                 
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
+                
+                step = graph.get_next_step(step);
             }
             
-            REQUIRE(step == graph.path_end(p));
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(step == graph.path_begin(p));
+            }
+            else {
+                REQUIRE(step == graph.path_end(p));
+            }
+            
             step = graph.get_previous_step(step);
             
             for (int i = steps.size() - 1; i >= 0; i--){
@@ -1974,12 +1991,17 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
                 
-                if (i != 0) {
+                if (i != 0 || (graph.get_is_circular(p) && !graph.is_empty(p))) {
                     step = graph.get_previous_step(step);
                 }
             }
             
-            REQUIRE(step == graph.path_begin(p));
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(graph.get_handle_of_step(step) == steps.back());
+            }
+            else {
+                REQUIRE(step == graph.path_begin(p));
+            }
         };
         
         auto check_flips = [&](const path_handle_t& p, const vector<handle_t>& steps) {
@@ -2032,7 +2054,8 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         // graph preserves paths when reversing nodes
         check_flips(p1, {h1, h2, h3});
         
-        path_handle_t p2 = graph.create_path_handle("2");
+        // make a circular path
+        path_handle_t p2 = graph.create_path_handle("2", true);
         REQUIRE(graph.get_path_count() == 2);
         
         graph.append_step(p2, h1);
@@ -2122,6 +2145,28 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         
         REQUIRE(graph.has_path("3"));
         REQUIRE(graph.get_path_count() == 3);
+        
+        // graph can toggle circularity
+        
+        graph.for_each_path_handle([&](const path_handle_t& p) {
+            
+            vector<handle_t> steps;
+            
+            for (handle_t h : graph.scan_path(p)) {
+                steps.push_back(h);
+            }
+            
+            bool starting_circularity = graph.get_is_circular(p);
+            
+            // make every transition occur
+            for (bool circularity : {true, true, false, false, true}) {
+                graph.set_circularity(p, circularity);
+                REQUIRE(graph.get_is_circular(p) == circularity);
+                check_path(p, steps);
+            }
+            
+            graph.set_circularity(p, starting_circularity);
+        });
         
         // graph can destroy paths
         

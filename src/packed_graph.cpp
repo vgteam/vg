@@ -978,8 +978,9 @@ namespace vg {
     step_handle_t PackedGraph::get_previous_step(const step_handle_t& step_handle) const {
         step_handle_t prev;
         as_integers(prev)[0] = as_integers(step_handle)[0];
-        as_integers(prev)[1] = get_step_prev(paths.at(as_integers(step_handle)[0]),
-                                             as_integers(step_handle)[1]);
+        as_integers(prev)[1] = as_integers(step_handle)[1] != 0 ? get_step_prev(paths.at(as_integers(step_handle)[0]),
+                                                                                as_integers(step_handle)[1])
+                                                                : paths.at(as_integers(step_handle)[0]).tail;
         return prev;
     }
     

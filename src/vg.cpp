@@ -350,8 +350,8 @@ step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
 
 step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
     step_handle_t prev_step_handle;
-    as_integers(prev_step_handle)[0] = as_integers(step_handle)[0]  ;
-    if (reinterpret_cast<void*>(as_integers(prev_step_handle)[1]) == nullptr) {
+    as_integers(prev_step_handle)[0] = as_integers(step_handle)[0];
+    if (reinterpret_cast<mapping_t*>(as_integers(step_handle)[1]) == nullptr) {
         as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).back());
     }
     else {
