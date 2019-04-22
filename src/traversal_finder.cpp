@@ -2513,9 +2513,19 @@ vector<vcflib::Variant*> VCFTraversalFinder::get_variants_in_site(const Snarl& s
 }
 
 pair<vector<pair<SnarlTraversal, vector<int>>>, vector<vcflib::Variant*>>
-VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
+VCFTraversalFinder::find_allele_traversals(Snarl site) {
 
     vector<pair<SnarlTraversal, vector<int>>> output_traversals;
+
+    // This traversal finder is pretty simple-minded.  It's expecting forward-oriented variation relative
+    // to the reference.  We flip our snarl to canonicalize it if possible.
+    if (site.start().backward() && site.end().backward()) {
+        Visit start = site.start();
+        *site.mutable_start() = site.end();
+        *site.mutable_end() = start;
+        site.mutable_start()->set_backward(false);
+        site.mutable_end()->set_backward(false);
+    }
     
     vector<vcflib::Variant*> site_variants = get_variants_in_site(site);
 
@@ -2527,7 +2537,7 @@ VCFTraversalFinder::find_allele_traversals(const Snarl& site) {
     if (path_index == nullptr) {
         return make_pair(output_traversals, site_variants);
     }
-    
+
     PathIndex::iterator start_it = path_index->find_in_orientation(site.start().node_id(), site.start().backward());
     PathIndex::iterator end_it = path_index->find_in_orientation(site.end().node_id(), site.end().backward());
 
@@ -2866,40 +2876,43 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
             visit->set_backward(mapping.is_reverse());
         }
     }  else {
-        // there's no alt path, it must be a deletion
+        // there's no alt path, it must be a deletion (if our input allele != 0)
         // in this case we use the reference allele path, and try to find an edge that spans
         // it.  this will be our alt edge
         // todo: put an alt path maker into utility.hpp
-        is_deletion = true;
+        is_deletion = allele != 0;
         alt_path_name = "_alt_" + make_variant_id(*var) + "_0";
-        assert(graph.has_path(alt_path_name));
+        // allele 0 can be empty for an insertion.  we don't complain if it's not in the graph
+        assert(allele == 0 || graph.has_path(alt_path_name));
 
-        list<mapping_t>& path = graph.paths.get_path(alt_path_name);
-        if (!path.empty()) {
-            // find where this path begins and ends in the reference path index
-            PathIndex::iterator first_path_it = path_index->find_in_orientation(
-                path.begin()->node_id(), path.begin()->is_reverse());
-            PathIndex::iterator last_path_it = path_index->find_in_orientation(
-                path.rbegin()->node_id(), path.rbegin()->is_reverse());
+        if (graph.has_path(alt_path_name)) {
+            list<mapping_t>& path = graph.paths.get_path(alt_path_name);
+            if (!path.empty()) {
+                // find where this path begins and ends in the reference path index
+                PathIndex::iterator first_path_it = path_index->find_in_orientation(
+                    path.begin()->node_id(), path.begin()->is_reverse());
+                PathIndex::iterator last_path_it = path_index->find_in_orientation(
+                    path.rbegin()->node_id(), path.rbegin()->is_reverse());
 
-            // some sanity checking
-            assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
-            assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
+                // some sanity checking
+                assert(first_path_it != path_index->end() && first_path_it != path_index->begin());
+                assert(last_path_it != path_index->end() && last_path_it != path_index->begin());
 
-            // todo: logic needed here if want to support non-forward reference paths.
-            --first_path_it;
-            ++last_path_it;
-            handle_t left = graph.get_handle(first_path_it->second.node);
-            handle_t right = graph.get_handle(last_path_it->second.node);
+                // todo: logic needed here if want to support non-forward reference paths.
+                --first_path_it;
+                ++last_path_it;
+                handle_t left = graph.get_handle(first_path_it->second.node);
+                handle_t right = graph.get_handle(last_path_it->second.node);
 
-            Visit* visit = alt_path.add_visit();
-            visit->set_node_id(graph.get_id(left));
-            visit->set_backward(graph.get_is_reverse(left));
-            visit = alt_path.add_visit();
-            visit->set_node_id(graph.get_id(right));
-            visit->set_backward(graph.get_is_reverse(right));
-        } else {
-            assert(allele == 0);
+                Visit* visit = alt_path.add_visit();
+                visit->set_node_id(graph.get_id(left));
+                visit->set_backward(graph.get_is_reverse(left));
+                visit = alt_path.add_visit();
+                visit->set_node_id(graph.get_id(right));
+                visit->set_backward(graph.get_is_reverse(right));
+            } else {
+                assert(allele == 0);
+            }
         }
     }
     

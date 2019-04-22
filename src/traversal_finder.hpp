@@ -400,7 +400,7 @@ public:
      * Find traversals for the site.  Each traversa is returned in a pair with
      * its haplotype.  The haplotype refers to the list of variants (also returned)
      */
-    pair<vector<pair<SnarlTraversal, vector<int>>>, vector<vcflib::Variant*>> find_allele_traversals(const Snarl& site);
+    pair<vector<pair<SnarlTraversal, vector<int>>>, vector<vcflib::Variant*>> find_allele_traversals(Snarl site);
 
     /**
      * Return a list of traversals for the site.  The same traversals as above, only the
