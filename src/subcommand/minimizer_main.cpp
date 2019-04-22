@@ -258,6 +258,13 @@ int main_minimizer(int argc, char** argv) {
                 node_length = graph.get_length(*iter);
             }
             pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.second - node_start };
+            if (!MinimizerIndex::valid_offset(pos)) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << "error: [vg minimizer] node offset " << offset(pos) << " is too large" << std::endl;
+                }
+                std::exit(EXIT_FAILURE);
+            }
             cache[thread_id].emplace_back(minimizer.first, pos);
         }
         if (cache[thread_id].size() >= MINIMIZER_CACHE_SIZE) {
