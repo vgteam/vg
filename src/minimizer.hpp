@@ -21,7 +21,8 @@ namespace vg {
 /**
  * A class that implements the minimizer index as a hash table mapping kmers to sets of pos_t.
  * The hash table uses quadratic probing with power-of-two size.
- * A minimizer is the lexicographically smallest kmer in a window of w consecutive kmers.
+ * We encode kmers using 2 bits/character and take wang_hash_64() of the encoding. A minimizer
+ * is the kmer with the smallest hash in a window of w consecutive kmers.
  * There is an option to specify an upper bound for the number of occurrences of each
  * minimizer. If the actual number is higher, the occurrences will not be stored.
  */
@@ -249,18 +250,6 @@ private:
 
     // Double the size of the hash table.
     void rehash();
-
-    // A separate copy of Thomas Wang's hash function for 64-bit integers.
-    static size_t hash(key_type key) {
-        key = (~key) + (key << 21); // key = (key << 21) - key - 1;
-        key = key ^ (key >> 24);
-        key = (key + (key << 3)) + (key << 8); // key * 265
-        key = key ^ (key >> 14);
-        key = (key + (key << 2)) + (key << 4); // key * 21
-        key = key ^ (key >> 28);
-        key = key + (key << 31);
-        return key;
-    }
 };
 
 //------------------------------------------------------------------------------

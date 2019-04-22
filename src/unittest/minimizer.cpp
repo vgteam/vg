@@ -81,35 +81,40 @@ TEST_CASE("MinimizerIndex construction, assignment, and serialization", "[minimi
     }
 }
 
+// wang_hash_64() order of 3-mers: AAT < ATA < ACA < GAA < ACT < TAC < CGA < CAA
 TEST_CASE("Minimizer extraction works correctly", "[minimizer_index][indexing]") {
     std::string str = "CGAATACAATACT";
 
     SECTION("minimizer is the leftmost occurrence") {
-        MinimizerIndex index(5, 2);
-        MinimizerIndex::minimizer_type correct(0 * 256 + 0 * 64 + 3 * 16 + 0 * 4 + 1 * 1, 2);
+        MinimizerIndex index(3, 2);
+        MinimizerIndex::minimizer_type correct(0 * 16 + 0 * 4 + 3 * 1, 2); // AAT
         MinimizerIndex::minimizer_type result = index.minimizer(str.begin(), str.end());
         REQUIRE(result == correct);
     }
 
     SECTION("all minimizers are found") {
-        MinimizerIndex index(5, 2);
+        MinimizerIndex index(3, 2);
         std::vector<MinimizerIndex::minimizer_type> correct {
-            MinimizerIndex::minimizer_type(1 * 256 + 2 * 64 + 0 * 16 + 0 * 4 + 3 * 1, 0),
-            MinimizerIndex::minimizer_type(0 * 256 + 0 * 64 + 3 * 16 + 0 * 4 + 1 * 1, 2),
-            MinimizerIndex::minimizer_type(0 * 256 + 3 * 64 + 0 * 16 + 1 * 4 + 0 * 1, 3),
-            MinimizerIndex::minimizer_type(0 * 256 + 1 * 64 + 0 * 16 + 0 * 4 + 3 * 1, 5),
-            MinimizerIndex::minimizer_type(0 * 256 + 0 * 64 + 3 * 16 + 0 * 4 + 1 * 1, 7)
+            MinimizerIndex::minimizer_type(2 * 16 + 0 * 4 + 0 * 1, 1), // GAA
+            MinimizerIndex::minimizer_type(0 * 16 + 0 * 4 + 3 * 1, 2), // AAT
+            MinimizerIndex::minimizer_type(0 * 16 + 3 * 4 + 0 * 1, 3), // ATA
+            MinimizerIndex::minimizer_type(0 * 16 + 1 * 4 + 0 * 1, 5), // ACA
+            MinimizerIndex::minimizer_type(0 * 16 + 0 * 4 + 3 * 1, 7), // AAT
+            MinimizerIndex::minimizer_type(0 * 16 + 3 * 4 + 0 * 1, 8), // ATA
+            MinimizerIndex::minimizer_type(0 * 16 + 1 * 4 + 3 * 1, 10) // ACT
         };
         std::vector<MinimizerIndex::minimizer_type> result = index.minimizers(str.begin(), str.end());
         REQUIRE(result == correct);
     }
 
     SECTION("minimizers depend on window length") {
-        MinimizerIndex index(5, 3);
+        MinimizerIndex index(3, 3);
         std::vector<MinimizerIndex::minimizer_type> correct {
-            MinimizerIndex::minimizer_type(0 * 256 + 0 * 64 + 3 * 16 + 0 * 4 + 1 * 1, 2),
-            MinimizerIndex::minimizer_type(0 * 256 + 1 * 64 + 0 * 16 + 0 * 4 + 3 * 1, 5),
-            MinimizerIndex::minimizer_type(0 * 256 + 0 * 64 + 3 * 16 + 0 * 4 + 1 * 1, 7)
+            MinimizerIndex::minimizer_type(0 * 16 + 0 * 4 + 3 * 1, 2), // AAT
+            MinimizerIndex::minimizer_type(0 * 16 + 3 * 4 + 0 * 1, 3), // ATA
+            MinimizerIndex::minimizer_type(0 * 16 + 1 * 4 + 0 * 1, 5), // ACA
+            MinimizerIndex::minimizer_type(0 * 16 + 0 * 4 + 3 * 1, 7), // AAT
+            MinimizerIndex::minimizer_type(0 * 16 + 3 * 4 + 0 * 1, 8)  // ATA
         };
         std::vector<MinimizerIndex::minimizer_type> result = index.minimizers(str.begin(), str.end());
         REQUIRE(result == correct);
@@ -117,11 +122,14 @@ TEST_CASE("Minimizer extraction works correctly", "[minimizer_index][indexing]")
 
     SECTION("minimizers cannot contain invalid characters") {
         std::string weird = "CGAATAxAATACT";
-        MinimizerIndex index(5, 2);
+        MinimizerIndex index(3, 2);
         std::vector<MinimizerIndex::minimizer_type> correct {
-            MinimizerIndex::minimizer_type(1 * 256 + 2 * 64 + 0 * 16 + 0 * 4 + 3 * 1, 0),
-            MinimizerIndex::minimizer_type(2 * 256 + 0 * 64 + 0 * 16 + 3 * 4 + 0 * 1, 1),
-            MinimizerIndex::minimizer_type(0 * 256 + 0 * 64 + 3 * 16 + 0 * 4 + 1 * 1, 7)
+            MinimizerIndex::minimizer_type(2 * 16 + 0 * 4 + 0 * 1, 1), // GAA
+            MinimizerIndex::minimizer_type(0 * 16 + 0 * 4 + 3 * 1, 2), // AAT
+            MinimizerIndex::minimizer_type(0 * 16 + 3 * 4 + 0 * 1, 3), // ATA
+            MinimizerIndex::minimizer_type(0 * 16 + 0 * 4 + 3 * 1, 7), // AAT
+            MinimizerIndex::minimizer_type(0 * 16 + 3 * 4 + 0 * 1, 8), // ATA
+            MinimizerIndex::minimizer_type(0 * 16 + 1 * 4 + 3 * 1, 10) // ACT
         };
         std::vector<MinimizerIndex::minimizer_type> result = index.minimizers(weird.begin(), weird.end());
         REQUIRE(result == correct);

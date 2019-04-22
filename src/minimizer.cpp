@@ -1,4 +1,5 @@
 #include "minimizer.hpp"
+#include "wang_hash.hpp"
 
 #include <algorithm>
 
@@ -468,7 +469,8 @@ namespace mi {
   i + w. Candidates at the tail are purged when we advance with a smaller key.
 */
 struct CircularBuffer {
-    std::vector<MinimizerIndex::minimizer_type> buffer;
+    typedef std::pair<MinimizerIndex::minimizer_type, size_t> element_type;
+    std::vector<element_type> buffer;
     size_t head, tail;
     size_t w;
 
@@ -489,29 +491,30 @@ struct CircularBuffer {
         return (this->head >= this->tail);
     }
 
-    MinimizerIndex::minimizer_type& front() {
+    element_type& front() {
         return this->buffer[this->head & (this->buffer.size() - 1)];
     }
 
-    MinimizerIndex::minimizer_type& back() {
+    element_type& back() {
         return this->buffer[(this->tail - 1) & (this->buffer.size() - 1)];
     }
 
     // Advance to the next position with a valid k-mer.
-    void advance(MinimizerIndex::minimizer_type candidate) {
-        if (!(this->empty()) && this->front().second + this->w <= candidate.second) {
+    void advance(MinimizerIndex::minimizer_type candidate, size_t hash) {
+        if (!(this->empty()) && this->front().first.second + this->w <= candidate.second) {
             this->head++;
         }
-        while (!(this->empty()) && this->back().first > candidate.first) {
+        while (!(this->empty()) && this->back().second > hash) {
             this->tail--;
         }
         this->tail++;
-        this->back() = candidate;
+        this->back().first = candidate;
+        this->back().second = hash;
     }
 
     // Advance to the next position without a valid k-mer.
     void advance(size_t pos) {
-        if (!(this->empty()) && this->front().second + this->w <= pos) {
+        if (!(this->empty()) && this->front().first.second + this->w <= pos) {
             this->head++;
         }
     }
@@ -530,15 +533,22 @@ update_key(MinimizerIndex::key_type& key, size_t k, unsigned char c, size_t& val
 }
 
 MinimizerIndex::minimizer_type
-minimizer(std::string::const_iterator begin, std::string::const_iterator end, size_t k, size_t& valid_chars) {
+minimizer(std::string::const_iterator begin, std::string::const_iterator end, size_t k, size_t& valid_chars, size_t& best_hash) {
     MinimizerIndex::minimizer_type result(MinimizerIndex::NO_KEY, 0);
+    bool found = false;
+    valid_chars = 0;
 
     MinimizerIndex::key_type key = 0;
     for (std::string::const_iterator iter = begin; iter != end; ++iter) {
         update_key(key, k, *iter, valid_chars);
-        if (valid_chars >= k && key < result.first) {
-            result.first = key;
-            result.second = (iter - begin) + 1 - k;
+        if (valid_chars >= k) {
+            size_t h = wang_hash_64(key);
+            if (!found || h < best_hash) {
+                result.first = key;
+                result.second = (iter - begin) + 1 - k;
+                best_hash = h;
+                found = true;
+            }
         }
     }
 
@@ -553,8 +563,8 @@ MinimizerIndex::minimizer(std::string::const_iterator begin, std::string::const_
     if (end - begin < this->k()) {
         return minimizer_type(NO_KEY, 0);
     }
-    size_t valid_chars = 0;
-    return mi::minimizer(begin, end, this->k(), valid_chars);
+    size_t valid_chars = 0, best_hash = 0;
+    return mi::minimizer(begin, end, this->k(), valid_chars, best_hash);
 }
 
 std::vector<MinimizerIndex::minimizer_type>
@@ -567,12 +577,12 @@ MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const
     }
 
     // Encode the first k-mer.
-    size_t valid_chars = 0;
+    size_t valid_chars = 0, best_hash = 0;
     std::string::const_iterator iter = begin + this->k();
-    MinimizerIndex::minimizer_type candidate = mi::minimizer(begin, iter, this->k(), valid_chars);
+    MinimizerIndex::minimizer_type candidate = mi::minimizer(begin, iter, this->k(), valid_chars, best_hash);
     mi::CircularBuffer buffer(this->w());
     if (candidate.first != NO_KEY) {
-        buffer.advance(candidate);
+        buffer.advance(candidate, best_hash);
         if (iter - begin >= window_length) {
             result.push_back(candidate);
         }
@@ -585,15 +595,15 @@ MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const
         mi::update_key(candidate.first, this->k(), *iter, valid_chars);
         candidate.second++;
         if (valid_chars >= this->k()) {
-            buffer.advance(candidate);
+            buffer.advance(candidate, wang_hash_64(candidate.first));
         } else {
             buffer.advance(candidate.second);
         }
         ++iter;
         // We have a full window with a minimizer.
         if (iter - begin >= window_length && !buffer.empty()) {
-            if (result.empty() || result.back() != buffer.front()) {
-                result.push_back(buffer.front());
+            if (result.empty() || result.back() != buffer.front().first) {
+                result.push_back(buffer.front().first);
             }
         }
     }
@@ -662,7 +672,7 @@ size_t MinimizerIndex::count(key_type key) const {
 }
 
 size_t MinimizerIndex::find_offset(key_type key) const {
-    size_t offset = hash(key) & (this->capacity() - 1);
+    size_t offset = wang_hash_64(key) & (this->capacity() - 1);
     for (size_t attempt = 0; attempt < this->capacity(); attempt++) {
         if (this->hash_table[offset].first == NO_KEY || this->hash_table[offset].first == key) {
             return offset;
