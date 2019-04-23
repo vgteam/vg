@@ -127,13 +127,16 @@ def make_stats(read, stages=STAGES):
         - 'time' for just the stage.
         - 'cumulative_time' for the stage and all prior stages.
         - 'substage_time' for each substage, which is a dict from substage name to time.
-        - 'correct_lost' which is the count of correct mappings lost at this stage.
+        - 'correct_stop' which is the count of correct mappings that stop at this stage.
         - 'results' which is the count of results produced from this stage.
         
     All values are filled, even if 0 or not applicable.
         
     There is a special 'overall' stage, with just the 'time' key, recording the overall read time.
     """
+    
+    # This is the annotation dict from the read
+    annot = read.get('annotation', {})
     
     # This is the stats dict we will fill in
     stats = {}
@@ -148,19 +151,29 @@ def make_stats(read, stages=STAGES):
         stage_dict = {}
         
         # Grab its runtime from the read
-        stage_dict['time'] = read.get('annotation', {}).get(
+        stage_dict['time'] = annot.get(
             'stage_' + stage + '_seconds', 0.0)
             
         # Add into and store the cumulative time
         cumulative_time += stage_dict['time']
         stage_dict['cumulative_time'] = cumulative_time
         
+        # Grab its result count from the read
+        stage_dict['results'] = int(annot.get(
+            'stage_' + stage + '_results', 0))
+        
+        # No correct mappings end here
+        stage_dict['correct_stop'] = 0
+        if annot.get('last_correct_stage', None) == stage:
+            # Unless one does
+            stage_dict['correct_stop'] += 1
+        
         # Set up substage times
         substage_time = {}
         for substage in SUBSTAGES[stage]:
             # For each substage it has, record substage time.
             # TODO: no good way to iterate the substages provided in the file.
-            substage_time['substage'] = read.get('annotation', {}).get(
+            substage_time['substage'] = annot.get(
                 'stage_' + stage + '_' + substage + '_seconds', 0.0)
         
         stage_dict['substage_time'] = substage_time
@@ -524,7 +537,7 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     stage_width = max(stage_width, len(stage_overall))
     
     # How about the reads per second column
-    rps_header = "Reads per Second"
+    rps_header = "Reads/Second"
     rps_header2 = "(cumulative)"
     rps_width = max(len(rps_header), len(rps_header2))
     
@@ -534,14 +547,34 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     # Make sure to leave room for "100%"
     time_width = max(len(time_header), len(time_header2), 4)
     
-    table = Table([stage_width, rps_width, time_width])
+    # And the result count column (average)
+    results_header = "Candidates"
+    results_header2 = "(Avg.)"
+    results_width = max(len(results_header), len(results_header2))
     
-    table.row(["Giraffe Facts"], 'c', merge=[3])
+    # And the correct result lost count header
+    lost_header = "Stop"
+    lost_header2 = "Here"
+    # How big a number will we need to hold?
+    # Look at the reads lost at all stages except final (because if you make it to the final stage nothing is lost)
+    lost_reads = [stats_total[stage]['correct_stop'] for stage in STAGES[:-1]]
+    max_stage_stop = max(lost_reads)
+    # How many reads are lost overall?
+    overall_lost = sum(lost_reads)
+    lost_width = max(len(lost_header), len(lost_header2), len(str(max_stage_stop)), len(str(overall_lost)))
+    
+    # Get all the column widths together
+    widths = [stage_width, rps_width, time_width, results_width, lost_width]
+    
+    # Start the table
+    table = Table(widths)
+    
+    table.row(["Giraffe Facts"], 'c', merge=[len(widths)])
     table.line()
-    table.row(['Reads' + str(read_count).rjust(table.inner_width() - 5)], merge=[3])
+    table.row(['Reads' + str(read_count).rjust(table.inner_width() - 5)], merge=[len(widths)])
     table.line()
-    table.row([stage_header, rps_header, time_header], 'c' )
-    table.row(['', rps_header2, time_header2], 'c')
+    table.row([stage_header, rps_header, time_header, results_header, lost_header], 'c' )
+    table.row(['', rps_header2, time_header2, results_header2, lost_header2], 'c')
     table.line()
     
     
@@ -561,13 +594,21 @@ def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
         # And make a percent
         stage_percent = stage_portion * 100
         
-        table.row([stage, '{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent)], 'crr')
+        # Grab average results at this stage
+        total_results = stats_total[stage]['results']
+        average_results = total_results / read_count if read_count != 0 else float('NaN')
+        
+        # Grab reads that are lost.
+        # No reads are lost at the final stage.
+        lost = stats_total[stage]['correct_stop'] if stage != stages[-1] else '-'
+        
+        table.row([stage, '{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent), '{:.2f}'.format(average_results), lost], 'crrrr')
         
     table.line()
         
     # And do overall reads per second
     reads_per_second_overall = read_count / overall_time if overall_time != 0 else float('NaN')
-    table.row([stage_overall, '{:.2f}'.format(reads_per_second_overall), '100%'], 'crr')
+    table.row([stage_overall, '{:.2f}'.format(reads_per_second_overall), '100%', '', overall_lost], 'crrrr')
     
     # Close off table
     table.close()
