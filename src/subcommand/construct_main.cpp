@@ -7,7 +7,7 @@
 
 #include "subcommand.hpp"
 
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../constructor.hpp"
 #include "../msa_converter.hpp"
 #include "../region.hpp"
@@ -225,7 +225,7 @@ int main_construct(int argc, char** argv) {
 
         // Make an emitter that serializes the actual Graph objects, with buffering.
         // But just serialize one graph at a time in each group.
-        stream::ProtobufEmitter<Graph> emitter(cout, 1);
+        vg::io::ProtobufEmitter<Graph> emitter(cout, 1);
 
         // We need a callback to handle pieces of graph as they are produced.
         auto callback = [&](Graph& big_chunk) {

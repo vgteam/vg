@@ -1,7 +1,7 @@
 #ifndef VG_EDIT_HPP_INCLUDED
 #define VG_EDIT_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include <utility>
 #include <iostream> // for debugging
 #include "json2pb.h"

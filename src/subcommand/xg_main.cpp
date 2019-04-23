@@ -14,10 +14,10 @@
 #include "subcommand.hpp"
 
 #include "sdsl/bit_vectors.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../version.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../xg.hpp"
 #include "../region.hpp"
 #include "../convert_handle.hpp"
@@ -262,7 +262,7 @@ int main_xg(int argc, char** argv) {
     if (in_name.size()) {
         get_input_file(in_name, [&](istream& in) {
             // Load from an XG file or - (stdin)
-            graph = stream::VPKG::load_one<XG>(in);
+            graph = vg::io::VPKG::load_one<XG>(in);
         });
     }
 
@@ -317,7 +317,7 @@ int main_xg(int argc, char** argv) {
         ostream& out = (out_name == "-") ? std::cout : out_file;
         
         // Encapsulate output in VPKG
-        stream::VPKG::with_save_stream(out, "XG", [&](ostream& tagged) {
+        vg::io::VPKG::with_save_stream(out, "XG", [&](ostream& tagged) {
             // Serialize to the file while recording space usage to the structure.
             graph->serialize(tagged, structure.get(), "xg");
         });
@@ -397,7 +397,7 @@ int main_xg(int argc, char** argv) {
             to_text(cout, g);
         } else {
             vector<Graph> gb = { g };
-            stream::write_buffered(cout, gb, 0);
+            vg::io::write_buffered(cout, gb, 0);
         }
     }
 
@@ -412,7 +412,7 @@ int main_xg(int argc, char** argv) {
             to_text(cout, g);
         } else {
             vector<Graph> gb = { g };
-            stream::write_buffered(cout, gb, 0);
+            vg::io::write_buffered(cout, gb, 0);
         }
     }
     
@@ -459,7 +459,7 @@ int main_xg(int argc, char** argv) {
                 to_text(cout, g);
             } else {
                 vector<Graph> gb = { g };
-                stream::write_buffered(cout, gb, 0);
+                vg::io::write_buffered(cout, gb, 0);
             }
             
         }

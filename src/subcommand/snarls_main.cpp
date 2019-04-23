@@ -11,9 +11,9 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 //#define debug
 
@@ -230,7 +230,7 @@ int main_snarl(int argc, char** argv) {
                 }
             }
             vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
-            stream::write_buffered(cout, travs, 0);
+            vg::io::write_buffered(cout, travs, 0);
         }
 
         delete trav_finder;
@@ -301,7 +301,7 @@ int main_snarl(int argc, char** argv) {
             
             // Write our snarl tree
             snarl_buffer.push_back(*snarl);
-            stream::write_buffered(cout, snarl_buffer, buffer_size);
+            vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
             // Optionally write our traversals
             if (!traversal_file.empty() &&
@@ -319,7 +319,7 @@ int main_snarl(int argc, char** argv) {
 #endif
                 
                 traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
-                stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
+                vg::io::write_buffered(trav_stream, traversal_buffer, buffer_size);
             }
             
             // Sort the child snarls by node ID?
@@ -342,9 +342,9 @@ int main_snarl(int argc, char** argv) {
         
     }
     // flush
-    stream::write_buffered(cout, snarl_buffer, 0);
+    vg::io::write_buffered(cout, snarl_buffer, 0);
     if (!traversal_file.empty()) {
-        stream::write_buffered(trav_stream, traversal_buffer, 0);
+        vg::io::write_buffered(trav_stream, traversal_buffer, 0);
     }
     
     delete snarl_finder;

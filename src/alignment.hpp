@@ -7,7 +7,7 @@
 #include "utility.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "xg.hpp"
 #include "edit.hpp"
 #include "htslib/hfile.h"

@@ -13,7 +13,7 @@
 #include <cassert>
 #include <list>
 #include <algorithm>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "nodetraversal.hpp"
 #include "genotypekit.hpp"

@@ -2,7 +2,7 @@
 #include <stdexcept>
 #include "json2pb.h"
 #include "pileup_augmenter.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 using namespace std;
 

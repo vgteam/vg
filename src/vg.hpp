@@ -26,9 +26,9 @@
 #include "prune.hpp"
 #include "mem.hpp"
 
-#include "vg.pb.h"
-#include "stream/stream.hpp"
-#include "stream/protobuf_emitter.hpp"
+#include <vg/vg.pb.h>
+#include <vg/io/stream.hpp>
+#include <vg/io/protobuf_emitter.hpp>
 #include "hash_map.hpp"
 
 #include "progressive.hpp"
@@ -498,7 +498,7 @@ public:
     /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
     /// Use when combining multiple VG objects in a stream.
     /// Graph will be serialized in internal storage order.
-    void serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
+    void serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
     /// Write to a stream in chunked graphs. Adds an EOF marker.
     /// Use when this VG will be the only thing in the stream.
     /// Graph will be serialized in internal storage order.

@@ -1,5 +1,5 @@
 #include "xg.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "alignment.hpp"
 
 #include <bitset>
@@ -582,7 +582,7 @@ void XG::from_stream(istream& in, bool validate_graph, bool print_graph,
     from_callback([&](function<void(Graph&)> handle_chunk) {
         // TODO: should I be bandying about function references instead of
         // function objects here?
-        stream::for_each(in, handle_chunk);
+        vg::io::for_each(in, handle_chunk);
     }, validate_graph, print_graph, store_threads, is_sorted_dag);
 }
 

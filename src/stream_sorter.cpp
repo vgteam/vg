@@ -2,8 +2,8 @@
 
 /**
  * \file stream_sorter.cpp
- * StreamSorter: sort a stream of Messages (such as Messages) by node ID.
- * Unplaced Messages come first.
+ * StreamSorter: sort a stream of Protobuf messages in VPKG by node ID.
+ * Unplaced messages come first.
  */
 
 namespace vg {

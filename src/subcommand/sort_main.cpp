@@ -180,7 +180,7 @@ int main_sort(int argc, char *argv[]) {
         
         {
             // Make our own emitter for serialization
-            stream::ProtobufEmitter<Graph> emitter(std::cout);
+            vg::io::ProtobufEmitter<Graph> emitter(std::cout);
             
             if (index) {
                 emitter.on_message([&](const Graph& g) {

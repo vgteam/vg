@@ -12,8 +12,8 @@
 
 #include "../vg.hpp"
 #include "../index.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../stream_index.hpp"
 #include "../vg_set.hpp"
 #include "../utility.hpp"
@@ -570,7 +570,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : gam_file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
             id_width = gbwt::bit_length(gbwt::Node::encode(max_id, true));
@@ -670,7 +670,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : gam_file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
         }
@@ -949,7 +949,7 @@ int main_index(int argc, char** argv) {
                 }
                 
                 // Save encapsulated in a VPKG
-                stream::VPKG::save(gbwt_builder->index, gbwt_name);
+                vg::io::VPKG::save(gbwt_builder->index, gbwt_name);
                 
                 delete gbwt_builder; gbwt_builder = nullptr;
             }
@@ -965,7 +965,7 @@ int main_index(int argc, char** argv) {
             cerr << "Saving XG index to disk..." << endl;
         }
         // Save encapsulated in a VPKG
-        stream::VPKG::save(*xg_index, xg_name); 
+        vg::io::VPKG::save(*xg_index, xg_name); 
     }
     delete xg_index; xg_index = nullptr;
 
@@ -1002,7 +1002,7 @@ int main_index(int argc, char** argv) {
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
-                    auto xg = stream::VPKG::load_one<xg::XG>(xg_stream);
+                    auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
@@ -1046,8 +1046,8 @@ int main_index(int argc, char** argv) {
         if (show_progress) {
             cerr << "Saving the index to disk..." << endl;
         }
-        stream::VPKG::save(gcsa_index, gcsa_name);
-        stream::VPKG::save(lcp_array, gcsa_name + ".lcp");
+        vg::io::VPKG::save(gcsa_index, gcsa_name);
+        vg::io::VPKG::save(lcp_array, gcsa_name + ".lcp");
 
         // Verify the index
         if (verify_gcsa) {
@@ -1072,7 +1072,7 @@ int main_index(int argc, char** argv) {
         
         get_input_file(file_names.at(0), [&](istream& in) {
             // Grab the input GAM stream and wrap it in a cursor
-            stream::ProtobufIterator<Alignment> cursor(in);
+            vg::io::ProtobufIterator<Alignment> cursor(in);
             
             // Index the file
             StreamIndex<Alignment> index;
@@ -1093,7 +1093,7 @@ int main_index(int argc, char** argv) {
         // Index an ID-sorted VG file.
         get_input_file(file_names.at(0), [&](istream& in) {
             // Grab the input VG stream and wrap it in a cursor
-            stream::ProtobufIterator<Graph> cursor(in);
+            vg::io::ProtobufIterator<Graph> cursor(in);
             
             // Index the file
             StreamIndex<Graph> index;
@@ -1130,7 +1130,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
             index.flush();
@@ -1144,7 +1144,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
             index.flush();
@@ -1156,10 +1156,10 @@ int main_index(int argc, char** argv) {
             index.open_read_only(rocksdb_name);
             auto lambda = [&output_buf](const Alignment& aln) {
                 output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 100);
+                vg::io::write_buffered(cout, output_buf, 100);
             };
             index.for_each_alignment(lambda);
-            stream::write_buffered(cout, output_buf, 0);
+            vg::io::write_buffered(cout, output_buf, 0);
             index.close();
         }
 
@@ -1173,7 +1173,7 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 get_input_file(file_name, [&](istream& in) {
-                    stream::for_each(in, lambda);
+                    vg::io::for_each(in, lambda);
                 });
             }
             index.flush();
@@ -1225,7 +1225,7 @@ int main_index(int argc, char** argv) {
             DistanceIndex di (&vg, snarl_manager, cap);
             
             // Save the completed DistanceIndex
-            stream::VPKG::save(di, dist_name);
+            vg::io::VPKG::save(di, dist_name);
         }
 
     }

@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 #include "sdsl/bit_vectors.hpp"
 #include "sdsl/enc_vector.hpp"

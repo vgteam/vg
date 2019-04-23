@@ -7,7 +7,7 @@
  * Defines a process that removes high-degree nodes from a graph
  */
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 #include "../handle.hpp"
 #include <vector>

@@ -6,7 +6,7 @@
 #include "translator.hpp"
 #include "filter.hpp"
 #include "mapper.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 
 

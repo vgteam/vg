@@ -3,7 +3,7 @@
 
 /**
  * \file stream_index.hpp
- * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted stream/stream.hpp-formatted files.
+ * Contains the StreamIndex template, which allows lookup by relevant node ID in sorted VPKG-formatted files.
  */
  
 #include <iostream>
@@ -13,8 +13,8 @@
 #include <type_traits>
 
 #include "types.hpp"
-#include "vg.pb.h"
-#include "stream/protobuf_iterator.hpp"
+#include <vg/vg.pb.h>
+#include <vg/io/protobuf_iterator.hpp>
 #include "scanner.hpp"
 
 namespace vg {
@@ -160,7 +160,7 @@ protected:
 };
 
 /**
- * An index for a node-ID-sorted stream/stream.hpp-formatted file, such as GAM or VG.
+ * An index for a node-ID-sorted VPKG-formatted Protobuf file, such as GAM or VG.
  *
  * Works on a BAI-like concept of bins partitioning node ID space.
  *
@@ -359,7 +359,7 @@ public:
     StreamIndex() = default;
     
     // Methods that actually go get messages for you are going to need a cursor on an open, seekable data file.
-    using cursor_t = stream::ProtobufIterator<Message>;
+    using cursor_t = vg::io::ProtobufIterator<Message>;
     
     ///////////////////
     // Top-level message-based interface

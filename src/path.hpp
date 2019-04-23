@@ -8,7 +8,7 @@
 #include <list>
 #include <sstream>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "edit.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"

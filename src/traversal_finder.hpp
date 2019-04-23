@@ -18,7 +18,7 @@
 
 #include <structures/immutable_list.hpp>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "translator.hpp"
 #include "hash_map.hpp"

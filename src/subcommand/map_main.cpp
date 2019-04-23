@@ -4,8 +4,8 @@
 #include "../mapper.hpp"
 #include "../surjector.hpp"
 #include "../alignment_emitter.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -644,7 +644,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xgidx = stream::VPKG::load_one<xg::XG>(xg_stream);
+        xgidx = vg::io::VPKG::load_one<xg::XG>(xg_stream);
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -653,7 +653,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
-        gcsa = stream::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
+        gcsa = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     }
 
     string lcp_name = gcsa_name + ".lcp";
@@ -662,7 +662,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading LCP index " << lcp_name << "..." << endl;
         }
-        lcp = stream::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
+        lcp = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
     
     ifstream gbwt_stream(gbwt_name);
@@ -672,7 +672,7 @@ int main_map(int argc, char** argv) {
             cerr << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
         }
         
-        gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+        gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
         
         // We want to use this for haplotype scoring
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
@@ -1137,7 +1137,7 @@ int main_map(int argc, char** argv) {
                     }
                 }
             };
-            stream::for_each_interleaved_pair_parallel(gam_in, lambda);
+            vg::io::for_each_interleaved_pair_parallel(gam_in, lambda);
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
@@ -1174,7 +1174,7 @@ int main_map(int argc, char** argv) {
                 }
                 output_alignments(alignments, empty_alns);
             };
-            stream::for_each_parallel(gam_in, lambda);
+            vg::io::for_each_parallel(gam_in, lambda);
         }
         gam_in.close();
     }

@@ -3,16 +3,17 @@
  * Defines IO for a GCSA LCPArray from stream files.
  */
 
-#include "registry.hpp"
+#include <vg/io/registry.hpp>
 
 #include <gcsa/gcsa.h>
 #include <gcsa/algorithms.h>
 
 namespace vg {
 
-namespace stream {
+namespace io {
 
 using namespace std;
+using namespace vg::io;
 
 void register_loader_saver_lcp() {
     Registry::register_bare_loader_saver<gcsa::LCPArray>("LCP", [](istream& input) -> void* {
