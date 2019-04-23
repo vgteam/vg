@@ -276,7 +276,153 @@ namespace unittest {
                                          seeds, 3,  snarl_manager, dist_index); 
             REQUIRE( clusters.size() == 5);
         }
+        SECTION( "Same node, same cluster" ) {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(5, false, 0));
+            seeds.push_back(make_pos_t(5, false, 11));
+            seeds.push_back(make_pos_t(5, false, 5));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                         seeds, 7,  snarl_manager, dist_index); 
+            REQUIRE( clusters.size() == 1);
+        }
     }//end test case
+    TEST_CASE("Top level unary snarl", "[cluster]") {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n7);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n6);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n6, n7);
+        Edge* e9 = graph.create_edge(n1, n1, true, false);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+        SnarlSeedClusterer clusterer;
+
+
+        // We end up with a big unary snarl of 7 rev -> 7 rev
+        // Inside that we have a chain of two normal snarls 2 rev -> 3 fwd,      and 3 fwd -> 6 fwd
+        // And inside 2 rev -> 3 fwd, we get 1 rev -> 1 rev as another unar     y snarl.
+
+        // We name the snarls for the distance index by their start nodes.
+
+        SECTION("Top level cluster") {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(1, false, 0));
+            seeds.push_back(make_pos_t(2, false, 0));
+            seeds.push_back(make_pos_t(7, false, 0));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 10,  snarl_manager, dist_index); 
+            REQUIRE( clusters.size() == 1);
+        }
+        SECTION("One cluster") {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(1, false, 0));
+            seeds.push_back(make_pos_t(2, false, 0));
+            seeds.push_back(make_pos_t(7, false, 0));
+            seeds.push_back(make_pos_t(4, false, 0));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 10,  snarl_manager, dist_index); 
+            REQUIRE( clusters.size() == 1);
+        }
+        SECTION("One cluster") {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(2, false, 0));
+            seeds.push_back(make_pos_t(4, false, 0));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 10,  snarl_manager, dist_index); 
+            REQUIRE( clusters.size() == 1);
+        }
+        SECTION("Two clusters") {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(2, false, 0));
+            seeds.push_back(make_pos_t(4, false, 1));
+            seeds.push_back(make_pos_t(6, false, 0));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 5,  snarl_manager, dist_index); 
+            REQUIRE( clusters.size() == 2);
+        }
+        SECTION("No clusters") {
+            vector<pos_t> seeds;
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 5,  snarl_manager, dist_index); 
+            REQUIRE( clusters.size() == 0);
+        }
+    }
+    TEST_CASE( "Disconnected graph",
+                   "[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("GCA");
+        Node* n6 = graph.create_node("T");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("CTGA");
+//Disconnected
+        Node* n9 = graph.create_node("T");
+        Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("CTGA");
+        Node* n12 = graph.create_node("G");
+        Node* n13 = graph.create_node("CTGA");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n3);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n3, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n5, n7);
+        Edge* e9 = graph.create_edge(n6, n8);
+        Edge* e10 = graph.create_edge(n7, n8);
+
+        Edge* e11 = graph.create_edge(n9, n10);
+        Edge* e12 = graph.create_edge(n9, n11);
+        Edge* e13 = graph.create_edge(n10, n11);
+        Edge* e14 = graph.create_edge(n11, n12);
+        Edge* e15 = graph.create_edge(n11, n13);
+        Edge* e16 = graph.create_edge(n12, n13);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+        SnarlSeedClusterer clusterer;
+
+        SECTION("Two clusters") {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(2, false, 0));
+            seeds.push_back(make_pos_t(3, false, 0));
+            seeds.push_back(make_pos_t(9, false, 0));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 5,  snarl_manager, dist_index); 
+            REQUIRE( clusters.size() == 2);
+
+        }
+    }
+
 /*
     TEST_CASE("Random graphs", "[cluster]"){
 
@@ -429,6 +575,6 @@ namespace unittest {
             }
         }
     } //end test case
-*/
+    */
 }
 }
