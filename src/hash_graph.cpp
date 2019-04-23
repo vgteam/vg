@@ -502,6 +502,8 @@ namespace vg {
             
             name = move(other.name);
             
+            is_circular = other.is_circular;
+            
             path_id = other.path_id;
             other.path_id = 0;
             
@@ -587,7 +589,7 @@ namespace vg {
         bool first_iter = true;
         for (path_mapping_t* mapping = head;
              mapping != nullptr && (first_iter || mapping != head);) { // for circular paths
-             
+            
             path_mapping_t* next = mapping->next;
             delete mapping;
             mapping = next;
@@ -695,7 +697,6 @@ namespace vg {
     void HashGraph::path_t::deserialize(istream& in) {
         // free the current path if it exists
         this->~path_t();
-        
         in.read((char*) &is_circular, sizeof(is_circular) / sizeof(char));
         
         int64_t path_id_in;
@@ -780,7 +781,6 @@ namespace vg {
     }
     
     void HashGraph::serialize(ostream& out) const {
-        
         id_t max_id_out = endianness<id_t>::to_big_endian(max_id);
         out.write((const char*) &max_id_out, sizeof(max_id_out) / sizeof(char));
         
@@ -850,8 +850,13 @@ namespace vg {
         // part of the serialized format
         for (pair<const int64_t, path_t>& path_record : paths) {
             path_t& path = path_record.second;
-            for (path_mapping_t* mapping = path.head; mapping != nullptr; mapping = mapping->next) {
+            bool first_iter = true;
+            for (path_mapping_t* mapping = path.head;
+                 mapping != nullptr && (first_iter || mapping != path.head); // for circular paths
+                 mapping = mapping->next) {
+                
                 occurrences[get_id(mapping->handle)].push_back(mapping);
+                first_iter = false;
             }
         }
     }

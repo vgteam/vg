@@ -43,7 +43,6 @@ using namespace std;
             graph.serialize(strm);
             strm.seekg(0);
             HashGraph loaded(strm);
-            
             REQUIRE(algorithms::are_equivalent_with_paths(&graph, &loaded));
         }
     }
