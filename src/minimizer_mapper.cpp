@@ -16,9 +16,9 @@
 // Without this we just track per-read time.
 #define INSTRUMENT_MAPPING
 // With INSTRUMENT_MAPPING on, set this to track provenance of intermediate results
-//#define TRACK_PROVENANCE
+#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
-//#define TRACK_CORRECTNESS
+#define TRACK_CORRECTNESS
 
 namespace vg {
 
@@ -575,6 +575,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
 #ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
+    
+    // And with the number of results in play at each stage
+    funnel.for_each_stage([&](const string& stage, size_t result_count) {
+        set_annotation(mappings[0], "stage_" + stage + "_results", (double)result_count);
+    });
+
 #ifdef TRACK_CORRECTNESS
     // And with the last stage at which we had any descendants of the correct seed hit locations
     set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
