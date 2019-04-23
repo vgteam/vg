@@ -110,8 +110,8 @@ Inheritance diagram for vg::StreamIndex&lt; Message &gt;:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:a0b2e79ae222e915081f44cd5b6cd5098"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> = stream::ProtobufIterator&lt; Message &gt;</td></tr>
-<tr class="separator:a0b2e79ae222e915081f44cd5b6cd5098"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a70010272f4816ddf7809a5f52a973d1c"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> = <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt; Message &gt;</td></tr>
+<tr class="separator:a70010272f4816ddf7809a5f52a973d1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_types_classvg_1_1StreamIndexBase"><td colspan="2" onclick="javascript:toggleInherit('pub_types_classvg_1_1StreamIndexBase')"><img src="closed.png" alt="-"/>&#160;Public Types inherited from <a class="el" href="classvg_1_1StreamIndexBase.html">vg::StreamIndexBase</a></td></tr>
 <tr class="memitem:a1de6fb384732cab26d21f38f133bc9e9 inherit pub_types_classvg_1_1StreamIndexBase"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndexBase.html#a1de6fb384732cab26d21f38f133bc9e9">bin_t</a> = make_unsigned&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;::type</td></tr>
 <tr class="separator:a1de6fb384732cab26d21f38f133bc9e9 inherit pub_types_classvg_1_1StreamIndexBase"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -122,15 +122,15 @@ Public Types</h2></td></tr>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a3508617dbf1b8e8d1df051f4a214fa5e"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a3508617dbf1b8e8d1df051f4a214fa5e">StreamIndex</a> ()=default</td></tr>
 <tr class="separator:a3508617dbf1b8e8d1df051f4a214fa5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4c16254344e3a526864975d916bc831e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a4c16254344e3a526864975d916bc831e">find</a> (<a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;cursor, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id, const function&lt; void(const Message &amp;)&gt; handle_result) const </td></tr>
+<tr class="memitem:a4c16254344e3a526864975d916bc831e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a4c16254344e3a526864975d916bc831e">find</a> (<a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;cursor, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id, const function&lt; void(const Message &amp;)&gt; handle_result) const </td></tr>
 <tr class="memdesc:a4c16254344e3a526864975d916bc831e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call the given callback with all messages in the index that visit the given node.  <a href="#a4c16254344e3a526864975d916bc831e">More...</a><br/></td></tr>
 <tr class="separator:a4c16254344e3a526864975d916bc831e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a7136544cac6fb61c9cbd6d169bd70f5d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a7136544cac6fb61c9cbd6d169bd70f5d">find</a> (<a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;cursor, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> min_node, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> max_node, const function&lt; void(const Message &amp;)&gt; handle_result) const </td></tr>
+<tr class="memitem:a7136544cac6fb61c9cbd6d169bd70f5d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a7136544cac6fb61c9cbd6d169bd70f5d">find</a> (<a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;cursor, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> min_node, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> max_node, const function&lt; void(const Message &amp;)&gt; handle_result) const </td></tr>
 <tr class="memdesc:a7136544cac6fb61c9cbd6d169bd70f5d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call the given callback with all messages in the index that visit a node in the given inclusive range.  <a href="#a7136544cac6fb61c9cbd6d169bd70f5d">More...</a><br/></td></tr>
 <tr class="separator:a7136544cac6fb61c9cbd6d169bd70f5d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0be8fa97875612952223609a61c76777"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a0be8fa97875612952223609a61c76777">find</a> (<a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;cursor, const vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&gt; &amp;ranges, const function&lt; void(const Message &amp;)&gt; handle_result, bool only_fully_contained=false) const </td></tr>
+<tr class="memitem:a0be8fa97875612952223609a61c76777"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a0be8fa97875612952223609a61c76777">find</a> (<a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;cursor, const vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&gt; &amp;ranges, const function&lt; void(const Message &amp;)&gt; handle_result, bool only_fully_contained=false) const </td></tr>
 <tr class="separator:a0be8fa97875612952223609a61c76777"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8ee1930510b5d02e9a00ba1a246ba146"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a8ee1930510b5d02e9a00ba1a246ba146">index</a> (<a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;cursor)</td></tr>
+<tr class="memitem:a8ee1930510b5d02e9a00ba1a246ba146"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a8ee1930510b5d02e9a00ba1a246ba146">index</a> (<a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;cursor)</td></tr>
 <tr class="memdesc:a8ee1930510b5d02e9a00ba1a246ba146"><td class="mdescLeft">&#160;</td><td class="mdescRight">Given a cursor at the beginning of a sorted, readable file, index the file.  <a href="#a8ee1930510b5d02e9a00ba1a246ba146">More...</a><br/></td></tr>
 <tr class="separator:a8ee1930510b5d02e9a00ba1a246ba146"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a172dd150297aad85dada7ba852ec3a0c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamIndex.html#a172dd150297aad85dada7ba852ec3a0c">add_group</a> (const vector&lt; Message &gt; &amp;msgs, int64_t virtual_start, int64_t virtual_past_end)</td></tr>
@@ -208,14 +208,14 @@ class vg::StreamIndex&lt; Message &gt;</h3>
 <p>An index that provides a higher-level API in terms of the actual messages being indexed. This is the main entry point for users in most cases.</p>
 <p>All find operations are thread-safe with respect to each other. Simultaneous adds or finds and adds are prohibited. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
-<a class="anchor" id="a0b2e79ae222e915081f44cd5b6cd5098"></a>
+<a class="anchor" id="a70010272f4816ddf7809a5f52a973d1c"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
 template&lt;typename Message&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1StreamIndex.html">vg::StreamIndex</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> =  stream::ProtobufIterator&lt;Message&gt;</td>
+          <td class="memname">using <a class="el" href="classvg_1_1StreamIndex.html">vg::StreamIndex</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> =  <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt;Message&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -293,7 +293,7 @@ template&lt;typename Message&gt; </div>
         <tr>
           <td class="memname">auto <a class="el" href="classvg_1_1StreamIndex.html">vg::StreamIndex</a>&lt; Message &gt;::find </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;&#160;</td>
           <td class="paramname"><em>cursor</em>, </td>
         </tr>
         <tr>
@@ -329,7 +329,7 @@ template&lt;typename Message&gt; </div>
         <tr>
           <td class="memname">auto <a class="el" href="classvg_1_1StreamIndex.html">vg::StreamIndex</a>&lt; Message &gt;::find </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;&#160;</td>
           <td class="paramname"><em>cursor</em>, </td>
         </tr>
         <tr>
@@ -371,7 +371,7 @@ template&lt;typename Message&gt; </div>
         <tr>
           <td class="memname">auto <a class="el" href="classvg_1_1StreamIndex.html">vg::StreamIndex</a>&lt; Message &gt;::find </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;&#160;</td>
           <td class="paramname"><em>cursor</em>, </td>
         </tr>
         <tr>
@@ -449,7 +449,7 @@ template&lt;typename Message &gt; </div>
         <tr>
           <td class="memname">auto <a class="el" href="classvg_1_1StreamIndex.html">vg::StreamIndex</a>&lt; Message &gt;::index </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098">cursor_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c">cursor_t</a> &amp;&#160;</td>
           <td class="paramname"><em>cursor</em></td><td>)</td>
           <td></td>
         </tr>

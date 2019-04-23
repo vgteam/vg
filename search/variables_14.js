@@ -1,6 +1,8 @@
 var searchData=
 [
-  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()']]],
+  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
+  ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
   ['tail',['tail',['../classvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
   ['tail_5fmismatches',['tail_mismatches',['../structvg_1_1FlankState.html#a06ea0743b34705d80c16fb67d89314c3',1,'vg::FlankState']]],
   ['task_5fname',['task_name',['../structvg_1_1Watchdog_1_1thread__state__t.html#a797bf67f4267c5ffeda247c041f7cd14',1,'vg::Watchdog::thread_state_t']]],
@@ -52,5 +54,7 @@ var searchData=
   ['ts_5fiv',['ts_iv',['../classxg_1_1XG.html#a05141e12ffaf3a49aef046d3e2d7181a',1,'xg::XG']]],
   ['tumor_5fsupports',['tumor_supports',['../structvg_1_1BREAKPOINT.html#a66f75cad38b9fa5a3aab6b09b7a4ef8a',1,'vg::BREAKPOINT']]],
   ['tvs',['tvs',['../classvg_1_1TVSClusterer.html#ad59ad1a2a88d40a980a7b7fb2cc18a0d',1,'vg::TVSClusterer']]],
-  ['type',['type',['../structvg_1_1GFFRecord.html#a0cc4e99f9e73fafafa9be311151ef0d7',1,'vg::GFFRecord::type()'],['../structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6',1,'vg::Snarl::type()']]]
+  ['type',['type',['../structvg_1_1GFFRecord.html#a0cc4e99f9e73fafafa9be311151ef0d7',1,'vg::GFFRecord::type()'],['../structvg_1_1Snarl.html#a9490890cd7fff85dc32a25cb58d471f6',1,'vg::Snarl::type()']]],
+  ['type_5fto_5fbare_5floader',['type_to_bare_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a448ff335e485b7939df9a9d7774d015b',1,'vg::io::Registry::Tables']]],
+  ['type_5fto_5fsaver',['type_to_saver',['../structvg_1_1io_1_1Registry_1_1Tables.html#af3921832709101fdc87cfca00da3f2bf',1,'vg::io::Registry::Tables']]]
 ];

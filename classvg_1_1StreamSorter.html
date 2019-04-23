@@ -143,16 +143,16 @@ Public Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-types"></a>
 Private Types</h2></td></tr>
-<tr class="memitem:aae3c3b38be9f5288418aaaeb44418af1"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> = stream::ProtobufIterator&lt; Message &gt;</td></tr>
-<tr class="separator:aae3c3b38be9f5288418aaaeb44418af1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a14c3a4f18cc2a9c88164668566bd563b"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> = stream::ProtobufEmitter&lt; Message &gt;</td></tr>
-<tr class="separator:a14c3a4f18cc2a9c88164668566bd563b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac3d9f35b14e13610b61a55b57d2f6332"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> = <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt; Message &gt;</td></tr>
+<tr class="separator:ac3d9f35b14e13610b61a55b57d2f6332"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6454b204b096a5736ce98310aada955d"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a6454b204b096a5736ce98310aada955d">emitter_t</a> = <a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html">vg::io::ProtobufEmitter</a>&lt; Message &gt;</td></tr>
+<tr class="separator:a6454b204b096a5736ce98310aada955d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
-<tr class="memitem:a112c5a39918bb37f4aa3bf1413d31b37"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a112c5a39918bb37f4aa3bf1413d31b37">open_all</a> (const vector&lt; string &gt; &amp;filenames, list&lt; ifstream &gt; &amp;streams, list&lt; <a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> &gt; &amp;cursors)</td></tr>
+<tr class="memitem:a112c5a39918bb37f4aa3bf1413d31b37"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a112c5a39918bb37f4aa3bf1413d31b37">open_all</a> (const vector&lt; string &gt; &amp;filenames, list&lt; ifstream &gt; &amp;streams, list&lt; <a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> &gt; &amp;cursors)</td></tr>
 <tr class="separator:a112c5a39918bb37f4aa3bf1413d31b37"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1c19cdfb158ff9771e471fbbc2b4ac74"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a1c19cdfb158ff9771e471fbbc2b4ac74">streaming_merge</a> (list&lt; <a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> &gt; &amp;cursors, <a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> &amp;emitter, size_t expected_messages=0)</td></tr>
+<tr class="memitem:a1c19cdfb158ff9771e471fbbc2b4ac74"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a1c19cdfb158ff9771e471fbbc2b4ac74">streaming_merge</a> (list&lt; <a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> &gt; &amp;cursors, <a class="el" href="classvg_1_1StreamSorter.html#a6454b204b096a5736ce98310aada955d">emitter_t</a> &amp;emitter, size_t expected_messages=0)</td></tr>
 <tr class="separator:a1c19cdfb158ff9771e471fbbc2b4ac74"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77590f7da1d1418fc00e7bdaec2a76e5"><td class="memItemLeft" align="right" valign="top">vector&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StreamSorter.html#a77590f7da1d1418fc00e7bdaec2a76e5">streaming_merge</a> (const vector&lt; string &gt; &amp;temp_names_in, unordered_map&lt; string, size_t &gt; *messages_per_file=nullptr)</td></tr>
 <tr class="separator:a77590f7da1d1418fc00e7bdaec2a76e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -176,7 +176,7 @@ class vg::StreamSorter&lt; Message &gt;</h3>
 
 <p>We define a PositionScanner that scans any <a class="el" href="classvg_1_1VG.html">VG</a> Protobuf message that has Positions or node IDs in it and emits the Positions as is and the node IDs wrapped in Positions. This lets us use one sorting implementation on Positions even with things like Graphs where non-Position node IDs are important.Provides the ability to sort a stream of Protobuf Messages, either "dumbly" (in memory), or streaming into temporary files. For Alignments, paired Alignments are not necessarily going to end up next to each other, so if sorting by position make sure to set the position cross-references first if you want to be able to find them. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
-<a class="anchor" id="aae3c3b38be9f5288418aaaeb44418af1"></a>
+<a class="anchor" id="ac3d9f35b14e13610b61a55b57d2f6332"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -186,7 +186,7 @@ template&lt;typename Message &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> =  stream::ProtobufIterator&lt;Message&gt;</td>
+          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> =  <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt;Message&gt;</td>
         </tr>
       </table>
   </td>
@@ -198,7 +198,7 @@ template&lt;typename Message &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a14c3a4f18cc2a9c88164668566bd563b"></a>
+<a class="anchor" id="a6454b204b096a5736ce98310aada955d"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
@@ -208,7 +208,7 @@ template&lt;typename Message &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> =  stream::ProtobufEmitter&lt;Message&gt;</td>
+          <td class="memname">using <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::<a class="el" href="classvg_1_1StreamSorter.html#a6454b204b096a5736ce98310aada955d">emitter_t</a> =  <a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html">vg::io::ProtobufEmitter</a>&lt;Message&gt;</td>
         </tr>
       </table>
   </td>
@@ -272,7 +272,7 @@ template&lt;typename Message &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Sort a stream of stream/stream.hpp-format data, loading it all into memory and doing a single giant sort operation. Optionally index the sorted file into the given index. </p>
+<p>Sort a stream of VPKG-format Protobuf data, loading it all into memory and doing a single giant sort operation. Optionally index the sorted file into the given index. </p>
 
 </div>
 </div>
@@ -378,7 +378,7 @@ template&lt;typename Message &gt; </div>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">list&lt; <a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">list&lt; <a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cursors</em>&#160;</td>
         </tr>
         <tr>
@@ -448,7 +448,7 @@ template&lt;typename Message &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Sort a stream of stream/stream.hpp-format data, using temporary files, limiting the number of simultaneously open input files and the size of in-memory data. Optionally index the sorted file into the given index. </p>
+<p>Sort a stream of VPKG-format Protobuf data, using temporary files, limiting the number of simultaneously open input files and the size of in-memory data. Optionally index the sorted file into the given index. </p>
 
 </div>
 </div>
@@ -464,13 +464,13 @@ template&lt;typename Message &gt; </div>
         <tr>
           <td class="memname">void <a class="el" href="classvg_1_1StreamSorter.html">vg::StreamSorter</a>&lt; Message &gt;::streaming_merge </td>
           <td>(</td>
-          <td class="paramtype">list&lt; <a class="el" href="classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1">cursor_t</a> &gt; &amp;&#160;</td>
+          <td class="paramtype">list&lt; <a class="el" href="classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332">cursor_t</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>cursors</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="classvg_1_1StreamSorter.html#a14c3a4f18cc2a9c88164668566bd563b">emitter_t</a> &amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1StreamSorter.html#a6454b204b096a5736ce98310aada955d">emitter_t</a> &amp;&#160;</td>
           <td class="paramname"><em>emitter</em>, </td>
         </tr>
         <tr>

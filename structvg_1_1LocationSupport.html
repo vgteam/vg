@@ -103,15 +103,29 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a479f1a778e85f8d3747c0b7c44ad5760"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Support.html">Support</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1LocationSupport.html#a479f1a778e85f8d3747c0b7c44ad5760">support</a> = 1</td></tr>
 <tr class="memdesc:a479f1a778e85f8d3747c0b7c44ad5760"><td class="mdescLeft">&#160;</td><td class="mdescRight">The support.  <a href="#a479f1a778e85f8d3747c0b7c44ad5760">More...</a><br/></td></tr>
 <tr class="separator:a479f1a778e85f8d3747c0b7c44ad5760"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9a000a5b773e07f7cc30614d77c927a0"><td class="memItemLeft" align="right" valign="top">oneof&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1LocationSupport.html#a9a000a5b773e07f7cc30614d77c927a0">oneof_location</a></td></tr>
-<tr class="memdesc:a9a000a5b773e07f7cc30614d77c927a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">The location.  <a href="#a9a000a5b773e07f7cc30614d77c927a0">More...</a><br/></td></tr>
-<tr class="separator:a9a000a5b773e07f7cc30614d77c927a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a439adeb46ccea871772e840970a3cde1"><td class="memItemLeft" align="right" valign="top">oneof oneof_location <a class="el" href="structvg_1_1Edge.html">Edge</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1LocationSupport.html#a439adeb46ccea871772e840970a3cde1">edge</a> = 2</td></tr>
+<tr class="memdesc:a439adeb46ccea871772e840970a3cde1"><td class="mdescLeft">&#160;</td><td class="mdescRight">The location.  <a href="#a439adeb46ccea871772e840970a3cde1">More...</a><br/></td></tr>
+<tr class="separator:a439adeb46ccea871772e840970a3cde1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5729cf43650d3357ae350f91291823d3"><td class="memItemLeft" align="right" valign="top">int64&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1LocationSupport.html#a5729cf43650d3357ae350f91291823d3">node_id</a> = 3</td></tr>
 <tr class="separator:a5729cf43650d3357ae350f91291823d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p><a class="el" href="structvg_1_1Support.html" title="Aggregates information about the reads supporting an allele. ">Support</a> pinned to a location, which can be either a node or an edge. </p>
 </div><h2 class="groupheader">Member Data Documentation</h2>
+<a class="anchor" id="a439adeb46ccea871772e840970a3cde1"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">oneof oneof_location <a class="el" href="structvg_1_1Edge.html">Edge</a> vg::LocationSupport::edge = 2</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The location. </p>
+
+</div>
+</div>
 <a class="anchor" id="a5729cf43650d3357ae350f91291823d3"></a>
 <div class="memitem">
 <div class="memproto">
@@ -121,22 +135,6 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a9a000a5b773e07f7cc30614d77c927a0"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">oneof vg::LocationSupport::oneof_location</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">{</div>
-<div class="line">        Edge edge = 2</div>
-</div><!-- fragment -->
-<p>The location. </p>
 
 </div>
 </div>
@@ -155,7 +153,7 @@ Public Attributes</h2></td></tr>
 </div>
 </div>
 <hr/>The documentation for this struct was generated from the following file:<ul>
-<li>src/<a class="el" href="vg_8proto.html">vg.proto</a></li>
+<li>deps/libvgio/deps/<a class="el" href="vg_8proto.html">vg.proto</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

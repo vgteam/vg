@@ -30,6 +30,12 @@ var searchData=
   ['graph_5frecord_5fsize',['GRAPH_RECORD_SIZE',['../classvg_1_1PackedGraph.html#ae2d329b354cd2c995cd12a2c73853167',1,'vg::PackedGraph']]],
   ['graph_5fstart_5fedges_5foffset',['GRAPH_START_EDGES_OFFSET',['../classvg_1_1PackedGraph.html#ab1ebc41729ec0a4515a179b6defddcb9',1,'vg::PackedGraph']]],
   ['greedy_5fpieces',['greedy_pieces',['../classvg_1_1Constructor.html#ac4dce51a25e5f773a0c53e8cd9f07628',1,'vg::Constructor']]],
+  ['group',['group',['../classvg_1_1io_1_1MessageEmitter.html#adb0173ebe6170c259448c8dd1d4c0dde',1,'vg::io::MessageEmitter']]],
   ['group_5fcache',['group_cache',['../classvg_1_1IndexedVG.html#a0024489b3eb887d90d18af839722ce66',1,'vg::IndexedVG']]],
-  ['group_5fsize',['group_size',['../structvg_1_1Funnel_1_1Item.html#a23706e46f9ebd56acbea3c612358bb79',1,'vg::Funnel::Item']]]
+  ['group_5fcount',['group_count',['../classvg_1_1io_1_1MessageIterator.html#a34611c431fac53c556d57036cee7e4fe',1,'vg::io::MessageIterator']]],
+  ['group_5fhandlers',['group_handlers',['../classvg_1_1io_1_1MessageEmitter.html#a8e586d31762cb47872de4b4723e01696',1,'vg::io::MessageEmitter::group_handlers()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a176d09f4d40ef21965c7a66abc546dbd',1,'vg::io::ProtobufEmitter::group_handlers()']]],
+  ['group_5fidx',['group_idx',['../classvg_1_1io_1_1MessageIterator.html#ab2a47479856b6bb8d6fe3c943519d83d',1,'vg::io::MessageIterator']]],
+  ['group_5fsize',['group_size',['../structvg_1_1Funnel_1_1Item.html#a23706e46f9ebd56acbea3c612358bb79',1,'vg::Funnel::Item']]],
+  ['group_5ftag',['group_tag',['../classvg_1_1io_1_1MessageEmitter.html#ad240e5c3ae379aa3257c498dd4c4e1bf',1,'vg::io::MessageEmitter']]],
+  ['group_5fvo',['group_vo',['../classvg_1_1io_1_1MessageIterator.html#ae569fd7dc6129edc5e5dac52b1a67f84',1,'vg::io::MessageIterator']]]
 ];

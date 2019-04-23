@@ -7,6 +7,7 @@ var searchData=
   ['range_5fstart',['range_start',['../structxg_1_1XG_1_1ThreadSearchState.html#a2660a54bab1bf898fd99f665d94447e5',1,'xg::XG::ThreadSearchState']]],
   ['rank',['rank',['../classvg_1_1mapping__t.html#a8f97d898f658a36c3046b8fcc2c846ff',1,'vg::mapping_t::rank()'],['../classvg_1_1PhasedGenome_1_1iterator.html#ab8b58edefb4cb58e014344c6010eec62',1,'vg::PhasedGenome::iterator::rank()'],['../structvg_1_1Mapping.html#a9ad71eb17b88b2cdd00cee8476e6c7b3',1,'vg::Mapping::rank()']]],
   ['ranks',['ranks',['../classxg_1_1XGPath.html#a5daf03c711975a109429920d5df40334',1,'xg::XGPath']]],
+  ['read',['read',['../structhFILE__backend.html#adf91120be1f313fbac4ccf8e70ec4f3c',1,'hFILE_backend']]],
   ['read_5fgroup',['read_group',['../classvg_1_1MinimizerMapper.html#aee3e4b7c4e777da6c09f70218481e3d6',1,'vg::MinimizerMapper::read_group()'],['../structvg_1_1Alignment.html#a95102c70d75046f86a2f0a829ba1efe0',1,'vg::Alignment::read_group()'],['../structvg_1_1MultipathAlignment.html#abdc748afaea04b662f170156d8c88343',1,'vg::MultipathAlignment::read_group()']]],
   ['read_5fmapped',['read_mapped',['../structvg_1_1Alignment.html#af2fc72c769b77c355632e6aab7573046',1,'vg::Alignment']]],
   ['read_5fon_5freverse_5fstrand',['read_on_reverse_strand',['../structvg_1_1Alignment.html#a10b4d599e1812ee007e348f8ce8bfe49',1,'vg::Alignment']]],

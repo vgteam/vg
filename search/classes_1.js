@@ -21,6 +21,8 @@ var searchData=
   ['bitstring',['BitString',['../classvg_1_1BitString.html',1,'vg']]],
   ['bitstringtree',['BitStringTree',['../classvg_1_1BitStringTree.html',1,'vg']]],
   ['bitstringtree_3c_20bin_5ft_20_3e',['BitStringTree&lt; bin_t &gt;',['../classvg_1_1BitStringTree.html',1,'vg']]],
+  ['blockedgzipinputstream',['BlockedGzipInputStream',['../classvg_1_1io_1_1BlockedGzipInputStream.html',1,'vg::io']]],
+  ['blockedgzipoutputstream',['BlockedGzipOutputStream',['../classvg_1_1io_1_1BlockedGzipOutputStream.html',1,'vg::io']]],
   ['boolreturningwrapper',['BoolReturningWrapper',['../structhandlegraph_1_1BoolReturningWrapper.html',1,'handlegraph']]],
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20bool_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, bool &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01bool_01_4.html',1,'handlegraph']]],
   ['boolreturningwrapper_3c_20iteratee_2c_20iterated_2c_20void_20_3e',['BoolReturningWrapper&lt; Iteratee, Iterated, void &gt;',['../structhandlegraph_1_1BoolReturningWrapper_3_01Iteratee_00_01Iterated_00_01void_01_4.html',1,'handlegraph']]],

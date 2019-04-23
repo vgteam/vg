@@ -1,6 +1,7 @@
 var searchData=
 [
   ['backbone',['backbone',['../structvg_1_1FlowSort_1_1Growth.html#a5ccf8c38e2125849aa7ca9881fd382a2',1,'vg::FlowSort::Growth']]],
+  ['backed_5fup',['backed_up',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a29a0e513c0dbdb75df3eccd7171f7126',1,'vg::io::BlockedGzipOutputStream']]],
   ['background_5fsampler',['background_sampler',['../classvg_1_1NGSSimulator.html#af563bf84d1cde24a88de7c99c80bb554',1,'vg::NGSSimulator']]],
   ['backing',['backing',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html#a6fe54156c90f6ba94a1ad9b58b262562',1,'vg::OMPThreadBufferedAlignmentEmitter::backing()'],['../classvg_1_1SourceSinkOverlay.html#a7b24e9281e335eff4f843d8bcc404338',1,'vg::SourceSinkOverlay::backing()']]],
   ['backing_5fgraph',['backing_graph',['../classvg_1_1GenomeState.html#a6f80e8bfc104b6cdd893e5c4f531b7a5',1,'vg::GenomeState']]],
@@ -15,13 +16,15 @@ var searchData=
   ['band_5fpadding_5fmemo_5fsize',['band_padding_memo_size',['../classvg_1_1MultipathMapper.html#a93b608c38afcfea23224165ebb614845',1,'vg::MultipathMapper']]],
   ['band_5fpadding_5fmultiplier',['band_padding_multiplier',['../classvg_1_1MultipathMapper.html#a136bb7af25fc0b6489c142e6f2871acc',1,'vg::MultipathMapper']]],
   ['banded_5fmatrices',['banded_matrices',['../classvg_1_1BandedGlobalAligner.html#ab61c92f8ff975ce22553b7118267b9c7',1,'vg::BandedGlobalAligner']]],
-  ['base',['base',['../classvg_1_1WideningPRNG.html#a9b5354cb704288d9e1e1f32420fdc38a',1,'vg::WideningPRNG']]],
+  ['base',['base',['../classvg_1_1WideningPRNG.html#a9b5354cb704288d9e1e1f32420fdc38a',1,'vg::WideningPRNG::base()'],['../structvg_1_1io_1_1hFILE__cppstream.html#a5be044ba653125da78a8cba8b8a47354',1,'vg::io::hFILE_cppstream::base()']]],
   ['base_5fgraph',['base_graph',['../structvg_1_1AugmentedGraph.html#a0022757311c1ac569ebfa42e651637af',1,'vg::AugmentedGraph']]],
   ['base_5fpileup',['base_pileup',['../structvg_1_1NodePileup.html#a7ce88a430f079f1d72f96659edeb02de',1,'vg::NodePileup']]],
   ['bases',['bases',['../structvg_1_1BasePileup.html#ab1ca874f6f9ee568866822a408300ba8',1,'vg::BasePileup']]],
   ['bases_5fper_5fchunk',['bases_per_chunk',['../classvg_1_1Constructor.html#ae525487466a66456d7169cc5047abf90',1,'vg::Constructor']]],
   ['begin',['begin',['../structvg_1_1kmer__t.html#ace8cd88692b6bb3c25a2989a4c505d1a',1,'vg::kmer_t::begin()'],['../classvg_1_1MaximalExactMatch.html#a894b11889ee0ef652acbfb84527e5225',1,'vg::MaximalExactMatch::begin()'],['../classvg_1_1PathNode.html#a4b103c45ebef87573a2b0288a2fc483c',1,'vg::PathNode::begin()'],['../structvg_1_1walk__t.html#af2f0816d239b918c2f2d76f9b696ab1b',1,'vg::walk_t::begin()']]],
   ['begin_5fidx',['begin_idx',['../classvg_1_1PackedDeque.html#a06b679740b1b0e4276c9fc7011a27aa0',1,'vg::PackedDeque']]],
+  ['bgzip_5fin',['bgzip_in',['../classvg_1_1io_1_1MessageIterator.html#a7102e7dfdf1fbcfcd0b037eb39b8d21f',1,'vg::io::MessageIterator']]],
+  ['bgzip_5fout',['bgzip_out',['../classvg_1_1io_1_1MessageEmitter.html#a591f1c1d3271301d0df6999cf15eb801',1,'vg::io::MessageEmitter']]],
   ['bin_5fsize',['bin_size',['../classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d',1,'vg::Packer']]],
   ['bin_5fto_5franges',['bin_to_ranges',['../classvg_1_1StreamIndexBase.html#a4801a54e202c9214718c71db7cea12a9',1,'vg::StreamIndexBase']]],
   ['binned_5fsupport',['binned_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a3d466c816c3bd44cedbce104f2a1a4c2',1,'vg::SupportCaller::PrimaryPath']]],
@@ -36,12 +39,15 @@ var searchData=
   ['bs_5fnull',['BS_NULL',['../classxg_1_1XG.html#ac6f3bca58dcd7820ccc3969fa7598515',1,'xg::XG']]],
   ['bs_5fseparator',['BS_SEPARATOR',['../classxg_1_1XG.html#aa456e28e5b3d0e9a232cc8b2b57daabd',1,'xg::XG']]],
   ['bs_5fsingle_5farray',['bs_single_array',['../classxg_1_1XG.html#a7e81b7bf83e6b8df96a150d854ce3ff9',1,'xg::XG']]],
-  ['buffer',['buffer',['../structvg_1_1mi_1_1CircularBuffer.html#abdc4a99ee70780de558e0e3082db62c0',1,'vg::mi::CircularBuffer::buffer()'],['../classvg_1_1VcfBuffer.html#a92c8a919554e2a7dd2ca34fae94948fc',1,'vg::VcfBuffer::buffer()']]],
+  ['buf',['buf',['../classvg_1_1io_1_1fdostream.html#a29e1c13616b7f681cc118a0f87cf41f3',1,'vg::io::fdostream::buf()'],['../classvg_1_1io_1_1fdistream.html#ac2350f53e295903da182147ae46bc5f9',1,'vg::io::fdistream::buf()']]],
+  ['buffer',['buffer',['../structvg_1_1mi_1_1CircularBuffer.html#abdc4a99ee70780de558e0e3082db62c0',1,'vg::mi::CircularBuffer::buffer()'],['../classvg_1_1VcfBuffer.html#a92c8a919554e2a7dd2ca34fae94948fc',1,'vg::VcfBuffer::buffer()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aab5cfa13ff5e0449e105a0d9117aa38f',1,'vg::io::BlockedGzipOutputStream::buffer()'],['../classvg_1_1io_1_1fdinbuf.html#a1d32c47153a2a414ab06c867f0e05dfb',1,'vg::io::fdinbuf::buffer()']]],
   ['buffer_5flimit',['BUFFER_LIMIT',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html#ad6e8f78546ab5592c98c99f453fcb579',1,'vg::OMPThreadBufferedAlignmentEmitter']]],
   ['buffer_5fsize',['BUFFER_SIZE',['../structvg_1_1mi_1_1CircularBuffer.html#a0708c5c2990e8984467d2cf3b0a76c82',1,'vg::mi::CircularBuffer::BUFFER_SIZE()'],['../classvg_1_1ReadFilter.html#ad5aa58e55aa8546d0e555a90b7b1ac1a',1,'vg::ReadFilter::buffer_size()']]],
+  ['bufsize',['bufSize',['../classvg_1_1io_1_1fdinbuf.html#ae20c45d02cdacbc8a27b61ac41eb8f6f',1,'vg::io::fdinbuf']]],
   ['build_5fhost',['BUILD_HOST',['../classvg_1_1Version.html#a6e1e33f37aa4d73f0a9038e03bbbaec7',1,'vg::Version']]],
   ['build_5fuser',['BUILD_USER',['../classvg_1_1Version.html#a0ed0401bd4a0b5d42c2c40048f67f66c',1,'vg::Version']]],
   ['bulk_5fload',['bulk_load',['../classvg_1_1Index.html#a060b892edbbac6f475d80510f50abda3',1,'vg::Index']]],
   ['by_5fid',['by_id',['../structvg_1_1PathIndex.html#a3f5697a5db586a467dc4923e2cccbfe1',1,'vg::PathIndex']]],
-  ['by_5fstart',['by_start',['../structvg_1_1PathIndex.html#a55cb6181f7b4b80016aaf2fefbb402c2',1,'vg::PathIndex']]]
+  ['by_5fstart',['by_start',['../structvg_1_1PathIndex.html#a55cb6181f7b4b80016aaf2fefbb402c2',1,'vg::PathIndex']]],
+  ['byte_5fcount',['byte_count',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aca10a84d86b0e9db6ef5727f9e454add',1,'vg::io::BlockedGzipInputStream::byte_count()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a745da931cd84709a1a8b8f64e357d2fb',1,'vg::io::BlockedGzipOutputStream::byte_count()']]]
 ];

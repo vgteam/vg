@@ -47,5 +47,6 @@ var searchData=
   ['xgpath',['XGPath',['../classxg_1_1XGPath.html',1,'xg']]],
   ['xgscoreprovider',['XGScoreProvider',['../classhaplo_1_1XGScoreProvider.html',1,'haplo']]],
   ['xgscoreprovider',['XGScoreProvider',['../classhaplo_1_1XGScoreProvider.html#af309042e4bbb20c8faf320a152a76245',1,'haplo::XGScoreProvider']]],
-  ['xindex',['xindex',['../classvg_1_1BaseMapper.html#a215d1113b92168a450e89133b03569fe',1,'vg::BaseMapper::xindex()'],['../classvg_1_1ReadFilter.html#a12f14eed67e334ea2c08ee5e1a2aaa3c',1,'vg::ReadFilter::xindex()'],['../classvg_1_1Surjector.html#ae6abeac95b5aeaf79a3160595ba92f84',1,'vg::Surjector::xindex()']]]
+  ['xindex',['xindex',['../classvg_1_1BaseMapper.html#a215d1113b92168a450e89133b03569fe',1,'vg::BaseMapper::xindex()'],['../classvg_1_1ReadFilter.html#a12f14eed67e334ea2c08ee5e1a2aaa3c',1,'vg::ReadFilter::xindex()'],['../classvg_1_1Surjector.html#ae6abeac95b5aeaf79a3160595ba92f84',1,'vg::Surjector::xindex()']]],
+  ['xsputn',['xsputn',['../classvg_1_1io_1_1fdoutbuf.html#a1eba1fc19d1c9100bc5eb98259cc914b',1,'vg::io::fdoutbuf']]]
 ];

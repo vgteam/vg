@@ -36,6 +36,7 @@ var searchData=
   ['path_5ftrav_5foffset',['PATH_TRAV_OFFSET',['../classvg_1_1PackedGraph.html#a78350babe3121414eba7b499fa56e69a',1,'vg::PackedGraph']]],
   ['paths',['paths',['../classvg_1_1HashGraph.html#ac4311440e4ef60ffd00a8d8ef575b0aa',1,'vg::HashGraph::paths()'],['../classvg_1_1PackedGraph.html#abdf783e035e29c9584ffc0cdd882260f',1,'vg::PackedGraph::paths()'],['../classvg_1_1VG.html#a7c5150aba84e7ed2bde7986462a79989',1,'vg::VG::paths()'],['../classxg_1_1XG.html#a23f1a44cd70c038c1c411969bb9626ab',1,'xg::XG::paths()']]],
   ['paths_5fof_5fnode_5fmemo',['paths_of_node_memo',['../classvg_1_1PathOrientedDistanceMeasurer.html#af6684e64e4a9d9386294835746b9d106',1,'vg::PathOrientedDistanceMeasurer']]],
+  ['pbsize',['pbSize',['../classvg_1_1io_1_1fdinbuf.html#a1756a5735e7daf8ea042bc81343f7a0f',1,'vg::io::fdinbuf']]],
   ['penalties',['penalties',['../structhaplo_1_1linear__haplo__structure.html#af55d7f33177180d033e8e925cf20e5fd',1,'haplo::linear_haplo_structure']]],
   ['perfect_5fpair_5fidentity_5fthreshold',['perfect_pair_identity_threshold',['../classvg_1_1FragmentLengthStatistics.html#a4e65bc3de5657555df556429284f5251',1,'vg::FragmentLengthStatistics']]],
   ['peripheral_5fattachments',['peripheral_attachments',['../classvg_1_1GraphSynchronizer_1_1Lock.html#aa2e7c9a960855fa8758d9dd6da6454ea',1,'vg::GraphSynchronizer::Lock']]],
@@ -81,6 +82,7 @@ var searchData=
   ['previous_5findex',['previous_index',['../structhaplo_1_1haplo__DP__rectangle.html#addd510174b8c5f83418aa6c23e278b36',1,'haplo::haplo_DP_rectangle']]],
   ['previous_5fsizes',['previous_sizes',['../structhaplo_1_1haplo__DP__column.html#a2ece2d4c8c54fbd7fc8e898ced985e6a',1,'haplo::haplo_DP_column']]],
   ['previous_5fsum',['previous_sum',['../structhaplo_1_1haplo__DP__column.html#a474364179d091eda8dd0684d4d86afa8',1,'haplo::haplo_DP_column']]],
+  ['previous_5ftag',['previous_tag',['../classvg_1_1io_1_1MessageIterator.html#affc663d4448fe1b213d1c2e9ec64b3bb',1,'vg::io::MessageIterator']]],
   ['previous_5fvalues',['previous_values',['../structhaplo_1_1haplo__DP__column.html#a5e1664796c443719bd4e775f503ab8ad',1,'haplo::haplo_DP_column']]],
   ['primary',['primary',['../classvg_1_1MaximalExactMatch.html#a2e34dcded590361daf8ca3a9ed3fb62f',1,'vg::MaximalExactMatch']]],
   ['primary_5fpaths',['primary_paths',['../classvg_1_1SupportCaller.html#a8dab4df2537ef96e9803d630f5920aec',1,'vg::SupportCaller']]],
@@ -97,6 +99,7 @@ var searchData=
   ['progress_5fmessage',['progress_message',['../classvg_1_1Progressive.html#a4bb04fe23ceb41467dd14cdf8cc01a71',1,'vg::Progressive']]],
   ['progress_5fseen',['progress_seen',['../classvg_1_1Progressive.html#ac6745d7e07b4b271f9510cd40f06d18e',1,'vg::Progressive']]],
   ['projected_5fcount',['projected_count',['../structvg_1_1Funnel_1_1Stage.html#a74c290d50af94a82c196350d3ee7223d',1,'vg::Funnel::Stage']]],
-  ['proto',['proto',['../classvg_1_1VGAlignmentEmitter.html#a5a614adac34031f4738d776b1d8788b1',1,'vg::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
+  ['proto',['proto',['../classvg_1_1VGAlignmentEmitter.html#a5956627bb9a20f857511637c07b8cc34',1,'vg::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
+  ['protobuf_5fto_5ftag',['protobuf_to_tag',['../structvg_1_1io_1_1Registry_1_1Tables.html#a9959a1192210db895c2d127dc6a197fc',1,'vg::io::Registry::Tables']]],
   ['pseudo_5flength_5fmultiplier',['pseudo_length_multiplier',['../classvg_1_1MultipathMapper.html#a8c463a9a1350cd7220abd8575d9e7bd3',1,'vg::MultipathMapper']]]
 ];

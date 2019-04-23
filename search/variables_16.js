@@ -1,7 +1,7 @@
 var searchData=
 [
   ['v',['v',['../structvg_1_1TreeNode.html#aa4855443d5325cd35ff3d1d5a6855190',1,'vg::TreeNode']]],
-  ['value',['value',['../unionvg_1_1MinimizerIndex_1_1value__type.html#afb14fd65b15dd7f69335bb8b12ccab7c',1,'vg::MinimizerIndex::value_type::value()'],['../classvg_1_1BaseOption.html#aa74c66fcf0f363ce08bb6e5060fd42e5',1,'vg::BaseOption::value()']]],
+  ['value',['value',['../unionvg_1_1MinimizerIndex_1_1value__type.html#afb14fd65b15dd7f69335bb8b12ccab7c',1,'vg::MinimizerIndex::value_type::value()'],['../classvg_1_1BaseOption.html#aa74c66fcf0f363ce08bb6e5060fd42e5',1,'vg::BaseOption::value()'],['../classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde',1,'vg::io::MessageIterator::value()'],['../classvg_1_1io_1_1ProtobufIterator.html#aa66494ab08ee29d36b1aa04f0213f566',1,'vg::io::ProtobufIterator::value()']]],
   ['value_5fat',['value_at',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a2146c37988fd520600d806d1606f0f3f',1,'vg::NGSSimulator::MarkovDistribution']]],
   ['values',['values',['../structvg_1_1MinimizerIndex_1_1Header.html#abebe42b5ed15a857c8cfde83c4580300',1,'vg::MinimizerIndex::Header']]],
   ['var',['var',['../namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4',1,'vg']]],

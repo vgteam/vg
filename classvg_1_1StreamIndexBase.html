@@ -198,7 +198,7 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:ab0ac239e55d7748226a6a2d08480e026"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>An index for a node-ID-sorted stream/stream.hpp-formatted file, such as GAM or <a class="el" href="classvg_1_1VG.html">VG</a>.</p>
+<div class="textblock"><p>An index for a node-ID-sorted VPKG-formatted Protobuf file, such as GAM or <a class="el" href="classvg_1_1VG.html">VG</a>.</p>
 <p>Works on a BAI-like concept of bins partitioning node ID space.</p>
 <p>Files are serialized as count-prefixed groups of Protobuf messages. These groups are the smallest unit that can be deserialized.</p>
 <p>Every <em>group</em> of messages gets assigned to a bin which is the longest bin that completely contains the ID range used in the group.</p>

@@ -29,5 +29,6 @@ var searchData=
   ['xg_5fpos_5fchar',['xg_pos_char',['../namespacevg.html#a4184dd0acd62bd6229a0119734a4914d',1,'vg']]],
   ['xg_5fpositions_5fbp_5ffrom',['xg_positions_bp_from',['../namespacevg.html#a260823500b0302ed6e8c7baa83f6df3e',1,'vg']]],
   ['xgpath',['XGPath',['../classxg_1_1XGPath.html#af623a612337301ad98ed9c45108b9616',1,'xg::XGPath::XGPath(void)=default'],['../classxg_1_1XGPath.html#a1c234ec1fb6c4682bb2797232eff6cc9',1,'xg::XGPath::XGPath(const string &amp;path_name, const vector&lt; trav_t &gt; &amp;path, bool is_circular, size_t node_count, XG &amp;graph, size_t *unique_member_count_out=nullptr)'],['../classxg_1_1XGPath.html#aeb3f65f6d78a0fa02486f0c9c51c97a8',1,'xg::XGPath::XGPath(const XGPath &amp;other)=delete'],['../classxg_1_1XGPath.html#a010789a1a74731505b2b8a570f4e7547',1,'xg::XGPath::XGPath(XGPath &amp;&amp;other)=delete']]],
-  ['xgscoreprovider',['XGScoreProvider',['../classhaplo_1_1XGScoreProvider.html#af309042e4bbb20c8faf320a152a76245',1,'haplo::XGScoreProvider']]]
+  ['xgscoreprovider',['XGScoreProvider',['../classhaplo_1_1XGScoreProvider.html#af309042e4bbb20c8faf320a152a76245',1,'haplo::XGScoreProvider']]],
+  ['xsputn',['xsputn',['../classvg_1_1io_1_1fdoutbuf.html#a1eba1fc19d1c9100bc5eb98259cc914b',1,'vg::io::fdoutbuf']]]
 ];

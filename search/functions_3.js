@@ -55,6 +55,7 @@ var searchData=
   ['check_5fin',['check_in',['../classvg_1_1Watchdog.html#a73fff63eede4aaf60f04ca41f2373cdc',1,'vg::Watchdog']]],
   ['check_5fmax_5ftrav_5fcutoff',['check_max_trav_cutoff',['../classvg_1_1VCFTraversalFinder.html#aab82f66226266e3adcfc7076f158ff23',1,'vg::VCFTraversalFinder']]],
   ['check_5fout',['check_out',['../classvg_1_1Watchdog.html#abef59fb95cd3cb40a103d6e73e4c8031',1,'vg::Watchdog']]],
+  ['check_5fprotobuf_5ftag',['check_protobuf_tag',['../classvg_1_1io_1_1Registry.html#a0600b489129e1f4090172fccb7863f2b',1,'vg::io::Registry']]],
   ['checkchaindist',['checkChainDist',['../classvg_1_1DistanceIndex.html#a06a9282b0ac3f37d39a0380c28aaaf9a',1,'vg::DistanceIndex']]],
   ['checkchainloopfd',['checkChainLoopFd',['../classvg_1_1DistanceIndex.html#a464743b4091720b02405c52cab18c50b',1,'vg::DistanceIndex']]],
   ['checkchainlooprev',['checkChainLoopRev',['../classvg_1_1DistanceIndex.html#abf411182dbd4c5f0809d97547b6c0e91',1,'vg::DistanceIndex']]],

@@ -23,6 +23,8 @@ var searchData=
   ['ssw_5faligner_2ecpp',['ssw_aligner.cpp',['../ssw__aligner_8cpp.html',1,'']]],
   ['ssw_5faligner_2ehpp',['ssw_aligner.hpp',['../ssw__aligner_8hpp.html',1,'']]],
   ['stats_5fmain_2ecpp',['stats_main.cpp',['../stats__main_8cpp.html',1,'']]],
+  ['stream_2ecpp',['stream.cpp',['../stream_8cpp.html',1,'']]],
+  ['stream_2ehpp',['stream.hpp',['../stream_8hpp.html',1,'']]],
   ['stream_5findex_2ecpp',['stream_index.cpp',['../stream__index_8cpp.html',1,'']]],
   ['stream_5findex_2ehpp',['stream_index.hpp',['../stream__index_8hpp.html',1,'']]],
   ['stream_5fsorter_2ecpp',['stream_sorter.cpp',['../stream__sorter_8cpp.html',1,'']]],

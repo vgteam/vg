@@ -9,5 +9,7 @@ var searchData=
   ['region_2ehpp',['region.hpp',['../region_8hpp.html',1,'']]],
   ['region_5fexpander_2ecpp',['region_expander.cpp',['../region__expander_8cpp.html',1,'']]],
   ['region_5fexpander_2ehpp',['region_expander.hpp',['../region__expander_8hpp.html',1,'']]],
+  ['registry_2ecpp',['registry.cpp',['../registry_8cpp.html',1,'']]],
+  ['registry_2ehpp',['registry.hpp',['../registry_8hpp.html',1,'']]],
   ['rna_5fmain_2ecpp',['rna_main.cpp',['../rna__main_8cpp.html',1,'']]]
 ];

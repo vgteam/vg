@@ -140,6 +140,7 @@ var searchData=
   ['alleles',['alleles',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#ad85e96e34ed648807222b3a4ee027732',1,'haplo::linear_haplo_structure::SNVvector::alleles()'],['../structvg_1_1VG_1_1Plan.html#ab142f645d542a8d08ecfb2253d81f8d7',1,'vg::VG::Plan::alleles()']]],
   ['allowed_5fvcf_5fnames',['allowed_vcf_names',['../classvg_1_1Constructor.html#a792c656b37e8b8836cd223751749d401',1,'vg::Constructor']]],
   ['allowed_5fvcf_5fregions',['allowed_vcf_regions',['../classvg_1_1Constructor.html#ac152e7a5407ef743f41e301700203129',1,'vg::Constructor']]],
+  ['allowsaliasing',['AllowsAliasing',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a7f27c0a48edf603e2c9bf220627ddefe',1,'vg::io::BlockedGzipOutputStream']]],
   ['aln',['aln',['../classvg_1_1AlignmentChainModelVertex.html#ab49913fb60fec26e020912069d8c0103',1,'vg::AlignmentChainModelVertex']]],
   ['aln_5fto_5fbseq',['aln_to_bseq',['../classvg_1_1SRPE.html#a8e090b6736fa63156b2769dca493ed12',1,'vg::SRPE']]],
   ['aln_5fto_5fmate',['aln_to_mate',['../classvg_1_1SRPE.html#a17b17b87964f9fb6f113cb393dee370c',1,'vg::SRPE']]],

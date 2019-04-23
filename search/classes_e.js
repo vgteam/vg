@@ -39,6 +39,8 @@ var searchData=
   ['positionidscanner',['PositionIDScanner',['../structvg_1_1PositionIDScanner.html',1,'vg']]],
   ['primarypath',['PrimaryPath',['../classvg_1_1SupportCaller_1_1PrimaryPath.html',1,'vg::SupportCaller']]],
   ['progressive',['Progressive',['../classvg_1_1Progressive.html',1,'vg']]],
+  ['protobufemitter',['ProtobufEmitter',['../classvg_1_1io_1_1ProtobufEmitter.html',1,'vg::io']]],
+  ['protobufiterator',['ProtobufIterator',['../classvg_1_1io_1_1ProtobufIterator.html',1,'vg::io']]],
   ['protohandlegraph',['ProtoHandleGraph',['../classvg_1_1ProtoHandleGraph.html',1,'vg']]],
   ['pruningparameters',['PruningParameters',['../structPruningParameters.html',1,'']]]
 ];

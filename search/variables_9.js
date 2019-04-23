@@ -26,6 +26,7 @@ var searchData=
   ['indexes',['indexes',['../classvg_1_1GraphSynchronizer.html#a1127fed39b1d4775bf03ada4f87b23b4',1,'vg::GraphSynchronizer']]],
   ['initial_5fcapacity',['INITIAL_CAPACITY',['../classvg_1_1MinimizerIndex.html#a044a3cf2e5a0bf7ac29e195ee6e97513',1,'vg::MinimizerIndex']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
+  ['input',['input',['../structvg_1_1io_1_1hFILE__cppstream.html#a301bcdddd00f4d40033b4ca94691f9a6',1,'vg::io::hFILE_cppstream']]],
   ['input_5fin_5fprogress',['input_in_progress',['../classvg_1_1Funnel.html#a755941e4c7988487e539256c16b507bb',1,'vg::Funnel']]],
   ['input_5fstart_5ftime',['input_start_time',['../classvg_1_1Funnel.html#affb3e5cfe02a4996dc0d716d1cb04cb1',1,'vg::Funnel']]],
   ['ins_5ffasta',['ins_fasta',['../classvg_1_1SupportCaller.html#afc1209f27455e07ab97aae155418e5e6',1,'vg::SupportCaller']]],
@@ -41,7 +42,7 @@ var searchData=
   ['inverse',['inverse',['../classvg_1_1Filter.html#a05e7274611008cdd5b89d1fa81605882',1,'vg::Filter']]],
   ['is_5falt',['is_alt',['../classvg_1_1Paths.html#a3e8fd05a0a584cbae2f2919b5ab98e4d',1,'vg::Paths']]],
   ['is_5fchecked_5fin',['is_checked_in',['../structvg_1_1Watchdog_1_1thread__state__t.html#aae7887d9b7548a028a6b7271aabd44eb',1,'vg::Watchdog::thread_state_t']]],
-  ['is_5fcircular',['is_circular',['../structvg_1_1Path.html#ad04d3a1745f479f32b4a4358bec17c8f',1,'vg::Path::is_circular()'],['../classxg_1_1XGPath.html#a4cc65b6cfdbd12f6220dde5a716fd345',1,'xg::XGPath::is_circular()']]],
+  ['is_5fcircular',['is_circular',['../classxg_1_1XGPath.html#a4cc65b6cfdbd12f6220dde5a716fd345',1,'xg::XGPath::is_circular()'],['../structvg_1_1Path.html#ad04d3a1745f479f32b4a4358bec17c8f',1,'vg::Path::is_circular()']]],
   ['is_5fcompacted',['is_compacted',['../classvg_1_1Packer.html#aa7f90bbde45e8487029a424392b653ad',1,'vg::Packer']]],
   ['is_5fdeleted',['is_deleted',['../structvg_1_1PackedGraph_1_1PackedPath.html#a4a75015706cc60ec675609a33473857f',1,'vg::PackedGraph::PackedPath']]],
   ['is_5fend',['is_end',['../structvg_1_1CactusSide.html#a960c0e9a2c2dc004aac017030f6ad805',1,'vg::CactusSide::is_end()'],['../classvg_1_1NodeSide.html#a1493cac020ed0c9b1cbd37e2a99eb9b5',1,'vg::NodeSide::is_end()']]],
@@ -50,9 +51,10 @@ var searchData=
   ['is_5fphased',['is_phased',['../structvg_1_1Genotype.html#a7aceacf9d5e3def3d6e675ef34906aab',1,'vg::Genotype']]],
   ['is_5fpointer',['is_pointer',['../classvg_1_1MinimizerIndex.html#a6fb194d3538dc02b76aa1da6c4ccef23',1,'vg::MinimizerIndex']]],
   ['is_5frend',['is_rend',['../structvg_1_1ChainIterator.html#adb9db0a0ea4cac8bca359c97d293aaa9',1,'vg::ChainIterator']]],
-  ['is_5freverse',['is_reverse',['../structvg_1_1Genotyper_1_1Affinity.html#ae1707128484386f3a20eb8c6a8f9ec95',1,'vg::Genotyper::Affinity::is_reverse()'],['../structvg_1_1Transcript.html#a9108ebf271cbaed677bbd2c2232729b2',1,'vg::Transcript::is_reverse()'],['../structvg_1_1Position.html#aeb715b329bd7371ca380a2f2abdcbd13',1,'vg::Position::is_reverse()'],['../structxg_1_1XG_1_1ThreadMapping.html#ad76b5bf95182c95540db5f99e449586f',1,'xg::XG::ThreadMapping::is_reverse()']]],
+  ['is_5freverse',['is_reverse',['../structvg_1_1Genotyper_1_1Affinity.html#ae1707128484386f3a20eb8c6a8f9ec95',1,'vg::Genotyper::Affinity::is_reverse()'],['../structvg_1_1Transcript.html#a9108ebf271cbaed677bbd2c2232729b2',1,'vg::Transcript::is_reverse()'],['../structxg_1_1XG_1_1ThreadMapping.html#ad76b5bf95182c95540db5f99e449586f',1,'xg::XG::ThreadMapping::is_reverse()'],['../structvg_1_1Position.html#aeb715b329bd7371ca380a2f2abdcbd13',1,'vg::Position::is_reverse()']]],
   ['is_5fsecondary',['is_secondary',['../structvg_1_1Alignment.html#a59a4b8c7367fb468e46bcf6ae292888f',1,'vg::Alignment']]],
   ['isforward',['isForward',['../structvg_1_1BREAKPOINT.html#a3179531d48993e05d802907b730e1631',1,'vg::BREAKPOINT']]],
+  ['item_5fvo',['item_vo',['../classvg_1_1io_1_1MessageIterator.html#a1f58abce5de3c8f71a82e689c0170c49',1,'vg::io::MessageIterator']]],
   ['items',['items',['../structvg_1_1Funnel_1_1Stage.html#a787bab13fd8bd1bccb1ac8e7821688c6',1,'vg::Funnel::Stage']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]]
 ];

@@ -9,5 +9,5 @@ var searchData=
   ['clustergraph_5ft',['clustergraph_t',['../classvg_1_1MultipathMapper.html#a5ee49f1e1960e8fa8128b03726aaff61',1,'vg::MultipathMapper']]],
   ['code_5ftype',['code_type',['../classvg_1_1MinimizerIndex.html#a551a6600cdb9eb86be5f39e5488e3c8f',1,'vg::MinimizerIndex']]],
   ['const_5fiterator',['const_iterator',['../classvg_1_1ShuffledPairs.html#a69e7d8e10d720d7e2076c901e304c5e7',1,'vg::ShuffledPairs']]],
-  ['cursor_5ft',['cursor_t',['../classvg_1_1IndexedVG.html#ac7a8a03a2de8d47f5b40952e62a30915',1,'vg::IndexedVG::cursor_t()'],['../classvg_1_1StreamIndex.html#a0b2e79ae222e915081f44cd5b6cd5098',1,'vg::StreamIndex::cursor_t()'],['../classvg_1_1StreamSorter.html#aae3c3b38be9f5288418aaaeb44418af1',1,'vg::StreamSorter::cursor_t()']]]
+  ['cursor_5ft',['cursor_t',['../classvg_1_1IndexedVG.html#ac7a8a03a2de8d47f5b40952e62a30915',1,'vg::IndexedVG::cursor_t()'],['../classvg_1_1StreamIndex.html#a70010272f4816ddf7809a5f52a973d1c',1,'vg::StreamIndex::cursor_t()'],['../classvg_1_1StreamSorter.html#ac3d9f35b14e13610b61a55b57d2f6332',1,'vg::StreamSorter::cursor_t()']]]
 ];

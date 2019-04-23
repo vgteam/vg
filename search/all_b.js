@@ -42,5 +42,6 @@ var searchData=
   ['kmer_5fto_5fgcsa_5fkmers',['kmer_to_gcsa_kmers',['../namespacevg.html#a661fc17618ee9ff7bd9d469c74c63369',1,'vg']]],
   ['kmermatch',['KmerMatch',['../structvg_1_1KmerMatch.html',1,'vg']]],
   ['kmerposition',['KmerPosition',['../structvg_1_1KmerPosition.html',1,'vg']]],
-  ['kmers_5fmain_2ecpp',['kmers_main.cpp',['../kmers__main_8cpp.html',1,'']]]
+  ['kmers_5fmain_2ecpp',['kmers_main.cpp',['../kmers__main_8cpp.html',1,'']]],
+  ['know_5foffset',['know_offset',['../classvg_1_1io_1_1BlockedGzipInputStream.html#a62a78fd952dc7239a74fd042eae0e562',1,'vg::io::BlockedGzipInputStream::know_offset()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#ae88df3ee23df1392e53453f82b1859e2',1,'vg::io::BlockedGzipOutputStream::know_offset()']]]
 ];

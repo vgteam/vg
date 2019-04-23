@@ -136,11 +136,11 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a4f1650aff05b04dce740db0956240103"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; ofstream &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGAlignmentEmitter.html#a4f1650aff05b04dce740db0956240103">out_file</a></td></tr>
 <tr class="memdesc:a4f1650aff05b04dce740db0956240103"><td class="mdescLeft">&#160;</td><td class="mdescRight">If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.  <a href="#a4f1650aff05b04dce740db0956240103">More...</a><br/></td></tr>
 <tr class="separator:a4f1650aff05b04dce740db0956240103"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5a614adac34031f4738d776b1d8788b1"><td class="memItemLeft" align="right" valign="top">unique_ptr<br class="typebreak"/>
-&lt; stream::ProtobufEmitter<br class="typebreak"/>
-&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGAlignmentEmitter.html#a5a614adac34031f4738d776b1d8788b1">proto</a></td></tr>
-<tr class="memdesc:a5a614adac34031f4738d776b1d8788b1"><td class="mdescLeft">&#160;</td><td class="mdescRight">If we are doing Protobuf output we need a backing emitter. If we are doing JSON out, this will be empty.  <a href="#a5a614adac34031f4738d776b1d8788b1">More...</a><br/></td></tr>
-<tr class="separator:a5a614adac34031f4738d776b1d8788b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5956627bb9a20f857511637c07b8cc34"><td class="memItemLeft" align="right" valign="top">unique_ptr<br class="typebreak"/>
+&lt; <a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html">vg::io::ProtobufEmitter</a><br class="typebreak"/>
+&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGAlignmentEmitter.html#a5956627bb9a20f857511637c07b8cc34">proto</a></td></tr>
+<tr class="memdesc:a5956627bb9a20f857511637c07b8cc34"><td class="mdescLeft">&#160;</td><td class="mdescRight">If we are doing Protobuf output we need a backing emitter. If we are doing JSON out, this will be empty.  <a href="#a5956627bb9a20f857511637c07b8cc34">More...</a><br/></td></tr>
+<tr class="separator:a5956627bb9a20f857511637c07b8cc34"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0542302ee5c0e39d091dcccd8f909b4f"><td class="memItemLeft" align="right" valign="top">mutex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VGAlignmentEmitter.html#a0542302ee5c0e39d091dcccd8f909b4f">stream_mutex</a></td></tr>
 <tr class="memdesc:a0542302ee5c0e39d091dcccd8f909b4f"><td class="mdescLeft">&#160;</td><td class="mdescRight">If we are doing JSON, we need to take care of our own stream locking.  <a href="#a0542302ee5c0e39d091dcccd8f909b4f">More...</a><br/></td></tr>
 <tr class="separator:a0542302ee5c0e39d091dcccd8f909b4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -361,7 +361,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a5a614adac34031f4738d776b1d8788b1"></a>
+<a class="anchor" id="a5956627bb9a20f857511637c07b8cc34"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -369,7 +369,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">unique_ptr&lt;stream::ProtobufEmitter&lt;<a class="el" href="structvg_1_1Alignment.html">Alignment</a>&gt; &gt; vg::VGAlignmentEmitter::proto</td>
+          <td class="memname">unique_ptr&lt;<a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html">vg::io::ProtobufEmitter</a>&lt;<a class="el" href="structvg_1_1Alignment.html">Alignment</a>&gt; &gt; vg::VGAlignmentEmitter::proto</td>
         </tr>
       </table>
   </td>

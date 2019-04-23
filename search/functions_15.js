@@ -2,6 +2,7 @@ var searchData=
 [
   ['unambiguous_5fmatch_5fto_5fextension',['unambiguous_match_to_extension',['../namespacevg.html#af7f53fe457b7de8452bac607372618c1',1,'vg']]],
   ['unchop',['unchop',['../classvg_1_1VG.html#a998cfb17a4433f05a1579f0d704208a6',1,'vg::VG']]],
+  ['underflow',['underflow',['../classvg_1_1io_1_1fdinbuf.html#a67ea7aab3e21cacec9fb836d4a70673e',1,'vg::io::fdinbuf']]],
   ['unescape_5fdelim',['unescape_delim',['../classvg_1_1Packer.html#a4317a31a1e419ce6c0d345545518e519',1,'vg::Packer']]],
   ['unescape_5fdelims',['unescape_delims',['../classvg_1_1Packer.html#ab7a6212ca48ab8bdcd28139297eb41e2',1,'vg::Packer']]],
   ['unfold',['unfold',['../classvg_1_1PhaseUnfolder.html#a58f0d57a45dd09927cfa2cb5dbc9115f',1,'vg::PhaseUnfolder::unfold()'],['../classvg_1_1VG.html#afc568712b6d4aa3b6dc965f37cc769a7',1,'vg::VG::unfold()']]],
