@@ -23,6 +23,18 @@ import histogram
 # Define a constant list of all the stages, in order.
 STAGES = ['minimizer', 'seed', 'cluster', 'extend', 'align', 'winner']
 
+# And for each stage, all the substages.
+# Substages do not necessarily have an order, because you can enter and exit them multiple times.
+SUBSTAGES = {
+    'minimizer': {},
+    'seed': {'correct'},
+    'cluster': {'score'},
+    'extend': {'score'},
+    'align': {'direct', 'chain'},
+    'winner': {'mapq'}
+}
+    
+
 FACTS = ["Giraffes are the tallest living terrestrial animal.",
          "There are nine subspecies of giraffe, each occupying separate regions of Africa. Some researchers consider some subspecies to be separate species entirely.",
          "Giraffes' horn-like structures are called 'ossicones'. They consist mostly of ossified cartilage.",
@@ -102,45 +114,80 @@ def parse_args(args):
     args = args[1:]
         
     return parser.parse_args(args)
+    
+def make_stats(read, stages=STAGES):
+    """
+    Given a read dict parsed from JSON, compute a stats dict for the read.
+    
+    Run on an empty dict, makes a zero-value stats dict.
+    
+    A stats dict maps from stage name to a dict of stage stats.
+    The stage stats include:
+        
+        - 'time' for just the stage.
+        - 'cumulative_time' for the stage and all prior stages.
+        - 'substage_time' for each substage, which is a dict from substage name to time.
+        - 'correct_lost' which is the count of correct mappings lost at this stage.
+        - 'results' which is the count of results produced from this stage.
+        
+    All values are filled, even if 0 or not applicable.
+        
+    There is a special 'overall' stage, with just the 'time' key, recording the overall read time.
+    """
+    
+    # This is the stats dict we will fill in
+    stats = {}
+    
+    # This is the cumulative time accumulator
+    cumulative_time = 0.0
+    
+    for stage in stages:
+        # For each stage in order
+        
+        # Prepare stats for the stage
+        stage_dict = {}
+        
+        # Grab its runtime from the read
+        stage_dict['time'] = read.get('annotation', {}).get(
+            'stage_' + stage + '_seconds', 0.0)
+            
+        # Add into and store the cumulative time
+        cumulative_time += stage_dict['time']
+        stage_dict['cumulative_time'] = cumulative_time
+        
+        # Set up substage times
+        substage_time = {}
+        for substage in SUBSTAGES[stage]:
+            # For each substage it has, record substage time.
+            # TODO: no good way to iterate the substages provided in the file.
+            substage_time['substage'] = read.get('annotation', {}).get(
+                'stage_' + stage + '_' + substage + '_seconds', 0.0)
+        
+        stage_dict['substage_time'] = substage_time
+        
+        # Save the stats for the stage
+        stats[stage] = stage_dict
+        
+    # Add the overall runtime
+    stats['overall'] = {'time': read.get('annotation', {}).get('map_seconds', 0.0)}
+    
+    return stats
 
-def accumulate_read_times(reads, stages=STAGES):
+def add_in_stats(destination, addend):
     """
-    Given an iterator that emits parsed JSON reads dicts, yield one list of
-    cumulative runtimes, in stages order, for each read. Each list also ends
-    with the total runtime, after all the stages.
-    
-    If a stage doesn't have a recorded time, it gets None for a cumulative time.
+    Add the addend stats dict into the destinatin stats dict.
+    Implements += for stats dicts.
     """
     
-    for read in reads:
-        # For every read
-        
-        # We make a list of cumulative times
-        cumulative_times = []
-        # And we track the time we are summing up
-        time_counter = 0.0
-        
-        for stage in stages:
-            # For each stage in order
-            
-            # Grab its runtime from the read
-            stage_time = read.get('annotation', {}).get('stage_' + stage + '_seconds', None)
-            
-            if stage_time is not None:
-                # Sum it in
-                time_counter += stage_time
-                
-                # Record the cumulative sum through this stage
-                cumulative_times.append(time_counter)
-            else:
-                # Stage never happened or wasn't instrumented. Substitute None.
-                cumulative_times.append(None)
-            
-        # Now do the total time
-        cumulative_times.append(read.get('annotation', {}).get('map_seconds', 0.0))
-        
-        yield cumulative_times
-            
+    # Internally we're just recursive += on dicts.
+    for k, v in addend.items():
+        if isinstance(v, dict):
+            # Recurse into dict
+            add_in_stats(destination[k], v)
+        else:
+            # Use real += and hope it works
+            destination[k] += v
+
 def read_line_oriented_json(lines):
     """
     For each line in the given stream, yield it as a parsed JSON object.
@@ -458,9 +505,9 @@ class Table(object):
         
         self.out.write('\n')
                 
-def print_table(read_count, time_totals, stages=STAGES, out=sys.stdout):
+def print_table(read_count, stats_total, stages=STAGES, out=sys.stdout):
     """
-    Take the read count, and the cumulative time totals in stage order, with trailing total time.
+    Take the read count, and the accumulated total stats dict.
     
     Print a nicely formatted table to the given stream.
     """
@@ -499,24 +546,22 @@ def print_table(read_count, time_totals, stages=STAGES, out=sys.stdout):
     
     
     # Get the total overall time for all reads
-    overall_time = time_totals[-1]
+    overall_time = stats_total['overall']['time']
     
-    # Remember cumulative time from last iteration so we can take a difference again.
-    last_cumulative_time = 0
-    for stage, total_cumulative_time in zip(STAGES, time_totals):
-        # Compute cumulative reads per second values
+    for stage in stages:
+        # Grab total cumulative time for this stage and all before
+        total_cumulative_time = stats_total[stage]['cumulative_time']
+        # Compute cumulative reads per second value
         reads_per_second = read_count / total_cumulative_time if total_cumulative_time != 0 else float('NaN')
         
-        # Compute time for just this stage
-        stage_time = total_cumulative_time - last_cumulative_time
+        # Grab total time for just this stage
+        stage_time = stats_total[stage]['time']
         # And get the portion that is this stage out of all time
         stage_portion = stage_time / overall_time if overall_time != 0 else float('NaN')
         # And make a percent
         stage_percent = stage_portion * 100
         
         table.row([stage, '{:.2f}'.format(reads_per_second), '{:.0f}%'.format(stage_percent)], 'crr')
-        
-        last_cumulative_time = total_cumulative_time
         
     table.line()
         
@@ -546,31 +591,28 @@ def main(args):
     tsv_path = os.path.join(options.outdir, 'times.tsv')
     tsv = open(tsv_path, 'w')
     
-    # Make a place to total up total cumulative times by stage and total
-    # overall time
-    time_totals = [0.0 for _ in STAGES] + [0.0]
+    # Make a place to total up all the stats
+    stats_total = make_stats({})
     
     # Count all the reads
     read_count = 0
     
-    for times in accumulate_read_times(read_line_oriented_json(options.input)):
-        # For the cumulative runtimes for each read, ending with total time
+    for stats in (make_stats(read) for read in read_line_oriented_json(options.input)):
+        # For the stats dict for each read
         
-        for stage, cumulative_time in zip(STAGES, times):
+        for stage in STAGES:
+            # For each stage, grab the cumulative time
+            cumulative_time = stats[stage]['cumulative_time']
+            
             # Dump cumulative times to the TSV we will plot a histogram from
-            if cumulative_time is None:
-                # This stage didn't happen or wasn't recorded
-                continue
             tsv.write('{}\t{}\n'.format(stage, cumulative_time))
         
         # Also include total time
-        tsv.write('total\t{}\n'.format(times[-1]))
+        tsv.write('total\t{}\n'.format(stats['overall']['time']))
         
-        # Sum up all cumulative times in time_totals
-        for i, time in enumerate(times):
-            if time is not None:
-                time_totals[i] += time
-            
+        # Sum up all the stats
+        add_in_stats(stats_total, stats)
+        
         # Count the read
         read_count += 1
     
@@ -593,7 +635,7 @@ def main(args):
         '--categories', 'total'] + STAGES)
         
     # Print the table
-    print_table(read_count, time_totals)
+    print_table(read_count, stats_total)
    
 def entrypoint():
     """
