@@ -318,7 +318,8 @@ path_handle_t VG::get_path_handle_of_step(const step_handle_t& step_handle) cons
 step_handle_t VG::path_begin(const path_handle_t& path_handle) const {
     step_handle_t step_handle;
     as_integers(step_handle)[0] = as_integer(path_handle);
-    as_integers(step_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).front());
+    const auto& path_list = paths._paths.at(paths.get_path_name(as_integer(path_handle)));
+    as_integers(step_handle)[1] = reinterpret_cast<int64_t>(path_list.empty() ? nullptr : &path_list.front());
     return step_handle;
 }
 
