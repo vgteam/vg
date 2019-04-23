@@ -258,6 +258,13 @@ int main_minimizer(int argc, char** argv) {
                 node_length = graph.get_length(*iter);
             }
             pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.second - node_start };
+            if (!MinimizerIndex::valid_offset(pos)) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << "error: [vg minimizer] node offset " << offset(pos) << " is too large" << std::endl;
+                }
+                std::exit(EXIT_FAILURE);
+            }
             cache[thread_id].emplace_back(minimizer.first, pos);
         }
         if (cache[thread_id].size() >= MINIMIZER_CACHE_SIZE) {
@@ -364,16 +371,14 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                     if (index->count(minimizer.first) <= max_occs) {
                         std::vector<pos_t> occs = index->find(minimizer.first);
                         if (occs.size() != 1 || !vg::is_empty(occs.front())) {
-                            occ_counts[thread] += occs.size();
-                            if (gapless_extend) {
-                                for (pos_t occ : occs) {
-                                    hits.emplace_back(minimizer.second, occ);
-                                }
+                            for (pos_t occ : occs) {
+                                hits.emplace_back(minimizer.second, occ);
                             }
                         }
                     }
                 }
-                if (hits.size() >= min_hits) {
+                occ_counts[thread] += hits.size();
+                if (gapless_extend && hits.size() >= min_hits) {
                     extend_counts[thread]++;
                     seed_counts[thread] += hits.size();
                     auto result = extender.extend_seeds(hits, reads[i], max_errors);
@@ -450,8 +455,10 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                     if (prev != full) {
                         mem_counts[thread]++;
                         if (locate) {
-                            gcsa_index->locate(prev, occurrences);
-                            mem_lengths[thread] += occurrences.size();
+                            if (gcsa::Range::length(prev) <= max_occs) {
+                                gcsa_index->locate(prev, occurrences);
+                                mem_lengths[thread] += occurrences.size();
+                            }
                         } else {
                             mem_lengths[thread] += gcsa::Range::length(prev);
                         }
@@ -464,8 +471,10 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                     if (prev != full) {
                         mem_counts[thread]++;
                         if (locate) {
-                            gcsa_index->locate(prev, occurrences);
-                            mem_lengths[thread] += occurrences.size();
+                            if (gcsa::Range::length(prev) <= max_occs) {
+                                gcsa_index->locate(prev, occurrences);
+                                mem_lengths[thread] += occurrences.size();
+                            }
                         } else {
                             mem_lengths[thread] += gcsa::Range::length(prev);
                         }

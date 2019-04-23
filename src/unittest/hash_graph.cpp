@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <random>
 
 #include "../json2pb.h"
 #include "../hash_graph.hpp"
@@ -26,9 +27,17 @@ using namespace std;
         int num_variants = 30;
         int long_var_length = 10;
         
+        random_device rd;
+        default_random_engine gen(rd());
+        uniform_int_distribution<int> circ_distr(0, 1);
+        
         for (int i = 0; i < num_graphs; i++) {
             HashGraph graph;
             random_graph(seq_length, long_var_length, num_variants, &graph);
+            
+            graph.for_each_path_handle([&](const path_handle_t& path) {
+                graph.set_circularity(path, circ_distr(gen));
+            });
             
             stringstream strm;
             graph.serialize(strm);

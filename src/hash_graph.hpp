@@ -11,6 +11,7 @@
 #include "handle.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
+#include "endianness.hpp"
 
 namespace vg {
     
