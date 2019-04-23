@@ -308,24 +308,30 @@ int main_paths(int argc, char** argv) {
     } else if (graph.get() != nullptr) {
         // Handle non-thread queries from vg
         
-        if (!path_prefix.empty()) {
-            cerr << "error: [vg paths] path selection by prefix from vg is not supported" << endl;
-            exit(1);
-        }
-
+        auto check_prefix = [&path_prefix](const string& name) {
+            // Note: we're using a filter rather than index, so O(#paths in graph). 
+            return path_prefix.empty() ||
+            std::mismatch(name.begin(), name.end(),
+                          path_prefix.begin(), path_prefix.end()).second == path_prefix.end();
+        };
+        
         if (list_names) {
-            graph->paths.for_each([&list_lengths](const Path& path) {
-                cout << path.name();
-                if (list_lengths) {
-                    cout << "\t" << path_to_length(path);
-                }
-                cout << endl;
-            });
+          graph->paths.for_each([&list_lengths, &check_prefix](const Path& path) {
+                  if (check_prefix(path.name())) {
+                      cout << path.name();
+                      if (list_lengths) {
+                          cout << "\t" << path_to_length(path);
+                      }
+                      cout << endl;
+                  }
+              });
         } else if (extract_as_gam) {
             vector<Alignment> alns = graph->paths_as_alignments();
             stream::ProtobufEmitter<Alignment> emitter(cout);
             for (auto& aln : alns) {
-                emitter.write(std::move(aln));
+                if (check_prefix(aln.name())) {
+                    emitter.write(std::move(aln));
+                }
             }
         } else if (extract_as_vg) {
             cerr << "error: [vg paths] vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;

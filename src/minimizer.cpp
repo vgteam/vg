@@ -6,6 +6,32 @@ namespace vg {
 
 //------------------------------------------------------------------------------
 
+// Numerical class constants.
+
+constexpr size_t MinimizerIndex::KMER_LENGTH;
+constexpr size_t MinimizerIndex::WINDOW_LENGTH;
+constexpr size_t MinimizerIndex::KMER_MAX_LENGTH;
+constexpr size_t MinimizerIndex::INITIAL_CAPACITY;
+constexpr double MinimizerIndex::MAX_LOAD_FACTOR;
+constexpr size_t MinimizerIndex::MAX_OCCS;
+constexpr MinimizerIndex::key_type MinimizerIndex::NO_KEY;
+constexpr MinimizerIndex::code_type MinimizerIndex::NO_VALUE;
+
+constexpr std::uint32_t MinimizerIndex::Header::TAG;
+constexpr std::uint32_t MinimizerIndex::Header::VERSION;
+constexpr std::uint32_t MinimizerIndex::Header::MIN_VERSION;
+
+constexpr size_t MinimizerIndex::PACK_WIDTH;
+constexpr MinimizerIndex::key_type MinimizerIndex::PACK_MASK;
+constexpr size_t MinimizerIndex::ID_OFFSET;
+constexpr size_t MinimizerIndex::REV_OFFSET;
+constexpr MinimizerIndex::code_type MinimizerIndex::REV_MASK;
+constexpr MinimizerIndex::code_type MinimizerIndex::OFF_MASK;
+
+//------------------------------------------------------------------------------
+
+// Other class variables.
+
 const std::vector<unsigned char> MinimizerIndex::CHAR_TO_PACK = {
     4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
     4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
@@ -64,6 +90,8 @@ const std::vector<MinimizerIndex::key_type> MinimizerIndex::KMER_MASK = {
     0x0FFFFFFFFFFFFFFFull,
     0x3FFFFFFFFFFFFFFFull
 };
+
+//------------------------------------------------------------------------------
 
 MinimizerIndex::Header::Header() :
     tag(TAG), version(VERSION),

@@ -5,6 +5,13 @@
 #include <stack>
 
 namespace vg {
+
+//------------------------------------------------------------------------------
+
+// Numerical class constants.
+
+constexpr size_t GBWTGraph::CHUNK_SIZE;
+
 //------------------------------------------------------------------------------
 
 std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i) {

@@ -1295,6 +1295,10 @@ int32_t Aligner::score_exact_match(string::const_iterator seq_begin, string::con
     return score_exact_match(seq_begin, seq_end);
 }
 
+int32_t Aligner::score_mismatch(size_t length) const {
+    return -match * length;
+}
+
 int32_t Aligner::score_partial_alignment(const Alignment& alignment, const HandleGraph& graph, const Path& path,
                                          string::const_iterator seq_begin) const {
     

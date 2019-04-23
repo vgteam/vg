@@ -1828,10 +1828,6 @@ const Snarl* DistanceIndex::snarlOf (id_t nodeID) {
 
 
 void DistanceIndex::printSelf() {
-    cerr << "Nodes : Snarls" << endl;
-    for (size_t i = 0 ; i < nodeToSnarl.size() ; i++) {
-        cerr << i << " " << nodeToSnarl[i] << endl;
-    }
     cerr << "Snarls: " << endl;
     for (auto snarls : snarlDistances) {
         snarls.second.printSelf();
