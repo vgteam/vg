@@ -2879,7 +2879,7 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
         // there's no alt path, it must be a deletion (if our input allele != 0)
         // in this case we use the reference allele path, and try to find an edge that spans
         // it.  this will be our alt edge
-        // todo: put an alt path maker into utility.hpp
+        // todo: put an alt path name maker into utility.hpp
         is_deletion = allele != 0;
         alt_path_name = "_alt_" + make_variant_id(*var) + "_0";
         // allele 0 can be empty for an insertion.  we don't complain if it's not in the graph
@@ -2901,6 +2901,11 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
                 // todo: logic needed here if want to support non-forward reference paths.
                 --first_path_it;
                 ++last_path_it;
+                if (allele != 0) {
+                    // alt paths don't always line up with deletion edges, so we hunt for
+                    // our deletion edge using the path_index here.
+                    scan_for_deletion(var, allele, path_index, first_path_it, last_path_it);
+                }
                 handle_t left = graph.get_handle(first_path_it->second.node);
                 handle_t right = graph.get_handle(last_path_it->second.node);
 
@@ -2915,9 +2920,112 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
             }
         }
     }
-    
+
     return make_pair(alt_path, is_deletion);
 }
+
+void VCFTraversalFinder::scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
+                                           PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it) {
+    assert(allele > 0);
+
+    // if our path matches an edge, we don't need to do anything
+    if (graph.has_edge(graph.get_handle(first_path_it->second.node),
+                       graph.get_handle(last_path_it->second.node))) {
+        return;
+    }
+
+    // we're doing everything via length comparison, so keep track of the length we're
+    // looking for (vcf_deletion_length) and the length we have (path_deletion_length)
+    int vcf_deletion_length = var->alleles[0].length() - var->alleles[allele].length();
+    int path_deletion_length = 0;
+    auto i = first_path_it;
+    auto j = last_path_it;
+    assert(i != j);
+    // note that first_path_it and last_path_it are outside the candidate deletion, so we don't count them
+    for (++i; i != j; ++i) {
+        path_deletion_length += graph.get_sequence(graph.get_handle(i->second.node)).length();
+    }
+
+#ifdef debug
+    cerr << "Scanning for deletion edge for allele " << allele << " of\n"
+         << *var << endl
+         << "The deletion from the VCF is " << vcf_deletion_length << " bases and our alt path was "
+         << path_deletion_length << " bases" << endl;
+#endif
+
+    bool found = false;
+    
+    // scan left
+    auto left = first_path_it;
+    auto right = last_path_it;
+    int start_shift = 0;
+    int end_shift = 0;
+    // we're looking for left and right nodes that bookend the deletion, so they're lengths
+    // don't actually count towards the deletion length
+    int start_size = graph.get_sequence(graph.get_handle(left->second.node)).length();
+    int end_size = graph.get_sequence(graph.get_handle(right->second.node)).length();
+    for (int i = 0; i < max_deletion_scan_nodes && !found && left != path_index->begin(); ++i) {
+        --left;
+        start_shift += start_size;
+        start_size = graph.get_sequence(graph.get_handle(left->second.node)).length();
+        
+        while (path_deletion_length + start_shift - end_shift > vcf_deletion_length) {
+            --right;
+            end_size = graph.get_sequence(graph.get_handle(right->second.node)).length();
+            end_shift += end_size;
+        }
+
+        if (path_deletion_length + start_shift - end_shift == vcf_deletion_length &&
+            graph.has_edge(graph.get_handle(left->second.node), graph.get_handle(right->second.node))) {
+            found = true;
+            first_path_it = left;
+            last_path_it = right;
+#ifdef debug
+            cerr << "Found deletion edge for allele " << allele << " of\n"
+                 << *var << endl
+                 << " by scanning left " << (i+1) << " nodes. "
+         << "The deletion from the VCF is " << vcf_deletion_length << " bases and our alt path was "
+                 << path_deletion_length << " bases" << endl;
+#endif
+        }
+    }
+
+    // scan right
+    left = first_path_it;
+    right = last_path_it;
+    start_shift = 0;
+    end_shift = 0;
+    // we're looking for left and right nodes that bookend the deletion, so they're lengths
+    // don't actually count towards the deletion length
+    start_size = graph.get_sequence(graph.get_handle(left->second.node)).length();
+    end_size = graph.get_sequence(graph.get_handle(right->second.node)).length();
+    for (int i = 0; i < max_deletion_scan_nodes && !found && right != path_index->end(); ++i) {
+        ++left;
+        start_size = graph.get_sequence(graph.get_handle(left->second.node)).length();
+        start_shift += start_size;        
+        while (path_deletion_length + start_shift - end_shift > vcf_deletion_length) {
+            ++right;
+            end_shift += end_size;
+            end_size = graph.get_sequence(graph.get_handle(right->second.node)).length();
+        }
+        if (path_deletion_length + start_shift - end_shift == vcf_deletion_length &&
+            graph.has_edge(graph.get_handle(left->second.node), graph.get_handle(right->second.node))) {
+            found = true;
+            first_path_it = left;
+            last_path_it = right;
+#ifdef debug
+            cerr << "Found deletion edge for allele " << allele << " of\n"
+                 << *var << endl
+                 << " by scanning right " << (i+1) << " nodes. "
+         << "The deletion from the VCF is " << vcf_deletion_length << " bases and our alt path was "
+                 << path_deletion_length << " bases" << endl;
+#endif
+        }
+    }
+
+    assert(found == true);
+}
+
 
 vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
     const Snarl& site,

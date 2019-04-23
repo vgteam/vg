@@ -375,6 +375,9 @@ protected:
     /// Include snarl endpoints in traversals
     bool include_endpoints = true;
 
+    /// How far to scan when looking for deletions
+    size_t max_deletion_scan_nodes = 500;
+
 public:
 
     /**
@@ -456,6 +459,14 @@ protected:
      *  representing the deletion edge.
      */
     pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, PathIndex* path_index);
+
+    /**
+     * An alt path for a deletion is the deleted reference path.  But sometimes vg construct doesn't
+     * write a deletion edge that exactly jumps over the alt path.  In these cases, we need to 
+     * search the graph for one. 
+     */
+    void scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
+                           PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it);
 
     /**
      * Prune our search space using the skip_alt method.  Will return a list of pruned VCF alleles/

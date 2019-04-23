@@ -785,8 +785,6 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
 #ifdef debug
         cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
 #endif
-        // We should always have a higher average support than minumum support
-        assert(support_val(average_supports.at(i)) >= support_val(min_supports.at(i)));
     }
 
     return (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
@@ -1371,6 +1369,7 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
                                  vector<vcflib::Variant*>& site_variants,
                                  function<void(const Locus&, const Snarl*, const vcflib::Variant*)> emit_locus)
 {
+
     for (int var_idx = 0; var_idx < site_variants.size(); ++var_idx) {
         // create a locus for this variant
         Locus vcf_locus;
@@ -1380,7 +1379,7 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
         int max_allele = -1;
         if (locus.genotype_size() > 0) {
             for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-                max_allele = max(max_allele, (int)locus.genotype(0).allele(i));
+                max_allele = max(max_allele, (int)trav_alleles[locus.genotype(0).allele(i)][var_idx]);
             }
             // pad our supports
             for (int i = 0; i <= max_allele; ++i) {
@@ -1398,7 +1397,6 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
             }
         }        
         *vcf_locus.mutable_overall_support() = locus.overall_support();
-
         emit_locus(vcf_locus, &site, site_variants[var_idx]);
     }
 }
@@ -1719,7 +1717,7 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
     variant.alleles = recall_variant->alleles;
     variant.quality = 0;
     variant.updateAlleleIndexes();
-    
+
     // Say we're going to spit out the genotype for this sample.        
     variant.format.push_back("GT");
     auto& genotype_vector = variant.samples[sample_name]["GT"];
@@ -1730,7 +1728,7 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
 
     vector<int> used_alleles(1, 0);
     
-    if (locus.genotype_size() > 0) {
+    if (best_allele >= 0) {
         // We actually made a call. Emit the first genotype, which is the call.
                 
         // We need to rewrite the allele numbers to alt numbers, since
@@ -1822,8 +1820,8 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
     }
     
     // Find the min total support of anything called
-    double min_site_support = INFINITY;
-    double min_site_quality = INFINITY;
+    double min_site_support = genotype.allele_size() > 0 ? INFINITY : 0;
+    double min_site_quality = genotype.allele_size() > 0 ? INFINITY : 0;
             
     for (size_t i = 0; i < genotype.allele_size(); i++) {
         // Min all the total supports from the non-ref alleles called as present
