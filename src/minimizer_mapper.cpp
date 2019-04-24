@@ -20,6 +20,8 @@
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
 //#define TRACK_CORRECTNESS
 
+#define debug
+
 namespace vg {
 
 using namespace std;
@@ -857,7 +859,10 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 // TODO: pre-make the topological order
                 
 #ifdef debug
-                cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
+                cerr << "Align " << pb2json(before_alignment) << " pinned right";
+
+#ifdef debug_dump_graph
+                cerr << " vs:" << endl;
                 subgraph.for_each_handle([&](const handle_t& here) {
                     cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
                     subgraph.follow_edges(here, true, [&](const handle_t& there) {
@@ -867,10 +872,17 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                         cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                     });
                 });
+#else
+                cerr << endl;
 #endif
-
+#endif
+                
                 // Align, accounting for full length bonus
                 get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                
+#ifdef debug
+                cerr << "\tScore: " << before_alignment.score() << endl;
+#endif
                 
                 // Record size of DP matrix filled
                 tail_dp_areas.push_back(before_sequence.size() * path_from_length(path));
@@ -897,6 +909,10 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         
         // And make the edge from it to the correct source
         s->add_next(source);
+        
+#ifdef debug
+        cerr << "Add leading tail " << (mp.subpath_size() - 1) << " -> " << source << endl;
+#endif
         
 #ifdef debug
         cerr << "Resulting source subpath: " << pb2json(*s) << endl;
@@ -987,7 +1003,10 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                             // TODO: pre-make the topological order
 
 #ifdef debug
-                            cerr << "Align " << pb2json(after_alignment) << " pinned left vs:" << endl;
+                            cerr << "Align " << pb2json(after_alignment) << " pinned left";
+
+#ifdef debug_dump_graph
+                            cerr << " vs:" << endl;
                             subgraph.for_each_handle([&](const handle_t& here) {
                                 cerr << subgraph.get_id(here) << " (" << subgraph.get_sequence(here) << "): " << endl;
                                 subgraph.follow_edges(here, true, [&](const handle_t& there) {
@@ -997,9 +1016,16 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                                     cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                                 });
                             });
+#else
+                            cerr << endl;
+#endif
 #endif
 
                             get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                            
+#ifdef debug
+                            cerr << "\tScore: " << after_alignment.score() << endl;
+#endif
                             
                             // Record size of DP matrix filled
                             tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));
@@ -1024,6 +1050,10 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     
                     // And make the edge to hook it up
                     mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+                    
+#ifdef debug
+                    cerr << "Add trailing tail " << from << " -> " << (mp.subpath_size() - 1) << endl;
+#endif
                 }
                 
                 // If there's no sequence to align on the path going off to nowhere, don't do anything.
@@ -1081,7 +1111,10 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                         between_alignment.set_sequence(intervening_sequence);
                         
 #ifdef debug
-                        cerr << "Align " << pb2json(between_alignment) << " global vs:" << endl;
+                        cerr << "Align " << pb2json(between_alignment) << " global";
+
+#ifdef debug_dump_graph
+                        cerr << " vs:" << endl;
                         cerr << "Defining path: " << pb2json(path) << endl;
                         subgraph.for_each_handle([&](const handle_t& here) {
                             cerr << subgraph.get_id(here) << " len " << subgraph.get_length(here)
@@ -1095,9 +1128,16 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                                     << " (" << subgraph.get_sequence(there) << ")" << endl;
                             });
                         });
+#else
+                        cerr << endl;
 #endif
-                        
+#endif
+
                         get_regular_aligner()->align_global_banded(between_alignment, subgraph, 5, true);
+                        
+#ifdef debug
+                        cerr << "\tScore: " << between_alignment.score() << endl;
+#endif
                         
                         if (between_alignment.score() > best_score) {
                             // This is a new best alignment. Translate from subgraph into base graph and keep it
@@ -1116,6 +1156,9 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 
                 if (best_path.mapping_size() == 0 && intervening_sequence.empty()) {
                     // We just need an edge from from to to
+#ifdef debug
+                    cerr << "Add direct edge " << from << " -> " << to << endl;
+#endif
                     mp.mutable_subpath(from)->add_next(to);
                 } else {
                     // We need to connect from and to with a Subpath with this path
@@ -1131,6 +1174,11 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     // And make the edges to hook it up
                     s->add_next(to);
                     mp.mutable_subpath(from)->add_next(mp.subpath_size() - 1);
+                    
+#ifdef debug
+                    cerr << "Add material along edge " << from << " -> " << (mp.subpath_size() - 1) << " -> " << to << endl;
+#endif
+                    
                 }
 
             }
@@ -1512,7 +1560,11 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     }
    
 #ifdef debug   
-    cerr << "Starting traversal with " << pb2json(path_to_end) << " from " << pb2json(from) << endl;
+    cerr << "Starting traversal with";
+    for (auto& mapping : path_to_end) {
+        cerr << " " << pb2json(mapping);
+    }
+    cerr << " from " << pb2json(from) << endl;
 #endif
     
     // Glom these together into a traversal state and queue it up.
