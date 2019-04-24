@@ -376,7 +376,7 @@ protected:
     bool include_endpoints = true;
 
     /// How far to scan when looking for deletions
-    size_t max_deletion_scan_nodes = 500;
+    size_t max_deletion_scan_nodes = 200;
 
 public:
 
@@ -463,9 +463,14 @@ protected:
     /**
      * An alt path for a deletion is the deleted reference path.  But sometimes vg construct doesn't
      * write a deletion edge that exactly jumps over the alt path.  In these cases, we need to 
-     * search the graph for one. 
+     * search the graph for one. This does a brute-force check of all deletion edges in the vicinity
+     * for one that's the same size as the one we're looking for.  It picks the nearest one and
+     * returns true if the exact size is found.  
+     * Todo: check the sequence as well
+     * Also todo: It'd be really nice if construct -fa would make the deletion-edge easily inferrable 
+     * from the alte path
      */
-    void scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
+    bool scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
                            PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it);
 
     /**
