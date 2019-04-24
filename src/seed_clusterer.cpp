@@ -1,6 +1,6 @@
 #include "seed_clusterer.hpp"
 
-//#define DEBUG 
+#define DEBUG 
 
 namespace vg {
 
@@ -541,49 +541,73 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
                                      chain_index.snarlToIndex[start_node]] - 1; 
 
             if (loop_dist_start != -1 || loop_dist_end != -1) {
+                //If there is a loop in the chain, then it may
+                //be possible for two clusters on the same snarl to
+                //be combined
                 vector<size_t> to_remove;
-                hash_set<size_t> seen;
-                seen.reserve(snarl_clusters.size());
-                for (size_t i : snarl_clusters) {
-                    for (size_t j : seen ) {
-                        //If there is a loop in the chain, then it may
-                        //be possible for two clusters on the same snarl to
-                        //be combined
-                        pair<int64_t, int64_t>& dists_i = cluster_dists[i];
-                        pair<int64_t, int64_t>& dists_j = cluster_dists[j];
-
-                        int64_t dist_l = dists_i.first == -1 
-                                          || dists_j.first == -1
-                                          || loop_dist_start == -1 ? -1 
-                                   : dists_i.first + dists_j.first 
-                                     + loop_dist_start - start_length;
-                        int64_t dist_r = dists_i.second == -1 
-                                          || dists_j.second == -1 
-                                          || loop_dist_end == -1 ? -1 :
-                                        dists_i.second + dists_j.second 
-                                             + loop_dist_end - end_length;
-
-                        if ((dist_r !=-1 && dist_r < distance_limit)
-                                ||(dist_l !=-1 && dist_l < distance_limit)){
-
-                            union_find_clusters.union_groups(i,j);
-                            size_t group = union_find_clusters.find_group(i);
-                            cluster_dists[group] = make_pair(
-                                   DistanceIndex::minPos({dists_i.first, 
-                                                          dists_j.first}),
-                                   DistanceIndex::minPos({dists_i.second, 
-                                                          dists_j.second}));
-                            if (group == i) {
-                                to_remove.push_back(j);
+                size_t combined_left = -1;
+                size_t combined_right = -1;
+                for (size_t c : snarl_clusters) {
+                    pair<int64_t, int64_t> dists = cluster_dists[c];
+                    if (child_dist_left != -1 && loop_dist_start != -1 &&
+                        dists.first != -1 && 
+                        child_dist_left + dists.first 
+                              + loop_dist_start - start_length 
+                              < distance_limit) {  
+                        //If this cluster can be combined with another cluster
+                        //from the left
+                        if (combined_left == -1) {
+                            combined_left = c;
+                        } else {
+                            union_find_clusters.union_groups(combined_left, c);
+                            pair<int64_t, int64_t>& old_dists =
+                                                   cluster_dists[combined_left];
+                            size_t combined_group = 
+                                              union_find_clusters.find_group(c);
+                            if (combined_group == c) {
+                                to_remove.push_back(combined_left);
                             } else {
-                                to_remove.push_back(i);
+                                to_remove.push_back(c);
                             }
+                            combined_left = combined_group;
+                            cluster_dists[combined_left] = make_pair(
+                                      DistanceIndex::minPos({old_dists.first, 
+                                                             dists.first}),
+                                      DistanceIndex::minPos({old_dists.second, 
+                                                             dists.second}));
                         }
                     }
-                    seen.insert(i); 
+                    if (child_dist_right != -1 && loop_dist_end != -1 &&
+                        dists.second != -1 && 
+                        child_dist_right + dists.second + loop_dist_end 
+                                         - end_length < distance_limit) {  
+                        //If this cluster can be combined with another cluster
+                        //from the right 
+                        if (combined_right == -1) {
+                            combined_right = c;
+                        } else {
+                            union_find_clusters.union_groups(combined_right, c);
+                            pair<int64_t, int64_t>& old_dists =
+                                                  cluster_dists[combined_right];
+                            size_t combined_group = 
+                                              union_find_clusters.find_group(c);
+                            if (combined_group == c) {
+                                to_remove.push_back(combined_right);
+                            } else {
+                                to_remove.push_back(c);
+                            }
+                            combined_right = combined_group;
+                            cluster_dists[combined_right] = make_pair(
+                                      DistanceIndex::minPos({old_dists.first, 
+                                                             dists.first}),
+                                      DistanceIndex::minPos({old_dists.second, 
+                                                             dists.second}));
+                        }
+                    }
+
                 }
-                for (size_t i : to_remove) {
-                    snarl_clusters.erase(i);
+                for (size_t c : to_remove) {
+                    snarl_clusters.erase(c);
                 }
             }
  
