@@ -3377,11 +3377,11 @@ namespace vg {
                     cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
                     connecting_graph.for_each_handle([&](const handle_t& handle) {
                         cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                        connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                        });
                         connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
                             cerr << "\t-> " << connecting_graph.get_id(next) << endl;
-                        });
-                        connecting_graph.follow_edges(handle, false, [&](const handle_t& prev) {
-                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
                         });
                     });
 #endif
@@ -3653,11 +3653,11 @@ namespace vg {
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
                         tail_graph.for_each_handle([&](const handle_t& handle) {
                             cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
-                            });
                             tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
                                 cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
                             });
                         });
 #endif
@@ -3741,7 +3741,7 @@ namespace vg {
                             tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
                                 cerr << "\t-> " << tail_graph.get_id(next) << endl;
                             });
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                            tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
                                 cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
                             });
                         });

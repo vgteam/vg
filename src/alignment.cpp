@@ -1547,9 +1547,10 @@ void normalize_alignment(Alignment& alignment) {
                 auto begin = seq.begin() + cumul_to_length;
                 auto end = begin + edit.to_length();
                 
-                edit_type_t type =  edit.sequence().empty() ? Mismatch : Match;
-                
                 auto first_N = find(begin, end, 'N');
+                
+                edit_type_t type =  edit.sequence().empty() ? Match : Mismatch;
+                
                 if (prev == type || first_N != end || doing_normalization) {
                     // we have to do some normalization here
                     ensure_init_normalized_path(i, j);
@@ -1618,7 +1619,7 @@ void normalize_alignment(Alignment& alignment) {
     if (doing_normalization) {
         // we found things we needed to normalize away, so we must have built the normalized
         // path, now replace the original with it
-        *alignment.mutable_path() = normalized;
+        *alignment.mutable_path() = move(normalized);
     }
 }
 
