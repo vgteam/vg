@@ -375,6 +375,9 @@ protected:
     /// Include snarl endpoints in traversals
     bool include_endpoints = true;
 
+    /// How far to scan when looking for deletions
+    size_t max_deletion_scan_nodes = 200;
+
 public:
 
     /**
@@ -400,7 +403,7 @@ public:
      * Find traversals for the site.  Each traversa is returned in a pair with
      * its haplotype.  The haplotype refers to the list of variants (also returned)
      */
-    pair<vector<pair<SnarlTraversal, vector<int>>>, vector<vcflib::Variant*>> find_allele_traversals(const Snarl& site);
+    pair<vector<pair<SnarlTraversal, vector<int>>>, vector<vcflib::Variant*>> find_allele_traversals(Snarl site);
 
     /**
      * Return a list of traversals for the site.  The same traversals as above, only the
@@ -456,6 +459,19 @@ protected:
      *  representing the deletion edge.
      */
     pair<SnarlTraversal, bool> get_alt_path(vcflib::Variant* site_variant, int allele, PathIndex* path_index);
+
+    /**
+     * An alt path for a deletion is the deleted reference path.  But sometimes vg construct doesn't
+     * write a deletion edge that exactly jumps over the alt path.  In these cases, we need to 
+     * search the graph for one. This does a brute-force check of all deletion edges in the vicinity
+     * for one that's the same size as the one we're looking for.  It picks the nearest one and
+     * returns true if the exact size is found.  
+     * Todo: check the sequence as well
+     * Also todo: It'd be really nice if construct -fa would make the deletion-edge easily inferrable 
+     * from the alte path
+     */
+    bool scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
+                           PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it);
 
     /**
      * Prune our search space using the skip_alt method.  Will return a list of pruned VCF alleles/
