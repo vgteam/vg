@@ -1826,6 +1826,10 @@ bool XG::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, b
     return !stop_early;
 }
 
+size_t XG::get_path_count() const {
+    return paths.size();
+}
+
 bool XG::has_path(const string& path_name) const {
     return path_rank(path_name) != 0;
 }
@@ -1837,19 +1841,68 @@ path_handle_t XG::get_path_handle(const string& path_name) const {
 string XG::get_path_name(const path_handle_t& path_handle) const {
     return path_name(as_integer(path_handle));
 }
-    
-size_t XG::get_occurrence_count(const path_handle_t& path_handle) const {
+
+bool XG::get_is_circular(const path_handle_t& path_handle) const {
+    return paths[as_integer(path_handle) - 1]->is_circular;
+}
+
+size_t XG::get_step_count(const path_handle_t& path_handle) const {
     return paths[as_integer(path_handle) - 1]->ids.size();
 }
     
 size_t XG::get_path_length(const path_handle_t& path_handle) const {
     return paths[as_integer(path_handle) - 1]->offsets.size();
 }
-    
-size_t XG::get_path_count() const {
-    return paths.size();
+
+handle_t XG::get_handle_of_step(const step_handle_t& step_handle) const {
+    const auto& xgpath = *paths[as_integer(get_path_handle_of_step(step_handle)) - 1];
+    size_t idx = as_integers(step_handle)[1];
+    return get_handle(xgpath.node(idx), xgpath.is_reverse(idx));
 }
-    
+
+path_handle_t XG::get_path_handle_of_step(const step_handle_t& step_handle) const {
+    return as_path_handle(as_integers(step_handle)[0]);
+}
+
+step_handle_t XG::path_begin(const path_handle_t& path_handle) const {
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path_handle);
+    as_integers(step)[1] = 0;
+    return step;
+}
+
+step_handle_t XG::path_end(const path_handle_t& path_handle) const {
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path_handle);
+    as_integers(step)[1] = get_step_count(path_handle);
+    return step;
+}
+
+step_handle_t XG::get_next_step(const step_handle_t& step_handle) const {
+    step_handle_t next_step;
+    as_integers(next_step)[0] = as_integers(step_handle)[0];
+    as_integers(next_step)[1] = as_integers(step_handle)[1] + 1;
+    if (get_is_circular(get_path_handle_of_step(step_handle))) {
+        if (as_integers(next_step)[1] == get_step_count(get_path_handle_of_step(step_handle))) {
+            as_integers(next_step)[1] = 0;
+        }
+    }
+    return next_step;
+}
+
+step_handle_t XG::get_previous_step(const step_handle_t& step_handle) const {
+    step_handle_t prev_step;
+    as_integers(prev_step)[0] = as_integers(step_handle)[0];
+    if (get_is_circular(get_path_handle_of_step(step_handle)) && as_integers(step_handle)[1] == 0) {
+        as_integers(prev_step)[1] = get_step_count(get_path_handle_of_step(step_handle)) - 1;
+    }
+    else {
+        as_integers(prev_step)[1] = as_integers(step_handle)[1] - 1;
+    }
+    return prev_step;
+
+}
+
 bool XG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const {
     for (size_t i = 0; i < paths.size(); i++) {
         // convert to 1-based rank
@@ -1862,62 +1915,16 @@ bool XG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& i
     return true;
 }
 
-handle_t XG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    const auto& xgpath = *paths[as_integer(get_path_handle_of_occurrence(occurrence_handle)) - 1];
-    size_t idx = as_integers(occurrence_handle)[1];
-    return get_handle(xgpath.node(idx), xgpath.is_reverse(idx));
-}
-
-occurrence_handle_t XG::get_first_occurrence(const path_handle_t& path_handle) const {
-    occurrence_handle_t occurrence_handle;
-    as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = 0;
-    return occurrence_handle;
-}
-
-occurrence_handle_t XG::get_last_occurrence(const path_handle_t& path_handle) const {
-    occurrence_handle_t occurrence_handle;
-    as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = paths[as_integer(path_handle) - 1]->ids.size() - 1;
-    return occurrence_handle;
-}
-
-bool XG::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return as_integers(occurrence_handle)[1] + 1 < paths[as_integers(occurrence_handle)[0] - 1]->ids.size();
-}
-
-bool XG::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return as_integers(occurrence_handle)[1] > 0;
-}
-
-occurrence_handle_t XG::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    occurrence_handle_t next_occurrence_handle;
-    as_integers(next_occurrence_handle)[0] = as_integers(occurrence_handle)[0];
-    as_integers(next_occurrence_handle)[1] = as_integers(occurrence_handle)[1] + 1;
-    return next_occurrence_handle;
-}
-
-occurrence_handle_t XG::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    occurrence_handle_t prev_occurrence_handle;
-    as_integers(prev_occurrence_handle)[0] = as_integers(occurrence_handle)[0];
-    as_integers(prev_occurrence_handle)[1] = as_integers(occurrence_handle)[1] - 1;
-    return prev_occurrence_handle;
-
-}
-
-path_handle_t XG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return as_path_handle(as_integers(occurrence_handle)[0]);
-}
-
-bool XG::for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const {
+bool XG::for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const {
+    
     vector<pair<size_t, vector<pair<size_t, bool>>>> oriented_paths = oriented_paths_of_node(get_id(handle));
     
     for (const pair<size_t, vector<pair<size_t, bool>>>& path_occs : oriented_paths) {
         for (const pair<size_t, bool>& oriented_occ : path_occs.second) {
-            occurrence_handle_t occurrence_handle;
-            as_integers(occurrence_handle)[0] = path_occs.first;
-            as_integers(occurrence_handle)[1] = oriented_occ.first;
-            if (!iteratee(occurrence_handle)) {
+            step_handle_t step_handle;
+            as_integers(step_handle)[0] = path_occs.first;
+            as_integers(step_handle)[1] = oriented_occ.first;
+            if (!iteratee(step_handle)) {
                 return false;
             }
         }

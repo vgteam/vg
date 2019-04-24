@@ -9,7 +9,7 @@ namespace unittest{
 /// variant_len is the mean length of a larger variation and variant_count
 /// is the number of variations added to the graph
 void random_graph(int64_t seq_size, int64_t variant_len, int64_t variant_count,
-                  MutablePathDeletableHandleGraph* graph);
+                  MutablePathMutableHandleGraph* graph);
 
 }
 }
