@@ -98,8 +98,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ac52a4cb434acc0107fca1083eeaa7b20"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#ac52a4cb434acc0107fca1083eeaa7b20">PackedPath</a> (const string &amp;<a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a49b6d1eb6e9d48c83dfe12b2be2b4f3d">name</a>)</td></tr>
-<tr class="separator:ac52a4cb434acc0107fca1083eeaa7b20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afa6cd6fb312be6a9f6655d01a2de068b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#afa6cd6fb312be6a9f6655d01a2de068b">PackedPath</a> (const string &amp;<a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a49b6d1eb6e9d48c83dfe12b2be2b4f3d">name</a>, bool <a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a5c7aa5b66dc042b009cf6f3823f27ada">is_circular</a>)</td></tr>
+<tr class="separator:afa6cd6fb312be6a9f6655d01a2de068b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -109,17 +109,20 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a4a75015706cc60ec675609a33473857f"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a4a75015706cc60ec675609a33473857f">is_deleted</a> = false</td></tr>
 <tr class="memdesc:a4a75015706cc60ec675609a33473857f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks whether this path has been deleted.  <a href="#a4a75015706cc60ec675609a33473857f">More...</a><br/></td></tr>
 <tr class="separator:a4a75015706cc60ec675609a33473857f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a98c102a0192e95b2f2a1a8680e72f721"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PagedVector.html">PagedVector</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a98c102a0192e95b2f2a1a8680e72f721">occurrences_iv</a></td></tr>
-<tr class="separator:a98c102a0192e95b2f2a1a8680e72f721"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c7aa5b66dc042b009cf6f3823f27ada"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a5c7aa5b66dc042b009cf6f3823f27ada">is_circular</a> = false</td></tr>
+<tr class="memdesc:a5c7aa5b66dc042b009cf6f3823f27ada"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks whether this path is circular.  <a href="#a5c7aa5b66dc042b009cf6f3823f27ada">More...</a><br/></td></tr>
+<tr class="separator:a5c7aa5b66dc042b009cf6f3823f27ada"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57bdca6f9b030e65bd239a68f65973a0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PagedVector.html">PagedVector</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a57bdca6f9b030e65bd239a68f65973a0">steps_iv</a></td></tr>
+<tr class="separator:a57bdca6f9b030e65bd239a68f65973a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1cf547a77c46886a6461b5a2620be1d6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6">head</a> = 0</td></tr>
-<tr class="memdesc:a1cf547a77c46886a6461b5a2620be1d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">1-based index of the head of the linked list in occurrences_iv.  <a href="#a1cf547a77c46886a6461b5a2620be1d6">More...</a><br/></td></tr>
+<tr class="memdesc:a1cf547a77c46886a6461b5a2620be1d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">1-based index of the head of the linked list in steps_iv.  <a href="#a1cf547a77c46886a6461b5a2620be1d6">More...</a><br/></td></tr>
 <tr class="separator:a1cf547a77c46886a6461b5a2620be1d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aeb299ea8d7f8927b486600b11fe41268"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268">tail</a> = 0</td></tr>
-<tr class="memdesc:aeb299ea8d7f8927b486600b11fe41268"><td class="mdescLeft">&#160;</td><td class="mdescRight">1-based index of the tail of the linked list in occurrences_iv.  <a href="#aeb299ea8d7f8927b486600b11fe41268">More...</a><br/></td></tr>
+<tr class="memdesc:aeb299ea8d7f8927b486600b11fe41268"><td class="mdescLeft">&#160;</td><td class="mdescRight">1-based index of the tail of the linked list in steps_iv.  <a href="#aeb299ea8d7f8927b486600b11fe41268">More...</a><br/></td></tr>
 <tr class="separator:aeb299ea8d7f8927b486600b11fe41268"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="ac52a4cb434acc0107fca1083eeaa7b20"></a>
+<a class="anchor" id="afa6cd6fb312be6a9f6655d01a2de068b"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -130,8 +133,18 @@ Public Attributes</h2></td></tr>
           <td class="memname">vg::PackedGraph::PackedPath::PackedPath </td>
           <td>(</td>
           <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>name</em></td><td>)</td>
+          <td class="paramname"><em>name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_circular</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -154,7 +167,21 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>1-based index of the head of the linked list in occurrences_iv. </p>
+<p>1-based index of the head of the linked list in steps_iv. </p>
+
+</div>
+</div>
+<a class="anchor" id="a5c7aa5b66dc042b009cf6f3823f27ada"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::PackedGraph::PackedPath::is_circular = false</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Marks whether this path is circular. </p>
 
 </div>
 </div>
@@ -186,16 +213,16 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a98c102a0192e95b2f2a1a8680e72f721"></a>
+<a class="anchor" id="a57bdca6f9b030e65bd239a68f65973a0"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1PagedVector.html">PagedVector</a> vg::PackedGraph::PackedPath::occurrences_iv</td>
+          <td class="memname"><a class="el" href="classvg_1_1PagedVector.html">PagedVector</a> vg::PackedGraph::PackedPath::steps_iv</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Linked list records that encode the oriented nodes of the path. Indexes are 1-based, with 0 used as a sentinel to indicate none further. {ID|orientation (bit-packed), prev occurrence index, next occurrence index} </p>
+<p>Linked list records that encode the oriented nodes of the path. Indexes are 1-based, with 0 used as a sentinel to indicate none further. {ID|orientation (bit-packed), prev step index, next step index} </p>
 
 </div>
 </div>
@@ -209,7 +236,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>1-based index of the tail of the linked list in occurrences_iv. </p>
+<p>1-based index of the tail of the linked list in steps_iv. </p>
 
 </div>
 </div>

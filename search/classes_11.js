@@ -21,6 +21,7 @@ var searchData=
   ['srpe',['SRPE',['../classvg_1_1SRPE.html',1,'vg']]],
   ['sswaligner',['SSWAligner',['../classvg_1_1SSWAligner.html',1,'vg']]],
   ['stage',['Stage',['../structvg_1_1Funnel_1_1Stage.html',1,'vg::Funnel']]],
+  ['step_5fhandle_5ft',['step_handle_t',['../structhandlegraph_1_1step__handle__t.html',1,'handlegraph']]],
   ['strandsupport',['StrandSupport',['../structvg_1_1StrandSupport.html',1,'vg']]],
   ['streamindex',['StreamIndex',['../classvg_1_1StreamIndex.html',1,'vg']]],
   ['streamindex_3c_20vg_3a_3agraph_20_3e',['StreamIndex&lt; vg::Graph &gt;',['../classvg_1_1StreamIndex.html',1,'vg']]],

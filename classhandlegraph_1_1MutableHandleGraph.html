@@ -102,13 +102,17 @@ Inheritance diagram for handlegraph::MutableHandleGraph:</div>
  <div class="center">
   <img src="classhandlegraph_1_1MutableHandleGraph.png" usemap="#handlegraph::MutableHandleGraph_map" alt=""/>
   <map id="handlegraph::MutableHandleGraph_map" name="handlegraph::MutableHandleGraph_map">
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="445,0,732,24"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="742,0,1029,24"/>
 <area href="classhandlegraph_1_1DeletableHandleGraph.html" alt="handlegraph::DeletableHandleGraph" shape="rect" coords="297,112,584,136"/>
-<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="594,112,881,136"/>
+<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="1188,112,1475,136"/>
 <area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="297,168,584,192"/>
+<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="1188,168,1475,192"/>
 <area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="0,224,287,248"/>
 <area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="297,224,584,248"/>
 <area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="594,224,881,248"/>
+<area href="classvg_1_1HashGraph.html" alt="vg::HashGraph" shape="rect" coords="891,224,1178,248"/>
+<area href="classvg_1_1PackedGraph.html" alt="vg::PackedGraph" shape="rect" coords="1188,224,1475,248"/>
+<area href="classvg_1_1VG.html" alt="vg::VG" shape="rect" coords="1485,224,1772,248"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -125,8 +129,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a3ff0a0f9497da3498170fdfc2ce97797"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a3ff0a0f9497da3498170fdfc2ce97797">create_edge</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge)</td></tr>
 <tr class="memdesc:a3ff0a0f9497da3498170fdfc2ce97797"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper for create_edge.  <a href="#a3ff0a0f9497da3498170fdfc2ce97797">More...</a><br/></td></tr>
 <tr class="separator:a3ff0a0f9497da3498170fdfc2ce97797"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a87a4f4e1eece8a26d36af78ef1bc1751"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a87a4f4e1eece8a26d36af78ef1bc1751">swap_handles</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;a, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;b)=0</td></tr>
-<tr class="separator:a87a4f4e1eece8a26d36af78ef1bc1751"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a71433449cb13e22dc19caaf544b6d7bc"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a71433449cb13e22dc19caaf544b6d7bc">apply_orientation</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)=0</td></tr>
 <tr class="separator:a71433449cb13e22dc19caaf544b6d7bc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aca166406fa2000778552ed77c41a5e4c"><td class="memItemLeft" align="right" valign="top">virtual std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#aca166406fa2000778552ed77c41a5e4c">divide_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::vector&lt; size_t &gt; &amp;offsets)=0</td></tr>
@@ -422,43 +424,6 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Specialization of divide_handle for a single division point. </p>
-
-</div>
-</div>
-<a class="anchor" id="a87a4f4e1eece8a26d36af78ef1bc1751"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">virtual void handlegraph::MutableHandleGraph::swap_handles </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>a</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>b</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Swap the nodes corresponding to the given handles, in the ordering used by for_each_handle when looping over the graph. Other handles to the nodes being swapped must not be invalidated. If a swap is made while for_each_handle is running, it affects the order of the handles traversed during the current traversal (so swapping an already seen handle to a later handle's position will make the seen handle be visited again and the later handle not be visited at all). </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1VG.html#a3d4db6ea2a99bda9a48411491aa6ed4e">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#af277d9d702500220c50f12d57b417931">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a2baff414f3e0c3d3a63260cd8b1f19ab">vg::HashGraph</a>.</p>
 
 </div>
 </div>

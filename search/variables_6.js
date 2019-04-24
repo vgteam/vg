@@ -23,6 +23,7 @@ var searchData=
   ['flat_5fnode',['flat_node',['../structhaplo_1_1haplo__DP__rectangle.html#a5c211ab946bf46fc45b1815482fd790a',1,'haplo::haplo_DP_rectangle']]],
   ['flush',['flush',['../structhFILE__backend.html#a05954cb747837c1c6061995ac8a90b0d',1,'hFILE_backend']]],
   ['force_5fhaplotype_5fcount',['force_haplotype_count',['../classvg_1_1MultipathMapper.html#a4c89cc1e5c4696682c6bc9282de4b034',1,'vg::MultipathMapper']]],
+  ['force_5funequal',['force_unequal',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ac1dcdb35b0b8fc51f2aee4abea3ce242',1,'handlegraph::PathForEachSocket::iterator']]],
   ['forefronts',['forefronts',['../classvg_1_1XdropAligner.html#ae3a4b6a0f8a31895f99ec6e59c2b732c',1,'vg::XdropAligner']]],
   ['forks',['forks',['../structvg_1_1walk__t.html#a24c17fa18ae88290cebb26c0e61a86d1',1,'vg::walk_t']]],
   ['format',['format',['../classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761',1,'vg::HTSAlignmentEmitter']]],

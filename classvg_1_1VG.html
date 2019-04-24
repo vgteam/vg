@@ -106,14 +106,17 @@ Inheritance diagram for vg::VG:</div>
  <div class="center">
   <img src="classvg_1_1VG.png" usemap="#vg::VG_map" alt=""/>
   <map id="vg::VG_map" name="vg::VG_map">
-<area href="classvg_1_1Progressive.html" alt="vg::Progressive" shape="rect" coords="0,168,287,192"/>
-<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="297,168,584,192"/>
-<area href="classhandlegraph_1_1MutablePathHandleGraph.html" alt="handlegraph::MutablePathHandleGraph" shape="rect" coords="148,112,435,136"/>
-<area href="classhandlegraph_1_1DeletableHandleGraph.html" alt="handlegraph::DeletableHandleGraph" shape="rect" coords="445,112,732,136"/>
-<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="148,56,435,80"/>
-<area href="classhandlegraph_1_1MutableHandleGraph.html" alt="handlegraph::MutableHandleGraph" shape="rect" coords="445,56,732,80"/>
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="148,0,435,24"/>
-<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="445,0,732,24"/>
+<area href="classvg_1_1Progressive.html" alt="vg::Progressive" shape="rect" coords="0,224,287,248"/>
+<area href="classhandlegraph_1_1MutablePathDeletableHandleGraph.html" alt="handlegraph::MutablePathDeletableHandleGraph" shape="rect" coords="371,224,658,248"/>
+<area href="classhandlegraph_1_1MutablePathMutableHandleGraph.html" alt="handlegraph::MutablePathMutableHandleGraph" shape="rect" coords="148,168,435,192"/>
+<area href="classhandlegraph_1_1DeletableHandleGraph.html" alt="handlegraph::DeletableHandleGraph" shape="rect" coords="594,168,881,192"/>
+<area href="classhandlegraph_1_1MutablePathHandleGraph.html" alt="handlegraph::MutablePathHandleGraph" shape="rect" coords="0,112,287,136"/>
+<area href="classhandlegraph_1_1MutableHandleGraph.html" alt="handlegraph::MutableHandleGraph" shape="rect" coords="297,112,584,136"/>
+<area href="classhandlegraph_1_1MutableHandleGraph.html" alt="handlegraph::MutableHandleGraph" shape="rect" coords="594,112,881,136"/>
+<area href="classhandlegraph_1_1PathHandleGraph.html" alt="handlegraph::PathHandleGraph" shape="rect" coords="0,56,287,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="297,56,584,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="594,56,881,80"/>
+<area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,287,24"/>
 </map>
  </div></div>
 <table class="memberdecls">
@@ -159,6 +162,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac1a8a09a49ea348f3714377b893319f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a150b452102319b93490e53b2dc62e920"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a150b452102319b93490e53b2dc62e920">has_edge</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;right) const </td></tr>
 <tr class="separator:a150b452102319b93490e53b2dc62e920"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20417af67e14d7800b20df8b0ac763f9"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">get_path_count</a> () const </td></tr>
+<tr class="memdesc:a20417af67e14d7800b20df8b0ac763f9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of paths stored in the graph.  <a href="#a20417af67e14d7800b20df8b0ac763f9">More...</a><br/></td></tr>
+<tr class="separator:a20417af67e14d7800b20df8b0ac763f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86daea8c9c2ff784598512fff740bd2c"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a86daea8c9c2ff784598512fff740bd2c">has_path</a> (const string &amp;path_name) const </td></tr>
 <tr class="memdesc:a86daea8c9c2ff784598512fff740bd2c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a path name exists and is legal to get a path handle for.  <a href="#a86daea8c9c2ff784598512fff740bd2c">More...</a><br/></td></tr>
 <tr class="separator:a86daea8c9c2ff784598512fff740bd2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -168,42 +174,32 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac71b9547040f0d8ae430d564aa897d97"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ac71b9547040f0d8ae430d564aa897d97">get_path_name</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
 <tr class="memdesc:ac71b9547040f0d8ae430d564aa897d97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the name of a path from a handle to it.  <a href="#ac71b9547040f0d8ae430d564aa897d97">More...</a><br/></td></tr>
 <tr class="separator:ac71b9547040f0d8ae430d564aa897d97"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a800d31a2623c04eaf0073554e7ca31c5"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a800d31a2623c04eaf0073554e7ca31c5">get_occurrence_count</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
-<tr class="memdesc:a800d31a2623c04eaf0073554e7ca31c5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of node occurrences in the path.  <a href="#a800d31a2623c04eaf0073554e7ca31c5">More...</a><br/></td></tr>
-<tr class="separator:a800d31a2623c04eaf0073554e7ca31c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a20417af67e14d7800b20df8b0ac763f9"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">get_path_count</a> () const </td></tr>
-<tr class="memdesc:a20417af67e14d7800b20df8b0ac763f9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of paths stored in the graph.  <a href="#a20417af67e14d7800b20df8b0ac763f9">More...</a><br/></td></tr>
-<tr class="separator:a20417af67e14d7800b20df8b0ac763f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b36247a6ca74800a80d83170948fee9"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5b36247a6ca74800a80d83170948fee9">get_is_circular</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
+<tr class="memdesc:a5b36247a6ca74800a80d83170948fee9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up whether a path is circular.  <a href="#a5b36247a6ca74800a80d83170948fee9">More...</a><br/></td></tr>
+<tr class="separator:a5b36247a6ca74800a80d83170948fee9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a212238ea52a6c8f542bb3c6b866cb040"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a212238ea52a6c8f542bb3c6b866cb040">get_step_count</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
+<tr class="memdesc:a212238ea52a6c8f542bb3c6b866cb040"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of node steps in the path.  <a href="#a212238ea52a6c8f542bb3c6b866cb040">More...</a><br/></td></tr>
+<tr class="separator:a212238ea52a6c8f542bb3c6b866cb040"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a80e9b71f9dd2cbfb1881b830ae4654b6"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a80e9b71f9dd2cbfb1881b830ae4654b6">get_handle_of_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const </td></tr>
+<tr class="memdesc:a80e9b71f9dd2cbfb1881b830ae4654b6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a node handle (node ID and orientation) from a handle to an step on a path.  <a href="#a80e9b71f9dd2cbfb1881b830ae4654b6">More...</a><br/></td></tr>
+<tr class="separator:a80e9b71f9dd2cbfb1881b830ae4654b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5c8b0de9776e2f4ee0b1185ba59485c0"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5c8b0de9776e2f4ee0b1185ba59485c0">get_path_handle_of_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const </td></tr>
+<tr class="memdesc:a5c8b0de9776e2f4ee0b1185ba59485c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that an step is on.  <a href="#a5c8b0de9776e2f4ee0b1185ba59485c0">More...</a><br/></td></tr>
+<tr class="separator:a5c8b0de9776e2f4ee0b1185ba59485c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8ba115ffda674c76e8956a8057545b25"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a8ba115ffda674c76e8956a8057545b25">path_begin</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
+<tr class="separator:a8ba115ffda674c76e8956a8057545b25"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6eaa8a920a65428b70b7b77142805208"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a6eaa8a920a65428b70b7b77142805208">path_end</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
+<tr class="separator:a6eaa8a920a65428b70b7b77142805208"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa94c162ade42415f7defe7677e5bae53"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aa94c162ade42415f7defe7677e5bae53">get_next_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const </td></tr>
+<tr class="separator:aa94c162ade42415f7defe7677e5bae53"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1723ce56da21a5f6953464d03e4849ac"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a1723ce56da21a5f6953464d03e4849ac">get_previous_step</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;step_handle) const </td></tr>
+<tr class="separator:a1723ce56da21a5f6953464d03e4849ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad8d0976ab79947044eec399698299777"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad8d0976ab79947044eec399698299777">for_each_path_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
 <tr class="memdesc:ad8d0976ab79947044eec399698299777"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute a function on each path in the graph.  <a href="#ad8d0976ab79947044eec399698299777">More...</a><br/></td></tr>
 <tr class="separator:ad8d0976ab79947044eec399698299777"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abbef12f2d3db8d702f1fdf2aea40351d"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#abbef12f2d3db8d702f1fdf2aea40351d">get_occurrence</a> (const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:abbef12f2d3db8d702f1fdf2aea40351d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a node handle (node ID and orientation) from a handle to an occurrence on a path.  <a href="#abbef12f2d3db8d702f1fdf2aea40351d">More...</a><br/></td></tr>
-<tr class="separator:abbef12f2d3db8d702f1fdf2aea40351d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adff0e1716e97115deacaf3115786db5b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#adff0e1716e97115deacaf3115786db5b">get_first_occurrence</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
-<tr class="memdesc:adff0e1716e97115deacaf3115786db5b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a handle to the first occurrence in a path.  <a href="#adff0e1716e97115deacaf3115786db5b">More...</a><br/></td></tr>
-<tr class="separator:adff0e1716e97115deacaf3115786db5b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a82696917d41113970d95e84cb2ed9f88"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a82696917d41113970d95e84cb2ed9f88">get_last_occurrence</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
-<tr class="memdesc:a82696917d41113970d95e84cb2ed9f88"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get a handle to the last occurrence in a path.  <a href="#a82696917d41113970d95e84cb2ed9f88">More...</a><br/></td></tr>
-<tr class="separator:a82696917d41113970d95e84cb2ed9f88"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:add251f0d262b6af53b11b244c17b39ec"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#add251f0d262b6af53b11b244c17b39ec">has_next_occurrence</a> (const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:add251f0d262b6af53b11b244c17b39ec"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the occurrence is not the last occurence on the path, else false.  <a href="#add251f0d262b6af53b11b244c17b39ec">More...</a><br/></td></tr>
-<tr class="separator:add251f0d262b6af53b11b244c17b39ec"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4fdaf206869cf4a3d7fe09858fa757c8"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a4fdaf206869cf4a3d7fe09858fa757c8">has_previous_occurrence</a> (const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:a4fdaf206869cf4a3d7fe09858fa757c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the occurrence is not the first occurence on the path, else false.  <a href="#a4fdaf206869cf4a3d7fe09858fa757c8">More...</a><br/></td></tr>
-<tr class="separator:a4fdaf206869cf4a3d7fe09858fa757c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8de058cf4945d57d348d148945281b00"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a8de058cf4945d57d348d148945281b00">get_next_occurrence</a> (const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:a8de058cf4945d57d348d148945281b00"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the next occurrence on the path.  <a href="#a8de058cf4945d57d348d148945281b00">More...</a><br/></td></tr>
-<tr class="separator:a8de058cf4945d57d348d148945281b00"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeb4c806b52f820abecb2ef14b39f9fac"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aeb4c806b52f820abecb2ef14b39f9fac">get_previous_occurrence</a> (const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:aeb4c806b52f820abecb2ef14b39f9fac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the previous occurrence on the path.  <a href="#aeb4c806b52f820abecb2ef14b39f9fac">More...</a><br/></td></tr>
-<tr class="separator:aeb4c806b52f820abecb2ef14b39f9fac"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a99957343fa6c48216d95787c1ddbd680"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a99957343fa6c48216d95787c1ddbd680">get_path_handle_of_occurrence</a> (const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;occurrence_handle) const </td></tr>
-<tr class="memdesc:a99957343fa6c48216d95787c1ddbd680"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a handle to the path that an occurrence is on.  <a href="#a99957343fa6c48216d95787c1ddbd680">More...</a><br/></td></tr>
-<tr class="separator:a99957343fa6c48216d95787c1ddbd680"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9ac3fe9179a7adef9b4462476a520335"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a9ac3fe9179a7adef9b4462476a520335">for_each_occurrence_on_handle_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
-<tr class="memdesc:a9ac3fe9179a7adef9b4462476a520335"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loop over the occurrences of a handle in paths.  <a href="#a9ac3fe9179a7adef9b4462476a520335">More...</a><br/></td></tr>
-<tr class="separator:a9ac3fe9179a7adef9b4462476a520335"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af1c6f800abfa14fdca58936e97907004"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#af1c6f800abfa14fdca58936e97907004">for_each_step_on_handle_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
+<tr class="memdesc:af1c6f800abfa14fdca58936e97907004"><td class="mdescLeft">&#160;</td><td class="mdescRight">Loop over the steps of a handle in paths.  <a href="#af1c6f800abfa14fdca58936e97907004">More...</a><br/></td></tr>
+<tr class="separator:af1c6f800abfa14fdca58936e97907004"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a54ad97e46dc1297b1a65a32697e2d37e"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a54ad97e46dc1297b1a65a32697e2d37e">create_handle</a> (const string &amp;sequence)</td></tr>
 <tr class="memdesc:a54ad97e46dc1297b1a65a32697e2d37e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given sequence and return the handle.  <a href="#a54ad97e46dc1297b1a65a32697e2d37e">More...</a><br/></td></tr>
 <tr class="separator:a54ad97e46dc1297b1a65a32697e2d37e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -229,14 +225,16 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7a5dbc95fa80e7fe3dc04d62ac6d7b3c"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a7a5dbc95fa80e7fe3dc04d62ac6d7b3c">divide_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const vector&lt; size_t &gt; &amp;offsets)</td></tr>
 <tr class="separator:a7a5dbc95fa80e7fe3dc04d62ac6d7b3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb25bd1fdb9e36c55157c5be864ca403"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">destroy_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
-<tr class="memdesc:adb25bd1fdb9e36c55157c5be864ca403"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the given path. Invalidates handles to the path and its node occurrences.  <a href="#adb25bd1fdb9e36c55157c5be864ca403">More...</a><br/></td></tr>
+<tr class="memdesc:adb25bd1fdb9e36c55157c5be864ca403"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the given path. Invalidates handles to the path and its node steps.  <a href="#adb25bd1fdb9e36c55157c5be864ca403">More...</a><br/></td></tr>
 <tr class="separator:adb25bd1fdb9e36c55157c5be864ca403"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4bcd5d003953bbec11cd6162e53bb974"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a4bcd5d003953bbec11cd6162e53bb974">create_path_handle</a> (const string &amp;<a class="el" href="classvg_1_1VG.html#a1f6fcd5a907e9bee524cf37a62ad5be2">name</a>)</td></tr>
-<tr class="memdesc:a4bcd5d003953bbec11cd6162e53bb974"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a path with the given name.  <a href="#a4bcd5d003953bbec11cd6162e53bb974">More...</a><br/></td></tr>
-<tr class="separator:a4bcd5d003953bbec11cd6162e53bb974"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa27ce8091357377810e01f45bc783e49"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aa27ce8091357377810e01f45bc783e49">append_occurrence</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_append)</td></tr>
-<tr class="memdesc:aa27ce8091357377810e01f45bc783e49"><td class="mdescLeft">&#160;</td><td class="mdescRight">Append a visit to a node to the given path.  <a href="#aa27ce8091357377810e01f45bc783e49">More...</a><br/></td></tr>
-<tr class="separator:aa27ce8091357377810e01f45bc783e49"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7c99e48723b360eb2b1315b2c5af7cc"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#af7c99e48723b360eb2b1315b2c5af7cc">create_path_handle</a> (const string &amp;<a class="el" href="classvg_1_1VG.html#a1f6fcd5a907e9bee524cf37a62ad5be2">name</a>, bool is_circular=false)</td></tr>
+<tr class="memdesc:af7c99e48723b360eb2b1315b2c5af7cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a path with the given name.  <a href="#af7c99e48723b360eb2b1315b2c5af7cc">More...</a><br/></td></tr>
+<tr class="separator:af7c99e48723b360eb2b1315b2c5af7cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad11c8a716733fce2aa9dab94b42286bd"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad11c8a716733fce2aa9dab94b42286bd">append_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_append)</td></tr>
+<tr class="memdesc:ad11c8a716733fce2aa9dab94b42286bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Append a visit to a node to the given path.  <a href="#ad11c8a716733fce2aa9dab94b42286bd">More...</a><br/></td></tr>
+<tr class="separator:ad11c8a716733fce2aa9dab94b42286bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a73c97ce0157b90f95b888e4b6983f5c8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a73c97ce0157b90f95b888e4b6983f5c8">set_circularity</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, bool circular)</td></tr>
+<tr class="separator:a73c97ce0157b90f95b888e4b6983f5c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae1131c1ff0a94ed2ec9ef35cb678801b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ae1131c1ff0a94ed2ec9ef35cb678801b">set_edge</a> (<a class="el" href="structvg_1_1Edge.html">Edge</a> *)</td></tr>
 <tr class="separator:ae1131c1ff0a94ed2ec9ef35cb678801b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2b659686076f3d6b7b63ec9678d76a93"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a2b659686076f3d6b7b63ec9678d76a93">print_edges</a> (void)</td></tr>
@@ -439,6 +437,13 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a0f8c9051591df60d405a8dc1006aa6d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa906c5779ea372eb4dd0d9b8cc224be3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aa906c5779ea372eb4dd0d9b8cc224be3">swap_node_id</a> (<a class="el" href="structvg_1_1Node.html">Node</a> *node, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> new_id)</td></tr>
 <tr class="separator:aa906c5779ea372eb4dd0d9b8cc224be3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a902d516631c77d074aa2a11ae70a6957"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a902d516631c77d074aa2a11ae70a6957">sort</a> ()</td></tr>
+<tr class="separator:a902d516631c77d074aa2a11ae70a6957"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab1aecdffe7759a1e14248e00f2866b84"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ab1aecdffe7759a1e14248e00f2866b84">id_sort</a> ()</td></tr>
+<tr class="memdesc:ab1aecdffe7759a1e14248e00f2866b84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Order the backing graph data structure by node ID.  <a href="#ab1aecdffe7759a1e14248e00f2866b84">More...</a><br/></td></tr>
+<tr class="separator:ab1aecdffe7759a1e14248e00f2866b84"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c6c620dddbc850d46d107fad1ae1ede"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a6c6c620dddbc850d46d107fad1ae1ede">apply_ordering</a> (const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;ordering)</td></tr>
+<tr class="separator:a6c6c620dddbc850d46d107fad1ae1ede"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2519c3b939f48bca226e6fdea4c91f9d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a2519c3b939f48bca226e6fdea4c91f9d">extend</a> (const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;g, bool warn_on_duplicates=false)</td></tr>
 <tr class="separator:a2519c3b939f48bca226e6fdea4c91f9d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5e517214b33812b16f195a1f87841c0d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5e517214b33812b16f195a1f87841c0d">extend</a> (const <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;<a class="el" href="classvg_1_1VG.html#a4772c77ed932bfed4d21e247918381a4">graph</a>, bool warn_on_duplicates=false)</td></tr>
@@ -941,8 +946,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aaab8c6ae92870077bb59f86a15c8d18f inherit pub_methods_classvg_1_1Progressive"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Progressive.html#aaab8c6ae92870077bb59f86a15c8d18f">destroy_progress</a> (void)</td></tr>
 <tr class="separator:aaab8c6ae92870077bb59f86a15c8d18f inherit pub_methods_classvg_1_1Progressive"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1MutablePathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">handlegraph::MutablePathHandleGraph</a></td></tr>
-<tr class="memitem:a2fc36c06e32b7cb5339f046a0c5a45d7 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a2fc36c06e32b7cb5339f046a0c5a45d7">create_path_handle</a> (const std::string &amp;name)=0</td></tr>
-<tr class="separator:a2fc36c06e32b7cb5339f046a0c5a45d7 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0873a6eb776bb2557a5b8453dbf13824 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a0873a6eb776bb2557a5b8453dbf13824">create_path_handle</a> (const std::string &amp;name, bool is_circular=false)=0</td></tr>
+<tr class="separator:a0873a6eb776bb2557a5b8453dbf13824 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1PathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1PathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">handlegraph::PathHandleGraph</a></td></tr>
 <tr class="memitem:ab7de11c1e994bc104378c4b798013430 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ab7de11c1e994bc104378c4b798013430">has_path</a> (const std::string &amp;path_name) const =0</td></tr>
 <tr class="memdesc:ab7de11c1e994bc104378c4b798013430 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a path name exists and is legal to get a path handle for.  <a href="#ab7de11c1e994bc104378c4b798013430">More...</a><br/></td></tr>
@@ -952,18 +957,20 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a3313c420e4cf77baf157af2732848850 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
 <tr class="memitem:a3313c420e4cf77baf157af2732848850 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a3313c420e4cf77baf157af2732848850">for_each_path_handle</a> (const Iteratee &amp;iteratee) const </td></tr>
 <tr class="separator:a3313c420e4cf77baf157af2732848850 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a008069cd57d3d74b5c362fa178ec37f4 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
-<tr class="memitem:a008069cd57d3d74b5c362fa178ec37f4 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a008069cd57d3d74b5c362fa178ec37f4">for_each_occurrence_on_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const Iteratee &amp;iteratee) const </td></tr>
-<tr class="separator:a008069cd57d3d74b5c362fa178ec37f4 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a632498485896564a0f91c07eb18488cb inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual std::vector<br class="typebreak"/>
-&lt; <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a632498485896564a0f91c07eb18488cb">occurrences_of_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool match_orientation=false) const </td></tr>
-<tr class="separator:a632498485896564a0f91c07eb18488cb inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae63696ee6a047a75505c6096c635c16b inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
+<tr class="memitem:ae63696ee6a047a75505c6096c635c16b inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ae63696ee6a047a75505c6096c635c16b">for_each_step_on_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const Iteratee &amp;iteratee) const </td></tr>
+<tr class="separator:ae63696ee6a047a75505c6096c635c16b inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac121fdcefdeffba0a88b6bd3a2789471 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual std::vector<br class="typebreak"/>
+&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ac121fdcefdeffba0a88b6bd3a2789471">steps_of_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool match_orientation=false) const </td></tr>
+<tr class="separator:ac121fdcefdeffba0a88b6bd3a2789471 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0ed6b61e10e5ad54812cf8bac2d56e9f inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a0ed6b61e10e5ad54812cf8bac2d56e9f">is_empty</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path_handle) const </td></tr>
 <tr class="memdesc:a0ed6b61e10e5ad54812cf8bac2d56e9f inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns true if the given path is empty, and false otherwise.  <a href="#a0ed6b61e10e5ad54812cf8bac2d56e9f">More...</a><br/></td></tr>
 <tr class="separator:a0ed6b61e10e5ad54812cf8bac2d56e9f inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af053bc1c7a356ea975cce61ab428db76 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
-<tr class="memitem:af053bc1c7a356ea975cce61ab428db76 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#af053bc1c7a356ea975cce61ab428db76">for_each_occurrence_in_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const Iteratee &amp;iteratee) const </td></tr>
-<tr class="separator:af053bc1c7a356ea975cce61ab428db76 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade32a59c445376a454c9a2526c5260cc inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classhandlegraph_1_1PathForEachSocket.html">PathForEachSocket</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ade32a59c445376a454c9a2526c5260cc">scan_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path) const </td></tr>
+<tr class="separator:ade32a59c445376a454c9a2526c5260cc inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a31c085eb8590fff9d4035a9bf87cf7a7 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
+<tr class="memitem:a31c085eb8590fff9d4035a9bf87cf7a7 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a31c085eb8590fff9d4035a9bf87cf7a7">for_each_step_in_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const Iteratee &amp;iteratee) const </td></tr>
+<tr class="separator:a31c085eb8590fff9d4035a9bf87cf7a7 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a5dcea1610fac82460ff304e07b4dd6e0 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
 <tr class="memitem:a5dcea1610fac82460ff304e07b4dd6e0 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a5dcea1610fac82460ff304e07b4dd6e0">follow_edges</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const Iteratee &amp;iteratee) const </td></tr>
@@ -984,10 +991,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6a10d13e6e403d64221c0b2f3566b78f inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
 <tr class="memitem:a6a10d13e6e403d64221c0b2f3566b78f inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a6a10d13e6e403d64221c0b2f3566b78f">for_each_edge</a> (const Iteratee &amp;iteratee, bool parallel=false) const </td></tr>
 <tr class="separator:a6a10d13e6e403d64221c0b2f3566b78f inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1DeletableHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">handlegraph::DeletableHandleGraph</a></td></tr>
-<tr class="memitem:aec2b397c1b4ec7f9c75ccc5b9ce06564 inherit pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#aec2b397c1b4ec7f9c75ccc5b9ce06564">destroy_edge</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge)</td></tr>
-<tr class="memdesc:aec2b397c1b4ec7f9c75ccc5b9ce06564 inherit pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper for destroy_edge.  <a href="#aec2b397c1b4ec7f9c75ccc5b9ce06564">More...</a><br/></td></tr>
-<tr class="separator:aec2b397c1b4ec7f9c75ccc5b9ce06564 inherit pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1MutableHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1MutableHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">handlegraph::MutableHandleGraph</a></td></tr>
 <tr class="memitem:a8c9d8ca8160a9b94a57000eab3e97aaa inherit pub_methods_classhandlegraph_1_1MutableHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a8c9d8ca8160a9b94a57000eab3e97aaa">create_handle</a> (const std::string &amp;sequence)=0</td></tr>
 <tr class="memdesc:a8c9d8ca8160a9b94a57000eab3e97aaa inherit pub_methods_classhandlegraph_1_1MutableHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new node with the given sequence and return the handle.  <a href="#a8c9d8ca8160a9b94a57000eab3e97aaa">More...</a><br/></td></tr>
@@ -1003,6 +1006,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a05c38787f0ff4a2695e61d98cb402175 inherit pub_methods_classhandlegraph_1_1MutableHandleGraph"><td class="memItemLeft" align="right" valign="top">std::pair&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a05c38787f0ff4a2695e61d98cb402175">divide_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t offset)</td></tr>
 <tr class="memdesc:a05c38787f0ff4a2695e61d98cb402175 inherit pub_methods_classhandlegraph_1_1MutableHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Specialization of divide_handle for a single division point.  <a href="#a05c38787f0ff4a2695e61d98cb402175">More...</a><br/></td></tr>
 <tr class="separator:a05c38787f0ff4a2695e61d98cb402175 inherit pub_methods_classhandlegraph_1_1MutableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="inherit_header pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1DeletableHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html">handlegraph::DeletableHandleGraph</a></td></tr>
+<tr class="memitem:aec2b397c1b4ec7f9c75ccc5b9ce06564 inherit pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1DeletableHandleGraph.html#aec2b397c1b4ec7f9c75ccc5b9ce06564">destroy_edge</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge)</td></tr>
+<tr class="memdesc:aec2b397c1b4ec7f9c75ccc5b9ce06564 inherit pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper for destroy_edge.  <a href="#aec2b397c1b4ec7f9c75ccc5b9ce06564">More...</a><br/></td></tr>
+<tr class="separator:aec2b397c1b4ec7f9c75ccc5b9ce06564 inherit pub_methods_classhandlegraph_1_1DeletableHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -1064,8 +1071,8 @@ Additional Inherited Members</h2></td></tr>
 <tr class="inherit_header pro_methods_classhandlegraph_1_1PathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classhandlegraph_1_1PathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">handlegraph::PathHandleGraph</a></td></tr>
 <tr class="memitem:a79f48793555f6be311f6df6603324e7b inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a79f48793555f6be311f6df6603324e7b">for_each_path_handle_impl</a> (const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;)&gt; &amp;iteratee) const =0</td></tr>
 <tr class="separator:a79f48793555f6be311f6df6603324e7b inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3fb688cab856c3833fe4b859225fd2bc inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a3fb688cab856c3833fe4b859225fd2bc">for_each_occurrence_on_handle_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;)&gt; &amp;iteratee) const =0</td></tr>
-<tr class="separator:a3fb688cab856c3833fe4b859225fd2bc inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2bbdf56b268001c629cf000f5bd8bb9a inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a2bbdf56b268001c629cf000f5bd8bb9a">for_each_step_on_handle_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;iteratee) const =0</td></tr>
+<tr class="separator:a2bbdf56b268001c629cf000f5bd8bb9a inherit pro_methods_classhandlegraph_1_1PathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a89bbc118fe1e8e1acb162c14be33e8b5 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a89bbc118fe1e8e1acb162c14be33e8b5">follow_edges_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const =0</td></tr>
 <tr class="separator:a89bbc118fe1e8e1acb162c14be33e8b5 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2556,7 +2563,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="aa27ce8091357377810e01f45bc783e49"></a>
+<a class="anchor" id="ad11c8a716733fce2aa9dab94b42286bd"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -2564,7 +2571,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> vg::VG::append_occurrence </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> vg::VG::append_step </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>path</em>, </td>
@@ -2590,7 +2597,24 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 <p>Append a visit to a node to the given path. </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a228ea12b8fcd948128b38faef2601021">handlegraph::MutablePathHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a83a4a14a629cde03d33e4eb3f6bb192d">handlegraph::MutablePathHandleGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a6c6c620dddbc850d46d107fad1ae1ede"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::apply_ordering </td>
+          <td>(</td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>ordering</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Modifies underlying graph so that nodes occur in the same order as in the provided vector. Vector must contain exactly one handle for each node. </p>
 
 </div>
 </div>
@@ -3600,7 +3624,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a4bcd5d003953bbec11cd6162e53bb974"></a>
+<a class="anchor" id="af7c99e48723b360eb2b1315b2c5af7cc"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -3611,8 +3635,18 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td class="memname"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> vg::VG::create_path_handle </td>
           <td>(</td>
           <td class="paramtype">const string &amp;&#160;</td>
-          <td class="paramname"><em>name</em></td><td>)</td>
+          <td class="paramname"><em>name</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>is_circular</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -3871,7 +3905,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </table>
 </div><div class="memdoc">
 
-<p>Destroy the given path. Invalidates handles to the path and its node occurrences. </p>
+<p>Destroy the given path. Invalidates handles to the path and its node steps. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a05a7303ef2f259c6384b0b9b1f9d3f56">handlegraph::MutablePathHandleGraph</a>.</p>
 
@@ -5096,42 +5130,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a9ac3fe9179a7adef9b4462476a520335"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::VG::for_each_occurrence_on_handle_impl </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>handle</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const function&lt; bool(const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;)&gt; &amp;&#160;</td>
-          <td class="paramname"><em>iteratee</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Loop over the occurrences of a handle in paths. </p>
-
-</div>
-</div>
 <a class="anchor" id="ad8d0976ab79947044eec399698299777"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5155,6 +5153,42 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Execute a function on each path in the graph. </p>
+
+</div>
+</div>
+<a class="anchor" id="af1c6f800abfa14fdca58936e97907004"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VG::for_each_step_on_handle_impl </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const function&lt; bool(const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>iteratee</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Loop over the steps of a handle in paths. </p>
 
 </div>
 </div>
@@ -5388,34 +5422,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="adff0e1716e97115deacaf3115786db5b"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> vg::VG::get_first_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>path_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Get a handle to the first occurrence in a path. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a3769fd156e96d8f80c19422670301602">handlegraph::PathHandleGraph</a>.</p>
-
-</div>
-</div>
 <a class="anchor" id="a26a218b188035e086a5625170cfcf23c"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5454,6 +5460,34 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a class="anchor" id="a80e9b71f9dd2cbfb1881b830ae4654b6"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::VG::get_handle_of_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Get a node handle (node ID and orientation) from a handle to an step on a path. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a339e690ce3e2bb8280dd1f3ea45abe42">handlegraph::PathHandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a275f9a67d357980049ff3a6cb475a0a6"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5479,6 +5513,34 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 <p>Get the ID from a handle. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#adb7f6e144bf2a59679f7b2eddad934eb">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a5b36247a6ca74800a80d83170948fee9"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VG::get_is_circular </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Look up whether a path is circular. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a9391c34d9f0c16b21d5bb3bb7ec772e4">handlegraph::PathHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -5510,34 +5572,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a82696917d41113970d95e84cb2ed9f88"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> vg::VG::get_last_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>path_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Get a handle to the last occurrence in a path. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a6d1d56f58f494cda270a8f718789f421">handlegraph::PathHandleGraph</a>.</p>
-
-</div>
-</div>
 <a class="anchor" id="a7f8816a7244ebad64663a1af13f5244c"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5566,7 +5600,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a8de058cf4945d57d348d148945281b00"></a>
+<a class="anchor" id="aa94c162ade42415f7defe7677e5bae53"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -5574,10 +5608,10 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> vg::VG::get_next_occurrence </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> vg::VG::get_next_step </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step_handle</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
@@ -5587,10 +5621,9 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Returns a handle to the next step on the path. If the given step is the final step of a non-circular path, returns the past-the-last step that is also returned by path_end. In a circular path, the "last" step will loop around to the "first" (i.e. the one returned by path_begin). Note: to iterate over each step one time, even in a circular path, consider for_each_step_in_path. </p>
 
-<p>Returns a handle to the next occurrence on the path. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a7dabb96d3562a23ef8ec862e17379b5f">handlegraph::PathHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a209786f5c9e2c0210b383f2022ee221f">handlegraph::PathHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -5681,62 +5714,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="abbef12f2d3db8d702f1fdf2aea40351d"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::VG::get_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Get a node handle (node ID and orientation) from a handle to an occurrence on a path. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ab604c33073e78361e01232ddafabefdb">handlegraph::PathHandleGraph</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a800d31a2623c04eaf0073554e7ca31c5"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::VG::get_occurrence_count </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>path_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Returns the number of node occurrences in the path. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a31e0aef90af7737c924b138f8942ed33">handlegraph::PathHandleGraph</a>.</p>
-
-</div>
-</div>
 <a class="anchor" id="a20417af67e14d7800b20df8b0ac763f9"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5808,7 +5785,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a99957343fa6c48216d95787c1ddbd680"></a>
+<a class="anchor" id="a5c8b0de9776e2f4ee0b1185ba59485c0"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -5816,10 +5793,10 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> vg::VG::get_path_handle_of_occurrence </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> vg::VG::get_path_handle_of_step </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step_handle</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
@@ -5830,9 +5807,9 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </table>
 </div><div class="memdoc">
 
-<p>Returns a handle to the path that an occurrence is on. </p>
+<p>Returns a handle to the path that an step is on. </p>
 
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a04a7882174a4b9edafb9b7a6dfc5ce00">handlegraph::PathHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a1d1ca9865da585257709f54769f5d6a9">handlegraph::PathHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -5864,7 +5841,7 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="aeb4c806b52f820abecb2ef14b39f9fac"></a>
+<a class="anchor" id="a1723ce56da21a5f6953464d03e4849ac"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -5872,10 +5849,10 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> vg::VG::get_previous_occurrence </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> vg::VG::get_previous_step </td>
           <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>step_handle</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
@@ -5885,10 +5862,9 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Returns a handle to the previous step on the path. If the given step is the first step of a non-circular path, this method has undefined behavior. In a circular path, it will loop around from the "first" step (i.e. the one returned by path_begin) to the "last" step. Note: to iterate over each step one time, even in a circular path, consider for_each_step_in_path. </p>
 
-<p>Returns a handle to the previous occurrence on the path. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#af9ee6b325b0ea0b7f46aa3e7008e8222">handlegraph::PathHandleGraph</a>.</p>
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a71040226b29aa5046f4cc04c8c9aa9fb">handlegraph::PathHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -5916,6 +5892,34 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 <p>Get the sequence of a node, presented in the handle's local forward orientation. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a8cc2ab8a1292e30ba5e167a823f66d92">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a212238ea52a6c8f542bb3c6b866cb040"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::VG::get_step_count </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Returns the number of node steps in the path. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#add91075c3490f8dc5acf667f2b26832c">handlegraph::PathHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -6110,34 +6114,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="add251f0d262b6af53b11b244c17b39ec"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::VG::has_next_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Returns true if the occurrence is not the last occurence on the path, else false. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a8eda7ca3307a4feb4be31db9d768265d">handlegraph::PathHandleGraph</a>.</p>
-
-</div>
-</div>
 <a class="anchor" id="a37c72c4989c1bebcec7e98115041b501"></a>
 <div class="memitem">
 <div class="memproto">
@@ -6228,34 +6204,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a4fdaf206869cf4a3d7fe09858fa757c8"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool vg::VG::has_previous_occurrence </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1occurrence__handle__t.html">occurrence_handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>occurrence_handle</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Returns true if the occurrence is not the first occurence on the path, else false. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a17498b2c4e2dfb355593c80bdbc590da">handlegraph::PathHandleGraph</a>.</p>
-
-</div>
-</div>
 <a class="anchor" id="a2b75ca400f858be77b0716ab7c68dfcb"></a>
 <div class="memitem">
 <div class="memproto">
@@ -6307,6 +6255,23 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Get the head nodes (nodes with edges only to their right sides). These are required to be oriented forward. </p>
+
+</div>
+</div>
+<a class="anchor" id="ab1aecdffe7759a1e14248e00f2866b84"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::id_sort </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Order the backing graph data structure by node ID. </p>
 
 </div>
 </div>
@@ -7525,6 +7490,33 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a class="anchor" id="a8ba115ffda674c76e8956a8057545b25"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> vg::VG::path_begin </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get a handle to the first step, or in a circular path to an arbitrary step considered "first". If the path is empty, returns the past-the-last step returned by path_end. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a815759484087ed92214c2c1c6b9d1a11">handlegraph::PathHandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a5f1df72d85d8a72524b76abca972f33d"></a>
 <div class="memitem">
 <div class="memproto">
@@ -7555,6 +7547,33 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
       </table>
 </div><div class="memdoc">
 <p><a class="el" href="structvg_1_1Path.html">Path</a> stats. Starting from offset in the first node, how many edges do we cross? path must be nonempty and longer than the given length. offset is interpreted as relative to the first node in its on-path orientation, and is inclusive. </p>
+
+</div>
+</div>
+<a class="anchor" id="a6eaa8a920a65428b70b7b77142805208"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> vg::VG::path_end </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get a handle to a fictitious position past the end of a path. This position is return by get_next_step for the final step in a path in a non-circular path. Note that get_next_step will <em>NEVER</em> return this value for a circular path. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#a5c3a5e04838d9e4a0a0ddf574c4de827">handlegraph::PathHandleGraph</a>.</p>
 
 </div>
 </div>
@@ -8316,6 +8335,43 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a class="anchor" id="a73c97ce0157b90f95b888e4b6983f5c8"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::set_circularity </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>circular</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Make a path circular or non-circular. If the path is becoming circular, the last step is joined to the first step. If the path is becoming linear, the step considered "last" is unjoined from the step considered "first" according to the method path_begin. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a9172694447503e35d50093d55e845eb8">handlegraph::MutablePathHandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="ae1131c1ff0a94ed2ec9ef35cb678801b"></a>
 <div class="memitem">
 <div class="memproto">
@@ -8601,6 +8657,22 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a class="anchor" id="a902d516631c77d074aa2a11ae70a6957"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::sort </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Topologically sort the graph, and then apply that sort to re- order the nodes in the backing data structure. The sort is guaranteed to be stable. This sort is well-defined on graphs that are not DAGs, but instead of finding a topological sort it does a heuristic sort to minimize a feedback arc set. </p>
+
+</div>
+</div>
 <a class="anchor" id="a1ff00edd627e3445eee7f43927bb1518"></a>
 <div class="memitem">
 <div class="memproto">
@@ -8669,8 +8741,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </table>
 </div><div class="memdoc">
 <p>Swap the nodes corresponding to the given handles, in the ordering used by for_each_handle when looping over the graph. Other handles to the nodes being swapped must not be invalidated. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a87a4f4e1eece8a26d36af78ef1bc1751">handlegraph::MutableHandleGraph</a>.</p>
 
 </div>
 </div>

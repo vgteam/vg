@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: src/vg.cpp File Reference</title>
+<title>vg: handlegraph::step_handle_t Struct Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -39,8 +39,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
     <ul class="tablist">
       <li><a href="index.html"><span>Main&#160;Page</span></a></li>
       <li><a href="namespaces.html"><span>Namespaces</span></a></li>
-      <li><a href="annotated.html"><span>Classes</span></a></li>
-      <li class="current"><a href="files.html"><span>Files</span></a></li>
+      <li class="current"><a href="annotated.html"><span>Classes</span></a></li>
+      <li><a href="files.html"><span>Files</span></a></li>
       <li>
         <div id="MSearchBox" class="MSearchBoxInactive">
         <span class="left">
@@ -61,8 +61,10 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
   </div>
   <div id="navrow2" class="tabs2">
     <ul class="tablist">
-      <li><a href="files.html"><span>File&#160;List</span></a></li>
-      <li><a href="globals.html"><span>File&#160;Members</span></a></li>
+      <li><a href="annotated.html"><span>Class&#160;List</span></a></li>
+      <li><a href="classes.html"><span>Class&#160;Index</span></a></li>
+      <li><a href="hierarchy.html"><span>Class&#160;Hierarchy</span></a></li>
+      <li><a href="functions.html"><span>Class&#160;Members</span></a></li>
     </ul>
   </div>
 <!-- window showing the filter options -->
@@ -81,32 +83,46 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="dir_b1dc13fd2e81df37222858fb506caeb7.html">src</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacehandlegraph.html">handlegraph</a></li><li class="navelem"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="structhandlegraph_1_1step__handle__t-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">vg.cpp File Reference</div>  </div>
+<div class="title">handlegraph::step_handle_t Struct Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="vg_8hpp.html">vg.hpp</a>&quot;</code><br/>
-<code>#include &lt;<a class="el" href="stream_8hpp.html">vg/io/stream.hpp</a>&gt;</code><br/>
-<code>#include &quot;<a class="el" href="aligner_8hpp.html">aligner.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="genotypekit_8hpp.html">genotypekit.hpp</a>&quot;</code><br/>
-<code>#include &quot;algorithms/topological_sort.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/id_sort.hpp&quot;</code><br/>
-<code>#include &lt;raptor2/raptor2.h&gt;</code><br/>
-<code>#include &lt;stPinchGraphs.h&gt;</code><br/>
-<code>#include &lt;<a class="el" href="util_8hpp.html">handlegraph/util.hpp</a>&gt;</code><br/>
-<code>#include &lt;stack&gt;</code><br/>
-</div><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
-Namespaces</h2></td></tr>
-<tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+
+<p>A step handle is an opaque reference to a single step of an oriented node on a path in a graph.  
+ <a href="structhandlegraph_1_1step__handle__t.html#details">More...</a></p>
+
+<p><code>#include &lt;types.hpp&gt;</code></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
+Public Attributes</h2></td></tr>
+<tr class="memitem:ad62b1978c001199b0077ea154c350dfe"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structhandlegraph_1_1step__handle__t.html#ad62b1978c001199b0077ea154c350dfe">data</a> [2 *sizeof(int64_t)]</td></tr>
+<tr class="separator:ad62b1978c001199b0077ea154c350dfe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>A step handle is an opaque reference to a single step of an oriented node on a path in a graph. </p>
+</div><h2 class="groupheader">Member Data Documentation</h2>
+<a class="anchor" id="ad62b1978c001199b0077ea154c350dfe"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">char handlegraph::step_handle_t::data[2 *sizeof(int64_t)]</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<hr/>The documentation for this struct was generated from the following file:<ul>
+<li>deps/libhandlegraph/src/include/handlegraph/<a class="el" href="deps_2libhandlegraph_2src_2include_2handlegraph_2types_8hpp.html">types.hpp</a></li>
+</ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
