@@ -1389,13 +1389,15 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
 
         // convert the allele we called from our traversal list into the corresponding
         // allele for this variant in the VCF
-        for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-            int called_allele = locus.genotype(0).allele(i);
-            int vcf_allele = trav_alleles[called_allele][var_idx];
-            vcf_genotype.add_allele(vcf_allele);
-            // make absolutely sure we're using the right support for our called alleles
-            // the support is in terms of the entire snarl, and not the vcf variant
-            *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
+        if (locus.genotype_size() > 0) {
+            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
+                int called_allele = locus.genotype(0).allele(i);
+                int vcf_allele = trav_alleles[called_allele][var_idx];
+                vcf_genotype.add_allele(vcf_allele);
+                // make absolutely sure we're using the right support for our called alleles
+                // the support is in terms of the entire snarl, and not the vcf variant
+                *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
+            }
         }
         
         *vcf_locus.mutable_overall_support() = locus.overall_support();
