@@ -1375,27 +1375,29 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
         Locus vcf_locus;
         Genotype& vcf_genotype = *vcf_locus.add_genotype();
 
-        // find the maximum allele
-        int max_allele = -1;
-        if (locus.genotype_size() > 0) {
-            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-                max_allele = max(max_allele, (int)trav_alleles[locus.genotype(0).allele(i)][var_idx]);
-            }
-            // pad our supports
-            for (int i = 0; i <= max_allele; ++i) {
-                vcf_locus.add_support();
-            }
+        // resize support to be able to hold value for each VCF allele
+        for (int i = 0; i < site_variants[var_idx]->alleles.size(); ++i) {
+            vcf_locus.add_support();
+        }
+        
+        // find the best support for every VCF allele, even if those that aren't called
+        for (int i = 0; i < trav_alleles.size(); ++i) {
+            int vcf_allele = trav_alleles[i][var_idx];
+            *vcf_locus.mutable_support(vcf_allele) = support_max(vcf_locus.support(vcf_allele),
+                                                                 locus.support(i));
+        }
 
-            // convert the allele we called from our traversal list into the corresponding
-            // allele for this variant in the VCF
-            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-                int called_allele = locus.genotype(0).allele(i);
-                int vcf_allele = trav_alleles[called_allele][var_idx];
-                vcf_genotype.add_allele(vcf_allele);
-                // we still write out supports in terms of the whole snarl
-                *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
-            }
-        }        
+        // convert the allele we called from our traversal list into the corresponding
+        // allele for this variant in the VCF
+        for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
+            int called_allele = locus.genotype(0).allele(i);
+            int vcf_allele = trav_alleles[called_allele][var_idx];
+            vcf_genotype.add_allele(vcf_allele);
+            // make absolutely sure we're using the right support for our called alleles
+            // the support is in terms of the entire snarl, and not the vcf variant
+            *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
+        }
+        
         *vcf_locus.mutable_overall_support() = locus.overall_support();
         emit_locus(vcf_locus, &site, site_variants[var_idx]);
     }
@@ -1726,7 +1728,11 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
     int best_allele = genotype.allele_size() > 0 ? genotype.allele(0) : -1;
     int second_best_allele = genotype.allele_size() > 1 ? genotype.allele(1) : -1;   
 
-    vector<int> used_alleles(1, 0);
+    // We "use" every allele in the variant, because we're emitting the original variant.
+    vector<int> used_alleles;
+    for (int i = 0; i < variant.alleles.size(); ++i) {
+        used_alleles.push_back(i);
+    }
     
     if (best_allele >= 0) {
         // We actually made a call. Emit the first genotype, which is the call.
@@ -1743,9 +1749,6 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
             if (i + 1 != genotype.allele_size()) {
                 // Write a separator after all but the last one
                 stream << (genotype.is_phased() ? '|' : '/');
-            }
-            if (std::find(used_alleles.begin(), used_alleles.end(), genotype.allele(i)) == used_alleles.end()) { 
-                used_alleles.push_back(genotype.allele(i));
             }
         }
         // Save the finished genotype
