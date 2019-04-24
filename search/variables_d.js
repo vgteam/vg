@@ -42,6 +42,7 @@ var searchData=
   ['max_5fbuf_5fsize',['max_buf_size',['../classvg_1_1StreamSorter.html#a192491eeef2fa2c99522f2ad23f12035',1,'vg::StreamSorter']]],
   ['max_5fcluster_5fmapping_5fquality',['max_cluster_mapping_quality',['../classvg_1_1Mapper.html#a92ea8476aae3d65f0b46f6c7353c21be',1,'vg::Mapper']]],
   ['max_5fcontext_5fradius',['max_context_radius',['../classvg_1_1VariantAdder.html#a943bba24f9a1a7197744e74ee5465e5d',1,'vg::VariantAdder']]],
+  ['max_5fdeletion_5fscan_5fnodes',['max_deletion_scan_nodes',['../classvg_1_1VCFTraversalFinder.html#a3e61ffdb1cf6733311b444df38928137',1,'vg::VCFTraversalFinder']]],
   ['max_5fdepth',['max_depth',['../classvg_1_1RepresentativeTraversalFinder.html#a79339337af609bc33f77cf4696962492',1,'vg::RepresentativeTraversalFinder']]],
   ['max_5fdp_5ffor_5ffilter',['max_dp_for_filter',['../classvg_1_1SupportCaller.html#a89c9519695b82b720072a1125a638b30',1,'vg::SupportCaller']]],
   ['max_5fdp_5fmultiple_5ffor_5ffilter',['max_dp_multiple_for_filter',['../classvg_1_1SupportCaller.html#aa4ac3dd541bcb9ab18eeb73ba93b4809',1,'vg::SupportCaller']]],
