@@ -168,15 +168,15 @@ for (auto it2 : it.second) {
                     }
                 }
             }
-            for (auto it : chain_to_snarls) {
+            for (auto& kv : chain_to_snarls) {
                 //For each chain in this level, find the clusters 
 
-                const Chain* chain = it.first;
+                const Chain* chain = kv.first;
                 auto chain_start = get_start_of(*chain);
                 parent_clusters[make_pair(chain_start.node_id(), 
                                           chain_start.backward())] = 
                     get_clusters_chain( seeds, union_find_clusters,
-                             cluster_dists, it.second, curr_snarl_children,
+                             cluster_dists, kv.second, curr_snarl_children,
                              child_clusters, node_to_seeds,
                              distance_limit, snarl_manager,  dist_index, chain);
             }
@@ -347,75 +347,61 @@ assert(got_right);
         int64_t best_left = -1;
         int64_t best_right = -1;
 
-        vector<size_t> to_remove;
-        vector<size_t> to_add;
+        //Create a vector of seeds with their offsets
+        vector<pair<size_t, int64_t>> seed_offsets;
         for ( size_t i : seed_indices) {
+            //For each seed, find its offset 
+            pos_t seed = seeds[i]; 
+            int64_t offset = is_rev(seed) ? node_length - get_offset(seed) 
+                                            : get_offset(seed) + 1;
+
+            best_left = DistanceIndex::minPos({offset,  best_left});
+            best_right = DistanceIndex::minPos({node_length-offset+1,best_right});
+
+            seed_offsets.push_back(make_pair(i, offset));
+                        
+        }
+        //Sort seeds by their position in the node 
+        std::sort(seed_offsets.begin(), seed_offsets.end(), 
+                     [&](const auto a, const auto b) -> bool {
+                          return a.second < b.second; 
+                      } );
+
+        int64_t last_offset = 0;
+        size_t last_cluster = seed_offsets[0].first;
+        int64_t last_left = -1; int64_t last_right = -1;
+        cluster_group_ids.insert(last_cluster);
+
+        for ( pair<size_t, int64_t> s : seed_offsets) {
             //For each seed, see if it belongs to a new cluster
             //i is initially its own group id
-            pos_t seed = seeds[i]; 
-            size_t i_group = i;
 
-            int64_t dist_start = get_offset(seed) + 1; 
-            int64_t dist_end = node_length - get_offset(seed);
-            int64_t dist_left = is_rev(seed) ? dist_end : dist_start;
-            int64_t dist_right = is_rev(seed) ? dist_start : dist_end ;
-            best_left = DistanceIndex::minPos({dist_left,  best_left});
-            best_right = DistanceIndex::minPos({dist_right , best_right});
+            size_t i_group = s.first;
+            int64_t offset = s.second;
+
+            if (abs(offset - last_offset) < distance_limit) {
+                //If this seed is in the same cluster as the previous one,
+                //union them
+
+                union_find_clusters.union_groups(i_group, last_cluster);
+                last_cluster = union_find_clusters.find_group(i_group);
+                last_left = DistanceIndex::minPos({last_left, offset});
+                last_right = DistanceIndex::minPos({last_right, 
+                                                    node_length-offset+1});
+                cluster_dists[last_cluster] = make_pair(last_left, last_right);
+
+            } else {
+                //This becomes a new cluster
+                cluster_group_ids.insert(i_group);
+                last_cluster = i_group;
+                last_left = offset;
+                last_right = node_length - offset + 1;
+                cluster_dists[i_group] = make_pair(last_left, last_right);
+            }
+            last_offset = offset;
                         
-            bool combined = false;//True if i got combined with another cluster
-
-            //ids in cluster_group_ids that are no longer the heads of groups
-            for (size_t j : cluster_group_ids) {
-                //Check which new clusters this seed belongs in 
-
-                pair<int64_t, int64_t> j_dists = cluster_dists[j];
-
-                if (abs(j_dists.first - dist_left) < distance_limit || 
-                    abs(j_dists.second - dist_right) < distance_limit ||
-                    abs(j_dists.first + dist_right - node_length) 
-                                                        < distance_limit ||
-                    abs(j_dists.second + dist_left - node_length)
-                                                       < distance_limit ||
-                    (j_dists.first < dist_left && j_dists.second < dist_right)||
-                    (dist_left < j_dists.first && dist_right < j_dists.second)){
-                    //If i belongs in this cluster
-                    combined = true;
-                    union_find_clusters.union_groups(i, j);
-                    size_t new_group_id = union_find_clusters.find_group(j);
-
-                    if (new_group_id == i_group) {
-                        to_add.push_back(i_group);
-                        to_remove.push_back(j);
-                    } else {
-                        to_remove.push_back(i_group);
-                    }
-
-                    //Update the left and right distances of i to include
-                    //the new cluster
-                    dist_left = DistanceIndex::minPos({dist_left, 
-                                                       j_dists.first});
-                    dist_right = DistanceIndex::minPos({dist_right, 
-                                                        j_dists.second});
-
-                    cluster_dists[new_group_id] =  make_pair(dist_left, 
-                                                             dist_right);
-                    i_group = new_group_id;
-                }
-            }
-            for (size_t j : to_add) {
-                cluster_group_ids.insert(j);
-            }
-            for (size_t j : to_remove) {
-                cluster_group_ids.erase(j);
-            }
-            to_add.clear();
-            to_remove.clear();
-            if (!combined) {
-                //If i was not added to any clusters
-                cluster_group_ids.insert(i);
-                cluster_dists[i] = make_pair(dist_left, dist_right);
-            }
         }
+        
 #ifdef DEBUG 
 cerr << "Found clusters on node " << root << endl;
 bool got_left = false;
