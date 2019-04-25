@@ -2117,7 +2117,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         if (rescue_off_first) {
             Alignment aln2 = align_maybe_flip(mate2, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried2 = true;
-            //stream::write_to_file(aln2, "rescue-" + h + ".gam");
+            //vg::io::write_to_file(aln2, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln2 score/ident vs " << aln2.score() << "/" << aln2.identity()
                             << " vs " << mate2.score() << "/" << mate2.identity() << endl;
@@ -2137,7 +2137,7 @@ pair<bool, bool> Mapper::pair_rescue(Alignment& mate1, Alignment& mate2,
         } else if (rescue_off_second) {
             Alignment aln1 = align_maybe_flip(mate1, graph, orientation, traceback, acyclic_and_sorted, false, xdrop_alignment);
             tried1 = true;
-            //stream::write_to_file(aln1, "rescue-" + h + ".gam");
+            //vg::io::write_to_file(aln1, "rescue-" + h + ".gam");
 #ifdef debug_rescue
             if (debug) cerr << "aln1 score/ident vs " << aln1.score() << "/" << aln1.identity()
                             << " vs " << mate1.score() << "/" << mate1.identity() << endl;
@@ -3809,7 +3809,7 @@ bool Mapper::check_alignment(const Alignment& aln) {
                  << "expect:\t" << aln.sequence() << endl
                  << "got:\t" << seq << endl;
             // save alignment
-            stream::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
+            vg::io::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
             // save graph, bigger fragment
             xindex->expand_context(sub, 5, true);
             VG gn; gn.extend(sub);
@@ -3960,8 +3960,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         } else if (!aln1.has_path() && aln2.has_path()) {
             return 0.0;
         }
-        auto aln1_end = make_pos_t(path_end(aln1.path()));
-        auto aln2_begin = make_pos_t(path_start(aln2.path()));
+        auto aln1_end = make_pos_t(path_end_position(aln1.path()));
+        auto aln2_begin = make_pos_t(path_start_position(aln2.path()));
         pair<int64_t, int64_t> distances = min_oriented_distances(pos1, pos2);
         // consider both the forward and inversion case
         // counter[3]++; bench_t b; bench_init(b); bench_start(b);

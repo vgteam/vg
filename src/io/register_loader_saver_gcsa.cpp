@@ -3,16 +3,17 @@
  * Defines IO for a GCSA index from stream files.
  */
 
-#include "registry.hpp"
+#include <vg/io/registry.hpp>
 #include "register_loader_saver_gcsa.hpp"
 
 #include <gcsa/gcsa.h>
 
 namespace vg {
 
-namespace stream {
+namespace io {
 
 using namespace std;
+using namespace vg::io;
 
 void register_loader_saver_gcsa() {
     Registry::register_bare_loader_saver<gcsa::GCSA>("GCSA", [](istream& input) -> void* {

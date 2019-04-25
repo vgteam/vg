@@ -3,7 +3,7 @@
 
 #include <unordered_map>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 #include "../position.hpp"
 #include "../cached_position.hpp"

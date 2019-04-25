@@ -15,7 +15,7 @@ namespace vg {
 CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
     graph(graph) {
     // Make sure the graph is sorted.
-    algorithms::topological_sort(&graph);
+    graph.sort();
 }
 
 CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
@@ -553,7 +553,7 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
 
 SnarlManager::SnarlManager(istream& in) : SnarlManager([&in](const function<void(Snarl&)>& consume_snarl) -> void {
     // Find all the snarls in the input stream and use each of them in the callback-based constructor
-    for (stream::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
+    for (vg::io::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
         consume_snarl(*iter);
     }
 }) {

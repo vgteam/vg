@@ -7,7 +7,7 @@
 
 #include "catch.hpp"
 
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 #include "../xg.hpp"
 #include "../json2pb.h"
 #include <gcsa/gcsa.h>
@@ -25,12 +25,12 @@ TEST_CASE("We can serialize and re-read an empty GCSA", "[vpkg][gcsa]") {
     
     stringstream ss;
     
-    stream::VPKG::save(empty_index, ss);
+    vg::io::VPKG::save(empty_index, ss);
     
     // There should be some data
     REQUIRE(ss.str().size() != 0);
 
-    tuple<unique_ptr<gcsa::GCSA>> loaded = stream::VPKG::load_all<gcsa::GCSA>(ss);
+    tuple<unique_ptr<gcsa::GCSA>> loaded = vg::io::VPKG::load_all<gcsa::GCSA>(ss);
     
     // We should get something allocated
     REQUIRE(get<0>(loaded).get() != nullptr);
@@ -55,12 +55,12 @@ TEST_CASE("We can read and write XG", "[vpkg][xg]") {
     stringstream ss;
     
     SECTION("We can read from a VPKG-wrapped stream") {
-        stream::VPKG::save(xg_index, ss);
+        vg::io::VPKG::save(xg_index, ss);
         
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<xg::XG> loaded = stream::VPKG::load_one<xg::XG>(ss);
+        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);
@@ -76,7 +76,7 @@ TEST_CASE("We can read and write XG", "[vpkg][xg]") {
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<xg::XG> loaded = stream::VPKG::load_one<xg::XG>(ss);
+        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);

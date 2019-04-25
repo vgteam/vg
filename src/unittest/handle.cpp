@@ -86,12 +86,12 @@ TEST_CASE( "Handle utility functions work", "[handle]" ) {
         }
     }
     
-    SECTION("Occurrence handle equality works") {
-        vector<occurrence_handle_t> handles;
+    SECTION("Step handle equality works") {
+        vector<step_handle_t> handles;
         
         for (size_t i = 0; i < 10; i++) {
             for (size_t j = 0; j < 10; j++) {
-                occurrence_handle_t handle;
+                step_handle_t handle;
                 as_integers(handle)[0] = i;
                 as_integers(handle)[1] = j;
                 handles.push_back(handle);
@@ -423,31 +423,6 @@ TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
                     REQUIRE(node_count == 2);
                 }
                 
-                SECTION("Nodes can be swapped") {
-                    // Get all the nodes
-                    vector<handle_t> order;
-                    g->for_each_handle([&](const handle_t& found) {
-                        order.push_back(found);
-                    });
-                    REQUIRE(order.size() == 2);
-                    
-                    // Swap the two
-                    g->swap_handles(order.front(), order.back());
-                    
-                    // Get all the nodes again
-                    vector<handle_t> swapped;
-                    g->for_each_handle([&](const handle_t& found) {
-                        swapped.push_back(found);
-                    });
-                    REQUIRE(swapped.size() == 2);
-                    
-                    // Make sure they are in the opposite order when iterated
-                    // after being swapped.
-                    REQUIRE(swapped.front() == order.back());
-                    REQUIRE(swapped.back() == order.front());
-                    
-                }
-                
                 SECTION("No edges exist by default") {
                     
                     // Grab all the edges            
@@ -563,7 +538,7 @@ TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
     }
 }
 
-TEST_CASE("DeletableHandleGraphs that we know to be non-compliant on swapping are otherwise correct", "[handle][vg][packed][hashgraph]") {
+TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]") {
     
     vector<DeletableHandleGraph*> implementations;
     
@@ -1045,13 +1020,6 @@ TEST_CASE("DeletableHandleGraphs that we know to be non-compliant on swapping ar
             found1 = found2 = false;
         }
         
-        // note: we're not expecting this to work at doing what swap is supposed to
-        // but for now, we still want to make sure that calling swap doesn't break
-        // anything
-        
-        graph.swap_handles(h, h2);
-        graph.swap_handles(h2, h3);
-        
         // DeletableHandleGraph has correct structure after swapping nodes
         {
             
@@ -1299,9 +1267,6 @@ TEST_CASE("DeletableHandleGraphs that we know to be non-compliant on swapping ar
             // and now switch it back to the same orientation and repeat the topology checks
             
             h = graph.apply_orientation(graph.flip(h));
-            
-            graph.swap_handles(h, h2);
-            graph.swap_handles(h2, h3);
             
             graph.follow_edges(h, false, [&](const handle_t& next) {
                 if (next == h2) {
@@ -1672,6 +1637,7 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
     Mapping* m24 = path2.add_mapping();
     m24->mutable_position()->set_node_id(n9->id());
     m24->set_rank(5);
+    path2.set_is_circular(true);
     
     Mapping* m30 = path3.add_mapping();
     m30->mutable_position()->set_node_id(n8->id());
@@ -1723,102 +1689,54 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
             
             path_handle_t path_handle = graph.get_path_handle(path.name());
             
-            REQUIRE(graph.get_occurrence_count(path_handle) == path.mapping_size());
+            REQUIRE(graph.get_step_count(path_handle) == path.mapping_size());
             
-            // check that occurrence is pointing to the same index along the path
-            auto check_occurrence = [&](const occurrence_handle_t& occurrence_handle,
-                                        int mapping_idx) {
-                
-                REQUIRE(graph.get_path_handle_of_occurrence(occurrence_handle) == path_handle);
+            // check that steps is pointing to the same index along the path
+            auto check_step = [&](const step_handle_t& step_handle,
+                                  int mapping_idx) {
+                REQUIRE(graph.get_path_handle_of_step(step_handle) == path_handle);
                 
                 const Mapping& mapping = path.mapping(mapping_idx);
                 
-                handle_t handle = graph.get_occurrence(occurrence_handle);
+                handle_t handle = graph.get_handle_of_step(step_handle);
                 
                 REQUIRE(graph.get_id(handle) == mapping.position().node_id());
                 REQUIRE(graph.get_is_reverse(handle) == mapping.position().is_reverse());
             };
             
-            occurrence_handle_t occurrence_handle;
+            step_handle_t step_handle = graph.path_begin(path_handle);
             
             // iterate front to back
-            occurrence_handle = graph.get_first_occurrence(path_handle);
             for (int i = 0; i < path.mapping_size(); i++) {
-                if (i + 1 < path.mapping_size()) {
-                    REQUIRE(graph.has_next_occurrence(occurrence_handle));
-                }
-                else {
-                    REQUIRE(!graph.has_next_occurrence(occurrence_handle));
-                }
                 
                 if (i > 0) {
-                    REQUIRE(graph.has_previous_occurrence(occurrence_handle));
+                    step_handle_t previous = graph.get_previous_step(step_handle);
+                    check_step(previous, i - 1);
                 }
-                else {
-                    REQUIRE(!graph.has_previous_occurrence(occurrence_handle));
+                else if (path.is_circular()) {
+                    step_handle_t previous = graph.get_previous_step(step_handle);
+                    check_step(previous, path.mapping_size() - 1);
                 }
                 
-                check_occurrence(occurrence_handle, i);
-                occurrence_handle = graph.get_next_occurrence(occurrence_handle);
+                check_step(step_handle, i);
+                step_handle = graph.get_next_step(step_handle);
             }
-
-            // iterate front to back with a while
-            {
-                occurrence_handle = graph.get_first_occurrence(path_handle);
-                int i = 0;
-                check_occurrence(occurrence_handle, i);
-                i++;
-                while(graph.has_next_occurrence(occurrence_handle)) {
-                    occurrence_handle = graph.get_next_occurrence(occurrence_handle);
-                    check_occurrence(occurrence_handle, i);
-                    i++;
-                }
-                REQUIRE(i == path.mapping_size());
+            
+            if (path.is_circular() && path.mapping_size() > 0) {
+                REQUIRE(step_handle == graph.path_begin(path_handle));
+            }
+            else {
+                REQUIRE(step_handle == graph.path_end(path_handle));
             }
 
             // iterate front to back with the iteration function
             {
                 int i = 0;
-                graph.for_each_occurrence_in_path(path_handle, [&i, &check_occurrence](const occurrence_handle_t& occurrence_handle) {
-                    check_occurrence(occurrence_handle, i);
+                graph.for_each_step_in_path(path_handle, [&i, &check_step](const step_handle_t& step_handle) {
+                    check_step(step_handle, i);
                     i++;
                 });
                 REQUIRE(i == path.mapping_size());
-            }
-
-            // iterate back to front
-            occurrence_handle = graph.get_last_occurrence(path_handle);
-            for (int i = path.mapping_size() - 1; i >= 0; i--) {
-                if (i + 1 < path.mapping_size()) {
-                    REQUIRE(graph.has_next_occurrence(occurrence_handle));
-                }
-                else {
-                    REQUIRE(!graph.has_next_occurrence(occurrence_handle));
-                }
-                
-                if (i > 0) {
-                    REQUIRE(graph.has_previous_occurrence(occurrence_handle));
-                }
-                else {
-                    REQUIRE(!graph.has_previous_occurrence(occurrence_handle));
-                }
-                
-                check_occurrence(occurrence_handle, i);
-                occurrence_handle = graph.get_previous_occurrence(occurrence_handle);
-            }
-
-            // iterate back to front with a while
-            {
-                occurrence_handle = graph.get_last_occurrence(path_handle);
-                int i = path.mapping_size() - 1;
-                check_occurrence(occurrence_handle, i);
-                i--;
-                while(graph.has_previous_occurrence(occurrence_handle)) {
-                    occurrence_handle = graph.get_previous_occurrence(occurrence_handle);
-                    check_occurrence(occurrence_handle, i);
-                    i--;
-                }
-                REQUIRE(i == -1);
             }
         };
         
@@ -2029,7 +1947,7 @@ TEST_CASE("Deletable handle graphs behave correctly when a graph has multiple ed
     }
 }
     
-TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][hashgraph]") {
+TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][hashgraph]") {
     
     vector<MutablePathDeletableHandleGraph*> implementations;
     
@@ -2048,44 +1966,47 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         
         MutablePathDeletableHandleGraph& graph = *implementation;
         
-        auto check_path = [&](const path_handle_t& p, const vector<handle_t>& occs) {
+        auto check_path = [&](const path_handle_t& p, const vector<handle_t>& steps) {
             
-            occurrence_handle_t occ;
-            for (int i = 0; i < occs.size(); i++){
-                if (i == 0) {
-                    occ = graph.get_first_occurrence(p);
-                }
+            step_handle_t step = graph.path_begin(p);
+            for (int i = 0; i < steps.size(); i++){
                 
-                REQUIRE(graph.get_path_handle_of_occurrence(occ) == p);
-                REQUIRE(graph.get_occurrence(occ) == occs[i]);
-                REQUIRE(graph.has_previous_occurrence(occ) == (i > 0));
-                REQUIRE(graph.has_next_occurrence(occ) == (i < occs.size() - 1));
+                REQUIRE(graph.get_path_handle_of_step(step) == p);
+                REQUIRE(graph.get_handle_of_step(step) == steps[i]);
                 
-                if (i != occs.size() - 1) {
-                    occ = graph.get_next_occurrence(occ);
+                step = graph.get_next_step(step);
+            }
+            
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(step == graph.path_begin(p));
+            }
+            else {
+                REQUIRE(step == graph.path_end(p));
+            }
+            
+            step = graph.get_previous_step(step);
+            
+            for (int i = steps.size() - 1; i >= 0; i--){
+                
+                REQUIRE(graph.get_path_handle_of_step(step) == p);
+                REQUIRE(graph.get_handle_of_step(step) == steps[i]);
+                
+                if (i != 0 || (graph.get_is_circular(p) && !graph.is_empty(p))) {
+                    step = graph.get_previous_step(step);
                 }
             }
             
-            for (int i = occs.size() - 1; i >= 0; i--){
-                if (i == occs.size() - 1) {
-                    occ = graph.get_last_occurrence(p);
-                }
-                
-                REQUIRE(graph.get_path_handle_of_occurrence(occ) == p);
-                REQUIRE(graph.get_occurrence(occ) == occs[i]);
-                REQUIRE(graph.has_previous_occurrence(occ) == (i > 0));
-                REQUIRE(graph.has_next_occurrence(occ) == (i < occs.size() - 1));
-                
-                if (i != 0) {
-                    occ = graph.get_previous_occurrence(occ);
-                }
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(graph.get_handle_of_step(step) == steps.back());
+            }
+            else {
+                REQUIRE(step == graph.path_begin(p));
             }
         };
         
-        auto check_flips = [&](const path_handle_t& p, const vector<handle_t>& occs) {
-            auto flipped = occs;
-            for (size_t i = 0; i < occs.size(); i++) {
-                
+        auto check_flips = [&](const path_handle_t& p, const vector<handle_t>& steps) {
+            auto flipped = steps;
+            for (size_t i = 0; i < steps.size(); i++) {
                 graph.apply_orientation(graph.flip(graph.forward(flipped[i])));
                 flipped[i] = graph.flip(flipped[i]);
                 check_path(p, flipped);
@@ -2114,18 +2035,18 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         REQUIRE(graph.get_path_count() == 1);
         REQUIRE(graph.get_path_handle("1") == p1);
         REQUIRE(graph.get_path_name(p1) == "1");
-        REQUIRE(graph.get_occurrence_count(p1) == 0);
+        REQUIRE(graph.get_step_count(p1) == 0);
         REQUIRE(graph.is_empty(p1));
         
-        graph.append_occurrence(p1, h1);
+        graph.append_step(p1, h1);
         
-        REQUIRE(graph.get_occurrence_count(p1) == 1);
+        REQUIRE(graph.get_step_count(p1) == 1);
         REQUIRE(!graph.is_empty(p1));
         
-        graph.append_occurrence(p1, h2);
-        graph.append_occurrence(p1, h3);
+        graph.append_step(p1, h2);
+        graph.append_step(p1, h3);
         
-        REQUIRE(graph.get_occurrence_count(p1) == 3);
+        REQUIRE(graph.get_step_count(p1) == 3);
         
         // graph can traverse a path
         check_path(p1, {h1, h2, h3});
@@ -2133,26 +2054,27 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         // graph preserves paths when reversing nodes
         check_flips(p1, {h1, h2, h3});
         
-        path_handle_t p2 = graph.create_path_handle("2");
+        // make a circular path
+        path_handle_t p2 = graph.create_path_handle("2", true);
         REQUIRE(graph.get_path_count() == 2);
         
-        graph.append_occurrence(p2, h1);
-        graph.append_occurrence(p2, graph.flip(h2));
-        graph.append_occurrence(p2, h3);
+        graph.append_step(p2, h1);
+        graph.append_step(p2, graph.flip(h2));
+        graph.append_step(p2, h3);
         
         check_path(p2, {h1, graph.flip(h2), h3});
         
-        // graph can query occurrences of a node on paths
+        // graph can query steps of a node on paths
         
         bool found1 = false, found2 = false;
-        vector<occurrence_handle_t> occs = graph.occurrences_of_handle(h1);
-        for (auto& occ : occs) {
-            if (graph.get_path_handle_of_occurrence(occ) == p1 &&
-                graph.get_occurrence(occ) == h1) {
+        vector<step_handle_t> steps = graph.steps_of_handle(h1);
+        for (auto& step : steps) {
+            if (graph.get_path_handle_of_step(step) == p1 &&
+                graph.get_handle_of_step(step) == h1) {
                 found1 = true;
             }
-            else if (graph.get_path_handle_of_occurrence(occ) == p2 &&
-                     graph.get_occurrence(occ) == h1) {
+            else if (graph.get_path_handle_of_step(step) == p2 &&
+                     graph.get_handle_of_step(step) == h1) {
                 found2 = true;
             }
             else {
@@ -2163,14 +2085,14 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         REQUIRE(found2);
         found1 = found2 = false;
         
-        occs = graph.occurrences_of_handle(h1, true);
-        for (auto& occ : occs) {
-            if (graph.get_path_handle_of_occurrence(occ) == p1 &&
-                graph.get_occurrence(occ) == h1) {
+        steps = graph.steps_of_handle(h1, true);
+        for (auto& step : steps) {
+            if (graph.get_path_handle_of_step(step) == p1 &&
+                graph.get_handle_of_step(step) == h1) {
                 found1 = true;
             }
-            else if (graph.get_path_handle_of_occurrence(occ) == p2 &&
-                     graph.get_occurrence(occ) == h1) {
+            else if (graph.get_path_handle_of_step(step) == p2 &&
+                     graph.get_handle_of_step(step) == h1) {
                 found2 = true;
             }
             else {
@@ -2181,25 +2103,25 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         REQUIRE(found2);
         found1 = found2 = false;
         
-        occs = graph.occurrences_of_handle(graph.flip(h1), true);
-        for (auto& occ : occs) {
+        steps = graph.steps_of_handle(graph.flip(h1), true);
+        for (auto& step : steps) {
             REQUIRE(false);
         }
         
-        occs = graph.occurrences_of_handle(h2, true);
-        for (auto& occ : occs) {
-            if (graph.get_path_handle_of_occurrence(occ) == p1 &&
-                graph.get_occurrence(occ) == h2) {
+        steps = graph.steps_of_handle(h2, true);
+        for (auto& step : steps) {
+            if (graph.get_path_handle_of_step(step) == p1 &&
+                graph.get_handle_of_step(step) == h2) {
                 found1 = true;
             }
             else {
                 REQUIRE(false);
             }
         }
-        occs = graph.occurrences_of_handle(graph.flip(h2), true);
-        for (auto& occ : occs) {
-            if (graph.get_path_handle_of_occurrence(occ) == p2 &&
-                graph.get_occurrence(occ) == graph.flip(h2)) {
+        steps = graph.steps_of_handle(graph.flip(h2), true);
+        for (auto& step : steps) {
+            if (graph.get_path_handle_of_step(step) == p2 &&
+                graph.get_handle_of_step(step) == graph.flip(h2)) {
                 found2 = true;
             }
             else {
@@ -2218,11 +2140,33 @@ TEST_CASE("Deletable handle graphs with mutable paths work", "[handle][packed][h
         check_path(p2, {h1, graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0]), h3});
         
         path_handle_t p3 = graph.create_path_handle("3");
-        graph.append_occurrence(p3, h1);
-        graph.append_occurrence(p3, segments[0]);
+        graph.append_step(p3, h1);
+        graph.append_step(p3, segments[0]);
         
         REQUIRE(graph.has_path("3"));
         REQUIRE(graph.get_path_count() == 3);
+        
+        // graph can toggle circularity
+        
+        graph.for_each_path_handle([&](const path_handle_t& p) {
+            
+            vector<handle_t> steps;
+            
+            for (handle_t h : graph.scan_path(p)) {
+                steps.push_back(h);
+            }
+            
+            bool starting_circularity = graph.get_is_circular(p);
+            
+            // make every transition occur
+            for (bool circularity : {true, true, false, false, true}) {
+                graph.set_circularity(p, circularity);
+                REQUIRE(graph.get_is_circular(p) == circularity);
+                check_path(p, steps);
+            }
+            
+            graph.set_circularity(p, starting_circularity);
+        });
         
         // graph can destroy paths
         

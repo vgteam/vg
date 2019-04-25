@@ -4,7 +4,7 @@
 
 #include "progressive.hpp"
 #include "vg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "traversal_finder.hpp"
 #include "utility.hpp"
 #include "path.hpp"

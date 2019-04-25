@@ -1,7 +1,7 @@
 #ifndef VG_FLOW_SORT_HPP_INCLUDED
 #define VG_FLOW_SORT_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 namespace vg {
     

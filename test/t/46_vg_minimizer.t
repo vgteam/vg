@@ -19,22 +19,22 @@ is $? 0 "default parameters"
 # Single-threaded
 vg minimizer -t 1 -i x.mi x.xg
 is $? 0 "single-threaded construction"
-is $(md5sum x.mi | cut -f 1 -d\ ) 8be00b5eb136da460d706f6305fb1259 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) 859da428d4f90d10247cf3a0c8f6cafb "construction is deterministic"
 
 # Minimizer parameters
 vg minimizer -t 1 -k 7 -w 3 -i x.mi x.xg
 is $? 0 "minimizer parameters"
-is $(md5sum x.mi | cut -f 1 -d\ ) 77882cd5fc80c43baab3358761928093 "setting -k -w works correctly"
+is $(md5sum x.mi | cut -f 1 -d\ ) 08756cda9cd89b923ff4c8bf018f3257 "setting -k -w works correctly"
 
 # Max occs (-k 7 -w 3 -m 2)
 vg minimizer -t 1 -k 7 -w 3 -m 2 -i x.mi x.xg
 is $? 0 "max occurrences"
-is $(md5sum x.mi | cut -f 1 -d\ ) 9372114da245f7df4e14f2e0de5460fa "frequent minimizers can be excluded"
+is $(md5sum x.mi | cut -f 1 -d\ ) e917beec607f67269322107679c7d415 "frequent minimizers can be excluded"
 
 # Haplotype-consistent minimizers
 vg minimizer -t 1 -g x.gbwt -i x.mi x.xg
 is $? 0 "haplotype-consistent minimizers"
-is $(md5sum x.mi | cut -f 1 -d\ ) 7d70396e0a43443120026a1a1e36f244 "construction is deterministic"
+is $(md5sum x.mi | cut -f 1 -d\ ) b53302959d910faa8b13b1a9e627e1d8 "construction is deterministic"
 
 rm -f x.vg x.xg x.gbwt x.mi
 
@@ -51,7 +51,7 @@ vg minimizer -t 1 -i x.mi x.xg
 is $? 0 "multiple graphs: first"
 vg minimizer -t 1 -l x.mi -i xy.mi y.xg
 is $? 0 "multiple graphs: second"
-is $(md5sum xy.mi | cut -f 1 -d\ ) fb9247484869be722a416c7df6b847dc "construction is deterministic"
+is $(md5sum xy.mi | cut -f 1 -d\ ) 45ccf9727fb3147b6133da12de2019f9 "construction is deterministic"
 
 rm -f x.vg y.vg
 rm -f x.xg y.xg

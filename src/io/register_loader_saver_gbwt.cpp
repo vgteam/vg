@@ -3,7 +3,7 @@
  * Defines IO for a GBWT index from stream files.
  */
 
-#include "registry.hpp"
+#include <vg/io/registry.hpp>
 #include "register_loader_saver_gcsa.hpp"
 
 #include <gbwt/gbwt.h>
@@ -11,9 +11,10 @@
 
 namespace vg {
 
-namespace stream {
+namespace io {
 
 using namespace std;
+using namespace vg::io;
 
 void register_loader_saver_gbwt() {
     // GBWT and DynamicGBWT can both load/save the same format.

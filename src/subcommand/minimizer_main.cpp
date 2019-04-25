@@ -4,8 +4,8 @@
  * minimizer index.
  *
  * The index contains the lexicographically smallest kmer in a window of w
- * successive kmers. If the kmer contains characters other than A, C, G, and
- * T, it will not be indexed.
+ * successive kmers and their reverse complements. If the kmer contains
+ * characters other than A, C, G, and T, it will not be indexed.
  *
  * By default, the index contains all minimizers in the graph. Option
  * --max-occs can be used to specify the maximum number of occurrences for
@@ -29,8 +29,8 @@
 #include "../minimizer.hpp"
 #include "subcommand.hpp"
 
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 
 #include <gcsa/gcsa.h>
 #include <gcsa/lcp.h>
@@ -189,7 +189,7 @@ int main_minimizer(int argc, char** argv) {
         std::cerr << "Loading XG index " << xg_name << std::endl;
     }
     std::unique_ptr<xg::XG> xg_index;
-    xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
+    xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
     // Minimizer index.
     std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length, max_occs));
@@ -197,7 +197,7 @@ int main_minimizer(int argc, char** argv) {
         if (progress) {
             std::cerr << "Loading minimizer index " << load_index << std::endl;
         }
-        index = stream::VPKG::load_one<MinimizerIndex>(load_index);
+        index = vg::io::VPKG::load_one<MinimizerIndex>(load_index);
     }
 
     // GBWT-backed graph.
@@ -207,7 +207,7 @@ int main_minimizer(int argc, char** argv) {
         if (progress) {
             std::cerr << "Loading GBWT index " << gbwt_name << std::endl;
         }
-        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
         if (progress) {
             std::cerr << "Building GBWT-backed graph" << std::endl;
         }
@@ -221,14 +221,14 @@ int main_minimizer(int argc, char** argv) {
     }
 
     // Minimizer caching.
-    std::vector<std::vector<std::pair<MinimizerIndex::key_type, pos_t>>> cache(threads);
+    std::vector<std::vector<std::pair<MinimizerIndex::minimizer_type, pos_t>>> cache(threads);
     constexpr size_t MINIMIZER_CACHE_SIZE = 1024;
     auto flush_cache = [&](int thread_id) {
         gbwt::removeDuplicates(cache[thread_id], false);
         #pragma omp critical (minimizer_index)
         {
-            for (auto& minimizer : cache[thread_id]) {
-                index->insert(minimizer.first, minimizer.second);
+            for (auto& hit : cache[thread_id]) {
+                index->insert(hit.first, hit.second);
             }
         }
         cache[thread_id].clear();
@@ -246,24 +246,38 @@ int main_minimizer(int argc, char** argv) {
         auto iter = traversal.begin();
         size_t node_start = 0;
         int thread_id = omp_get_thread_num();
-        for (MinimizerIndex::minimizer_type minimizer : minimizers) {
-            if (minimizer.first == MinimizerIndex::NO_KEY) {
+        for (MinimizerIndex::minimizer_type& minimizer : minimizers) {
+            if (minimizer.empty()) {
                 continue;
             }
             // Find the node covering minimizer starting position.
             size_t node_length = graph.get_length(*iter);
-            while (node_start + node_length <= minimizer.second) {
+            while (node_start + node_length <= minimizer.offset) {
                 node_start += node_length;
                 ++iter;
                 node_length = graph.get_length(*iter);
             }
-            pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.second - node_start };
-            cache[thread_id].emplace_back(minimizer.first, pos);
+            pos_t pos { graph.get_id(*iter), graph.get_is_reverse(*iter), minimizer.offset - node_start };
+            if (minimizer.is_reverse) {
+                pos = reverse_base_pos(pos, node_length);
+            }
+            if (!MinimizerIndex::valid_offset(pos)) {
+                #pragma omp critical (cerr)
+                {
+                    std::cerr << "error: [vg minimizer] node offset " << offset(pos) << " is too large" << std::endl;
+                }
+                std::exit(EXIT_FAILURE);
+            }
+            cache[thread_id].emplace_back(minimizer, pos);
         }
         if (cache[thread_id].size() >= MINIMIZER_CACHE_SIZE) {
             flush_cache(thread_id);
         }
     };
+    // We do a lot of redundant work by traversing both orientations and finding almost the same minimizers
+    // in each orientation. If we consider only the windows starting in forward (reverse) orientation,
+    // we may skip windows that cross from a reverse node to a forward node (from a forward node to a
+    // reverse node).
     if (gbwt_name.empty()) {
         for_each_window(*xg_index, index->k() + index->w() - 1, lambda, (threads > 1));
     } else {
@@ -289,7 +303,7 @@ int main_minimizer(int argc, char** argv) {
     if (progress) {
         std::cerr << "Writing the index to " << index_name << std::endl;
     }
-    stream::VPKG::save(*index, index_name);
+    vg::io::VPKG::save(*index, index_name);
 
     if (progress) {
         double seconds = gbwt::readTimer() - start;
@@ -312,9 +326,9 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
         if (progress) {
             std::cerr << "Loading GCSA index " << gcsa_name << std::endl;
         }
-        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
         std::string lcp_name = gcsa_name + gcsa::LCPArray::EXTENSION;
-        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(lcp_name);
+        lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_name);
     }
 
     // Load the reads.
@@ -360,12 +374,16 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
             min_counts[thread] += result.size();
             if (locate) {
                 std::vector<std::pair<size_t, pos_t>> hits; // (read offset, pos) for unique hits.
-                for (auto minimizer : result) {
-                    if (index->count(minimizer.first) <= max_occs) {
-                        std::vector<pos_t> occs = index->find(minimizer.first);
+                for (auto& minimizer : result) {
+                    if (index->count(minimizer) <= max_occs) {
+                        std::vector<pos_t> occs = index->find(minimizer);
                         if (occs.size() != 1 || !vg::is_empty(occs.front())) {
-                            for (pos_t occ : occs) {
-                                hits.emplace_back(minimizer.second, occ);
+                            for (pos_t& occ : occs) {
+                                if (minimizer.is_reverse) {
+                                    size_t node_length = gbwt_graph->get_length(gbwt_graph->get_handle(id(occ)));
+                                    occ = reverse_base_pos(occ, node_length);
+                                }
+                                hits.emplace_back(minimizer.offset, occ);
                             }
                         }
                     }
@@ -390,7 +408,7 @@ int query_benchmarks(const std::unique_ptr<MinimizerIndex>& index, const std::un
                 }
             } else {
                 for (auto minimizer : result) {
-                    occ_counts[thread] += index->count(minimizer.first);
+                    occ_counts[thread] += index->count(minimizer);
                 }
             }
         }

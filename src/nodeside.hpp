@@ -4,7 +4,7 @@
 #include <ostream>
 #include <utility>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include "hash_map.hpp"
 

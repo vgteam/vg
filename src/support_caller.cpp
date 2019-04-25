@@ -18,7 +18,7 @@
 #include "path.hpp"
 #include "path_index.hpp"
 #include "support_caller.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "nested_traversal_finder.hpp"
 
 //#define debug
@@ -785,8 +785,6 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
 #ifdef debug
         cerr << "\t" << min_supports.at(i) << " vs. " << average_supports.at(i) << endl;
 #endif
-        // We should always have a higher average support than minumum support
-        assert(support_val(average_supports.at(i)) >= support_val(min_supports.at(i)));
     }
 
     return (longest_traversal_length > average_support_switch_threshold || use_average_support) ?
@@ -1371,34 +1369,36 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
                                  vector<vcflib::Variant*>& site_variants,
                                  function<void(const Locus&, const Snarl*, const vcflib::Variant*)> emit_locus)
 {
+
     for (int var_idx = 0; var_idx < site_variants.size(); ++var_idx) {
         // create a locus for this variant
         Locus vcf_locus;
         Genotype& vcf_genotype = *vcf_locus.add_genotype();
 
-        // find the maximum allele
-        int max_allele = -1;
-        if (locus.genotype_size() > 0) {
-            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-                max_allele = max(max_allele, (int)locus.genotype(0).allele(i));
-            }
-            // pad our supports
-            for (int i = 0; i <= max_allele; ++i) {
-                vcf_locus.add_support();
-            }
+        // resize support to be able to hold value for each VCF allele
+        for (int i = 0; i < site_variants[var_idx]->alleles.size(); ++i) {
+            vcf_locus.add_support();
+        }
+        
+        // find the best support for every VCF allele, even if those that aren't called
+        for (int i = 0; i < trav_alleles.size(); ++i) {
+            int vcf_allele = trav_alleles[i][var_idx];
+            *vcf_locus.mutable_support(vcf_allele) = support_max(vcf_locus.support(vcf_allele),
+                                                                 locus.support(i));
+        }
 
-            // convert the allele we called from our traversal list into the corresponding
-            // allele for this variant in the VCF
-            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-                int called_allele = locus.genotype(0).allele(i);
-                int vcf_allele = trav_alleles[called_allele][var_idx];
-                vcf_genotype.add_allele(vcf_allele);
-                // we still write out supports in terms of the whole snarl
-                *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
-            }
-        }        
+        // convert the allele we called from our traversal list into the corresponding
+        // allele for this variant in the VCF
+        for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
+            int called_allele = locus.genotype(0).allele(i);
+            int vcf_allele = trav_alleles[called_allele][var_idx];
+            vcf_genotype.add_allele(vcf_allele);
+            // make absolutely sure we're using the right support for our called alleles
+            // the support is in terms of the entire snarl, and not the vcf variant
+            *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
+        }
+        
         *vcf_locus.mutable_overall_support() = locus.overall_support();
-
         emit_locus(vcf_locus, &site, site_variants[var_idx]);
     }
 }
@@ -1719,7 +1719,7 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
     variant.alleles = recall_variant->alleles;
     variant.quality = 0;
     variant.updateAlleleIndexes();
-    
+
     // Say we're going to spit out the genotype for this sample.        
     variant.format.push_back("GT");
     auto& genotype_vector = variant.samples[sample_name]["GT"];
@@ -1728,9 +1728,13 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
     int best_allele = genotype.allele_size() > 0 ? genotype.allele(0) : -1;
     int second_best_allele = genotype.allele_size() > 1 ? genotype.allele(1) : -1;   
 
-    vector<int> used_alleles(1, 0);
+    // We "use" every allele in the variant, because we're emitting the original variant.
+    vector<int> used_alleles;
+    for (int i = 0; i < variant.alleles.size(); ++i) {
+        used_alleles.push_back(i);
+    }
     
-    if (locus.genotype_size() > 0) {
+    if (best_allele >= 0) {
         // We actually made a call. Emit the first genotype, which is the call.
                 
         // We need to rewrite the allele numbers to alt numbers, since
@@ -1745,9 +1749,6 @@ void SupportCaller::emit_recall_variant(map<string, string>& contig_names_by_pat
             if (i + 1 != genotype.allele_size()) {
                 // Write a separator after all but the last one
                 stream << (genotype.is_phased() ? '|' : '/');
-            }
-            if (std::find(used_alleles.begin(), used_alleles.end(), genotype.allele(i)) == used_alleles.end()) { 
-                used_alleles.push_back(genotype.allele(i));
             }
         }
         // Save the finished genotype
@@ -1822,8 +1823,8 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
     }
     
     // Find the min total support of anything called
-    double min_site_support = INFINITY;
-    double min_site_quality = INFINITY;
+    double min_site_support = genotype.allele_size() > 0 ? INFINITY : 0;
+    double min_site_quality = genotype.allele_size() > 0 ? INFINITY : 0;
             
     for (size_t i = 0; i < genotype.allele_size(); i++) {
         // Min all the total supports from the non-ref alleles called as present
@@ -1991,7 +1992,7 @@ void SupportCaller::call(
         // We have to load some pileups
         ifstream in;
         in.open(pileup_filename.c_str());
-        stream::for_each(in, handle_pileup);
+        vg::io::for_each(in, handle_pileup);
     }
         
     // Make a VCF because we need it in scope later, if we are outputting VCF.
@@ -2278,7 +2279,7 @@ void SupportCaller::call(
             } else {
                 // Emit the locus itself
                 locus_buffer.push_back(locus);
-                stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
             }
             
             // We called a site
@@ -2357,7 +2358,7 @@ void SupportCaller::call(
                 
                 // Send out the locus
                 locus_buffer.push_back(locus);
-                stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
                 
                 extra_loci++;
                 
@@ -2432,7 +2433,7 @@ void SupportCaller::call(
                     
                     // Send out the locus
                     locus_buffer.push_back(locus);
-                    stream::write_buffered(cout, locus_buffer, locus_buffer_size);
+                    vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
                     
                     extra_loci++;
                     
@@ -2445,7 +2446,7 @@ void SupportCaller::call(
         }
         
         // Flush the buffer of Locus objects we have to write
-        stream::write_buffered(cout, locus_buffer, 0);
+        vg::io::write_buffered(cout, locus_buffer, 0);
         
         if (verbose) {
             cerr << "Called " << extra_loci << " extra loci with copy number estimates" << endl;

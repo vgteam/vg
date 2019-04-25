@@ -100,3 +100,6 @@
 [submodule "deps/libhandlegraph"]
 	path = deps/libhandlegraph
 	url = https://github.com/vgteam/libhandlegraph.git
+[submodule "deps/libvgio"]
+	path = deps/libvgio
+	url = https://github.com/vgteam/libvgio.git

@@ -242,7 +242,7 @@ then
         # Build the git version file first, so the Docker knows its version
         make include/vg_git_version.hpp
 
-        docker pull ubuntu:16.04
+        docker pull ubuntu:18.04
         docker build --no-cache -t "${DOCKER_TAG}" -f vgci/Dockerfile.vgci .
         if [ "$?" -ne 0 ]
         then

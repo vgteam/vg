@@ -14,11 +14,11 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
-#include "stream/protobuf_emitter.hpp"
-#include "stream/protobuf_iterator.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/protobuf_iterator.hpp>
 #include "vg.hpp"
 #include "handle.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "hash_map.hpp"
 #include "cactus.hpp"
 
