@@ -11,16 +11,19 @@ class SnarlSeedClusterer {
 
     public:
 
+//TODO: Document all this
         SnarlSeedClusterer();
         vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
                size_t distance_limit, SnarlManager& snarl_manager,
                DistanceIndex& dist_index);
     private:
 
+
+        enum ChildNodeType {CHAIN, SNARL, NODE};
         //list of children of a snarl. 
         //pair<id_t, bool> is the node id and orientation
         // int64_t is 0 if its a chain, 1 for snarl, 2 for node
-        typedef vector<pair<pair<id_t, bool>, int64_t>> child_node_list;
+        typedef vector<pair<pair<id_t, bool>, ChildNodeType>> child_node_list;
 
 
 
