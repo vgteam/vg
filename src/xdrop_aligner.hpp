@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include "mem.hpp"
 

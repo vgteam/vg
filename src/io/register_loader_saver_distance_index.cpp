@@ -3,16 +3,17 @@
  * Defines IO for an XG index from stream files.
  */
 
-#include "registry.hpp"
+#include <vg/io/registry.hpp>
 #include "register_loader_saver_distance_index.hpp"
 
 #include "../distance.hpp"
 
 namespace vg {
 
-namespace stream {
+namespace io {
 
 using namespace std;
+using namespace vg::io;
 
 void register_loader_saver_distance_index() {
     Registry::register_bare_loader_saver<DistanceIndex>("DISTANCE", [](istream& input) -> void* {

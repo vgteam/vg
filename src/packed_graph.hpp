@@ -144,6 +144,9 @@ public:
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
+    
+    /// Returns the number of paths stored in the graph
+    size_t get_path_count() const;
 
     /// Determine if a path name exists and is legal to get a path handle for.
     bool has_path(const std::string& path_name) const;
@@ -154,48 +157,54 @@ public:
 
     /// Look up the name of a path from a handle to it
     string get_path_name(const path_handle_t& path_handle) const;
+    
+    /// Look up whether a path is circular
+    bool get_is_circular(const path_handle_t& path_handle) const;
 
-    /// Returns the number of node occurrences in the path
-    size_t get_occurrence_count(const path_handle_t& path_handle) const;
+    /// Returns the number of node steps in the path
+    size_t get_step_count(const path_handle_t& path_handle) const;
 
-    /// Returns the number of paths stored in the graph
-    size_t get_path_count() const;
+    /// Get a node handle (node ID and orientation) from a handle to an step on a path
+    handle_t get_handle_of_step(const step_handle_t& step_handle) const;
 
+    /// Get a handle to the first step, or in a circular path to an arbitrary step
+    /// considered "first". If the path is empty, returns the past-the-last step
+    /// returned by path_end.
+    step_handle_t path_begin(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position past the end of a path. This position is
+    /// return by get_next_step for the final step in a path in a non-circular path.
+    /// Note that get_next_step will *NEVER* return this value for a circular path.
+    step_handle_t path_end(const path_handle_t& path_handle) const;
+    
+    /// Returns a handle to the next step on the path. If the given step is the final step
+    /// of a non-circular path, returns the past-the-last step that is also returned by
+    /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
+    /// the one returned by path_begin).
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    step_handle_t get_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns a handle to the previous step on the path. If the given step is the first
+    /// step of a non-circular path, this method has undefined behavior. In a circular path,
+    /// it will loop around from the "first" step (i.e. the one returned by path_begin) to
+    /// the "last" step.
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    step_handle_t get_previous_step(const step_handle_t& step_handle) const;
+    
+    /// Returns a handle to the path that an step is on
+    path_handle_t get_path_handle_of_step(const step_handle_t& step_handle) const;
+    
     /// Execute a function on each path in the graph
     bool for_each_path_handle_impl(const std::function<bool(const path_handle_t&)>& iteratee) const;
-
-    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
-    handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
-
-    /// Get a handle to the first occurrence in a path.
-    /// The path MUST be nonempty.
-    occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
-
-    /// Get a handle to the last occurrence in a path
-    /// The path MUST be nonempty.
-    occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
-
-    /// Returns true if the occurrence is not the last occurence on the path, else false
-    bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-
-    /// Returns true if the occurrence is not the first occurence on the path, else false
-    bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-
-    /// Returns a handle to the next occurrence on the path
-    occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-
-    /// Returns a handle to the previous occurrence on the path
-    occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-
-    /// Returns a handle to the path that an occurrence is on
-    path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
     
-    /// Calls the given function for each occurrence of the given handle on a path.
-    bool for_each_occurrence_on_handle_impl(const handle_t& handle,
-                                                    const function<bool(const occurrence_handle_t&)>& iteratee) const;
+    /// Calls the given function for each step of the given handle on a path.
+    bool for_each_step_on_handle_impl(const handle_t& handle,
+                                      const function<bool(const step_handle_t&)>& iteratee) const;
     
     /**
-     * Destroy the given path. Invalidates handles to the path and its node occurrences.
+     * Destroy the given path. Invalidates handles to the path and its node steps.
      */
     void destroy_path(const path_handle_t& path);
 
@@ -205,15 +214,23 @@ public:
      * Returns a handle to the created empty path. Handles to other paths must
      * remain valid.
      */
-    path_handle_t create_path_handle(const string& name);
+    path_handle_t create_path_handle(const string& name, bool is_circular = false);
 
     /**
      * Append a visit to a node to the given path. Returns a handle to the new
-     * final occurrence on the path which is appended. Handles to prior
-     * occurrences on the path, and to other paths, must remain valid.
+     * final step on the path which is appended. Handles to prior
+     * steps on the path, and to other paths, must remain valid.
      */
-    occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
+    step_handle_t append_step(const path_handle_t& path, const handle_t& to_append);
 
+    /**
+     * Make a path circular or non-circular. If the path is becoming circular, the
+     * last step is joined to the first step. If the path is becoming linear, the
+     * step considered "last" is unjoined from the step considered "first" according
+     * to the method path_begin.
+     */
+    void set_circularity(const path_handle_t& path, bool circular);
+    
     ////////////////////////////////////////////////////////////////////////////
     /// Specialized PackedGraph methods
     ////////////////////////////////////////////////////////////////////////////
@@ -300,14 +317,14 @@ private:
     PagedVector path_membership_value_iv;
     const static size_t MEMBERSHIP_RECORD_SIZE = 3;
     const static size_t MEMBERSHIP_PATH_OFFSET = 0;
-    const static size_t MEMBERSHIP_OCCURRENCE_OFFSET = 1;
+    const static size_t MEMBERSHIP_STEP_OFFSET = 1;
     const static size_t MEMBERSHIP_NEXT_OFFSET = 2;
     
     /*
      * A struct to package the data associated with a path through the graph.
      */
     struct PackedPath {
-        PackedPath(const string& name) : name(name), occurrences_iv(PAGE_WIDTH) {}
+        PackedPath(const string& name, bool is_circular) : name(name), is_circular(is_circular), steps_iv(PAGE_WIDTH) {}
         
         /// The path's name
         string name;
@@ -315,17 +332,20 @@ private:
         /// Marks whether this path has been deleted
         bool is_deleted = false;
         
-        // TODO: split up occurrences_iv into adjacencies and travs separately
+        /// Marks whether this path is circular
+        bool is_circular = false;
+        
+        // TODO: split up steps_iv into adjacencies and travs separately
         
         /// Linked list records that encode the oriented nodes of the path. Indexes are
         /// 1-based, with 0 used as a sentinel to indicate none further.
-        /// {ID|orientation (bit-packed), prev occurrence index, next occurrence index}
-        PagedVector occurrences_iv;
+        /// {ID|orientation (bit-packed), prev step index, next step index}
+        PagedVector steps_iv;
         
-        /// 1-based index of the head of the linked list in occurrences_iv.
+        /// 1-based index of the head of the linked list in steps_iv.
         size_t head = 0;
         
-        /// 1-based index of the tail of the linked list in occurrences_iv.
+        /// 1-based index of the tail of the linked list in steps_iv.
         size_t tail = 0;
     };
     const static size_t PATH_RECORD_SIZE = 3;
@@ -361,16 +381,16 @@ private:
     inline void set_edge_target(const uint64_t& edge_index, const handle_t& handle);
     
     inline uint64_t get_next_membership(const uint64_t& membership_index) const;
-    inline uint64_t get_membership_occurrence(const uint64_t& membership_index) const;
+    inline uint64_t get_membership_step(const uint64_t& membership_index) const;
     inline uint64_t get_membership_path(const uint64_t& membership_index) const;
     inline void set_next_membership(const uint64_t& membership_index, const uint64_t& next);
     
-    inline uint64_t get_occurrence_trav(const PackedPath& path, const uint64_t& occurrence_index) const;
-    inline uint64_t get_occurrence_prev(const PackedPath& path, const uint64_t& occurrence_index) const;
-    inline uint64_t get_occurrence_next(const PackedPath& path, const uint64_t& occurrence_index) const;
-    inline void set_occurrence_trav(PackedPath& path, const uint64_t& occurrence_index, const uint64_t& trav);
-    inline void set_occurrence_prev(PackedPath& path, const uint64_t& occurrence_index, const uint64_t& prev_index);
-    inline void set_occurrence_next(PackedPath& path, const uint64_t& occurrence_index, const uint64_t& next_index);
+    inline uint64_t get_step_trav(const PackedPath& path, const uint64_t& step_index) const;
+    inline uint64_t get_step_prev(const PackedPath& path, const uint64_t& step_index) const;
+    inline uint64_t get_step_next(const PackedPath& path, const uint64_t& step_index) const;
+    inline void set_step_trav(PackedPath& path, const uint64_t& step_index, const uint64_t& trav);
+    inline void set_step_prev(PackedPath& path, const uint64_t& step_index, const uint64_t& prev_index);
+    inline void set_step_next(PackedPath& path, const uint64_t& step_index, const uint64_t& next_index);
     
     uint64_t deleted_node_records = 0;
     uint64_t deleted_edge_records = 0;
@@ -461,8 +481,8 @@ inline uint64_t PackedGraph::get_next_membership(const uint64_t& membership_inde
     return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET);
 }
     
-inline uint64_t PackedGraph::get_membership_occurrence(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_OCCURRENCE_OFFSET);
+inline uint64_t PackedGraph::get_membership_step(const uint64_t& membership_index) const {
+    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_STEP_OFFSET);
 }
 
 inline uint64_t PackedGraph::get_membership_path(const uint64_t& membership_index) const {
@@ -473,28 +493,28 @@ inline void PackedGraph::set_next_membership(const uint64_t& membership_index, c
     path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET, next);
 }
 
-inline uint64_t PackedGraph::get_occurrence_trav(const PackedPath& path, const uint64_t& occurrence_index) const {
-    return path.occurrences_iv.get((occurrence_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET);
+inline uint64_t PackedGraph::get_step_trav(const PackedPath& path, const uint64_t& step_index) const {
+    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET);
 }
 
-inline uint64_t PackedGraph::get_occurrence_prev(const PackedPath& path, const uint64_t& occurrence_index) const {
-    return path.occurrences_iv.get((occurrence_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET);
+inline uint64_t PackedGraph::get_step_prev(const PackedPath& path, const uint64_t& step_index) const {
+    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET);
 }
 
-inline uint64_t PackedGraph::get_occurrence_next(const PackedPath& path, const uint64_t& occurrence_index) const {
-    return path.occurrences_iv.get((occurrence_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET);
+inline uint64_t PackedGraph::get_step_next(const PackedPath& path, const uint64_t& step_index) const {
+    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET);
 }
 
-inline void PackedGraph::set_occurrence_trav(PackedPath& path, const uint64_t& occurrence_index, const uint64_t& trav) {
-    path.occurrences_iv.set((occurrence_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET, trav);
+inline void PackedGraph::set_step_trav(PackedPath& path, const uint64_t& step_index, const uint64_t& trav) {
+    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET, trav);
 }
 
-inline void PackedGraph::set_occurrence_prev(PackedPath& path, const uint64_t& occurrence_index, const uint64_t& prev_index) {
-    path.occurrences_iv.set((occurrence_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET, prev_index);
+inline void PackedGraph::set_step_prev(PackedPath& path, const uint64_t& step_index, const uint64_t& prev_index) {
+    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET, prev_index);
 }
 
-inline void PackedGraph::set_occurrence_next(PackedPath& path, const uint64_t& occurrence_index, const uint64_t& next_index) {
-    path.occurrences_iv.set((occurrence_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, next_index);
+inline void PackedGraph::set_step_next(PackedPath& path, const uint64_t& step_index, const uint64_t& next_index) {
+    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, next_index);
 }
 
 } // end dankness

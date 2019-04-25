@@ -16,8 +16,8 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 
 using namespace std;
 using namespace vg;
@@ -203,7 +203,7 @@ int main_paths(int argc, char** argv) {
         xg_index = unique_ptr<xg::XG>();
         // Load the xg
         get_input_file(xg_file, [&](istream& in) {
-            xg_index = stream::VPKG::load_one<xg::XG>(in);
+            xg_index = vg::io::VPKG::load_one<xg::XG>(in);
         });
     }
     unique_ptr<gbwt::GBWT> gbwt_index;
@@ -211,7 +211,7 @@ int main_paths(int argc, char** argv) {
         // We want a gbwt
         
         // Load the GBWT from its container
-        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
@@ -254,15 +254,15 @@ int main_paths(int argc, char** argv) {
         }
         
         // We may need to emit a stream of Alignemnts
-        unique_ptr<stream::ProtobufEmitter<Alignment>> gam_emitter;
+        unique_ptr<vg::io::ProtobufEmitter<Alignment>> gam_emitter;
         // Or we might need to emit a stream of VG Graph objects
-        unique_ptr<stream::ProtobufEmitter<Graph>> graph_emitter;
+        unique_ptr<vg::io::ProtobufEmitter<Graph>> graph_emitter;
         if (extract_as_gam) {
             // Open up a GAM output stream
-            gam_emitter = unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+            gam_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
         } else if (extract_as_vg) {
             // Open up a VG Graph chunk output stream
-            graph_emitter = unique_ptr<stream::ProtobufEmitter<Graph>>(new stream::ProtobufEmitter<Graph>(cout));
+            graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
         }
 
         // Process the threads.
@@ -308,24 +308,30 @@ int main_paths(int argc, char** argv) {
     } else if (graph.get() != nullptr) {
         // Handle non-thread queries from vg
         
-        if (!path_prefix.empty()) {
-            cerr << "error: [vg paths] path selection by prefix from vg is not supported" << endl;
-            exit(1);
-        }
-
+        auto check_prefix = [&path_prefix](const string& name) {
+            // Note: we're using a filter rather than index, so O(#paths in graph). 
+            return path_prefix.empty() ||
+            std::mismatch(name.begin(), name.end(),
+                          path_prefix.begin(), path_prefix.end()).second == path_prefix.end();
+        };
+        
         if (list_names) {
-            graph->paths.for_each([&list_lengths](const Path& path) {
-                cout << path.name();
-                if (list_lengths) {
-                    cout << "\t" << path_to_length(path);
-                }
-                cout << endl;
-            });
+          graph->paths.for_each([&list_lengths, &check_prefix](const Path& path) {
+                  if (check_prefix(path.name())) {
+                      cout << path.name();
+                      if (list_lengths) {
+                          cout << "\t" << path_to_length(path);
+                      }
+                      cout << endl;
+                  }
+              });
         } else if (extract_as_gam) {
             vector<Alignment> alns = graph->paths_as_alignments();
-            stream::ProtobufEmitter<Alignment> emitter(cout);
+            vg::io::ProtobufEmitter<Alignment> emitter(cout);
             for (auto& aln : alns) {
-                emitter.write(std::move(aln));
+                if (check_prefix(aln.name())) {
+                    emitter.write(std::move(aln));
+                }
             }
         } else if (extract_as_vg) {
             cerr << "error: [vg paths] vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
@@ -346,7 +352,7 @@ int main_paths(int argc, char** argv) {
         } else if (!path_prefix.empty()) {
             vector<Path> got = xg_index->paths_by_prefix(path_prefix);
             if (extract_as_gam) {
-                stream::ProtobufEmitter<Alignment> emitter(cout);
+                vg::io::ProtobufEmitter<Alignment> emitter(cout);
                 for (auto& path : got) {
                     emitter.write(xg_index->path_as_alignment(path));
                 }
@@ -355,12 +361,12 @@ int main_paths(int argc, char** argv) {
                     Graph g;
                     *(g.add_path()) = xg_index->path(path.name());
                     vector<Graph> gb = { g };
-                    stream::write_buffered(cout, gb, 0);
+                    vg::io::write_buffered(cout, gb, 0);
                 }
             }            
         } else if (extract_as_gam) {
             auto alns = xg_index->paths_as_alignments();
-            stream::ProtobufEmitter<Alignment> emitter(cout);
+            vg::io::ProtobufEmitter<Alignment> emitter(cout);
             for (auto& aln : alns) {
                 emitter.write(std::move(aln));
             }

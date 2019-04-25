@@ -8,7 +8,7 @@
 
 #include <gbwt/gbwt.h>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "xg.hpp"
 
 namespace vg {

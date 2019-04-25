@@ -394,10 +394,10 @@ namespace vg {
             vg.for_each_path_handle([&](const path_handle_t& path) {
                 string path_name = vg.get_path_name(path);
                 if (path_name == "path1"){
-                    REQUIRE(vg.get_occurrence_count(path) == 3);
+                    REQUIRE(vg.get_step_count(path) == 3);
                 }
                 if (path_name == "path2"){
-                    REQUIRE(vg.get_occurrence_count(path) == 4);
+                    REQUIRE(vg.get_step_count(path) == 4);
                 }
             });
         }
@@ -470,10 +470,10 @@ namespace vg {
             pg.for_each_path_handle([&](const path_handle_t& path) {
                 string path_name = pg.get_path_name(path);
                 if (path_name == "path1"){
-                    REQUIRE(pg.get_occurrence_count(path) == 3);
+                    REQUIRE(pg.get_step_count(path) == 3);
                 }
                 if (path_name == "path2"){
-                    REQUIRE(pg.get_occurrence_count(path) == 4);
+                    REQUIRE(pg.get_step_count(path) == 4);
                 }
             });
         }
@@ -546,10 +546,10 @@ namespace vg {
             hg.for_each_path_handle([&](const path_handle_t& path) {
                 string path_name = hg.get_path_name(path);
                 if (path_name == "path1"){
-                    REQUIRE(hg.get_occurrence_count(path) == 3);
+                    REQUIRE(hg.get_step_count(path) == 3);
                 }
                 if (path_name == "path2"){
-                    REQUIRE(hg.get_occurrence_count(path) == 4);
+                    REQUIRE(hg.get_step_count(path) == 4);
                 }
             });
         }

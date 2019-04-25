@@ -12,7 +12,7 @@
 #include <list>
 #include <sstream>
 #include <exception>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"

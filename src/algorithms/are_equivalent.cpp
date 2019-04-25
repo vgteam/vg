@@ -107,43 +107,43 @@ namespace algorithms {
             
             path_handle_t path_handle_2 = graph_2->get_path_handle(graph_1->get_path_name(path_handle_1));
             
-            if (graph_1->get_occurrence_count(path_handle_1) != graph_2->get_occurrence_count(path_handle_2)) {
+            if (graph_1->get_is_circular(path_handle_1) != graph_2->get_is_circular(path_handle_2)) {
+                if (verbose) {
+                    cerr << "path " << graph_1->get_path_name(path_handle_1) << " does not have the same circularity in the two graphs: " << graph_1->get_is_circular(path_handle_1) << " and " << graph_2->get_is_circular(path_handle_2) << endl;
+                }
                 equivalent = false;
                 return false;
             }
             
-            // TODO: if paths are circular, we shouldn't enforce that the start at the same place
-            if (!graph_1->is_empty(path_handle_1)) {
+            if (graph_1->get_step_count(path_handle_1) != graph_2->get_step_count(path_handle_2)) {
+                if (verbose) {
+                    cerr << "path " << graph_1->get_path_name(path_handle_1) << " is not the same length in the two graphs: " << graph_1->get_step_count(path_handle_1) << " and " << graph_2->get_step_count(path_handle_2) << endl;
+                }
+                equivalent = false;
+                return false;
+            }
+            
+            vector<handle_t> handles_1, handles_2;
+            for (handle_t handle : graph_1->scan_path(path_handle_1)) {
+                handles_1.push_back(handle);
+            }
+            for (handle_t handle : graph_2->scan_path(path_handle_2)) {
+                handles_2.push_back(handle);
+            }
+            
+            assert(handles_1.size() == handles_2.size());
+            
+            for (size_t i = 0; i < handles_1.size(); i++) {
+                handle_t handle_1 = handles_1[i];
+                handle_t handle_2 = handles_2[i];
                 
-                auto check_equiv = [&](const occurrence_handle_t& occ_1,
-                                       const occurrence_handle_t& occ_2) {
-                    handle_t handle_1 = graph_1->get_occurrence(occ_1);
-                    handle_t handle_2 = graph_2->get_occurrence(occ_2);
-                    bool match = (graph_1->get_id(handle_1) == graph_2->get_id(handle_2) &&
-                                  graph_1->get_is_reverse(handle_1) == graph_2->get_is_reverse(handle_2));
-                    if (verbose && !match) {
+                if (graph_1->get_id(handle_1) != graph_2->get_id(handle_2) ||
+                    graph_1->get_is_reverse(handle_1) != graph_2->get_is_reverse(handle_2)) {
+                    if (verbose) {
                         cerr << "path " << graph_1->get_path_name(path_handle_1) << " has mismatching occurrences " << graph_1->get_id(handle_1) << (graph_1->get_is_reverse(handle_1) ? "-" : "+") << " and " << graph_2->get_id(handle_2) << (graph_2->get_is_reverse(handle_2) ? "-" : "+") << endl;
                     }
-                    
-                    return match;
-                };
-                
-                occurrence_handle_t occ_1 = graph_1->get_first_occurrence(path_handle_1);
-                occurrence_handle_t occ_2 = graph_2->get_first_occurrence(path_handle_2);
-                
-                if (!check_equiv(occ_1, occ_2)) {
                     equivalent = false;
                     return false;
-                }
-                
-                while (graph_1->has_next_occurrence(occ_1)) {
-                    occ_1 = graph_1->get_next_occurrence(occ_1);
-                    occ_2 = graph_1->get_next_occurrence(occ_2);
-                    
-                    if (!check_equiv(occ_1, occ_2)) {
-                        equivalent = false;
-                        return false;
-                    }
                 }
             }
             

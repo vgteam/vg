@@ -16,7 +16,7 @@
 #include "types.hpp"
 #include "progressive.hpp"
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 // We need vcflib
 #include "Variant.h"

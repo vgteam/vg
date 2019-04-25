@@ -14,7 +14,7 @@
 
 #include "../vg.hpp"
 #include "../xg.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 #include "../position.hpp"
 
 using namespace std;
@@ -78,7 +78,7 @@ int main_dotplot(int argc, char** argv) {
         exit(1);
     } else {
         unique_ptr<xg::XG> xindex;
-        xindex = stream::VPKG::load_one<xg::XG>(xg_file);
+        xindex = vg::io::VPKG::load_one<xg::XG>(xg_file);
     
         cout << "query.name" << "\t"
              << "query.pos" << "\t"

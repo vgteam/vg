@@ -1,5 +1,5 @@
 #include "vg_set.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "source_sink_overlay.hpp"
 
 namespace vg {
@@ -50,7 +50,7 @@ void VGset::for_each(std::function<void(VG*)> lambda) {
 void VGset::for_each_graph_chunk(std::function<void(Graph&)> lamda) {
     for (auto& name : filenames) {
         ifstream in(name.c_str());
-        stream::for_each(in, lamda);
+        vg::io::for_each(in, lamda);
     }
 }
 
@@ -129,7 +129,7 @@ void VGset::to_xg(xg::XG& index, bool store_threads, const function<bool(const s
                 callback(graph);
             };
             
-            stream::for_each(in, handle_graph);
+            vg::io::for_each(in, handle_graph);
             
             // Now that we got all the chunks, reconstitute any siphoned-off paths into Path objects and return them.
             // We have to handle chunks being encountered in any order, if ranks are set, or in path-forward order, if ranks are missing.

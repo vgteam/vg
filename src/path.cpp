@@ -1,5 +1,5 @@
 #include "path.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "region.hpp"
 
 namespace vg {
@@ -89,7 +89,7 @@ void Paths::load(istream& in) {
     function<void(Path&)> lambda = [this](Path& p) {
         this->extend(p);
     };
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
 }
 
 void Paths::write(ostream& out) {
@@ -111,8 +111,8 @@ void Paths::write(ostream& out) {
         }
         return path;
     };
-    stream::write(out, _paths.size(), lambda);
-    stream::finish(out);
+    vg::io::write(out, _paths.size(), lambda);
+    vg::io::finish(out);
 }
 
 void Paths::to_graph(Graph& g) {
@@ -181,7 +181,7 @@ void Paths::for_each_mapping(const function<void(mapping_t&)>& lambda) {
 }
 
 void Paths::for_each_stream(istream& in, const function<void(Path&)>& lambda) {
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
 }
 
 void Paths::make_circular(const string& name) {
@@ -2077,7 +2077,7 @@ bool maps_to_node(const Path& p, id_t id) {
 }
 
 // returns the start position, or an empty position if the path has no mappings with positions
-Position path_start(const Path& path) {
+Position path_start_position(const Path& path) {
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         if (mapping.has_position()) return mapping.position();
@@ -2099,7 +2099,7 @@ string path_to_string(Path p){
 }
 
 // determine the path end
-Position path_end(const Path& path) {
+Position path_end_position(const Path& path) {
     Position pos;
     if (!path.mapping_size()) return pos;
     auto& last = path.mapping(path.mapping_size()-1);

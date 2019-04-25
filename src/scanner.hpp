@@ -7,7 +7,7 @@
  * Protobuf objects and iterate over items found in the tree.
  */
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include <functional>
 

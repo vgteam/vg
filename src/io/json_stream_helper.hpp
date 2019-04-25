@@ -1,16 +1,16 @@
-#ifndef VG_JSON_STREAM_HELPER_HPP_INCLUDED
-#define VG_JSON_STREAM_HELPER_HPP_INCLUDED
+#ifndef VG_IO_JSON_STREAM_HELPER_HPP_INCLUDED
+#define VG_IO_JSON_STREAM_HELPER_HPP_INCLUDED
 
 #include <functional>
 #include <vector>
 #include <iostream>
 
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "json2pb.h"
 
 namespace vg {
 
-namespace stream {
+namespace io {
 
 // It's handy to be able to stream in JSON via vg view for testing.
 // This helper class takes this functionality from vg view -J and
@@ -103,7 +103,7 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
         }
         if (!good || buf.size() >= buf_size) {
             if (!json_out) {
-                stream::write(out, buf.size(), lambda);
+                vg::io::write(out, buf.size(), lambda);
             } else {
                 for (int i = 0; i < buf.size(); ++i) {
                     out << pb2json(buf[i]);
@@ -115,7 +115,7 @@ inline int64_t JSONStreamHelper<T>::write(std::ostream& out, bool json_out,
     }
     
     if (!json_out) {
-        stream::finish(out);
+        vg::io::finish(out);
     }
     
     out.flush();

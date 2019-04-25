@@ -17,8 +17,8 @@
 #include "../mapper.hpp"
 #include "../annotation.hpp"
 #include "../minimizer.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 #include "../alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
@@ -237,11 +237,11 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
-    unique_ptr<gbwt::GBWT> gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name);
-    unique_ptr<MinimizerIndex> minimizer_index = stream::VPKG::load_one<MinimizerIndex>(minimizer_name);
-    unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
-    unique_ptr<DistanceIndex> distance_index = stream::VPKG::load_one<DistanceIndex>(distance_name);
+    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+    unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
+    unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
+    unique_ptr<DistanceIndex> distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_name);
     
     // Connect the DistanceIndex to the other things it needs to work.
     distance_index->setGraph(xg_index.get());
@@ -276,7 +276,7 @@ int main_gaffe(int argc, char** argv) {
         // For every GAM file to remap
         get_input_file(gam_name, [&](istream& in) {
             // Open it and map all the reads in parallel.
-            stream::for_each_parallel<Alignment>(in, map_read);
+            vg::io::for_each_parallel<Alignment>(in, map_read);
         });
     }
     

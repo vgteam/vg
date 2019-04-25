@@ -16,7 +16,7 @@
 #include <regex>
 #include <signal.h>
 #include <unistd.h>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include "sha1.hpp"
 #include "Variant.h"

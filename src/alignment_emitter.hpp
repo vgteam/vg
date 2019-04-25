@@ -14,8 +14,8 @@
 #include <htslib/hts.h>
 #include <htslib/sam.h>
 
-#include "vg.pb.h"
-#include "stream/protobuf_emitter.hpp"
+#include <vg/vg.pb.h>
+#include <vg/io/protobuf_emitter.hpp>
 
 namespace vg {
 using namespace std;
@@ -214,7 +214,7 @@ private:
     unique_ptr<ofstream> out_file;
 
     /// If we are doing Protobuf output we need a backing emitter. If we are doing JSON out, this will be empty.
-    unique_ptr<stream::ProtobufEmitter<Alignment>> proto;
+    unique_ptr<vg::io::ProtobufEmitter<Alignment>> proto;
     
     /// If we are doing JSON, we need to take care of our own stream locking.
     mutex stream_mutex;

@@ -24,11 +24,11 @@ void RareVariantSimplifier::simplify() {
         if (!is_alt_path(graph.get_path_name(path))) {
             // If it isn't an alt path, we want to trace it
 
-            graph.for_each_occurrence_in_path(path, [&](const occurrence_handle_t& occurrence) {
-                // For each occurrence from start to end
-                // Put the ID of the node we are visiting in the to-keep set
-                to_keep.insert(graph.get_id(graph.get_occurrence(occurrence)));
-            });
+            // For each occurrence from start to end
+            // Put the ID of the node we are visiting in the to-keep set
+            for (handle_t handle : graph.scan_path(path)) {
+                to_keep.insert(graph.get_id(handle));
+            }
         }
     });
 
@@ -147,14 +147,12 @@ void RareVariantSimplifier::simplify() {
                     // Skip those that do not exist
                     continue;
                 }
-                
-                path_handle_t path = graph.get_path_handle(path_name);
 
-                graph.for_each_occurrence_in_path(path, [&](const occurrence_handle_t& occurrence) {
-                    // For each occurrence from start to end
-                    // Put the ID of the node we are visiting in the to-keep set
-                    to_keep.insert(graph.get_id(graph.get_occurrence(occurrence)));
-                });
+                // For each occurrence from start to end
+                // Put the ID of the node we are visiting in the to-keep set
+                for (handle_t handle : graph.scan_path(graph.get_path_handle(path_name))) {
+                    to_keep.insert(graph.get_id(handle));
+                }
             }
         } else {
             // Otherwise delete all its alt paths and also its ref path

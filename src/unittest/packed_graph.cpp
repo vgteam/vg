@@ -23,43 +23,47 @@ using namespace std;
         
         PackedGraph graph;
         
-        auto check_path = [&](const path_handle_t& p, const vector<handle_t>& occs) {
+        auto check_path = [&](const path_handle_t& p, const vector<handle_t>& steps) {
             
-            occurrence_handle_t occ;
-            for (int i = 0; i < occs.size(); i++){
-                if (i == 0) {
-                    occ = graph.get_first_occurrence(p);
-                }
+            step_handle_t step = graph.path_begin(p);
+            for (int i = 0; i < steps.size(); i++){
                 
-                REQUIRE(graph.get_path_handle_of_occurrence(occ) == p);
-                REQUIRE(graph.get_occurrence(occ) == occs[i]);
-                REQUIRE(graph.has_previous_occurrence(occ) == (i > 0));
-                REQUIRE(graph.has_next_occurrence(occ) == (i < occs.size() - 1));
+                REQUIRE(graph.get_path_handle_of_step(step) == p);
+                REQUIRE(graph.get_handle_of_step(step) == steps[i]);
                 
-                if (i != occs.size() - 1) {
-                    occ = graph.get_next_occurrence(occ);
+                step = graph.get_next_step(step);
+            }
+            
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(step == graph.path_begin(p));
+            }
+            else {
+                REQUIRE(step == graph.path_end(p));
+            }
+            
+            step = graph.get_previous_step(step);
+            
+            for (int i = steps.size() - 1; i >= 0; i--){
+                
+                REQUIRE(graph.get_path_handle_of_step(step) == p);
+                REQUIRE(graph.get_handle_of_step(step) == steps[i]);
+                
+                if (i != 0 || (graph.get_is_circular(p) && !graph.is_empty(p))) {
+                    step = graph.get_previous_step(step);
                 }
             }
             
-            for (int i = occs.size() - 1; i >= 0; i--){
-                if (i == occs.size() - 1) {
-                    occ = graph.get_last_occurrence(p);
-                }
-                
-                REQUIRE(graph.get_path_handle_of_occurrence(occ) == p);
-                REQUIRE(graph.get_occurrence(occ) == occs[i]);
-                REQUIRE(graph.has_previous_occurrence(occ) == (i > 0));
-                REQUIRE(graph.has_next_occurrence(occ) == (i < occs.size() - 1));
-                
-                if (i != 0) {
-                    occ = graph.get_previous_occurrence(occ);
-                }
+            if (graph.get_is_circular(p) && !graph.is_empty(p)) {
+                REQUIRE(graph.get_handle_of_step(step) == steps.back());
+            }
+            else {
+                REQUIRE(step == graph.path_begin(p));
             }
         };
         
-        auto check_flips = [&](const path_handle_t& p, const vector<handle_t>& occs) {
-            auto flipped = occs;
-            for (size_t i = 0; i < occs.size(); i++) {
+        auto check_flips = [&](const path_handle_t& p, const vector<handle_t>& steps) {
+            auto flipped = steps;
+            for (size_t i = 0; i < steps.size(); i++) {
                 graph.apply_orientation(graph.flip(graph.forward(flipped[i])));
                 flipped[i] = graph.flip(flipped[i]);
                 check_path(p, flipped);
@@ -88,19 +92,19 @@ using namespace std;
         path_handle_t p2 = graph.create_path_handle("2");
 
         
-        graph.append_occurrence(p0, h3);
-        graph.append_occurrence(p0, h4);
-        graph.append_occurrence(p0, h5);
+        graph.append_step(p0, h3);
+        graph.append_step(p0, h4);
+        graph.append_step(p0, h5);
         
-        graph.append_occurrence(p1, h1);
-        graph.append_occurrence(p1, h3);
-        graph.append_occurrence(p1, h5);
+        graph.append_step(p1, h1);
+        graph.append_step(p1, h3);
+        graph.append_step(p1, h5);
         
-        graph.append_occurrence(p2, h1);
-        graph.append_occurrence(p2, h2);
-        graph.append_occurrence(p2, h3);
-        graph.append_occurrence(p2, h4);
-        graph.append_occurrence(p2, h5);
+        graph.append_step(p2, h1);
+        graph.append_step(p2, h2);
+        graph.append_step(p2, h3);
+        graph.append_step(p2, h4);
+        graph.append_step(p2, h5);
         
         SECTION("Defragmentation during dynamic deletes does not change topology") {
             
@@ -256,10 +260,18 @@ using namespace std;
         int num_variants = 30;
         int long_var_length = 10;
         
+        random_device rd;
+        default_random_engine gen(rd());
+        uniform_int_distribution<int> circ_distr(0, 1);
+        
         for (int i = 0; i < num_graphs; i++) {
             
             PackedGraph graph;
             random_graph(seq_length, long_var_length, num_variants, &graph);
+            
+            graph.for_each_path_handle([&](const path_handle_t& path) {
+                graph.set_circularity(path, circ_distr(gen));
+            });
             
             stringstream strm;
             graph.serialize(strm);
