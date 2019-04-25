@@ -3017,8 +3017,6 @@ pair<int, int> VCFTraversalFinder::scan_for_deletion(vcflib::Variant* var, int a
         }
     }
 
-    assert(best_pos_delta != std::numeric_limits<int>::max());
-
     first_path_it = best_start;
     last_path_it = best_end;
 
