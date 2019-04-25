@@ -7,12 +7,19 @@
 #include <structures/union_find.hpp>
 
 namespace vg{
+
 class SnarlSeedClusterer {
 
     public:
 
-//TODO: Document all this
         SnarlSeedClusterer();
+
+        //Given a vector of seeds (pos_t) and a distance limit, 
+        //cluster the seeds such that two seeds whose minimum distance
+        //between them is less than the distance limit are in the same
+        //cluster
+        //Returns a vector of clusters. The cluster is a vector of
+        //indices into seeds
         vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
                size_t distance_limit, SnarlManager& snarl_manager,
                DistanceIndex& dist_index);
@@ -20,6 +27,7 @@ class SnarlSeedClusterer {
 
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
+
         //children of a snarl. 
         //pair<id_t, bool> is the node id and orientation
         // int64_t is 0 if its a chain, 1 for snarl, 2 for node
@@ -33,6 +41,8 @@ class SnarlSeedClusterer {
 
 
 
+        //Find which nodes contain seeds and assign those nodes to the 
+        //snarls that contain them. Also find the depth of each snarl
         void get_nodes( const vector<pos_t>& seeds, 
                         const SnarlManager& snarl_manager, 
                         DistanceIndex& dist_index,
@@ -41,6 +51,7 @@ class SnarlSeedClusterer {
                                   vector<pair<child_node_t, child_cluster_t>>>>&
                                                             snarl_to_nodes);
 
+        //Given a node and the seeds on that node, cluster the seeds
         child_cluster_t get_clusters_node(const vector<pos_t>& seeds, 
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
@@ -49,6 +60,7 @@ class SnarlSeedClusterer {
                              const SnarlManager& snarl_manager, id_t root,
                              int64_t node_length); 
 
+        //Cluster the seeds in a chain
         child_cluster_t get_clusters_chain(
                              const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,
@@ -56,22 +68,25 @@ class SnarlSeedClusterer {
                              vector<pair<size_t, pair<const Snarl*, 
                               DistanceIndex::SnarlIndex*>>>& snarls_in_chain,
                              hash_map<const Snarl*, 
-                                       vector<pair<child_node_t, child_cluster_t>>>& 
+                                  vector<pair<child_node_t, child_cluster_t>>>&
                                                         curr_snarl_children,
                              hash_map<id_t, vector<size_t>>& node_to_seeds,
                              size_t distance_limit, 
                              const SnarlManager& snarl_manager,
                              DistanceIndex& dist_index, const Chain* root);
 
+        //Cluster the seeds in a snarl 
         child_cluster_t get_clusters_snarl(
                              const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
-                             vector<pair<child_node_t, child_cluster_t>>&  child_nodes,
+                             vector<pair<child_node_t, child_cluster_t>>&  
+                                                              child_nodes,
                              hash_map<id_t, vector<size_t>>& node_to_seeds,
                              size_t distance_limit, 
                              const SnarlManager& snarl_manager,
-                             DistanceIndex::SnarlIndex& snarl_index, const Snarl* root,
+                             DistanceIndex::SnarlIndex& snarl_index, 
+                             const Snarl* root,
                              bool rev) ;
 
 };

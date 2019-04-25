@@ -545,9 +545,10 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
                             union_find_clusters.union_groups(combined_left, c);
                             size_t combined_group = 
                                               union_find_clusters.find_group(c);
-                            if (combined_group == c) {
+                            if (combined_group != combined_left) {
                                 to_remove.push_back(combined_left);
-                            } else {
+                            }
+                            if (combined_group != c) {
                                 to_remove.push_back(c);
                             }
                             combined_left = combined_group;
@@ -574,10 +575,11 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
                                                   cluster_dists[combined_right];
                             size_t combined_group = 
                                               union_find_clusters.find_group(c);
-                            if (combined_group == c) {
-                                to_remove.push_back(combined_right);
-                            } else {
+                            if (combined_group != c) {
                                 to_remove.push_back(c);
+                            } 
+                            if (combined_group != combined_right)  {
+                                to_remove.push_back(combined_right);
                             }
                             combined_right = combined_group;
                             cluster_dists[combined_right] = make_pair(
@@ -595,6 +597,21 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
             }
  
 #ifdef DEBUG
+cerr << "  Snarl distance limits: " << child_dist_left << " " << child_dist_right << endl;
+cerr << "  Snarl clusters to add: " << endl;
+for (size_t c : snarl_clusters) {
+    pair<int64_t, int64_t> dists = cluster_dists[c];
+    cerr << "\tleft: " << dists.first << " right : " << dists.second 
+         << "\t seeds: ";
+    vector<size_t> ss = union_find_clusters.group(c);
+    for (size_t s : ss) {
+        cerr << seeds[s] << " ";
+    }
+    
+    cerr << endl;
+}
+cerr << endl;
+
 cerr << "  Clusters on chain: " << endl;
 
 cerr << "  best left: " << best_left << " best right: " << best_right << endl;
@@ -700,6 +717,9 @@ cerr << endl;
                         //either end of the chain is greater than the distance
                         //limit, then it cannot cluster with anything else
                         //so we can stop keeping track of it
+#ifdef DEBUG
+cerr << "Removing cluster " << i << endl;
+#endif
                         to_erase.push_back(i);
                     } else {
                         best_left = DistanceIndex::minPos({best_left, 
@@ -1085,34 +1105,6 @@ for (size_t group_id : chain_cluster_ids) {
                         }
                     }
                 }
-
-#ifdef DEBUG 
-cerr << "At i node " << curr_node << " j node " << other_node << endl;
-cerr << "    with best left and right values: " << best_left << " " 
-     << best_right << endl;
-bool got_left = false;
-bool got_right = false;
-for (size_t c : snarl_cluster_ids) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    if (dists.first == best_left) {got_left = true;}
-    if (dists.second == best_right) {got_right = true;}
-    cerr << "\t" << c << ": left: " << dists.first << " right : " 
-         << dists.second << "\t seeds: ";
-    vector<size_t> seed_is = union_find_clusters.group(c);
-    assert(dists.first == -1 || dists.first >= best_left);
-    assert(dists.second == -1 || dists.second >= best_right);
-    for (size_t s : seed_is) {
-        cerr << seeds[s] << " ";
-    }
-    cerr << endl;
-}
-assert(got_left);
-assert(got_right);
-for (size_t group_id : snarl_cluster_ids) {
-
-assert (group_id == union_find_clusters.find_group(group_id));
-}
-#endif
             }
         }
 #ifdef DEBUG 
