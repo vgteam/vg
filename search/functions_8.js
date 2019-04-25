@@ -32,7 +32,7 @@ var searchData=
   ['has_5fsupports',['has_supports',['../structvg_1_1AugmentedGraph.html#a4a4020e330e831fab73c004803ec341c',1,'vg::AugmentedGraph::has_supports()'],['../structvg_1_1SupportAugmentedGraph.html#a3805a62774111f6b30e028861178715a',1,'vg::SupportAugmentedGraph::has_supports()']]],
   ['has_5ftabix',['has_tabix',['../classvg_1_1VcfBuffer.html#abb9be4c1af3513fafbd4ccd47ebe94d4',1,'vg::VcfBuffer::has_tabix()'],['../classvg_1_1WindowedVcfBuffer.html#aad040244e886f6494872d04563a0331c',1,'vg::WindowedVcfBuffer::has_tabix()']]],
   ['has_5ftranslation',['has_translation',['../classvg_1_1Translator.html#ae6ccab957bfb3f7eba512f7021a4052b',1,'vg::Translator']]],
-  ['hash',['hash',['../classvg_1_1MinimizerIndex.html#ad702b91033ed375f890e958cfda1c0d2',1,'vg::MinimizerIndex::hash()'],['../classvg_1_1VG.html#a2b75ca400f858be77b0716ab7c68dfcb',1,'vg::VG::hash()']]],
+  ['hash',['hash',['../classvg_1_1VG.html#a2b75ca400f858be77b0716ab7c68dfcb',1,'vg::VG']]],
   ['hash_5falignment',['hash_alignment',['../namespacevg.html#a94f469aebb2be5b0028c337108d253fb',1,'vg']]],
   ['hash_5fto_5frgb',['hash_to_rgb',['../namespacevg.html#a8bc1d89bbcee041956e59895ed605ca3',1,'vg']]],
   ['hashed',['hashed',['../classvg_1_1Colors.html#a9c14e90e97e7fd193b25461a40ff6235',1,'vg::Colors::hashed()'],['../classvg_1_1Pictographs.html#a42c157819fffed93d2bfa730c5517e56',1,'vg::Pictographs::hashed()']]],

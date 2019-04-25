@@ -94,6 +94,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="minimizer_8hpp.html">minimizer.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="wang__hash_8hpp.html">wang_hash.hpp</a>&quot;</code><br/>
 <code>#include &lt;algorithm&gt;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
@@ -134,10 +135,10 @@ Functions</h2></td></tr>
 <tr class="separator:aba67aeffb7a8a1dfe3659bd1c631ba0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afc8b8cdd07a427d7bba2ef6c94ba0804"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#afc8b8cdd07a427d7bba2ef6c94ba0804">vg::mi::load_bool_vector</a> (std::istream &amp;in, std::vector&lt; bool &gt; &amp;v)</td></tr>
 <tr class="separator:afc8b8cdd07a427d7bba2ef6c94ba0804"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab6d706e885cc87399e9a601426bad910"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#ab6d706e885cc87399e9a601426bad910">vg::mi::update_key</a> (MinimizerIndex::key_type &amp;key, size_t k, unsigned char c, size_t &amp;valid_chars)</td></tr>
-<tr class="separator:ab6d706e885cc87399e9a601426bad910"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2fc789452bd1eb6da2b7044cda69e4d2"><td class="memItemLeft" align="right" valign="top">MinimizerIndex::minimizer_type&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#a2fc789452bd1eb6da2b7044cda69e4d2">vg::mi::minimizer</a> (std::string::const_iterator begin, std::string::const_iterator end, size_t k, size_t &amp;valid_chars)</td></tr>
-<tr class="separator:a2fc789452bd1eb6da2b7044cda69e4d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46fb9578279657ef46965f9b846dacfa"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#a46fb9578279657ef46965f9b846dacfa">vg::mi::update_forward_key</a> (MinimizerIndex::key_type &amp;key, size_t k, unsigned char c, size_t &amp;valid_chars)</td></tr>
+<tr class="separator:a46fb9578279657ef46965f9b846dacfa"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a86934da07a7585e614b93af771c44c52"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg_1_1mi.html#a86934da07a7585e614b93af771c44c52">vg::mi::update_reverse_key</a> (MinimizerIndex::key_type &amp;key, size_t k, unsigned char c)</td></tr>
+<tr class="separator:a86934da07a7585e614b93af771c44c52"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

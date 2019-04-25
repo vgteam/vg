@@ -9,6 +9,7 @@ var searchData=
   ['walk_5ft',['walk_t',['../structvg_1_1walk__t.html',1,'vg']]],
   ['walk_5ft',['walk_t',['../structvg_1_1walk__t.html#ad7a131cb934419dc90103ce2483fc02b',1,'vg::walk_t']]],
   ['wang_5fhash',['wang_hash',['../structvg_1_1wang__hash.html',1,'vg']]],
+  ['wang_5fhash_2ehpp',['wang_hash.hpp',['../wang__hash_8hpp.html',1,'']]],
   ['wang_5fhash_3c_20handle_5ft_20_3e',['wang_hash&lt; handle_t &gt;',['../structvg_1_1wang__hash_3_01handle__t_01_4.html',1,'vg']]],
   ['wang_5fhash_3c_20nodeside_20_3e',['wang_hash&lt; NodeSide &gt;',['../structvg_1_1wang__hash_3_01NodeSide_01_4.html',1,'vg']]],
   ['wang_5fhash_3c_20nodetraversal_20_3e',['wang_hash&lt; NodeTraversal &gt;',['../structvg_1_1wang__hash_3_01NodeTraversal_01_4.html',1,'vg']]],

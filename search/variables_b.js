@@ -1,6 +1,7 @@
 var searchData=
 [
   ['k',['k',['../structvg_1_1MinimizerIndex_1_1Header.html#a0d989692b6f8feeff8b563b0aa862ff1',1,'vg::MinimizerIndex::Header']]],
+  ['key',['key',['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a833c179b12afd6b7be4d3441b3e1f862',1,'vg::MinimizerIndex::minimizer_type']]],
   ['keys',['keys',['../structvg_1_1MinimizerIndex_1_1Header.html#a8ba1c5109011f79accbd914ba531bfcb',1,'vg::MinimizerIndex::Header']]],
   ['kmer',['kmer',['../structvg_1_1KmerPosition.html#a79c4fa6766d55a1fea8fdc00adab02b3',1,'vg::KmerPosition']]],
   ['kmer_5flength',['KMER_LENGTH',['../classvg_1_1MinimizerIndex.html#acec9b26ef8d1d8b587a6750f095b7f63',1,'vg::MinimizerIndex::KMER_LENGTH()'],['../structPruningParameters.html#ae3cd0ffe16bbdd3d2d5092ef57f4219a',1,'PruningParameters::kmer_length()']]],

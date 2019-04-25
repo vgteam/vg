@@ -115,7 +115,7 @@ Functions</h2></td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines the "vg minimizer" subcommand, which builds the experimental minimizer index.</p>
-<p>The index contains the lexicographically smallest kmer in a window of w successive kmers. If the kmer contains characters other than A, C, G, and T, it will not be indexed.</p>
+<p>The index contains the lexicographically smallest kmer in a window of w successive kmers and their reverse complements. If the kmer contains characters other than A, C, G, and T, it will not be indexed.</p>
 <p>By default, the index contains all minimizers in the graph. Option &ndash;max-occs can be used to specify the maximum number of occurrences for a kmer. Kmers more frequent than that will be removed from the index.</p>
 <p>The index contains either all minimizers or haplotype-consistent minimizers (option &ndash;gbwt-name). Indexing all minimizers from complex graph regions can take a long time (e.g. 65 hours vs 30 minutes for 1000GP), because many windows have the same minimizer. As the total number of minimizers is manageable (e.g. 2.1 billion vs. 1.4 billion for 1000GP), it should be possible to develop a better algorithm for finding the minimizers.</p>
 <p>A quick idea:</p>
