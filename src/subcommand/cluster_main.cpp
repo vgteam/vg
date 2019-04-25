@@ -254,11 +254,12 @@ int main_cluster(int argc, char** argv) {
                 
                 for (size_t i = 0; i < minimizers.size(); i++) {
                     // For each minimizer
-                    if (hit_cap != 0 && minimizer_index->count(minimizers[i].first) <= hit_cap) {
+                    if (hit_cap != 0 && minimizer_index->count(minimizers[i]) <= hit_cap) {
                         // The minimizer is infrequent enough to be informative, so feed it into clustering
                         
-                        // Locate it in the graph
-                        for (auto& hit : minimizer_index->find(minimizers[i].first)) {
+                        // Locate it in the graph. We do not have to reverse the hits for a
+                        // reverse minimizers, as the clusterer only cares about node ids.
+                        for (auto& hit : minimizer_index->find(minimizers[i])) {
                             // For each position, remember it and what minimizer it came from
                             seeds.push_back(hit);
                             seed_to_source.push_back(i);
@@ -295,7 +296,12 @@ int main_cluster(int argc, char** argv) {
                         }
                     } else {
                         // Using minimizers
-                        for (size_t i = minimizers[source_index].second; i < minimizers[source_index].second + minimizer_index->k(); i++) {
+                        // The offset of a reverse minimizer is the endpoint of the kmer
+                        size_t start_offset = minimizers[source_index].offset;
+                        if (minimizers[source_index].is_reverse) {
+                            start_offset = start_offset + 1 - minimizer_index->k();
+                        }
+                        for (size_t i = start_offset; i < start_offset + minimizer_index->k(); i++) {
                             // Set all the bits in read space for that minimizer.
                             // Each minimizr is a length-k exact match starting at a position
                             covered[i] = true;

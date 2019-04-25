@@ -86,14 +86,19 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
 #endif
         
-        if (hit_cap == 0 || minimizer_index->count(minimizers[i].first) <= hit_cap) {
+        if (hit_cap == 0 || minimizer_index->count(minimizers[i]) <= hit_cap) {
             // The minimizer is infrequent enough to be informative, so feed it into clustering
             
             // How many seeds were there before now?
             size_t seeds_before = seeds.size();
             
             // Locate it in the graph
-            for (auto& hit : minimizer_index->find(minimizers[i].first)) {
+            for (auto& hit : minimizer_index->find(minimizers[i])) {
+                // Reverse the hits for a reverse minimizer
+                if (minimizers[i].is_reverse) {
+                    size_t node_length = extender.graph->get_length(extender.graph->get_handle(id(hit)));
+                    hit = reverse_base_pos(hit, node_length);
+                }
                 // For each position, remember it and what minimizer it came from
                 seeds.push_back(hit);
                 seed_to_source.push_back(i);
@@ -192,8 +197,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         for (auto& hit_index : cluster) {
             // For each hit in the cluster, work out what anchor sequence it is from.
             size_t source_index = seed_to_source.at(hit_index);
+
+            // The offset of a reverse minimizer is the endpoint of the kmer
+            size_t start_offset = minimizers[source_index].offset;
+            if (minimizers[source_index].is_reverse) {
+                start_offset = start_offset + 1 - minimizer_index->k();
+            }
             
-            for (size_t i = minimizers[source_index].second; i < minimizers[source_index].second + minimizer_index->k(); i++) {
+            for (size_t i = start_offset; i < start_offset + minimizer_index->k(); i++) {
                 // Set all the bits in read space for that minimizer.
                 // Each minimizr is a length-k exact match starting at a position
                 covered[i] = true;
@@ -268,10 +279,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         seed_matchings.reserve(cluster.size());
         for (auto& seed_index : cluster) {
             // For each seed in the cluster, generate its matching pair
-            seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].second, seeds[seed_index]);
+            seed_matchings.emplace_back(minimizers[seed_to_source[seed_index]].offset, seeds[seed_index]);
 #ifdef debug
-            cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].second << " = " << seeds[seed_index]
-                << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]].first) << ")" << endl;
+            cerr << "Seed read:" << minimizers[seed_to_source[seed_index]].offset << " = " << seeds[seed_index]
+                << " from minimizer " << seed_to_source[seed_index] << "(" << minimizer_index->count(minimizers[seed_to_source[seed_index]]) << ")" << endl;
 #endif
         }
         
