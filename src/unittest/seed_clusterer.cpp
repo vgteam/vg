@@ -423,7 +423,6 @@ namespace unittest {
         }
     }
 
-/*
     TEST_CASE("Random graphs", "[cluster]"){
 
         for (int i = 0; i < 1000; i++) {
@@ -575,6 +574,5 @@ namespace unittest {
             }
         }
     } //end test case
-    */
 }
 }

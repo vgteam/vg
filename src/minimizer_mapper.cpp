@@ -16,7 +16,7 @@
 // Without this we just track per-read time.
 #define INSTRUMENT_MAPPING
 // With INSTRUMENT_MAPPING on, set this to track provenance of intermediate results
-//#define TRACK_PROVENANCE
+#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
 //#define TRACK_CORRECTNESS
 

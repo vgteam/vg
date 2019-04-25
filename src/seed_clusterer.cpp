@@ -1,6 +1,6 @@
 #include "seed_clusterer.hpp"
 
-#define DEBUG 
+//#define DEBUG 
 
 namespace vg {
 
