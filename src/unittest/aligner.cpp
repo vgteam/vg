@@ -1,4 +1,4 @@
-/// \file aligner.cpp
+/// \file unittest/aligner.cpp
 ///  
 /// Unit tests for the basic methods of the Aligner class. See also:
 /// pinned_alignment.cpp.
