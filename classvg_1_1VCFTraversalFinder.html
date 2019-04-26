@@ -142,8 +142,8 @@ Protected Member Functions</h2></td></tr>
 <tr class="separator:af526339695ddc14088e2a626370c606d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a471f23626431914a19c0a2f00be6da38"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>, bool &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a471f23626431914a19c0a2f00be6da38">get_alt_path</a> (vcflib::Variant *site_variant, int allele, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index)</td></tr>
 <tr class="separator:a471f23626431914a19c0a2f00be6da38"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a169554d23b7d836fc952f9df5a8c6cd5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a169554d23b7d836fc952f9df5a8c6cd5">scan_for_deletion</a> (vcflib::Variant *<a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>, int allele, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;first_path_it, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;last_path_it)</td></tr>
-<tr class="separator:a169554d23b7d836fc952f9df5a8c6cd5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7f67e573016ebfe3bd1fd2daa7611d9f"><td class="memItemLeft" align="right" valign="top">pair&lt; int, int &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a7f67e573016ebfe3bd1fd2daa7611d9f">scan_for_deletion</a> (vcflib::Variant *<a class="el" href="namespacevg.html#afe7fae89b379b5411189ac0ac74b2dd4">var</a>, int allele, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;first_path_it, <a class="el" href="structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482">PathIndex::iterator</a> &amp;last_path_it)</td></tr>
+<tr class="separator:a7f67e573016ebfe3bd1fd2daa7611d9f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a39daebd66e37b87d5fdd90174c3f2d71"><td class="memItemLeft" align="right" valign="top">vector&lt; vector&lt; int &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a39daebd66e37b87d5fdd90174c3f2d71">get_pruned_alt_alleles</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> &amp;site, const vector&lt; vcflib::Variant * &gt; &amp;site_variants, <a class="el" href="structvg_1_1PathIndex.html">PathIndex</a> *path_index)</td></tr>
 <tr class="separator:a39daebd66e37b87d5fdd90174c3f2d71"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab82f66226266e3adcfc7076f158ff23"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#aab82f66226266e3adcfc7076f158ff23">check_max_trav_cutoff</a> (const vector&lt; vector&lt; int &gt; &gt; &amp;alleles)</td></tr>
@@ -170,7 +170,7 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a27189437955d4b5f8b8ca92433c8fac2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a27189437955d4b5f8b8ca92433c8fac2">include_endpoints</a> = true</td></tr>
 <tr class="memdesc:a27189437955d4b5f8b8ca92433c8fac2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Include snarl endpoints in traversals.  <a href="#a27189437955d4b5f8b8ca92433c8fac2">More...</a><br/></td></tr>
 <tr class="separator:a27189437955d4b5f8b8ca92433c8fac2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3e61ffdb1cf6733311b444df38928137"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a3e61ffdb1cf6733311b444df38928137">max_deletion_scan_nodes</a> = 200</td></tr>
+<tr class="memitem:a3e61ffdb1cf6733311b444df38928137"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VCFTraversalFinder.html#a3e61ffdb1cf6733311b444df38928137">max_deletion_scan_nodes</a> = 100</td></tr>
 <tr class="memdesc:a3e61ffdb1cf6733311b444df38928137"><td class="mdescLeft">&#160;</td><td class="mdescRight">How far to scan when looking for deletions.  <a href="#a3e61ffdb1cf6733311b444df38928137">More...</a><br/></td></tr>
 <tr class="separator:a3e61ffdb1cf6733311b444df38928137"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
@@ -657,7 +657,7 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a169554d23b7d836fc952f9df5a8c6cd5"></a>
+<a class="anchor" id="a7f67e573016ebfe3bd1fd2daa7611d9f"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -665,7 +665,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::VCFTraversalFinder::scan_for_deletion </td>
+          <td class="memname">pair&lt; int, int &gt; vg::VCFTraversalFinder::scan_for_deletion </td>
           <td>(</td>
           <td class="paramtype">vcflib::Variant *&#160;</td>
           <td class="paramname"><em>var</em>, </td>
@@ -706,7 +706,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>An alt path for a deletion is the deleted reference path. But sometimes vg construct doesn't write a deletion edge that exactly jumps over the alt path. In these cases, we need to search the graph for one. This does a brute-force check of all deletion edges in the vicinity for one that's the same size as the one we're looking for. It picks the nearest one and returns true if the exact size is found. Todo: check the sequence as well Also todo: It'd be really nice if construct -fa would make the deletion-edge easily inferrable from the alte path </p>
+<p>An alt path for a deletion is the deleted reference path. But sometimes vg construct doesn't write a deletion edge that exactly jumps over the alt path. In these cases, we need to search the graph for one. This does a brute-force check of all deletion edges in the vicinity for one that's the same size as the one we're looking for. It picks the nearest one and returns true if the exact size is found. Todo: check the sequence as well Also todo: It'd be really nice if construct -fa would make the deletion-edge easily inferrable from the alt path. It really shouldn't be necessary to hunt around. Returns: &lt;size delta between returned deletion and vcf allele, position delta between returned deletion and alt path&gt; </p>
 
 </div>
 </div>
@@ -782,7 +782,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::VCFTraversalFinder::max_deletion_scan_nodes = 200</td>
+          <td class="memname">size_t vg::VCFTraversalFinder::max_deletion_scan_nodes = 100</td>
         </tr>
       </table>
   </td>
