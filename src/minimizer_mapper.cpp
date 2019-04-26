@@ -16,7 +16,7 @@
 // Without this we just track per-read time.
 #define INSTRUMENT_MAPPING
 // With INSTRUMENT_MAPPING on, set this to track provenance of intermediate results
-#define TRACK_PROVENANCE
+//#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
 //#define TRACK_CORRECTNESS
 
@@ -28,7 +28,7 @@ MinimizerMapper::MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_
     SnarlManager* snarl_manager, DistanceIndex* distance_index) :
     xg_index(xg_index), gbwt_index(gbwt_index), minimizer_index(minimizer_index),
     snarl_manager(snarl_manager), distance_index(distance_index), gbwt_graph(*gbwt_index, *xg_index),
-    extender(gbwt_graph) {
+    extender(gbwt_graph), clusterer(*snarl_manager, *distance_index) {
     
     // Nothing to do!
 }
@@ -167,7 +167,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
         
     // Cluster the seeds. Get sets of input seed indexes that go together.
-    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+    vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
     
 #ifdef INSTRUMENT_MAPPING
     funnel.substage("score");

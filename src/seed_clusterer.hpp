@@ -12,7 +12,8 @@ class SnarlSeedClusterer {
 
     public:
 
-        SnarlSeedClusterer();
+        SnarlSeedClusterer(SnarlManager& snarl_manager, 
+                           DistanceIndex& dist_index);
 
         //Given a vector of seeds (pos_t) and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
@@ -21,9 +22,10 @@ class SnarlSeedClusterer {
         //Returns a vector of clusters. The cluster is a vector of
         //indices into seeds
         vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
-               size_t distance_limit, SnarlManager& snarl_manager,
-               DistanceIndex& dist_index);
+               size_t distance_limit);
     private:
+        SnarlManager& snarl_manager;
+        DistanceIndex& dist_index;
 
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
@@ -43,9 +45,7 @@ class SnarlSeedClusterer {
 
         //Find which nodes contain seeds and assign those nodes to the 
         //snarls that contain them. Also find the depth of each snarl
-        void get_nodes( const vector<pos_t>& seeds, 
-                        const SnarlManager& snarl_manager, 
-                        DistanceIndex& dist_index,
+        void get_nodes( const vector<pos_t>& seeds,
                         hash_map<id_t, vector<size_t>>& node_to_seeds,
                         vector<hash_map<const Snarl*, 
                                   vector<pair<child_node_t, child_cluster_t>>>>&
@@ -56,8 +56,7 @@ class SnarlSeedClusterer {
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
                              vector<size_t>& seed_indices,
-                             size_t distance_limit, 
-                             const SnarlManager& snarl_manager, id_t root,
+                             size_t distance_limit, id_t root,
                              int64_t node_length); 
 
         //Cluster the seeds in a chain
@@ -71,9 +70,7 @@ class SnarlSeedClusterer {
                                   vector<pair<child_node_t, child_cluster_t>>>&
                                                         curr_snarl_children,
                              hash_map<id_t, vector<size_t>>& node_to_seeds,
-                             size_t distance_limit, 
-                             const SnarlManager& snarl_manager,
-                             DistanceIndex& dist_index, const Chain* root);
+                             size_t distance_limit,  const Chain* root);
 
         //Cluster the seeds in a snarl 
         child_cluster_t get_clusters_snarl(
@@ -84,7 +81,6 @@ class SnarlSeedClusterer {
                                                               child_nodes,
                              hash_map<id_t, vector<size_t>>& node_to_seeds,
                              size_t distance_limit, 
-                             const SnarlManager& snarl_manager,
                              DistanceIndex::SnarlIndex& snarl_index, 
                              const Snarl* root,
                              bool rev) ;

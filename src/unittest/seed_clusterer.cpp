@@ -62,7 +62,7 @@ namespace unittest {
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
         DistanceIndex dist_index (&graph, &snarl_manager, 20);
-        SnarlSeedClusterer clusterer;
+        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
 
         SECTION( "One cluster" ) {
  
@@ -73,8 +73,7 @@ namespace unittest {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10, 
-                           snarl_manager, dist_index); 
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 10); 
             REQUIRE(clusters.size() == 1); 
 
         }
@@ -89,7 +88,7 @@ namespace unittest {
             }
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 9,  snarl_manager, dist_index); 
+                                         seeds, 9); 
             vector<hash_set<size_t>> cluster_sets;
             for (vector<size_t> v : clusters) {
                 hash_set<size_t> h;
@@ -117,7 +116,7 @@ namespace unittest {
 
         }
     }//End test case
-    TEST_CASE( "Revese in chain","[cluster]" ) {
+    TEST_CASE( "Revese in chain right","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -150,7 +149,7 @@ namespace unittest {
         SnarlManager snarl_manager = bubble_finder.find_snarls();
         DistanceIndex dist_index (&graph, &snarl_manager, 20);
 
-        SnarlSeedClusterer clusterer;
+        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
 
         SECTION( "One cluster" ) {
             vector<pos_t> seeds;
@@ -158,7 +157,54 @@ namespace unittest {
             seeds.push_back(make_pos_t(4, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10,  snarl_manager, dist_index); 
+                                        seeds, 10); 
+            REQUIRE( clusters.size() == 1);
+        }
+    }//end test case
+    TEST_CASE( "Revese in chain left","[cluster]" ) {
+        VG graph;
+
+        Node* n1 = graph.create_node("GCA");
+        Node* n2 = graph.create_node("T");
+        Node* n3 = graph.create_node("G");
+        Node* n4 = graph.create_node("CTGA");
+        Node* n5 = graph.create_node("G");
+        Node* n6 = graph.create_node("TGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+        Node* n7 = graph.create_node("G");
+        Node* n8 = graph.create_node("G");
+        Node* n9 = graph.create_node("AA");
+        Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("G");
+
+        Edge* e1 = graph.create_edge(n1, n2);
+        Edge* e2 = graph.create_edge(n1, n10);
+        Edge* e3 = graph.create_edge(n2, n3);
+        Edge* e4 = graph.create_edge(n2, n4);
+        Edge* e5 = graph.create_edge(n3, n5);
+        Edge* e6 = graph.create_edge(n4, n5);
+        Edge* e7 = graph.create_edge(n5, n6);
+        Edge* e8 = graph.create_edge(n5, n7);
+        Edge* e9 = graph.create_edge(n6, n7);
+        Edge* e10 = graph.create_edge(n7, n8);
+        Edge* e11 = graph.create_edge(n7, n9);
+        Edge* e12 = graph.create_edge(n8, n9);
+        Edge* e13 = graph.create_edge(n9, n10);
+        Edge* e14 = graph.create_edge(n11, n5);
+        Edge* e15 = graph.create_edge(n11, n5, true, false);
+
+        CactusSnarlFinder bubble_finder(graph);
+        SnarlManager snarl_manager = bubble_finder.find_snarls();
+        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+
+        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+
+        SECTION( "One cluster" ) {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(7, false, 0));
+            seeds.push_back(make_pos_t(7, false, 0));
+            seeds.push_back(make_pos_t(6, false, 0));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 20); 
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -216,7 +262,7 @@ namespace unittest {
         SnarlManager snarl_manager = bubble_finder.find_snarls();
         DistanceIndex dist_index (&graph, &snarl_manager, 20);
 
-        SnarlSeedClusterer clusterer;
+        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
 
         SECTION( "Two clusters in a chain and loop of snarl boundary" ) {
             vector<pos_t> seeds;
@@ -230,7 +276,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(8, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 4,  snarl_manager, dist_index); 
+                                         seeds, 4); 
             REQUIRE( clusters.size() == 2);
             vector<hash_set<size_t>> cluster_sets;
             for (vector<size_t> v : clusters) {
@@ -273,7 +319,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(15, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 3,  snarl_manager, dist_index); 
+                                         seeds, 3);
             REQUIRE( clusters.size() == 5);
         }
         SECTION( "Same node, same cluster" ) {
@@ -283,7 +329,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(5, false, 5));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 7,  snarl_manager, dist_index); 
+                                         seeds, 7); 
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -311,7 +357,8 @@ namespace unittest {
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
         DistanceIndex dist_index (&graph, &snarl_manager, 20);
-        SnarlSeedClusterer clusterer;
+        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+
 
 
         // We end up with a big unary snarl of 7 rev -> 7 rev
@@ -327,7 +374,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(7, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10,  snarl_manager, dist_index); 
+                                        seeds, 10); 
             REQUIRE( clusters.size() == 1);
         }
         SECTION("One cluster") {
@@ -338,7 +385,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(4, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10,  snarl_manager, dist_index); 
+                                        seeds, 10);
             REQUIRE( clusters.size() == 1);
         }
         SECTION("One cluster") {
@@ -347,7 +394,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(4, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10,  snarl_manager, dist_index); 
+                                        seeds, 10); 
             REQUIRE( clusters.size() == 1);
         }
         SECTION("Two clusters") {
@@ -357,14 +404,14 @@ namespace unittest {
             seeds.push_back(make_pos_t(6, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 5,  snarl_manager, dist_index); 
+                                        seeds, 5); 
             REQUIRE( clusters.size() == 2);
         }
         SECTION("No clusters") {
             vector<pos_t> seeds;
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 5,  snarl_manager, dist_index); 
+                                        seeds, 5); 
             REQUIRE( clusters.size() == 0);
         }
     }
@@ -408,7 +455,7 @@ namespace unittest {
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
         DistanceIndex dist_index (&graph, &snarl_manager, 20);
-        SnarlSeedClusterer clusterer;
+        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
 
         SECTION("Two clusters") {
             vector<pos_t> seeds;
@@ -417,12 +464,13 @@ namespace unittest {
             seeds.push_back(make_pos_t(9, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 5,  snarl_manager, dist_index); 
+                                        seeds, 5); 
             REQUIRE( clusters.size() == 2);
 
         }
     }
 
+/*
     TEST_CASE("Random graphs", "[cluster]"){
 
         for (int i = 0; i < 1000; i++) {
@@ -435,7 +483,7 @@ namespace unittest {
             SnarlManager snarl_manager = bubble_finder.find_snarls();
             DistanceIndex dist_index (&graph, &snarl_manager, 20);
 
-            SnarlSeedClusterer clusterer;
+            SnarlSeedClusterer clusterer(snarl_manager, dist_index);
 
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {
@@ -471,7 +519,7 @@ namespace unittest {
                 }
                 int64_t lim = 20;// Distance between clusters
                 vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                      seeds, lim, snarl_manager, dist_index); 
+                                      seeds, lim); 
 
                 for (size_t a = 0; a < clusters.size(); a++) {
                     // For each cluster -cluster this cluster to ensure that 
@@ -574,5 +622,6 @@ namespace unittest {
             }
         }
     } //end test case
+*/
 }
 }
