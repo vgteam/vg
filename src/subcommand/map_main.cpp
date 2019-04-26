@@ -1157,7 +1157,6 @@ int main_map(int argc, char** argv) {
         } else {
             function<void(Alignment&)> lambda = [&](Alignment& alignment) {
                 int tid = omp_get_thread_num();
-                std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
                 vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
                                                                         kmer_size,
                                                                         kmer_stride,
@@ -1165,8 +1164,6 @@ int main_map(int argc, char** argv) {
                                                                         band_width,
                                                                         band_overlap,
                                                                         xdrop_alignment);
-                std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds = end-start;
                 // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
                     alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
