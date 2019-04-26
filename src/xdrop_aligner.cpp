@@ -152,15 +152,36 @@ void XdropAligner::build_index_edge_table(Graph const &graph, uint32_t const see
 	index_edges_head.reserve(graph.edge_size());	// vector< uint64_t >
 	for(size_t i = 0; i < graph.edge_size(); i++) {
 		Edge const &e = graph.edge(i);
+        
+        // Record the edge in the normal index.
+        // If direction is true, use function 0, which puts to in the high bits
+        // If it is false, put from in the high bits
 		index_edges.push_back(edge[!direction](id_to_index[e.from()], id_to_index[e.to()]));
 		// debug("append edge, %u -> %u", id_to_index[e.from()], id_to_index[e.to()]);
 
-		if(!compare[!direction](id_to_index[direction ? e.from() : e.to()], seed_node_index)) { continue; }
+        // if direction is true, use function 0, so compare with <
+        // Then invert that, so we check (index of e.from()) > seed_node_index
+        // If direction is false, this is (index of e.to()) < seed_node_index
+		if(!compare[!direction](id_to_index[direction ? e.from() : e.to()], seed_node_index)) {
+            // We do not need to record this edge in the flipped index.
+            // TODO: this assumes that e.from() and e.to() are meaningful, and ignores from_start() and to_end()!
+            continue;
+        }
+        
+        // If direction is true, use function 1, so put from in the high bits
+        // If direction is false, put to in the high bits.
 		index_edges_head.push_back(edge[direction](id_to_index[e.from()], id_to_index[e.to()]));	// reversed
 		// fprintf(stderr, "append head edge, %u -> %u\n", id_to_index[e.from()], id_to_index[e.to()]);
 	}
 
-	sort(index_edges.begin(), index_edges.end(), compare[!direction]);
+	// Sort index_edges in ascending order if direction is true, and descending order otherwise.
+    // If direction is true, we put the edge's to index in the high bits, so this will order edges ascending by to node and then from node.
+    // If direction is false, we put the edge's from index in the high bits, so this will order edges descending by from node and then to node.
+    sort(index_edges.begin(), index_edges.end(), compare[!direction]);
+    
+    // Sort index_edges_head in descending order if direction is true, and ascending order otherwise.
+    // If direction is true, we put the from index in the high bits, so this will order edges in descending order by from and then to.
+    // If direction is false, we put the to index in the high bits, so this will order edges in asecnding order by to and then from.
 	sort(index_edges_head.begin(), index_edges_head.end(), compare[direction]);
 	return;
 }

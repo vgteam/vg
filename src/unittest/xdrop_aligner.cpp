@@ -50,6 +50,47 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs", "[xdrop][alignme
     REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
 }
 
+TEST_CASE("XdropAligner can compute an alignment with no MEMs in reverse mode", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    // Last parameter here is max gap length.
+    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+   
+    // Build the graph in normal topological order
+    Node* n0 = graph.create_node("AGTG");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGAAGT");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    // This should align to the reverse strand of the graph
+    string read = string("AGTGCTGAAGT");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    vector<MaximalExactMatch> no_mems;
+    
+    // All reverse_complement this really changes is that we anchor on the last node instead of the first.
+    aligner.align(aln, graph.graph, no_mems, true);
+    
+    // Make sure we got the right score
+    REQUIRE(aln.score() == read.size());
+    
+    // Make sure we take the right path
+    REQUIRE(aln.path().mapping_size() == 3);
+    REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+    REQUIRE(aln.path().mapping(0).position().is_reverse() == false);
+    REQUIRE(aln.path().mapping(1).position().node_id() == n1->id());
+    REQUIRE(aln.path().mapping(1).position().is_reverse() == false);
+    REQUIRE(aln.path().mapping(2).position().node_id() == n3->id());
+    REQUIRE(aln.path().mapping(2).position().is_reverse() == false);
+}
+
 TEST_CASE("XdropAligner can compute an alignment with a MEM in the middle", "[xdrop][alignment][mapping]") {
     
     VG graph;
@@ -152,6 +193,59 @@ TEST_CASE("XdropAligner still incorrectly applies the full length bonus at only 
     
     size_t expected_score = read.size() + 10 * 1;
     REQUIRE(aln.score() == expected_score);
+}
+
+TEST_CASE("XdropAligner can be induced to pin with MEMs", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    // Last parameter here is max gap length.
+    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+    
+    Node* n0 = graph.create_node("GAAAAAAAAAAAAAAAAAAAAA");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGATTACAT");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    string read = string("GATTACA");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    SECTION("The optimal alignment is foud without a MEM") {
+        vector<MaximalExactMatch> no_mems;
+        
+        aligner.align(aln, graph.graph, no_mems, false);
+    
+        // Make sure we got the right score
+        REQUIRE(aln.score() == read.size());
+        
+        // Make sure we take the right path
+        REQUIRE(aln.path().mapping_size() == 1);
+        REQUIRE(aln.path().mapping(0).position().node_id() == n3->id());
+    }
+    
+    SECTION("The suboptimal MEM-consistent alignment is foud with a MEM") {
+    
+        vector<MaximalExactMatch> fake_mems;
+        fake_mems.emplace_back();
+        // Claim a match on the initial "G" only
+        fake_mems.back().begin = aln.sequence().begin();
+        fake_mems.back().end = aln.sequence().begin() + 1;
+        fake_mems.back().nodes.push_back(gcsa::Node::encode(n0->id(), 0, false));
+        
+        aligner.align(aln, graph.graph, fake_mems, false);
+        
+        // The score will probably be terrible.
+    
+        // Make sure we land on the node the MEM was on, even though it is a terrible alignment.
+        REQUIRE(aln.path().mapping_size() == 1);
+        REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+    }
 }
 
 
