@@ -1031,7 +1031,13 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                             tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));
 
                             if (after_alignment.score() > best_score) {
-                                // This is a new best alignment. Translate from subgraph into base graph and keep it
+                                // This is a new best alignment.
+                                
+#ifdef debug
+                                cerr << "\t\tNew best, beating previous best of " << best_score << endl;
+#endif
+                                
+                                // Translate from subgraph into base graph and keep it.
                                 best_path = subgraph.translate_down(after_alignment.path());
                                 best_score = after_alignment.score();
                             }
@@ -1242,7 +1248,8 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
 
 #ifdef debug
         cerr << "Extended seed " << i << " starts on node " << pos.node_id() << " " << pos.is_reverse()
-            << " at offset " << pos.offset() << endl;
+            << " at offset " << pos.offset() << " corresponding to read "
+            << extended_seeds[i].core_interval.first << " - " << extended_seeds[i].core_interval.second << endl;
 #endif
     }
 
@@ -1267,7 +1274,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
 
 #ifdef debug
         cerr << "Extended seed " << i << ": cut after on node " << cut_pos_graph.node_id() << " " << cut_pos_graph.is_reverse()
-            << " at point " << cut_pos_graph.offset() << endl;
+            << " at point " << cut_pos_graph.offset() << " corresponding to read base " << cut_pos_read << endl;
 #endif
 
         // Get a handle in the GBWTGraph
@@ -1413,6 +1420,10 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
             }
         }
     }
+
+#ifdef debug
+    cerr << "After rightward extensions, have " << sources.size() << " sources" << endl;
+#endif
 
     // Now we need the paths *from* numeric_limits<size_t>::max() to sources.
     // Luckily we know the sources.
