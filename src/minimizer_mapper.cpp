@@ -20,8 +20,6 @@
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
 //#define TRACK_CORRECTNESS
 
-#define debug
-
 namespace vg {
 
 using namespace std;
