@@ -80,7 +80,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -j, --output-json             output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    --surject-to TYPE             surject the output into the graph's paths, writing TYPE := bam |sam | cram" << endl
-         << "    --buffer-size INT             buffer this many alignments together before outputting in GAM [512]" << endl
+         << "    --batch-size INT              the number of alignments per thread job (lowering helps when aligning low numbers of long reads) [256]" << endl
          << "    -X, --compare                 realign GAM input (-G), writing alignment with \"correct\" field set to overlap with input" << endl
          << "    -v, --refpos-table            for efficient testing output a table of name, chr, pos, mq, score" << endl
          << "    -K, --keep-secondary          produce alignments for secondary input alignments in addition to primary ones" << endl
@@ -136,7 +136,7 @@ int main_map(int argc, char** argv) {
     int min_cluster_length = 0;
     float mem_reseed_factor = 1.5;
     int max_target_factor = 100;
-    int buffer_size = 512;
+    int batch_size = 256;
     int8_t match = default_match;
     int8_t mismatch = default_mismatch;
     int8_t gap_open = default_gap_open;
@@ -221,7 +221,7 @@ int main_map(int argc, char** argv) {
                 {"min-chain", required_argument, 0, 'W'},
                 {"fast-reseed", no_argument, 0, '6'},
                 {"max-target-x", required_argument, 0, 'H'},
-                {"buffer-size", required_argument, 0, '9'},
+                {"batch-size", required_argument, 0, '9'},
                 {"match", required_argument, 0, 'q'},
                 {"mismatch", required_argument, 0, 'z'},
                 {"score-matrix", required_argument, 0, OPT_SCORE_MATRIX},
@@ -448,7 +448,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case '9':
-            buffer_size = parse<int>(optarg);
+            batch_size = parse<int>(optarg);
             break;
 
         case 'q':
@@ -1171,7 +1171,7 @@ int main_map(int argc, char** argv) {
                 }
                 output_alignments(alignments, empty_alns);
             };
-            stream::for_each_parallel(gam_in, lambda);
+            stream::for_each_parallel(gam_in, lambda, batch_size);
         }
         gam_in.close();
     }

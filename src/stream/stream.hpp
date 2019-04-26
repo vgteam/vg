@@ -126,12 +126,15 @@ template <typename T>
 void for_each_parallel_impl(std::istream& in,
                             const std::function<void(T&,T&)>& lambda2,
                             const std::function<void(T&)>& lambda1,
-                            const std::function<bool(void)>& single_threaded_until_true) {
+                            const std::function<bool(void)>& single_threaded_until_true,
+                            const size_t& batch_size = 256) {
 
     // objects will be handed off to worker threads in batches of this many
     // Must be divisible by 2.
-    const size_t batch_size = 256;
-    static_assert(batch_size % 2 == 0, "stream::for_each_parallel::batch_size must be even");
+    if (batch_size % 2 != 0) {
+        std::cerr << "stream::for_each_parallel::batch_size must be even" << std::endl;
+        exit(1);
+    }
     // max # of such batches to be holding in memory
     size_t max_batches_outstanding = 256;
     // max # we will ever increase the batch buffer to
@@ -145,8 +148,8 @@ void for_each_parallel_impl(std::istream& in,
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda1, lambda2, batches_outstanding, max_batches_outstanding, single_threaded_until_true, cerr)
-    #pragma omp single
+#pragma omp parallel default(none) shared(in, lambda1, lambda2, batches_outstanding, max_batches_outstanding, single_threaded_until_true, batch_size, cerr)
+#pragma omp single
     {
         auto handle = [](bool retval) -> void {
             if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
@@ -224,7 +227,7 @@ void for_each_parallel_impl(std::istream& in,
 #endif
                 
                     // spawn a task in another thread to process this batch
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true, cerr)
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda2, handle, single_threaded_until_true, batch_size, cerr)
                     {
 #ifdef debug
                         cerr << "Batch task is running" << endl;
@@ -297,10 +300,11 @@ void for_each_interleaved_pair_parallel_after_wait(std::istream& in,
 // parallelized for each individual element
 template <typename T>
 void for_each_parallel(std::istream& in,
-                       const std::function<void(T&)>& lambda1) {
+                       const std::function<void(T&)>& lambda1,
+                       const size_t& batch_size = 256) {
     std::function<void(T&,T&)> lambda2 = [&lambda1](T& o1, T& o2) { lambda1(o1); lambda1(o2); };
     std::function<bool(void)> no_wait = [](void) {return true;};
-    for_each_parallel_impl(in, lambda2, lambda1, no_wait);
+    for_each_parallel_impl(in, lambda2, lambda1, no_wait, batch_size);
 }
 
 }
