@@ -30,7 +30,7 @@ void help_snarl(char** argv) {
          << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
          << "    -a, --any-snarl-type   compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
-         << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes [10]" << endl
+         << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes (with degree > 1) [10]" << endl
          << "    -t, --include-trivial  report snarls that consist of a single edge" << endl
          << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
          << "    -v, --vcf FILE         use vcf-based instead of exhaustive traversal finder with -r" << endl
@@ -303,12 +303,25 @@ int main_snarl(int argc, char** argv) {
             snarl_buffer.push_back(*snarl);
             vg::io::write_buffered(cout, snarl_buffer, buffer_size);
 
+            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<Node*>& nodeset)  {
+                int node_count = 0;
+                for (auto node : nodeset) {
+                    if (graph->start_degree(node) > 1 || graph->end_degree(node) > 1) {
+                        ++node_count;
+                        if (node_count > max_nodes) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            };
+
             // Optionally write our traversals
             if (!traversal_file.empty() &&
                 (!ultrabubble_only || snarl->type() == ULTRABUBBLE) &&
                 (!leaf_only || snarl_manager.is_leaf(snarl)) &&
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
-                (snarl_manager.deep_contents(snarl, *graph, true).first.size() <= max_nodes)) {
+                (check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
                 
 #ifdef debug
                 cerr << "Look for traversals of " << pb2json(*snarl) << endl;

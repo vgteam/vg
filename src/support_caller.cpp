@@ -112,7 +112,6 @@ void write_vcf_header(ostream& stream, const vector<string>& sample_names,
     }
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << endl;
-    stream << "##INFO=<ID=SVLEN,Number=.,Type=Integer,Description=\"Difference in length between REF and ALT alleles\">" << endl;
     stream << "##FILTER=<ID=lowad,Description=\"Variant does not meet minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FILTER=<ID=highabsdp,Description=\"Variant has total depth greater than " << max_dp_for_filter << "\">" <<endl;
     stream << "##FILTER=<ID=highreldp,Description=\"Variant has total depth greater than "
@@ -1389,13 +1388,15 @@ void SupportCaller::recall_locus(Locus& locus, const Snarl& site, vector<SnarlTr
 
         // convert the allele we called from our traversal list into the corresponding
         // allele for this variant in the VCF
-        for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
-            int called_allele = locus.genotype(0).allele(i);
-            int vcf_allele = trav_alleles[called_allele][var_idx];
-            vcf_genotype.add_allele(vcf_allele);
-            // make absolutely sure we're using the right support for our called alleles
-            // the support is in terms of the entire snarl, and not the vcf variant
-            *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
+        if (locus.genotype_size() > 0) {
+            for (int i = 0; i < locus.genotype(0).allele_size(); ++i) {
+                int called_allele = locus.genotype(0).allele(i);
+                int vcf_allele = trav_alleles[called_allele][var_idx];
+                vcf_genotype.add_allele(vcf_allele);
+                // make absolutely sure we're using the right support for our called alleles
+                // the support is in terms of the entire snarl, and not the vcf variant
+                *vcf_locus.mutable_support(vcf_allele) = locus.support(called_allele);
+            }
         }
         
         *vcf_locus.mutable_overall_support() = locus.overall_support();
@@ -1775,14 +1776,6 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
                                               const vector<int>& used_alleles,
                                               Support& baseline_support, Support& global_baseline_support) {
     
-    for (size_t i = 1; i < variant.alleles.size(); i++) {
-        // Claculate the SVLEN for this non-reference allele
-        int64_t svlen = (int64_t) variant.alleles.at(i).size() - (int64_t) variant.alleles.at(0).size();
-                
-        // Add it in
-        variant.info["SVLEN"].push_back(to_string(svlen));
-    }
-
     // Set up the depth format field
     variant.format.push_back("DP");
     // And expected depth
@@ -2169,6 +2162,11 @@ void SupportCaller::call(
     if (!((string)recall_vcf_filename).empty()) {
 
         auto skip_alt = [&] (const SnarlTraversal& alt_path) -> bool {
+            if (alt_path.visit_size() == 0) {
+                // empty alt paths happen when we fail to link the path in the graph
+                // to a deletion edge. 
+                return true;
+            }
             Support avg_support;
             size_t total_size;
             tie(std::ignore, avg_support, total_size) = get_traversal_support(
