@@ -2835,6 +2835,11 @@ VCFTraversalFinder::get_haplotype_alt_contents(
 
         // get the alt path information out of the graph
         pair<SnarlTraversal, bool> alt_path_info = get_alt_path(var, haplotype[allele], path_index);
+        if (alt_path_info.first.visit_size() == 0) {
+            assert(alt_path_info.second == true);
+            // skip deletion alt path where we can't find the deletion edge in the graph
+            continue;
+        }
         SnarlTraversal& alt_traversal = alt_path_info.first;
         bool is_deletion = alt_path_info.second;
 
@@ -2904,10 +2909,18 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
                 if (allele != 0) {
                     // alt paths don't always line up with deletion edges, so we hunt for
                     // our deletion edge using the path_index here.
-                    bool del_len_found = scan_for_deletion(var, allele, path_index, first_path_it, last_path_it);
-                    if (!del_len_found) {
+                    pair<int, int> scan_deltas = scan_for_deletion(var, allele, path_index,
+                                                                   first_path_it, last_path_it);
+                    if (scan_deltas.first != 0 || scan_deltas.second != 0) {
                         cerr << "[VCFTraversalFinder] Warning: Could not find deletion edge that matches allele "
-                             << allele << " of\n" << *var << "\nUsing approximate match" << endl;
+                             << allele << " of\n" << *var << "\naround alt path" << alt_path_name << ":";
+                        if (scan_deltas.first != 0) {
+                            cerr << " Ignoring allele" << endl;
+                            return make_pair(alt_path, is_deletion);
+                        } else {
+                            cerr << " Using approximate match with size-delta " << scan_deltas.first << " and position delta "
+                                 << scan_deltas.second << " nodes" << endl;
+                        }
                     }
                 }
                 handle_t left = graph.get_handle(first_path_it->second.node);
@@ -2928,14 +2941,14 @@ pair<SnarlTraversal, bool> VCFTraversalFinder::get_alt_path(vcflib::Variant* var
     return make_pair(alt_path, is_deletion);
 }
 
-bool VCFTraversalFinder::scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
-                                           PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it) {
+pair<int, int> VCFTraversalFinder::scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
+                                                     PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it) {
     assert(allele > 0);
 
     // if our path matches an edge, we don't need to do anything
     if (graph.has_edge(graph.get_handle(first_path_it->second.node),
                        graph.get_handle(last_path_it->second.node))) {
-        return true;
+        return make_pair(0, 0);
     }
 
     // we're doing everything via length comparison, so keep track of the length we're
@@ -3004,12 +3017,10 @@ bool VCFTraversalFinder::scan_for_deletion(vcflib::Variant* var, int allele, Pat
         }
     }
 
-    assert(best_pos_delta != std::numeric_limits<int>::max());
-
     first_path_it = best_start;
     last_path_it = best_end;
 
-    return best_pos_delta == 0;
+    return make_pair(best_size_delta, best_pos_delta);
 }
 
 

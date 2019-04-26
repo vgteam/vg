@@ -376,7 +376,7 @@ protected:
     bool include_endpoints = true;
 
     /// How far to scan when looking for deletions
-    size_t max_deletion_scan_nodes = 200;
+    size_t max_deletion_scan_nodes = 100;
 
 public:
 
@@ -468,10 +468,12 @@ protected:
      * returns true if the exact size is found.  
      * Todo: check the sequence as well
      * Also todo: It'd be really nice if construct -fa would make the deletion-edge easily inferrable 
-     * from the alte path
+     * from the alt path.  It really shouldn't be necessary to hunt around. 
+     * Returns: <size delta between returned deletion and vcf allele,
+     *           position delta between returned deletion and alt path>
      */
-    bool scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
-                           PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it);
+    pair<int, int> scan_for_deletion(vcflib::Variant* var, int allele, PathIndex* path_index,
+                                     PathIndex::iterator& first_path_it, PathIndex::iterator& last_path_it);
 
     /**
      * Prune our search space using the skip_alt method.  Will return a list of pruned VCF alleles/
