@@ -51,7 +51,8 @@ class SnarlSeedClusterer {
                                   vector<pair<child_node_t, child_cluster_t>>>>&
                                                             snarl_to_nodes);
 
-        //Given a node and the seeds on that node, cluster the seeds
+        //Given a node and the indices of seeds on that node, root, 
+        //cluster the seeds
         child_cluster_t get_clusters_node(const vector<pos_t>& seeds, 
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
@@ -60,12 +61,15 @@ class SnarlSeedClusterer {
                              int64_t node_length); 
 
         //Cluster the seeds in a chain
+        //snarls_in_chain is an unordered vector of snarls and their ranks
+        //curr_snarl_children maps each snarl to a vector of its children and 
+        //clusters on the children
         child_cluster_t get_clusters_chain(
                              const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
                              vector<pair<size_t, pair<const Snarl*, 
-                              DistanceIndex::SnarlIndex*>>>& snarls_in_chain,
+                                    DistanceIndex::SnarlIndex*>>>& snarls_in_chain,
                              hash_map<const Snarl*, 
                                   vector<pair<child_node_t, child_cluster_t>>>&
                                                         curr_snarl_children,
@@ -73,6 +77,7 @@ class SnarlSeedClusterer {
                              size_t distance_limit,  const Chain* root);
 
         //Cluster the seeds in a snarl 
+        //child_nodes is a vector of the children of root and their clusters
         child_cluster_t get_clusters_snarl(
                              const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,

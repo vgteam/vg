@@ -86,7 +86,8 @@ for (auto it2 : kv.second) {
                                 break;
                        case 2 : type = "node";
                                  break;};
-    cerr << " " << type << ": " << it2.first.first.first << " " << it2.first.first.second << endl; 
+    cerr << " " << type << ": " << it2.first.first.first << " " 
+         << it2.first.first.second << endl; 
 }
 #endif
                 DistanceIndex::SnarlIndex& snarl_index = 
@@ -171,12 +172,23 @@ for (auto group : union_find_clusters.all_groups()){
         
     };
 
+    //Helper function to get the minimum value that is not -1 
+    int64_t min_positive (int64_t n1, int64_t n2) {
+        if (n1 == -1 ) {
+            return n2;
+        } else if (n2 == -1) {
+            return n1;
+        } else {
+            return min(n1, n2);
+        }
+    }
 
     void SnarlSeedClusterer::get_nodes( 
               const vector<pos_t>& seeds,
               hash_map<id_t, vector<size_t>>& node_to_seeds,
               vector<hash_map<const Snarl*, 
-              vector<pair<child_node_t, child_cluster_t>>>>& snarl_to_nodes) {
+                     vector<pair<child_node_t, child_cluster_t>>>>& 
+                                                               snarl_to_nodes) {
 
         /* Given a snarl tree and seeds, find the nodes containing seeds and
          * assign each node to a level in the snarl tree*/ 
@@ -279,10 +291,8 @@ node_length << endl;
                 int64_t dist_left = is_rev(seed) ? dist_end : dist_start;
                 int64_t dist_right = is_rev(seed) ? dist_start : dist_end ;
 
-                best_dist_left = DistanceIndex::minPos({
-                                        dist_left, best_dist_left});
-                best_dist_right = DistanceIndex::minPos({
-                                        dist_right, best_dist_right});
+                best_dist_left = min_positive(dist_left, best_dist_left);
+                best_dist_right = min_positive(dist_right, best_dist_right);
 
                 union_find_clusters.union_groups(group_id, seed_i);
 
@@ -332,8 +342,8 @@ assert(got_right);
             int64_t offset = is_rev(seed) ? node_length - get_offset(seed) 
                                             : get_offset(seed) + 1;
 
-            best_left = DistanceIndex::minPos({offset,  best_left});
-            best_right = DistanceIndex::minPos({node_length-offset+1,best_right});
+            best_left = min_positive(offset,  best_left);
+            best_right = min_positive(node_length-offset+1,best_right);
 
             seed_offsets.push_back(make_pair(i, offset));
                         
@@ -362,9 +372,8 @@ assert(got_right);
 
                 union_find_clusters.union_groups(i_group, last_cluster);
                 last_cluster = union_find_clusters.find_group(i_group);
-                last_left = DistanceIndex::minPos({last_left, offset});
-                last_right = DistanceIndex::minPos({last_right, 
-                                                    node_length-offset+1});
+                last_left = min_positive(last_left, offset);
+                last_right = min_positive(last_right, node_length-offset+1);
                 cluster_dists[last_cluster] = make_pair(last_left, last_right);
 
             } else {
@@ -551,10 +560,8 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
                             }
                             combined_left = combined_group;
                             cluster_dists[combined_left] = make_pair(
-                                      DistanceIndex::minPos({old_dists.first, 
-                                                             dists.first}),
-                                      DistanceIndex::minPos({old_dists.second, 
-                                                             dists.second}));
+                                  min_positive(old_dists.first,dists.first),
+                                  min_positive(old_dists.second, dists.second));
                         }
                     }
                     if (child_dist_right != -1 && loop_dist_end != -1 &&
@@ -581,10 +588,8 @@ cerr << "Finding clusters on chain " << get_start_of(*root).node_id() << endl;
                             }
                             combined_right = combined_group;
                             cluster_dists[combined_right] = make_pair(
-                                      DistanceIndex::minPos({old_dists.first, 
-                                                             dists.first}),
-                                      DistanceIndex::minPos({old_dists.second, 
-                                                             dists.second}));
+                                  min_positive(old_dists.first, dists.first),
+                                  min_positive(old_dists.second, dists.second));
                         }
                     }
 
@@ -661,11 +666,11 @@ cerr << endl;
                         union_find_clusters.union_groups(combined_cluster, j);
                         size_t new_group = union_find_clusters.find_group(j);
                         combined_cluster = new_group;
-                        combined_left = DistanceIndex::minPos({combined_left,
+                        combined_left = min_positive(combined_left,
                                             snarl_dists.first == -1 ? -1 :
-                                            snarl_dists.first + add_dist_left});
-                        combined_right = DistanceIndex::minPos({combined_right,
-                                                           snarl_dists.second});
+                                            snarl_dists.first + add_dist_left);
+                        combined_right = min_positive(combined_right,
+                                                           snarl_dists.second);
                     }
                         
                 } else {
@@ -674,8 +679,8 @@ cerr << endl;
                     pair<int64_t, int64_t> d = make_pair(snarl_dists.first == -1
                                       ? -1 : snarl_dists.first + add_dist_left, 
                                                 snarl_dists.second);
-                    best_left = DistanceIndex::minPos({best_left, d.first}); 
-                    best_right = DistanceIndex::minPos({best_right, d.second});
+                    best_left = min_positive(best_left, d.first); 
+                    best_right = min_positive(best_right, d.second);
 
                     cluster_dists[j] = move(d); 
                 }
@@ -700,10 +705,10 @@ cerr << endl;
                             to_erase.push_back(i);
                         }
                         combined_cluster = new_group;
-                        combined_left = DistanceIndex::minPos({combined_left,
-                                                            chain_dists.first});
-                        combined_right = DistanceIndex::minPos({combined_right,
-                                             chain_dists.second + dist_to_end});
+                        combined_left = min_positive(combined_left,
+                                                            chain_dists.first);
+                        combined_right = min_positive(combined_right,
+                                             chain_dists.second + dist_to_end);
                     }
                 } else {
                     //If this chain cluster is on its own, extend its right 
@@ -720,10 +725,9 @@ cerr << "Removing cluster " << i << endl;
 #endif
                         to_erase.push_back(i);
                     } else {
-                        best_left = DistanceIndex::minPos({best_left, 
-                                                           chain_dists.first});
-                        best_right = DistanceIndex::minPos({best_right, 
-                                                        chain_dists.second});
+                        best_left = min_positive(best_left, chain_dists.first);
+                        best_right = min_positive(best_right, 
+                                                  chain_dists.second);
                     }
 
                 }
@@ -738,8 +742,8 @@ cerr << "Removing cluster " << i << endl;
                 chain_cluster_ids.insert(combined_cluster);
                 cluster_dists[combined_cluster] = 
                                       make_pair(combined_left, combined_right);
-                best_left = DistanceIndex::minPos({best_left, combined_left});
-                best_right =DistanceIndex::minPos({best_right, combined_right});
+                best_left = min_positive(best_left, combined_left);
+                best_right = min_positive(best_right, combined_right);
             }
                   
 #ifdef DEBUG 
@@ -771,7 +775,7 @@ for (size_t c : chain_cluster_ids) {
            for (size_t i : chain_cluster_ids) {
                int64_t& d = cluster_dists[i].second;
                d += dist_to_end;
-               best_right = DistanceIndex::minPos({best_right, d});
+               best_right = min_positive(best_right, d);
            }
         }
 
@@ -858,8 +862,8 @@ for (size_t group_id : chain_cluster_ids) {
                 }
                 snarl_cluster_ids.insert(new_g);
                 dists = make_pair(
-                       DistanceIndex::minPos({dists.first, old_dists.first}),
-                       DistanceIndex::minPos({dists.second, old_dists.second}));
+                            min_positive(dists.first, old_dists.first),
+                            min_positive(dists.second, old_dists.second));
                 cluster_dists[new_g] = dists;
                 new_group = new_g;
                 combined_group = new_g;
@@ -954,10 +958,8 @@ for (size_t group_id : chain_cluster_ids) {
                             ? -1 : dist_e_r + dists_c.second;
       
                 pair<int64_t, int64_t> new_dists = make_pair (
-                         DistanceIndex::minPos({new_dist_s_l,  
-                                                new_dist_s_r}), 
-                         DistanceIndex::minPos({new_dist_e_l,
-                                                new_dist_e_r}));
+                         min_positive(new_dist_s_l, new_dist_s_r), 
+                         min_positive(new_dist_e_l, new_dist_e_r));
                 if (curr_node == snarl_index.snarlStart.first){
                     new_dists.first = snarl_index.snarlStart.second
                                 ? dists_c.second : dists_c.first ;
@@ -966,10 +968,8 @@ for (size_t group_id : chain_cluster_ids) {
                     new_dists.second = snarl_index.snarlEnd.second 
                            ? dists_c.first : dists_c.second ;
                 } 
-                best_left = DistanceIndex::minPos({best_left, 
-                                                  new_dists.first});
-                best_right = DistanceIndex::minPos({best_right, 
-                                                new_dists.second});
+                best_left = min_positive(best_left, new_dists.first);
+                best_right = min_positive(best_right, new_dists.second);
 
 
                 snarl_cluster_ids.insert(c);
@@ -1006,8 +1006,7 @@ for (size_t group_id : chain_cluster_ids) {
 
                 pair<int64_t, int64_t> dist_bounds_j = dist_bounds[j];
 
-                if (DistanceIndex::minPos({dist_bounds_j.first, 
-                                           dist_bounds_j.second})
+                if (min_positive(dist_bounds_j.first, dist_bounds_j.second)
                                         < distance_limit) {
                     for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
                         //for each cluster of child node i
@@ -1055,8 +1054,8 @@ for (size_t group_id : chain_cluster_ids) {
                 if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1
                    && DistanceIndex::minPos({dist_l_l, dist_l_r, 
                                            dist_r_l, dist_r_r}) < distance_limit
-                   && DistanceIndex::minPos({child_dist_left, 
-                                          child_dist_right}) < distance_limit) {
+                   && min_positive(child_dist_left, child_dist_right) 
+                                                             < distance_limit) {
                     //If the two nodes are reachable
                     vector<size_t>& children_j =  child_clusters[j];
 
