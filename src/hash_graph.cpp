@@ -243,15 +243,15 @@ namespace vg {
             for (path_mapping_t* mapping : iter->second) {
                 path_t& path = paths[mapping->path_id];
                 if (get_is_reverse(mapping->handle)) {
-                    mapping = mapping->prev;
                     for (size_t i = return_val.size() - 1; i > 0; i--) {
-                        mapping = path.insert_after(flip(return_val[i]), mapping);
+                        mapping = path.insert_before(flip(return_val[i]), mapping);
                         occurrences[get_id(return_val[i])].push_back(mapping);
                     }
                 }
                 else {
+                    mapping = mapping->next;
                     for (size_t i = 1; i < return_val.size(); i++) {
-                        mapping = path.insert_after(return_val[i], mapping);
+                        mapping = path.insert_before(return_val[i], mapping);
                         occurrences[get_id(return_val[i])].push_back(mapping);
                     }
                 }
@@ -454,6 +454,66 @@ namespace vg {
         return step;
     }
     
+    step_handle_t HashGraph::prepend_step(const path_handle_t& path, const handle_t& to_prepend) {
+        
+        path_t& path_list = paths[as_integer(path)];
+        path_mapping_t* mapping = path_list.push_front(to_prepend);
+        occurrences[get_id(to_prepend)].push_back(mapping);
+        
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path);
+        as_integers(step)[1] = intptr_t(mapping);
+        return step;
+    }
+    
+    pair<step_handle_t, step_handle_t> HashGraph::rewrite_segment(const step_handle_t& segment_begin,
+                                                                  const step_handle_t& segment_end,
+                                                                  const std::vector<handle_t>& new_segment) {
+        if (get_path_handle_of_step(segment_begin) != get_path_handle_of_step(segment_end)) {
+            cerr << "error:[HashGraph] attempted to rewrite a path segment delimited by steps on two different paths" << endl;
+            exit(1);
+        }
+        
+        path_mapping_t* begin = (path_mapping_t*) intptr_t(as_integers(segment_begin)[1]);
+        path_mapping_t* end = (path_mapping_t*) intptr_t(as_integers(segment_begin)[1]);
+        
+        path_t& path_list = paths[as_integers(segment_begin)[0]];
+        
+        for (path_mapping_t* mapping = begin; mapping != end; mapping = mapping->next) {
+            
+            // remove this occurrence of the mapping from the occurrences index
+            auto& node_occurrences = occurrences[get_id(mapping->handle)];
+            for (size_t i = 0; i < node_occurrences.size(); ++i){
+                if (node_occurrences[i] == mapping) {
+                    node_occurrences[i] = node_occurrences.back();
+                    node_occurrences.pop_back();
+                    break;
+                }
+            }
+            
+            // remove the step from the path
+            path_list.remove(mapping);
+        }
+        
+        // init the new range for the return value
+        pair<step_handle_t, step_handle_t> new_range(segment_end, segment_end);
+        
+        // add the new segment into the slot
+        bool first_iter = true;
+        for (const handle_t& handle : new_segment) {
+            
+            path_mapping_t* mapping = path_list.insert_before(handle, end);
+            occurrences[get_id(handle)].push_back(mapping);
+            
+            if (first_iter) {
+                as_integers(new_range.first)[1] = intptr_t(mapping);
+                first_iter = false;
+            }
+        }
+        
+        return new_range;
+    }
+    
     void HashGraph::set_circularity(const path_handle_t& path, bool circular) {
         // set the annotation
         path_t& path_list = paths[as_integer(path)];
@@ -599,11 +659,11 @@ namespace vg {
     }
     
     HashGraph::path_mapping_t* HashGraph::path_t::push_back(const handle_t& handle) {
-        return insert_after(handle, tail);
+        return insert_before(handle, nullptr);
     }
     
     HashGraph::path_mapping_t* HashGraph::path_t::push_front(const handle_t& handle) {
-        return insert_after(handle, nullptr);
+        return insert_before(handle, head);
     }
     
     void HashGraph::path_t::remove(path_mapping_t* mapping) {
@@ -623,34 +683,34 @@ namespace vg {
         delete mapping;
     }
     
-    HashGraph::path_mapping_t* HashGraph::path_t::insert_after(const handle_t& handle, path_mapping_t* mapping) {
+    HashGraph::path_mapping_t* HashGraph::path_t::insert_before(const handle_t& handle, path_mapping_t* mapping) {
         
         path_mapping_t* inserting = new path_mapping_t(handle, path_id);
         
         if (mapping) {
-            inserting->next = mapping->next;
-            if (mapping->next) {
-                mapping->next->prev = inserting;
+            inserting->prev = mapping->prev;
+            if (mapping->prev) {
+                mapping->prev->next = inserting;
             }
-            mapping->next = inserting;
-            inserting->prev = mapping;
+            mapping->prev = inserting;
+            inserting->next = mapping;
             
-            if (mapping == tail) {
-                tail = inserting;
+            if (mapping == head) {
+                head = inserting;
             }
         }
-        else if (head) {
+        else if (tail) {
             
             // handle the potential circular connection
-            inserting->prev = head->prev;
-            if (inserting->prev) {
-                inserting->prev->next = inserting;
+            inserting->next = head->next;
+            if (inserting->next) {
+                inserting->next->prev = inserting;
             }
             
-            inserting->next = head;
-            head->prev = inserting;
+            inserting->prev = tail;
+            tail->next = inserting;
             
-            head = inserting;
+            tail = inserting;
         }
         else {
             // the list is empty so far, so initialize it

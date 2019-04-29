@@ -250,6 +250,16 @@ public:
     /// Append a visit to a node to the given path
     virtual step_handle_t append_step(const path_handle_t& path, const handle_t& to_append);
     
+    /// Append a visit to a node to the given path
+    virtual step_handle_t prepend_step(const path_handle_t& path, const handle_t& to_prepend);
+    
+    
+    /// Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair
+    ///  of step_handle_t's that indicate the range of the new segment in the path.
+    virtual pair<step_handle_t, step_handle_t> rewrite_segment(const step_handle_t& segment_begin,
+                                                               const step_handle_t& segment_end,
+                                                               const vector<handle_t>& new_segment);
+    
     /// Make a path circular or non-circular. If the path is becoming circular, the
     /// last step is joined to the first step. If the path is becoming linear, the
     /// step considered "last" is unjoined from the step considered "first" according
@@ -1372,7 +1382,10 @@ private:
     /// Placeholder for functions that sometimes need to be passed an empty vector
     vector<pair<id_t, bool>> empty_edge_ends;
 
+    bool warned_about_rewrites = false;
 };
+
+
 
 } // end namespace vg
 

@@ -568,6 +568,64 @@ step_handle_t VG::append_step(const path_handle_t& path, const handle_t& to_appe
     return step;
 }
 
+step_handle_t VG::prepend_step(const path_handle_t& path, const handle_t& to_prepend) {
+    // Make the new path mapping/visit (which weirdly requires the node length)
+    paths.prepend_mapping(get_path_name(path), get_id(to_prepend), get_is_reverse(to_prepend), get_length(to_prepend));
+    // Make a handle for the step we just made, now last on the path.
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path);
+    as_integers(step)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path))).front());
+    return step;
+}
+    
+pair<step_handle_t, step_handle_t> VG::rewrite_segment(const step_handle_t& segment_begin,
+                                                       const step_handle_t& segment_end,
+                                                       const vector<handle_t>& new_segment) {
+    
+    if (get_path_handle_of_step(segment_begin) != get_path_handle_of_step(segment_end)) {
+        cerr << "error:[VG] attempted to rewrite segment delimited by steps on two separate paths" << endl;
+        exit(1);
+    }
+    
+    // erase the old segment, using the get_next_step logic to wrap around circular paths
+    auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(segment_begin))));
+    for (step_handle_t step = segment_begin; segment_begin != segment_end; step = get_next_step(step)) {
+        path_list.erase(paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step)[1])).first);
+    }
+    
+    // get the location before which we'll be adding the new segments
+    list<mapping_t>::iterator last_pos;
+    if (reinterpret_cast<mapping_t*>(as_integers(segment_end)[1]) != nullptr) {
+        last_pos = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(segment_end)[1])).first;;
+    }
+    else {
+        last_pos = path_list.end();
+    }
+    
+    // init the range we'll return, the past-the-last position of which shouldn't change from the input
+    pair<step_handle_t, step_handle_t> return_val(segment_end, segment_end);
+    
+    bool first_iter = true;
+    for (const handle_t& handle : new_segment) {
+        
+        // translate to a mapping
+        mapping_t mapping;
+        mapping.set_node_id(get_id(handle));
+        mapping.set_is_reverse(get_is_reverse(handle));
+        mapping.length = get_length(handle);
+        
+        auto iterator = path_list.insert(last_pos, mapping);
+        
+        // on the first iteration, construct the first step handle for the return value
+        if (first_iter) {
+            as_integers(return_val.first)[1] = reinterpret_cast<int64_t>(&(*iterator));
+            first_iter = false;
+        }
+    }
+    
+    return return_val;
+}
+
 void VG::set_circularity(const path_handle_t& path, bool circular) {
     if (circular) {
         paths.make_circular(get_path_name(path));
