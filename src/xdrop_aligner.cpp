@@ -8,6 +8,7 @@
 #include <assert.h>
 #include "mem.hpp"
 #include "xdrop_aligner.hpp"
+#include "proto_handle_graph.hpp"
 
 #define DZ_FULL_LENGTH_BONUS
 #define DZ_CIGAR_OP				0x04030201
@@ -130,49 +131,68 @@ static inline char comp(char x)
 #define _src_index(_x)		( (_x) & 0xffffffff )
 #define _dst_index(_x)		( (_x)>>32 )
 
-void XdropAligner::build_id_index_table(Graph const &graph)
+void XdropAligner::build_id_index_table(OrderedGraph const &graph)
 {
 	// construct node_id -> index map
 	id_to_index.clear();							// unordered_map< id_t, uint64_t >
-	for(size_t i = 0; i < graph.node_size(); i++) {
-		Node const &n = graph.node(i);
-		id_to_index[n.id()] = (uint32_t)i;
-		// debug("i(%lu), id(%ld), length(%lu)", i, n.id(), n.sequence().length());
+	for(size_t i = 0; i < graph.order.size(); i++) {
+		id_to_index[graph.graph->get_id(graph.order[i])] = (uint32_t)i;
+		// debug("i(%lu), id(%ld), length(%lu)", i, graph.graph->get_id(graph.order[i]), graph.graph->get_sequence(graph.order[i]).length());
 	}
 	return;
 }
 
-void XdropAligner::build_index_edge_table(Graph const &graph, uint32_t const seed_node_index, bool direction)
+void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t const seed_node_index, bool direction)
 {
 	// build (src_index, dst_index) array
 	index_edges.clear();
 	index_edges_head.clear();
+    
+    // TODO: reserve space for all the edges.
+    // We no longer have an easy way to count edges in the handle graph interface...
 
-	index_edges.reserve(graph.edge_size());			// vector< uint64_t >
-	index_edges_head.reserve(graph.edge_size());	// vector< uint64_t >
-	for(size_t i = 0; i < graph.edge_size(); i++) {
-		Edge const &e = graph.edge(i);
+    graph.graph->for_each_edge([&](handlegraph::edge_t handle_pair) {
+        // For each edge
+        
+        
+        if (graph.graph->get_is_reverse(handle_pair.first) && graph.graph->get_is_reverse(handle_pair.second)) {
+            // Flip reverse-reverse to forward-forward orientation
+            swap(handle_pair.first, handle_pair.second);
+            handle_pair.first = graph.graph->flip(handle_pair.first);
+            handle_pair.second = graph.graph->flip(handle_pair.second);
+        }
+        
+        // Make sure it isn't an edge we can't deal with (must be forward to forward).
+        assert(!graph.graph->get_is_reverse(handle_pair.first));
+        assert(!graph.graph->get_is_reverse(handle_pair.second));
+        
+        auto from_id = graph.graph->get_id(handle_pair.first);
+        auto to_id = graph.graph->get_id(handle_pair.second);
         
         // Record the edge in the normal index.
         // If direction is true, use function 0, which puts to in the high bits
         // If it is false, put from in the high bits
-		index_edges.push_back(edge[!direction](id_to_index[e.from()], id_to_index[e.to()]));
-		// debug("append edge, %u -> %u", id_to_index[e.from()], id_to_index[e.to()]);
-
+		
+        index_edges.push_back(edge[!direction](id_to_index[from_id],
+            id_to_index[to_id]));
+            
+        // debug("append edge, %u -> %u", id_to_index[from_id], id_to_index[to_id]);
+        
         // if direction is true, use function 0, so compare with <
-        // Then invert that, so we check (index of e.from()) > seed_node_index
-        // If direction is false, this is (index of e.to()) < seed_node_index
-		if(!compare[!direction](id_to_index[direction ? e.from() : e.to()], seed_node_index)) {
+        // Then invert that, so we check (index of from_id) > seed_node_index
+        // If direction is false, this is (index of to_id) < seed_node_index
+		if(!compare[!direction](id_to_index[direction ? from_id : to_id], seed_node_index)) {
             // We do not need to record this edge in the flipped index.
-            // TODO: this assumes that e.from() and e.to() are meaningful, and ignores from_start() and to_end()!
-            continue;
+            return true;
         }
         
         // If direction is true, use function 1, so put from in the high bits
         // If direction is false, put to in the high bits.
-		index_edges_head.push_back(edge[direction](id_to_index[e.from()], id_to_index[e.to()]));	// reversed
-		// fprintf(stderr, "append head edge, %u -> %u\n", id_to_index[e.from()], id_to_index[e.to()]);
-	}
+		index_edges_head.push_back(edge[direction](id_to_index[from_id], id_to_index[to_id]));	// reversed
+		// fprintf(stderr, "append head edge, %u -> %u\n", id_to_index[from_id], id_to_index[to_id]);
+        
+        return true;
+    });
 
 	// Sort index_edges in ascending order if direction is true, and descending order otherwise.
     // If direction is true, we put the edge's to index in the high bits, so this will order edges ascending by to node and then from node.
@@ -186,7 +206,7 @@ void XdropAligner::build_index_edge_table(Graph const &graph, uint32_t const see
 	return;
 }
 
-struct graph_pos_s XdropAligner::calculate_seed_position(Graph const &graph, vector<MaximalExactMatch> const &mems, size_t query_length, bool direction)
+struct graph_pos_s XdropAligner::calculate_seed_position(OrderedGraph const &graph, vector<MaximalExactMatch> const &mems, size_t query_length, bool direction)
 {
 	/*
 	 * seed selection:
@@ -209,8 +229,8 @@ struct graph_pos_s XdropAligner::calculate_seed_position(Graph const &graph, vec
 	pos.node_index = id_to_index[node_id];
 
 	// calc ref_offset
-	Node const &n = graph.node(pos.node_index);
-	pos.ref_offset = direction ? n.sequence().length() - node_offset : node_offset;
+	handle_t n = graph.order[pos.node_index];
+	pos.ref_offset = direction ? (graph.graph->get_length(n) - node_offset) : node_offset;
 
 	// calc query_offset (FIXME: is there O(1) solution?)
 	pos.query_offset = query_length - (seed.end - seed.begin);
@@ -220,7 +240,7 @@ struct graph_pos_s XdropAligner::calculate_seed_position(Graph const &graph, vec
 	return(pos);
 }
 
-struct graph_pos_s XdropAligner::calculate_max_position(Graph const &graph, struct graph_pos_s const &seed_pos, size_t max_node_index, bool direction)
+struct graph_pos_s XdropAligner::calculate_max_position(OrderedGraph const &graph, struct graph_pos_s const &seed_pos, size_t max_node_index, bool direction)
 {
 	// save node id
 	struct graph_pos_s pos;
@@ -232,8 +252,8 @@ struct graph_pos_s XdropAligner::calculate_max_position(Graph const &graph, stru
 	// ref-side offset fixup
 	int32_t rpos = (int32_t)(max_pos>>32);
 
-	Node const &n = graph.node(pos.node_index);
-	pos.ref_offset = direction ? -rpos : (n.sequence().length() - rpos);
+	handle_t n = graph.order[pos.node_index];
+	pos.ref_offset = direction ? -rpos : (graph.graph->get_length(n) - rpos);
 
 	// query-side offset fixup
 	int32_t qpos = max_pos & 0xffffffff;
@@ -242,7 +262,7 @@ struct graph_pos_s XdropAligner::calculate_max_position(Graph const &graph, stru
 	return(pos);
 }
 
-struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::string const &query_seq, bool direction)
+struct graph_pos_s XdropAligner::scan_seed_position(OrderedGraph const &graph, std::string const &query_seq, bool direction)
 {
 	uint64_t const qlen = query_seq.length(), scan_len = qlen < 15 ? qlen : 15;		// FIXME: scan_len should be variable
 
@@ -256,7 +276,7 @@ struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::str
 	);
 
 	int64_t inc = direction ? -1 : 1;
-	size_t max_node_index = direction ? graph.node_size() - 1 : 0, prev_node_index = max_node_index - inc;
+	size_t max_node_index = direction ? graph.order.size() - 1 : 0, prev_node_index = max_node_index - inc;
 	for(vector<uint64_t>::const_reverse_iterator p = index_edges.rbegin(); p != index_edges.rend();) {
 		size_t node_index = _src_index(*p), n_incoming_edges = 0;
 		debug("i(%lu), node_index(%lu), max_node_index(%lu), prev_node_index(%lu)", p - index_edges.rbegin(), node_index, max_node_index, prev_node_index);
@@ -264,7 +284,7 @@ struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::str
 		// fill ends
 		for(size_t empty_node_index = prev_node_index + inc; compare[direction](empty_node_index, node_index); empty_node_index += inc) {
 			debug("fill root for empty_node_index(%lu)", empty_node_index);
-			std::string const &seq = graph.node(empty_node_index).sequence();
+			auto seq = graph.graph->get_sequence(graph.order[empty_node_index]);
 			forefronts[empty_node_index] = dz_scan(dz,
 				packed_query,
 				dz_root(dz), 1,
@@ -292,8 +312,8 @@ struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::str
 		// forward edge_index_base
 		p += n_incoming_edges;
 
-		Node const &n = graph.node(node_index);
-		std::string const &ref_seq = n.sequence();
+		handle_t n = graph.order[node_index];
+		auto ref_seq = graph.graph->get_sequence(n);
 		forefronts[node_index] = dz_scan(dz,
 			packed_query,
 			incoming_forefronts, n_incoming_edges,
@@ -319,7 +339,7 @@ struct graph_pos_s XdropAligner::scan_seed_position(Graph const &graph, std::str
 }
 
 size_t XdropAligner::extend(
-	Graph const &graph,
+	OrderedGraph const &graph,
 	vector<uint64_t>::const_iterator begin,			// must be sorted ascending order for forward extension, descending order in reverse
 	vector<uint64_t>::const_iterator end,
 	struct dz_query_s const *packed_query,
@@ -328,7 +348,7 @@ size_t XdropAligner::extend(
 	bool direction)									// true for forward, false for reverse
 {
 	// get root node
-	std::string const &root_seq = graph.node(seed_node_index).sequence();
+	auto root_seq = graph.graph->get_sequence(graph.order[seed_node_index]);
 
 	// load position and length
 	uint64_t rpos = seed_offset;
@@ -343,7 +363,7 @@ size_t XdropAligner::extend(
 
 	int64_t inc = direction ? -1 : 1;
 	size_t max_node_index = seed_node_index, prev_node_index = seed_node_index;
-	debug("root: node_index(%lu, %ld), ptr(%p), score(%d)", seed_node_index, graph.node(seed_node_index).id(), forefronts[seed_node_index], forefronts[seed_node_index]->max);
+	debug("root: node_index(%lu, %ld), ptr(%p), score(%d)", seed_node_index, graph.graph->get_id(graph.order[seed_node_index]), forefronts[seed_node_index], forefronts[seed_node_index]->max);
 
 	for(vector<uint64_t>::const_iterator p = begin; p != end;) {
 		size_t node_index = _dst_index(*p), n_incoming_edges = 0, n_incoming_forefronts = 0;
@@ -367,14 +387,14 @@ size_t XdropAligner::extend(
 			if(t == nullptr || dz_is_terminated(t)) { continue; }	// skip terminated
 			incoming_forefronts[n_incoming_forefronts++] = t;		// copy onto stack
 		}
-		debug("node_index(%lu, %ld), n_incoming_edges(%lu, %lu)", node_index, graph.node(node_index).id(), n_incoming_edges, n_incoming_forefronts);
+		debug("node_index(%lu, %ld), n_incoming_edges(%lu, %lu)", node_index, graph.graph->get_id(graph.order[node_index]), n_incoming_edges, n_incoming_forefronts);
 
 		// forward edge_index_base
 		p += n_incoming_edges;
 		if(n_incoming_forefronts == 0) { forefronts[node_index] = nullptr; continue; }
 
-		Node const &n = graph.node(node_index);
-		std::string const &ref_seq = n.sequence();
+		handle_t n = graph.order[node_index];
+		auto ref_seq = graph.graph->get_sequence(n);
 		forefronts[node_index] = dz_extend(dz,
 			packed_query,
 			incoming_forefronts, n_incoming_forefronts,
@@ -386,7 +406,7 @@ size_t XdropAligner::extend(
 			max_node_index = node_index;
 		}
 		debug("node_index(%lu, %ld), n_incoming_edges(%lu, %lu), forefront(%p), range[%u, %u), term(%u), max(%d), curr(%d, %d, %u)",
-			node_index, graph.node(node_index).id(), n_incoming_edges, n_incoming_forefronts,
+			node_index, graph.graph->get_id(n), n_incoming_edges, n_incoming_forefronts,
 			forefronts[node_index], forefronts[node_index]->r.spos, forefronts[node_index]->r.epos, dz_is_terminated(forefronts[node_index]),
 			forefronts[max_node_index]->max, forefronts[node_index]->max, forefronts[node_index]->inc, direction & dz_geq(forefronts[node_index]));
 	}
@@ -427,7 +447,7 @@ size_t XdropAligner::push_edit(
 
 void XdropAligner::calculate_and_save_alignment(
 	Alignment &alignment,
-	Graph const &graph,
+	OrderedGraph const &graph,
 	struct graph_pos_s const &head_pos,
 	size_t tail_node_index,
 	bool direction)
@@ -448,11 +468,11 @@ void XdropAligner::calculate_and_save_alignment(
     }
 
 	#define _push_mapping(_id) ({ \
-		Node const &n = graph.node((_id)); \
+		handle_t n = graph.order[(_id)]; \
 		Mapping *mapping = path->add_mapping(); \
 		mapping->set_rank(path->mapping_size()); \
 		Position *position = mapping->mutable_position(); \
-		position->set_node_id(n.id()); \
+		position->set_node_id(graph.graph->get_id(n)); \
 		position->set_offset(ref_offset); ref_offset = 0; \
 		mapping; \
 	})
@@ -484,13 +504,13 @@ void XdropAligner::calculate_and_save_alignment(
 	if(direction) {
 		uint64_t ref_offset = head_pos.ref_offset, state = head_pos.query_offset<<8;
 
-		Node const &n = graph.node(aln->span[aln->span_length - 1].id);
+		handle_t n = graph.order[aln->span[aln->span_length - 1].id];
 		// fprintf(stderr, "rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%u), query_init_length(%lu)\n", aln->span[aln->span_length - 1].id, n.id(), n.sequence().length(), ref_offset, aln->query_length, state>>8);
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = 0, path_offset = aln->span[0].offset; i < aln->span_length; i++) {
 			struct dz_path_span_s const *span = &aln->span[i];
-			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.node(aln->span[i].id).id(), graph.node(aln->span[i].id).sequence().length(), (uint64_t)path_offset, (uint64_t)span->offset);
+			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.graph->get_id(graph.order[aln->span[i].id]), graph.graph->get_length(graph.order[aln->span[i].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
 			for(m = _push_mapping(span->id); path_offset < span[1].offset; path_offset++) {
 				_append_op(m, aln->path[path_offset], 1);
@@ -500,16 +520,16 @@ void XdropAligner::calculate_and_save_alignment(
 		if(m != nullptr && query_seq.length() != query_offset) {
 			_push_op(m, INS, query_seq.length() - query_offset);
 		}
-		// fprintf(stderr, "rv: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.node(aln->span[aln->span_length - 1].id).id(), head_pos.ref_offset, graph.node(aln->span[0].id).id(), aln->span[1].offset, aln->score, alignment.sequence().c_str());
+		// fprintf(stderr, "rv: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.graph->get_id(graph.order[aln->span[aln->span_length - 1].id]), head_pos.ref_offset, graph.graph->get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
 	} else {
-		Node const &n = graph.node(aln->span[aln->span_length - 1].id);
+		handle_t n = graph.order[aln->span[aln->span_length - 1].id];
 		uint64_t ref_offset = -((int32_t)aln->rrem), state = (head_pos.query_offset - aln->query_length)<<8;
-		// fprintf(stderr, "rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%lu), query_aln_length(%u), query_init_length(%lu)\n", aln->span[aln->span_length - 1].id, n.id(), n.sequence().length(), ref_offset, query_seq.length(), aln->query_length, state>>8);
+		// fprintf(stderr, "rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%lu), query_aln_length(%u), query_init_length(%lu)\n", aln->span[aln->span_length - 1].id, graph.graph->get_id(n), graph.graph->get_length(n), ref_offset, query_seq.length(), aln->query_length, state>>8);
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = aln->span_length, path_offset = aln->path_length; i > 0; i--) {
 			struct dz_path_span_s const *span = &aln->span[i - 1];
-			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.node(aln->span[i - 1].id).id(), graph.node(aln->span[i - 1].id).sequence().length(), (uint64_t)path_offset, (uint64_t)span->offset);
+			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.graph->get_id(graph.order[aln->span[i - 1].id]), graph.graph->get_length(graph.order[aln->span[i - 1].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
 			for(m = _push_mapping(span->id); path_offset > span->offset; path_offset--) {
 				_append_op(m, aln->path[path_offset - 1], 1);
@@ -519,7 +539,7 @@ void XdropAligner::calculate_and_save_alignment(
 		if(m != nullptr && query_seq.length() != query_offset) {
 			_push_op(m, INS, query_seq.length() - query_offset);
 		}
-		// fprintf(stderr, "fw: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.node(aln->span[aln->span_length - 1].id).id(), -((int32_t)aln->rrem), graph.node(aln->span[0].id).id(), aln->span[1].offset, aln->score, alignment.sequence().c_str());
+		// fprintf(stderr, "fw: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.graph->get_id(graph.order[aln->span[aln->span_length - 1].id]), -((int32_t)aln->rrem), graph.graph->get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
 	}
 	return;
 
@@ -530,11 +550,12 @@ void XdropAligner::calculate_and_save_alignment(
 }
 
 #if 0
-void XdropAligner::debug_print(Alignment const &alignment, Graph const &graph, MaximalExactMatch const &seed, bool reverse_complemented)
+void XdropAligner::debug_print(Alignment const &alignment, OrderedGraph const &graph, MaximalExactMatch const &seed, bool reverse_complemented)
 {
 	uint64_t seed_pos = gcsa::Node::offset(seed.nodes.front());
-	uint64_t rlen = graph.node(id_to_index[gcsa::Node::id(seed_pos)]).sequence().length();
-	char const *rseq = graph.node(id_to_index[gcsa::Node::id(seed_pos)]).sequence().c_str();
+	uint64_t rlen = graph.graph->get_length(graph.order[id_to_index[gcsa::Node::id(seed_pos)]]);
+	auto sequence = graph.graph->get_sequence(graph.order[id_to_index[gcsa::Node::id(seed_pos)]]);
+    char const *rseq = sequence.c_str();
 	uint64_t qlen = alignment.sequence().length(), qpos = calculate_query_seed_pos(alignment, seed);
 	char const *qseq = alignment.sequence().c_str();
 	fprintf(stderr, "xdrop_aligner::align, rev(%d), ptr(%p, %p), (%u, %u, %lu), (%d, %d), %s\n",
@@ -558,21 +579,22 @@ void XdropAligner::debug_print(Alignment const &alignment, Graph const &graph, M
 /*
  * align query: forward-backward banded alignment
  *
- * First the head (the most upstream) seed in MEMs is selected and extended downward to detect the downstream breakpoint.
- * Next the alignment path is generated by second upward extension from the downstream breakpoint.
+ * First we find a "head" position, on the upstream side of the backing graph. If we have MEMs we do it by extending an alignment back from the most backing-downstream MEM; if we don't have MEMs then we hunt for a good match see dourdelves.
+ *
+ * Then we extend the head seed backing-downstream, and trace that back to find the optimal alignment.
  */
 void
 XdropAligner::align(
 	Alignment &alignment,
-	Graph const &graph,
+	OrderedGraph const &graph,
 	vector<MaximalExactMatch> const &mems,
 	bool reverse_complemented)
 {
 	// fprintf(stderr, "called, direction(%u)\n", reverse_complemented);
 	// bench_start(bench);
 	// the indices are iterated by size_t (64-bit unsigned), though
-	assert(graph.node_size() < UINT32_MAX);
-	assert(graph.edge_size() < UINT32_MAX);
+	assert(graph.graph->node_size() < UINT32_MAX);
+    // TODO: also check the edge count without iterating over all of them.
 
 	// debug_print(alignment, graph, mems[0], reverse_complemented);
 
@@ -585,13 +607,13 @@ XdropAligner::align(
 
 	// construct node_id -> index mapping table
 	build_id_index_table(graph);
-	forefronts.reserve(graph.node_size());		// vector< void * >
+	forefronts.reserve(graph.order.size());		// vector< void * >
 
 	// extract seed node
 	struct graph_pos_s head_pos;
 	if(mems.empty()) {
 		// seeds are not available here; probably called from mate_rescue
-		build_index_edge_table(graph, direction ? graph.node_size() : 0, direction);			// we need edge information before we traverse the graph for scan seeds
+		build_index_edge_table(graph, direction ? graph.order.size() : 0, direction);			// we need edge information before we traverse the graph for scan seeds
 		head_pos = scan_seed_position(graph, query_seq, direction);								// scan seed position mems is empty
 	} else {
 		// ordinary extension DP
@@ -640,6 +662,32 @@ XdropAligner::align(
 		if(mems.empty()) { fprintf(stderr, "rescue: score(%d)\n", alignment.score()); }
 	#endif
 	return;
+}
+
+void
+XdropAligner::align(
+	Alignment &alignment,
+	Graph const &graph,
+	vector<MaximalExactMatch> const &mems,
+	bool reverse_complemented)
+{
+
+    // Wrap the Protobuf graph up in a ProtoHandleGraph
+    ProtoHandleGraph wrapper(&graph);
+    
+    // Make an OrderedHandleGraph  of the wrapper and the order the backing
+    // Graph is in (already topologically sorted)
+    OrderedGraph ordered;
+    ordered.graph = &wrapper;
+    
+    // Fill in the topological order as just the Protobuf graph's order.
+    ordered.order.reserve(graph.node_size());
+    for (size_t i = 0; i < graph.node_size(); i++) {
+        ordered.order.push_back(wrapper.get_handle_by_index(i));
+    }
+    
+    // Call the backing implementation
+    align(alignment, ordered, mems, reverse_complemented);
 }
 
 /**
