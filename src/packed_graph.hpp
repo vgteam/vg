@@ -295,7 +295,7 @@ private:
     const static double defrag_factor;
     
     /// We use a standard page width for all page-compressed vectors
-    const static size_t PAGE_WIDTH = 128;
+    const static size_t PAGE_WIDTH;
     
     // TODO: some of these offsets are a little silly and only are around as legacy.
     // They could be removed once the factoring stabilizes, but optimization will also
@@ -305,24 +305,24 @@ private:
     /// offsets in edge_lists_iv.
     /// {start edge list index, end edge list index}
     PagedVector graph_iv;
-    const static size_t GRAPH_RECORD_SIZE = 2;
-    const static size_t GRAPH_START_EDGES_OFFSET = 0;
-    const static size_t GRAPH_END_EDGES_OFFSET = 1;
+    const static size_t GRAPH_RECORD_SIZE;
+    const static size_t GRAPH_START_EDGES_OFFSET;
+    const static size_t GRAPH_END_EDGES_OFFSET;
     
     /// Encodes the start of a node's sequence in seq_iv. Matches the order of graph_iv.
     PagedVector seq_start_iv;
-    const static size_t SEQ_START_RECORD_SIZE = 1;
+    const static size_t SEQ_START_RECORD_SIZE;
     
     /// Encodes the length of a node's sequence in seq_iv. Matches the order of graph_iv.
     PackedVector seq_length_iv;
-    const static size_t SEQ_LENGTH_RECORD_SIZE = 1;
+    const static size_t SEQ_LENGTH_RECORD_SIZE;
 
     /// Encodes a series of edges lists of nodes.
     /// {ID|orientation (bit-packed), next edge index}
     PagedVector edge_lists_iv;
-    const static size_t EDGE_RECORD_SIZE = 2;
-    const static size_t EDGE_TRAV_OFFSET = 0;
-    const static size_t EDGE_NEXT_OFFSET = 1;
+    const static size_t EDGE_RECORD_SIZE;
+    const static size_t EDGE_TRAV_OFFSET;
+    const static size_t EDGE_NEXT_OFFSET;
     
     // TODO: template out the deque and back id_to_graph_iv with a paged vector? might
     // provide better compression now that it can handle 0's gracefully. unsure how the
@@ -340,7 +340,7 @@ private:
     /// Consists of 1-based offset to the corresponding heads of linked lists in
     /// path_membership_value_iv, which contains the actual pointers into the paths.
     PagedVector path_membership_node_iv;
-    const static size_t NODE_MEMBER_RECORD_SIZE = 1;
+    const static size_t NODE_MEMBER_RECORD_SIZE;
     
     /// Encodes a series of linked lists of the memberships within paths. Consists of
     /// fixed width records of the following form. Path IDs are 0-based indexes, the
@@ -348,10 +348,10 @@ private:
     /// MEMBERSHIP_RECORD_SIZE respectively.
     /// {path ID, index in path, next membership record index}
     PagedVector path_membership_value_iv;
-    const static size_t MEMBERSHIP_RECORD_SIZE = 3;
-    const static size_t MEMBERSHIP_PATH_OFFSET = 0;
-    const static size_t MEMBERSHIP_STEP_OFFSET = 1;
-    const static size_t MEMBERSHIP_NEXT_OFFSET = 2;
+    const static size_t MEMBERSHIP_RECORD_SIZE;
+    const static size_t MEMBERSHIP_PATH_OFFSET;
+    const static size_t MEMBERSHIP_STEP_OFFSET;
+    const static size_t MEMBERSHIP_NEXT_OFFSET;
     
     /*
      * A struct to package the data associated with a path through the graph.
@@ -384,10 +384,10 @@ private:
         /// The number of steps that have been deleted from the path
         uint64_t deleted_step_records = 0;
     };
-    const static size_t PATH_RECORD_SIZE = 3;
-    const static size_t PATH_TRAV_OFFSET = 0;
-    const static size_t PATH_PREV_OFFSET = 1;
-    const static size_t PATH_NEXT_OFFSET = 2;
+    const static size_t PATH_RECORD_SIZE;
+    const static size_t PATH_TRAV_OFFSET;
+    const static size_t PATH_PREV_OFFSET;
+    const static size_t PATH_NEXT_OFFSET;
     
     /// Map from path names to index in the paths vector.
     string_hash_map<string, int64_t> path_id;

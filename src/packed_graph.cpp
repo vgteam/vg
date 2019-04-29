@@ -1,5 +1,5 @@
 //
-//  dgraph.cpp
+//  packed_graph.cpp
 //
 
 #include "packed_graph.hpp"
@@ -11,7 +11,34 @@ namespace vg {
 
     using namespace handlegraph;
     
+    /// Define all of the static class variables
     const double PackedGraph::defrag_factor = .2;
+    
+    const size_t PackedGraph::PAGE_WIDTH = 128;
+    
+    const size_t PackedGraph::GRAPH_RECORD_SIZE = 2;
+    const size_t PackedGraph::GRAPH_START_EDGES_OFFSET = 0;
+    const size_t PackedGraph::GRAPH_END_EDGES_OFFSET = 1;
+    
+    const size_t PackedGraph::SEQ_START_RECORD_SIZE = 1;
+    
+    const size_t PackedGraph::SEQ_LENGTH_RECORD_SIZE = 1;
+    
+    const size_t PackedGraph::EDGE_RECORD_SIZE = 2;
+    const size_t PackedGraph::EDGE_TRAV_OFFSET = 0;
+    const size_t PackedGraph::EDGE_NEXT_OFFSET = 1;
+    
+    const size_t PackedGraph::NODE_MEMBER_RECORD_SIZE = 1;
+    
+    const size_t PackedGraph::MEMBERSHIP_RECORD_SIZE = 3;
+    const size_t PackedGraph::MEMBERSHIP_PATH_OFFSET = 0;
+    const size_t PackedGraph::MEMBERSHIP_STEP_OFFSET = 1;
+    const size_t PackedGraph::MEMBERSHIP_NEXT_OFFSET = 2;
+    
+    const size_t PackedGraph::PATH_RECORD_SIZE = 3;
+    const size_t PackedGraph::PATH_TRAV_OFFSET = 0;
+    const size_t PackedGraph::PATH_PREV_OFFSET = 1;
+    const size_t PackedGraph::PATH_NEXT_OFFSET = 2;
     
     PackedGraph::PackedGraph() :
         graph_iv(PAGE_WIDTH),
