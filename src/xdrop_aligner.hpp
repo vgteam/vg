@@ -44,6 +44,25 @@ namespace vg {
      * xdrop algorithm, as implemented in dozeu.
      *
      * Not thread-safe.
+     *
+     * The underlying Dozeu library is fundamentally based around semi-global
+     * alignment: extending an alignment from a known matching position (what
+     * in other parts of vg we call "pinned" alignment).
+     *
+     * To simulate non-pinned alignment, we align in two passes in different
+     * directions. One from a guess of a pinning position, to get a more
+     * accurate "head" pinning position for the other end, and once back from
+     * where the previous pass ended up, to get an overall hopefully-optimal
+     * alignment.
+     *
+     * If the input graph is not reverse-complemented, direction = false
+     * (reverse, right to left) on the first pass, and direction = true
+     * (forward, left to right) on the second. If it is reverse complemented,
+     * we flip them.
+     * 
+     * This won't actually work in theory to get the optimal local alignment in
+     * all cases, but it works well in practice.
+     *
      */
 	class XdropAligner {
 	private:
@@ -88,9 +107,11 @@ namespace vg {
         /// Fill in the id_to_index map
 		void build_id_index_table(Graph const &graph);
         
+        
+        
         /// Fill in index_edges and index_edges_head. Needs to know the index
         /// of the "seed node" in our graph's list of nodes, and the direction
-        /// the alignment process is flowing in (false = reverse, true = forward) 
+        /// of the pass we are setting up for (false = right to left, true = left to right) 
 		void build_index_edge_table(Graph const &graph, uint32_t const seed_node_index, bool direction);
 
 		// position handling -> (node_index, ref_offset, query_offset): struct graph_pos_s
@@ -135,7 +156,7 @@ namespace vg {
         /// If we have no MEM seed, we only run one pass (the second one).
 		size_t extend(Graph const &graph, vector<uint64_t>::const_iterator begin, vector<uint64_t>::const_iterator end, struct dz_query_s const *packed_query, size_t seed_node_index, uint64_t seed_offset, bool direction);
        
-        /// After all the alignment work has been done, do the traceback and sfave into the given Alignment object.
+        /// After all the alignment work has been done, do the traceback and save into the given Alignment object.
 		void calculate_and_save_alignment(Alignment &alignment, Graph const &graph, struct graph_pos_s const &head_pos, size_t tail_node_index, bool direction);
 
 		// void debug_print(Alignment const &alignment, Graph const &graph, MaximalExactMatch const &seed, bool reverse_complemented);
@@ -168,12 +189,18 @@ namespace vg {
          * given topologically sorted graph, using (one of) the given MEMs to
          * seed the alignment.
          *
-         * reverse_complemented is false if we want to compute the alignment
-         * forward in the topologically-sorted order of the given graph
-         * (anchoring to the first node if no MEMs are provided) and false if
-         * we want to compute the alignment backward in the topological order
-         * (anchoring to the last node). In either case the read sequence and
-         * graph sequences should be in the same orientation.
+         * reverse_complemented is true if the topologically sorted graph we
+         * have was reverse-complemented when extracted from a larger
+         * containing graph, and false if it is in the same orientation as it
+         * exists in the larger containing graph. The MEMs and the Alignment
+         * are interpreted as being against the forward strand of the passed
+         * subgraph no matter the value of this setting.
+         *
+         * reverse_complement true means we will compute the alignment forward
+         * in the topologically-sorted order of the given graph (anchoring to
+         * the first node if no MEMs are provided) and false if we want to
+         * compute the alignment backward in the topological order (anchoring
+         * to the last node).
          *
          * All the graph edges must go from earlier to later nodes, and
          * from_start and to_end must alsways be false.
