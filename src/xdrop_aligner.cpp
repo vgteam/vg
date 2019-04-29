@@ -206,7 +206,7 @@ void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t co
 	return;
 }
 
-struct graph_pos_s XdropAligner::calculate_seed_position(OrderedGraph const &graph, vector<MaximalExactMatch> const &mems, size_t query_length, bool direction)
+XdropAligner::graph_pos_s XdropAligner::calculate_seed_position(OrderedGraph const &graph, vector<MaximalExactMatch> const &mems, size_t query_length, bool direction)
 {
 	/*
 	 * seed selection:
@@ -220,7 +220,7 @@ struct graph_pos_s XdropAligner::calculate_seed_position(OrderedGraph const &gra
 	 * GSSW aligner avoids such artifacts because it does not depends on any seed positions on
 	 * computing the DP matrix (it is true local alignment).
 	 */
-    struct graph_pos_s pos;
+    graph_pos_s pos;
 	MaximalExactMatch const &seed = mems[direction ? (mems.size() - 1) : 0];		// here mems is never empty
 
 	auto seed_pos = direction ? seed.nodes.front() : seed.nodes.back();
@@ -240,10 +240,10 @@ struct graph_pos_s XdropAligner::calculate_seed_position(OrderedGraph const &gra
 	return(pos);
 }
 
-struct graph_pos_s XdropAligner::calculate_max_position(OrderedGraph const &graph, struct graph_pos_s const &seed_pos, size_t max_node_index, bool direction)
+XdropAligner::graph_pos_s XdropAligner::calculate_max_position(OrderedGraph const &graph, graph_pos_s const &seed_pos, size_t max_node_index, bool direction)
 {
 	// save node id
-	struct graph_pos_s pos;
+	graph_pos_s pos;
 	pos.node_index = max_node_index;
 
 	// calc max position on the node
@@ -262,7 +262,7 @@ struct graph_pos_s XdropAligner::calculate_max_position(OrderedGraph const &grap
 	return(pos);
 }
 
-struct graph_pos_s XdropAligner::scan_seed_position(OrderedGraph const &graph, std::string const &query_seq, bool direction)
+XdropAligner::graph_pos_s XdropAligner::scan_seed_position(OrderedGraph const &graph, std::string const &query_seq, bool direction)
 {
 	uint64_t const qlen = query_seq.length(), scan_len = qlen < 15 ? qlen : 15;		// FIXME: scan_len should be variable
 
@@ -270,7 +270,7 @@ struct graph_pos_s XdropAligner::scan_seed_position(OrderedGraph const &graph, s
 	for(vector<uint64_t>::const_reverse_iterator p = index_edges.rbegin(); p != index_edges.rend(); p++) {
 		// debug("i(%lu), %lu -> %lu", p - index_edges.rbegin(), _dst_index(*p), _src_index(*p));
 	}
-	struct dz_query_s const *packed_query = (direction
+	dz_query_s const *packed_query = (direction
 		? dz_pack_query_reverse(dz, &query_seq.c_str()[0],               scan_len)
 		: dz_pack_query_forward(dz, &query_seq.c_str()[qlen - scan_len], scan_len)
 	);
@@ -302,9 +302,9 @@ struct graph_pos_s XdropAligner::scan_seed_position(OrderedGraph const &graph, s
 		debug("n_incoming_edges(%lu)", n_incoming_edges);
 
 		// pack incoming edges
-		struct dz_forefront_s const *incoming_forefronts[n_incoming_edges + 1];
+		dz_forefront_s const *incoming_forefronts[n_incoming_edges + 1];
 		for(size_t i = 0; i < n_incoming_edges; i++) {
-			struct dz_forefront_s const *t = forefronts[_dst_index(p[i])];
+			dz_forefront_s const *t = forefronts[_dst_index(p[i])];
 			assert(t != nullptr);
 			incoming_forefronts[i] = t;
 		}
@@ -329,11 +329,11 @@ struct graph_pos_s XdropAligner::scan_seed_position(OrderedGraph const &graph, s
 
 	}
 
-	struct graph_pos_s pos;
+	graph_pos_s pos;
 	pos.node_index = 0;
 	pos.ref_offset = 0;
 	pos.query_offset = direction ? scan_len : qlen - scan_len;
-	struct graph_pos_s p = calculate_max_position(graph, pos, max_node_index, direction);
+	graph_pos_s p = calculate_max_position(graph, pos, max_node_index, direction);
 	debug("node_index(%lu), ref_offset(%d), query_offset(%d), max(%d)", p.node_index, p.ref_offset, p.query_offset, forefronts[max_node_index]->max);
 	return(p);
 }
@@ -342,7 +342,7 @@ size_t XdropAligner::extend(
 	OrderedGraph const &graph,
 	vector<uint64_t>::const_iterator begin,			// must be sorted ascending order for forward extension, descending order in reverse
 	vector<uint64_t>::const_iterator end,
-	struct dz_query_s const *packed_query,
+	dz_query_s const *packed_query,
 	size_t seed_node_index,
 	uint64_t seed_offset,							// offset: 0-------->L for both forward and reverse
 	bool direction)									// true for forward, false for reverse
@@ -378,12 +378,12 @@ size_t XdropAligner::extend(
 		assert(n_incoming_edges > 0);
 
 		// pack incoming edges
-		struct dz_forefront_s const *incoming_forefronts[n_incoming_edges + 1];
+		dz_forefront_s const *incoming_forefronts[n_incoming_edges + 1];
 		for(size_t k = 0; k < n_incoming_edges; k++) {
 			int64_t s = _src_index(p[k]), d = _dst_index(p[k]), r = seed_node_index;
 			if((s - r) * (d - r) < 0) { continue; }
 
-			struct dz_forefront_s const *t = forefronts[_src_index(p[k])];
+			dz_forefront_s const *t = forefronts[_src_index(p[k])];
 			if(t == nullptr || dz_is_terminated(t)) { continue; }	// skip terminated
 			incoming_forefronts[n_incoming_forefronts++] = t;		// copy onto stack
 		}
@@ -448,7 +448,7 @@ size_t XdropAligner::push_edit(
 void XdropAligner::calculate_and_save_alignment(
 	Alignment &alignment,
 	OrderedGraph const &graph,
-	struct graph_pos_s const &head_pos,
+	graph_pos_s const &head_pos,
 	size_t tail_node_index,
 	bool direction)
 {
@@ -458,7 +458,7 @@ void XdropAligner::calculate_and_save_alignment(
 	if(forefronts[tail_node_index]->max == 0) { return; }
 
 	// traceback
-	struct dz_alignment_s const *aln = dz_trace(dz, forefronts[tail_node_index]);
+	dz_alignment_s const *aln = dz_trace(dz, forefronts[tail_node_index]);
 	if(aln == nullptr || aln->path_length == 0) { return; }
 	assert(aln->span[aln->span_length - 1].id == tail_node_index);
     if (aln->query_length > alignment.sequence().size()) {
@@ -509,7 +509,7 @@ void XdropAligner::calculate_and_save_alignment(
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = 0, path_offset = aln->span[0].offset; i < aln->span_length; i++) {
-			struct dz_path_span_s const *span = &aln->span[i];
+			dz_path_span_s const *span = &aln->span[i];
 			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.graph->get_id(graph.order[aln->span[i].id]), graph.graph->get_length(graph.order[aln->span[i].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
 			for(m = _push_mapping(span->id); path_offset < span[1].offset; path_offset++) {
@@ -528,7 +528,7 @@ void XdropAligner::calculate_and_save_alignment(
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = aln->span_length, path_offset = aln->path_length; i > 0; i--) {
-			struct dz_path_span_s const *span = &aln->span[i - 1];
+			dz_path_span_s const *span = &aln->span[i - 1];
 			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.graph->get_id(graph.order[aln->span[i - 1].id]), graph.graph->get_length(graph.order[aln->span[i - 1].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
 			for(m = _push_mapping(span->id); path_offset > span->offset; path_offset--) {
@@ -610,18 +610,18 @@ XdropAligner::align(
 	forefronts.reserve(graph.order.size());		// vector< void * >
 
 	// extract seed node
-	struct graph_pos_s head_pos;
+	graph_pos_s head_pos;
 	if(mems.empty()) {
 		// seeds are not available here; probably called from mate_rescue
 		build_index_edge_table(graph, direction ? graph.order.size() : 0, direction);			// we need edge information before we traverse the graph for scan seeds
 		head_pos = scan_seed_position(graph, query_seq, direction);								// scan seed position mems is empty
 	} else {
 		// ordinary extension DP
-		struct graph_pos_s seed_pos = calculate_seed_position(graph, mems, qlen, direction);	// we need seed to build edge table (for semi-global extension)
+		graph_pos_s seed_pos = calculate_seed_position(graph, mems, qlen, direction);	// we need seed to build edge table (for semi-global extension)
 		build_index_edge_table(graph, seed_pos.node_index, direction);
 
 		// pack query (upward)
-		struct dz_query_s const *packed_query_seq_up = (direction
+		dz_query_s const *packed_query_seq_up = (direction
 			? dz_pack_query_reverse(dz, &query_seq.c_str()[0],                            seed_pos.query_offset)
 			: dz_pack_query_forward(dz, &query_seq.c_str()[seed_pos.query_offset], qlen - seed_pos.query_offset)
 		);
@@ -638,7 +638,7 @@ XdropAligner::align(
 	// fprintf(stderr, "head_node_index(%lu), rpos(%lu, %u), qpos(%u), direction(%d)\n", head_pos.node_index, head_pos.node_index, head_pos.ref_offset, head_pos.query_offset, direction);
 
 	// pack query (downward)
-	struct dz_query_s const *packed_query_seq_dn = (direction
+	dz_query_s const *packed_query_seq_dn = (direction
 		? dz_pack_query_forward(dz, &query_seq.c_str()[head_pos.query_offset], qlen - head_pos.query_offset)
 		: dz_pack_query_reverse(dz, &query_seq.c_str()[0],                     head_pos.query_offset)
 	);

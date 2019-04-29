@@ -28,27 +28,6 @@ struct dz_query_s;
 namespace vg {
 
     /**
-     * Represents a correspondance between a position in the subgraph we are
-     * mapping to and a position in the read we are mapping.
-     */
-	struct graph_pos_s {
-		/// What index in the node list of our extracted subgraph is our node at?
-        size_t node_index;
-        /// What is the offset in the node? Note that we only think about the forward strand.
-		uint32_t ref_offset;
-        /// What is the correspondign offset in the query sequence?
-        uint32_t query_offset;
-	};
-    
-    /**
-     * Represents a HandleGraph with a defined (topological) order calculated for it.
-     */
-    struct OrderedGraph {
-        const HandleGraph* graph;
-        vector<handle_t> order;  
-    };
-
-    /**
      * Align to a graph using the xdrop algorithm, as implemented in dozeu.
      *
      * Not thread-safe. Each align() call stores state in the object.
@@ -75,11 +54,34 @@ namespace vg {
      *
      */
 	class XdropAligner {
+    public:
+    
+        /**
+         * Represents a correspondance between a position in the subgraph we are
+         * mapping to and a position in the read we are mapping.
+         */
+        struct graph_pos_s {
+            /// What index in the node list of our extracted subgraph is our node at?
+            size_t node_index;
+            /// What is the offset in the node? Note that we only think about the forward strand.
+            uint32_t ref_offset;
+            /// What is the correspondign offset in the query sequence?
+            uint32_t query_offset;
+        };
+    
+        /**
+         * Represents a HandleGraph with a defined (topological) order calculated for it.
+         */
+        struct OrderedGraph {
+            const HandleGraph* graph;
+            vector<handle_t> order;  
+        };
+        
 	private:
 		// context (contains memory arena and constants) and working buffers
         
         /// This is the backing dozeu library problem instance
-		struct dz_s *dz;
+		dz_s *dz;
         
         /// Maps from node ID to the index in our internal subgraph storage at which that node occurs
         // can be lighter? index in lower 32bit and graph_id -> mem_id mapping (inverse of trans mapping)
@@ -124,7 +126,7 @@ namespace vg {
         /// of the pass we are setting up for (false = right to left, true = left to right) 
 		void build_index_edge_table(OrderedGraph const &graph, uint32_t const seed_node_index, bool direction);
 
-		// position handling -> (node_index, ref_offset, query_offset): struct graph_pos_s
+		// position handling -> (node_index, ref_offset, query_offset): graph_pos_s
 		// MaximalExactMatch const &select_root_seed(vector<MaximalExactMatch> const &mems);
         
         /// Given the subgraph we are aligning to, the MEM hist against it, the
@@ -133,18 +135,18 @@ namespace vg {
         /// and the query to align out from.
         ///
         /// This replaces scan_seed_position for the case where we have MEMs.
-		struct graph_pos_s calculate_seed_position(OrderedGraph const &graph, vector<MaximalExactMatch> const &mems, size_t query_length, bool direction);
+		graph_pos_s calculate_seed_position(OrderedGraph const &graph, vector<MaximalExactMatch> const &mems, size_t query_length, bool direction);
         /// Given the index of the node at which the winning score occurs, find
         /// the position in the node and read sequence at which the winning
         /// match is found.
-        struct graph_pos_s calculate_max_position(OrderedGraph const &graph, struct graph_pos_s const &seed_pos, size_t max_node_index, bool direction);
+        graph_pos_s calculate_max_position(OrderedGraph const &graph, graph_pos_s const &seed_pos, size_t max_node_index, bool direction);
 	
         /// If no seeds are provided as alignment input, we need to compute our own starting anchor position. This function does that.
         /// Takes the topologically-sorted graph, the query sequence, and the direction.
         /// If direction is false, finds a seed hit on the first node of the graph. If it is true, finds a hit on the last node.
         ///
         /// This replaces calculate_seed_position for the case where we have no MEMs.
-        struct graph_pos_s scan_seed_position(OrderedGraph const &graph, std::string const &query_seq, bool direction);
+        graph_pos_s scan_seed_position(OrderedGraph const &graph, std::string const &query_seq, bool direction);
 
         /// Append an edit at the end of the current mapping array.
         /// Returns the length passed in.
@@ -164,10 +166,10 @@ namespace vg {
         /// true).
         ///
         /// If we have no MEM seed, we only run one pass (the second one).
-		size_t extend(OrderedGraph const &graph, vector<uint64_t>::const_iterator begin, vector<uint64_t>::const_iterator end, struct dz_query_s const *packed_query, size_t seed_node_index, uint64_t seed_offset, bool direction);
+		size_t extend(OrderedGraph const &graph, vector<uint64_t>::const_iterator begin, vector<uint64_t>::const_iterator end, dz_query_s const *packed_query, size_t seed_node_index, uint64_t seed_offset, bool direction);
        
         /// After all the alignment work has been done, do the traceback and save into the given Alignment object.
-		void calculate_and_save_alignment(Alignment &alignment, OrderedGraph const &graph, struct graph_pos_s const &head_pos, size_t tail_node_index, bool direction);
+		void calculate_and_save_alignment(Alignment &alignment, OrderedGraph const &graph, graph_pos_s const &head_pos, size_t tail_node_index, bool direction);
 
 		// void debug_print(Alignment const &alignment, OrderedGraph const &graph, MaximalExactMatch const &seed, bool reverse_complemented);
 		// bench_t bench;
