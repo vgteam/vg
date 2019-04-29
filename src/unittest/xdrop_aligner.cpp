@@ -75,7 +75,7 @@ TEST_CASE("XdropAligner can compute an alignment with no MEMs in reverse mode", 
     
     vector<MaximalExactMatch> no_mems;
     
-    // All reverse_complement this really changes is that we anchor on the last node instead of the first.
+    // All this really changes is that we anchor on the last node instead of the first.
     aligner.align(aln, graph.graph, no_mems, true);
     
     // Make sure we got the right score

@@ -173,6 +173,12 @@ namespace vg {
 
 		// void debug_print(Alignment const &alignment, OrderedGraph const &graph, MaximalExactMatch const &seed, bool reverse_complemented);
 		// bench_t bench;
+        
+        /// After doing the upward pass and finding head_pos to anchor from, do
+        /// the downward alignment pass and traceback. If reverse_complemented is
+        /// unset, goes left to right and traces back the other way. If it is
+        /// set, goes right to left and traces back the other way.
+        void align_downward(Alignment &alignment, OrderedGraph const &graph, graph_pos_s const &head_pos, bool reverse_complemented);
 
 	public:
 		// default_* defined in vg::, see aligner.hpp
@@ -208,11 +214,11 @@ namespace vg {
          * are interpreted as being against the forward strand of the passed
          * subgraph no matter the value of this setting.
          *
-         * reverse_complement true means we will compute the alignment forward
-         * in the topologically-sorted order of the given graph (anchoring to
-         * the first node if no MEMs are provided) and false if we want to
-         * compute the alignment backward in the topological order (anchoring
-         * to the last node).
+         * reverse_complemented true means we will compute the alignment
+         * forward in the topologically-sorted order of the given graph
+         * (anchoring to the first node if no MEMs are provided) and false if
+         * we want to compute the alignment backward in the topological order
+         * (anchoring to the last node).
          *
          * All the graph edges must go from earlier to later nodes, and
          * from_start and to_end must alsways be false.

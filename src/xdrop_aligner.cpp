@@ -636,24 +636,41 @@ XdropAligner::align(
 		);
 	}
 	// fprintf(stderr, "head_node_index(%lu), rpos(%lu, %u), qpos(%u), direction(%d)\n", head_pos.node_index, head_pos.node_index, head_pos.ref_offset, head_pos.query_offset, direction);
+    
+    // Now that we have determined head_pos, do the downward alignment from there, and the traceback.
+    align_downward(alignment, graph, head_pos, reverse_complemented);
+    
+}
+    
+void
+XdropAligner::align_downward(
+	Alignment &alignment,
+	OrderedGraph const &graph,
+    graph_pos_s const &head_pos,
+	bool reverse_complemented)
+{ 
+
+    // extract query
+	std::string const &query_seq = alignment.sequence();
+	uint64_t const qlen = query_seq.length();
 
 	// pack query (downward)
-	dz_query_s const *packed_query_seq_dn = (direction
+	dz_query_s const *packed_query_seq_dn = (reverse_complemented
 		? dz_pack_query_forward(dz, &query_seq.c_str()[head_pos.query_offset], qlen - head_pos.query_offset)
 		: dz_pack_query_reverse(dz, &query_seq.c_str()[0],                     head_pos.query_offset)
 	);
 
 	// get head node index
 	vector<uint64_t>::const_iterator begin = index_edges.begin(), end = index_edges.end();
-	while(begin != end && !compare[direction](_dst_index(*begin), head_pos.node_index)) { begin++; }
+	while(begin != end && !compare[reverse_complemented](_dst_index(*begin), head_pos.node_index)) { begin++; }
 
 	// downward extension
 	calculate_and_save_alignment(alignment, graph, head_pos,
 		extend(graph, begin, end,
 			packed_query_seq_dn, head_pos.node_index, head_pos.ref_offset,
-			!direction
+			!reverse_complemented
 		),
-		direction
+		reverse_complemented
 	);
 	dz_flush(dz);
 	// bench_end(bench);
