@@ -248,6 +248,49 @@ TEST_CASE("XdropAligner can be induced to pin with MEMs", "[xdrop][alignment][ma
     }
 }
 
+TEST_CASE("XdropAligner can align pinned left", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    // Last parameter here is max gap length.
+    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+    
+    Node* n0 = graph.create_node("AGTG");
+    Node* n1 = graph.create_node("C");
+    Node* n2 = graph.create_node("A");
+    Node* n3 = graph.create_node("TGAACT");
+    
+    graph.create_edge(n0, n1);
+    graph.create_edge(n0, n2);
+    graph.create_edge(n1, n3);
+    graph.create_edge(n2, n3);
+    
+    string read = string("ACT");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align pinned left, letting the graph compute a topological order
+    aligner.align_pinned(aln, graph, true);
+    
+    // Make sure we got the right score
+    REQUIRE(aln.score() == read.size());
+    
+    // Make sure we take the right path
+    REQUIRE(aln.path().mapping_size() == 1);
+    REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+    REQUIRE(aln.path().mapping(0).position().offset() == 0);
+    REQUIRE(aln.path().mapping(0).edit_size() == 3);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(aln.path().mapping(0).edit(1).from_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(1).to_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(1).sequence() == "C");
+    REQUIRE(aln.path().mapping(0).edit(2).from_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(2).to_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(2).sequence() == "");
+}
+
 
    
 }

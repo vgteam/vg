@@ -71,10 +71,12 @@ namespace vg {
     
         /**
          * Represents a HandleGraph with a defined (topological) order calculated for it.
+         *
+         * Meant to be used with aggregate initialization ({wrapper, order}).
          */
         struct OrderedGraph {
-            const HandleGraph* graph;
-            vector<handle_t> order;  
+            HandleGraph const &graph;
+            vector<handle_t> const &order;
         };
         
 	private:
@@ -237,6 +239,24 @@ namespace vg {
         
         /// Implementation of align() that automatically wraps up a topologically-ordered Protobuf graph as an OrderedGraph.
         void align(Alignment &alignment, Graph const &graph, const vector<MaximalExactMatch> &mems, bool reverse_complemented);
+        
+        /**
+         * Compute a pinned alignment, where the start (pin_left=true) or end
+         * (pin_left=false) end of the Alignment sequence is pinned to the
+         * start of the first (pin_left=true) or end of the last
+         * (pin_left=false) node in the graph's topological order.
+         *
+         * Does not account for multiple sources/sinks in the topological
+         * order; whichever comes first/last ends up being used for the pin.
+         *
+         * TODO: This should become const and the class should become thread safe.
+         */
+        void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left);
+        
+        /// Version of align_pinned that allows you to pass your own topological order.
+        /// TODO: This should become const and the class should become thread safe.
+        void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
+                          bool pin_left);
 	};
 } // end of namespace vg
 

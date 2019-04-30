@@ -16,6 +16,8 @@ using namespace std;
     /**
      * A HandleGraph implementation that wraps some other handle graph and reverses
      * but does *NOT* complement the sequences.
+     *
+     * See also: ReverseComplementGraph
      */
     class BackwardsGraph : public HandleGraph {
     public:
@@ -79,7 +81,7 @@ using namespace std;
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
         virtual id_t max_node_id() const;
         
-    private:
+    protected:
         /// The forward version of the graph we're making backwards
         const HandleGraph* forward_graph = nullptr;
     };
