@@ -85,6 +85,10 @@ namespace vg {
         /// This is the backing dozeu library problem instance
 		dz_s *dz;
         
+        // We don't need to remember the whole score matrix, because dz has a
+        // copy. But we do need the AA match score to support pinned alignment.
+        int8_t aa_match;
+        
         /// Maps from node ID to the index in our internal subgraph storage at which that node occurs
         // can be lighter? index in lower 32bit and graph_id -> mem_id mapping (inverse of trans mapping)
 		std::unordered_map< id_t, uint64_t > id_to_index;

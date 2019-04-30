@@ -253,7 +253,7 @@ TEST_CASE("XdropAligner can align pinned left", "[xdrop][alignment][mapping]") {
     VG graph;
     
     // Last parameter here is max gap length.
-    XdropAligner aligner(1, 4, 6, 1, 0, 40);
+    XdropAligner aligner(1, 4, 6, 1, 10, 40);
     
     Node* n0 = graph.create_node("AGTG");
     Node* n1 = graph.create_node("C");
@@ -272,8 +272,9 @@ TEST_CASE("XdropAligner can align pinned left", "[xdrop][alignment][mapping]") {
     // Align pinned left, letting the graph compute a topological order
     aligner.align_pinned(aln, graph, true);
     
-    // Make sure we got the right score
-    REQUIRE(aln.score() == read.size());
+    // Make sure we got the right score.
+    // Account for full length bonus, loss of a match, and gain of a mismatch.
+    REQUIRE(aln.score() == read.size() + 10 - 1 - 4);
     
     // Make sure we take the right path
     REQUIRE(aln.path().mapping_size() == 1);

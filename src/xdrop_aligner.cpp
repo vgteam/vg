@@ -18,8 +18,12 @@
 enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #include "../deps/dozeu/dozeu.h"
 
-#define DEBUG
+// To turn on debugging:
+// #define DEBUG
+
+#ifdef DEBUG
 #include "../deps/dozeu/log.h"
+#endif
 
 // #include "json2pb.h"			// I don't know whether it's needed
 
@@ -34,6 +38,8 @@ XdropAligner::XdropAligner(XdropAligner const &rhs)
 		(uint16_t)rhs.dz->max_gap_len,
 		(uint16_t)rhs.dz->bonus
 	);
+    
+    aa_match = rhs.aa_match;
 }
 
 XdropAligner& XdropAligner::operator=(XdropAligner const &rhs)
@@ -46,6 +52,7 @@ XdropAligner& XdropAligner::operator=(XdropAligner const &rhs)
 		(uint16_t)rhs.dz->max_gap_len,
 		(uint16_t)rhs.dz->bonus
 	);
+    aa_match = rhs.aa_match;
 	return(*this);
 }
 
@@ -54,6 +61,7 @@ XdropAligner::XdropAligner(XdropAligner&& rhs)
 	dz_destroy(dz);
 	dz = rhs.dz;		// move
 	rhs.dz = nullptr;
+    aa_match = rhs.aa_match;
 }
 
 XdropAligner& XdropAligner::operator=(XdropAligner&& rhs)
@@ -62,12 +70,14 @@ XdropAligner& XdropAligner::operator=(XdropAligner&& rhs)
 	dz_destroy(dz);
 	dz = rhs.dz;
 	rhs.dz = nullptr;
+    aa_match = rhs.aa_match;
 	return(*this);
 }
 
 XdropAligner::XdropAligner()
 {
 	dz = nullptr;
+    aa_match = 0;
 }
 
 XdropAligner::XdropAligner(
@@ -84,6 +94,7 @@ XdropAligner::XdropAligner(
 
 	uint64_t go = _gap_open - _gap_extension, ge = _gap_extension;
 	dz = dz_init((int8_t const *)_score_matrix, go, ge, _max_gap_length, _full_length_bonus);
+    aa_match = _score_matrix[0];
 	// bench_init(bench);
 }
 
@@ -111,6 +122,7 @@ XdropAligner::XdropAligner(
 	};
 	uint64_t go = _gap_open - _gap_extension, ge = _gap_extension;
 	dz = dz_init((int8_t const *)_score_matrix, go, ge, _max_gap_length, _full_length_bonus);
+    aa_match = M;
 	// bench_init(bench);
 }
 
@@ -824,8 +836,6 @@ XdropAligner::align_pinned(
         // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
         align_downward(alignment, ordered, head_pos, true);
         
-        cerr << "Produced pinned alignment: " << pb2json(alignment) << endl;
-        
         // Make sure the alignment actually starts with a match mapping to this fictional node.
         assert(alignment.path().mapping_size() >= 1);
         assert(alignment.path().mapping(0).position().node_id() == extended.get_id(extended.get_created_handle()));
@@ -837,6 +847,9 @@ XdropAligner::align_pinned(
         // Get rid of it by cutting it off the path and the sequence.
         *alignment.mutable_path() = std::move(cut_path(alignment.path(), 1).second);
         *alignment.mutable_sequence() = std::move(original_sequence);
+        
+        // Dink the score by the match score for the fake AA match.
+        alignment.set_score(alignment.score() - aa_match); 
     }
 }
 
