@@ -3050,7 +3050,7 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
                     alt_alleles[var_i].push_back(allele);
                 }
 #ifdef debug
-                else if (skip_alt != nullptr) {
+                else {
                     cerr << "Pruning allele " << allele << " from variant " << site_variants[var_i]->id << endl;
                 }
 #endif
