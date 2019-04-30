@@ -16,13 +16,13 @@
 #define DZ_FULL_LENGTH_BONUS
 #define DZ_CIGAR_OP				0x04030201
 enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
-#include "../deps/dozeu/dozeu.h"
+#include <dozeu/dozeu.h>
 
 // To turn on debugging:
 // #define DEBUG
 
 #ifdef DEBUG
-#include "../deps/dozeu/log.h"
+#include <dozeu/log.h>
 #endif
 
 // #include "json2pb.h"			// I don't know whether it's needed
