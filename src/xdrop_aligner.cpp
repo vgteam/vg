@@ -787,7 +787,7 @@ XdropAligner::align_pinned(
         graph_pos_s head_pos = {0, 0, 0}; 
     
         // Attach order to graph
-        OrderedGraph ordered = {g, extended_order};
+        OrderedGraph ordered = {extended, extended_order};
     
         // Do the downward alignment from the fixed head_pos seed, and then do the traceback.
         align_downward(alignment, ordered, head_pos, false);
