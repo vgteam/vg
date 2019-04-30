@@ -90,15 +90,18 @@ class DistanceIndex {
                           pair<id_t, bool> start, pair<id_t, bool> end,
                           pair<id_t, bool> parentNode);
            
-            //Construct from vector - inverse of toVector
-            SnarlIndex(DistanceIndex* di, vector<int64_t> v);
+            //Construct and empty SnarlIndex. Must call load after construction to populate it 
+            SnarlIndex(DistanceIndex* di);
 
-            /*Store contents of object as a vector of ints for serialization
-              Stored as [# nodes, start node id, end node id] + 
+            //Load data from serialization
+            void load(istream& in);
+
+            /*Serialize the snarl
+              Stored as start node id + end node id + 
                         [visit to index as list of node ids in order of index] +
                         [distances]
             */
-            vector<int64_t>  toVector() const;
+            void serialize(ostream& out) const;
             
             //Distance between beginning of node start and beginning of node end
             //Bool is true if the node is traversed in reverse
@@ -185,13 +188,16 @@ class DistanceIndex {
                           vector<int64_t> rev );
 
             //Constructor from vector of ints after serialization
-            ChainIndex(DistanceIndex* di, vector<int64_t> v);
+            ChainIndex(DistanceIndex* di);
+            //Load data from serialization
+            void load(istream& in);
 
-            /*Convert contents into vector of ints for serialization
-               stored as [chainStartID, chainEndID, node_id1, prefixsum1 start,
+            /*Serialize the chain
+             * stored as chainStartID +  chainEndID,
+             * node_id1, prefixsum1 start,
                            prefixsum1 end, loopfd1, loopfd2, node_id2, ...]
             */
-            vector<int64_t> toVector() const;
+            void serialize(ostream& out) const;
        
             /** 
              * Distance between two node sides in a chain. id_t values specify
@@ -269,6 +275,15 @@ class DistanceIndex {
             MaxDistanceIndex(DistanceIndex* di, const vector<const Snarl*> chain,
                                                                 uint64_t cap); 
  
+            //Serialize object into out
+            void serialize(ostream& out) const;
+
+            //Load serialized object from in. Does not rely on the internal graph or snarl manager pointers.
+            void load(istream& in);
+
+            //Associate the index with a DistanceIndex
+            void setIndex(DistanceIndex* distIndex);
+
             //Actual distance function for finding upper bound for distance 
             int64_t maxDistance( pos_t pos1, pos_t pos2);
 
@@ -303,8 +318,6 @@ class DistanceIndex {
 
     ///////// Data members of overall index
 
-    //map each node to connected component for max distance estimation 
-    hash_map<id_t, size_t> nodeToCycles;
 
     //map from start node of a snarl to its index
     unordered_map<pair<id_t, bool>, SnarlIndex> snarlDistances;

@@ -113,207 +113,66 @@ void DistanceIndex::setSnarlManager(const SnarlManager* new_manager) {
 
 void DistanceIndex::load(istream& in){
     //Load serialized index from an istream
-    auto toInt = [] (uint64_t uval) {
-        /*convert unsigned representation of signed int back to int64_t*/
-        int64_t val = uval / 2;
-        if (uval % 2 == 1) {val = -val;}
-        return val;
-    };
-
-    int_vector<> d1;
-    int_vector<> d2;
-    int_vector<> d3;
-    int_vector<> d4;
-  
-    d1.load(in);
-    d2.load(in);
-    d3.load(in);
-    d4.load(in);
-    nodeToSnarl.load(in);
-    
-    maxIndex.nodeToComponent.load(in);
-    maxIndex.minDistances.load(in);
-    maxIndex.maxDistances.load(in);
-    if (maxIndex.nodeToComponent.size() == 0) {
-        include_maximum = false;
-    }
-
-    vector<int64_t> snarlNodes(d1.size()-4, 0); 
-    vector<int64_t> snarlVector(d2.size(), 0);
-    vector<int64_t> chainNodes(d3.size(), 0);
-    vector<int64_t> chainVector(d4.size(), 0);
-
-    
- 
-    minNodeID = d1[0];
-    maxNodeID = d1[1];
-    maxIndex.numCycles = d1[2];
-    maxIndex.cap = d1[3];
-    
-
-    for (size_t i = 4; i < d1.size(); i++) {
-        uint64_t uval = d1[i];
-        int64_t val = toInt(uval);
-        snarlNodes[i-4] = val;
-    }
-
-    for (size_t i = 0; i < d2.size(); i++) {
-        snarlVector[i] = toInt(d2[i]);
-    }
-    for (size_t i = 0; i < d3.size(); i++) {
-        chainNodes[i] = toInt(d3[i]);
-    }
-    for (size_t i = 0; i < d4.size(); i++) {
-        chainVector[i] = toInt(d4[i]);
-    }
-
-  
-    //Construct snarl index
-    size_t snarlI = 0;//Index into snarlVector
-    for (size_t i = 0; i < snarlNodes.size()/2; i++) {
-        int64_t snarlInt = snarlNodes[2*i];
+    size_t numSnarls;
+    sdsl::read_member(numSnarls, in);
+    for (size_t i = 0 ; i < numSnarls ; i++) {
+        int64_t snarlInt;
+        sdsl::read_member(snarlInt, in);
   
         pair<id_t, bool> node = snarlInt < 0 ? 
                                      make_pair( (id_t) abs(snarlInt), true) :
                                      make_pair( (id_t) abs(snarlInt), false);
-        size_t nextIndex = snarlI + snarlNodes[2*i+1];
-
-
-        vector<int64_t> snarlv;//get subvector
-        snarlv.resize(nextIndex - snarlI);
-        for (size_t j = 0; j < nextIndex-snarlI; j++) {
-            snarlv[j] = snarlVector[snarlI + j]; 
-        }
-         
-
-        //Create SnarlIndex object from vector and assign
-        snarlDistances.insert(make_pair(node, SnarlIndex (this, snarlv)));
-
-        snarlI = nextIndex; 
-      
-    }
-    
-    
-    size_t chainI = 0; //Index into chainVector
-    //Construct chain index
-    for (size_t i = 0; i < chainNodes.size()/2; i++) {
-        id_t chainID = (id_t) chainNodes[2*i];
-        
-        size_t nextIndex = chainI + chainNodes[2*i + 1];
-   
-        vector<int64_t> chainv;
-        chainv.resize(nextIndex - chainI);
-        for ( size_t j = 0; j < nextIndex - chainI; j++) {
-
-            chainv[j] = chainVector[chainI + j];
-        }
-
-        //Create chaindistances object and assign in index
-        chainDistances.insert(make_pair(chainID, ChainIndex(this, chainv)));
-
-        chainI = nextIndex;
+        snarlDistances.insert(make_pair(node, SnarlIndex(this))); 
+        snarlDistances.at(node).load(in);
 
     }
-    maxIndex.distIndex = this;
+    //Load serialized chains
+    size_t numChains;
+    sdsl::read_member(numChains, in);
+    for (size_t i = 0 ; i < numChains ; i++) {
+        id_t chainID;
+        sdsl::read_member(chainID, in);
+        chainDistances.insert(make_pair(chainID, ChainIndex(this)));
+        chainDistances.at(chainID).load(in);
+    }
+    sdsl::read_member(minNodeID, in);
+    sdsl::read_member(maxNodeID, in);
+    nodeToSnarl.load(in);
+    maxIndex.load(in);
+    maxIndex.setIndex(this);
+    if (maxIndex.minDistances.size() == 0) {
+        include_maximum = false;
+    } else {
+        include_maximum = true;
+    }
 };
 
 void DistanceIndex::serialize(ostream& out) const {
 
-    auto toUint = [](int64_t val) {
-        /* convert signed integer into unsigned representation where last bit 
-           represents sign*/ 
-        uint64_t uval= abs(val) * 2;
-        if (val < 0) { uval += 1; }
-        return uval;
-    };
 
-    vector<int64_t> d1; //Snarl nodes as a vector [node, length, node, ...]
-    vector<int64_t> d2; //Snarl distances as a vector
-    vector<int64_t> d3; //Chain nodes as a vector
-    vector<int64_t> d4; //Chain distances as a vector
-
-    size_t snarlNodesI = 0;
-    size_t snarlVectorI = 0;
     //Serialize snarls
-    d1.resize(2*snarlDistances.size());
-
+    sdsl::write_member(snarlDistances.size(), out);
+    
     for (pair<pair<id_t, bool>, SnarlIndex> snarlPair : snarlDistances) {
         int64_t nodeInt = snarlPair.first.second ? 
             - (int64_t) snarlPair.first.first : (int64_t) snarlPair.first.first;
-        vector<int64_t> currVector = snarlPair.second.toVector();
-        
-        d1[snarlNodesI++] = nodeInt;
-        d1[snarlNodesI++] = (int64_t) currVector.size();
+        sdsl::write_member(nodeInt, out);
+        snarlPair.second.serialize(out);
+    }
+
+    //Serialize chains 
+    sdsl::write_member(chainDistances.size(), out);
     
-        d2.resize(d2.size() + currVector.size());
-        //Concatenate new vector onto whole snarl vector
-        for (auto x : currVector) {
-            d2[snarlVectorI++] = x;
-        }
+    for (pair<id_t, ChainIndex> chainPair: chainDistances) {
+        sdsl::write_member(chainPair.first, out);
+        chainPair.second.serialize(out);
     }
+    sdsl::write_member(minNodeID, out);
+    sdsl::write_member(maxNodeID, out);
+    nodeToSnarl.serialize(out, NULL);
+    maxIndex.serialize(out);
 
-    size_t chainNodesI = 0;
-    size_t chainVectorI = 0;
-    //Serialize chains
-    for (pair<id_t, ChainIndex> chainP: chainDistances) {
-        vector<int64_t> currVector = chainP.second.toVector();
-        
-        d3.resize(d3.size() + 2 );
-        d3[chainNodesI++] = (int64_t) chainP.first;
-        d3[chainNodesI++] = (int64_t) currVector.size();
-        
-        d4.resize(d4.size() + currVector.size()); 
-        for (auto x : currVector) {
-            d4[chainVectorI ++ ] = x;
-        } 
-    }
-    
-    //Convert vectors of ints to int_vector TODO: Start with int_vector
-    int_vector<> snarlNodes;
-    int_vector<> snarlVector;
-    int_vector<> chainNodes;
-    int_vector<> chainVector;
-
-    util::assign(snarlNodes, int_vector<>(d1.size() + 4));
-    util::assign(snarlVector, int_vector<>(d2.size()));
-    util::assign(chainNodes, int_vector<>(d3.size()));
-    util::assign(chainVector, int_vector<>(d4.size()));
-
-    snarlNodes[0] = minNodeID;
-    snarlNodes[1] = maxNodeID;
-    snarlNodes[2] = maxIndex.numCycles;
-    snarlNodes[3] = maxIndex.cap;
-    //Copy vector<int64_t> into int_vector
-    for (size_t i = 0; i < d1.size(); i++) {
-        snarlNodes[i+4] = toUint(d1[i]);
-    }
-
-    for (size_t i = 0; i < d2.size(); i++) {
-        snarlVector[i] = toUint(d2[i]);
-    }
-    for (size_t i = 0; i < d3.size(); i++) {
-        chainNodes[i] = toUint(d3[i]);
-    }
-    for (size_t i = 0; i < d4.size(); i++) {
-        chainVector[i] = toUint(d4[i]);
-    }
-        
-    util::bit_compress(snarlNodes);
-    util::bit_compress(snarlVector);
-    util::bit_compress(chainNodes);
-    util::bit_compress(chainVector);
-
-    //Serialize
-    
-    snarlNodes.serialize(out, NULL, "snarl_nodes");
-    snarlVector.serialize(out, NULL, "snarl_vector");
-    chainNodes.serialize(out, NULL, "chain_nodes");
-    chainVector.serialize(out, NULL, "chain_vector");
-    nodeToSnarl.serialize(out, NULL, "node_to_snarl");
-    maxIndex.nodeToComponent.serialize(out, NULL, "node_to_comp");
-    maxIndex.minDistances.serialize(out, NULL, "minDists");
-    maxIndex.maxDistances.serialize(out, NULL, "maxDists");
-}
+};
 
 
 int_vector<> DistanceIndex::calculateNodeToSnarl(const SnarlManager* sm){
@@ -1859,7 +1718,8 @@ void DistanceIndex::printSelf() {
 DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di,
                       unordered_set<pair<id_t, bool>>& allNodes,  
                       pair<id_t, bool> start, pair<id_t,bool> end,
-                      pair<id_t, bool> parentNode) {
+                      pair<id_t, bool> parentNode) : 
+                      snarlStart(start), snarlEnd(end), parent(parentNode){
     /*Constructor for SnarlIndex object that stores distances between
         nodes in a snarl */
     distIndex = di;
@@ -1875,79 +1735,67 @@ DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di,
     int size = allNodes.size() ;
     //Initialize all distances to 0 (representing -1)
     util::assign(distances, int_vector<>((((size+1)*size)/2) + (size/2), 0));
-    snarlStart = start;
-    snarlEnd = end;
-    parent = parentNode;
+
 
 }
 
-DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di,
-                      vector<int64_t> v) {
-    /*Constructor for SnarlIndex object given vector from serialization */
+DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di) : distIndex(di) {
+}
+void DistanceIndex::SnarlIndex::load(istream& in){
+    /*Load contents of SnarlIndex from serialization */
     
-    distIndex = di;
-    int64_t numNodes = v[0];
-    int64_t start = v[1];
+    int64_t start;
+    sdsl::read_member(start, in);;
     snarlStart = (start < 0) ? make_pair( (id_t) abs(start), true) : 
                                make_pair( (id_t) abs(start), false);
 
-    int64_t end = v[2];
+    int64_t end;
+    sdsl::read_member(end, in);
     snarlEnd = (end < 0) ? make_pair( (id_t) abs(end), true) : 
                                make_pair( (id_t) abs(end), false);
-    int64_t par = v[3];
-    parent = (par < 0) ? make_pair( (id_t) abs(par), true) : 
-                               make_pair( (id_t) abs(par), false);
+    int64_t p;
+    sdsl::read_member(p, in);
+    parent = (p < 0) ? make_pair( (id_t) abs(p), true) : 
+                               make_pair( (id_t) abs(p), false);
+    int_vector<> visits;
+    visits.load(in);
 
     //Get visitToIndex
-    for (size_t i = 0; i < numNodes; i ++ ) {
+    for (size_t i = 0; i < visits.size(); i ++ ) {
 
-        id_t node = v[i + 4]; //Node
-        visitToIndex[node] = i; 
+        visitToIndex[visits[i]] = i; 
     }
+    distances.load(in);
 
-    numNodes = numNodes * 2;
-    //Get distance vector
-    distances.resize((((numNodes+1) *numNodes) / 2) + (numNodes / 2));
-    size_t j = 0;
-    for (size_t i = numNodes/2 + 4; i < v.size(); i++) {
-
-        distances[j++] = v[i];
-
-    }
-    util::bit_compress(distances);
 
 }
 
- vector<int64_t>DistanceIndex::SnarlIndex::toVector() const {
-    /*Convert contents of object to vector for serialization
+void DistanceIndex::SnarlIndex::serialize(ostream& out) const {
+    /* Serialize object to out stream
       Vector contains a header of four ints: #nodes, start node, end node, parent
                   a vector representing visitToIndex [node1, node2, ...] where                          the nodes are ordered by the index they map to
                   a vector representing distances*/
 
-    vector<int64_t> v;// v (1, 0, sizeof(int64_t));
-    size_t numNodes = visitToIndex.size();//number of nodes
-    v.resize(numNodes + distances.size() + 4); //store map, distances, header
 
-    v[0] = (int64_t) numNodes;
-    v[1] = snarlStart.second ? -(int64_t) snarlStart.first :
+    int64_t s = snarlStart.second ? -(int64_t) snarlStart.first :
                                                  (int64_t) snarlStart.first;
-    v[2] =  snarlEnd.second ? -(int64_t) snarlEnd.first :
+    int64_t e =  snarlEnd.second ? -(int64_t) snarlEnd.first :
                                                  (int64_t) snarlEnd.first;
-    v[3] =  parent.second ? -(int64_t) parent.first :
+    int64_t p =  parent.second ? -(int64_t) parent.first :
                                                  (int64_t) parent.first;
+    sdsl::write_member(s, out);
+    sdsl::write_member(e, out);
+    sdsl::write_member(p, out);
 
+    //Create empty int_vector to hold visit to index as a vector
+    int_vector<> visits(visitToIndex.size(), 0);
     for (pair<id_t, size_t> p : visitToIndex) {
-        id_t node = p.first;
-        int64_t index = (int64_t) p.second;
-        v[4 + index] = node;
+        visits[p.second] = p.first;
     }
-   
- 
-    size_t i = 4 + numNodes;   
-    for (int64_t d : distances) {
-        v[i++] = d;
-    }
-    return v;
+
+    visits.serialize(out, NULL);
+
+    distances.serialize(out, NULL);
 
 }
 
@@ -2184,6 +2032,7 @@ void DistanceIndex::SnarlIndex::printSelf() {
 }
 
 //ChainDistance methods
+
 DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, id_t start, id_t end, 
                  pair<id_t, bool> parentNode, hash_map<id_t, size_t> s, 
                  vector<int64_t> p, vector<int64_t> fd, vector<int64_t> rev) {
@@ -2217,65 +2066,51 @@ DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, id_t start, id_t end,
     util::bit_compress(loopRev);
 
 }
-
-DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di, vector<int64_t> v) {
-    //Constructor given vector of ints from serialization 
-    
-    distIndex = di;
-
-    size_t numNodes = (v.size()-3) / 4;
-  
-    chainStartID = v[0];
-    chainEndID = v[1];
-    int64_t par = v[2];
+DistanceIndex::ChainIndex::ChainIndex(DistanceIndex* di) : distIndex(di) {
+}
+void DistanceIndex::ChainIndex::load(istream& in){
+    //Populate object from serialization 
+    sdsl::read_member(chainStartID, in);
+    sdsl::read_member(chainEndID, in);
+    int64_t par ;
+    sdsl::read_member(par, in);
     parent = (par < 0) ? make_pair( (id_t) abs(par), true) : 
                                make_pair( (id_t) abs(par), false);
 
-    prefixSum.resize(numNodes);
-    loopFd.resize(numNodes);
-    loopRev.resize(numNodes);
+    prefixSum.load( in);
+    loopFd.load( in);
+    loopRev.load(in);
 
-    for (size_t i = 0; i <  numNodes; i ++ ) {
-        id_t node = (id_t) v[i*4+3];
-        if (snarlToIndex.find(node) == snarlToIndex.end()) {
-            snarlToIndex[node] = i;
-        } 
-        
-        prefixSum[i] = v[i*4 + 4];
-        loopFd[i] = v[i*4 + 5];
-        loopRev[i] = v[i*4 + 6];
-   
+    int_vector<> snarls;
+    snarls.load(in);
+
+    for (size_t i = 0; i <  snarls.size(); i ++ ) {
+        snarlToIndex[snarls[i]] = i;
     }
 }
 
-vector<int64_t> DistanceIndex::ChainIndex::toVector() const {
-    /*Convert contents into vector of ints for serialization
-     Stored as [node_id1, prefix sum1, loopfd1,loop rev1, node_id2...]
+void DistanceIndex::ChainIndex::serialize(ostream& out) const {
+    /* Serialize the chain index to a file
+     * Store startID + endID + parent + 
+     * prefixSum + loopFd + loopRev + 
+     * snarlToIndex as an int_vector of ids in order of traversal
      */
-   
-    int64_t numNodes = snarlToIndex.size();
-    bool loops = chainStartID == chainEndID;
-    if (loops) { numNodes = numNodes + 1; } 
-
-    vector<int64_t> v;
-    v.resize(numNodes * 4 + 3);
-    v[0] = chainStartID;
-    v[1] = chainEndID;
-    v[2] =  parent.second ? -(int64_t) parent.first :
+    sdsl::write_member(chainStartID, out);
+    sdsl::write_member(chainEndID, out);
+    int64_t p  =  parent.second ? -(int64_t) parent.first :
                                                  (int64_t) parent.first;
+    sdsl::write_member(p, out);
+    prefixSum.serialize(out, NULL);
+    loopFd.serialize(out, NULL);
+    loopRev.serialize(out, NULL);
 
-    for (int i = 0 ; i < numNodes ; i++) {
-        v[4*i + 4] = prefixSum[i];
-        v[4*i + 5] = loopFd[i];
-        v[4*i + 6] = loopRev[i];
-    }
+    int_vector<> snarls (snarlToIndex.size(), 0);
    
     for (pair<id_t, size_t> p : snarlToIndex) {
-        v[p.second * 4 + 3] = (int64_t) p.first;
+        snarls[p.second] = p.first;
     }
-    if (loops) {v[(numNodes-1) * 4 + 3] = v[0];} //Last node id is first
+    snarls.serialize(out, NULL);
    
-    return v;
 
 }
 int64_t DistanceIndex::ChainIndex::chainDistance(pair<id_t, bool> start, 
@@ -2557,6 +2392,25 @@ DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vecto
 
 }
 
+void DistanceIndex::MaxDistanceIndex::serialize(ostream& out) const {
+    sdsl::write_member(numCycles, out);
+    sdsl::write_member(cap, out);
+    nodeToComponent.serialize(out, NULL);
+    minDistances.serialize(out, NULL);
+    maxDistances.serialize(out, NULL);
+}
+void DistanceIndex::MaxDistanceIndex::load(istream& in) {
+    sdsl::read_member(numCycles, in);
+    sdsl::read_member(cap, in);
+    nodeToComponent.load(in);
+    minDistances.load(in);
+    maxDistances.load(in);
+
+}
+
+void DistanceIndex::MaxDistanceIndex::setIndex(DistanceIndex* index) {
+    distIndex = index;
+}
 int64_t DistanceIndex::MaxDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
     //Upper bound of distance between two positions
     
