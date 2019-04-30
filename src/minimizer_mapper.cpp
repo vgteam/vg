@@ -881,7 +881,11 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 #endif
 
                 // Align, accounting for full length bonus
-                get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                if (use_xdrop_for_tails) {
+                    get_regular_aligner()->get_xdrop()->align_pinned(before_alignment, subgraph, false);
+                } else {
+                    get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                }
                 
                 // Record size of DP matrix filled
                 tail_dp_areas.push_back(before_sequence.size() * path_from_length(path));
@@ -1010,7 +1014,12 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                             });
 #endif
 
-                            get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                            // Align, accounting for full length bonus
+                            if (use_xdrop_for_tails) {
+                                get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph, true);
+                            } else {
+                                get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                            }
                             
                             // Record size of DP matrix filled
                             tail_dp_areas.push_back(trailing_sequence.size() * path_from_length(path));

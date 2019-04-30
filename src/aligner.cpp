@@ -1269,6 +1269,12 @@ void Aligner::align_xdrop(Alignment& alignment, Graph& g, const vector<MaximalEx
 
 void Aligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
+    throw runtime_error("Aligner::align_xdrop_multi not yet implemented");
+}
+
+unique_ptr<XdropAligner> Aligner::get_xdrop() const {
+    // Copy and return our xdrop.
+    return make_unique<XdropAligner>(xdrop);
 }
 
 
@@ -1692,6 +1698,12 @@ void QualAdjAligner::align_xdrop(Alignment& alignment, Graph& g, const vector<Ma
 
 void QualAdjAligner::align_xdrop_multi(Alignment& alignment, Graph& g, const vector<MaximalExactMatch>& mems, bool reverse_complemented, int32_t max_alt_alns) const
 {
+    // TODO: implement?
+    cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
+    exit(1);
+}
+
+unique_ptr<XdropAligner> QualAdjAligner::get_xdrop() const {
     // TODO: implement?
     cerr << "error::[QualAdjAligner] quality-adjusted, X-drop alignment is not implemented" << endl;
     exit(1);
