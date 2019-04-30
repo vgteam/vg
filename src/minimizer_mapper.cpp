@@ -878,6 +878,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                         cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                     });
                 });
+                cerr << "Path: " << pb2json(path) << endl;
 #endif
 
                 // Align, accounting for full length bonus
@@ -1012,6 +1013,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                                     cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                                 });
                             });
+                            cerr << "Path: " << pb2json(path) << endl;
 #endif
 
                             // Align, accounting for full length bonus
@@ -1169,7 +1171,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         cerr << "error[vg::MinimizerMapper]: invalid MultipathAlignment generated: " << pb2json(mp) << endl;
         exit(1);
     }
-    
     
     // Linearize into the out alignment, copying path, score, and also sequence and other read metadata
     optimal_alignment(mp, out, true);

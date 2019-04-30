@@ -1814,6 +1814,10 @@ namespace vg {
 #ifdef debug_verbose_validation
                     cerr << "validation failure on using edge at middle of node" << endl;
                     cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                    cerr << "from node length: " << handle_graph.get_length(handle_graph.get_handle(mapping_from.position().node_id())) << endl;
+                    cerr << "from node offset: " <<  mapping_from.position().offset() << endl;
+                    cerr << "from node from_length: " << mapping_from_length(mapping_from) << endl;
+                    cerr << "from end offset: " << mapping_from_end_offset << endl;
 #endif
                     return false;
                 }

@@ -15,12 +15,17 @@
 #include "convert_handle.hpp"
 
 #define DZ_FULL_LENGTH_BONUS
-#define DZ_CIGAR_OP				0x04030201
+
+// We require these particular values for this enum because we index arrays with it.
 enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
+
+// Tell Dozeu to use those values
+#define DZ_CIGAR_OP 0x04030201
+
 #include <dozeu/dozeu.h>
 
 // To turn on debugging:
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #include <dozeu/log.h>
@@ -467,7 +472,7 @@ size_t XdropAligner::push_edit(
 		if((_subseq) != nullptr) { e->set_sequence((char const *)(_subseq), (size_t)(_to_len)); } \
 	}
 
-	// fprintf(stderr, ":%lu%c", len, "-XMID"[op]);
+	debug("push_edit: %lu%c in %s", len, "-XMID"[op], pb2json(mapping->position()).c_str());
 	if(op == MISMATCH) {
 		// break down into multiple SNVs
 		for(size_t i = 0; i < len; i++) { _add_edit(1, 1, &alt[i]); }
@@ -497,11 +502,42 @@ void XdropAligner::calculate_and_save_alignment(
 	// traceback. This produces an alignment in the same order as we traversed the nodes when filling them in.
 	dz_alignment_s const *aln = dz_trace(dz, forefronts[tail_node_index]);
 	if(aln == nullptr || aln->path_length == 0) { return; }
+    
+    #ifdef DEBUG
+    // Dump the Dozeu alignment
+    // Make sure to translate CIGAR numbers to characters
+    string translated_path; 
+    for (auto* op = aln->path; *op != 0; ++op) {
+        translated_path.push_back("-XMID"[*op]);
+    }
+    debug("ref_length(%u), query_length(%u), score(%d), path(%s)", aln->ref_length, aln->query_length, aln->score, translated_path.c_str());
+    for(size_t i = 0; i < aln->span_length; i++) {
+        dz_path_span_s const *s = &aln->span[i];
+        
+        translated_path.clear();
+        for (auto* op = &aln->path[s->offset]; op != &aln->path[s->offset] + (s[1].offset - s[0].offset); ++op) {
+            translated_path.push_back("-XMID"[*op]);
+        }
+        
+        debug("node_id(%u), subpath_length(%u), subpath(%s)",
+            s->id,
+            s[1].offset - s[0].offset,
+            translated_path.c_str()
+        );
+    }
+    #endif
+    
+    // Make sure it ends where we started traceback from.
 	assert(aln->span[aln->span_length - 1].id == tail_node_index);
+    
+    // Check the length and make sure it is right.
     if (aln->query_length > alignment.sequence().size()) {
         cerr << "[vg xdrop_aligner.cpp] Error: dozeu alignment query_length longer than sequence" << endl;
-        alignment.set_score(0);
-        return;
+        exit(1);
+    }
+    if (aln->query_length < alignment.sequence().size()) {
+        cerr << "[vg xdrop_aligner.cpp] Error: dozeu alignment query_length shorter than sequence" << endl;
+        exit(1);
     }
 
 	#define _push_mapping(_id) ({ \
@@ -510,6 +546,7 @@ void XdropAligner::calculate_and_save_alignment(
 		mapping->set_rank(path->mapping_size()); \
 		Position *position = mapping->mutable_position(); \
 		position->set_node_id(graph.graph.get_id(n)); \
+        position->set_is_reverse(graph.graph.get_is_reverse(n)); \
 		position->set_offset(ref_offset); ref_offset = 0; \
 		mapping; \
 	})
@@ -542,37 +579,43 @@ void XdropAligner::calculate_and_save_alignment(
         // The order that Dozeu gave us the alignment in (and in which we
         // filled the nodes) is left to right (i.e. the order we want to emit
         // the alignment in)
-		uint64_t ref_offset = head_pos.ref_offset, state = head_pos.query_offset<<8;
+		uint64_t ref_offset = head_pos.ref_offset;
+        uint64_t state = head_pos.query_offset<<8;
 
 		handle_t n = graph.order[aln->span[aln->span_length - 1].id];
-		// fprintf(stderr, "rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%u), query_init_length(%lu)\n", aln->span[aln->span_length - 1].id, n.id(), n.sequence().length(), ref_offset, aln->query_length, state>>8);
+        
+		debug("rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%u), query_init_length(%lu)", aln->span[aln->span_length - 1].id, graph.graph.get_id(n), graph.graph.get_length(n), ref_offset, aln->query_length, state>>8);
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = 0, path_offset = aln->span[0].offset; i < aln->span_length; i++) {
 			dz_path_span_s const *span = &aln->span[i];
-			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.graph.get_id(graph.order[aln->span[i].id]), graph.graph.get_length(graph.order[aln->span[i].id]), (uint64_t)path_offset, (uint64_t)span->offset);
+			debug("i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)", i, span->id, graph.graph.get_id(graph.order[aln->span[i].id]), graph.graph.get_length(graph.order[aln->span[i].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
 			for(m = _push_mapping(span->id); path_offset < span[1].offset; path_offset++) {
-				_append_op(m, aln->path[path_offset], 1);
+                _append_op(m, aln->path[path_offset], 1);
 			}
 			_flush_op(m, aln->path[path_offset]);
 		}
 		if(m != nullptr && query_seq.length() != query_offset) {
 			_push_op(m, INS, query_seq.length() - query_offset);
 		}
-		// fprintf(stderr, "rv: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.graph.get_id(graph.order[aln->span[aln->span_length - 1].id]), head_pos.ref_offset, graph.graph.get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
+		debug("rv: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.graph.get_id(graph.order[aln->span[aln->span_length - 1].id]), head_pos.ref_offset, graph.graph.get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
 	} else {
         // The order that Dozeu gave us the alignment in (and in which we
         // filled the nodes) is right to left (i.e. backwards). We have to flip
         // it.
-		handle_t n = graph.order[aln->span[aln->span_length - 1].id];
-		uint64_t ref_offset = -((int32_t)aln->rrem), state = (head_pos.query_offset - aln->query_length)<<8;
-		// fprintf(stderr, "rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%lu), query_aln_length(%u), query_init_length(%lu)\n", aln->span[aln->span_length - 1].id, graph.graph.get_id(n), graph.graph.get_length(n), ref_offset, query_seq.length(), aln->query_length, state>>8);
+		
+		uint64_t ref_offset = -((int32_t)aln->rrem);
+        uint64_t state = (head_pos.query_offset - aln->query_length)<<8;
+        
+        handle_t n = graph.order[aln->span[aln->span_length - 1].id];
+        
+		debug("rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%lu), query_aln_length(%u), query_init_length(%lu)", aln->span[aln->span_length - 1].id, graph.graph.get_id(n), graph.graph.get_length(n), ref_offset, query_seq.length(), aln->query_length, state>>8);
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = aln->span_length, path_offset = aln->path_length; i > 0; i--) {
 			dz_path_span_s const *span = &aln->span[i - 1];
-			// fprintf(stderr, "i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)\n", i, span->id, graph.graph.get_id(graph.order[aln->span[i - 1].id]), graph.graph.get_length(graph.order[aln->span[i - 1].id]), (uint64_t)path_offset, (uint64_t)span->offset);
+			debug("i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)", i, span->id, graph.graph.get_id(graph.order[aln->span[i - 1].id]), graph.graph.get_length(graph.order[aln->span[i - 1].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
 			for(m = _push_mapping(span->id); path_offset > span->offset; path_offset--) {
 				_append_op(m, aln->path[path_offset - 1], 1);
@@ -582,7 +625,7 @@ void XdropAligner::calculate_and_save_alignment(
 		if(m != nullptr && query_seq.length() != query_offset) {
 			_push_op(m, INS, query_seq.length() - query_offset);
 		}
-		// fprintf(stderr, "fw: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.graph.get_id(graph.order[aln->span[aln->span_length - 1].id]), -((int32_t)aln->rrem), graph.graph.get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
+		debug("fw: (%ld, %u) -> (%ld, %u), score(%d), %s", graph.graph.get_id(graph.order[aln->span[aln->span_length - 1].id]), -((int32_t)aln->rrem), graph.graph.get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
 	}
 	return;
 
@@ -796,6 +839,19 @@ XdropAligner::align_pinned(
             // Get the length of this node
             return rc.get_length(rc.get_handle(id));
         });
+        
+        // Because we used a reverse complementing overlay, we have the wrong
+        // idea of which orientation of each node is "forward".
+        //
+        // TODO: if we supported reversing edges in our internal edge indices
+        // we could just flip the handles and avoid the reverse complement
+        // graph and this fixup...
+        for (size_t i = 0; i < alignment.path().mapping_size(); i++) {
+            // Flip the orientation of each mapping
+            auto mapping = alignment.mutable_path()->mutable_mapping(i);
+            mapping->mutable_position()->set_is_reverse(!mapping->position().is_reverse());
+        }
+        
         *alignment.mutable_sequence() = std::move(original_sequence);
     } else {
         // Otherwise we have the actual implementation, for left pinning.
@@ -842,20 +898,71 @@ XdropAligner::align_pinned(
         // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
         align_downward(alignment, ordered, head_pos, true);
         
+        cerr << "Alignment from Dozeu: " << pb2json(alignment) << endl;
+        
         // Make sure the alignment actually starts with a match mapping to this fictional node.
         assert(alignment.path().mapping_size() >= 1);
         assert(alignment.path().mapping(0).position().node_id() == extended.get_id(extended.get_created_handle()));
-        assert(alignment.path().mapping(0).edit_size() == 1);
+        // Either we have just a 1 base match, or a 1 base match followed by an insert.
+        assert(alignment.path().mapping(0).edit_size() == 1 || alignment.path().mapping(0).edit_size() == 2);
         assert(alignment.path().mapping(0).edit(0).from_length() == 1);
         assert(alignment.path().mapping(0).edit(0).to_length() == 1);
         assert(alignment.path().mapping(0).edit(0).sequence() == "");
+        if (alignment.path().mapping(0).edit_size() == 2) {
+            assert(alignment.path().mapping(0).edit(1).from_length() == 0);
+        }
         
-        // Get rid of it by cutting it off the path and the sequence.
-        *alignment.mutable_path() = std::move(cut_path(alignment.path(), 1).second);
+        // Get rid of the leading match manually, to ensure the whole mapping goes away
+        if (alignment.path().mapping(0).edit_size() == 2) {
+            // We have a leading match and then an insert.
+            
+            // Delete the leading match
+            auto edits = alignment.mutable_path()->mutable_mapping(0)->mutable_edit();
+            edits->erase(edits->begin());
+            
+            if (alignment.path().mapping_size() > 1) {
+                // We have another node to move the insert to.
+                
+                // Move the insert to the next mapping by copying it over us and then erasing it
+                auto us = alignment.mutable_path()->mutable_mapping(0);
+                auto next = alignment.mutable_path()->mutable_mapping(1);
+                
+                // Move over the next mapping's position
+                *us->mutable_position() = next->position();
+                
+                for (auto& edit : next->edit()) {
+                    // Move over all the next mapping's edits
+                    *us->add_edit() = std::move(edit);
+                }
+                
+                // Erase the next mapping and leave just us.
+                alignment.mutable_path()->mutable_mapping()->erase(alignment.mutable_path()->mapping().begin() + 1);
+            } else {
+                // Move it to somewhere based on the order.
+                // It sort of doesn't matter where because nothing comes next.
+                // But the second thing in the order should be the node after
+                // our fixed start node.
+                auto pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
+                pos->set_node_id(extended.get_id(extended_order[1]));
+                pos->set_is_reverse(extended.get_is_reverse(extended_order[1]));
+                pos->set_offset(0);
+            }
+        } else {
+            // Our leading mapping is just a single-base match to the fixed start node.
+            // Get rid of the whole thing.
+            auto mappings = alignment.mutable_path()->mutable_mapping();
+            mappings->erase(mappings->begin());
+        }
+        
+        // Trim the alignment sequence back to the original length. 
         *alignment.mutable_sequence() = std::move(original_sequence);
         
-        // Dink the score by the match score for the fake AA match.
-        alignment.set_score(alignment.score() - aa_match); 
+        // Ding the score by the match score for the fake AA match.
+        alignment.set_score(alignment.score() - aa_match);
+        
+        // Clear the identity.
+        // TODO: recalculate?
+        alignment.set_identity(0);
     }
 }
 
