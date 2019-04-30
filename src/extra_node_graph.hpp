@@ -89,6 +89,15 @@ public:
     /// otherwise in the returned degree.
     virtual size_t get_degree(const handle_t& handle, bool go_left) const;
     
+    ////////////////////////////////////////////////////////////////////////////
+    // (Future) Overlay Interface
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Convert a backing graph handle to our handle to the same node
+    inline handle_t from_backing(const handle_t& backing_handle) const {
+        return as_handle(as_integer(backing_handle) + 2);
+    }
+    
 protected:
 
     // TODO: a lot of this code can be unified with SourceSinkOverlay
@@ -109,11 +118,6 @@ protected:
     // We reserve the 2 low numbers of the handles for our new node, and shift everything else up.
     const handle_t added_fwd = as_handle(0);
     const handle_t added_rev = as_handle(1);
-    
-    /// Convert a backing graph handle to our handle to the same node
-    inline handle_t from_backing(const handle_t& backing_handle) const {
-        return as_handle(as_integer(backing_handle) + 2);
-    }
     
     /// Convert our handle to a backing graph node into a backing graph handle to the same node
     inline handle_t to_backing(const handle_t& our_handle) const {

@@ -12,6 +12,7 @@
 #include "reverse_complement_graph.hpp"
 #include "extra_node_graph.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "convert_handle.hpp"
 
 #define DZ_FULL_LENGTH_BONUS
 #define DZ_CIGAR_OP				0x04030201
@@ -19,7 +20,7 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #include <dozeu/dozeu.h>
 
 // To turn on debugging:
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #include <dozeu/log.h>
@@ -155,7 +156,7 @@ void XdropAligner::build_id_index_table(OrderedGraph const &graph)
 	id_to_index.clear();							// unordered_map< id_t, uint64_t >
 	for(size_t i = 0; i < graph.order.size(); i++) {
 		id_to_index[graph.graph.get_id(graph.order[i])] = (uint32_t)i;
-		// debug("i(%lu), id(%ld), length(%lu)", i, graph.graph.get_id(graph.order[i]), graph.graph.get_sequence(graph.order[i]).length());
+		debug("i(%lu), id(%ld), length(%lu)", i, graph.graph.get_id(graph.order[i]), graph.graph.get_sequence(graph.order[i]).length());
 	}
 	return;
 }
@@ -194,7 +195,7 @@ void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t co
         index_edges.push_back(edge[!left_to_right](id_to_index[from_id],
             id_to_index[to_id]));
             
-        // debug("append edge, %u -> %u", id_to_index[from_id], id_to_index[to_id]);
+        debug("append edge, %u (id %lu) -> %u (id %lu)", id_to_index[from_id], from_id, id_to_index[to_id], to_id);
         
         // if left_to_right is true, use function 0, so compare with <
         // Then invert that, so we check (index of from_id) > seed_node_index
@@ -777,16 +778,27 @@ XdropAligner::align_pinned(
         // Flip the graph
         ReverseComplementGraph rc(&g);
         
+        #ifdef DEBUG
+        VG clone1;
+        convert_handle_graph(&g, &clone1);
+        cerr << "Forward graph: " << pb2json(clone1.graph) << endl;
+        VG clone2;
+        convert_handle_graph(&rc, &clone2);
+        cerr << "Reverse-complemented graph: " << pb2json(clone2.graph) << endl;
+        #endif
+        
         // Flip the sequence
         string original_sequence(std::move(*alignment.mutable_sequence()));
         alignment.set_sequence(reverse_complement(original_sequence));
     
-        // Flip the topological order
+        // Flip the topological order with promoted versions of the backing graph's handles, in reverse order
         vector<handle_t> reverse_order;
-        reverse_order.resize(order.size());
-        std::reverse_copy(order.begin(), order.end(), reverse_order.begin());
+        reverse_order.reserve(order.size());
+        for (auto it = order.rbegin(); it != order.rend(); ++it) {
+            reverse_order.push_back(rc.from_backing(*it));
+        }
     
-        align_pinned(alignment, rc, order, true);
+        align_pinned(alignment, rc, reverse_order, true);
         
         // Put back in the right order
         reverse_complement_path_in_place(alignment.mutable_path(), [&](id_t id) {
@@ -809,11 +821,36 @@ XdropAligner::align_pinned(
         // TODO: connect to all the sources in the topological order for a proper any-source pin!
         ExtraNodeGraph extended(&g, "A", {}, {order.front()});
         
+        #ifdef DEBUG
+        VG clone1;
+        convert_handle_graph(&g, &clone1);
+        cerr << "Un-extended graph: " << pb2json(clone1.graph) << endl;
+        VG clone2;
+        convert_handle_graph(&extended, &clone2);
+        cerr << "Extended graph: " << pb2json(clone2.graph) << endl;
+        #endif
+        
         // Put it first in the topological order
         vector<handle_t> extended_order;
         extended_order.reserve(order.size() + 1);
         extended_order.push_back(extended.get_created_handle());
-        std::copy(order.begin(), order.end(), std::back_inserter(extended_order));
+        for (auto& backing_handle : order) {
+            // Fill out the topological order with promoted versions of the backing graph's handles.
+            extended_order.push_back(extended.from_backing(backing_handle));
+        }
+        
+        #ifdef DEBUG
+        cerr << "Original order:";
+        for (auto& h : order) {
+            cerr << " " << g.get_id(h);
+        }
+        cerr << endl;
+        cerr << "Extended order:";
+        for (auto& h : extended_order) {
+            cerr << " " << extended.get_id(h);
+        }
+        cerr << endl;
+        #endif
         
         // Extend the alignment with a sequence base for it
         string original_sequence(std::move(*alignment.mutable_sequence()));
