@@ -10,7 +10,7 @@ namespace vg {
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
  */
-DistanceIndex::DistanceIndex(const HandleGraph* vg, const SnarlManager* snarlManager, uint64_t cap) : graph(vg), sm(snarlManager){
+DistanceIndex::DistanceIndex(const HandleGraph* vg, const SnarlManager* snarlManager, uint64_t cap, bool include_maximum) : graph(vg), sm(snarlManager), include_maximum(include_maximum){
     /*Constructor for the distance index given a VG and snarl manager
       cap is the largest distance that the maximum distance estimation will be
       accurate to 
@@ -57,8 +57,17 @@ DistanceIndex::DistanceIndex(const HandleGraph* vg, const SnarlManager* snarlMan
     }
     nodeToSnarl = calculateNodeToSnarl(sm);
     //TODO: Cap should be given
-    maxIndex = MaxDistanceIndex (this, topSnarls, cap);
+#ifdef debug
+assert(!include_maximum || cap > 0);
+#endif
+
+    if (include_maximum && cap > 0) {
+        maxIndex = MaxDistanceIndex (this, topSnarls, cap);
+    } else {
+        //Create an empty MaxDistanceIndex) 
+        maxIndex = MaxDistanceIndex ();
   
+    }
 };
 
 
@@ -121,9 +130,13 @@ void DistanceIndex::load(istream& in){
     d3.load(in);
     d4.load(in);
     nodeToSnarl.load(in);
+    
     maxIndex.nodeToComponent.load(in);
     maxIndex.minDistances.load(in);
     maxIndex.maxDistances.load(in);
+    if (maxIndex.nodeToComponent.size() == 0) {
+        include_maximum = false;
+    }
 
     vector<int64_t> snarlNodes(d1.size()-4, 0); 
     vector<int64_t> snarlVector(d2.size(), 0);
@@ -1109,7 +1122,7 @@ int64_t DistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
         return minDist;
     }
 */
-     
+    assert(include_maximum); 
     return maxIndex.maxDistance(pos1, pos2);
 
 }
@@ -1837,7 +1850,9 @@ void DistanceIndex::printSelf() {
         chains.second.printSelf();
     }
     cerr << endl << "Maximum distances" << endl;
-    maxIndex.printSelf();
+    if (include_maximum) {
+        maxIndex.printSelf();
+    }
 }
 
 
@@ -2495,16 +2510,13 @@ void DistanceIndex::ChainIndex::printSelf() {
 ///////////////////////   MAXIMUM DISTANCE   ///////////////////////////////////
 
 
-DistanceIndex::MaxDistanceIndex::MaxDistanceIndex() {
-//TODO: Need this to compile for some reason?
+DistanceIndex::MaxDistanceIndex::MaxDistanceIndex() : 
+    distIndex(nullptr), cap(0), numCycles(0){
 }
-DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vector<const Snarl*> chain, uint64_t c) {
+DistanceIndex::MaxDistanceIndex::MaxDistanceIndex(DistanceIndex* di, const vector<const Snarl*> chain, uint64_t c) : distIndex(di), cap(c) {
 
     //Calculate maximum distance index
 
-
-    distIndex = di;
-    cap = c;
     int64_t maxNodeID = distIndex->maxNodeID;
     int64_t minNodeID = distIndex->minNodeID;
     int_vector<> n(maxNodeID- minNodeID + 1, 0);
@@ -3649,9 +3661,11 @@ pair<int64_t, int64_t> DistanceIndex::sizeOf() {
     totalMin += nodeToSnarl.size() * 8;//TODO: ???
   
     int64_t totalMax = 0;
-    totalMax += maxIndex.minDistances.capacity()/8;
-    totalMax += maxIndex.maxDistances.capacity()/8;
-    totalMax += maxIndex.nodeToComponent.capacity()/8;
+    if (include_maximum){
+        totalMax += maxIndex.minDistances.capacity()/8;
+        totalMax += maxIndex.maxDistances.capacity()/8;
+        totalMax += maxIndex.nodeToComponent.capacity()/8;
+    }
 
 
     cerr << numSnarls << " snarls containing " << snarlNodes << " nodes" << endl;

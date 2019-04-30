@@ -16,7 +16,8 @@ class DistanceIndex {
     public: 
     //Constructor 
     //Cap is the distance up to which the maximum distance will give a reliable bound - if there is a path with length greater than cap, then cap may be returned
-    DistanceIndex (const HandleGraph* vg, const SnarlManager* snarlManager, uint64_t cap);
+    //If include_maximum is false, don't build the maximum distance index
+    DistanceIndex (const HandleGraph* vg, const SnarlManager* snarlManager, uint64_t cap, bool include_maximum=true);
 
     //Constructor to load index from serialization 
     DistanceIndex (const HandleGraph* vg, const SnarlManager* snarlManager, istream& in);
@@ -325,6 +326,7 @@ class DistanceIndex {
     id_t minNodeID; //minimum node id of the graph
     id_t maxNodeID; //maximum node id of the graph
 
+    bool include_maximum;
     MaxDistanceIndex maxIndex;
 
 
