@@ -316,8 +316,6 @@ TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") 
     // Align pinned right, letting the graph compute a topological order
     aligner.align_pinned(aln, graph, false);
     
-    cerr << pb2json(aln) << endl;
-    
     // Make sure we got the right score.
     // Account for full length bonus, loss of a match, and gain of a mismatch.
     REQUIRE(aln.score() == read.size() + 10 - 1 - 4);
