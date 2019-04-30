@@ -18,6 +18,9 @@
 enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #include "../deps/dozeu/dozeu.h"
 
+#define DEBUG
+#include "../deps/dozeu/log.h"
+
 // #include "json2pb.h"			// I don't know whether it's needed
 
 using namespace vg;
@@ -145,7 +148,7 @@ void XdropAligner::build_id_index_table(OrderedGraph const &graph)
 	return;
 }
 
-void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t const seed_node_index, bool direction)
+void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t const seed_node_index, bool left_to_right)
 {
 	// build (src_index, dst_index) array
 	index_edges.clear();
@@ -173,39 +176,49 @@ void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t co
         auto to_id = graph.graph.get_id(handle_pair.second);
         
         // Record the edge in the normal index.
-        // If direction is true, use function 0, which puts to in the high bits
+        // If left_to_right is true, use function 0, which puts to in the high bits
         // If it is false, put from in the high bits
 		
-        index_edges.push_back(edge[!direction](id_to_index[from_id],
+        index_edges.push_back(edge[!left_to_right](id_to_index[from_id],
             id_to_index[to_id]));
             
         // debug("append edge, %u -> %u", id_to_index[from_id], id_to_index[to_id]);
         
-        // if direction is true, use function 0, so compare with <
+        // if left_to_right is true, use function 0, so compare with <
         // Then invert that, so we check (index of from_id) > seed_node_index
-        // If direction is false, this is (index of to_id) < seed_node_index
-		if(!compare[!direction](id_to_index[direction ? from_id : to_id], seed_node_index)) {
+        // If left_to_right is false, this is (index of to_id) < seed_node_index
+		if(!compare[!left_to_right](id_to_index[left_to_right ? from_id : to_id], seed_node_index)) {
             // We do not need to record this edge in the flipped index.
             return true;
         }
         
-        // If direction is true, use function 1, so put from in the high bits
-        // If direction is false, put to in the high bits.
-		index_edges_head.push_back(edge[direction](id_to_index[from_id], id_to_index[to_id]));	// reversed
+        // If left_to_right is true, use function 1, so put from in the high bits
+        // If left_to_right is false, put to in the high bits.
+		index_edges_head.push_back(edge[left_to_right](id_to_index[from_id], id_to_index[to_id]));	// reversed
 		// fprintf(stderr, "append head edge, %u -> %u\n", id_to_index[from_id], id_to_index[to_id]);
         
         return true;
     });
 
-	// Sort index_edges in ascending order if direction is true, and descending order otherwise.
-    // If direction is true, we put the edge's to index in the high bits, so this will order edges ascending by to node and then from node.
-    // If direction is false, we put the edge's from index in the high bits, so this will order edges descending by from node and then to node.
-    sort(index_edges.begin(), index_edges.end(), compare[!direction]);
+    // Sort index_edges in ascending order if left_to_right is true, and
+    // descending order otherwise.
+    //
+    // If left_to_right is true, we put the edge's to index in the high bits,
+    // so this will order edges ascending by to node and then from node.
+    //
+    // If left_to_right is false, we put the edge's from index in the high
+    // bits, so this will order edges descending by from node and then to node.
+    sort(index_edges.begin(), index_edges.end(), compare[!left_to_right]);
     
-    // Sort index_edges_head in descending order if direction is true, and ascending order otherwise.
-    // If direction is true, we put the from index in the high bits, so this will order edges in descending order by from and then to.
-    // If direction is false, we put the to index in the high bits, so this will order edges in asecnding order by to and then from.
-	sort(index_edges_head.begin(), index_edges_head.end(), compare[direction]);
+    // Sort index_edges_head in descending order if left_to_right is true, and
+    // ascending order otherwise.
+    //
+    // If left_to_right is true, we put the from index in the high bits, so
+    // this will order edges in descending order by from and then to.
+    //
+    // If left_to_right is false, we put the to index in the high bits, so this
+    // will order edges in asecnding order by to and then from.
+	sort(index_edges_head.begin(), index_edges_head.end(), compare[left_to_right]);
 	return;
 }
 
@@ -348,15 +361,17 @@ size_t XdropAligner::extend(
 	dz_query_s const *packed_query,
 	size_t seed_node_index,
 	uint64_t seed_offset,							// offset: 0-------->L for both forward and reverse
-	bool direction)									// true for forward, false for reverse
+	bool right_to_left)									// true for a right-to-left pass with left-to-right traceback, false otherwise
 {
 	// get root node
 	auto root_seq = graph.graph.get_sequence(graph.order[seed_node_index]);
 
 	// load position and length
 	uint64_t rpos = seed_offset;
-	int64_t rlen = (direction ? 0 : root_seq.length()) - seed_offset;
-
+	int64_t rlen = (right_to_left ? 0 : root_seq.length()) - seed_offset;
+    
+    debug("extend pass: %s", right_to_left ? "right-to-left" : "left-to-right");
+    
 	debug("rpos(%lu), rlen(%ld)", rpos, rlen);
 	forefronts[seed_node_index] = dz_extend(dz,
 		packed_query,
@@ -364,14 +379,19 @@ size_t XdropAligner::extend(
 		&root_seq.c_str()[rpos], rlen, seed_node_index
 	);
 
-	int64_t inc = direction ? -1 : 1;
-	size_t max_node_index = seed_node_index, prev_node_index = seed_node_index;
+	int64_t inc = right_to_left ? -1 : 1;
+	size_t max_node_index = seed_node_index;
+    size_t prev_node_index = seed_node_index;
 	debug("root: node_index(%lu, %ld), ptr(%p), score(%d)", seed_node_index, graph.graph.get_id(graph.order[seed_node_index]), forefronts[seed_node_index], forefronts[seed_node_index]->max);
 
-	for(vector<uint64_t>::const_iterator p = begin; p != end;) {
-		size_t node_index = _dst_index(*p), n_incoming_edges = 0, n_incoming_forefronts = 0;
+    debug("edge count: %ld", end - begin);
 
-		for(size_t empty_node_index = prev_node_index + inc; compare[direction](empty_node_index, node_index); empty_node_index += inc) {
+	for(vector<uint64_t>::const_iterator p = begin; p != end;) {
+		size_t node_index = _dst_index(*p);
+        size_t n_incoming_edges = 0;
+        size_t n_incoming_forefronts = 0;
+
+		for(size_t empty_node_index = prev_node_index + inc; compare[right_to_left](empty_node_index, node_index); empty_node_index += inc) {
 			forefronts[empty_node_index] = nullptr;
 		}
 		prev_node_index = node_index;
@@ -401,17 +421,18 @@ size_t XdropAligner::extend(
 		forefronts[node_index] = dz_extend(dz,
 			packed_query,
 			incoming_forefronts, n_incoming_forefronts,
-			&ref_seq.c_str()[direction ? ref_seq.length() : 0],
-			direction ? -ref_seq.length() : ref_seq.length(),
+			&ref_seq.c_str()[right_to_left ? ref_seq.length() : 0],
+			right_to_left ? -ref_seq.length() : ref_seq.length(),
 			node_index
 		);
-		if(forefronts[node_index]->max + (direction & dz_geq(forefronts[node_index])) > forefronts[max_node_index]->max) {
+		if(forefronts[node_index]->max + (right_to_left & dz_geq(forefronts[node_index])) > forefronts[max_node_index]->max) {
 			max_node_index = node_index;
 		}
 		debug("node_index(%lu, %ld), n_incoming_edges(%lu, %lu), forefront(%p), range[%u, %u), term(%u), max(%d), curr(%d, %d, %u)",
 			node_index, graph.graph.get_id(n), n_incoming_edges, n_incoming_forefronts,
 			forefronts[node_index], forefronts[node_index]->r.spos, forefronts[node_index]->r.epos, dz_is_terminated(forefronts[node_index]),
-			forefronts[max_node_index]->max, forefronts[node_index]->max, forefronts[node_index]->inc, direction & dz_geq(forefronts[node_index]));
+			forefronts[max_node_index]->max, forefronts[node_index]->max, forefronts[node_index]->inc,
+            right_to_left & dz_geq(forefronts[node_index]));
 	}
 	debug("max(%p), score(%d)", forefronts[max_node_index], forefronts[max_node_index]->max);
 	return(max_node_index);
@@ -453,14 +474,14 @@ void XdropAligner::calculate_and_save_alignment(
 	OrderedGraph const &graph,
 	graph_pos_s const &head_pos,
 	size_t tail_node_index,
-	bool direction)
+	bool left_to_right)
 {
 	// clear existing alignment (no matter if any significant path is not obtained)
 	alignment.clear_path();
 	alignment.set_score(forefronts[tail_node_index]->max);
 	if(forefronts[tail_node_index]->max == 0) { return; }
 
-	// traceback
+	// traceback. This produces an alignment in the same order as we traversed the nodes when filling them in.
 	dz_alignment_s const *aln = dz_trace(dz, forefronts[tail_node_index]);
 	if(aln == nullptr || aln->path_length == 0) { return; }
 	assert(aln->span[aln->span_length - 1].id == tail_node_index);
@@ -504,7 +525,10 @@ void XdropAligner::calculate_and_save_alignment(
 	// convert the result to protobuf object
 	Path *path = alignment.mutable_path();
 	Mapping *m = nullptr;
-	if(direction) {
+	if(left_to_right) {
+        // The order that Dozeu gave us the alignment in (and in which we
+        // filled the nodes) is left to right (i.e. the order we want to emit
+        // the alignment in)
 		uint64_t ref_offset = head_pos.ref_offset, state = head_pos.query_offset<<8;
 
 		handle_t n = graph.order[aln->span[aln->span_length - 1].id];
@@ -525,6 +549,9 @@ void XdropAligner::calculate_and_save_alignment(
 		}
 		// fprintf(stderr, "rv: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.graph.get_id(graph.order[aln->span[aln->span_length - 1].id]), head_pos.ref_offset, graph.graph.get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
 	} else {
+        // The order that Dozeu gave us the alignment in (and in which we
+        // filled the nodes) is right to left (i.e. backwards). We have to flip
+        // it.
 		handle_t n = graph.order[aln->span[aln->span_length - 1].id];
 		uint64_t ref_offset = -((int32_t)aln->rrem), state = (head_pos.query_offset - aln->query_length)<<8;
 		// fprintf(stderr, "rid(%u, %ld), ref_length(%lu), ref_offset(%lu), query_length(%lu), query_aln_length(%u), query_init_length(%lu)\n", aln->span[aln->span_length - 1].id, graph.graph.get_id(n), graph.graph.get_length(n), ref_offset, query_seq.length(), aln->query_length, state>>8);
@@ -643,6 +670,10 @@ XdropAligner::align(
     // Now that we have determined head_pos, do the downward alignment from there, and the traceback.
     align_downward(alignment, graph, head_pos, reverse_complemented);
     
+    #ifdef DEBUG
+		if(mems.empty()) { fprintf(stderr, "rescue: score(%d)\n", alignment.score()); }
+	#endif
+    // bench_end(bench);
 }
     
 void
@@ -650,7 +681,7 @@ XdropAligner::align_downward(
 	Alignment &alignment,
 	OrderedGraph const &graph,
     graph_pos_s const &head_pos,
-	bool reverse_complemented)
+	bool left_to_right)
 { 
 
     // extract query
@@ -658,30 +689,24 @@ XdropAligner::align_downward(
 	uint64_t const qlen = query_seq.length();
 
 	// pack query (downward)
-	dz_query_s const *packed_query_seq_dn = (reverse_complemented
+	dz_query_s const *packed_query_seq_dn = (left_to_right
 		? dz_pack_query_forward(dz, &query_seq.c_str()[head_pos.query_offset], qlen - head_pos.query_offset)
 		: dz_pack_query_reverse(dz, &query_seq.c_str()[0],                     head_pos.query_offset)
 	);
 
 	// get head node index
 	vector<uint64_t>::const_iterator begin = index_edges.begin(), end = index_edges.end();
-	while(begin != end && !compare[reverse_complemented](_dst_index(*begin), head_pos.node_index)) { begin++; }
+	while(begin != end && !compare[left_to_right](_dst_index(*begin), head_pos.node_index)) { begin++; }
 
 	// downward extension
 	calculate_and_save_alignment(alignment, graph, head_pos,
 		extend(graph, begin, end,
 			packed_query_seq_dn, head_pos.node_index, head_pos.ref_offset,
-			!reverse_complemented
+			!left_to_right
 		),
-		reverse_complemented
+		left_to_right
 	);
 	dz_flush(dz);
-	// bench_end(bench);
-
-	#ifdef DEBUG
-		if(mems.empty()) { fprintf(stderr, "rescue: score(%d)\n", alignment.score()); }
-	#endif
-	return;
 }
 
 void
@@ -788,9 +813,18 @@ XdropAligner::align_pinned(
     
         // Attach order to graph
         OrderedGraph ordered = {extended, extended_order};
+        
+        // construct node_id -> index mapping table
+        build_id_index_table(ordered);
+        forefronts.reserve(ordered.order.size());		// vector< void * >
+        
+        // Index and order the edges for a left-to-right pass
+        build_index_edge_table(ordered, head_pos.node_index, true);
     
-        // Do the downward alignment from the fixed head_pos seed, and then do the traceback.
-        align_downward(alignment, ordered, head_pos, false);
+        // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
+        align_downward(alignment, ordered, head_pos, true);
+        
+        cerr << "Produced pinned alignment: " << pb2json(alignment) << endl;
         
         // Make sure the alignment actually starts with a match mapping to this fictional node.
         assert(alignment.path().mapping_size() >= 1);

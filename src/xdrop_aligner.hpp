@@ -126,7 +126,7 @@ namespace vg {
         /// Fill in index_edges and index_edges_head. Needs to know the index
         /// of the "seed node" in our graph's list of nodes, and the direction
         /// of the pass we are setting up for (false = right to left, true = left to right) 
-		void build_index_edge_table(OrderedGraph const &graph, uint32_t const seed_node_index, bool direction);
+		void build_index_edge_table(OrderedGraph const &graph, uint32_t const seed_node_index, bool left_to_right);
 
 		// position handling -> (node_index, ref_offset, query_offset): graph_pos_s
 		// MaximalExactMatch const &select_root_seed(vector<MaximalExactMatch> const &mems);
@@ -160,27 +160,39 @@ namespace vg {
         /// ascending order for a forward pass or descending order for a
         /// reverse pass, the packed query sequence, the index of the seed node
         /// in the graph, the offset (TODO: in the read?) of the seed position,
-        /// and the direction to run in (true = forward).
+        /// and the direction to traverse the graph topological order.
+        ///
+        /// Note that we take our direction as right_to_left, whole many other
+        /// functions take it as left_to_right.
         ///
         /// If a MEM seed is provided, this is run in two passes. The first is
-        /// reverse (direction = false) if align did not have
-        /// reverse_complement set and the second is forward (direction =
+        /// left to right (right_to_left = false) if align did not have
+        /// reverse_complement set and the second is right to left (right_to_left =
         /// true).
         ///
         /// If we have no MEM seed, we only run one pass (the second one).
-		size_t extend(OrderedGraph const &graph, vector<uint64_t>::const_iterator begin, vector<uint64_t>::const_iterator end, dz_query_s const *packed_query, size_t seed_node_index, uint64_t seed_offset, bool direction);
+		size_t extend(OrderedGraph const &graph, vector<uint64_t>::const_iterator begin, vector<uint64_t>::const_iterator end, dz_query_s const *packed_query, size_t seed_node_index, uint64_t seed_offset, bool right_to_left);
        
-        /// After all the alignment work has been done, do the traceback and save into the given Alignment object.
-		void calculate_and_save_alignment(Alignment &alignment, OrderedGraph const &graph, graph_pos_s const &head_pos, size_t tail_node_index, bool direction);
+        /**
+         * After all the alignment work has been done, do the traceback and
+         * save into the given Alignment object.
+		 *
+         * If left_to_right is true, the nodes were filled left to right, and
+         * the internal traceback will come out in left to right order, so we
+         * can emit it as is. If it is false, the nodes were filled right to
+         * left, and the internal traceback comes out in right to left order,
+         * so we need to flip it.
+         */
+        void calculate_and_save_alignment(Alignment &alignment, OrderedGraph const &graph, graph_pos_s const &head_pos, size_t tail_node_index, bool left_to_right);
 
 		// void debug_print(Alignment const &alignment, OrderedGraph const &graph, MaximalExactMatch const &seed, bool reverse_complemented);
 		// bench_t bench;
         
         /// After doing the upward pass and finding head_pos to anchor from, do
-        /// the downward alignment pass and traceback. If reverse_complemented is
-        /// unset, goes left to right and traces back the other way. If it is
-        /// set, goes right to left and traces back the other way.
-        void align_downward(Alignment &alignment, OrderedGraph const &graph, graph_pos_s const &head_pos, bool reverse_complemented);
+        /// the downward alignment pass and traceback. If left_to_right is
+        /// set, goes left to right and traces back the other way. If it is
+        /// unset, goes right to left and traces back the other way.
+        void align_downward(Alignment &alignment, OrderedGraph const &graph, graph_pos_s const &head_pos, bool left_to_right);
 
 	public:
 		// default_* defined in vg::, see aligner.hpp
