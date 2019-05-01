@@ -1,5 +1,5 @@
 #ifndef VG_IO_REGISTER_LIBVG_IO_HPP_INCLUDED
-#define VG_IO_REGISTER_LIBVG_IO_HPP_HPP_INCLUDED
+#define VG_IO_REGISTER_LIBVG_IO_HPP_INCLUDED
 
 /**
  * \file register_libvg_io.hpp
