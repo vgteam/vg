@@ -279,6 +279,18 @@ XdropAligner::graph_pos_s XdropAligner::calculate_max_position(OrderedGraph cons
 	// save node id
 	graph_pos_s pos;
 	pos.node_index = max_node_index;
+    
+    // Find the node
+    handle_t n = graph.order[pos.node_index];
+
+    assert(forefronts[max_node_index]->mcap != nullptr);
+    if (forefronts[max_node_index]->mcap == nullptr) {
+        // No alignment. Not safe to call dz_calc_max_pos.
+        // Bail out early.
+        pos.ref_offset = direction ? 0 : graph.graph.get_length(n);
+        pos.query_offset = seed_pos.query_offset;
+        return(pos);
+    }
 
 	// calc max position on the node
 	uint64_t max_pos = (uint64_t)dz_calc_max_pos(dz, forefronts[max_node_index]);
@@ -286,7 +298,7 @@ XdropAligner::graph_pos_s XdropAligner::calculate_max_position(OrderedGraph cons
 	// ref-side offset fixup
 	int32_t rpos = (int32_t)(max_pos>>32);
 
-	handle_t n = graph.order[pos.node_index];
+	
 	pos.ref_offset = direction ? -rpos : (graph.graph.get_length(n) - rpos);
 
 	// query-side offset fixup
@@ -388,7 +400,7 @@ size_t XdropAligner::extend(
 	uint64_t rpos = seed_offset;
 	int64_t rlen = (right_to_left ? 0 : root_seq.length()) - seed_offset;
     
-    debug("extend pass: %s", right_to_left ? "right-to-left" : "left-to-right");
+    debug("extend pass: %s over %lu forefronts from %lu", right_to_left ? "right-to-left" : "left-to-right", forefronts.size(), seed_node_index);
     
 	debug("rpos(%lu), rlen(%ld)", rpos, rlen);
 	forefronts[seed_node_index] = dz_extend(dz,
@@ -454,11 +466,21 @@ size_t XdropAligner::extend(
 	}
     
     // Get max query pos
-    uint64_t query_max_pos = dz_calc_max_qpos(dz, forefronts[max_node_index]);
-    uint64_t ref_node_max_pos = dz_calc_max_rpos(dz, forefronts[max_node_index]);
+    assert(max_node_index <= forefronts.size());
+    assert(forefronts[max_node_index] != nullptr);
     
-	debug("max(%p), score(%d), qpos(%lu), rpos(%lu)", forefronts[max_node_index], forefronts[max_node_index]->max, query_max_pos, ref_node_max_pos);
-	return(max_node_index);
+    if (forefronts[max_node_index]->mcap == nullptr) {
+        // We got no optimal alignment. This must be non-null to dz_calc_max_qpos.
+        debug("null mcap in winning forefront; no alignment");
+        return(max_node_index);
+    } else {
+    
+        uint64_t query_max_pos = dz_calc_max_qpos(dz, forefronts[max_node_index]);
+        uint64_t ref_node_max_pos = dz_calc_max_rpos(dz, forefronts[max_node_index]);
+        
+        debug("max(%p), score(%d), qpos(%lu), rpos(%lu)", forefronts[max_node_index], forefronts[max_node_index]->max, query_max_pos, ref_node_max_pos);
+        return(max_node_index);
+    }
 }
 
 // append an edit at the end of the current mapping array, returns forwarded length on the query
@@ -503,11 +525,42 @@ void XdropAligner::calculate_and_save_alignment(
 	// clear existing alignment (no matter if any significant path is not obtained)
 	alignment.clear_path();
 	alignment.set_score(forefronts[tail_node_index]->max);
-	if(forefronts[tail_node_index]->max == 0) { return; }
+	if(forefronts[tail_node_index]->max == 0) { 
+        // No alignment scoring anything other than 0, or not safe to try and trace back.
+        // Emit a full-length insertion
+        debug("no alignment; emit full length insertion");
+        Mapping* m = alignment.mutable_path()->add_mapping();
+        handle_t start = graph.order.front();
+        m->mutable_position()->set_node_id(graph.graph.get_id(start));
+        m->mutable_position()->set_is_reverse(graph.graph.get_is_reverse(start));
+        m->mutable_position()->set_offset(0);
+        Edit* e = m->add_edit();
+        e->set_from_length(0);
+        e->set_to_length(alignment.sequence().size());
+        e->set_sequence(alignment.sequence());
+        return;
+    }
+    
+    // If we have a nonzero score we should have a nonempty mcap on the winning forefront
+    assert(forefronts[tail_node_index]->mcap != nullptr);
     
 	// traceback. This produces an alignment in the same order as we traversed the nodes when filling them in.
 	dz_alignment_s const *aln = dz_trace(dz, forefronts[tail_node_index]);
-	if(aln == nullptr || aln->path_length == 0) { return; }
+	if(aln == nullptr || aln->path_length == 0) {
+        // No alignment actually computed.
+        // Emit a full-length insertion
+        debug("no traceback; emit full length insertion");
+        Mapping* m = alignment.mutable_path()->add_mapping();
+        handle_t start = graph.order.front();
+        m->mutable_position()->set_node_id(graph.graph.get_id(start));
+        m->mutable_position()->set_is_reverse(graph.graph.get_is_reverse(start));
+        m->mutable_position()->set_offset(0);
+        Edit* e = m->add_edit();
+        e->set_from_length(0);
+        e->set_to_length(alignment.sequence().size());
+        e->set_sequence(alignment.sequence());
+        return;
+    }
     
     #ifdef DEBUG
     // Dump the Dozeu alignment
@@ -749,7 +802,7 @@ XdropAligner::align(
 
 	// construct node_id -> index mapping table
 	build_id_index_table(graph);
-	forefronts.reserve(graph.order.size());		// vector< void * >
+	forefronts.resize(graph.order.size());		// vector< void * >
 
 	// extract seed node
 	graph_pos_s head_pos;
@@ -929,7 +982,7 @@ XdropAligner::align_pinned(
         
         // construct node_id -> index mapping table
         build_id_index_table(ordered);
-        forefronts.reserve(ordered.order.size());		// vector< void * >
+        forefronts.resize(ordered.order.size());		// vector< void * >
         
         // Index and order the edges for a left-to-right pass
         build_index_edge_table(ordered, head_pos.node_index, true);

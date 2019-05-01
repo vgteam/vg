@@ -437,6 +437,40 @@ TEST_CASE("XdropAligner can align pinned right with a trailing insertion", "[xdr
     REQUIRE(aln.path().mapping(0).edit(1).sequence() == "C");
 }
 
+TEST_CASE("XdropAligner can align pinned left when the entire read is an insertion", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    // Last parameter here is max gap length.
+    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    
+    Node* n0 = graph.create_node("A");
+    
+    // Not even the full length bonus can save us
+    string read = string("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align pinned left, letting the graph compute a topological order
+    aligner.align_pinned(aln, graph, true);
+    
+    // Make sure we got the right score.
+    // The whole sequence should just softclip.
+    REQUIRE(aln.score() == 0);
+    
+    // The sequence should stay set
+    REQUIRE(aln.sequence() == read);
+    
+    // Make sure we take the right path (whole read inserted)
+    REQUIRE(aln.path().mapping_size() == 1);
+    REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+    REQUIRE(aln.path().mapping(0).position().offset() == 0);
+    REQUIRE(aln.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == read);
+}
+
 
    
 }

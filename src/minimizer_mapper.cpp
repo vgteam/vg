@@ -12,8 +12,6 @@
 #include <iostream>
 #include <algorithm>
 
-#define debug
-
 // We define this to turn on the detailed funnel instrumentation and correctness tracking.
 // Without this we just track per-read time.
 #define INSTRUMENT_MAPPING
@@ -885,12 +883,16 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 
                 // Align, accounting for full length bonus
                 if (use_xdrop_for_tails) {
+#ifdef debug
                     Alignment clone = before_alignment;
                     get_regular_aligner()->align_pinned(clone, subgraph, false);
+#endif
                     get_regular_aligner()->get_xdrop()->align_pinned(before_alignment, subgraph, false);
+#ifdef debug
                     cerr << "Xdrop: " << pb2json(before_alignment) << endl;
                     cerr << "Normal: " << pb2json(clone) << endl;
                     assert(pb2json(clone) == pb2json(before_alignment));
+#endif
                 } else {
                     get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
                 }
@@ -1025,12 +1027,16 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 
                             // Align, accounting for full length bonus
                             if (use_xdrop_for_tails) {
+#ifdef debug
                                 Alignment clone = after_alignment;
                                 get_regular_aligner()->align_pinned(clone, subgraph, true);
+#endif
                                 get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph, true);
+#ifdef debug
                                 cerr << "Xdrop: " << pb2json(after_alignment) << endl;
                                 cerr << "Normal: " << pb2json(clone) << endl;
                                 assert(pb2json(clone) == pb2json(after_alignment));
+#endif
                             } else {
                                 get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
                             }

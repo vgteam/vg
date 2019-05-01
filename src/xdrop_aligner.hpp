@@ -175,6 +175,12 @@ namespace vg {
         /// true).
         ///
         /// If we have no MEM seed, we only run one pass (the second one).
+        ///
+        /// Returns the index in the topological order of the node with the
+        /// highest scoring alignment.
+        ///
+        /// Note that if no non-empty local alignment is found, it may not be
+        /// safe to call dz_calc_max_qpos on the associated forefront!
 		size_t extend(OrderedGraph const &graph, vector<uint64_t>::const_iterator begin, vector<uint64_t>::const_iterator end, dz_query_s const *packed_query, size_t seed_node_index, uint64_t seed_offset, bool right_to_left);
        
         /**
