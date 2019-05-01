@@ -233,6 +233,12 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ad11c8a716733fce2aa9dab94b42286bd"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad11c8a716733fce2aa9dab94b42286bd">append_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_append)</td></tr>
 <tr class="memdesc:ad11c8a716733fce2aa9dab94b42286bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Append a visit to a node to the given path.  <a href="#ad11c8a716733fce2aa9dab94b42286bd">More...</a><br/></td></tr>
 <tr class="separator:ad11c8a716733fce2aa9dab94b42286bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a43c2858dc8e80ba160359ccf5e1508d2"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a43c2858dc8e80ba160359ccf5e1508d2">prepend_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_prepend)</td></tr>
+<tr class="memdesc:a43c2858dc8e80ba160359ccf5e1508d2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Append a visit to a node to the given path.  <a href="#a43c2858dc8e80ba160359ccf5e1508d2">More...</a><br/></td></tr>
+<tr class="separator:a43c2858dc8e80ba160359ccf5e1508d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abb2dc75f200cfb7480e671fd55207410"><td class="memItemLeft" align="right" valign="top">virtual pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <br class="typebreak"/>
+<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#abb2dc75f200cfb7480e671fd55207410">rewrite_segment</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_end, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;new_segment)</td></tr>
+<tr class="separator:abb2dc75f200cfb7480e671fd55207410"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a73c97ce0157b90f95b888e4b6983f5c8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a73c97ce0157b90f95b888e4b6983f5c8">set_circularity</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, bool circular)</td></tr>
 <tr class="separator:a73c97ce0157b90f95b888e4b6983f5c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae1131c1ff0a94ed2ec9ef35cb678801b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ae1131c1ff0a94ed2ec9ef35cb678801b">set_edge</a> (<a class="el" href="structvg_1_1Edge.html">Edge</a> *)</td></tr>
@@ -948,6 +954,9 @@ Public Member Functions</h2></td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1MutablePathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html">handlegraph::MutablePathHandleGraph</a></td></tr>
 <tr class="memitem:a0873a6eb776bb2557a5b8453dbf13824 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a0873a6eb776bb2557a5b8453dbf13824">create_path_handle</a> (const std::string &amp;name, bool is_circular=false)=0</td></tr>
 <tr class="separator:a0873a6eb776bb2557a5b8453dbf13824 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af28f1372aa6dad2654a22eb8463e2a07 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual std::pair<br class="typebreak"/>
+&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#af28f1372aa6dad2654a22eb8463e2a07">rewrite_segment</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_end, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;new_segment)=0</td></tr>
+<tr class="separator:af28f1372aa6dad2654a22eb8463e2a07 inherit pub_methods_classhandlegraph_1_1MutablePathHandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1PathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1PathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">handlegraph::PathHandleGraph</a></td></tr>
 <tr class="memitem:ab7de11c1e994bc104378c4b798013430 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1PathHandleGraph.html#ab7de11c1e994bc104378c4b798013430">has_path</a> (const std::string &amp;path_name) const =0</td></tr>
 <tr class="memdesc:ab7de11c1e994bc104378c4b798013430 inherit pub_methods_classhandlegraph_1_1PathHandleGraph"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determine if a path name exists and is legal to get a path handle for.  <a href="#ab7de11c1e994bc104378c4b798013430">More...</a><br/></td></tr>
@@ -1065,6 +1074,8 @@ Private Attributes</h2></td></tr>
 <tr class="memitem:a9f32ef3d653601d2fcac5c1b31de0abb"><td class="memItemLeft" align="right" valign="top">vector&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a9f32ef3d653601d2fcac5c1b31de0abb">empty_edge_ends</a></td></tr>
 <tr class="memdesc:a9f32ef3d653601d2fcac5c1b31de0abb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Placeholder for functions that sometimes need to be passed an empty vector.  <a href="#a9f32ef3d653601d2fcac5c1b31de0abb">More...</a><br/></td></tr>
 <tr class="separator:a9f32ef3d653601d2fcac5c1b31de0abb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f0519dc706937b8b593f803f3d8eac4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a8f0519dc706937b8b593f803f3d8eac4">warned_about_rewrites</a> = false</td></tr>
+<tr class="separator:a8f0519dc706937b8b593f803f3d8eac4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>
@@ -7772,6 +7783,44 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a class="anchor" id="a43c2858dc8e80ba160359ccf5e1508d2"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> vg::VG::prepend_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>to_prepend</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Append a visit to a node to the given path. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#aed17038a0104017d37ff74e15f7f436a">handlegraph::MutablePathHandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a2b659686076f3d6b7b63ec9678d76a93"></a>
 <div class="memitem">
 <div class="memproto">
@@ -8178,6 +8227,47 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Create the reverse complemented graph with topology preserved. Record translation in provided map. </p>
+
+</div>
+</div>
+<a class="anchor" id="abb2dc75f200cfb7480e671fd55207410"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">pair&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt; vg::VG::rewrite_segment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>segment_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>segment_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>new_segment</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair of step_handle_t's that indicate the range of the new segment in the path. </p>
 
 </div>
 </div>
@@ -9486,6 +9576,26 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td class="memname">map&lt;string, <a class="el" href="structvg_1_1SnarlTraversal.html">SnarlTraversal</a>&gt; vg::VG::variant_to_traversal</td>
         </tr>
       </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a8f0519dc706937b8b593f803f3d8eac4"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::VG::warned_about_rewrites = false</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 </div>

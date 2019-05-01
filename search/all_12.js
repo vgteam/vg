@@ -181,6 +181,7 @@ var searchData=
   ['reverse_5ffrom_5fstart_5fto_5fend_5fedge',['reverse_from_start_to_end_edge',['../classvg_1_1FlowSort.html#a095e96bd8ef6f016a600bdbc6af730ee',1,'vg::FlowSort']]],
   ['reversing_5ffilter',['reversing_filter',['../classvg_1_1Filter.html#a5ac9ddf9392d973aa726ad6ee4d53b9f',1,'vg::Filter']]],
   ['reversing_5fwalk_5flength',['reversing_walk_length',['../classvg_1_1MultipathMapper.html#af87eaae1274e33230fffe9dca05dbbec',1,'vg::MultipathMapper']]],
+  ['rewrite_5fsegment',['rewrite_segment',['../classvg_1_1HashGraph.html#a21d72dca96f79342ea6fe17727b73ebc',1,'vg::HashGraph::rewrite_segment()'],['../classvg_1_1PackedGraph.html#a29790b629ec299e66c8873b8629a4ce0',1,'vg::PackedGraph::rewrite_segment()'],['../classvg_1_1VG.html#abb2dc75f200cfb7480e671fd55207410',1,'vg::VG::rewrite_segment()'],['../classhandlegraph_1_1MutablePathHandleGraph.html#af28f1372aa6dad2654a22eb8463e2a07',1,'handlegraph::MutablePathHandleGraph::rewrite_segment()']]],
   ['rho',['rho',['../structhaplo_1_1haploMath_1_1RRMemo.html#a7536987972e5d717ba43a951adcece82',1,'haplo::haploMath::RRMemo']]],
   ['right',['right',['../structvg_1_1Support.html#ab2fd7cba17f56ce67501f47fda6ae153',1,'vg::Support']]],
   ['right_5fdegree',['right_degree',['../classvg_1_1VG.html#a23622195177dff4c7c8416edffb7fc93',1,'vg::VG']]],

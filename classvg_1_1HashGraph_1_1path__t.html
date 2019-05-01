@@ -125,8 +125,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a0103b4fab605e9a1aef047671e6d6324"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph_1_1path__t.html#a0103b4fab605e9a1aef047671e6d6324">remove</a> (<a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">path_mapping_t</a> *mapping)</td></tr>
 <tr class="memdesc:a0103b4fab605e9a1aef047671e6d6324"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove the mapping from the path and free its memory.  <a href="#a0103b4fab605e9a1aef047671e6d6324">More...</a><br/></td></tr>
 <tr class="separator:a0103b4fab605e9a1aef047671e6d6324"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1122bbfa7c832fb35d3cdc1fceaaf2e8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">path_mapping_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph_1_1path__t.html#a1122bbfa7c832fb35d3cdc1fceaaf2e8">insert_after</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, <a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">path_mapping_t</a> *mapping)</td></tr>
-<tr class="separator:a1122bbfa7c832fb35d3cdc1fceaaf2e8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5b0c085e85d12594488457f117250459"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">path_mapping_t</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph_1_1path__t.html#a5b0c085e85d12594488457f117250459">insert_before</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, <a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">path_mapping_t</a> *mapping)</td></tr>
+<tr class="separator:a5b0c085e85d12594488457f117250459"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa7b0c55847c377e61a1b33e387165ca"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph_1_1path__t.html#aaa7b0c55847c377e61a1b33e387165ca">serialize</a> (ostream &amp;out) const </td></tr>
 <tr class="separator:aaa7b0c55847c377e61a1b33e387165ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a44107bf0f0ffd497af36e8ee70fd8075"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HashGraph_1_1path__t.html#a44107bf0f0ffd497af36e8ee70fd8075">deserialize</a> (istream &amp;in)</td></tr>
@@ -263,12 +263,12 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a1122bbfa7c832fb35d3cdc1fceaaf2e8"></a>
+<a class="anchor" id="a5b0c085e85d12594488457f117250459"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">HashGraph::path_mapping_t</a> * vg::HashGraph::path_t::insert_after </td>
+          <td class="memname"><a class="el" href="structvg_1_1HashGraph_1_1path__mapping__t.html">HashGraph::path_mapping_t</a> * vg::HashGraph::path_t::insert_before </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em>, </td>
@@ -286,7 +286,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Insert a new node into the middle of the path. If the the profvided node is null, inserts at the beginning. </p>
+<p>Insert a new node into the middle of the path. If the the provided node is null, inserts at the end. </p>
 
 </div>
 </div>

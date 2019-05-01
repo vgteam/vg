@@ -75,6 +75,8 @@ var searchData=
   ['set_5fintersection',['set_intersection',['../namespacevg.html#a234b2ca417edb50a3c738991fcfc269a',1,'vg']]],
   ['set_5finverse',['set_inverse',['../classvg_1_1Filter.html#afb65a7ed6bb059f22196415c631680e9',1,'vg::Filter']]],
   ['set_5fis_5freverse',['set_is_reverse',['../classvg_1_1mapping__t.html#ad248204841f7ba0ce4c3604ec138556d',1,'vg::mapping_t']]],
+  ['set_5fmembership_5fpath',['set_membership_path',['../classvg_1_1PackedGraph.html#aedd34ad81d04491ef967174a737787bf',1,'vg::PackedGraph']]],
+  ['set_5fmembership_5fstep',['set_membership_step',['../classvg_1_1PackedGraph.html#acdf4c21b1bfceca8ec1943bdb8fcfafa',1,'vg::PackedGraph']]],
   ['set_5fmin_5fdepth',['set_min_depth',['../classvg_1_1Filter.html#a94d0c4f93831a6faf70411dc6caf0ac3',1,'vg::Filter']]],
   ['set_5fmin_5fpercent_5fidentity',['set_min_percent_identity',['../classvg_1_1Filter.html#ae1837a93c7c3575c52dcba37538070f8',1,'vg::Filter']]],
   ['set_5fmin_5fqual',['set_min_qual',['../classvg_1_1Filter.html#a5c3851f5838da69576fd3e59443bb8d3',1,'vg::Filter']]],

@@ -137,7 +137,7 @@ var searchData=
   ['mapping_5fto_5fgbwt',['mapping_to_gbwt',['../namespacevg.html#ace1a7180fda8bb98abba24fb19183e9d',1,'vg']]],
   ['mapping_5fto_5flength',['mapping_to_length',['../namespacevg.html#a9ef1ccef545dfc30f9123eba61267b4a',1,'vg']]],
   ['mappingqualitymethod',['MappingQualityMethod',['../namespacevg.html#ae8af508a4586e2447fdbf2a30a213b39',1,'vg']]],
-  ['mappings_5fby_5frank',['mappings_by_rank',['../classvg_1_1Paths.html#af8373873c9edd84a7da6cce91cd5ff98',1,'vg::Paths']]],
+  ['mappings_5fby_5frank',['mappings_by_rank',['../classvg_1_1Paths.html#a27d349c3f4795f1389d3824e1c1e3e8f',1,'vg::Paths']]],
   ['mapq_5fscaling_5ffactor',['mapq_scaling_factor',['../classvg_1_1MultipathMapper.html#aadbb94f74824864d7bed5c63cb85687e',1,'vg::MultipathMapper']]],
   ['maps_5fto_5fnode',['maps_to_node',['../namespacevg.html#a242b97c26d74e9fc05ad16c31b21dcca',1,'vg']]],
   ['mark_5fdfs',['mark_dfs',['../classvg_1_1FlowSort.html#a498b6d9f0a37f2588e4ad08b6c35a0ff',1,'vg::FlowSort']]],

@@ -14,6 +14,7 @@ var searchData=
   ['deflect_5fto_5fmatrix',['deflect_to_matrix',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a6abbf28540a3e93c039ee2ec6ccf26be',1,'vg::BandedGlobalAligner::AltTracebackStack::deflect_to_matrix()'],['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a5c24b2c60ef30f7ff29f3b28534496c2',1,'vg::BandedGlobalAligner::AltTracebackStack::deflect_to_matrix(int64_t &amp;to_node_id)']]],
   ['deflection',['Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a44389670dc49e1dadf64104423dd064f',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['defragment',['defragment',['../classvg_1_1PackedGraph.html#a27f66502e40b92222c957aa7aab1b4bf',1,'vg::PackedGraph']]],
+  ['defragment_5fpath',['defragment_path',['../classvg_1_1PackedGraph.html#a487cc1ff62ce2b45ecfae8cf03f3f80b',1,'vg::PackedGraph']]],
   ['delete_5fhaplotype',['delete_haplotype',['../classvg_1_1GenomeState.html#a3abfa8020eb5f6f6229e7b59924dad30',1,'vg::GenomeState']]],
   ['delete_5fvariant_5findex',['delete_variant_index',['../classvg_1_1VCFTraversalFinder.html#a45b91ad0f95daad0ce2610953873f867',1,'vg::VCFTraversalFinder']]],
   ['deletion_5ffilter',['deletion_filter',['../classvg_1_1Filter.html#a8b867ca7572a1f8687b96cba2687f749',1,'vg::Filter']]],

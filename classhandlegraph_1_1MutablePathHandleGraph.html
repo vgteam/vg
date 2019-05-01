@@ -120,6 +120,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a0873a6eb776bb2557a5b8453dbf13824"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a83a4a14a629cde03d33e4eb3f6bb192d"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a83a4a14a629cde03d33e4eb3f6bb192d">append_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_append)=0</td></tr>
 <tr class="separator:a83a4a14a629cde03d33e4eb3f6bb192d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aed17038a0104017d37ff74e15f7f436a"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#aed17038a0104017d37ff74e15f7f436a">prepend_step</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;to_prepend)=0</td></tr>
+<tr class="separator:aed17038a0104017d37ff74e15f7f436a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af28f1372aa6dad2654a22eb8463e2a07"><td class="memItemLeft" align="right" valign="top">virtual std::pair<br class="typebreak"/>
+&lt; <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#af28f1372aa6dad2654a22eb8463e2a07">rewrite_segment</a> (const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_begin, const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;segment_end, const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;new_segment)=0</td></tr>
+<tr class="separator:af28f1372aa6dad2654a22eb8463e2a07"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9172694447503e35d50093d55e845eb8"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1MutablePathHandleGraph.html#a9172694447503e35d50093d55e845eb8">set_circularity</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path, bool circular)=0</td></tr>
 <tr class="separator:a9172694447503e35d50093d55e845eb8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1PathHandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1PathHandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1PathHandleGraph.html">handlegraph::PathHandleGraph</a></td></tr>
@@ -334,6 +339,86 @@ Additional Inherited Members</h2></td></tr>
 <p>Destroy the given path. Invalidates handles to the path and its steps. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a1840f8ccf0d3885913c8a0a616955f18">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a5bf7cdad16ee57b77665981b3a94b7b8">vg::HashGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="aed17038a0104017d37ff74e15f7f436a"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> handlegraph::MutablePathHandleGraph::prepend_step </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>to_prepend</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Prepend a visit to a node to the given path. Returns a handle to the new first step on the path which is appended. If the path is cirular, the new step is placed between the steps considered "last" and "first" by the method path_begin. Handles to later steps on the path, and to other paths, must remain valid. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1VG.html#a43c2858dc8e80ba160359ccf5e1508d2">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#ae54ce3460954e9e7dcdee9f7c3a2a16b">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a3667e9c0aca56c0e219c06cdc7951245">vg::HashGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="af28f1372aa6dad2654a22eb8463e2a07"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual std::pair&lt;<a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>, <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a>&gt; handlegraph::MutablePathHandleGraph::rewrite_segment </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>segment_begin</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1step__handle__t.html">step_handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>segment_end</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const std::vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>new_segment</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair of <a class="el" href="structhandlegraph_1_1step__handle__t.html" title="A step handle is an opaque reference to a single step of an oriented node on a path in a graph...">step_handle_t</a>'s that indicate the range of the new segment in the path. The segment to delete should be designated by the first and the past-the-last step handle. If the step that is returned by path_begin is deleted, path_begin will now return the first step from the new segment or, in the case that the new segment is empty, segment_end. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1HashGraph.html#a21d72dca96f79342ea6fe17727b73ebc">vg::HashGraph</a>.</p>
 
 </div>
 </div>

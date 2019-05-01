@@ -20,7 +20,7 @@ var searchData=
   ['mapping_5fpositions',['mapping_positions',['../structvg_1_1PathIndex.html#acc0b1da5ad0b4f428ceb623a4d3f806f',1,'vg::PathIndex']]],
   ['mapping_5fquality',['mapping_quality',['../structvg_1_1Alignment.html#a78851a70cc8a3e8f3e71409693130230',1,'vg::Alignment::mapping_quality()'],['../structvg_1_1MultipathAlignment.html#add653bff58eeb96872463fdc21b3dfd5',1,'vg::MultipathAlignment::mapping_quality()']]],
   ['mapping_5fquality_5fmethod',['mapping_quality_method',['../classvg_1_1BaseMapper.html#a0b1fe81d11d92332f613d8a29dcadb37',1,'vg::BaseMapper']]],
-  ['mappings_5fby_5frank',['mappings_by_rank',['../classvg_1_1Paths.html#af8373873c9edd84a7da6cce91cd5ff98',1,'vg::Paths']]],
+  ['mappings_5fby_5frank',['mappings_by_rank',['../classvg_1_1Paths.html#a27d349c3f4795f1389d3824e1c1e3e8f',1,'vg::Paths']]],
   ['mapq_5fscaling_5ffactor',['mapq_scaling_factor',['../classvg_1_1MultipathMapper.html#aadbb94f74824864d7bed5c63cb85687e',1,'vg::MultipathMapper']]],
   ['match',['match',['../classvg_1_1GSSWAligner.html#a7323efd4ef078ab5866b8c2b9fea87a8',1,'vg::GSSWAligner::match()'],['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a4fdc2b0adb79d04c4e928a61e891aa84',1,'vg::BandedGlobalAligner::BAMatrix::match()'],['../classvg_1_1SSWAligner.html#a8ec16a3583a2d8347ee9eaf1853b8cc8',1,'vg::SSWAligner::match()']]],
   ['match_5fcount',['match_count',['../classvg_1_1MaximalExactMatch.html#ab7a9c66468635a1498efdeb394c1fad6',1,'vg::MaximalExactMatch']]],
