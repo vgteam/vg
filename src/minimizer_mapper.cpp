@@ -883,12 +883,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 
                 // Align, accounting for full length bonus
                 if (use_xdrop_for_tails) {
-                    Alignment clone = before_alignment;
-                    get_regular_aligner()->align_pinned(clone, subgraph, false);
                     get_regular_aligner()->get_xdrop()->align_pinned(before_alignment, subgraph, false);
-                    cerr << "Xdrop: " << pb2json(before_alignment) << endl;
-                    cerr << "Normal: " << pb2json(clone) << endl;
-                    assert(pb2json(clone) == pb2json(before_alignment));
                 } else {
                     get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
                 }
@@ -1023,12 +1018,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 
                             // Align, accounting for full length bonus
                             if (use_xdrop_for_tails) {
-                                Alignment clone = after_alignment;
-                                get_regular_aligner()->align_pinned(clone, subgraph, true);
                                 get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph, true);
-                                cerr << "Xdrop: " << pb2json(after_alignment) << endl;
-                                cerr << "Normal: " << pb2json(clone) << endl;
-                                assert(pb2json(clone) == pb2json(after_alignment));
                             } else {
                                 get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
                             }
