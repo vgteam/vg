@@ -337,6 +337,37 @@ TEST_CASE("XdropAligner can align pinned right", "[xdrop][alignment][mapping]") 
 }
 
 
+TEST_CASE("XdropAligner can align pinned left when that is a bad alignment", "[xdrop][alignment][mapping]") {
+    
+    VG graph;
+    
+    // Last parameter here is max gap length.
+    XdropAligner aligner(1, 4, 6, 1, 10, 40);
+    
+    Node* n0 = graph.create_node("TTAAGCTGAGGGAATAGTGCCTGGCATCGAGGAAAGCCTCTGA");
+    
+    string read = string("AGCTGAGGGAATAGTGCCTGGCATCGAGGAAAGCCTCTGA");
+    Alignment aln;
+    aln.set_sequence(read);
+    
+    // Align pinned left, letting the graph compute a topological order
+    aligner.align_pinned(aln, graph, true);
+    
+    // Make sure we got the right score.
+    // Account for full length bonus
+    REQUIRE(aln.score() == read.size() + 10 - 3 * 1 - 6);
+    
+    // Make sure we take the right path
+    REQUIRE(aln.path().mapping_size() == 1);
+    REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
+    REQUIRE(aln.path().mapping(0).position().offset() == 13);
+    REQUIRE(aln.path().mapping(0).edit_size() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+}
+
+
    
 }
 }
