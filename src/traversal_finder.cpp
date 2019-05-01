@@ -2477,7 +2477,8 @@ void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf, Fast
             }
         }
         if (!path_found) {
-            cerr << "[VCFTraversalFinder] Warning: No alt path found in graph for variant.  It will be ignored:\n"
+            cerr << "[VCFTraversalFinder] Warning: No alt path (prefix="
+                 << ("_alt_" + make_variant_id(var) + "_") << ") found in graph for variant.  It will be ignored:\n"
                  << var << endl;
         }
     }
