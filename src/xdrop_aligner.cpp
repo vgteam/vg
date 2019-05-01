@@ -537,6 +537,11 @@ void XdropAligner::calculate_and_save_alignment(
         cerr << "[vg xdrop_aligner.cpp] Error: dozeu alignment query_length longer than sequence" << endl;
         exit(1);
     }
+    
+    if (aln->query_length < alignment.sequence().size()) {
+        // We ended up aligning less sequence than we should have.
+        debug("Alignment accounts for only %lu of %lu query bases", aln->query_length, alignment.sequence().size());
+    }
 
 	#define _push_mapping(_id) ({ \
 		handle_t n = graph.order[(_id)]; \
@@ -595,6 +600,10 @@ void XdropAligner::calculate_and_save_alignment(
 			_flush_op(m, aln->path[path_offset]);
 		}
 		if(m != nullptr && query_seq.length() != query_offset) {
+            // We have extra query sequence that dozeu didn't actually align.
+            // Treat it as a trailing insert.
+            // TODO: how do we know it should be trailing?
+            debug("trailing insert of %ld bp to make up length difference", query_seq.length() - query_offset);
 			_push_op(m, INS, query_seq.length() - query_offset);
 		}
 		debug("rv: (%ld, %u) -> (%ld, %u), score(%d), %s\n", graph.graph.get_id(graph.order[aln->span[aln->span_length - 1].id]), head_pos.ref_offset, graph.graph.get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
@@ -621,6 +630,10 @@ void XdropAligner::calculate_and_save_alignment(
 			_flush_op(m, aln->path[path_offset - 1]);
 		}
 		if(m != nullptr && query_seq.length() != query_offset) {
+            // We have extra query sequence that dozeu didn't actually align.
+            // Treat it as a trailing insert.
+            // TODO: how do we know it should be trailing?
+            debug("trailing insert of %ld bp to make up length difference", query_seq.length() - query_offset);
 			_push_op(m, INS, query_seq.length() - query_offset);
 		}
 		debug("fw: (%ld, %u) -> (%ld, %u), score(%d), %s", graph.graph.get_id(graph.order[aln->span[aln->span_length - 1].id]), -((int32_t)aln->rrem), graph.graph.get_id(graph.order[aln->span[0].id]), aln->span[1].offset, aln->score, alignment.sequence().c_str());
