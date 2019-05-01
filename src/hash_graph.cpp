@@ -481,7 +481,7 @@ namespace vg {
         
         path_t& path_list = paths[as_integers(segment_begin)[0]];
         
-        for (path_mapping_t* mapping = begin; mapping != end; mapping = mapping->next) {
+        for (path_mapping_t* mapping = begin; mapping != end;) {
             
             // remove this occurrence of the mapping from the occurrences index
             auto& node_occurrences = occurrences[get_id(mapping->handle)];
@@ -493,8 +493,12 @@ namespace vg {
                 }
             }
             
+            path_mapping_t* next = mapping->next;
+            
             // remove the step from the path
             path_list.remove(mapping);
+            
+            mapping = next;
         }
         
         // init the new range for the return value

@@ -593,8 +593,10 @@ pair<step_handle_t, step_handle_t> VG::rewrite_segment(const step_handle_t& segm
     vector<mapping_t*> to_erase;
     
     auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(segment_begin))));
-    for (step_handle_t step = segment_begin; step != segment_end; step = get_next_step(step)) {
+    for (step_handle_t step = segment_begin; step != segment_end; ) {
+        step_handle_t next = get_next_step(step);
         path_list.erase(paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step)[1])).first);
+        step = next;
     }
     
     for (mapping_t* mapping : to_erase) {

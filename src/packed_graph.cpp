@@ -1334,8 +1334,7 @@ namespace vg {
         
         // find and erase the record of this node's membership on the path
         for (size_t step_offset = as_integers(segment_begin)[1];
-             step_offset != as_integers(segment_end)[1];
-             step_offset = get_step_next(packed_path, step_offset)) {
+             step_offset != as_integers(segment_end)[1]; ) {
             
             size_t g_iv_idx = graph_iv_index(decode_traversal(get_step_trav(packed_path, step_offset)));
             size_t node_member_idx = graph_index_to_node_member_index(g_iv_idx);
@@ -1391,6 +1390,8 @@ namespace vg {
             
             // maybe reallocate to address fragmentation within the path
             //defragment_path(packed_path);
+            
+            step_offset = next_offset;
         }
         
         pair<step_handle_t, step_handle_t> new_segment_range(segment_end, segment_end);
