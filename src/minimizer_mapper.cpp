@@ -12,6 +12,8 @@
 #include <iostream>
 #include <algorithm>
 
+#define debug
+
 // We define this to turn on the detailed funnel instrumentation and correctness tracking.
 // Without this we just track per-read time.
 #define INSTRUMENT_MAPPING
@@ -897,7 +899,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     best_score = before_alignment.score();
                     
 #ifdef debug
-                    cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
+                    cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << " score " << best_score << endl;
 #endif
                 }
             }
@@ -1533,7 +1535,7 @@ void MinimizerMapper::explore_gbwt(const Position& from, size_t walk_distance,
     }
    
 #ifdef debug   
-    cerr << "Starting traversal with " << pb2json(path_to_end) << " from " << pb2json(from) << endl;
+    cerr << "Starting traversal from " << pb2json(from) << endl;
 #endif
     
     // Glom these together into a traversal state and queue it up.
