@@ -1718,10 +1718,11 @@ void DistanceIndex::printSnarlStats() {
     for (auto snarls : snarlDistances) {
        cout << snarls.second.visitToIndex.size() << "\t"; 
     }
-    cerr << endl << "Chain sizes: " << endl;
+    cout << endl << "Chain sizes: " << endl;
     for (auto chains : chainDistances) {
         cout << chains.second.snarlToIndex.size() << "\t";
     }
+    cout << endl;
 
 
 }
