@@ -588,9 +588,17 @@ pair<step_handle_t, step_handle_t> VG::rewrite_segment(const step_handle_t& segm
     }
     
     // erase the old segment, using the get_next_step logic to wrap around circular paths
+    
+    // collect the mapping_t*'s that we'll need to erase from the mapping_itr once we don't need them for get_next_step
+    vector<mapping_t*> to_erase;
+    
     auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(segment_begin))));
-    for (step_handle_t step = segment_begin; segment_begin != segment_end; step = get_next_step(step)) {
+    for (step_handle_t step = segment_begin; step != segment_end; step = get_next_step(step)) {
         path_list.erase(paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step)[1])).first);
+    }
+    
+    for (mapping_t* mapping : to_erase) {
+        paths.mapping_itr.erase(mapping);
     }
     
     // get the location before which we'll be adding the new segments
@@ -615,6 +623,8 @@ pair<step_handle_t, step_handle_t> VG::rewrite_segment(const step_handle_t& segm
         mapping.length = get_length(handle);
         
         auto iterator = path_list.insert(last_pos, mapping);
+        
+        paths.mapping_itr[&(*iterator)] = pair<list<mapping_t>::iterator, int64_t>(iterator, as_integers(segment_end)[0]);
         
         // on the first iteration, construct the first step handle for the return value
         if (first_iter) {

@@ -204,6 +204,7 @@ namespace vg {
         vector<handle_t> return_val;
         return_val.push_back(forward_handle);
         
+        // make it easy to handle edge cases by returning here if we're not actually dividing
         if (offsets.empty()) {
             return return_val;
         }
@@ -244,15 +245,15 @@ namespace vg {
                 path_t& path = paths[mapping->path_id];
                 if (get_is_reverse(mapping->handle)) {
                     for (size_t i = return_val.size() - 1; i > 0; i--) {
-                        mapping = path.insert_before(flip(return_val[i]), mapping);
-                        occurrences[get_id(return_val[i])].push_back(mapping);
+                        path_mapping_t* new_mapping = path.insert_before(flip(return_val[i]), mapping);
+                        occurrences[get_id(return_val[i])].push_back(new_mapping);
                     }
                 }
                 else {
                     mapping = mapping->next;
                     for (size_t i = 1; i < return_val.size(); i++) {
-                        mapping = path.insert_before(return_val[i], mapping);
-                        occurrences[get_id(return_val[i])].push_back(mapping);
+                        path_mapping_t* new_mapping = path.insert_before(return_val[i], mapping);
+                        occurrences[get_id(return_val[i])].push_back(new_mapping);
                     }
                 }
             }
@@ -469,13 +470,14 @@ namespace vg {
     pair<step_handle_t, step_handle_t> HashGraph::rewrite_segment(const step_handle_t& segment_begin,
                                                                   const step_handle_t& segment_end,
                                                                   const std::vector<handle_t>& new_segment) {
+        
         if (get_path_handle_of_step(segment_begin) != get_path_handle_of_step(segment_end)) {
             cerr << "error:[HashGraph] attempted to rewrite a path segment delimited by steps on two different paths" << endl;
             exit(1);
         }
         
         path_mapping_t* begin = (path_mapping_t*) intptr_t(as_integers(segment_begin)[1]);
-        path_mapping_t* end = (path_mapping_t*) intptr_t(as_integers(segment_begin)[1]);
+        path_mapping_t* end = (path_mapping_t*) intptr_t(as_integers(segment_end)[1]);
         
         path_t& path_list = paths[as_integers(segment_begin)[0]];
         
@@ -537,7 +539,6 @@ namespace vg {
     }
     
     HashGraph::path_t::path_t(const string& name, const int64_t& path_id, bool is_circular) : name(name), path_id(path_id), is_circular(is_circular) {
-        
         
     }
     
@@ -702,7 +703,7 @@ namespace vg {
         else if (tail) {
             
             // handle the potential circular connection
-            inserting->next = head->next;
+            inserting->next = tail->next;
             if (inserting->next) {
                 inserting->next->prev = inserting;
             }

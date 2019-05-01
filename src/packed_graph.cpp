@@ -12,6 +12,7 @@ namespace vg {
     using namespace handlegraph;
     
     /// Define all of the static class variables
+    
     const double PackedGraph::defrag_factor = .2;
     
     const size_t PackedGraph::PAGE_WIDTH = 128;
@@ -1441,6 +1442,13 @@ namespace vg {
                 // we're placing before the head (or the head is null), so this is new head
                 packed_path.head = step_offset;
             }
+            
+            // put a membership record for this occurrence at the front of the membership list
+            size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(handle));
+            path_membership_value_iv.append(as_integers(segment_end)[0]);
+            path_membership_value_iv.append(step_offset);
+            path_membership_value_iv.append(path_membership_node_iv.get(node_member_idx));
+            path_membership_node_iv.set(node_member_idx, path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
             
             if (first_iter) {
                 // record the start of the new range
