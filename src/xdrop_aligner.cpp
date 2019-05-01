@@ -476,7 +476,8 @@ size_t XdropAligner::push_edit(
 	if(op == MISMATCH) {
 		// break down into multiple SNVs
 		for(size_t i = 0; i < len; i++) { _add_edit(1, 1, &alt[i]); }
-	} else {
+	} else if (len > 0) {
+        // Only add an edit if the operation has nonzero length
 		alt = (op == INS) ? alt : nullptr;
 		size_t rlen = (op & 0x01) ? 0 : len;
 		size_t qlen = (op & 0x02) ? len : 0;
