@@ -72,6 +72,8 @@ class DistanceIndex {
     pair<int64_t, int64_t> sizeOf();
     /*print the distance index for debugging*/
     void printSelf();
+    /*Prints the number of nodes in each snarl netgraph and number of snarls in each chain*/
+    void printSnarlStats();
 
     protected:
     class SnarlIndex {
@@ -333,7 +335,7 @@ class DistanceIndex {
 
     /*Index to find the snarl containing a node
       The start node id of the snarl containing each node - negative if 
-       the start node is reverse
+      the start node is reverse
     */
     dac_vector<> nodeToSnarl;
     id_t minNodeID; //minimum node id of the graph

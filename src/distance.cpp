@@ -1713,6 +1713,18 @@ void DistanceIndex::printSelf() {
         maxIndex.printSelf();
     }
 }
+void DistanceIndex::printSnarlStats() {
+    cout << "Snarl sizes: " << endl;
+    for (auto snarls : snarlDistances) {
+       cout << snarls.second.visitToIndex.size() << "\t"; 
+    }
+    cerr << endl << "Chain sizes: " << endl;
+    for (auto chains : chainDistances) {
+        cout << chains.second.snarlToIndex.size() << "\t";
+    }
+
+
+}
 
 
 DistanceIndex::SnarlIndex::SnarlIndex(DistanceIndex* di,
