@@ -354,17 +354,19 @@ TEST_CASE("XdropAligner can align pinned left when that is a bad alignment", "[x
     aligner.align_pinned(aln, graph, true);
     
     // Make sure we got the right score.
-    // Account for full length bonus
-    REQUIRE(aln.score() == read.size() + 10 - 3 * 1 - 6);
+    // Account for full length bonus, two extends, and one open
+    REQUIRE(aln.score() == read.size() + 10 - 2 * 1 - 6);
     
-    // Make sure we take the right path
+    // Make sure we take the right path (leading 3 bp deletion)
     REQUIRE(aln.path().mapping_size() == 1);
     REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
-    REQUIRE(aln.path().mapping(0).position().offset() == 13);
-    REQUIRE(aln.path().mapping(0).edit_size() == 1);
-    REQUIRE(aln.path().mapping(0).edit(0).from_length() == read.size());
-    REQUIRE(aln.path().mapping(0).edit(0).to_length() == read.size());
-    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
+    REQUIRE(aln.path().mapping(0).position().offset() == 0);
+    REQUIRE(aln.path().mapping(0).edit_size() == 2);
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 3);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
+    REQUIRE(aln.path().mapping(0).edit(1).from_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(1).to_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
 }
 
 

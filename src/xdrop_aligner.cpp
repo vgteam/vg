@@ -531,12 +531,9 @@ void XdropAligner::calculate_and_save_alignment(
 	assert(aln->span[aln->span_length - 1].id == tail_node_index);
     
     // Check the length and make sure it is right.
+    // It may be shorter than the sequence, but not longer.
     if (aln->query_length > alignment.sequence().size()) {
         cerr << "[vg xdrop_aligner.cpp] Error: dozeu alignment query_length longer than sequence" << endl;
-        exit(1);
-    }
-    if (aln->query_length < alignment.sequence().size()) {
-        cerr << "[vg xdrop_aligner.cpp] Error: dozeu alignment query_length shorter than sequence" << endl;
         exit(1);
     }
 
@@ -860,33 +857,16 @@ XdropAligner::align_pinned(
             // Can't do anything with no nodes in the graph.
             return;
         }
+        
+        // Dozeu needs a seed position to start at, but that position doesn't necessarily actually become a match.
+        // So just seed position 0 on the first node and read base 0 and start the DP from that matrix position.
        
-        // Since dozeu can only extend from matches, create a fictional 1-base match node.
-        // We can't use SourceSinkOverlay because it is hardcoded to use '$'
-        // and '#' for source and sink nodes, and also only does source *and*
-        // sink.
-        // TODO: connect to all the sources in the topological order for a proper any-source pin!
-        ExtraNodeGraph extended(&g, "A", {}, {order.front()});
-        
-        // Put it first in the topological order
-        vector<handle_t> extended_order;
-        extended_order.reserve(order.size() + 1);
-        extended_order.push_back(extended.get_created_handle());
-        for (auto& backing_handle : order) {
-            // Fill out the topological order with promoted versions of the backing graph's handles.
-            extended_order.push_back(extended.from_backing(backing_handle));
-        }
-        
-        // Extend the alignment with a sequence base for it
-        string original_sequence(std::move(*alignment.mutable_sequence()));
-        *alignment.mutable_sequence() = std::move("A" + original_sequence);
-    
         // Create a fixed seed match to start from.
         // Match up base 0 on node 0 in the topological sort with query base 0.
         graph_pos_s head_pos = {0, 0, 0}; 
     
         // Attach order to graph
-        OrderedGraph ordered = {extended, extended_order};
+        OrderedGraph ordered = {g, order};
         
         // construct node_id -> index mapping table
         build_id_index_table(ordered);
@@ -900,69 +880,7 @@ XdropAligner::align_pinned(
         
         cerr << "Alignment from Dozeu: " << pb2json(alignment) << endl;
         
-        // Make sure the alignment actually starts with a match mapping to this fictional node.
-        assert(alignment.path().mapping_size() >= 1);
-        assert(alignment.path().mapping(0).position().node_id() == extended.get_id(extended.get_created_handle()));
-        // Either we have just a 1 base match, or a 1 base match followed by an insert.
-        assert(alignment.path().mapping(0).edit_size() == 1 || alignment.path().mapping(0).edit_size() == 2);
-        assert(alignment.path().mapping(0).edit(0).from_length() == 1);
-        assert(alignment.path().mapping(0).edit(0).to_length() == 1);
-        assert(alignment.path().mapping(0).edit(0).sequence() == "");
-        if (alignment.path().mapping(0).edit_size() == 2) {
-            assert(alignment.path().mapping(0).edit(1).from_length() == 0);
-        }
-        
-        // Get rid of the leading match manually, to ensure the whole mapping goes away
-        if (alignment.path().mapping(0).edit_size() == 2) {
-            // We have a leading match and then an insert.
-            
-            // Delete the leading match
-            auto edits = alignment.mutable_path()->mutable_mapping(0)->mutable_edit();
-            edits->erase(edits->begin());
-            
-            if (alignment.path().mapping_size() > 1) {
-                // We have another node to move the insert to.
-                
-                // Move the insert to the next mapping by copying it over us and then erasing it
-                auto us = alignment.mutable_path()->mutable_mapping(0);
-                auto next = alignment.mutable_path()->mutable_mapping(1);
-                
-                // Move over the next mapping's position
-                *us->mutable_position() = next->position();
-                
-                for (auto& edit : next->edit()) {
-                    // Move over all the next mapping's edits
-                    *us->add_edit() = std::move(edit);
-                }
-                
-                // Erase the next mapping and leave just us.
-                alignment.mutable_path()->mutable_mapping()->erase(alignment.mutable_path()->mapping().begin() + 1);
-            } else {
-                // Move it to somewhere based on the order.
-                // It sort of doesn't matter where because nothing comes next.
-                // But the second thing in the order should be the node after
-                // our fixed start node.
-                auto pos = alignment.mutable_path()->mutable_mapping(0)->mutable_position();
-                pos->set_node_id(extended.get_id(extended_order[1]));
-                pos->set_is_reverse(extended.get_is_reverse(extended_order[1]));
-                pos->set_offset(0);
-            }
-        } else {
-            // Our leading mapping is just a single-base match to the fixed start node.
-            // Get rid of the whole thing.
-            auto mappings = alignment.mutable_path()->mutable_mapping();
-            mappings->erase(mappings->begin());
-        }
-        
-        // Trim the alignment sequence back to the original length. 
-        *alignment.mutable_sequence() = std::move(original_sequence);
-        
-        // Ding the score by the match score for the fake AA match.
-        alignment.set_score(alignment.score() - aa_match);
-        
-        // Clear the identity.
-        // TODO: recalculate?
-        alignment.set_identity(0);
+        // We just pass the alignment we got through, because we didn't touch the graph.
     }
 }
 
