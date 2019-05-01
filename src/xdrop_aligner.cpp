@@ -25,7 +25,7 @@ enum { MISMATCH = 1, MATCH = 2, INS = 3, DEL = 4 };
 #include <dozeu/dozeu.h>
 
 // To turn on debugging:
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 #include <dozeu/log.h>
@@ -452,7 +452,12 @@ size_t XdropAligner::extend(
 			forefronts[max_node_index]->max, forefronts[node_index]->max, forefronts[node_index]->inc,
             right_to_left & dz_geq(forefronts[node_index]));
 	}
-	debug("max(%p), score(%d)", forefronts[max_node_index], forefronts[max_node_index]->max);
+    
+    // Get max query pos
+    uint64_t query_max_pos = dz_calc_max_qpos(dz, forefronts[max_node_index]);
+    uint64_t ref_node_max_pos = dz_calc_max_rpos(dz, forefronts[max_node_index]);
+    
+	debug("max(%p), score(%d), qpos(%lu), rpos(%lu)", forefronts[max_node_index], forefronts[max_node_index]->max, query_max_pos, ref_node_max_pos);
 	return(max_node_index);
 }
 
@@ -499,7 +504,7 @@ void XdropAligner::calculate_and_save_alignment(
 	alignment.clear_path();
 	alignment.set_score(forefronts[tail_node_index]->max);
 	if(forefronts[tail_node_index]->max == 0) { return; }
-
+    
 	// traceback. This produces an alignment in the same order as we traversed the nodes when filling them in.
 	dz_alignment_s const *aln = dz_trace(dz, forefronts[tail_node_index]);
 	if(aln == nullptr || aln->path_length == 0) { return; }
@@ -511,7 +516,8 @@ void XdropAligner::calculate_and_save_alignment(
     for (auto* op = aln->path; *op != 0; ++op) {
         translated_path.push_back("-XMID"[*op]);
     }
-    debug("ref_length(%u), query_length(%u), score(%d), path(%s)", aln->ref_length, aln->query_length, aln->score, translated_path.c_str());
+    debug("ref_length(%u), query_length(%u), span_length(%d), path_length(%d), score(%d), path(%s)", aln->ref_length, aln->query_length, aln->span_length, aln->path_length, aln->score, translated_path.c_str());
+    debug("matches(%u), mismatches(%u), inserts(%u), deletes(%u)", aln->match_count, aln->mismatch_count, aln->ins_count, aln->del_count);
     for(size_t i = 0; i < aln->span_length; i++) {
         dz_path_span_s const *s = &aln->span[i];
         
@@ -520,9 +526,10 @@ void XdropAligner::calculate_and_save_alignment(
             translated_path.push_back("-XMID"[*op]);
         }
         
-        debug("node_id(%u), subpath_length(%u), subpath(%s)",
+        debug("node_id(%u), subpath_length(%u:%u-%u), subpath(%s)",
             s->id,
             s[1].offset - s[0].offset,
+            s[0].offset, s[1].offset,
             translated_path.c_str()
         );
     }
@@ -532,16 +539,13 @@ void XdropAligner::calculate_and_save_alignment(
 	assert(aln->span[aln->span_length - 1].id == tail_node_index);
     
     // Check the length and make sure it is right.
-    // It may be shorter than the sequence, but not longer.
     if (aln->query_length > alignment.sequence().size()) {
         cerr << "[vg xdrop_aligner.cpp] Error: dozeu alignment query_length longer than sequence" << endl;
         exit(1);
     }
-    
-    if (aln->query_length < alignment.sequence().size()) {
-        // We ended up aligning less sequence than we should have.
-        debug("Alignment accounts for only %lu of %lu query bases", aln->query_length, alignment.sequence().size());
-    }
+    // aln->query_length can be shorter than alignment.sequence().size() if we
+    // didn't traceback from the very last base of the query, or if we didn't
+    // pack the whole query because of an offset.
 
 	#define _push_mapping(_id) ({ \
 		handle_t n = graph.order[(_id)]; \
@@ -564,10 +568,38 @@ void XdropAligner::calculate_and_save_alignment(
 	#define _flush_op(_m, _next_op) { \
 		_push_op(_m, state & 0xff, state>>8); state = (_next_op); \
 	}
-
-	// extract query (again)
+    
+    
+    
+    // Work out what region of the unpacked query sequence has a real alignment.
+    // query_min_pos is first, query_max_pos is past end
+    // It will be surrounded by inserts of the rest of the query.
+    //
+    // Account for the head_pos.query_offset.
+    // If left_to_right, it is number of leading bases in alignment.sequence() not packed and not visible to dozeu.
+    // Else, it is number of leading bases packd and visible to dozeu.
+    // Also, if not left_to_right, alignment.sequence() and dozeu's sequence run in opposite directions.
+    uint64_t query_max_pos;
+    uint64_t query_min_pos;
+    if (left_to_right) {
+        // We end where we end in the Dozeu sequence, plus the offset from the real sequence.
+        query_max_pos = aln->query_length + head_pos.query_offset;
+        // We begin the distance before there accounted for by the alignment
+        query_min_pos = query_max_pos - aln->match_count - aln->mismatch_count - aln->ins_count;
+    } else {
+        // Total packed length minus where we end in the Dozeu sequence counts from the left edge of aln.sequence
+        query_min_pos = head_pos.query_offset - aln->query_length;
+        // Then we advance by the number of query bases used
+        query_max_pos = query_min_pos + aln->match_count + aln->mismatch_count + aln->ins_count;
+    }
+    debug("aligned query region: %lu-%lu", query_min_pos, query_max_pos);
+    
+    
+	// extract query (again).
+    // We're going to go through it in alignment.sequence() order, no matter the order Dozeu ran in.
 	std::string const &query_seq = alignment.sequence();
 	char const *query = query_seq.c_str();
+    // Start a cursor at 0. If there is a leading insert, we will emit it and add the length into the cursor.
 	size_t query_offset = 0;
 
 	// set score and pos
@@ -583,7 +615,10 @@ void XdropAligner::calculate_and_save_alignment(
         // filled the nodes) is left to right (i.e. the order we want to emit
         // the alignment in)
 		uint64_t ref_offset = head_pos.ref_offset;
-        uint64_t state = head_pos.query_offset<<8;
+        if (query_min_pos != 0) {
+            debug("leading insert of %ld bp will be required", query_min_pos);
+        }
+        uint64_t state = query_min_pos<<8;
 
 		handle_t n = graph.order[aln->span[aln->span_length - 1].id];
         
@@ -591,6 +626,7 @@ void XdropAligner::calculate_and_save_alignment(
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = 0, path_offset = aln->span[0].offset; i < aln->span_length; i++) {
+            debug("accounted for query up to %lu/%lu", query_offset, query_max_pos);
 			dz_path_span_s const *span = &aln->span[i];
 			debug("i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)", i, span->id, graph.graph.get_id(graph.order[aln->span[i].id]), graph.graph.get_length(graph.order[aln->span[i].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
@@ -599,6 +635,8 @@ void XdropAligner::calculate_and_save_alignment(
 			}
 			_flush_op(m, aln->path[path_offset]);
 		}
+        // We should have made it all the way through our region of the query.
+        debug("accounted for query up to %lu/%lu", query_offset, query_max_pos);
 		if(m != nullptr && query_seq.length() != query_offset) {
             // We have extra query sequence that dozeu didn't actually align.
             // Treat it as a trailing insert.
@@ -610,10 +648,14 @@ void XdropAligner::calculate_and_save_alignment(
 	} else {
         // The order that Dozeu gave us the alignment in (and in which we
         // filled the nodes) is right to left (i.e. backwards). We have to flip
-        // it.
+        // it. Also we packed the query sequence in backward, so to follow
+        // along it forward, we go through the Dozeu alignment backward.
 		
 		uint64_t ref_offset = -((int32_t)aln->rrem);
-        uint64_t state = (head_pos.query_offset - aln->query_length)<<8;
+        if (query_min_pos != 0) {
+            debug("leading insert of %ld bp will be required", query_min_pos);
+        }
+        uint64_t state = query_min_pos<<8;
         
         handle_t n = graph.order[aln->span[aln->span_length - 1].id];
         
@@ -621,6 +663,7 @@ void XdropAligner::calculate_and_save_alignment(
 
 		state |= state == 0 ? MATCH : INS;
 		for(size_t i = aln->span_length, path_offset = aln->path_length; i > 0; i--) {
+            debug("accounted for query up to %lu/%lu", query_offset, query_max_pos);
 			dz_path_span_s const *span = &aln->span[i - 1];
 			debug("i(%lu), rid(%u, %ld), ref_length(%lu), path_offset(%lu), span->offset(%lu)", i, span->id, graph.graph.get_id(graph.order[aln->span[i - 1].id]), graph.graph.get_length(graph.order[aln->span[i - 1].id]), (uint64_t)path_offset, (uint64_t)span->offset);
 
@@ -629,6 +672,8 @@ void XdropAligner::calculate_and_save_alignment(
 			}
 			_flush_op(m, aln->path[path_offset - 1]);
 		}
+        // We should have made it all the way through our region of the query.
+        debug("accounted for query up to %lu/%lu", query_offset, query_max_pos);
 		if(m != nullptr && query_seq.length() != query_offset) {
             // We have extra query sequence that dozeu didn't actually align.
             // Treat it as a trailing insert.
@@ -891,8 +936,6 @@ XdropAligner::align_pinned(
     
         // Do the left-to-right alignment from the fixed head_pos seed, and then do the traceback.
         align_downward(alignment, ordered, head_pos, true);
-        
-        cerr << "Alignment from Dozeu: " << pb2json(alignment) << endl;
         
         // We just pass the alignment we got through, because we didn't touch the graph.
     }

@@ -369,7 +369,7 @@ TEST_CASE("XdropAligner can align pinned left when that is a bad alignment", "[x
     REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
 }
 
-TEST_CASE("XdropAligner can align pinned left with a leading deletion", "[xdrop][alignment][mapping]") {
+TEST_CASE("XdropAligner can align pinned left with a leading insertion", "[xdrop][alignment][mapping]") {
     
     VG graph;
     
@@ -385,26 +385,25 @@ TEST_CASE("XdropAligner can align pinned left with a leading deletion", "[xdrop]
     // Align pinned left, letting the graph compute a topological order
     aligner.align_pinned(aln, graph, true);
     
-    cerr << "Alignment of " << read << " to " << n0->sequence() << ": " << pb2json(aln) << endl;  
-    
     // Make sure we got the right score.
-    // Account for full length bonus and one open
-    REQUIRE(aln.score() == read.size() + 10 - 6);
+    // Account for full length bonus and one open, and the lack of a match on
+    // the extra query base
+    REQUIRE(aln.score() == read.size() - 1 + 10 - 6);
     
-    // Make sure we take the right path (leading 1 bp deletion)
+    // Make sure we take the right path (leading 1 bp insertion)
     REQUIRE(aln.path().mapping_size() == 1);
     REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
     REQUIRE(aln.path().mapping(0).position().offset() == 0);
     REQUIRE(aln.path().mapping(0).edit_size() == 2);
-    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 1);
-    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 0);
-    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
-    REQUIRE(aln.path().mapping(0).edit(1).from_length() == read.size());
-    REQUIRE(aln.path().mapping(0).edit(1).to_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(0).sequence() == "G");
+    REQUIRE(aln.path().mapping(0).edit(1).from_length() == read.size() - 1);
+    REQUIRE(aln.path().mapping(0).edit(1).to_length() == read.size() - 1);
     REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
 }
 
-TEST_CASE("XdropAligner can align pinned right with a trailing deletion", "[xdrop][alignment][mapping]") {
+TEST_CASE("XdropAligner can align pinned right with a trailing insertion", "[xdrop][alignment][mapping]") {
     
     VG graph;
     
@@ -420,23 +419,22 @@ TEST_CASE("XdropAligner can align pinned right with a trailing deletion", "[xdro
     // Align pinned right, letting the graph compute a topological order
     aligner.align_pinned(aln, graph, false);
     
-    cerr << "Alignment of " << read << " to " << n0->sequence() << ": " << pb2json(aln) << endl;  
-    
     // Make sure we got the right score.
-    // Account for full length bonus and one open
-    REQUIRE(aln.score() == read.size() + 10 - 6);
+    // Account for full length bonus and one open, and the lack of a match on
+    // the extra query base
+    REQUIRE(aln.score() == read.size() - 1 + 10 - 6);
     
-    // Make sure we take the right path (trailing 1 bp deletion)
+    // Make sure we take the right path (trailing 1 bp insertion)
     REQUIRE(aln.path().mapping_size() == 1);
     REQUIRE(aln.path().mapping(0).position().node_id() == n0->id());
     REQUIRE(aln.path().mapping(0).position().offset() == 0);
     REQUIRE(aln.path().mapping(0).edit_size() == 2);
-    REQUIRE(aln.path().mapping(0).edit(0).from_length() == read.size());
-    REQUIRE(aln.path().mapping(0).edit(0).to_length() == read.size());
+    REQUIRE(aln.path().mapping(0).edit(0).from_length() == read.size() - 1);
+    REQUIRE(aln.path().mapping(0).edit(0).to_length() == read.size() - 1);
     REQUIRE(aln.path().mapping(0).edit(0).sequence() == "");
-    REQUIRE(aln.path().mapping(0).edit(1).from_length() == 1);
-    REQUIRE(aln.path().mapping(0).edit(1).to_length() == 0);
-    REQUIRE(aln.path().mapping(0).edit(1).sequence() == "");
+    REQUIRE(aln.path().mapping(0).edit(1).from_length() == 0);
+    REQUIRE(aln.path().mapping(0).edit(1).to_length() == 1);
+    REQUIRE(aln.path().mapping(0).edit(1).sequence() == "C");
 }
 
 
