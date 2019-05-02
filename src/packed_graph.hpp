@@ -330,18 +330,19 @@ private:
     PagedVector path_membership_node_iv;
     const static size_t NODE_MEMBER_RECORD_SIZE;
     
-    // TODO: split these up?
-    
-    /// Encodes a series of linked lists of the memberships within paths. Consists of
-    /// fixed width records of the following form. Path IDs are 0-based indexes, the
-    /// other two indexes are 1-based and expressed in units of PATH_RECORD_SIZE and
-    /// MEMBERSHIP_RECORD_SIZE respectively.
-    /// {path ID, index in path, next membership record index}
-    PagedVector path_membership_value_iv;
-    const static size_t MEMBERSHIP_RECORD_SIZE;
-    const static size_t MEMBERSHIP_PATH_OFFSET;
-    const static size_t MEMBERSHIP_STEP_OFFSET;
-    const static size_t MEMBERSHIP_NEXT_OFFSET;
+    /// Encodes a series of linked lists of the memberships within paths. The nodes
+    /// in the linked list are split over three separate vectors, with the entry at
+    /// the same index in each vector corresponding to the same linked list node.
+    /// Path ID (0-based index)
+    PagedVector path_membership_id_iv;
+    /// 1-based offset of the occurrence of the node in the corresponding PackedPath vector.
+    PagedVector path_membership_offset_iv;
+    /// 1-based offset of the next occurrence of this node on a path within this vector (or
+    /// 0 if there is none)
+    PagedVector path_membership_next_iv;
+    const static size_t MEMBERSHIP_ID_RECORD_SIZE;
+    const static size_t MEMBERSHIP_OFFSET_RECORD_SIZE;
+    const static size_t MEMBERSHIP_NEXT_RECORD_SIZE;
     
     /*
      * A struct to package the data associated with a path through the graph.
@@ -508,27 +509,27 @@ inline void PackedGraph::set_edge_target(const uint64_t& edge_index, const handl
 }
     
 inline uint64_t PackedGraph::get_next_membership(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET);
+    return path_membership_next_iv.get((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE);
 }
     
 inline uint64_t PackedGraph::get_membership_step(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_STEP_OFFSET);
+    return path_membership_offset_iv.get((membership_index - 1) * MEMBERSHIP_OFFSET_RECORD_SIZE);
 }
 
 inline uint64_t PackedGraph::get_membership_path(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_PATH_OFFSET);
+    return path_membership_id_iv.get((membership_index - 1) * MEMBERSHIP_ID_RECORD_SIZE);
 }
 
 inline void PackedGraph::set_next_membership(const uint64_t& membership_index, const uint64_t& next) {
-    path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET, next);
+    path_membership_next_iv.set((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE, next);
 }
     
 inline void PackedGraph::set_membership_step(const uint64_t& membership_index, const uint64_t& step) {
-    path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_STEP_OFFSET, step);
+    path_membership_offset_iv.set((membership_index - 1) * MEMBERSHIP_ID_RECORD_SIZE, step);
 }
     
 inline void PackedGraph::set_membership_path(const uint64_t& membership_index, const uint64_t& path) {
-    path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_PATH_OFFSET, path);
+    path_membership_id_iv.set((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE, path);
 }
 
 inline uint64_t PackedGraph::get_step_trav(const PackedPath& path, const uint64_t& step_index) const {
