@@ -1560,7 +1560,7 @@ namespace vg {
         }
         
         // did we merge and remove any subpaths?
-        if (removed_so_far.back()) {
+        if (removed_so_far.empty() ? false : removed_so_far.back() > 0) {
             // trim the vector of subpaths
             multipath_aln.mutable_subpath()->DeleteSubrange(multipath_aln.subpath_size() - removed_so_far.back(),
                                                             removed_so_far.back());
