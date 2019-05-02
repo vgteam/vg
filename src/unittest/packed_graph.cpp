@@ -25,6 +25,8 @@ using namespace std;
         
         auto check_path = [&](const path_handle_t& p, const vector<handle_t>& steps) {
             
+            REQUIRE(graph.get_step_count(p) == steps.size());
+            
             step_handle_t step = graph.path_begin(p);
             for (int i = 0; i < steps.size(); i++){
                 
@@ -151,7 +153,6 @@ using namespace std;
             // delete some things, but not enough to trigger defragmentation
             graph.destroy_path(p2);
             graph.destroy_handle(h2);
-            
             // reallocate and compress down to the smaller size
             graph.compactify();
             
