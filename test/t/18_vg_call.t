@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 5
+plan tests 6
 
 # Toy example of hand-made pileup (and hand inspected truth) to make sure some
 # obvious (and only obvious) SNPs are detected by vg call
@@ -65,6 +65,21 @@ is "${L_COUNT}" "1" "Called microinversion"
  
 rm -f miniFastaGraph.vg miniFasta.gam miniFastaGraph.gam mappedminitest.aug.vg calledminitest.vcf mappedminitest.trans mappedminitest.support mappedminitest.pileup miniFastaGraph.xg miniFastaGraph.gcsa
 
+## SV Genotyping test
+# augment the graph with the alt paths
+vg augment -i call/HGSVC_chr22_17119590_17880307.vg call/HGSVC_chr22_17119590_17880307_alts.gam > HGSVC_alts.vg
+# compute the support
+vg augment -a pileup HGSVC_alts.vg call/HGSVC_chr22_17119590_17880307.gam --recall -S HGSVC_aug.support -Z HGSVC_aug.trans > HGSVC_aug.vg
+# genotype the VCF
+vg call HGSVC_aug.vg -f call/HGSVC_chr22_17200000_17800000.vcf.gz -n 0 -u -s HGSVC_aug.support -z HGSVC_aug.trans -r chr22 -S HG00514 > HGSVC.vcf
+# extract the "true" calls
+gzip -dc call/HGSVC_chr22_17200000_17800000.vcf.gz | grep -v '#' | awk '{print $10}' | awk -F ':' '{print $1}' > baseline_gts.txt
+# extract the called genotypes
+grep -v '#' HGSVC.vcf | sort -k1,1d -k2,2n | awk '{print $10}' | awk -F ':' '{print $1}' | sed 's/\//\|/g' > gts.txt
+DIFF_COUNT=$(diff -U 0 baseline_gts.txt gts.txt | grep ^@ | wc -l)
+LESS_SIX=$(if (( $DIFF_COUNT < 8 )); then echo 1; else echo 0; fi)
+is "${LESS_SIX}" "1" "Fewer than 6 differences between called and true SV genotypes" 
 
+rm -f  HGSVC_alts.vg HGSVC_aug.vg HGSVC.vcf HGSVC_aug.support  HGSVC_aug.trans baseline_gts.txt gts.txt
 
 

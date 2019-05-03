@@ -149,7 +149,7 @@ public:
     tuple<vector<Support>, vector<size_t> > get_traversal_supports_and_sizes(
         SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
         const vector<SnarlTraversal>& traversals,
-        const SnarlTraversal* minus_traversal = NULL);
+        const vector<const SnarlTraversal*>& minus_traversals = {});
 
     /**
      * Get the min support, total support, bp size (to divide total by for average
@@ -161,7 +161,7 @@ public:
      */
     tuple<Support, Support, size_t> get_traversal_support(
         SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl* site,
-        const SnarlTraversal& traversal, const SnarlTraversal* already_used = nullptr,
+        const SnarlTraversal& traversal, const vector<const SnarlTraversal*>& already_used = {},
         const SnarlTraversal* ref_traversal = nullptr);
 
     /** 
