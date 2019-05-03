@@ -287,13 +287,37 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
         
         // Extend seed hits in the cluster into one or more gapless extensions
-        cluster_extensions.emplace_back(extender.extend(seed_matchings, aln.sequence()));
+        auto extensions = extender.extend(seed_matchings, aln.sequence());
+        
+        bool has_negative_offsets = false;
+        for (auto& extension : extensions) {
+            for (auto& mapping : extension.path.mapping()) {
+                if (mapping.position().offset() < 0) {
+                    has_negative_offsets = true;
+                    cerr << "Warning: Skipping extension on read " << aln.name() << " due to negative offset in gapless extension: " << pb2json(extension.path) << endl;
+                    break;
+                }
+            }
+            if (has_negative_offsets) {
+                break;
+            }
+        }
+
+        if (!has_negative_offsets) {
+            // Only keep the extensions that don't get negative offsets in them.
+            cluster_extensions.emplace_back(std::move(extensions));
+        }
         
 #ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
-        // Record with the funnel that the previous group became a group of this size.
-        // Don't bother recording the seed to extension matching...
-        funnel.project_group(cluster_num, cluster_extensions.back().size());
+        if (has_negative_offsets) {
+            // Record that we killed this clustr
+            funnel.kill(cluster_num);
+        } else {
+            // Record with the funnel that the previous group became a group of this size.
+            // Don't bother recording the seed to extension matching...
+            funnel.project_group(cluster_num, cluster_extensions.back().size());
+        }
         
         // Say we finished with this cluster, for now.
         funnel.processed_input();
@@ -977,7 +1001,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                             // Consider the case of a nonempty trailing
                             // softclip that bumped up against the end
                             // of the underlying graph.
-                            
+
                             if (best_score < 0) {
                                 best_score = 0;
                                 best_path.clear_mapping();
@@ -994,7 +1018,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                                 m->mutable_position()->set_node_id(coming_from.node_id());
                                 m->mutable_position()->set_is_reverse(coming_from.is_reverse());
                                 m->mutable_position()->set_offset(last_node_length);
-                                
+
                                 // We should only have this case if we are coming from the end of a node.
                                 assert(mapping_from_length(prev_mapping) + coming_from.offset() == last_node_length);
                             }
@@ -1232,6 +1256,8 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         cerr << "Extended seed " << i << " starts on node " << pos.node_id() << " " << pos.is_reverse()
             << " at offset " << pos.offset() << endl;
 #endif
+
+        assert(pos.offset() >= 0);
     }
 
     for (auto& kv : extensions_by_handle) {
@@ -1257,6 +1283,8 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         cerr << "Extended seed " << i << ": cut after on node " << cut_pos_graph.node_id() << " " << cut_pos_graph.is_reverse()
             << " at point " << cut_pos_graph.offset() << endl;
 #endif
+
+        assert(cut_pos_graph.offset() >= 0);
 
         // Get a handle in the GBWTGraph
         handle_t start_handle = gbwt_graph.get_handle(cut_pos_graph.node_id(), cut_pos_graph.is_reverse());
