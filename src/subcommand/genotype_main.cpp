@@ -2,7 +2,7 @@
 #include <getopt.h>
 #include "subcommand.hpp"
 #include "../index.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../genotyper.hpp"
 #include "../genotypekit.hpp"
 #include "../variant_recall.hpp"
@@ -317,7 +317,7 @@ int main_genotype(int argc, char** argv) {
             cerr << "[vg genotype] Error opening gam: " << gam_file << endl;
             return 1;
         }
-        stream::for_each<Alignment>(gam_reads, [&alignments, &alignment_contained](Alignment& alignment) {
+        vg::io::for_each<Alignment>(gam_reads, [&alignments, &alignment_contained](Alignment& alignment) {
                 if (alignment_contained(alignment)) {
                     alignments.push_back(alignment);
                 }

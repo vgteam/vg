@@ -6,6 +6,7 @@
  */
 
 #include <cstdlib>
+#include <type_traits>
 
 namespace vg {
 
@@ -18,20 +19,23 @@ namespace vg {
         
         /// Converts from an integer in the native representation in the machine
         /// architecture to a big-endian representation
-        static IntType to_big_endian(IntType value);
+        static inline IntType to_big_endian(IntType value);
         
         /// Converts from a big-endian integer to the native representation in
         /// the machine architecture
-        static IntType from_big_endian(IntType value);
+        static inline IntType from_big_endian(IntType value);
         
     private:
         
         /// Returns the integer in the opposite endianness representation it currently
         /// has
-        static IntType swap_endianness(IntType value);
+        static inline IntType swap_endianness(IntType value);
         
         /// Returns true if the architecture is big-endian, otherwise false
-        static bool arch_is_big_endian();
+        static inline bool arch_is_big_endian();
+        
+        static_assert(std::is_integral<IntType>::value,
+                      "Endianness only applies to integer data types");
     };
     
     ////////////////////////////
@@ -40,19 +44,19 @@ namespace vg {
     
     
     template <class IntType>
-    IntType endianness<IntType>::to_big_endian(IntType value) {
+    inline IntType endianness<IntType>::to_big_endian(IntType value) {
         return arch_is_big_endian() ? value : swap_endianness(value);
     }
     
     template <class IntType>
-    IntType endianness<IntType>::from_big_endian(IntType value) {
+    inline IntType endianness<IntType>::from_big_endian(IntType value) {
         // these turn out to be identical functions, but having both aliases still
         // seems cognitively useful
         return to_big_endian(value);
     }
     
     template <class IntType>
-    IntType endianness<IntType>::swap_endianness(IntType value) {
+    inline IntType endianness<IntType>::swap_endianness(IntType value) {
         
         IntType swapped;
         
@@ -69,7 +73,7 @@ namespace vg {
     // TODO: this method will not detect endianness correctly on 1-byte
     // integers, but endianness is irrelevant for them anyway...
     template <class IntType>
-    bool endianness<IntType>::arch_is_big_endian() {
+    inline bool endianness<IntType>::arch_is_big_endian() {
         
         // mark volatile so the compiler won't optimize it away
         volatile IntType val = 1;

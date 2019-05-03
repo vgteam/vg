@@ -9,12 +9,12 @@
 #include <sstream>
 #include <set>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "snarls.hpp"
 #include "genotypekit.hpp"
-#include "../stream/protobuf_emitter.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/vpkg.hpp>
 
 //#define debug
 
@@ -3571,12 +3571,12 @@ namespace vg {
                 
                 {
                     // Make an emitter
-                    stream::ProtobufEmitter<Snarl> emitter(buff);
+                    vg::io::ProtobufEmitter<Snarl> emitter(buff);
                     // Emit nothing
                 }
                 
                 // Now load it back
-                unique_ptr<SnarlManager> manager = stream::VPKG::try_load_one<SnarlManager>(buff);
+                unique_ptr<SnarlManager> manager = vg::io::VPKG::try_load_one<SnarlManager>(buff);
                 
                 REQUIRE(manager.get() != nullptr);
                 

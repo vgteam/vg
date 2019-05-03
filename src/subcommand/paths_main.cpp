@@ -16,8 +16,8 @@
 #include "../vg.hpp"
 #include "../xg.hpp"
 #include "../gbwt_helper.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 
 using namespace std;
 using namespace vg;
@@ -203,7 +203,7 @@ int main_paths(int argc, char** argv) {
         xg_index = unique_ptr<xg::XG>();
         // Load the xg
         get_input_file(xg_file, [&](istream& in) {
-            xg_index = stream::VPKG::load_one<xg::XG>(in);
+            xg_index = vg::io::VPKG::load_one<xg::XG>(in);
         });
     }
     unique_ptr<gbwt::GBWT> gbwt_index;
@@ -211,7 +211,7 @@ int main_paths(int argc, char** argv) {
         // We want a gbwt
         
         // Load the GBWT from its container
-        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
@@ -224,8 +224,8 @@ int main_paths(int argc, char** argv) {
     if (gbwt_index.get() != nullptr) {
 
         if (!(gbwt_index->hasMetadata() && gbwt_index->metadata.hasPathNames())) {
-            std::cerr << "error: [vg paths] the GBWT index does not contain thread names" << std::endl;
-            std::exit(EXIT_FAILURE);
+            std::cerr << "warning: [vg paths] the GBWT index does not contain thread names" << std::endl;
+            std::exit(EXIT_SUCCESS);
         }
 
         // Select the threads we are interested in.
@@ -254,15 +254,15 @@ int main_paths(int argc, char** argv) {
         }
         
         // We may need to emit a stream of Alignemnts
-        unique_ptr<stream::ProtobufEmitter<Alignment>> gam_emitter;
+        unique_ptr<vg::io::ProtobufEmitter<Alignment>> gam_emitter;
         // Or we might need to emit a stream of VG Graph objects
-        unique_ptr<stream::ProtobufEmitter<Graph>> graph_emitter;
+        unique_ptr<vg::io::ProtobufEmitter<Graph>> graph_emitter;
         if (extract_as_gam) {
             // Open up a GAM output stream
-            gam_emitter = unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+            gam_emitter = unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
         } else if (extract_as_vg) {
             // Open up a VG Graph chunk output stream
-            graph_emitter = unique_ptr<stream::ProtobufEmitter<Graph>>(new stream::ProtobufEmitter<Graph>(cout));
+            graph_emitter = unique_ptr<vg::io::ProtobufEmitter<Graph>>(new vg::io::ProtobufEmitter<Graph>(cout));
         }
 
         // Process the threads.
@@ -327,7 +327,7 @@ int main_paths(int argc, char** argv) {
               });
         } else if (extract_as_gam) {
             vector<Alignment> alns = graph->paths_as_alignments();
-            stream::ProtobufEmitter<Alignment> emitter(cout);
+            vg::io::ProtobufEmitter<Alignment> emitter(cout);
             for (auto& aln : alns) {
                 if (check_prefix(aln.name())) {
                     emitter.write(std::move(aln));
@@ -352,7 +352,7 @@ int main_paths(int argc, char** argv) {
         } else if (!path_prefix.empty()) {
             vector<Path> got = xg_index->paths_by_prefix(path_prefix);
             if (extract_as_gam) {
-                stream::ProtobufEmitter<Alignment> emitter(cout);
+                vg::io::ProtobufEmitter<Alignment> emitter(cout);
                 for (auto& path : got) {
                     emitter.write(xg_index->path_as_alignment(path));
                 }
@@ -361,12 +361,12 @@ int main_paths(int argc, char** argv) {
                     Graph g;
                     *(g.add_path()) = xg_index->path(path.name());
                     vector<Graph> gb = { g };
-                    stream::write_buffered(cout, gb, 0);
+                    vg::io::write_buffered(cout, gb, 0);
                 }
             }            
         } else if (extract_as_gam) {
             auto alns = xg_index->paths_as_alignments();
-            stream::ProtobufEmitter<Alignment> emitter(cout);
+            vg::io::ProtobufEmitter<Alignment> emitter(cout);
             for (auto& aln : alns) {
                 emitter.write(std::move(aln));
             }

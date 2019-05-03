@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <list>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "translator.hpp"
 #include "hash_map.hpp"

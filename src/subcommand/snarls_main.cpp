@@ -11,9 +11,9 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../traversal_finder.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 //#define debug
 
@@ -30,7 +30,7 @@ void help_snarl(char** argv) {
          << "    -l, --leaf-only        restrict traversals to leaf ultrabubbles." << endl
          << "    -o, --top-level        restrict traversals to top level ultrabubbles" << endl
          << "    -a, --any-snarl-type   compute traversals for any snarl type (not limiting to ultrabubbles)" << endl
-         << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes [10]" << endl
+         << "    -m, --max-nodes N      only compute traversals for snarls with <= N nodes (with degree > 1) [10]" << endl
          << "    -t, --include-trivial  report snarls that consist of a single edge" << endl
          << "    -s, --sort-snarls      return snarls in sorted order by node ID (for topologically ordered graphs)" << endl
          << "    -v, --vcf FILE         use vcf-based instead of exhaustive traversal finder with -r" << endl
@@ -230,7 +230,7 @@ int main_snarl(int argc, char** argv) {
                 }
             }
             vector<SnarlTraversal> travs =  trav_finder->find_traversals(*snarl);
-            stream::write_buffered(cout, travs, 0);
+            vg::io::write_buffered(cout, travs, 0);
         }
 
         delete trav_finder;
@@ -301,14 +301,27 @@ int main_snarl(int argc, char** argv) {
             
             // Write our snarl tree
             snarl_buffer.push_back(*snarl);
-            stream::write_buffered(cout, snarl_buffer, buffer_size);
+            vg::io::write_buffered(cout, snarl_buffer, buffer_size);
+
+            auto check_max_nodes = [&graph, &max_nodes](const unordered_set<Node*>& nodeset)  {
+                int node_count = 0;
+                for (auto node : nodeset) {
+                    if (graph->start_degree(node) > 1 || graph->end_degree(node) > 1) {
+                        ++node_count;
+                        if (node_count > max_nodes) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            };
 
             // Optionally write our traversals
             if (!traversal_file.empty() &&
                 (!ultrabubble_only || snarl->type() == ULTRABUBBLE) &&
                 (!leaf_only || snarl_manager.is_leaf(snarl)) &&
                 (!top_level_only || snarl_manager.is_root(snarl)) &&
-                (snarl_manager.deep_contents(snarl, *graph, true).first.size() <= max_nodes)) {
+                (check_max_nodes(snarl_manager.deep_contents(snarl, *graph, true).first))) { 
                 
 #ifdef debug
                 cerr << "Look for traversals of " << pb2json(*snarl) << endl;
@@ -319,7 +332,7 @@ int main_snarl(int argc, char** argv) {
 #endif
                 
                 traversal_buffer.insert(traversal_buffer.end(), travs.begin(), travs.end());
-                stream::write_buffered(trav_stream, traversal_buffer, buffer_size);
+                vg::io::write_buffered(trav_stream, traversal_buffer, buffer_size);
             }
             
             // Sort the child snarls by node ID?
@@ -342,9 +355,9 @@ int main_snarl(int argc, char** argv) {
         
     }
     // flush
-    stream::write_buffered(cout, snarl_buffer, 0);
+    vg::io::write_buffered(cout, snarl_buffer, 0);
     if (!traversal_file.empty()) {
-        stream::write_buffered(trav_stream, traversal_buffer, 0);
+        vg::io::write_buffered(trav_stream, traversal_buffer, 0);
     }
     
     delete snarl_finder;

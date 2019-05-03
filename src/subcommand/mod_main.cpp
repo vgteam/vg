@@ -12,7 +12,7 @@
 
 #include "../vg.hpp"
 #include "../cactus.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../utility.hpp"
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
@@ -590,7 +590,7 @@ int main_mod(int argc, char** argv) {
                 }
             }
         };
-        stream::for_each(loci_file, lambda);
+        vg::io::for_each(loci_file, lambda);
         
         // Collect all the unused nodes and edges (so we don't try to delete
         // while iterating...)
@@ -724,11 +724,11 @@ int main_mod(int argc, char** argv) {
             }
         };
         if (aln_file == "-") {
-            stream::for_each(std::cin, lambda);
+            vg::io::for_each(std::cin, lambda);
         } else {
             ifstream in;
             in.open(aln_file.c_str());
-            stream::for_each(in, lambda);
+            vg::io::for_each(in, lambda);
         }
         vector<Path> paths;
         for (auto& p : paths_map) {
@@ -740,7 +740,7 @@ int main_mod(int argc, char** argv) {
             auto translation = graph->edit(paths, true);
             if (!translation_file.empty()) {
                 ofstream out(translation_file);
-                stream::write_buffered(out, translation, 0);
+                vg::io::write_buffered(out, translation, 0);
                 out.close();
             }
         } else {
@@ -775,25 +775,25 @@ int main_mod(int argc, char** argv) {
             }
         };
         if (loci_file == "-") {
-            stream::for_each(std::cin, lambda);
+            vg::io::for_each(std::cin, lambda);
         } else {
             ifstream in;
             in.open(loci_file.c_str());
-            stream::for_each(in, lambda);
+            vg::io::for_each(in, lambda);
         }
         // execute the edits and produce the translation if requested.
         // Make sure to break at node ends, but don't add any paths because they're just loci alleles and not real paths.
         auto translation = graph->edit(paths, false, false, true);
         if (!translation_file.empty()) {
             ofstream out(translation_file);
-            stream::write_buffered(out, translation, 0);
+            vg::io::write_buffered(out, translation, 0);
             out.close();
         }
     }
 
     // and optionally compact ids
     if (compact_ids) {
-        algorithms::topological_sort(graph);
+        graph->sort();
         graph->compact_ids();
     }
 
@@ -844,7 +844,7 @@ int main_mod(int argc, char** argv) {
 
     if (cactus) {
         // ensure we're sorted
-        algorithms::topological_sort(graph);
+        graph->sort();
         *graph = cactusify(*graph);
         // no paths survive, make sure they are erased
         graph->paths = Paths();

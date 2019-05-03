@@ -1,7 +1,7 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
 #include "annotation.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 #include <fstream>
 #include <sstream>
@@ -758,12 +758,12 @@ int ReadFilter::filter(istream* alignment_stream) {
     auto output_alignment = [&](Alignment& aln) {
         auto& output_buf = output_buffer[omp_get_thread_num()];
         output_buf.emplace_back(move(aln));
-        stream::write_buffered(cout, output_buf, buffer_size);
+        vg::io::write_buffered(cout, output_buf, buffer_size);
     };
 
     auto flush_buffer = [&output_buffer]() {
         for (auto& output_buf : output_buffer) {
-            stream::write_buffered(cout, output_buf, 0);
+            vg::io::write_buffered(cout, output_buf, 0);
         }
         cout.flush();
     };
@@ -800,9 +800,9 @@ int ReadFilter::filter(istream* alignment_stream) {
     };
     
     if (interleaved) {
-        stream::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
+        vg::io::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
     } else {
-        stream::for_each_parallel(*alignment_stream, lambda);
+        vg::io::for_each_parallel(*alignment_stream, lambda);
     }
     if (write_output) {
         flush_buffer();

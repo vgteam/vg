@@ -1560,7 +1560,7 @@ namespace vg {
         }
         
         // did we merge and remove any subpaths?
-        if (removed_so_far.back()) {
+        if (removed_so_far.empty() ? false : removed_so_far.back() > 0) {
             // trim the vector of subpaths
             multipath_aln.mutable_subpath()->DeleteSubrange(multipath_aln.subpath_size() - removed_so_far.back(),
                                                             removed_so_far.back());
@@ -1877,8 +1877,10 @@ namespace vg {
                     }
                 }
                 else if (edit_is_sub(edit)) {
+                    bool is_Ns = find_if(edit.sequence().begin(), edit.sequence().end(), [](char c) {return c != 'N';}) == edit.sequence().end();
                     for (size_t j = 0; j < edit.from_length(); j++, node_idx++, seq_idx++) {
-                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx]) {
+                        // we will also let N's be marked as mismatches even if the node sequence is also Ns
+                        if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) == subseq[seq_idx] && !is_Ns) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on mismatch that matches" << endl;
                             cerr << pb2json(mapping) << ", " << subseq << endl;

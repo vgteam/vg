@@ -10,7 +10,7 @@ namespace algorithms {
 
 using namespace std;
 
-vector<handle_t> id_order(HandleGraph* g) {
+vector<handle_t> id_order(const HandleGraph* g) {
     // We will fill and sort this
     vector<handle_t> to_return;
     g->for_each_handle([&](const handle_t& handle) {
@@ -24,16 +24,6 @@ vector<handle_t> id_order(HandleGraph* g) {
     });
     
     return to_return;
-}
-
-void id_sort(MutableHandleGraph* g) {
-    if (g->node_size() <= 1) {
-        // A graph with <2 nodes has only one sort.
-        return;
-    }
-    
-    // Order handles by ID and then apply the order to the graph
-    apply_ordering(g, id_order(g));
 }
     
 }

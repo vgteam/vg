@@ -10,8 +10,8 @@
 #include "subcommand.hpp"
 
 #include "../transcriptome.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 
 using namespace std;
 using namespace vg;
@@ -183,7 +183,7 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         // Load haplotype GBWT index.
         if (show_progress) { cerr << "[vg rna] Parsing haplotype GBWT index file ..." << endl; }
-        haplotype_index = stream::VPKG::load_one<gbwt::GBWT>(haplotypes_filename);
+        haplotype_index = vg::io::VPKG::load_one<gbwt::GBWT>(haplotypes_filename);
     
     } else {
 
@@ -249,7 +249,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         // gbwt_builder.index.metadata.setSamples();
         // gbwt_builder.index.metadata.setContigs();
 
-        stream::VPKG::save(gbwt_builder.index, gbwt_out_filename);
+        vg::io::VPKG::save(gbwt_builder.index, gbwt_out_filename);
     }    
 
     // Write transcript paths in transcriptome to gam file.
