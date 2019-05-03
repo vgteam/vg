@@ -31,22 +31,24 @@ namespace vg {
     
     const size_t PackedGraph::NODE_MEMBER_RECORD_SIZE = 1;
     
-    const size_t PackedGraph::MEMBERSHIP_RECORD_SIZE = 3;
-    const size_t PackedGraph::MEMBERSHIP_PATH_OFFSET = 0;
-    const size_t PackedGraph::MEMBERSHIP_STEP_OFFSET = 1;
-    const size_t PackedGraph::MEMBERSHIP_NEXT_OFFSET = 2;
+    const size_t PackedGraph::MEMBERSHIP_ID_RECORD_SIZE = 1;
+    const size_t PackedGraph::MEMBERSHIP_OFFSET_RECORD_SIZE = 1;
+    const size_t PackedGraph::MEMBERSHIP_NEXT_RECORD_SIZE = 1;
     
-    const size_t PackedGraph::PATH_RECORD_SIZE = 3;
-    const size_t PackedGraph::PATH_TRAV_OFFSET = 0;
-    const size_t PackedGraph::PATH_PREV_OFFSET = 1;
-    const size_t PackedGraph::PATH_NEXT_OFFSET = 2;
+    const size_t PackedGraph::STEP_RECORD_SIZE = 1;
+    
+    const size_t PackedGraph::PATH_RECORD_SIZE = 2;
+    const size_t PackedGraph::PATH_PREV_OFFSET = 0;
+    const size_t PackedGraph::PATH_NEXT_OFFSET = 1;
     
     PackedGraph::PackedGraph() :
         graph_iv(PAGE_WIDTH),
         seq_start_iv(PAGE_WIDTH),
         edge_lists_iv(PAGE_WIDTH),
         path_membership_node_iv(PAGE_WIDTH),
-        path_membership_value_iv(PAGE_WIDTH) {
+        path_membership_next_iv(PAGE_WIDTH),
+        path_membership_offset_iv(PAGE_WIDTH),
+        path_membership_id_iv(PAGE_WIDTH) {
         
     }
     
@@ -55,7 +57,9 @@ namespace vg {
         seq_start_iv(PAGE_WIDTH),
         edge_lists_iv(PAGE_WIDTH),
         path_membership_node_iv(PAGE_WIDTH),
-        path_membership_value_iv(PAGE_WIDTH) {
+        path_membership_next_iv(PAGE_WIDTH),
+        path_membership_offset_iv(PAGE_WIDTH),
+        path_membership_id_iv(PAGE_WIDTH) {
         
         deserialize(in);
     }
@@ -76,7 +80,9 @@ namespace vg {
         seq_iv.serialize(out);
         
         path_membership_node_iv.serialize(out);
-        path_membership_value_iv.serialize(out);
+        path_membership_id_iv.serialize(out);
+        path_membership_offset_iv.serialize(out);
+        path_membership_next_iv.serialize(out);
         
         sdsl::write_member(paths.size(), out);
         for (const PackedPath& path : paths) {
@@ -86,6 +92,7 @@ namespace vg {
             sdsl::write_member(path.head, out);
             sdsl::write_member(path.tail, out);
             sdsl::write_member(path.deleted_step_records, out);
+            path.links_iv.serialize(out);
             path.steps_iv.serialize(out);
         }
         // note: path_id can be reconstructed from the paths
@@ -106,20 +113,23 @@ namespace vg {
         seq_iv.deserialize(in);
         
         path_membership_node_iv.deserialize(in);
-        path_membership_value_iv.deserialize(in);
+        path_membership_id_iv.deserialize(in);
+        path_membership_offset_iv.deserialize(in);
+        path_membership_next_iv.deserialize(in);
         
         size_t num_paths;
         sdsl::read_member(num_paths, in);
         for (size_t i = 0; i < num_paths; i++) {
             string name;
             sdsl::read_member(name, in);
-            paths.emplace_back(name, false); // dummy circularity for now, set real one in a few lines
+            paths.emplace_back(name, false); // dummy circularity here, real in a few lines
             PackedPath& path = paths.back();
             sdsl::read_member(path.is_deleted, in);
             sdsl::read_member(path.is_circular, in);
             sdsl::read_member(path.head, in);
             sdsl::read_member(path.tail, in);
             sdsl::read_member(path.deleted_step_records, in);
+            path.links_iv.deserialize(in);
             path.steps_iv.deserialize(in);
         }
         
@@ -277,6 +287,7 @@ namespace vg {
         return get_is_reverse(handle) ? reverse_complement(seq) : seq;
     }
     
+    /*
     void PackedGraph::swap_handles(const handle_t& a, const handle_t& b) {
         // TODO: this doesn't actually affect the traversal order
         // We either need to encode the IDs here or use different method to keep track
@@ -317,6 +328,7 @@ namespace vg {
         id_to_graph_iv.set(id_a - min_id, g_iv_index_b / GRAPH_RECORD_SIZE + 1);
         id_to_graph_iv.set(id_b - min_id, g_iv_index_a / GRAPH_RECORD_SIZE + 1);
     }
+    */
     
     bool PackedGraph::follow_edges_impl(const handle_t& handle, bool go_left,
                                         const std::function<bool(const handle_t&)>& iteratee) const {
@@ -462,7 +474,6 @@ namespace vg {
     
     std::vector<handle_t> PackedGraph::divide_handle(const handle_t& handle,
                                                      const std::vector<size_t>& offsets) {
-        
         // put the offsets in forward orientation to simplify subsequent steps
         vector<size_t> forward_offsets = offsets;
         size_t node_length = get_length(handle);
@@ -492,7 +503,6 @@ namespace vg {
             
             id_t next_id = max_id + 1;
             size_t new_g_iv_idx = new_node_record(next_id);
-            
             // seq start
             seq_start_iv.set(graph_index_to_seq_start_index(new_g_iv_idx), first_start + off);
             
@@ -559,26 +569,25 @@ namespace vg {
             // split up the occurrence on the path
             size_t occ_idx = get_membership_step(path_membership);
             bool path_trav_rev = get_is_reverse(decode_traversal(get_step_trav(packed_path, occ_idx)));
-            
             // make new occurrence records for the divided segments (except the first, which stays
             // in place)
             vector<size_t> divided_trav_offsets{occ_idx};
             for (size_t i = 1; i < return_val.size(); i++) {
                 // the new traversals will have the same strandedness as the original occurrence
                 packed_path.steps_iv.append(encode_traversal(path_trav_rev ? flip(return_val[i]) : return_val[i]));
-                packed_path.steps_iv.append(0);
-                packed_path.steps_iv.append(0);
+                packed_path.links_iv.append(0);
+                packed_path.links_iv.append(0);
                 
-                divided_trav_offsets.push_back(packed_path.steps_iv.size() / PATH_RECORD_SIZE);
+                divided_trav_offsets.push_back(packed_path.steps_iv.size() / STEP_RECORD_SIZE);
                 
                 // record the membership of this node in this path
                 size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(return_val[i]));
-                path_membership_value_iv.append(get_membership_path(path_membership));
-                path_membership_value_iv.append(packed_path.steps_iv.size() / PATH_RECORD_SIZE);
-                path_membership_value_iv.append(path_membership_node_iv.get(node_member_idx));
+                path_membership_id_iv.append(get_membership_path(path_membership));
+                path_membership_offset_iv.append(packed_path.steps_iv.size() / STEP_RECORD_SIZE);
+                path_membership_next_iv.append(path_membership_node_iv.get(node_member_idx));
                 
                 // make this new membership record the head of the linked list
-                path_membership_node_iv.set(node_member_idx, path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
+                path_membership_node_iv.set(node_member_idx, path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE);
             }
             
             if (path_trav_rev) {
@@ -705,46 +714,49 @@ namespace vg {
         if (path.deleted_step_records > defrag_factor * (path.steps_iv.size() / PATH_RECORD_SIZE) || force) {
             
             if (path.head != 0) {
+                
                 // the path is non-empty, so we need to straighten it out and reallocate it
                 PagedVector new_steps_iv(PAGE_WIDTH);
+                PagedVector new_links_iv(PAGE_WIDTH);
                 
                 // we will need to record the translation between path steps so we can update memberships later
                 PagedVector offset_translator(PAGE_WIDTH);
-                offset_translator.resize(path.steps_iv.size() / PATH_RECORD_SIZE + 1);
+                offset_translator.resize(path.steps_iv.size() / STEP_RECORD_SIZE + 1);
                 
-                new_steps_iv.reserve(path.steps_iv.size() - path.deleted_step_records);
+                new_links_iv.reserve(path.links_iv.size() - path.deleted_step_records * PATH_RECORD_SIZE);
+                new_steps_iv.reserve(path.steps_iv.size() - path.deleted_step_records * STEP_RECORD_SIZE);
+                
                 bool first_iter = true;
                 size_t copying_from = path.head;
                 size_t prev = 0;
                 while (copying_from != 0 && (first_iter || copying_from != path.head)) {
-                    
                     // make a new record
                     new_steps_iv.append(get_step_trav(path, copying_from));
-                    new_steps_iv.append(prev);
-                    new_steps_iv.append(0);
+                    new_links_iv.append(prev);
+                    new_links_iv.append(0);
                     
-                    size_t here = new_steps_iv.size() / PATH_RECORD_SIZE;
+                    size_t here = new_steps_iv.size() / STEP_RECORD_SIZE;
                     
                     // record the correspondance between the old
                     offset_translator.set(copying_from, here);
                     
                     // update the point on the previous node
                     if (prev != 0) {
-                        new_steps_iv.set(new_steps_iv.size() - 2 * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, here);
+                        new_links_iv.set(new_links_iv.size() - 2 * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, here);
                     }
                     
                     prev = here;
-                    
                     copying_from = get_step_next(path, copying_from);
                     first_iter = false;
                 }
                 
                 // add the looping connection if this is a circular path
                 if (path.is_circular) {
-                    new_steps_iv.set(new_steps_iv.size() - PATH_RECORD_SIZE + PATH_NEXT_OFFSET, 1);
-                    new_steps_iv.set(PATH_PREV_OFFSET, new_steps_iv.size() / PATH_RECORD_SIZE);
+                    new_links_iv.set(new_links_iv.size() - PATH_RECORD_SIZE + PATH_NEXT_OFFSET, 1);
+                    new_links_iv.set(PATH_PREV_OFFSET, new_links_iv.size() / PATH_RECORD_SIZE);
                 }
                 
+                path.links_iv = move(new_links_iv);
                 path.steps_iv = move(new_steps_iv);
                 
                 // update the head and tail of the newly allocated path
@@ -806,6 +818,7 @@ namespace vg {
             }
             else {
                 // the path is empty, so let's make sure it's not holding onto any capacity it doesn't need
+                path.links_iv = PagedVector(PAGE_WIDTH);
                 path.steps_iv = PagedVector(PAGE_WIDTH);
             }
             
@@ -846,9 +859,9 @@ namespace vg {
             }
             
             // update the path IDs in the membership records
-            for (size_t i = 0; i < path_membership_value_iv.size(); i += MEMBERSHIP_RECORD_SIZE) {
-                uint64_t current_path = path_membership_value_iv.get(i + MEMBERSHIP_PATH_OFFSET);
-                path_membership_value_iv.set(i + MEMBERSHIP_PATH_OFFSET, current_path - paths_deleted_before[current_path]);
+            for (size_t i = 0; i < path_membership_id_iv.size(); i += MEMBERSHIP_ID_RECORD_SIZE) {
+                uint64_t current_path = path_membership_id_iv.get(i);
+                path_membership_id_iv.set(i, current_path - paths_deleted_before[current_path]);
             }
         }
     }
@@ -1004,12 +1017,17 @@ namespace vg {
             deleted_edge_records = 0;
         }
         
-        if (deleted_membership_records > defrag_factor * (path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE) || force) {
+        if (deleted_membership_records > defrag_factor * (path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE) || force) {
             
-            uint64_t num_membership_records = path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE - deleted_membership_records;
+            uint64_t num_membership_records = path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE - deleted_membership_records;
             
-            PagedVector new_path_membership_value_iv(PAGE_WIDTH);
-            new_path_membership_value_iv.reserve(num_membership_records * MEMBERSHIP_RECORD_SIZE);
+            PagedVector new_path_membership_id_iv(PAGE_WIDTH);
+            PagedVector new_path_membership_offset_iv(PAGE_WIDTH);
+            PagedVector new_path_membership_next_iv(PAGE_WIDTH);
+            
+            new_path_membership_id_iv.reserve(num_membership_records * MEMBERSHIP_ID_RECORD_SIZE);
+            new_path_membership_offset_iv.reserve(num_membership_records * MEMBERSHIP_OFFSET_RECORD_SIZE);
+            new_path_membership_next_iv.reserve(num_membership_records * MEMBERSHIP_NEXT_RECORD_SIZE);
             
             for (size_t i = 0; i < id_to_graph_iv.size(); i++) {
                 size_t raw_g_iv_idx = id_to_graph_iv.get(i);
@@ -1020,23 +1038,23 @@ namespace vg {
                     uint64_t member_idx = path_membership_node_iv.get(graph_index_to_node_member_index(g_iv_idx));
                     if (member_idx) {
                         // make a new membership record
-                        new_path_membership_value_iv.append(get_membership_path(member_idx));
-                        new_path_membership_value_iv.append(get_membership_step(member_idx));
-                        new_path_membership_value_iv.append(0);
+                        new_path_membership_id_iv.append(get_membership_path(member_idx));
+                        new_path_membership_offset_iv.append(get_membership_step(member_idx));
+                        new_path_membership_next_iv.append(0);
                         
                         // point the membership vector here
                         path_membership_node_iv.set(graph_index_to_node_member_index(g_iv_idx),
-                                                    new_path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
+                                                    new_path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE);
                         
                         member_idx = get_next_membership(member_idx);
                         while (member_idx) {
                             // make a new membership record
-                            new_path_membership_value_iv.append(get_membership_path(member_idx));
-                            new_path_membership_value_iv.append(get_membership_step(member_idx));
-                            new_path_membership_value_iv.append(0);
+                            new_path_membership_id_iv.append(get_membership_path(member_idx));
+                            new_path_membership_offset_iv.append(get_membership_step(member_idx));
+                            new_path_membership_next_iv.append(0);
                             // point the previous link at this one
-                            new_path_membership_value_iv.set(new_path_membership_value_iv.size() - 2 * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET,
-                                                             new_path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
+                            new_path_membership_next_iv.set(new_path_membership_next_iv.size() - 2 * MEMBERSHIP_NEXT_RECORD_SIZE,
+                                                            new_path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE);
                             
                             member_idx = get_next_membership(member_idx);
                         }
@@ -1044,7 +1062,9 @@ namespace vg {
                 }
             }
             
-            path_membership_value_iv = std::move(new_path_membership_value_iv);
+            path_membership_id_iv = std::move(new_path_membership_id_iv);
+            path_membership_offset_iv = std::move(new_path_membership_offset_iv);
+            path_membership_next_iv = std::move(new_path_membership_next_iv);
             
             deleted_membership_records = 0;
         }
@@ -1058,7 +1078,9 @@ namespace vg {
         id_to_graph_iv.clear();
         seq_iv.clear();
         path_membership_node_iv.clear();
-        path_membership_value_iv.clear();
+        path_membership_id_iv.clear();
+        path_membership_offset_iv.clear();
+        path_membership_next_iv.clear();
         paths.clear();
         path_id.clear();
         min_id = std::numeric_limits<id_t>::max();
@@ -1087,7 +1109,7 @@ namespace vg {
     size_t PackedGraph::get_step_count(const path_handle_t& path_handle) const {
         // TODO: if we every allow step deletes, this will need to be adjusted
         const PackedPath& path = paths.at(as_integer(path_handle));
-        return path.steps_iv.size() / PATH_RECORD_SIZE - path.deleted_step_records;
+        return path.steps_iv.size() / STEP_RECORD_SIZE - path.deleted_step_records;
     }
     
     size_t PackedGraph::get_path_count() const {
@@ -1215,6 +1237,7 @@ namespace vg {
         
         packed_path.is_deleted = true;
         packed_path.steps_iv.clear();
+        packed_path.links_iv.clear();
         packed_path.name.clear();
         packed_path.head = 0;
         packed_path.tail = 0;
@@ -1235,11 +1258,11 @@ namespace vg {
         
         // create a new path record
         packed_path.steps_iv.append(as_integer(to_append));
-        packed_path.steps_iv.append(packed_path.tail);
-        packed_path.steps_iv.append(0);
+        packed_path.links_iv.append(packed_path.tail);
+        packed_path.links_iv.append(0);
         
         // the offset associated with the new record
-        size_t step_offset = packed_path.steps_iv.size() / PATH_RECORD_SIZE;
+        size_t step_offset = packed_path.steps_iv.size() / STEP_RECORD_SIZE;
         
         // update the pointer from the current tail
         if (packed_path.tail != 0) {
@@ -1260,12 +1283,12 @@ namespace vg {
         
         // record the membership of this node in this path
         size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(to_append));
-        path_membership_value_iv.append(as_integer(path));
-        path_membership_value_iv.append(step_offset);
-        path_membership_value_iv.append(path_membership_node_iv.get(node_member_idx));
+        path_membership_id_iv.append(as_integer(path));
+        path_membership_offset_iv.append(step_offset);
+        path_membership_next_iv.append(path_membership_node_iv.get(node_member_idx));
         
         // make this new membership record the head of the linked list
-        path_membership_node_iv.set(node_member_idx, path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
+        path_membership_node_iv.set(node_member_idx, path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE);
         
         // make and return an step handle
         step_handle_t step;
@@ -1280,11 +1303,11 @@ namespace vg {
         
         // create a new path record
         packed_path.steps_iv.append(as_integer(to_prepend));
-        packed_path.steps_iv.append(0);
-        packed_path.steps_iv.append(packed_path.head);
+        packed_path.links_iv.append(0);
+        packed_path.links_iv.append(packed_path.head);
         
         // the offset associated with the new record
-        size_t step_offset = packed_path.steps_iv.size() / PATH_RECORD_SIZE;
+        size_t step_offset = packed_path.steps_iv.size() / STEP_RECORD_SIZE;
         
         // update the pointer from the current head
         if (packed_path.head != 0) {
@@ -1305,12 +1328,12 @@ namespace vg {
         
         // record the membership of this node in this path
         size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(to_prepend));
-        path_membership_value_iv.append(as_integer(path));
-        path_membership_value_iv.append(step_offset);
-        path_membership_value_iv.append(path_membership_node_iv.get(node_member_idx));
+        path_membership_id_iv.append(as_integer(path));
+        path_membership_offset_iv.append(step_offset);
+        path_membership_next_iv.append(path_membership_node_iv.get(node_member_idx));
         
         // make this new membership record the head of the linked list
-        path_membership_node_iv.set(node_member_idx, path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
+        path_membership_node_iv.set(node_member_idx, path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE);
         
         // make and return an step handle
         step_handle_t step;
@@ -1403,10 +1426,10 @@ namespace vg {
             
             // create a new step record
             packed_path.steps_iv.append(encode_traversal(handle));
-            packed_path.steps_iv.append(0);
-            packed_path.steps_iv.append(0);
+            packed_path.links_iv.append(0);
+            packed_path.links_iv.append(0);
             
-            uint64_t step_offset = packed_path.steps_iv.size() / PATH_RECORD_SIZE;
+            uint64_t step_offset = packed_path.steps_iv.size() / STEP_RECORD_SIZE;
             
             if (anchor_offset != 0) {
                 
@@ -1446,10 +1469,10 @@ namespace vg {
             
             // put a membership record for this occurrence at the front of the membership list
             size_t node_member_idx = graph_index_to_node_member_index(graph_iv_index(handle));
-            path_membership_value_iv.append(as_integers(segment_end)[0]);
-            path_membership_value_iv.append(step_offset);
-            path_membership_value_iv.append(path_membership_node_iv.get(node_member_idx));
-            path_membership_node_iv.set(node_member_idx, path_membership_value_iv.size() / MEMBERSHIP_RECORD_SIZE);
+            path_membership_id_iv.append(as_integers(segment_end)[0]);
+            path_membership_offset_iv.append(step_offset);
+            path_membership_next_iv.append(path_membership_node_iv.get(node_member_idx));
+            path_membership_node_iv.set(node_member_idx, path_membership_next_iv.size() / MEMBERSHIP_NEXT_RECORD_SIZE);
             
             if (first_iter) {
                 // record the start of the new range

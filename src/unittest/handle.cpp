@@ -2007,6 +2007,9 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
         MutablePathDeletableHandleGraph& graph = *implementation;
         
         auto check_path = [&](const path_handle_t& p, const vector<handle_t>& steps) {
+            
+            REQUIRE(graph.get_step_count(p) == steps.size());
+            
             step_handle_t step = graph.path_begin(p);
             for (int i = 0; i < steps.size(); i++) {
                 

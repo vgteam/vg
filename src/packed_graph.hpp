@@ -74,7 +74,6 @@ public:
     bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
-    /// TODO: can't be node_count because XG has a field named node_count.
     size_t node_size(void) const;
     
     /// Return the smallest ID in the graph, or some smaller number if the
@@ -110,17 +109,6 @@ public:
     
     /// Remove all nodes and edges. Does not update any stored paths.
     void clear(void);
-    
-    /// TODO: swap_handles is actually not yet supported
-    
-    /// Swap the nodes corresponding to the given handles, in the ordering used
-    /// by for_each_handle when looping over the graph. Other handles to the
-    /// nodes being swapped must not be invalidated. If a swap is made while
-    /// for_each_handle is running, it affects the order of the handles
-    /// traversed during the current traversal (so swapping an already seen
-    /// handle to a later handle's position will make the seen handle be visited
-    /// again and the later handle not be visited at all).
-    void swap_handles(const handle_t& a, const handle_t& b);
     
     /// Alter the node that the given handle corresponds to so the orientation
     /// indicated by the handle becomes the node's local forward orientation.
@@ -342,22 +330,25 @@ private:
     PagedVector path_membership_node_iv;
     const static size_t NODE_MEMBER_RECORD_SIZE;
     
-    /// Encodes a series of linked lists of the memberships within paths. Consists of
-    /// fixed width records of the following form. Path IDs are 0-based indexes, the
-    /// other two indexes are 1-based and expressed in units of PATH_RECORD_SIZE and
-    /// MEMBERSHIP_RECORD_SIZE respectively.
-    /// {path ID, index in path, next membership record index}
-    PagedVector path_membership_value_iv;
-    const static size_t MEMBERSHIP_RECORD_SIZE;
-    const static size_t MEMBERSHIP_PATH_OFFSET;
-    const static size_t MEMBERSHIP_STEP_OFFSET;
-    const static size_t MEMBERSHIP_NEXT_OFFSET;
+    /// Encodes a series of linked lists of the memberships within paths. The nodes
+    /// in the linked list are split over three separate vectors, with the entry at
+    /// the same index in each vector corresponding to the same linked list node.
+    /// Path ID (0-based index)
+    PagedVector path_membership_id_iv;
+    /// 1-based offset of the occurrence of the node in the corresponding PackedPath vector.
+    PagedVector path_membership_offset_iv;
+    /// 1-based offset of the next occurrence of this node on a path within this vector (or
+    /// 0 if there is none)
+    PagedVector path_membership_next_iv;
+    const static size_t MEMBERSHIP_ID_RECORD_SIZE;
+    const static size_t MEMBERSHIP_OFFSET_RECORD_SIZE;
+    const static size_t MEMBERSHIP_NEXT_RECORD_SIZE;
     
     /*
      * A struct to package the data associated with a path through the graph.
      */
     struct PackedPath {
-        PackedPath(const string& name, bool is_circular) : name(name), is_circular(is_circular), steps_iv(PAGE_WIDTH) {}
+        PackedPath(const string& name, bool is_circular) : name(name), is_circular(is_circular), steps_iv(PAGE_WIDTH), links_iv(PAGE_WIDTH) {}
         
         /// The path's name
         string name;
@@ -368,11 +359,12 @@ private:
         /// Marks whether this path is circular
         bool is_circular = false;
         
-        // TODO: split up steps_iv into adjacencies and travs separately
-        
         /// Linked list records that encode the oriented nodes of the path. Indexes are
         /// 1-based, with 0 used as a sentinel to indicate none further.
-        /// {ID|orientation (bit-packed), prev step index, next step index}
+        /// {prev index, next index}
+        PagedVector links_iv;
+        /// The traversal value is stored in a separate vector at the matching index.
+        /// {ID|orientation (bit-packed)}
         PagedVector steps_iv;
         
         /// 1-based index of the head of the linked list in steps_iv.
@@ -385,9 +377,10 @@ private:
         uint64_t deleted_step_records = 0;
     };
     const static size_t PATH_RECORD_SIZE;
-    const static size_t PATH_TRAV_OFFSET;
     const static size_t PATH_PREV_OFFSET;
     const static size_t PATH_NEXT_OFFSET;
+    
+    const static size_t STEP_RECORD_SIZE;
     
     /// Map from path names to index in the paths vector.
     string_hash_map<string, int64_t> path_id;
@@ -516,51 +509,51 @@ inline void PackedGraph::set_edge_target(const uint64_t& edge_index, const handl
 }
     
 inline uint64_t PackedGraph::get_next_membership(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET);
+    return path_membership_next_iv.get((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE);
 }
     
 inline uint64_t PackedGraph::get_membership_step(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_STEP_OFFSET);
+    return path_membership_offset_iv.get((membership_index - 1) * MEMBERSHIP_OFFSET_RECORD_SIZE);
 }
 
 inline uint64_t PackedGraph::get_membership_path(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_PATH_OFFSET);
+    return path_membership_id_iv.get((membership_index - 1) * MEMBERSHIP_ID_RECORD_SIZE);
 }
 
 inline void PackedGraph::set_next_membership(const uint64_t& membership_index, const uint64_t& next) {
-    path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET, next);
+    path_membership_next_iv.set((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE, next);
 }
     
 inline void PackedGraph::set_membership_step(const uint64_t& membership_index, const uint64_t& step) {
-    path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_STEP_OFFSET, step);
+    path_membership_offset_iv.set((membership_index - 1) * MEMBERSHIP_ID_RECORD_SIZE, step);
 }
     
 inline void PackedGraph::set_membership_path(const uint64_t& membership_index, const uint64_t& path) {
-    path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_PATH_OFFSET, path);
+    path_membership_id_iv.set((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE, path);
 }
 
 inline uint64_t PackedGraph::get_step_trav(const PackedPath& path, const uint64_t& step_index) const {
-    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET);
+    return path.steps_iv.get((step_index - 1) * STEP_RECORD_SIZE);
 }
 
 inline uint64_t PackedGraph::get_step_prev(const PackedPath& path, const uint64_t& step_index) const {
-    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET);
+    return path.links_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET);
 }
 
 inline uint64_t PackedGraph::get_step_next(const PackedPath& path, const uint64_t& step_index) const {
-    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET);
+    return path.links_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET);
 }
 
 inline void PackedGraph::set_step_trav(PackedPath& path, const uint64_t& step_index, const uint64_t& trav) {
-    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET, trav);
+    path.steps_iv.set((step_index - 1) * STEP_RECORD_SIZE, trav);
 }
 
 inline void PackedGraph::set_step_prev(PackedPath& path, const uint64_t& step_index, const uint64_t& prev_index) {
-    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET, prev_index);
+    path.links_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET, prev_index);
 }
 
 inline void PackedGraph::set_step_next(PackedPath& path, const uint64_t& step_index, const uint64_t& next_index) {
-    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, next_index);
+    path.links_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, next_index);
 }
 
 } // end dankness
