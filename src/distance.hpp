@@ -87,12 +87,13 @@ class DistanceIndex {
         public:
         
             //Constructor
-            SnarlIndex(DistanceIndex* di,
-                          unordered_set<pair<id_t, bool>>& allNodes, 
-                          pair<id_t, bool> start, pair<id_t, bool> end,
-                          pair<id_t, bool> parentNode);
+            //if inChain is true, parentIndex and revInParent are for a chain
+            //otherwise, for the parent snarl
+            SnarlIndex(DistanceIndex* di, size_t parentIndex,
+                       bool revInParent, size_t size, bool inChain);
            
             //Construct and empty SnarlIndex. Must call load after construction to populate it 
+            //TODO: Make constructor more like DistanceIndex constructor
             SnarlIndex(DistanceIndex* di);
 
             //Load data from serialization
@@ -139,10 +140,6 @@ class DistanceIndex {
             void printSelf();
 
         protected:
-
-            //Maps node to index to get its distance
-            //Maps fd node to an index, reverse node is fd index * 2
-            hash_map< id_t, size_t> visitToIndex;
  
              /*Store the distance between every pair nodes, not including the 
              lengths of the nodes. 
@@ -156,20 +153,22 @@ class DistanceIndex {
              */
             int_vector<> distances;
 
-            //ID of the first node in the snarl, also key for distance index 
-            pair<id_t, bool> snarlStart;
- 
-            //End facing out of snarl
-            pair<id_t, bool> snarlEnd;           
+            bool in_chain; //True if this snarl is in a chain
 
-            //Parent snarl or chain. If this is a root, parent is <0, false>
-            pair<id_t, bool> parent;
+            /// If snarl is in a chain, index into chainIndexes of containing 
+            //chain. Otherwise, index into snarlIndexes of parent snarl
+            size_t parent_index;
+            bool rev_in_parent;
+
+            //Number of nodes in the snarl
+            size_t num_nodes;
+            
 
             //The index into distances for distance start->end
             size_t index(pair<id_t, bool> start, pair<id_t, bool> end);
 
         private: 
-            DistanceIndex* distIndex; 
+            DistanceIndex* dist_index; 
 
 
 
@@ -184,10 +183,10 @@ class DistanceIndex {
         public:
         
             //Constructor
-            ChainIndex(DistanceIndex* di, id_t start, id_t end,
-                        pair<id_t, bool> parentNode,  hash_map<id_t, size_t> s, 
-                         vector<int64_t> p, vector<int64_t> fd, 
-                          vector<int64_t> rev );
+            //Takes the index into snarlIndexes of the parent snarl, 
+            //whether it is reversed in the snarl, and the chain length
+            ChainIndex(DistanceIndex* di, size_t parentIndex,
+                       bool revInParent, size_t length);
 
             //Constructor from vector of ints after serialization
             ChainIndex(DistanceIndex* di);
@@ -212,7 +211,7 @@ class DistanceIndex {
              */
             int64_t chainDistance(pair<id_t, bool> start, pair<id_t, bool> end,
                                 const Snarl* startSnarl, const Snarl* endSnarl, 
-                                                            bool recurse=true);
+                                                            bool recurse);
 
             /**
              * Takes the graph and two node sides.
@@ -231,27 +230,25 @@ class DistanceIndex {
 
         protected:
 
-            hash_map<id_t, size_t> snarlToIndex; 
 
             /*Dist from start of chain to start and end of each boundary node of
               all snarls in the chain*/
-            int_vector<> prefixSum;
+            int_vector<> prefix_sum;
 
             /*For each boundary node of snarls in the chain, the distance
                from the start of the node traversing forward to the end of 
                the same node traversing backwards -directions relative to the 
                direction the node is traversed in the chain*/
-            int_vector<> loopFd;
+            int_vector<> loop_fd;
     
             /*For each boundary node of snarls in the chain, the distance
                from the end of the node traversing backward to the start of 
                the same node traversing forward*/
-            int_vector<> loopRev;
+            int_vector<> loop_rev;
 
-            id_t chainStartID;
-            id_t chainEndID;
-            //Parent snarl. If this is a root, parent is <0, false>
-            pair<id_t, bool> parent;
+            /// Index into snarlIndexes of the parent of the chain 
+            size_t parent_index;
+            bool rev_in_parent;
 
 
         
@@ -261,7 +258,7 @@ class DistanceIndex {
                         const Snarl* endSnarl, bool recurse = true);
 
         private: 
-            DistanceIndex* distIndex; 
+            DistanceIndex* dist_index; 
 
         friend class DistanceIndex;   
         friend class SnarlSeedClusterer;
@@ -318,14 +315,41 @@ class DistanceIndex {
         friend class TestDistanceIndex;
     };
 
-    ///////// Data members of overall index
+    ///////// Data members of overall distance index
 
 
-    //map from start node of a snarl to its index
-    unordered_map<pair<id_t, bool>, SnarlIndex> snarlDistances;
+    //vector of all snarl indexes
+    vector<SnarlIndex> snarlIndexes;
 
-    //map from node id of first node in snarl to that chain's index
-    hash_map<id_t, ChainIndex> chainDistances;
+    //vector of all chain indexes
+    vector< ChainIndex> chainIndexes;
+
+    //Vector of length max node id - min node id
+    //For each node, stores the index into snarlIndexes for the snarl
+    //containing the node as and the index of the node in the snarlIndex 
+    //used for looking up distances in the matrix. The index for
+    //the distance matrix is always for the fd direction, rev direction
+    //is the index + 1. For the start and end nodes of the snarl, the inward
+    //pointing node is stored as the first and last elements in the distance
+    //matrix
+    vector<pair<size_t, size_t>> primary_snarls;
+
+    //Similar to primary snarls, stores snarl and index of secondary snarl
+    //each node belongs to, if any.
+    //Secondary snarl can be a node that represents a snarl/chain in the
+    //netgraph of the parent snarl or a snarl that shares a boundary node
+    //with the primary snarl in a chain. The primary snarl will always
+    //be the snarl that occurs first in the chain
+    vector<pair<size_t, size_t>> secondary_snarls;
+    //For each node, stores 1 if the node is in a secondary snarl and 0
+    //otherwise. Use rank to find which index into secondary_snarls
+    //a node's secondary snarl is at
+    sdsl::rank_support_v has_secondary_snarl;
+
+    //For each node, store the index and rank for the chain that the node
+    //belongs to, if any
+    vector<pair<size_t, size_t>> chain_assignments;
+    sdsl::rank_support_v has_chain;
 
     //Graph and snarl manager for this index
     const HandleGraph* graph;
@@ -354,7 +378,8 @@ class DistanceIndex {
 
     //Helper function for constructor - populate the minimum distance index
     //Given the top level snarls
-    int64_t calculateMinIndex(const Chain* chain); 
+    int64_t calculateMinIndex(const Chain* chain, size_t parentIndex,
+                       bool revInParent, bool trivialChain); 
 
 
     //Helper function for constructor - populate node to snarl
