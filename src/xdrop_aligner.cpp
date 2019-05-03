@@ -534,6 +534,7 @@ void XdropAligner::calculate_and_save_alignment(
         m->mutable_position()->set_node_id(graph.graph.get_id(start));
         m->mutable_position()->set_is_reverse(graph.graph.get_is_reverse(start));
         m->mutable_position()->set_offset(0);
+        m->set_rank(1);
         Edit* e = m->add_edit();
         e->set_from_length(0);
         e->set_to_length(alignment.sequence().size());
@@ -555,6 +556,7 @@ void XdropAligner::calculate_and_save_alignment(
         m->mutable_position()->set_node_id(graph.graph.get_id(start));
         m->mutable_position()->set_is_reverse(graph.graph.get_is_reverse(start));
         m->mutable_position()->set_offset(0);
+        m->set_rank(1);
         Edit* e = m->add_edit();
         e->set_from_length(0);
         e->set_to_length(alignment.sequence().size());
