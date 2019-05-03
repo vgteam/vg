@@ -122,7 +122,7 @@ var searchData=
   ['head_5foffset',['head_offset',['../classvg_1_1GaplessExtender.html#acc5406ca2347afdc0429e051f43297c3',1,'vg::GaplessExtender']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html',1,'vg::MinimizerIndex']]],
-  ['header',['header',['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex::header()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a5354bbaddd806761b65984f14423590e',1,'vg::MinimizerIndex::Header::Header()'],['../structvg_1_1MinimizerIndex_1_1Header.html#afcc17ddbd2330715df9b157b42a6eb56',1,'vg::MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key)']]],
+  ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html#a5354bbaddd806761b65984f14423590e',1,'vg::MinimizerIndex::Header::Header()'],['../structvg_1_1MinimizerIndex_1_1Header.html#afcc17ddbd2330715df9b157b42a6eb56',1,'vg::MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key)'],['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex::header()']]],
   ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],
   ['help_5fadd',['help_add',['../add__main_8cpp.html#ad49fa30ce6a9b619ad5df1cfa8621d9a',1,'add_main.cpp']]],
   ['help_5falign',['help_align',['../align__main_8cpp.html#ac749b2692aaca8eeaa6b48d7b44e167d',1,'align_main.cpp']]],

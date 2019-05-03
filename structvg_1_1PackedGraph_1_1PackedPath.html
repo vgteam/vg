@@ -112,6 +112,8 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a5c7aa5b66dc042b009cf6f3823f27ada"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a5c7aa5b66dc042b009cf6f3823f27ada">is_circular</a> = false</td></tr>
 <tr class="memdesc:a5c7aa5b66dc042b009cf6f3823f27ada"><td class="mdescLeft">&#160;</td><td class="mdescRight">Marks whether this path is circular.  <a href="#a5c7aa5b66dc042b009cf6f3823f27ada">More...</a><br/></td></tr>
 <tr class="separator:a5c7aa5b66dc042b009cf6f3823f27ada"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aad457e19bf81ebd4acdb1a726668d5a1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PagedVector.html">PagedVector</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#aad457e19bf81ebd4acdb1a726668d5a1">links_iv</a></td></tr>
+<tr class="separator:aad457e19bf81ebd4acdb1a726668d5a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a57bdca6f9b030e65bd239a68f65973a0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1PagedVector.html">PagedVector</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a57bdca6f9b030e65bd239a68f65973a0">steps_iv</a></td></tr>
 <tr class="separator:a57bdca6f9b030e65bd239a68f65973a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1cf547a77c46886a6461b5a2620be1d6"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6">head</a> = 0</td></tr>
@@ -216,6 +218,19 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="aad457e19bf81ebd4acdb1a726668d5a1"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1PagedVector.html">PagedVector</a> vg::PackedGraph::PackedPath::links_iv</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Linked list records that encode the oriented nodes of the path. Indexes are 1-based, with 0 used as a sentinel to indicate none further. {prev index, next index} </p>
+
+</div>
+</div>
 <a class="anchor" id="a49b6d1eb6e9d48c83dfe12b2be2b4f3d"></a>
 <div class="memitem">
 <div class="memproto">
@@ -239,7 +254,7 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Linked list records that encode the oriented nodes of the path. Indexes are 1-based, with 0 used as a sentinel to indicate none further. {ID|orientation (bit-packed), prev step index, next step index} </p>
+<p>The traversal value is stored in a separate vector at the matching index. {ID|orientation (bit-packed)} </p>
 
 </div>
 </div>

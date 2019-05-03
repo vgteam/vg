@@ -223,7 +223,7 @@ var searchData=
   ['swap',['swap',['../classvg_1_1SnarlState.html#a4e3f0d0c720ea665b3db9542d07f7ec1',1,'vg::SnarlState::swap()'],['../classvg_1_1MinimizerIndex.html#a46a5cb10502dd6d957f15c8952c6a442',1,'vg::MinimizerIndex::swap()']]],
   ['swap_5falleles',['swap_alleles',['../classvg_1_1PhasedGenome.html#ae325c8488e737b75b980796aacf37246',1,'vg::PhasedGenome']]],
   ['swap_5fendianness',['swap_endianness',['../structvg_1_1endianness.html#a0a3eec44ef047d7771ad9804c5b51c85',1,'vg::endianness']]],
-  ['swap_5fhandles',['swap_handles',['../classvg_1_1PackedGraph.html#af277d9d702500220c50f12d57b417931',1,'vg::PackedGraph::swap_handles()'],['../classvg_1_1VG.html#a3d4db6ea2a99bda9a48411491aa6ed4e',1,'vg::VG::swap_handles()']]],
+  ['swap_5fhandles',['swap_handles',['../classvg_1_1VG.html#a3d4db6ea2a99bda9a48411491aa6ed4e',1,'vg::VG']]],
   ['swap_5fhaplotypes',['swap_haplotypes',['../classvg_1_1GenomeState.html#aee2aa05cdf5226983f8f25d783da528e',1,'vg::GenomeState']]],
   ['swap_5flabel',['swap_label',['../classvg_1_1PhasedGenome.html#a181b4e71f8debc78ceccf476ce36abcd',1,'vg::PhasedGenome']]],
   ['swap_5fnode_5fid',['swap_node_id',['../classvg_1_1VG.html#a0f8c9051591df60d405a8dc1006aa6d5',1,'vg::VG::swap_node_id(id_t node_id, id_t new_id)'],['../classvg_1_1VG.html#aa906c5779ea372eb4dd0d9b8cc224be3',1,'vg::VG::swap_node_id(Node *node, id_t new_id)']]],
