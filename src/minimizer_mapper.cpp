@@ -866,7 +866,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 Alignment before_alignment;
                 before_alignment.set_sequence(before_sequence);
                 // TODO: pre-make the topological order
-                
 #ifdef debug
                 cerr << "Align " << pb2json(before_alignment) << " pinned right vs:" << endl;
                 subgraph.for_each_handle([&](const handle_t& here) {
@@ -891,7 +890,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 #ifdef debug
                     cerr << "Xdrop: " << pb2json(before_alignment) << endl;
                     cerr << "Normal: " << pb2json(clone) << endl;
-                    assert(pb2json(clone) == pb2json(before_alignment));
 #endif
                 } else {
                     get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
@@ -1035,7 +1033,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
 #ifdef debug
                                 cerr << "Xdrop: " << pb2json(after_alignment) << endl;
                                 cerr << "Normal: " << pb2json(clone) << endl;
-                                assert(pb2json(clone) == pb2json(after_alignment));
 #endif
                             } else {
                                 get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
