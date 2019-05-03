@@ -435,6 +435,9 @@ TEST_CASE("XdropAligner can align pinned right with a trailing insertion", "[xdr
     REQUIRE(aln.path().mapping(0).edit(1).from_length() == 0);
     REQUIRE(aln.path().mapping(0).edit(1).to_length() == 1);
     REQUIRE(aln.path().mapping(0).edit(1).sequence() == "C");
+
+    // Make sure we got a rank set.
+    REQUIRE(aln.path().mapping(0).rank() == 1);
 }
 
 TEST_CASE("XdropAligner can align pinned left when the entire read is an insertion", "[xdrop][alignment][mapping]") {
@@ -469,6 +472,9 @@ TEST_CASE("XdropAligner can align pinned left when the entire read is an inserti
     REQUIRE(aln.path().mapping(0).edit(0).from_length() == 0);
     REQUIRE(aln.path().mapping(0).edit(0).to_length() == read.size());
     REQUIRE(aln.path().mapping(0).edit(0).sequence() == read);
+
+    // Make sure we got a rank set.
+    REQUIRE(aln.path().mapping(0).rank() == 1);
 }
 
 
