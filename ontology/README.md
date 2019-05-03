@@ -3,7 +3,7 @@
 ## Conceptual model
 
 `Node`s, `Path`s and `Step`s, are the three core parts of any VG graph in RDF.
-A `Node` in the VG RDF corersponds directly to the Node concept in the VG protobuf serialization.
+A `Node` in the VG RDF corresponds directly to the Node concept in the VG protobuf serialization.
 `Paths` are a number of `Step`s that represent a sequence of Node visits that generate a linear biological sequence.
 Each `Step` connects a `Node` into a `Path`
 
