@@ -3989,7 +3989,8 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
     AlignmentChainModel chainer(multi_alns, this, transition_weight, max_band_jump, 64, max_band_jump*2);
     // bench_end(bench[0]);
     if (debug) chainer.display(cerr);
-    vector<Alignment> alignments = chainer.traceback(read, max_multimaps, false, debug);
+    int total_multimaps = max(max_multimaps, extra_multimaps);
+    vector<Alignment> alignments = chainer.traceback(read, total_multimaps, false, debug);
     if (patch_alignments) {
         for (auto& aln : alignments) {
             // patch the alignment to deal with short unaligned regions
@@ -4894,7 +4895,7 @@ AlignmentChainModel::AlignmentChainModel(
             v.aln = &aln;
             v.band_begin = offset;
             v.band_idx = idx;
-            v.weight = aln.sequence().size() + aln.score() + aln.mapping_quality();
+            v.weight = aln.score();
             v.prev = nullptr;
             v.score = 0;
             v.positions = mapper->alignment_path_offsets(aln);
@@ -4912,7 +4913,8 @@ AlignmentChainModel::AlignmentChainModel(
     }
     for (vector<AlignmentChainModelVertex>::iterator v = model.begin(); v != model.end(); ++v) {
         for (auto u = v+1; u != model.end(); ++u) {
-            if (v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
+            if (v->band_idx != u->band_idx &&
+                v->next_cost.size() < max_connections && u->prev_cost.size() < max_connections) {
                 if (v->band_idx + vertex_band_width >= u->band_idx) {
                     // bench_start(mapper->bench[2]);
                     double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions,
@@ -5032,6 +5034,7 @@ vector<Alignment> AlignmentChainModel::traceback(const Alignment& read, int alt_
             }
             aln_trace[vertex.band_idx] = *vertex.aln;
         }
+        //display_dot(cerr, vertex_trace);
     }
     vector<Alignment> alns;
     for (auto& trace : traces) {
@@ -5065,6 +5068,55 @@ void AlignmentChainModel::display(ostream& out) {
         }
         out << endl;
     }
+}
+
+void AlignmentChainModel::display_dot(ostream& out, vector<AlignmentChainModelVertex*> vertex_trace) {
+    map<AlignmentChainModelVertex*, int> vertex_ids;
+    int i = 0;
+    for (auto& vertex : model) {
+        vertex_ids[&vertex] = ++i;
+    }
+    map<AlignmentChainModelVertex*,int> in_trace;
+    i = 0;
+    for (auto& v : vertex_trace) {
+        in_trace[v] = ++i;
+    }
+    out << "digraph memchain {" << endl;
+    out << "rankdir=LR;" << endl;
+    for (auto& vertex : model) {
+        out << vertex_ids[&vertex]
+            << " [label=\"id:" << vertex_ids[&vertex]
+            << " band:" << vertex.band_idx
+            << " weight:" << vertex.weight
+            << " score:" << vertex.score;
+        if (vertex.aln->path().mapping_size()) {
+            out << " start:"
+                << vertex.aln->path().mapping(0).position().node_id()
+                << " end:"
+                << vertex.aln->path().mapping(vertex.aln->path().mapping_size()-1).position().node_id();
+        }
+        out << "\nseq:" << vertex.aln->sequence();
+        out << "\npositions: ";
+        for (auto& p : vertex.positions) {
+            for (auto& q : p.second) {
+                out << p.first << ":" << q.first << (q.second?"-":"+") << " ";
+            }
+        }
+        out << "\"";
+        if (in_trace.find(&vertex) != in_trace.end()) {
+            out << ",color=red";
+        }
+        out << ",shape=box];" << endl;
+        for (auto& p : vertex.next_cost) {
+            out << vertex_ids[&vertex] << " -> " << vertex_ids[p.first] << " [label=\"" << p.second << "\"";
+            if (in_trace.find(&vertex) != in_trace.end() && in_trace.find(p.first) != in_trace.end() &&
+                in_trace[&vertex] - 1 == in_trace[p.first]) {
+                out << ",color=red";
+            }
+            out << "];" << endl;
+        }
+    }
+    out << "}" << endl;
 }
 
 FragmentLengthDistribution::FragmentLengthDistribution(size_t maximum_sample_size,
