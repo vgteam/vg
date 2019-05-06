@@ -1799,42 +1799,55 @@ namespace vg {
         
         auto validate_adjacent_mappings = [&](const Mapping& mapping_from, const Mapping& mapping_to) {
             size_t mapping_from_end_offset = mapping_from.position().offset() + mapping_from_length(mapping_from);
-            if (mapping_from.position().node_id() == mapping_to.position().node_id() &&
-                mapping_from.position().is_reverse() == mapping_to.position().is_reverse()) {
-                if (mapping_to.position().offset() != mapping_from_end_offset) {
+            
+            handle_t handle_from = handle_graph.get_handle(mapping_from.position().node_id(), mapping_from.position().is_reverse());
+            handle_t handle_to = handle_graph.get_handle(mapping_to.position().node_id(), mapping_to.position().is_reverse());
+            
+            
+            
+            if (handle_from == handle_to) {
+                if (!(mapping_to.position().offset() == 0 && mapping_from_end_offset == handle_graph.get_length(handle_from))) {
+                    // We aren't going from the end of the handle back to its start (over an edge)
+                
+                    if (mapping_to.position().offset() != mapping_from_end_offset) {
+                        // So then the mappings need to abut and they don't.
 #ifdef debug_verbose_validation
-                    cerr << "validation failure on within-node adjacency" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                        cerr << "validation failure on within-node adjacency" << endl;
+                        cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
-                    return false;
+                        return false;
+                    } else {
+                        // No edge involved. We can succeed early.
+                        return true;
+                    }
                 }
             }
-            else {
-                if (mapping_from_end_offset != handle_graph.get_length(handle_graph.get_handle(mapping_from.position().node_id()))) {
+            
+            // If we get here, we must be crossing an edge.
+            
+            if (mapping_from_end_offset != handle_graph.get_length(handle_graph.get_handle(mapping_from.position().node_id()))) {
 #ifdef debug_verbose_validation
-                    cerr << "validation failure on using edge at middle of node" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                cerr << "validation failure on using edge at middle of node" << endl;
+                cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
-                    return false;
-                }
-                
-                handle_t handle_from = handle_graph.get_handle(mapping_from.position().node_id(), mapping_from.position().is_reverse());
-                handle_t handle_to = handle_graph.get_handle(mapping_to.position().node_id(), mapping_to.position().is_reverse());
-                
-                bool found_edge = false;
-                function<bool(const handle_t&)> check_for_edge = [&](const handle_t& next_handle) {
-                    found_edge = (next_handle == handle_to);
-                    return !found_edge;
-                };
-                handle_graph.follow_edges(handle_from, false, check_for_edge);
-                
-                if (!found_edge) {
+                return false;
+            }
+            
+            
+            
+            bool found_edge = false;
+            function<bool(const handle_t&)> check_for_edge = [&](const handle_t& next_handle) {
+                found_edge = (next_handle == handle_to);
+                return !found_edge;
+            };
+            handle_graph.follow_edges(handle_from, false, check_for_edge);
+            
+            if (!found_edge) {
 #ifdef debug_verbose_validation
-                    cerr << "validation failure on nodes not connected by an edge" << endl;
-                    cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
+                cerr << "validation failure on nodes not connected by an edge" << endl;
+                cerr << pb2json(mapping_from) << "->" << pb2json(mapping_to) << endl;
 #endif
-                    return false;
-                }
+                return false;
             }
             return true;
         };
