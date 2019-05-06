@@ -122,8 +122,11 @@ public:
     double total_seconds() const;
 
     /// Call the given callback with stage name (or ""), substage name (or ""), and
-    /// time in seconds overasll, for each stage, and for each substage in a stage.
-    void for_each_time(const function<void(const string&, const string&, double)>& callback);
+    /// time in seconds overall, for each stage, and for each substage in a stage.
+    void for_each_time(const function<void(const string&, const string&, double)>& callback) const;
+    
+    /// Call the given callback with stage name and number of results at that stage, for each stage.
+    void for_each_stage(const function<void(const string&, size_t)>& callback) const;
 
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
     /// Illustrates stages, provenance, and runtime assignment.
