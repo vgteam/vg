@@ -17,7 +17,7 @@ var indexSectionsWithContent =
   7: "ceflmnpst",
   8: "adefilmnprstuw",
   9: "abcdhopst",
-  10: "_bcdgimosv"
+  10: "_bcdgimostv"
 };
 
 var indexSectionNames =

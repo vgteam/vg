@@ -172,8 +172,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a9c9ecb53ef3c419c32eab554f5a7940c"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a9c9ecb53ef3c419c32eab554f5a7940c">total_seconds</a> () const </td></tr>
 <tr class="memdesc:a9c9ecb53ef3c419c32eab554f5a7940c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the total number of seconds elapsed between <a class="el" href="classvg_1_1Funnel.html#a4ba2b8db1575820b05d069cd6c802e31">start()</a> and <a class="el" href="classvg_1_1Funnel.html#adbe0233346c63f1693fa865eca0083b2">stop()</a>  <a href="#a9c9ecb53ef3c419c32eab554f5a7940c">More...</a><br/></td></tr>
 <tr class="separator:a9c9ecb53ef3c419c32eab554f5a7940c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aaebeaf80e44030328e0d61ab5c1e3fbc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#aaebeaf80e44030328e0d61ab5c1e3fbc">for_each_time</a> (const function&lt; void(const string &amp;, const string &amp;, double)&gt; &amp;callback)</td></tr>
-<tr class="separator:aaebeaf80e44030328e0d61ab5c1e3fbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a45d5a865dfb4a5998e2fcb510b11cf15"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a45d5a865dfb4a5998e2fcb510b11cf15">for_each_time</a> (const function&lt; void(const string &amp;, const string &amp;, double)&gt; &amp;callback) const </td></tr>
+<tr class="separator:a45d5a865dfb4a5998e2fcb510b11cf15"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a806cb0c57762ca6c6e304539155b20f3"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#a806cb0c57762ca6c6e304539155b20f3">for_each_stage</a> (const function&lt; void(const string &amp;, size_t)&gt; &amp;callback) const </td></tr>
+<tr class="memdesc:a806cb0c57762ca6c6e304539155b20f3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Call the given callback with stage name and number of results at that stage, for each stage.  <a href="#a806cb0c57762ca6c6e304539155b20f3">More...</a><br/></td></tr>
+<tr class="separator:a806cb0c57762ca6c6e304539155b20f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab38eefb0fa53720d2ab80793a2c13762"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Funnel.html#ab38eefb0fa53720d2ab80793a2c13762">to_dot</a> (ostream &amp;out)</td></tr>
 <tr class="separator:ab38eefb0fa53720d2ab80793a2c13762"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -349,7 +352,25 @@ unordered_map&lt; string, <br class="typebreak"/>
 
 </div>
 </div>
-<a class="anchor" id="aaebeaf80e44030328e0d61ab5c1e3fbc"></a>
+<a class="anchor" id="a806cb0c57762ca6c6e304539155b20f3"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Funnel::for_each_stage </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(const string &amp;, size_t)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>callback</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Call the given callback with stage name and number of results at that stage, for each stage. </p>
+
+</div>
+</div>
+<a class="anchor" id="a45d5a865dfb4a5998e2fcb510b11cf15"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -358,11 +379,11 @@ unordered_map&lt; string, <br class="typebreak"/>
           <td>(</td>
           <td class="paramtype">const function&lt; void(const string &amp;, const string &amp;, double)&gt; &amp;&#160;</td>
           <td class="paramname"><em>callback</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Call the given callback with stage name (or ""), substage name (or ""), and time in seconds overasll, for each stage, and for each substage in a stage. </p>
+<p>Call the given callback with stage name (or ""), substage name (or ""), and time in seconds overall, for each stage, and for each substage in a stage. </p>
 
 </div>
 </div>
