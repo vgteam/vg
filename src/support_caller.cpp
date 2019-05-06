@@ -463,28 +463,30 @@ static void trace_traversal(const SnarlTraversal& traversal, const Snarl* site,
  */
 tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugmentedGraph& augmented,
     SnarlManager& snarl_manager, const Snarl* site, const SnarlTraversal& traversal,
-    const SnarlTraversal* already_used, const SnarlTraversal* ref_traversal) {
+    const vector<const SnarlTraversal*>& already_used, const SnarlTraversal* ref_traversal) {
 
 #ifdef debug
     cerr << "Evaluate traversal: " << endl;
     for (size_t i = 0; i < traversal.visit_size(); i++) {
         cerr << "\t" << pb2json(traversal.visit(i)) << endl;
     }
-    if (already_used != nullptr) {
-        cerr << "Need to share: " << endl;
-        for (size_t i = 0; i < already_used->visit_size(); i++) {
-            cerr << "\t" << pb2json(already_used->visit(i)) << endl;
+    if (!already_used.empty()) {
+        for (auto share_trav : already_used) {
+            cerr << "Need to share: " << endl;
+            for (size_t i = 0; i < share_trav->visit_size(); i++) {
+                cerr << "\t" << pb2json(share_trav->visit(i)) << endl;
+            }
         }
     }
 #endif
 
     // First work out the stuff we need to share
-    set<id_t> shared_nodes;
-    set<Snarl> shared_children;
-    set<Edge*> shared_edges;
-    if (already_used != nullptr) {
+    multiset<id_t> shared_nodes;
+    multiset<Snarl> shared_children;
+    multiset<Edge*> shared_edges;
+    for (auto shared_trav : already_used) {
         // Mark all the nodes and edges that the other traverasl uses.
-        trace_traversal(*already_used, site, [&](size_t i, id_t node, bool is_reverse) {
+        trace_traversal(*shared_trav, site, [&](size_t i, id_t node, bool is_reverse) {
             shared_nodes.insert(node);
         }, [&](size_t i, NodeSide end1, NodeSide end2) {
             shared_edges.insert(augmented.graph.get_edge(end1, end2));
@@ -538,8 +540,9 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         Node* node = augmented.graph.get_node(node_id);
     
         // Grab this node's total support along its length
-        // Make sure to only use half the support if the node is shared
-        auto got_support = augmented.get_support(node) * node->sequence().size() * (shared_nodes.count(node_id) ? 0.5 : 1.0);
+        // Make sure to only use half the support if the node is shared or none if its shared twice
+        double shared_factor = 1. - 0.5 * (double) min(2UL, shared_nodes.count(node_id));
+        auto got_support = augmented.get_support(node) * node->sequence().size() * shared_factor;
         
         if (is_reverse) {
             // Put the support relative to the traversal's strand
@@ -563,7 +566,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         }
         
         // And update its min support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * (shared_nodes.count(node_id) ? 0.5 : 1.0));
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(node) * shared_factor);
         
     }, [&](size_t i, NodeSide end1, NodeSide end2) {
         // This is an edge
@@ -576,7 +579,8 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
 
         // Count as 1 base worth for the total/average support
         // Make sure to only use half the support if the edge is shared
-        auto got_support = (double)edge_size * augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0);
+        double shared_factor = 1. - 0.5 * (double) min(2UL, shared_edges.count(edge));
+        auto got_support = (double)edge_size * augmented.get_support(edge) * shared_factor;
 
         // Prevent averaging over SVs with 0 support, just because the reference part of the traversal has support
         if (edge_size > max_unsupported_edge_size && support_val(got_support) == 0) {
@@ -610,7 +614,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
         }
         
         // Min in its support
-        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * (shared_edges.count(edge) ? 0.5 : 1.0));        
+        min_supports[i] = support_min(min_supports[i], augmented.get_support(edge) * shared_factor);        
     }, [&](size_t i, Snarl child, bool is_reverse) {
         // This is a child snarl, so get its max support.
         
@@ -647,11 +651,10 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
                 << child_support << " for distinct " << child_max << endl;
 #endif
         }
-        
-        if (shared_children.count(child)) {
-            // Make sure to halve the support if the child is shared
-            child_max *= 0.5;
-        }
+
+        double shared_factor = 1. - 0.5 * (double) min(2UL, shared_children.count(child));
+        // Make sure to halve the support if the child is shared
+        child_max *= shared_factor;
 
         // don't count inverted children as reference
         bool count_as_ref = ref_children.count(child) && !ref_reversed;
@@ -734,7 +737,7 @@ tuple<Support, Support, size_t> SupportCaller::get_traversal_support(SupportAugm
 */
 tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_and_sizes(
     SupportAugmentedGraph& augmented, SnarlManager& snarl_manager, const Snarl& site,
-    const vector<SnarlTraversal>& traversals, const SnarlTraversal* minus_traversal) {
+    const vector<SnarlTraversal>& traversals, const vector<const SnarlTraversal*>& minus_traversals) {
 
     // How long is the longest traversal?
     // Sort of approximate because of the way nested site sizes are estimated.
@@ -758,7 +761,7 @@ tuple<vector<Support>, vector<size_t> > SupportCaller::get_traversal_supports_an
         Support min_support;
         // Trace the traversal and get its support
         tie(min_support, total_support, total_size) = get_traversal_support(
-            augmented, snarl_manager, &site, traversal, minus_traversal, &traversals.front());
+            augmented, snarl_manager, &site, traversal, minus_traversals, &traversals.front());
             
         // Add average and min supports to vectors. Note that average support
         // ignores edges.
@@ -925,12 +928,6 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
     // Calculate the support for all the traversals of this snarl.
     tie(supports, traversal_sizes) = get_traversal_supports_and_sizes(
         augmented, snarl_manager, site, here_traversals);
-        
-    for (auto& support : supports) {
-        // Blit supports over to the locus
-        *locus.add_support() = support;
-    }
-    assert(locus.support_size() == here_traversals.size());
     
     ////////////////////////////////////////////////////////////////////////////
 
@@ -960,7 +957,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
     // Then recalculate supports assuming we can't count anything shared with that best traversal
     vector<Support> additional_supports;
     tie(additional_supports, std::ignore) = get_traversal_supports_and_sizes(
-        augmented, snarl_manager, site, here_traversals, &here_traversals.at(best_allele));
+        augmented, snarl_manager, site, here_traversals, {&here_traversals.at(best_allele)});
     
     // Then pick the second best one
     int second_best_allele = get_best_allele(additional_supports, {best_allele});
@@ -989,7 +986,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
     int third_best_allele = -1;
     if (second_best_allele != -1) {
         tie(tertiary_supports, std::ignore) = get_traversal_supports_and_sizes(
-            augmented, snarl_manager, site, here_traversals, &here_traversals.at(second_best_allele));
+            augmented, snarl_manager, site, here_traversals, {&here_traversals.at(second_best_allele)});
         third_best_allele = get_best_allele(tertiary_supports, {best_allele, second_best_allele});
     }    
 
@@ -1107,8 +1104,8 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
             third_best_allele > 0 &&
             is_indel_ma_3 &&
             max_indel_ma_bias * bias_multiple * support_val(third_best_support) >= support_val(best_support) &&
-            total(second_best_support) >= max((size_t)min_total_support_for_call, 1UL) &&
-            total(third_best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
+            total(second_best_support) > min_total_support_for_call &&
+            total(third_best_support) > min_total_support_for_call) {
             // There's a second best allele and third best allele, and it's not too biased to call,
             // and both alleles exceed the minimum to call them present, and the
             // second-best and third-best alleles have enough support that it won't torpedo the
@@ -1130,8 +1127,8 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
         else if (copy_budget >= 2 &&
             second_best_allele != -1 &&
             bias_limit * bias_multiple * support_val(second_best_support_gt) >= support_val(best_support_gt) &&
-            total(best_support) >= max((size_t)min_total_support_for_call, 1UL) &&
-            total(second_best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
+            total(best_support) > min_total_support_for_call &&
+            total(second_best_support) > min_total_support_for_call) {
             // There's a second best allele, and it's not too biased to call,
             // and both alleles exceed the minimum to call them present, and the
             // second-best allele has enough support that it won't torpedo the
@@ -1151,7 +1148,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
             // Make the call
             *locus.add_genotype() = genotype;
             
-        } else if (copy_budget >= 2 && total(best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
+        } else if (copy_budget >= 2 && total(best_support) > min_total_support_for_call) {
             // The second best allele isn't present or isn't good enough,
             // but the best allele has enough coverage that we can just call
             // two of it.
@@ -1170,7 +1167,7 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
             // Make the call
             *locus.add_genotype() = genotype;
 
-        } else if (copy_budget >= 1 && total(best_support) >= max((size_t)min_total_support_for_call, 1UL)) {
+        } else if (copy_budget >= 1 && total(best_support) > min_total_support_for_call) {
             // We're only supposed to have one copy, and the best allele is good enough to call
             
 #ifdef debug
@@ -1202,6 +1199,28 @@ vector<SnarlTraversal> SupportCaller::find_best_traversals(
         
         // Don't add the genotype to the locus
     }
+
+    // Add the supports to the locus, correcting for shared support vis a vis the called alleles
+    for (int i = 0; i < supports.size(); ++i) {
+        vector<const SnarlTraversal*> subtract_travs;
+        if (locus.genotype_size() > 0 && locus.genotype(0).allele_size() > 0 && i != locus.genotype(0).allele(0)) {
+            subtract_travs.push_back(&here_traversals[locus.genotype(0).allele(0)]);
+        }
+        if (locus.genotype_size() > 0 && locus.genotype(0).allele_size() > 1 && i != locus.genotype(0).allele(1)) {
+            subtract_travs.push_back(&here_traversals[locus.genotype(0).allele(1)]);
+        }
+        if (subtract_travs.empty()) {
+            // Blit supports over to the locus
+            *locus.add_support() = supports[i];
+        } else {
+            // Subtract the supports from the called alleles
+            vector<Support> corrected_support;
+            tie(corrected_support, std::ignore) = 
+                get_traversal_supports_and_sizes(augmented, snarl_manager, site, {here_traversals[i]}, subtract_travs);
+            *locus.add_support() = corrected_support[0];            
+        }
+    }
+    assert(locus.support_size() == here_traversals.size());
     
     // Find the total support for the Locus across all alleles
     Support locus_support;
@@ -2162,15 +2181,10 @@ void SupportCaller::call(
     if (!((string)recall_vcf_filename).empty()) {
 
         auto skip_alt = [&] (const SnarlTraversal& alt_path) -> bool {
-            if (alt_path.visit_size() == 0) {
-                // empty alt paths happen when we fail to link the path in the graph
-                // to a deletion edge. 
-                return true;
-            }
             Support avg_support;
             size_t total_size;
             tie(std::ignore, avg_support, total_size) = get_traversal_support(
-                augmented, site_manager, nullptr, alt_path, nullptr, nullptr);
+                augmented, site_manager, nullptr, alt_path, {}, nullptr);
             return total_size > 0 && total(avg_support) / (double)total_size < min_alt_path_support;
         };
         

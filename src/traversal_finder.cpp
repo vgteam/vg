@@ -2477,7 +2477,8 @@ void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf, Fast
             }
         }
         if (!path_found) {
-            cerr << "[VCFTraversalFinder] Warning: No alt path found in graph for variant.  It will be ignored:\n"
+            cerr << "[VCFTraversalFinder] Warning: No alt path (prefix="
+                 << ("_alt_" + make_variant_id(var) + "_") << ") found in graph for variant.  It will be ignored:\n"
                  << var << endl;
         }
     }
@@ -3050,7 +3051,7 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
                     alt_alleles[var_i].push_back(allele);
                 }
 #ifdef debug
-                else if (skip_alt != nullptr) {
+                else {
                     cerr << "Pruning allele " << allele << " from variant " << site_variants[var_i]->id << endl;
                 }
 #endif
