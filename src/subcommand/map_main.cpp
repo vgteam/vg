@@ -67,7 +67,7 @@ void help_map(char** argv) {
          << "    -A, --qual-adjust             perform base quality adjusted alignments (requires base quality input)" << endl
          << "preset:" << endl
          << "    -m, --alignment-model STR     use a preset alignment scoring model, either \"short\" (default) or \"long\" (for ONT/PacBio)" << endl
-         << "                                  \"long\" is equivalent to `-u 2 -L 63 -q 1 -z 2 -o 2 -y 1 -w 128`" << endl
+         << "                                  \"long\" is equivalent to `-u 2 -L 63 -q 1 -z 2 -o 2 -y 1 -w 128 -O 32`" << endl
          << "input:" << endl
          << "    -s, --sequence STR            align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -V, --seq-name STR            name the sequence using this value (for graph modification with new named paths)" << endl
@@ -339,6 +339,7 @@ int main_map(int argc, char** argv) {
                 gap_open = 2;
                 gap_extend = 1;
                 band_width = 128;
+                band_overlap = 32;
             }
             break;
 
