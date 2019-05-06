@@ -3966,21 +3966,21 @@ vector<Alignment> Mapper::align_banded(const Alignment& read, int kmer_size, int
         // consider both the forward and inversion case
         // counter[3]++; bench_t b; bench_init(b); bench_start(b);
         int64_t dist_fwd = distances.first;
-        if (dist_fwd < aln2.sequence().size()) {
+        if (aln1_end == aln2_begin || id(aln1_end) == id(aln2_begin) || dist_fwd < aln2.sequence().size()*2) {
             int64_t graph_dist_fwd = graph_distance(aln1_end, aln2_begin, aln2.sequence().size());
             dist_fwd = min(graph_dist_fwd, dist_fwd);
         }
         dist_fwd -= band_distance;
         int64_t dist_inv = distances.second;
-        if (dist_inv < aln2.sequence().size()) {
+        if (dist_inv < aln2.sequence().size()*2) {
             int64_t graph_dist_inv = graph_distance(aln2_begin, aln1_end, aln2.sequence().size());
             dist_inv = min(graph_dist_inv, dist_inv);
         }
         dist_inv -= band_distance;
         // bench_end(b);
 
-        double fwd_score = -((double)gap_open + (double)dist_fwd * (double)gap_extension);
-        double inv_score = -2.0*((double)gap_open + (double)dist_inv * (double)gap_extension);
+        double fwd_score = -((double)(gap_open * dist_fwd != 0) + (double)dist_fwd * (double)gap_extension);
+        double inv_score = -2.0*((double)(gap_open * dist_fwd != 0) + (double)dist_inv * (double)gap_extension);
         return max(fwd_score, inv_score);
     };
 
@@ -4918,7 +4918,7 @@ AlignmentChainModel::AlignmentChainModel(
                 if (v->band_idx + vertex_band_width >= u->band_idx) {
                     // bench_start(mapper->bench[2]);
                     double weight = transition_weight(*v->aln, *u->aln, v->positions, u->positions,
-                                                      u->band_begin - v->band_begin+v->aln->sequence().size());
+                                                      u->band_begin - (v->band_begin+v->aln->sequence().size()));
                     // bench_end(mapper->bench[2]);
                     if (weight > -std::numeric_limits<double>::max()) {
                         v->next_cost.push_back(make_pair(&*u, weight));
@@ -5085,23 +5085,22 @@ void AlignmentChainModel::display_dot(ostream& out, vector<AlignmentChainModelVe
     out << "rankdir=LR;" << endl;
     for (auto& vertex : model) {
         out << vertex_ids[&vertex]
-            << " [label=\"id:" << vertex_ids[&vertex]
+            << " [label=\""
+            << vertex.aln->sequence()
+            << "\nid:" << vertex_ids[&vertex]
             << " band:" << vertex.band_idx
             << " weight:" << vertex.weight
             << " score:" << vertex.score;
-        if (vertex.aln->path().mapping_size()) {
-            out << " start:"
-                << vertex.aln->path().mapping(0).position().node_id()
-                << " end:"
-                << vertex.aln->path().mapping(vertex.aln->path().mapping_size()-1).position().node_id();
-        }
-        out << "\nseq:" << vertex.aln->sequence();
         out << "\npositions: ";
         for (auto& p : vertex.positions) {
             for (auto& q : p.second) {
                 out << p.first << ":" << q.first << (q.second?"-":"+") << " ";
             }
         }
+        pos_t p_start = make_pos_t(path_start_position(vertex.aln->path()));
+        pos_t p_end = make_pos_t(path_end_position(vertex.aln->path()));
+        out << "\nstart: " << id(p_start) << (is_rev(p_start)?"-":"+") << ":" << offset(p_start) << " ";
+        out << "end: " << id(p_end) << (is_rev(p_end)?"-":"+") << ":" << offset(p_end) << " ";
         out << "\"";
         if (in_trace.find(&vertex) != in_trace.end()) {
             out << ",color=red";
@@ -5111,7 +5110,7 @@ void AlignmentChainModel::display_dot(ostream& out, vector<AlignmentChainModelVe
             out << vertex_ids[&vertex] << " -> " << vertex_ids[p.first] << " [label=\"" << p.second << "\"";
             if (in_trace.find(&vertex) != in_trace.end() && in_trace.find(p.first) != in_trace.end() &&
                 in_trace[&vertex] - 1 == in_trace[p.first]) {
-                out << ",color=red";
+                out << ",color=red,fontcolor=red";
             }
             out << "];" << endl;
         }
