@@ -22,6 +22,23 @@ gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g, const vector<ha
     gssw_graph* graph = gssw_graph_create(g.node_size());
     unordered_map<int64_t, gssw_node*> nodes;
     
+#ifdef debug
+    vector<handle_t> redone_order = algorithms::lazier_topological_order(&g);
+
+    cerr << "Topological order sent:";
+    for (auto& h : topological_order) {
+        cerr << " " << g.get_id(h) << (g.get_is_reverse(h) ? "-" : "+");
+    }
+    cerr << endl;
+    
+    cerr << "Topological order made:";
+    for (auto& h : redone_order) {
+        cerr << " " << g.get_id(h) << (g.get_is_reverse(h) ? "-" : "+");
+    }
+    cerr << endl;
+#endif
+    
+    
     // compute the topological order
     for (const handle_t& handle : topological_order) {
         auto cleaned_seq = nonATGCNtoN(g.get_sequence(handle));
@@ -904,10 +921,12 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     
     // make a place to reverse the graph and sequence if necessary
     BackwardsGraph reversed_graph(&g);
+    vector<handle_t> reversed_order;
     string reversed_sequence;
 
     // choose forward or reversed objects
     const HandleGraph* oriented_graph = &g;
+    const vector<handle_t>* oriented_order = topological_order;
     const string* align_sequence = &alignment.sequence();
     if (pin_left) {
         // choose the reversed graph
@@ -917,6 +936,13 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         reversed_sequence.resize(align_sequence->size());
         reverse_copy(align_sequence->begin(), align_sequence->end(), reversed_sequence.begin());
         align_sequence = &reversed_sequence;
+        
+        if (topological_order != nullptr) {
+            // Reverse but do not flip the topological order
+            reversed_order.reserve(topological_order->size());
+            std::copy(topological_order->rbegin(), topological_order->rend(), std::back_inserter(reversed_order));
+            oriented_order = &reversed_order;
+        }
     }
     
     // to save compute, we won't make these unless we're doing pinning
@@ -931,8 +957,8 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     
     // convert into gssw graph either using the pre-made topological order or computing a
     // topological order in the constructor
-    gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
-                                          : create_gssw_graph(*align_graph);
+    gssw_graph* graph = oriented_order ? create_gssw_graph(*align_graph, *oriented_order)
+                                       : create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     gssw_graph_fill_pinned(graph, align_sequence->c_str(),
@@ -1415,11 +1441,13 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
     // make a place to reverse the graph and sequence if necessary
     BackwardsGraph reversed_graph(&g);
+    vector<handle_t> reversed_order;
     string reversed_sequence;
     string reversed_quality;
     
     // choose forward or reversed objects
     const HandleGraph* oriented_graph = &g;
+    const vector<handle_t>* oriented_order = topological_order;
     const string* align_sequence = &alignment.sequence();
     const string* align_quality = &alignment.quality();
     if (pin_left) {
@@ -1435,6 +1463,13 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
         reversed_quality.resize(align_quality->size());
         reverse_copy(align_quality->begin(), align_quality->end(), reversed_quality.begin());
         align_quality = &reversed_quality;
+        
+        if (topological_order != nullptr) {
+            // Reverse but do not flip the topological order
+            reversed_order.reserve(topological_order->size());
+            std::copy(topological_order->rbegin(), topological_order->rend(), std::back_inserter(reversed_order));
+            oriented_order = &reversed_order;
+        }
     }
     
     if (align_quality->size() != align_sequence->size()) {
@@ -1454,8 +1489,8 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     
     // convert into gssw graph either using the pre-made topological order or computing a
     // topological order in the constructor
-    gssw_graph* graph = topological_order ? create_gssw_graph(*align_graph, *topological_order)
-                                          : create_gssw_graph(*align_graph);
+    gssw_graph* graph = oriented_order ? create_gssw_graph(*align_graph, *oriented_order)
+                                       : create_gssw_graph(*align_graph);
     
     // perform dynamic programming
     // offer a full length bonus on each end, or only on the left if the right end is pinned.

@@ -276,6 +276,8 @@ namespace vg {
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left);
         
         /// Version of align_pinned that allows you to pass your own topological order.
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         /// TODO: This should become const and the class should become thread safe.
         void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
                           bool pin_left);

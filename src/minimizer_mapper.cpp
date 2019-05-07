@@ -895,7 +895,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 // Do right-pinned alignment to the path subgraph with GSSWAligner.
                 Alignment before_alignment;
                 before_alignment.set_sequence(before_sequence);
-                // TODO: pre-make the topological order
 #ifdef debug
                 cerr << "Align " << pb2json(before_alignment) << " pinned right";
 

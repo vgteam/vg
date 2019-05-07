@@ -32,6 +32,16 @@ using namespace std;
             // Make one handle per node in the path
             order.push_back(get_handle(i, false));
         }
+        
+#ifdef debug
+        cerr << "Path: " << pb2json(defining_path) << endl;
+        cerr << "Order:";
+        for (auto& h : order) {
+            cerr << " " << get_id(h) << (get_is_reverse(h) ? "-" : "+");
+        }
+        cerr << endl;
+#endif
+        
         return order;
     }
     

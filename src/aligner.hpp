@@ -125,7 +125,9 @@ namespace vg {
         // assumes that graph is topologically sorted by node index
         virtual void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const = 0;
         
-        /// Same as previous, but takes advantage of a pre-computed topological order
+        /// Same as previous, but takes advantage of a pre-computed topological order.
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         virtual void align_pinned(Alignment& alignment, const HandleGraph& g,
                                   const vector<handle_t>& topological_order, bool pin_left) const = 0;
         
@@ -139,7 +141,9 @@ namespace vg {
                                         bool pin_left, int32_t max_alt_alns) const = 0;
         
         
-        /// Same as previous, but takes advantage of a pre-computed topological order
+        /// Same as previous, but takes advantage of a pre-computed topological order.
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         virtual void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                         const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const = 0;
         
@@ -324,6 +328,8 @@ namespace vg {
         /// Gives the full length bonus only on the non-pinned end of the alignment.
         ///
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
                           bool pin_left) const;
                 
@@ -335,6 +341,8 @@ namespace vg {
         /// assumes that graph is topologically sorted by node index
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const;
         
@@ -394,12 +402,16 @@ namespace vg {
         void align_global_banded(Alignment& alignment, const HandleGraph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned(Alignment& alignment, const HandleGraph& g, bool pin_left) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned(Alignment& alignment, const HandleGraph& g, const vector<handle_t>& topological_order,
                           bool pin_left) const;
         void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                        int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true) const;
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 bool pin_left, int32_t max_alt_alns) const;
+        /// The topological order MUST be left to right, no matter whether you are pinning left or right.
+        /// If alignment needs to proceed backward, it will be reversed internally.
         void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, const HandleGraph& g,
                                 const vector<handle_t>& topological_order, bool pin_left, int32_t max_alt_alns) const;
                                 
