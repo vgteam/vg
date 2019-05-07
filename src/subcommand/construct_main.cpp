@@ -228,16 +228,15 @@ int main_construct(int argc, char** argv) {
                 return a.id() < b.id();
             });
         
-            // Wrap the chunk in a vg object that can properly divide it into
-            // reasonably sized serialized chunks.
-            VG* g = new VG(big_chunk, false, true);
+            // We don't validate the chunk because its end node may be held
+            // back for the next chunk, while edges and path mappings for it
+            // still live in this chunk. Also, we no longer create a VG to
+            // re-chunk the chunk (because we can now handle chunks up to about
+            // 1 GB serialized), and the VG class has the validator.
             
-            // Check our work. Never output an invalid graph.
-            // But allow for edges where one node isn't there, because we need those to connect segments.
-            assert(g->is_valid(true, false, true, true));
             // One thread at a time can write to the emitter and the output stream
 #pragma omp critical (emitter)
-            g->serialize_to_emitter(emitter);
+            emitter.write_copy(big_chunk); 
         };
         
         // Copy shared parameters into the constructor

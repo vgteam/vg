@@ -2,8 +2,7 @@
  * \file
  * constructor.cpp: contains implementations for vg construction functions.
  */
-
-
+ 
 #include "vg.hpp"
 #include "constructor.hpp"
 
@@ -1548,7 +1547,7 @@ namespace vg {
         // Modifies the chunk in place.
         auto wire_and_emit = [&](ConstructedChunk& chunk) {
             // When each chunk comes back:
-
+            
             if (chunk.left_ends.size() == 1 && last_node_buffer.id() != 0) {
                 // We have a last node from the last chunk that we want to glom onto
                 // this chunk.
@@ -1644,8 +1643,7 @@ namespace vg {
 
                 // We know it's the last node in the graph
                 last_node_buffer = chunk.graph.node(chunk.graph.node_size() - 1);
-
-
+                
                 assert(chunk.right_ends.count(last_node_buffer.id()));
 
                 // Remove it
@@ -1661,6 +1659,10 @@ namespace vg {
 
                 // Update its ID separately, since it's no longer in the graph.
                 last_node_buffer.set_id(last_node_buffer.id() + max_id);
+                
+#ifdef debug
+                cerr << "Buffered final node becomes: " << last_node_buffer.id() << endl;
+#endif
             }
 
             // Up all the IDs in the graph
