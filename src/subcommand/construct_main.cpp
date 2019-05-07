@@ -24,7 +24,6 @@ void help_construct(char** argv) {
          << "    -v, --vcf FILE         input VCF (may repeat)" << endl
          << "    -n, --rename V=F       rename contig V in the VCFs to contig F in the FASTAs (may repeat)" << endl
          << "    -a, --alt-paths        save paths for alts of variants by variant ID" << endl
-         << "    -N, --alt-named-paths  use VCF IDs instead of _alt_+hashes for alt paths. results *not* indexed as GBWT threads" << endl
          << "    -R, --region REGION    specify a particular chromosome or 1-based inclusive region" << endl
          << "    -C, --region-is-chrom  don't attempt to parse the region (use when the reference" << endl
          << "                           sequence name could be inadvertently parsed as a region)" << endl
@@ -83,7 +82,6 @@ int main_construct(int argc, char** argv) {
                 {"drop-msa-paths", no_argument, 0, 'd'},
                 {"rename", required_argument, 0, 'n'},
                 {"alt-paths", no_argument, 0, 'a'},
-                {"alt-named-paths", no_argument, 0, 'N'},
                 {"handle-sv", no_argument, 0, 'S'},
                 {"insertions", required_argument, 0, 'I'},
                 {"progress",  no_argument, 0, 'p'},
@@ -98,7 +96,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:aNs:CfSI:M:dF:i",
+        c = getopt_long (argc, argv, "v:r:n:ph?z:t:R:m:as:CfSI:M:dF:i",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -161,12 +159,6 @@ int main_construct(int argc, char** argv) {
             constructor.alt_paths = true;
             break;
 
-        case 'N':
-            constructor.alt_paths = true;
-            constructor.alt_names_from_vcf_id = true;
-            constructor.alt_path_prefix = "";
-            break;
-            
         case 'p':
             show_progress = true;
             break;
