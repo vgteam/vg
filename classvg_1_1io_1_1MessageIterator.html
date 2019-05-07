@@ -91,7 +91,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#pub-types">Public Types</a> &#124;
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-static-methods">Static Public Member Functions</a> &#124;
-<a href="#pub-attribs">Public Attributes</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1io_1_1MessageIterator-members.html">List of all members</a>  </div>
@@ -150,9 +150,9 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memdesc:af88ac04ab7cbb8245a86d21a71a5dd76"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns iterators that act like begin() and <a class="el" href="namespacevg.html#ae28509de83b851bdc0d8ff2fa7bd4275">end()</a> for a stream containing messages.  <a href="#af88ac04ab7cbb8245a86d21a71a5dd76">More...</a><br/></td></tr>
 <tr class="separator:af88ac04ab7cbb8245a86d21a71a5dd76"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:a5b2b881e4032fb2ecfa8da35ad13e602"><td class="memItemLeft" align="right" valign="top">const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a5b2b881e4032fb2ecfa8da35ad13e602">MAX_MESSAGE_SIZE</a> = 1000000000</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:a5b2b881e4032fb2ecfa8da35ad13e602"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a5b2b881e4032fb2ecfa8da35ad13e602">MAX_MESSAGE_SIZE</a> = 1000000000</td></tr>
 <tr class="memdesc:a5b2b881e4032fb2ecfa8da35ad13e602"><td class="mdescLeft">&#160;</td><td class="mdescRight">We refuse to serialize individual messages longer than this size.  <a href="#a5b2b881e4032fb2ecfa8da35ad13e602">More...</a><br/></td></tr>
 <tr class="separator:a5b2b881e4032fb2ecfa8da35ad13e602"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -589,11 +589,19 @@ Private Attributes</h2></td></tr>
 <a class="anchor" id="a5b2b881e4032fb2ecfa8da35ad13e602"></a>
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">const size_t vg::io::MessageIterator::MAX_MESSAGE_SIZE = 1000000000</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 <p>We refuse to serialize individual messages longer than this size. </p>
