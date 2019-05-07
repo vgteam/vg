@@ -83,6 +83,7 @@ var searchData=
   ['disjoint',['disjoint',['../structhaplo_1_1int__itvl__t.html#ae0a7468e2fc96d6a68c0d6226344a38b',1,'haplo::int_itvl_t']]],
   ['disjoint_5fsubgraphs',['disjoint_subgraphs',['../classvg_1_1VG.html#af31e90fe77a1d30244011dd8dbbf5f25',1,'vg::VG']]],
   ['display',['display',['../classvg_1_1MEMChainModel.html#ab02e84fb2d25c2ff7f19941b78e458ba',1,'vg::MEMChainModel::display()'],['../classvg_1_1AlignmentChainModel.html#a142994d7c623a99007811acb547e6112',1,'vg::AlignmentChainModel::display()']]],
+  ['display_5fdot',['display_dot',['../classvg_1_1MEMChainModel.html#acfdb6531ee913ada6b21fa375ae35724',1,'vg::MEMChainModel::display_dot()'],['../classvg_1_1AlignmentChainModel.html#a16e9e8fc71345d31f1e58827e665a43c',1,'vg::AlignmentChainModel::display_dot()']]],
   ['distance',['distance',['../classvg_1_1MEMClusterer_1_1HitEdge.html#a9792b646c0a3905c5b111d3a61d336f2',1,'vg::MEMClusterer::HitEdge']]],
   ['distance_2ecpp',['distance.cpp',['../distance_8cpp.html',1,'']]],
   ['distance_2ehpp',['distance.hpp',['../distance_8hpp.html',1,'']]],
