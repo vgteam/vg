@@ -25,6 +25,16 @@ using namespace std;
         return result;
     }
     
+    vector<handle_t> PathSubgraph::get_topological_order() const {
+        vector<handle_t> order;
+        order.reserve(defining_path.mapping_size());
+        for (id_t i = 1; i <= defining_path.mapping_size(); i++) {
+            // Make one handle per node in the path
+            order.push_back(get_handle(i, false));
+        }
+        return order;
+    }
+    
     handle_t PathSubgraph::get_handle(const id_t& node_id, bool is_reverse) const {
         assert(node_id >= 1 && node_id <= defining_path.mapping_size());
         handle_t handle = handlegraph::number_bool_packing::pack(node_id, is_reverse);

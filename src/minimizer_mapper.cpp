@@ -920,15 +920,15 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 if (use_xdrop_for_tails) {
 #ifdef debug
                     Alignment clone = before_alignment;
-                    get_regular_aligner()->align_pinned(clone, subgraph, false);
+                    get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), false);
 #endif
-                    get_regular_aligner()->get_xdrop()->align_pinned(before_alignment, subgraph, false);
+                    get_regular_aligner()->get_xdrop()->align_pinned(before_alignment, subgraph, subgraph.get_topological_order(), false);
 #ifdef debug
                     cerr << "Xdrop: " << pb2json(before_alignment) << endl;
                     cerr << "Normal: " << pb2json(clone) << endl;
 #endif
                 } else {
-                    get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                    get_regular_aligner()->align_pinned(before_alignment, subgraph, subgraph.get_topological_order(), false);
                 }
                 
 #ifdef debug
@@ -1077,15 +1077,15 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                             if (use_xdrop_for_tails) {
 #ifdef debug
                                 Alignment clone = after_alignment;
-                                get_regular_aligner()->align_pinned(clone, subgraph, true);
+                                get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), true);
 #endif
-                                get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph, true);
+                                get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph, subgraph.get_topological_order(), true);
 #ifdef debug
                                 cerr << "Xdrop: " << pb2json(after_alignment) << endl;
                                 cerr << "Normal: " << pb2json(clone) << endl;
 #endif
                             } else {
-                                get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                                get_regular_aligner()->align_pinned(after_alignment, subgraph, subgraph.get_topological_order(), true);
                             }
                             
 #ifdef debug
