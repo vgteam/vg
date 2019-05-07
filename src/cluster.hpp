@@ -147,6 +147,7 @@ public:
     MEMChainModelVertex* max_vertex(void);
     vector<vector<MaximalExactMatch> > traceback(int alt_alns, bool paired, bool debug);
     void display(ostream& out);
+    void display_dot(ostream& out, vector<MEMChainModelVertex*> vertex_trace);
     void clear_scores(void);
 };
 

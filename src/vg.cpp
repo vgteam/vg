@@ -6056,8 +6056,20 @@ bool VG::is_valid(bool check_nodes,
                 //       to sort by rank, but I'm not sure if any of this is by design or not...
 
                 auto& p1 = m1.position();
+                if (!has_node(p1.node_id())) {
+                    cerr << "graph path '" << path.name() << "' has invalid mapping " << pb2json(m1)
+                    << ": node does not exist" << endl;
+                    paths_ok = false;
+                    return;
+                }
                 auto& n1 = *get_node(p1.node_id());
                 auto& p2 = m2.position();
+                if (!has_node(p2.node_id())) {
+                    cerr << "graph path '" << path.name() << "' has invalid mapping " << pb2json(m2)
+                    << ": node does not exist" << endl;
+                    paths_ok = false;
+                    return;
+                }
                 auto& n2 = *get_node(p2.node_id());
                 // count up how many bases of the node m1 covers.
                 id_t m1_edit_length = m1.edit_size() == 0 ? n1.sequence().length() : 0;
