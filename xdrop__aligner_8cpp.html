@@ -96,7 +96,12 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <code>#include &lt;assert.h&gt;</code><br/>
 <code>#include &quot;<a class="el" href="mem_8hpp.html">mem.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="xdrop__aligner_8hpp.html">xdrop_aligner.hpp</a>&quot;</code><br/>
-<code>#include &quot;../deps/dozeu/dozeu.h&quot;</code><br/>
+<code>#include &quot;<a class="el" href="proto__handle__graph_8hpp.html">proto_handle_graph.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="reverse__complement__graph_8hpp.html">reverse_complement_graph.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="extra__node__graph_8hpp.html">extra_node_graph.hpp</a>&quot;</code><br/>
+<code>#include &quot;algorithms/topological_sort.hpp&quot;</code><br/>
+<code>#include &quot;<a class="el" href="convert__handle_8hpp.html">convert_handle.hpp</a>&quot;</code><br/>
+<code>#include &lt;dozeu/dozeu.h&gt;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
@@ -292,15 +297,17 @@ Enumerations</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">({ \</div>
-<div class="line">        Node <span class="keyword">const</span> &amp;n = graph.node((_id)); \</div>
+<b>Value:</b><div class="fragment"><div class="line">({ <a class="code" href="namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a">\</a></div>
+<div class="line"><a class="code" href="namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a">		handle_t</a> n = graph.order[(_id)]; \</div>
 <div class="line">        Mapping *mapping = path-&gt;add_mapping(); \</div>
 <div class="line">        mapping-&gt;set_rank(path-&gt;mapping_size()); \</div>
 <div class="line">        Position *position = mapping-&gt;mutable_position(); \</div>
-<div class="line">        position-&gt;set_node_id(n.id()); \</div>
+<div class="line">        position-&gt;set_node_id(graph.graph.get_id(n)); \</div>
+<div class="line">        position-&gt;set_is_reverse(graph.graph.get_is_reverse(n)); \</div>
 <div class="line">        position-&gt;set_offset(ref_offset); ref_offset = 0; \</div>
 <div class="line">        mapping; \</div>
 <div class="line">    })</div>
+<div class="ttc" id="namespacevg_html_aaed4a2b7bc668cf2e076733ee26e036a"><div class="ttname"><a href="namespacevg.html#aaed4a2b7bc668cf2e076733ee26e036a">vg::handle_t</a></div><div class="ttdeci">handlegraph::handle_t handle_t</div><div class="ttdef"><b>Definition:</b> handle.hpp:26</div></div>
 </div><!-- fragment -->
 </div>
 </div>

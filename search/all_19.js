@@ -79,6 +79,7 @@ var searchData=
   ['_7ereplacelocalhaplotypecommand',['~ReplaceLocalHaplotypeCommand',['../structvg_1_1ReplaceLocalHaplotypeCommand.html#aecd5ab146c17e1e5146cbf6e57c2d3a7',1,'vg::ReplaceLocalHaplotypeCommand']]],
   ['_7ereplacesnarlhaplotypecommand',['~ReplaceSnarlHaplotypeCommand',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#a91ce2448ef86a1e7fcb78995b39cbf1a',1,'vg::ReplaceSnarlHaplotypeCommand']]],
   ['_7erepresentativetraversalfinder',['~RepresentativeTraversalFinder',['../classvg_1_1RepresentativeTraversalFinder.html#ae0f2414849b616e9a027ac675caf462c',1,'vg::RepresentativeTraversalFinder']]],
+  ['_7ereversecomplementgraph',['~ReverseComplementGraph',['../classvg_1_1ReverseComplementGraph.html#ae529a2054928a28796392a5025710745',1,'vg::ReverseComplementGraph']]],
   ['_7escoreprovider',['~ScoreProvider',['../classhaplo_1_1ScoreProvider.html#adc52c96c8d122268f57187010a3eef7f',1,'haplo::ScoreProvider']]],
   ['_7esimpleconsistencycalculator',['~SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html#a1b254ae9c4be5dc930b1593bd65fe2a9',1,'vg::SimpleConsistencyCalculator']]],
   ['_7esimpletraversalsupportcalculator',['~SimpleTraversalSupportCalculator',['../classvg_1_1SimpleTraversalSupportCalculator.html#a8b886a386884b9dd13ef5eaeb7eee2fc',1,'vg::SimpleTraversalSupportCalculator']]],

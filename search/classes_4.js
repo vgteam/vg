@@ -5,5 +5,6 @@ var searchData=
   ['edit',['Edit',['../structvg_1_1Edit.html',1,'vg']]],
   ['endianness',['endianness',['../structvg_1_1endianness.html',1,'vg']]],
   ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html',1,'vg::NodeDivider']]],
-  ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]]
+  ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]],
+  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]
 ];

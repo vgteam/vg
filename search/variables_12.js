@@ -27,7 +27,7 @@ var searchData=
   ['ref_5fbin_5fsize',['ref_bin_size',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#a42a0491db90fe51c894b91a7bec5aa54',1,'vg::SupportCaller::PrimaryPath::ref_bin_size()'],['../classvg_1_1SupportCaller.html#a1da5805e7c262a8fe317ad9e0b49817a',1,'vg::SupportCaller::ref_bin_size()']]],
   ['ref_5ffasta',['ref_fasta',['../classvg_1_1SupportCaller.html#ae0c8a316d75b2e1db80894b6ce230fb8',1,'vg::SupportCaller']]],
   ['ref_5fnames',['ref_names',['../classvg_1_1SRPE.html#a1b718357b963bf22f959f81ea3c1c6b5',1,'vg::SRPE']]],
-  ['ref_5foffset',['ref_offset',['../structvg_1_1graph__pos__s.html#a8ac0c31e0fd63b8676a9e92e755f1d2a',1,'vg::graph_pos_s']]],
+  ['ref_5foffset',['ref_offset',['../structvg_1_1XdropAligner_1_1graph__pos__s.html#a58967695f761ddd71de4cf15a7aa83f3',1,'vg::XdropAligner::graph_pos_s']]],
   ['ref_5fpath',['ref_path',['../structvg_1_1FlowSort_1_1Growth.html#a34ba660c358c1ec59cd7c70e62780a8c',1,'vg::FlowSort::Growth']]],
   ['ref_5fpath_5fnames',['ref_path_names',['../classvg_1_1SupportCaller.html#a6600a3aeeb8f2bbf19f422d0eb8f841a',1,'vg::SupportCaller']]],
   ['ref_5fpositions',['ref_positions',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a6065969d77968cd3afc31ca7b8b1a9f0',1,'haplo::linear_haplo_structure::SNVvector']]],

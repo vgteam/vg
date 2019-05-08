@@ -15,6 +15,7 @@ var searchData=
   ['image_5fwidth',['image_width',['../classvg_1_1Viz.html#a5dfce1ae146aff9f2aead08e304833bd',1,'vg::Viz']]],
   ['imperfect_5fpairs_5fto_5fretry',['imperfect_pairs_to_retry',['../classvg_1_1Mapper.html#a05444e0f52bddbe50304289a34d0b551',1,'vg::Mapper']]],
   ['in',['in',['../classvg_1_1GFFReader.html#a349dc0d2a38d966c4c4c265ac056346f',1,'vg::GFFReader::in()'],['../structhaplo_1_1haplo__DP__edge__memo.html#a952eb15b8bbde3d2d5e20a414cde89c5',1,'haplo::haplo_DP_edge_memo::in()']]],
+  ['in_5ffrom',['in_from',['../classvg_1_1ExtraNodeGraph.html#a4b2d9d6b68d55c26d367ad717b13da15',1,'vg::ExtraNodeGraph']]],
   ['include_5fendpoints',['include_endpoints',['../classvg_1_1VCFTraversalFinder.html#a27189437955d4b5f8b8ca92433c8fac2',1,'vg::VCFTraversalFinder']]],
   ['include_5ffull_5flength_5fbonuses',['include_full_length_bonuses',['../classvg_1_1Mapper.html#a9472c75cceb3382b70bbd27bfbc4a894',1,'vg::Mapper']]],
   ['include_5freversing_5ftraversals',['include_reversing_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a1904edecc299fc004b02ce44ea9301f8',1,'vg::ExhaustiveTraversalFinder']]],

@@ -1,7 +1,7 @@
 var searchData=
 [
   ['tables',['Tables',['../structvg_1_1io_1_1Registry_1_1Tables.html',1,'vg::io::Registry']]],
-  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()']]],
   ['tag_5fcorrect',['tag_correct',['../classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b',1,'vg::Funnel']]],
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
@@ -53,7 +53,7 @@ var searchData=
   ['tn_5fcbv_5fselect',['tn_cbv_select',['../classxg_1_1XG.html#a0da60cf2de787df3b92b58101a562172',1,'xg::XG']]],
   ['tn_5fcsa',['tn_csa',['../classxg_1_1XG.html#a2e356d103190701c7d252bab00faf7d7',1,'xg::XG']]],
   ['to',['to',['../structvg_1_1Edge.html#affb3decf0a8b18ad319405c303cdf6a5',1,'vg::Edge::to()'],['../structvg_1_1Alignment.html#a9db86772c1bd48808c0588f96f3c0865',1,'vg::Alignment::to()'],['../structvg_1_1Translation.html#a25a5dc4de6c11119522e319af3639e30',1,'vg::Translation::to()']]],
-  ['to_5fbacking',['to_backing',['../classvg_1_1SourceSinkOverlay.html#a57984042ec4b444b5f540634f268e9c0',1,'vg::SourceSinkOverlay']]],
+  ['to_5fbacking',['to_backing',['../classvg_1_1ExtraNodeGraph.html#a9e2ba1f5f6b655494074901c11491ffd',1,'vg::ExtraNodeGraph::to_backing()'],['../classvg_1_1SourceSinkOverlay.html#a57984042ec4b444b5f540634f268e9c0',1,'vg::SourceSinkOverlay::to_backing()']]],
   ['to_5fbig_5fendian',['to_big_endian',['../structvg_1_1endianness.html#a5397898b5e413c0c4d09577952b80984',1,'vg::endianness']]],
   ['to_5fcorrect',['to_correct',['../structvg_1_1Alignment.html#a8957ee4a5a3ef66c93f6b6b685774df2',1,'vg::Alignment']]],
   ['to_5fdiff',['to_diff',['../classvg_1_1PagedVector.html#a50bdeabc669ed578dfb1aebfbe98870d',1,'vg::PagedVector']]],
@@ -172,8 +172,8 @@ var searchData=
   ['tree',['Tree',['../structvg_1_1Tree.html#a2583e3d479b8b3fa66e8eb0065417934',1,'vg::Tree']]],
   ['tree',['Tree',['../structvg_1_1Tree.html',1,'vg']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html#a386f7b2ec0948165140022155dda8c04',1,'vg::TreeNode']]],
-  ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree']]],
   ['treenode',['TreeNode',['../structvg_1_1TreeNode.html',1,'vg']]],
+  ['treenode',['TreeNode',['../structvg_1_1BitStringTree_1_1TreeNode.html',1,'vg::BitStringTree']]],
   ['trim_5falignment',['trim_alignment',['../namespacevg.html#ad83da8607e104967dd51d9230f4b51bb',1,'vg']]],
   ['trim_5fambiguous_5fend',['trim_ambiguous_end',['../classvg_1_1ReadFilter.html#a8747e6039bbfad158530aa4d28e385de',1,'vg::ReadFilter']]],
   ['trim_5fambiguous_5fends',['trim_ambiguous_ends',['../classvg_1_1ReadFilter.html#a4cfa43ebe0d20d09262da65e5a7377a0',1,'vg::ReadFilter']]],

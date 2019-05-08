@@ -15,7 +15,7 @@ var searchData=
   ['query',['query',['../structvg_1_1IndexedVG_1_1CacheEntry.html#a11fa76ab1311c3953bcb4030010aa2a5',1,'vg::IndexedVG::CacheEntry']]],
   ['query_5fbenchmarks',['query_benchmarks',['../minimizer__main_8cpp.html#aaa9ade52856fbb84bab4f3b291cee5fa',1,'minimizer_main.cpp']]],
   ['query_5fcluster_5fgraphs',['query_cluster_graphs',['../classvg_1_1MultipathMapper.html#a961427b7963da3d8ba3ae3c075dcb55d',1,'vg::MultipathMapper']]],
-  ['query_5foffset',['query_offset',['../structvg_1_1graph__pos__s.html#a4db36b489d1f4d9b2e1f0e5067d575cc',1,'vg::graph_pos_s']]],
+  ['query_5foffset',['query_offset',['../structvg_1_1XdropAligner_1_1graph__pos__s.html#a0248a5b1a7ab31df999b630379485b9d',1,'vg::XdropAligner::graph_pos_s']]],
   ['query_5foverlap',['query_overlap',['../namespacevg.html#acffe466a3ca83097eceac30a09b9a010',1,'vg']]],
   ['query_5fposition',['query_position',['../structvg_1_1Alignment.html#a17a81788105d3cb6a777ed6a202cd36f',1,'vg::Alignment']]]
 ];

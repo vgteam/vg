@@ -120,12 +120,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:adba9ae12451d00c8ee05a118a09c32ca"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#adba9ae12451d00c8ee05a118a09c32ca">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left) const =0</td></tr>
 <tr class="separator:adba9ae12451d00c8ee05a118a09c32ca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8e52011802b84cb10b987744458cce72"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a8e52011802b84cb10b987744458cce72">align_pinned</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, bool pin_left) const =0</td></tr>
-<tr class="memdesc:a8e52011802b84cb10b987744458cce72"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as previous, but takes advantage of a pre-computed topological order.  <a href="#a8e52011802b84cb10b987744458cce72">More...</a><br/></td></tr>
 <tr class="separator:a8e52011802b84cb10b987744458cce72"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34052d83b0a62374e411ee89eead4175"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a34052d83b0a62374e411ee89eead4175">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, bool pin_left, int32_t max_alt_alns) const =0</td></tr>
 <tr class="separator:a34052d83b0a62374e411ee89eead4175"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8c2937921508a29d1aed03959daf7137"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a8c2937921508a29d1aed03959daf7137">align_pinned_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;alt_alignments, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, const vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; &amp;topological_order, bool pin_left, int32_t max_alt_alns) const =0</td></tr>
-<tr class="memdesc:a8c2937921508a29d1aed03959daf7137"><td class="mdescLeft">&#160;</td><td class="mdescRight">Same as previous, but takes advantage of a pre-computed topological order.  <a href="#a8c2937921508a29d1aed03959daf7137">More...</a><br/></td></tr>
 <tr class="separator:a8c2937921508a29d1aed03959daf7137"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a350908e38cee67ddbe77395624a1cb50"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a350908e38cee67ddbe77395624a1cb50">align_global_banded</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> &amp;g, int32_t band_padding=0, bool permissive_banding=true) const =0</td></tr>
 <tr class="separator:a350908e38cee67ddbe77395624a1cb50"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -135,6 +133,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a78f7c349459a5a89a5b24d0504fa89cd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1734594efeed98b5b690387dcffeb7c9"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a1734594efeed98b5b690387dcffeb7c9">align_xdrop_multi</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, <a class="el" href="structvg_1_1Graph.html">Graph</a> &amp;g, const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, bool reverse_complemented, int32_t max_alt_alns) const =0</td></tr>
 <tr class="separator:a1734594efeed98b5b690387dcffeb7c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8978cdfb547b2d946501ee2fd36d8664"><td class="memItemLeft" align="right" valign="top">virtual unique_ptr&lt; <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#a8978cdfb547b2d946501ee2fd36d8664">get_xdrop</a> () const =0</td></tr>
+<tr class="separator:a8978cdfb547b2d946501ee2fd36d8664"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac33af43d7d8d4a3d94a5ef1582c50cc4"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac33af43d7d8d4a3d94a5ef1582c50cc4">score_exact_match</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t read_offset, size_t length) const =0</td></tr>
 <tr class="separator:ac33af43d7d8d4a3d94a5ef1582c50cc4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac8e1b97332df85221c6a2be61cbd1b3d"><td class="memItemLeft" align="right" valign="top">virtual int32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GSSWAligner.html#ac8e1b97332df85221c6a2be61cbd1b3d">score_exact_match</a> (const string &amp;sequence, const string &amp;base_quality) const =0</td></tr>
@@ -483,8 +483,7 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Same as previous, but takes advantage of a pre-computed topological order. </p>
+<p>Same as previous, but takes advantage of a pre-computed topological order. The topological order MUST be left to right, no matter whether you are pinning left or right. If alignment needs to proceed backward, it will be reversed internally. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a5758017f4300de8768d1390b332ddd24">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#aa042e29bda8daf84f6e2d69119080f47">vg::Aligner</a>.</p>
 
@@ -599,8 +598,7 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Same as previous, but takes advantage of a pre-computed topological order. </p>
+<p>Same as previous, but takes advantage of a pre-computed topological order. The topological order MUST be left to right, no matter whether you are pinning left or right. If alignment needs to proceed backward, it will be reversed internally. </p>
 
 <p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#a8b18afab31b3af16771bdbf42e8c5819">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#a3da263089bf078fb99d03cda12d2ae36">vg::Aligner</a>.</p>
 
@@ -1048,6 +1046,32 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a8978cdfb547b2d946501ee2fd36d8664"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual unique_ptr&lt;<a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a>&gt; vg::GSSWAligner::get_xdrop </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Get a fresh <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> instance to align with. TODO: make <a class="el" href="classvg_1_1XdropAligner.html">XdropAligner</a> thread safe, and make it a thing you can get from GetAligner. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1QualAdjAligner.html#aaedd51c94931495e3865ec6c9daa69bc">vg::QualAdjAligner</a>, and <a class="el" href="classvg_1_1Aligner.html#aa3b1aa5d2cc2d47d0ad1676d9c98d510">vg::Aligner</a>.</p>
 
 </div>
 </div>

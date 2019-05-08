@@ -85,7 +85,7 @@ var searchData=
   ['is_5fnovel_5fnode',['is_novel_node',['../structvg_1_1AugmentedGraph.html#ac6f4df5e0f80b0509ff3ec26b685d5c9',1,'vg::AugmentedGraph']]],
   ['is_5fnull',['is_null',['../structhaplo_1_1haplo__DP__edge__memo.html#ad5b2beb897c227a4f640b3031cefc788',1,'haplo::haplo_DP_edge_memo']]],
   ['is_5fnumber',['is_number',['../namespacevg.html#af051490e6e94b4c476695610472cdf5b',1,'vg::is_number(const std::string &amp;s)'],['../namespacevg.html#a97c44463adc7ddcc77ac9664692a62b8',1,'vg::is_number(const string &amp;s)']]],
-  ['is_5fours',['is_ours',['../classvg_1_1SourceSinkOverlay.html#afd615958c6acc627aaff2f63a49cffd9',1,'vg::SourceSinkOverlay']]],
+  ['is_5fours',['is_ours',['../classvg_1_1ExtraNodeGraph.html#acbd5da7dfb45c94a5b0f3fb2b1079f4f',1,'vg::ExtraNodeGraph::is_ours()'],['../classvg_1_1SourceSinkOverlay.html#afd615958c6acc627aaff2f63a49cffd9',1,'vg::SourceSinkOverlay::is_ours()']]],
   ['is_5freference',['is_reference',['../classvg_1_1SupportCaller.html#a122bc21c6e3795bf018cacf541ab6d6e',1,'vg::SupportCaller::is_reference(const SnarlTraversal &amp;trav, AugmentedGraph &amp;augmented)'],['../classvg_1_1SupportCaller.html#aa6d58daaa5f0c090e934d0dbaaa14ce8',1,'vg::SupportCaller::is_reference(const Path &amp;path, AugmentedGraph &amp;augmented)']]],
   ['is_5frev',['is_rev',['../namespacevg.html#aac725dd44bc5a8f540554d4b1882c1fe',1,'vg']]],
   ['is_5freverse',['is_reverse',['../classvg_1_1mapping__t.html#a2a874e7d07f466482be8a0a44fd46fb2',1,'vg::mapping_t::is_reverse()'],['../classxg_1_1XGPath.html#a7a664194edb452e3da94d456b19fc32d',1,'xg::XGPath::is_reverse()']]],

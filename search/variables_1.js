@@ -1,9 +1,13 @@
 var searchData=
 [
+  ['aa_5fmatch',['aa_match',['../classvg_1_1XdropAligner.html#a7b2ced8e428210e6cd9964a309486255',1,'vg::XdropAligner']]],
   ['access_5fmutex',['access_mutex',['../structvg_1_1Watchdog_1_1thread__state__t.html#adcceae4d1421b6f28cf9bcf395f523cb',1,'vg::Watchdog::thread_state_t']]],
   ['adaptive_5fdiff_5fexponent',['adaptive_diff_exponent',['../classvg_1_1BaseMapper.html#a653e029302e4442dbabd06a70ec4bbec',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5fdiff',['adaptive_reseed_diff',['../classvg_1_1BaseMapper.html#acf7556c347ea7596624700482dc58c8c',1,'vg::BaseMapper']]],
   ['adaptive_5freseed_5flength_5fmemo',['adaptive_reseed_length_memo',['../classvg_1_1BaseMapper.html#a279b5883907a56ada69b41796230b209',1,'vg::BaseMapper']]],
+  ['added_5ffwd',['added_fwd',['../classvg_1_1ExtraNodeGraph.html#a0c76a41ba36fe38013e9003c7e98943c',1,'vg::ExtraNodeGraph']]],
+  ['added_5fid',['added_id',['../classvg_1_1ExtraNodeGraph.html#ad136e20b9bad7abf259192e456fad6aa',1,'vg::ExtraNodeGraph']]],
+  ['added_5frev',['added_rev',['../classvg_1_1ExtraNodeGraph.html#a7a807c52fdab61ca4a68d47046fcb9e0',1,'vg::ExtraNodeGraph']]],
   ['adjust_5falignments_5ffor_5fbase_5fquality',['adjust_alignments_for_base_quality',['../classvg_1_1AlignerClient.html#a25db3953c246e94a7e08ef59fc31b82f',1,'vg::AlignerClient']]],
   ['adjust_5ffor_5fbase_5fquality',['adjust_for_base_quality',['../classvg_1_1BandedGlobalAligner.html#a00b5ed0e20f4dd989bf5219b0273828e',1,'vg::BandedGlobalAligner']]],
   ['affinity',['affinity',['../structvg_1_1Genotyper_1_1Affinity.html#a77332c5a3e180693907d5b6d28c7ca32',1,'vg::Genotyper::Affinity']]],
