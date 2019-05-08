@@ -580,7 +580,7 @@ namespace vg {
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
                     
-                    if (!variant->hasSVTags()){
+                    if (!variant->isSymbolicSV()){
                         // We will process the variant as a normal variant, based on its ref and alt sequences.
                         
                         for (auto &kv : alternates) {
@@ -738,7 +738,6 @@ namespace vg {
                             #ifdef debug
                             cerr << "Process alt " << (alt_index + 1) << " of variant " << variant_name << " as an SV" << endl;
                             #endif
-                            
                             string sv_type = variant->info.at("SVTYPE").at(0);
 
                             if (sv_type == "INS") {
