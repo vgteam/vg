@@ -2304,14 +2304,14 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
         unordered_map<size_t, string> expected;
         expected.insert({1, "CAAATAAGGC"});
 		expected.insert({2, "T"});
-        expected.insert({3, "TTTCTTTCTT"});
-        expected.insert({4, "TCTTTCTTTC"});
-        expected.insert({5, "TTTCTTTCTT"});
-        expected.insert({6, "TCTTTC"});
+        expected.insert({3, "TTCTTTCTTT"});
+        expected.insert({4, "CTTTCTTTCT"});
+        expected.insert({5, "TTCTTTCTTT"});
+        expected.insert({6, "CTTTC"});
         expected.insert({7, "TGGAAATTTT"});
-        expected.insert({8, "TCTGGAGTTC"});
-        expected.insert({9, "TATTATATTC"});
-        expected.insert({10, "CAACTCTCTG"});
+        expected.insert({8, "CTGGAGTTCT"});
+        expected.insert({9, "ATTATATTCC"});
+        expected.insert({10, "AACTCTCTG"});
 
         for (size_t i = 0; i < result.node_size(); i++) {
             auto& node = result.node(i);
