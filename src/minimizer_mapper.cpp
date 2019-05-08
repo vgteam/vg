@@ -895,8 +895,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                 // Do right-pinned alignment to the path subgraph with GSSWAligner.
                 Alignment before_alignment;
                 before_alignment.set_sequence(before_sequence);
-                // TODO: pre-make the topological order
-                
 #ifdef debug
                 cerr << "Align " << pb2json(before_alignment) << " pinned right";
 
@@ -911,13 +909,26 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                         cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                     });
                 });
+                cerr << "Path: " << pb2json(path) << endl;
 #else
                 cerr << endl;
 #endif
 #endif
                 
                 // Align, accounting for full length bonus
-                get_regular_aligner()->align_pinned(before_alignment, subgraph, false);
+                if (use_xdrop_for_tails) {
+#ifdef debug
+                    Alignment clone = before_alignment;
+                    get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), false);
+#endif
+                    get_regular_aligner()->get_xdrop()->align_pinned(before_alignment, subgraph, subgraph.get_topological_order(), false);
+#ifdef debug
+                    cerr << "Xdrop: " << pb2json(before_alignment) << endl;
+                    cerr << "Normal: " << pb2json(clone) << endl;
+#endif
+                } else {
+                    get_regular_aligner()->align_pinned(before_alignment, subgraph, subgraph.get_topological_order(), false);
+                }
                 
 #ifdef debug
                 cerr << "\tScore: " << before_alignment.score() << endl;
@@ -932,7 +943,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     best_score = before_alignment.score();
                     
 #ifdef debug
-                    cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << endl;
+                    cerr << "New best alignment against: " << pb2json(path) << " is " << pb2json(best_path) << " score " << best_score << endl;
 #endif
                 }
             }
@@ -1055,12 +1066,26 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                                     cerr << "\t-> " << subgraph.get_id(there) << " (" << subgraph.get_sequence(there) << ")" << endl;
                                 });
                             });
+                            cerr << "Path: " << pb2json(path) << endl;
 #else
                             cerr << endl;
 #endif
 #endif
 
-                            get_regular_aligner()->align_pinned(after_alignment, subgraph, true);
+                            // Align, accounting for full length bonus
+                            if (use_xdrop_for_tails) {
+#ifdef debug
+                                Alignment clone = after_alignment;
+                                get_regular_aligner()->align_pinned(clone, subgraph, subgraph.get_topological_order(), true);
+#endif
+                                get_regular_aligner()->get_xdrop()->align_pinned(after_alignment, subgraph, subgraph.get_topological_order(), true);
+#ifdef debug
+                                cerr << "Xdrop: " << pb2json(after_alignment) << endl;
+                                cerr << "Normal: " << pb2json(clone) << endl;
+#endif
+                            } else {
+                                get_regular_aligner()->align_pinned(after_alignment, subgraph, subgraph.get_topological_order(), true);
+                            }
                             
 #ifdef debug
                             cerr << "\tScore: " << after_alignment.score() << endl;
@@ -1242,7 +1267,6 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
         cerr << "error[vg::MinimizerMapper]: invalid MultipathAlignment generated: " << pb2json(mp) << endl;
         exit(1);
     }
-    
     
     // Linearize into the out alignment, copying path, score, and also sequence and other read metadata
     optimal_alignment(mp, out, true);

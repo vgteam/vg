@@ -1882,7 +1882,13 @@ Alignment Mapper::align_to_graph(const Alignment& aln,
             // construct a topological order manually using the internal sort order
             vector<handle_t> topological_order(graph.node_size());
             for (size_t i = 0; i < graph.node_size(); i++) {
-                topological_order[i] = proto_handle_graph.get_handle_by_index(i);
+                if (pin_left) {
+                    // The graph has already been sorted backward, so sort it forward
+                    topological_order[i] = proto_handle_graph.flip(proto_handle_graph.get_handle_by_index(graph.node_size() - i - 1));
+                } else {
+                    // The graph is already sorted forward, so keep it sorted forward.
+                    topological_order[i] = proto_handle_graph.get_handle_by_index(i);
+                }
             }
             get_aligner(!aln.quality().empty())->align_pinned(aligned, proto_handle_graph, topological_order, pin_left);
         } else if (xdrop_alignment) {

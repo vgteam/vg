@@ -1883,6 +1883,10 @@ namespace vg {
                         if ((mapping.position().is_reverse() ? rev_node_seq[node_idx] : node_seq[node_idx]) != subseq[seq_idx]) {
 #ifdef debug_verbose_validation
                             cerr << "validation failure on match that does not match for read " << multipath_aln.name() << endl;
+                            cerr << "Node sequence: " << node_seq << " orientation: "
+                                << mapping.position().is_reverse() << " offset: " << node_idx << endl;
+                            cerr << "Read subsequence: " << subseq << " offset: " << seq_idx << endl;
+                            
                             cerr << pb2json(mapping) << ", " << subseq << endl;
 #endif
                             return false;
