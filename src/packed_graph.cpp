@@ -355,7 +355,7 @@ namespace vg {
     }
     
     size_t PackedGraph::node_size(void) const {
-        return graph_iv.size() / GRAPH_RECORD_SIZE;
+        return graph_iv.size() / GRAPH_RECORD_SIZE - deleted_node_records;
     }
     
     id_t PackedGraph::min_node_id(void) const {

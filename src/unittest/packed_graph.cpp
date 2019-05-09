@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <set>
 
 #include "../json2pb.h"
 #include "../packed_graph.hpp"
@@ -148,7 +149,7 @@ using namespace std;
             check_flips(p1, {h1, h3, h5});
         }
         
-        SECTION("Compactification does not change topology") {
+        SECTION("Tighten vector allocations does not change topology") {
             
             // delete some things, but not enough to trigger defragmentation
             graph.destroy_path(p2);
@@ -163,6 +164,146 @@ using namespace std;
             
             int count = 0;
             bool found1 = false, found2 = false;
+            graph.follow_edges(h1, false, [&](const handle_t& h) {
+                if (h == h3) {
+                    found1 = true;
+                }
+                count++;
+            });
+            REQUIRE(found1);
+            REQUIRE(count == 1);
+            
+            count = 0;
+            found1 = false, found2 = false;
+            graph.follow_edges(h1, true, [&](const handle_t& h) {
+                count++;
+            });
+            REQUIRE(count == 0);
+            
+            count = 0;
+            found1 = false, found2 = false;
+            graph.follow_edges(h3, false, [&](const handle_t& h) {
+                if (h == h4) {
+                    found1 = true;
+                }
+                if (h == h5) {
+                    found2 = true;
+                }
+                count++;
+            });
+            REQUIRE(found1);
+            REQUIRE(found2);
+            REQUIRE(count == 2);
+            
+            count = 0;
+            found1 = false, found2 = false;
+            graph.follow_edges(h3, true, [&](const handle_t& h) {
+                if (h == h1) {
+                    found1 = true;
+                }
+                count++;
+            });
+            REQUIRE(found1);
+            REQUIRE(count == 1);
+            
+            count = 0;
+            found1 = false, found2 = false;
+            graph.follow_edges(h4, false, [&](const handle_t& h) {
+                if (h == h5) {
+                    found1 = true;
+                }
+                count++;
+            });
+            REQUIRE(found1);
+            REQUIRE(count == 1);
+            
+            count = 0;
+            found1 = false, found2 = false;
+            graph.follow_edges(h4, true, [&](const handle_t& h) {
+                if (h == h3) {
+                    found1 = true;
+                }
+                count++;
+            });
+            REQUIRE(found1);
+            REQUIRE(count == 1);
+            
+            count = 0;
+            found1 = false, found2 = false;
+            graph.follow_edges(h5, false, [&](const handle_t& h) {
+                count++;
+            });
+            REQUIRE(count == 0);
+            
+            count = 0;
+            found1 = false, found2 = false;
+            graph.follow_edges(h5, true, [&](const handle_t& h) {
+                if (h == h3) {
+                    found1 = true;
+                }
+                else if (h == h4) {
+                    found2 = true;
+                }
+                count++;
+            });
+            REQUIRE(found1);
+            REQUIRE(found2);
+            REQUIRE(count == 2);
+            
+            check_flips(p0, {h3, h4, h5});
+            check_flips(p1, {h1, h3, h5});
+        }
+        
+        SECTION("Optimizing with ID reassignment does not change topology") {
+            
+            // delete some things, but not enough to trigger defragmentation
+            graph.destroy_path(p2);
+            graph.destroy_handle(h2);
+            // reallocate and compress down to the smaller size, reassigning IDs
+            graph.optimize(true);
+            
+            set<id_t> seen_ids;
+            
+            int count = 0;
+            bool found1 = false, found2 = false, found3 = false, found4 = false;
+            graph.for_each_handle([&](const handle_t& handle) {
+                if (graph.get_sequence(handle) == "ATGTAG") {
+                    h1 = handle;
+                    found1 = true;
+                }
+                else if (graph.get_sequence(handle) == "C") {
+                    h3 = handle;
+                    found2 = true;
+                }
+                else if (graph.get_sequence(handle) == "ATT") {
+                    h4 = handle;
+                    found3 = true;
+                }
+                else if (graph.get_sequence(handle) == "GGCA") {
+                    h5 = handle;
+                    found4 = true;
+                }
+                else {
+                    REQUIRE(false);
+                }
+                count++;
+                
+                seen_ids.insert(graph.get_id(handle));
+                
+                REQUIRE(graph.get_id(handle) >= 1);
+                REQUIRE(graph.get_id(handle) <= 4);
+            });
+            
+            REQUIRE(found1);
+            REQUIRE(found2);
+            REQUIRE(found3);
+            REQUIRE(found4);
+            REQUIRE(count == 4);
+            REQUIRE(seen_ids.size() == 4);
+            
+            count = 0;
+            found1 = found2 = found3 = found4 = false;
+            
             graph.follow_edges(h1, false, [&](const handle_t& h) {
                 if (h == h3) {
                     found1 = true;
