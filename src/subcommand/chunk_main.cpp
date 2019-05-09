@@ -13,8 +13,8 @@
 #include "subcommand.hpp"
 
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../utility.hpp"
 #include "../chunker.hpp"
 #include "../stream_index.hpp"
@@ -27,6 +27,7 @@ using namespace vg;
 using namespace vg::subcommand;
 using namespace xg;
 
+static string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi = 0);
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
                      size_t gam_buffer_size = 100);
 
@@ -42,7 +43,7 @@ void help_chunk(char** argv) {
          << "options:" << endl
          << "    -x, --xg-name FILE       use this xg index to chunk subgraphs" << endl
          << "    -G, --gbwt-name FILE     use this GBWT haplotype index for haplotype extraction" << endl
-         << "    -a, --gam-name FILE      chunk this gam file (not stdin, sorted, with FILE.gai index) instead of the graph" << endl
+         << "    -a, --gam-name FILE      chunk this gam file (not stdin, sorted, with FILE.gai index) instead of the graph (multiple allowed)" << endl
          << "    -g, --gam-and-graph      when used in combination with -a, both gam and graph will be chunked" << endl 
          << "path chunking:" << endl
          << "    -p, --path TARGET        write the chunk in the specified (0-based inclusive)\n"
@@ -80,7 +81,7 @@ int main_chunk(int argc, char** argv) {
 
     string xg_file;
     string gbwt_file;
-    string gam_file;
+    vector<string> gam_files;
     bool gam_and_graph = false;
     string region_string;
     string path_list_file;
@@ -150,7 +151,7 @@ int main_chunk(int argc, char** argv) {
             break;
 
         case 'a':
-            gam_file = optarg;
+            gam_files.push_back(optarg);
             break;
             
         case 'g':
@@ -245,7 +246,7 @@ int main_chunk(int argc, char** argv) {
         return 1;
     }
     // need -a if using -f
-    if ((gam_split_size != 0 || fully_contained) && gam_file.empty()) {
+    if ((gam_split_size != 0 || fully_contained) && gam_files.empty()) {
         cerr << "error:[vg chunk] gam file must be specified with -a when using -f or -m" << endl;
         return 1;
     }
@@ -266,7 +267,7 @@ int main_chunk(int argc, char** argv) {
     // needs to be chunked, even if only gam output is requested,
     // because we use the graph to get the nodes we're looking for.
     // but we only write the subgraphs to disk if chunk_graph is true. 
-    bool chunk_gam = !gam_file.empty() && gam_split_size == 0;
+    bool chunk_gam = !gam_files.empty() && gam_split_size == 0;
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
 
     // Load our index
@@ -283,7 +284,7 @@ int main_chunk(int argc, char** argv) {
             return 1;
         }
         
-        xindex = stream::VPKG::load_one<xg::XG>(in);
+        xindex = vg::io::VPKG::load_one<xg::XG>(in);
         in.close();
     }
 
@@ -293,7 +294,7 @@ int main_chunk(int argc, char** argv) {
         // We are tracing haplotypes, and we want to use the GBWT instead of the old gPBWT.
     
         // Load the GBWT from its container
-        gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_file);
+        gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_file);
 
         if (gbwt_index.get() == nullptr) {
           // Complain if we couldn't.
@@ -304,12 +305,14 @@ int main_chunk(int argc, char** argv) {
 
     
     // We need an index on the GAM to chunk it
-    unique_ptr<GAMIndex> gam_index;
+    vector<unique_ptr<GAMIndex>> gam_indexes;
     if (chunk_gam) {
-        get_input_file(gam_file + ".gai", [&](istream& index_stream) {
-            gam_index = unique_ptr<GAMIndex>(new GAMIndex());
-            gam_index->load(index_stream);
-        });
+        for (auto gam_file : gam_files) {
+            get_input_file(gam_file + ".gai", [&](istream& index_stream) {
+                    gam_indexes.push_back(unique_ptr<GAMIndex>(new GAMIndex()));
+                    gam_indexes.back()->load(index_stream);
+                });
+        }
     }
     
     // parse the regions into a list
@@ -438,28 +441,22 @@ int main_chunk(int argc, char** argv) {
     }
 
     // now ready to get our chunk on
-
     if (gam_split_size != 0) {
-        ifstream gam_stream;
-        // Open the GAM file, whether splitting directly or seeking with an index
-        gam_stream.open(gam_file);
-        if (!gam_stream) {
-            cerr << "error[vg chunk]: unable to open input gam: " << gam_file << endl;
-            return 1;
+        for (size_t gi = 0; gi < gam_files.size(); ++gi) {
+            ifstream gam_stream;
+            string& gam_file = gam_files[gi];
+            // Open the GAM file, whether splitting directly or seeking with an index
+            gam_stream.open(gam_file);
+            if (!gam_stream) {
+                cerr << "error[vg chunk]: unable to open input gam: " << gam_file << endl;
+                return 1;
+            }
+            // just chunk up every N reads in the gam without any path or id logic. Don't do anything else.
+            string prefix = gi == 0 ? out_chunk_prefix : out_chunk_prefix + std::to_string(gi);
+            split_gam(gam_stream, gam_split_size, prefix);
         }
-        // just chunk up every N reads in the gam without any path or id logic. Don't do anything else.
-        return split_gam(gam_stream, gam_split_size, out_chunk_prefix);
+        return 0;
     }
-
-    // what's the name of chunk i? 
-    function<string(int, const Region&, string)> chunk_name =
-        [&out_chunk_prefix](int i, const Region& region, string ext) -> string {
-        stringstream chunk_name;
-        string seq = region.seq.empty() ? "ids" : region.seq;
-        chunk_name << out_chunk_prefix << "_" << i << "_" << seq << "_"
-        << region.start << "_" << region.end << ext;
-        return chunk_name.str();
-    };
 
     int num_regions = regions.size();
 
@@ -475,24 +472,29 @@ int main_chunk(int argc, char** argv) {
     }
     
     // When chunking GAMs, every thread gets its own cursor to seek into the input GAM.
-    list<ifstream> gam_streams;
-    vector<GAMIndex::cursor_t> cursors;
+    // Todo: when operating on multiple gams, we make |threads| X |gams| cursors, even though
+    // we only ever use |threads| threads.
+    vector<list<ifstream>> gam_streams_vec(gam_files.size());
+    vector<vector<GAMIndex::cursor_t>> cursors_vec(gam_files.size());
     
     if (chunk_gam) {
-        cursors.reserve(threads);
-        for (size_t i = 0; i < threads; i++) {
-            // Open a stream for every thread
-            gam_streams.emplace_back(gam_file);
-            if (!gam_streams.back()) {
-                cerr << "error[vg chunk]: unable to open GAM file " << gam_file << endl;
-                return 1;
+        for (size_t gam_i = 0; gam_i < gam_streams_vec.size(); ++gam_i) {
+            auto& gam_file = gam_files[gam_i];
+            auto& gam_streams = gam_streams_vec[gam_i];
+            auto& cursors = cursors_vec[gam_i];
+            cursors.reserve(threads);
+            for (size_t i = 0; i < threads; i++) {
+                // Open a stream for every thread
+                gam_streams.emplace_back(gam_file);
+                if (!gam_streams.back()) {
+                    cerr << "error[vg chunk]: unable to open GAM file " << gam_file << endl;
+                    return 1;
+                }
+                // And wrap it in a cursor
+                cursors.emplace_back(gam_streams.back());
             }
-            
-            // And wrap it in a cursor
-            cursors.emplace_back(gam_streams.back());
         }
     }
-    
 
     // extract chunks in parallel
 #pragma omp parallel for
@@ -553,7 +555,7 @@ int main_chunk(int argc, char** argv) {
             } else {
                 // Otherwise, we write files under the specified prefix, using
                 // a prefix-i-seq-start-end convention.
-                string name = chunk_name(i, output_regions[i], ".vg");
+                string name = chunk_name(out_chunk_prefix, i, output_regions[i], ".vg");
                 out_file.open(name);
                 if (!out_file) {
                     cerr << "error[vg chunk]: can't open output chunk file " << name << endl;
@@ -567,34 +569,37 @@ int main_chunk(int argc, char** argv) {
         
         // optional gam chunking
         if (chunk_gam) {
-            assert(gam_index.get() != nullptr);
-            GAMIndex::cursor_t& cursor = cursors[tid];
+            for (size_t gi = 0; gi < gam_indexes.size(); ++gi) {
+                auto& gam_index = gam_indexes[gi];
+                assert(gam_index.get() != nullptr);
+                GAMIndex::cursor_t& cursor = cursors_vec[gi][tid];
             
-            string gam_name = chunk_name(i, output_regions[i], ".gam");
-            ofstream out_gam_file(gam_name);
-            if (!out_gam_file) {
-                cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
-                exit(1);
+                string gam_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".gam", gi);
+                ofstream out_gam_file(gam_name);
+                if (!out_gam_file) {
+                    cerr << "error[vg chunk]: can't open output gam file " << gam_name << endl;
+                    exit(1);
+                }
+            
+                // Work out the ID ranges to look up
+                vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
+                if (subgraph != NULL) {
+                    // Use the regions from the graph
+                    region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph);
+                } else {
+                    // Use the region we were asked for
+                    region_id_ranges = {{region.start, region.end}};
+                }
+            
+                gam_index->find(cursor, region_id_ranges, vg::io::emit_to<Alignment>(out_gam_file), fully_contained);
             }
-            
-            // Work out the ID ranges to look up
-            vector<pair<vg::id_t, vg::id_t>> region_id_ranges;
-            if (subgraph != NULL) {
-                // Use the regions from the graph
-                region_id_ranges = vg::algorithms::sorted_id_ranges(subgraph);
-            } else {
-                // Use the region we were asked for
-                region_id_ranges = {{region.start, region.end}};
-            }
-            
-            gam_index->find(cursor, region_id_ranges, stream::emit_to<Alignment>(out_gam_file), fully_contained);
         }
 
         // trace annotations
         if (trace) {
             // Even if we have only one chunk, the trace annotation data always
             // ends up in a file.
-            string annot_name = chunk_name(i, output_regions[i], ".annotate.txt");
+            string annot_name = chunk_name(out_chunk_prefix, i, output_regions[i], ".annotate.txt");
             ofstream out_annot_file(annot_name);
             if (!out_annot_file) {
                 cerr << "error[vg chunk]: can't open output trace annotation file " << annot_name << endl;
@@ -618,9 +623,9 @@ int main_chunk(int argc, char** argv) {
             const Region& oregion = output_regions[i];
             string seq = id_range ? "ids" : oregion.seq;
             obed << seq << "\t" << oregion.start << "\t" << (oregion.end + 1)
-                 << "\t" << chunk_name(i, oregion, chunk_gam ? ".gam" : ".vg");
+                 << "\t" << chunk_name(out_chunk_prefix, i, oregion, chunk_gam ? ".gam" : ".vg");
             if (trace) {
-                obed << "\t" << chunk_name(i, oregion, ".annotate.txt");
+                obed << "\t" << chunk_name(out_chunk_prefix, i, oregion, ".annotate.txt");
             }
             obed << "\n";
         }
@@ -632,6 +637,19 @@ int main_chunk(int argc, char** argv) {
 // Register subcommand
 static Subcommand vg_chunk("chunk", "split graph or alignment into chunks", main_chunk);
 
+// Output name of a chunk
+string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi) {
+    stringstream chunk_name;
+    string seq = region.seq.empty() ? "ids" : region.seq;
+    chunk_name << out_chunk_prefix;
+    if (gi > 0) {
+        chunk_name << "-" << gi;
+    }
+    chunk_name << "_" << i << "_" << seq << "_"
+               << region.start << "_" << region.end << ext;
+    return chunk_name.str();
+}
+
 // Split out every chunk_size reads into a different file
 int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, size_t gam_buffer_size) {
     ofstream out_file;
@@ -640,7 +658,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
     // Todo: try parallel stream.  The only snag is that we'd have to either know
     // a-priori if it's interleaved or not, or else make a new stream function that handles
     // the last element instead of throwing error (very trivial as for_each_parallel_impl supports this)
-    stream::for_each<Alignment>(gam_stream, [&](Alignment& alignment) {
+    vg::io::for_each<Alignment>(gam_stream, [&](Alignment& alignment) {
             if (count++ % chunk_size == 0) {
                 if (out_file.is_open()) {
                     out_file.close();
@@ -654,7 +672,7 @@ int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix, 
                 }
             }
             gam_buffer.push_back(alignment);
-            stream::write_buffered(out_file, gam_buffer, gam_buffer_size);
+            vg::io::write_buffered(out_file, gam_buffer, gam_buffer_size);
         });
     return 0;
 }

@@ -2134,8 +2134,8 @@ class TestDistanceIndex : public DistanceIndex {
 
         for (int i = 0; i < 0; i++) {
             //1000 different graphs
-            VG graph = randomGraph(1000, 20, 100); 
-
+            VG graph;
+            random_graph(1000, 20, 100, &graph);
 
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 

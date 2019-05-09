@@ -22,12 +22,6 @@ using namespace std;
  * Order all the handles in the graph in ID order. All orientations are forward.
  */
 vector<handle_t> id_order(const HandleGraph* g);
-
-/**
- * Sort the given handle graph by ID, and then apply that sort to re-order the
- * nodes of the graph.
- */
-void id_sort(MutableHandleGraph* g);
                                                       
 }
 }

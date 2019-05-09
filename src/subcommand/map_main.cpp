@@ -4,8 +4,8 @@
 #include "../mapper.hpp"
 #include "../surjector.hpp"
 #include "../alignment_emitter.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -38,7 +38,6 @@ void help_map(char** argv) {
          << "    -n, --mq-overlap FLOAT        scale MQ by count of alignments with this overlap in the query with the primary [0]" << endl
          << "    -P, --min-ident FLOAT         accept alignment only if the alignment identity is >= FLOAT [0]" << endl
          << "    -H, --max-target-x N          skip cluster subgraphs with length > N*read_length [100]" << endl
-         << "    -m, --acyclic-graph           improves runtime when the graph is acyclic" << endl
          << "    -w, --band-width INT          band width for long read alignment [256]" << endl
          << "    -O, --band-overlap INT        band overlap for long read alignment [{-w}/8]" << endl
          << "    -J, --band-jump INT           the maximum number of bands of insertion we consider in the alignment chain model [128]" << endl
@@ -66,6 +65,9 @@ void help_map(char** argv) {
          << "    -a, --hap-exp FLOAT           the exponent for haplotype consistency likelihood in alignment score [1]" << endl
          << "    --recombination-penalty FLOAT use this log recombination penalty for GBWT haplotype scoring [20.7]" << endl
          << "    -A, --qual-adjust             perform base quality adjusted alignments (requires base quality input)" << endl
+         << "preset:" << endl
+         << "    -m, --alignment-model STR     use a preset alignment scoring model, either \"short\" (default) or \"long\" (for ONT/PacBio)" << endl
+         << "                                  \"long\" is equivalent to `-u 2 -L 63 -q 1 -z 2 -o 2 -y 1 -w 128 -O 32`" << endl
          << "input:" << endl
          << "    -s, --sequence STR            align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -V, --seq-name STR            name the sequence using this value (for graph modification with new named paths)" << endl
@@ -235,7 +237,7 @@ int main_map(int argc, char** argv) {
                 {"full-l-bonus", required_argument, 0, 'L'},
                 {"hap-exp", required_argument, 0, 'a'},
                 {"recombination-penalty", required_argument, 0, OPT_RECOMBINATION_PENALTY},
-                {"acyclic-graph", no_argument, 0, 'm'},
+                {"alignment-model", required_argument, 0, 'm'},
                 {"mem-chance", required_argument, 0, 'e'},
                 {"drop-chain", required_argument, 0, 'C'},
                 {"mq-overlap", required_argument, 0, 'n'},
@@ -258,7 +260,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m7:v5:824:3:9:0:",
+        c = getopt_long (argc, argv, "s:J:Q:d:x:g:1:T:N:R:c:M:t:G:jb:Kf:iw:P:Dk:Y:r:W:6H:Z:q:z:o:y:Au:B:I:S:l:e:C:V:O:L:a:n:E:X:UpF:m:7:v5:824:3:9:0:",
                          long_options, &option_index);
 
 
@@ -329,7 +331,16 @@ int main_map(int argc, char** argv) {
             break;
         
         case 'm':
-            acyclic_graph = true;
+            if (string(optarg) == "long") {
+                extra_multimaps = 2;
+                full_length_bonus = 63;
+                match = 1;
+                mismatch = 2;
+                gap_open = 2;
+                gap_extend = 1;
+                band_width = 128;
+                band_overlap = 32;
+            }
             break;
 
         case 'T':
@@ -644,7 +655,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xgidx = stream::VPKG::load_one<xg::XG>(xg_stream);
+        xgidx = vg::io::VPKG::load_one<xg::XG>(xg_stream);
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -653,7 +664,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
         }
-        gcsa = stream::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
+        gcsa = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     }
 
     string lcp_name = gcsa_name + ".lcp";
@@ -662,7 +673,7 @@ int main_map(int argc, char** argv) {
         if(debug) {
             cerr << "Loading LCP index " << lcp_name << "..." << endl;
         }
-        lcp = stream::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
+        lcp = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     }
     
     ifstream gbwt_stream(gbwt_name);
@@ -672,7 +683,7 @@ int main_map(int argc, char** argv) {
             cerr << "Loading GBWT haplotype index " << gbwt_name << "..." << endl;
         }
         
-        gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+        gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
         
         // We want to use this for haplotype scoring
         haplo_score_provider = new haplo::GBWTScoreProvider<gbwt::GBWT>(*gbwt);
@@ -1137,7 +1148,7 @@ int main_map(int argc, char** argv) {
                     }
                 }
             };
-            stream::for_each_interleaved_pair_parallel(gam_in, lambda);
+            vg::io::for_each_interleaved_pair_parallel(gam_in, lambda);
 #pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
@@ -1174,7 +1185,7 @@ int main_map(int argc, char** argv) {
                 }
                 output_alignments(alignments, empty_alns);
             };
-            stream::for_each_parallel(gam_in, lambda);
+            vg::io::for_each_parallel(gam_in, lambda);
         }
         gam_in.close();
     }

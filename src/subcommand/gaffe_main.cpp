@@ -17,8 +17,8 @@
 #include "../mapper.hpp"
 #include "../annotation.hpp"
 #include "../minimizer.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 #include "../alignment_emitter.hpp"
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
@@ -53,6 +53,8 @@ void help_gaffe(char** argv) {
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "computational parameters:" << endl
+    << "  -C, --no-chaining             disable seed chaining and all gapped alignment" << endl
+    << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
@@ -72,6 +74,10 @@ int main_gaffe(int argc, char** argv) {
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
     size_t hit_cap = 10;
+    // Should we try chaining or just give up if we can't find a full length gapless alignment?
+    bool do_chaining = true;
+    // Whould we use the xdrop aligner for aligning tails?
+    bool use_xdrop_for_tails = false;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -79,8 +85,8 @@ int main_gaffe(int argc, char** argv) {
     vector<string> fastq_filenames;
     // How many mappings per read can we emit?
     size_t max_multimaps = 1;
-    // How many clusters per read should we examine/extend?
-    size_t max_alignments = 10;
+    // How many extended clusters should we align, max?
+    size_t max_alignments = 48;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -103,12 +109,14 @@ int main_gaffe(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"no-chaining", no_argument, 0, 'C'},
+            {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:c:G:f:M:t:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:c:G:f:M:CXt:",
                          long_options, &option_index);
 
 
@@ -182,6 +190,14 @@ int main_gaffe(int argc, char** argv) {
                 read_group = optarg;
                 break;
                 
+            case 'C':
+                do_chaining = false;
+                break;
+                
+            case 'X':
+                use_xdrop_for_tails = true;
+                break;
+                
             case 't':
             {
                 int num_threads = parse<int>(optarg);
@@ -229,11 +245,11 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
-    unique_ptr<gbwt::GBWT> gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(gbwt_name);
-    unique_ptr<MinimizerIndex> minimizer_index = stream::VPKG::load_one<MinimizerIndex>(minimizer_name);
-    unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
-    unique_ptr<DistanceIndex> distance_index = stream::VPKG::load_one<DistanceIndex>(distance_name);
+    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+    unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
+    unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
+    unique_ptr<DistanceIndex> distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_name);
     
     // Connect the DistanceIndex to the other things it needs to work.
     distance_index->setGraph(xg_index.get());
@@ -246,6 +262,8 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_multimaps = max_multimaps;
     minimizer_mapper.hit_cap = hit_cap;
     minimizer_mapper.distance_limit = distance_limit;
+    minimizer_mapper.do_chaining = do_chaining;
+    minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
     
@@ -267,7 +285,7 @@ int main_gaffe(int argc, char** argv) {
         // For every GAM file to remap
         get_input_file(gam_name, [&](istream& in) {
             // Open it and map all the reads in parallel.
-            stream::for_each_parallel<Alignment>(in, map_read);
+            vg::io::for_each_parallel<Alignment>(in, map_read);
         });
     }
     

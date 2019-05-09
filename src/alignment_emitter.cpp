@@ -404,7 +404,7 @@ VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& for
         ostream& out_stream = (filename != "-") ? *out_file : cout;
         
         // Point a ProtobufEmitter there
-        proto = make_unique<stream::ProtobufEmitter<Alignment>>(out_stream);
+        proto = make_unique<vg::io::ProtobufEmitter<Alignment>>(out_stream);
     }
     
     // We later infer our format and output destination from out_file and proto being empty/set.

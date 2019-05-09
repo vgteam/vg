@@ -14,8 +14,8 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 #include "../handle.hpp"
 
 #include "../path.hpp"
@@ -212,7 +212,7 @@ int main_stats(int argc, char** argv) {
     if (have_input_file(optind, argc, argv)) {
         // We have an (optional, because we can just process alignments) graph input file.
         // TODO: We can only handle vg until we route all the stats operations through HandleGraph.
-        graph = stream::VPKG::load_one<VG>(get_input_file_name(optind, argc, argv));
+        graph = vg::io::VPKG::load_one<VG>(get_input_file_name(optind, argc, argv));
     }
     
     // We have function to make sure the graph was passed and complain if not
@@ -586,7 +586,8 @@ int main_stats(int argc, char** argv) {
                 stats.total_secondary++;
             } else {
                 stats.total_primary++;
-                if(aln.score() > 0) {
+                bool has_alignment = aln.score() > 0;
+                if (has_alignment) {
                     // We only count aligned primary reads in "total aligned";
                     // the primary can't be unaligned if the secondary is
                     // aligned.
@@ -684,17 +685,17 @@ int main_stats(int argc, char** argv) {
                 }
             
                 // If there's no non-match edits, call it a perfect alignment
-                stats.total_perfect += !has_non_match_edits;
+                stats.total_perfect += !has_non_match_edits && has_alignment;
                 
                 // If there's no non-softclip indel edits, the alignment is gapless
-                stats.total_gapless += !has_non_softclip_indel_edits;
+                stats.total_gapless += !has_non_softclip_indel_edits && has_alignment;
             
             }
 
         };
 
         // Actually go through all the reads and count stuff up.
-        stream::for_each_parallel(alignment_stream, lambda);
+        vg::io::for_each_parallel(alignment_stream, lambda);
         
         // Now combine into a single ReadStats object (for which we pre-populated reads_on_allele with 0s).
         for (auto& per_thread : read_stats) {

@@ -14,7 +14,7 @@
 #include <regex>
 #include <vector>
 #include <list>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "translator.hpp"
 #include "deconstructor.hpp"

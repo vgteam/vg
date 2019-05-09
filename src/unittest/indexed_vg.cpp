@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../indexed_vg.hpp"
 #include "../vg.hpp"
 #include "../utility.hpp"
@@ -91,10 +91,11 @@ TEST_CASE("An IndexedVG can be created for a single node", "[handle][indexed-vg]
 TEST_CASE("IndexedVG works on random graphs", "[handle][indexed-vg]") {
     for (size_t trial = 0; trial < 5; trial++) {
         // Make a bunch of random graphs
-        VG random = randomGraph(300, 3, 30);
+        VG random;
+        random_graph(300, 3, 30, &random);
         
         // Sort each by ID
-        algorithms::id_sort(&random);
+        random.id_sort();
         
         string filename = temp_file::create();
         random.serialize_to_file(filename, 10);

@@ -12,7 +12,7 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 using namespace std;
 using namespace vg;
@@ -103,16 +103,16 @@ int main_gamcompare(int argc, char** argv) {
     };
     if (truth_file_name == "-") {
         assert(test_file_name != "-");
-        stream::for_each_parallel(std::cin, record_truth);
+        vg::io::for_each_parallel(std::cin, record_truth);
     } else {
         ifstream truth_file_in(truth_file_name);
-        stream::for_each_parallel(truth_file_in, record_truth);
+        vg::io::for_each_parallel(truth_file_in, record_truth);
     }
 
     // We have a buffered emitter for annotated alignments, if we're not outputting text
-    std::unique_ptr<stream::ProtobufEmitter<Alignment>> emitter;
+    std::unique_ptr<vg::io::ProtobufEmitter<Alignment>> emitter;
     if (!output_tsv) {
-        emitter = std::unique_ptr<stream::ProtobufEmitter<Alignment>>(new stream::ProtobufEmitter<Alignment>(cout));
+        emitter = std::unique_ptr<vg::io::ProtobufEmitter<Alignment>>(new vg::io::ProtobufEmitter<Alignment>(cout));
     }
     
     // We have an ordinary buffer we use for text output
@@ -168,10 +168,10 @@ int main_gamcompare(int argc, char** argv) {
 
     if (test_file_name == "-") {
         assert(truth_file_name != "-");
-        stream::for_each_parallel(std::cin, annotate_test);
+        vg::io::for_each_parallel(std::cin, annotate_test);
     } else {
         ifstream test_file_in(test_file_name);
-        stream::for_each_parallel(test_file_in, annotate_test);
+        vg::io::for_each_parallel(test_file_in, annotate_test);
     }
 
     if (output_tsv) {

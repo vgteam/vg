@@ -7,10 +7,10 @@
 #include <omp.h>
 #include "subcommand.hpp"
 #include <gcsa/gcsa.h>
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../json2pb.h"
 #include "../vg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../filter.hpp"
 #include "../alignment.hpp"
 
@@ -489,15 +489,15 @@ int main_sift(int argc, char** argv){
         }
         
 
-        stream::write_buffered(unmapped_stream, unmapped_selected, 100);
-        stream::write_buffered(discordant_stream, discordant_selected, 100);
-        stream::write_buffered(oea_stream, one_end_anchored, 100);
-        stream::write_buffered(insert_stream, insert_selected, 100);
-        stream::write_buffered(split_stream, split_selected, 100);
-        stream::write_buffered(clipped_stream, clipped_selected, 100);
-        stream::write_buffered(clean_stream, clean, 100);
-        stream::write_buffered(reversing_stream, reversing_selected, 100);
-        stream::write_buffered(perfect_stream, perfect, 100);
+        vg::io::write_buffered(unmapped_stream, unmapped_selected, 100);
+        vg::io::write_buffered(discordant_stream, discordant_selected, 100);
+        vg::io::write_buffered(oea_stream, one_end_anchored, 100);
+        vg::io::write_buffered(insert_stream, insert_selected, 100);
+        vg::io::write_buffered(split_stream, split_selected, 100);
+        vg::io::write_buffered(clipped_stream, clipped_selected, 100);
+        vg::io::write_buffered(clean_stream, clean, 100);
+        vg::io::write_buffered(reversing_stream, reversing_selected, 100);
+        vg::io::write_buffered(perfect_stream, perfect, 100);
     };
 
     std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
@@ -511,7 +511,7 @@ int main_sift(int argc, char** argv){
            if (ff.soft_clip_filter(aln)){
                 clipped_selected.push_back(aln);
            }
-           //stream::write_buffered(clipped_stream, clipped_selected, 1000);
+           //vg::io::write_buffered(clipped_stream, clipped_selected, 1000);
 
         }
         if (do_quality){
@@ -542,7 +542,7 @@ int main_sift(int argc, char** argv){
 
 
 if (alignment_file == "-"){
-    stream::for_each_interleaved_pair_parallel(cin, pair_filters);
+    vg::io::for_each_interleaved_pair_parallel(cin, pair_filters);
 }
 else{
     ifstream in;
@@ -550,16 +550,16 @@ else{
     if (in.good()){
 
         // if (just_calc_insert){
-        //     stream::for_each_interleaved_pair_parallel(in, calc_insert);
+        //     vg::io::for_each_interleaved_pair_parallel(in, calc_insert);
         //     exit(0);
         // }
 
         if (is_paired){
             cerr << "Processing..." << endl;
-            stream::for_each_interleaved_pair_parallel(in, pair_filters);
+            vg::io::for_each_interleaved_pair_parallel(in, pair_filters);
         }
         else{
-            stream::for_each_parallel(in, single_filters);
+            vg::io::for_each_parallel(in, single_filters);
 
         }
     }
@@ -568,15 +568,15 @@ else{
         help_sift(argv);
     }
 }
-    stream::write_buffered(unmapped_stream, unmapped_selected, 0);
-    stream::write_buffered(discordant_stream, discordant_selected, 0);
-    stream::write_buffered(oea_stream, one_end_anchored, 0);
-    stream::write_buffered(insert_stream, insert_selected, 0);
-    stream::write_buffered(split_stream, split_selected, 0);
-    stream::write_buffered(clipped_stream, clipped_selected, 0);
-    stream::write_buffered(clean_stream, clean, 0);
-    stream::write_buffered(reversing_stream, reversing_selected, 0);
-    stream::write_buffered(perfect_stream, perfect, 0);
+    vg::io::write_buffered(unmapped_stream, unmapped_selected, 0);
+    vg::io::write_buffered(discordant_stream, discordant_selected, 0);
+    vg::io::write_buffered(oea_stream, one_end_anchored, 0);
+    vg::io::write_buffered(insert_stream, insert_selected, 0);
+    vg::io::write_buffered(split_stream, split_selected, 0);
+    vg::io::write_buffered(clipped_stream, clipped_selected, 0);
+    vg::io::write_buffered(clean_stream, clean, 0);
+    vg::io::write_buffered(reversing_stream, reversing_selected, 0);
+    vg::io::write_buffered(perfect_stream, perfect, 0);
 
     buffer.clear();
 

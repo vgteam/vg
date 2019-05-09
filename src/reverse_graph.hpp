@@ -80,6 +80,17 @@ using namespace std;
         /// largest ID is unavailable. Return value is unspecified if the graph is empty.
         virtual id_t max_node_id() const;
         
+        ////////////////////////////////////////////////////////////////////////////
+        /// (Future) Overlay Interface
+        ////////////////////////////////////////////////////////////////////////////
+        
+        /// Convert a backing graph handle to our handle to the same node
+        inline handle_t from_backing(const handle_t& backing_handle) const {
+            return backing_handle;
+        }
+        
+    protected:
+        
         ///////////////////////////////////
         /// ExpandingOverlayGraph interface
         ///////////////////////////////////
@@ -90,7 +101,6 @@ using namespace std;
          */
         virtual handle_t get_underlying_handle(const handle_t& handle) const;
         
-    private:
         /// The forward version of the graph we're making backwards
         const HandleGraph* forward_graph = nullptr;
         

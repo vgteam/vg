@@ -1,9 +1,10 @@
 #include "vg.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "aligner.hpp"
 // We need to use ultrabubbles for dot output
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
+#include "algorithms/id_sort.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -71,7 +72,7 @@ void VG::from_istream(istream& in, bool showp, bool warn_on_duplicates) {
         extend(g, warn_on_duplicates);
     };
 
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
     
     update_progress(file_size);
 
@@ -286,8 +287,12 @@ path_handle_t VG::get_path_handle(const string& path_name) const {
 string VG::get_path_name(const path_handle_t& path_handle) const {
     return paths.get_path_name(as_integer(path_handle));
 }
+    
+bool VG::get_is_circular(const path_handle_t& path_handle) const {
+    return paths.circular.count(get_path_name(path_handle));
+}
 
-size_t VG::get_occurrence_count(const path_handle_t& path_handle) const {
+size_t VG::get_step_count(const path_handle_t& path_handle) const {
     return paths._paths.at(paths.get_path_name(as_integer(path_handle))).size();
 }
 
@@ -301,66 +306,77 @@ bool VG::for_each_path_handle_impl(const function<bool(const path_handle_t&)>& i
     });
 }
 
-handle_t VG::get_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return get_handle(reinterpret_cast<const mapping_t*>(as_integers(occurrence_handle)[1])->node_id(),
-                      reinterpret_cast<const mapping_t*>(as_integers(occurrence_handle)[1])->is_reverse());
+handle_t VG::get_handle_of_step(const step_handle_t& step_handle) const {
+    return get_handle(reinterpret_cast<const mapping_t*>(as_integers(step_handle)[1])->node_id(),
+                      reinterpret_cast<const mapping_t*>(as_integers(step_handle)[1])->is_reverse());
 }
 
-occurrence_handle_t VG::get_first_occurrence(const path_handle_t& path_handle) const {
-    occurrence_handle_t occurrence_handle;
-    as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).front());
-    return occurrence_handle;
-}
-
-occurrence_handle_t VG::get_last_occurrence(const path_handle_t& path_handle) const {
-    occurrence_handle_t occurrence_handle;
-    as_integers(occurrence_handle)[0] = as_integer(path_handle);
-    as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path_handle))).back());
-    return occurrence_handle;
-}
-
-bool VG::has_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    iter++;
-    return iter != paths._paths.at(paths.get_path_name(as_integers(occurrence_handle)[0])).end();
-}
-
-bool VG::has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    return iter != paths._paths.at(paths.get_path_name(as_integers(occurrence_handle)[0])).begin();
-}
-
-occurrence_handle_t VG::get_next_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    occurrence_handle_t next_occurence_handle;
-    as_integers(next_occurence_handle)[0] = as_integers(occurrence_handle)[0];
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    iter++;
-    as_integers(next_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
-    return next_occurence_handle;
-}
-
-occurrence_handle_t VG::get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    occurrence_handle_t prev_occurence_handle;
-    as_integers(prev_occurence_handle)[0] = as_integers(occurrence_handle)[0];
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(occurrence_handle)[1])).first;
-    iter--;
-    as_integers(prev_occurence_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
-    return prev_occurence_handle;
-}
-
-path_handle_t VG::get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const {
-    return as_path_handle(as_integers(occurrence_handle)[0]);
+path_handle_t VG::get_path_handle_of_step(const step_handle_t& step_handle) const {
+    return as_path_handle(as_integers(step_handle)[0]);
 }
     
-bool VG::for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const {
+step_handle_t VG::path_begin(const path_handle_t& path_handle) const {
+    step_handle_t step_handle;
+    as_integers(step_handle)[0] = as_integer(path_handle);
+    const auto& path_list = paths._paths.at(paths.get_path_name(as_integer(path_handle)));
+    as_integers(step_handle)[1] = reinterpret_cast<int64_t>(path_list.empty() ? nullptr : &path_list.front());
+    return step_handle;
+}
+
+step_handle_t VG::path_end(const path_handle_t& path_handle) const {
+    step_handle_t step_handle;
+    as_integers(step_handle)[0] = as_integer(path_handle);
+    as_integers(step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
+    return step_handle;
+}
+
+step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
+    step_handle_t next_step_handle;
+    as_integers(next_step_handle)[0] = as_integers(step_handle)[0];
+    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+    ++iter;
+    if (iter == paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).end()) {
+        if (get_is_circular(get_path_handle_of_step(step_handle))) {
+            next_step_handle = path_begin(get_path_handle_of_step(step_handle));
+        }
+        else {
+            as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
+        }
+    }
+    else {
+        as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+    }
+    return next_step_handle;
+}
+
+step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
+    step_handle_t prev_step_handle;
+    as_integers(prev_step_handle)[0] = as_integers(step_handle)[0];
+    if (reinterpret_cast<mapping_t*>(as_integers(step_handle)[1]) == nullptr) {
+        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).back());
+    }
+    else {
+        list<mapping_t>::const_iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+        if (get_is_circular(get_path_handle_of_step(step_handle))) {
+            auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle))));
+            if (iter == path_list.begin()) {
+                iter = path_list.end();
+            }
+        }
+        --iter;
+        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+    }
+    return prev_step_handle;
+}
+    
+bool VG::for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const {
     const map<int64_t, set<mapping_t*>>& node_mapping = paths.get_node_mapping(get_id(handle));
     for (const pair<int64_t, set<mapping_t*>>& path_occs : node_mapping) {
         for (const mapping_t* mapping : path_occs.second) {
-            occurrence_handle_t occurrence_handle;
-            as_integers(occurrence_handle)[0] = path_occs.first;
-            as_integers(occurrence_handle)[1] = reinterpret_cast<int64_t>(mapping);
-            if (!iteratee(occurrence_handle)) {
+            step_handle_t step_handle;
+            as_integers(step_handle)[0] = path_occs.first;
+            as_integers(step_handle)[1] = reinterpret_cast<int64_t>(mapping);
+            if (!iteratee(step_handle)) {
                 return false;
             }
         }
@@ -531,19 +547,104 @@ void VG::destroy_path(const path_handle_t& path) {
     paths.remove_path(get_path_name(path));
 }
 
-path_handle_t VG::create_path_handle(const string& name) {
+path_handle_t VG::create_path_handle(const string& name, bool is_circular) {
     // Create the path
     paths.create_path(name);
+    if (is_circular) {
+        paths.make_circular(name);
+    }
     // Grab the handle
     return get_path_handle(name);
     
 }
     
-occurrence_handle_t VG::append_occurrence(const path_handle_t& path, const handle_t& to_append) {
+step_handle_t VG::append_step(const path_handle_t& path, const handle_t& to_append) {
     // Make the new path mapping/visit (which weirdly requires the node length)
     paths.append_mapping(get_path_name(path), get_id(to_append), get_is_reverse(to_append), get_length(to_append));
-    // Get the occurrence we just made, now last on the path.
-    return get_last_occurrence(path);
+    // Make a handle for the step we just made, now last on the path.
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path);
+    as_integers(step)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path))).back());
+    return step;
+}
+
+step_handle_t VG::prepend_step(const path_handle_t& path, const handle_t& to_prepend) {
+    // Make the new path mapping/visit (which weirdly requires the node length)
+    paths.prepend_mapping(get_path_name(path), get_id(to_prepend), get_is_reverse(to_prepend), get_length(to_prepend));
+    // Make a handle for the step we just made, now last on the path.
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path);
+    as_integers(step)[1] = reinterpret_cast<int64_t>(&paths._paths.at(paths.get_path_name(as_integer(path))).front());
+    return step;
+}
+    
+pair<step_handle_t, step_handle_t> VG::rewrite_segment(const step_handle_t& segment_begin,
+                                                       const step_handle_t& segment_end,
+                                                       const vector<handle_t>& new_segment) {
+    
+    if (get_path_handle_of_step(segment_begin) != get_path_handle_of_step(segment_end)) {
+        cerr << "error:[VG] attempted to rewrite segment delimited by steps on two separate paths" << endl;
+        exit(1);
+    }
+    
+    // erase the old segment, using the get_next_step logic to wrap around circular paths
+    
+    // collect the mapping_t*'s that we'll need to erase from the mapping_itr once we don't need them for get_next_step
+    vector<mapping_t*> to_erase;
+    
+    auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(segment_begin))));
+    for (step_handle_t step = segment_begin; step != segment_end; ) {
+        step_handle_t next = get_next_step(step);
+        path_list.erase(paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step)[1])).first);
+        step = next;
+    }
+    
+    for (mapping_t* mapping : to_erase) {
+        paths.mapping_itr.erase(mapping);
+    }
+    
+    // get the location before which we'll be adding the new segments
+    list<mapping_t>::iterator last_pos;
+    if (reinterpret_cast<mapping_t*>(as_integers(segment_end)[1]) != nullptr) {
+        last_pos = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(segment_end)[1])).first;;
+    }
+    else {
+        last_pos = path_list.end();
+    }
+    
+    // init the range we'll return, the past-the-last position of which shouldn't change from the input
+    pair<step_handle_t, step_handle_t> return_val(segment_end, segment_end);
+    
+    bool first_iter = true;
+    for (const handle_t& handle : new_segment) {
+        
+        // translate to a mapping
+        mapping_t mapping;
+        mapping.set_node_id(get_id(handle));
+        mapping.set_is_reverse(get_is_reverse(handle));
+        mapping.length = get_length(handle);
+        
+        auto iterator = path_list.insert(last_pos, mapping);
+        
+        paths.mapping_itr[&(*iterator)] = pair<list<mapping_t>::iterator, int64_t>(iterator, as_integers(segment_end)[0]);
+        
+        // on the first iteration, construct the first step handle for the return value
+        if (first_iter) {
+            as_integers(return_val.first)[1] = reinterpret_cast<int64_t>(&(*iterator));
+            first_iter = false;
+        }
+    }
+    
+    return return_val;
+}
+
+void VG::set_circularity(const path_handle_t& path, bool circular) {
+    if (circular) {
+        paths.make_circular(get_path_name(path));
+    }
+    else {
+        paths.make_linear(get_path_name(path));
+    }
 }
 
 void VG::clear_paths(void) {
@@ -635,7 +736,7 @@ void VG::serialize_to_function(const function<void(Graph&)>& emit, id_t chunk_si
 }
 
 
-void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
+void VG::serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chunk_size) {
     // Serialize and make the emitter write every chunk
     serialize_to_function([&emitter](const Graph& chunk) {
         emitter.write_copy(chunk);
@@ -645,7 +746,7 @@ void VG::serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chun
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
     // Make an emitter that serializes each chunk as its own group, like we did before using emitters.
     // This is good for indexing.
-    stream::ProtobufEmitter<Graph> emitter(out, 1);
+    vg::io::ProtobufEmitter<Graph> emitter(out, 1);
     serialize_to_emitter(emitter, chunk_size);
 }
 
@@ -662,6 +763,43 @@ VG::~VG(void) {
 VG::VG(void) {
     init();
 }
+    
+VG::VG(const VG& other) {
+    init();
+    if (this != &other) {
+        // cleanup
+        clear_indexes();
+        // assign
+        graph = other.graph;
+        paths = other.paths;
+        // re-index
+        build_indexes();
+    }
+}
+    
+VG::VG(VG&& other) noexcept {
+    init();
+    graph = other.graph;
+    paths = other.paths;
+    other.graph.Clear();
+    rebuild_indexes();
+    // should copy over indexes
+}
+    
+VG& VG::operator=(const VG& other) {
+    VG tmp(other);
+    *this = std::move(tmp);
+    return *this;
+}
+    
+VG& VG::operator=(VG&& other) noexcept {
+    std::swap(graph, other.graph);
+    clear_indexes();
+    build_indexes();
+    paths.clear();
+    paths.append(graph);
+    return *this;
+}
 
 void VG::init(void) {
     current_id = 1;
@@ -672,7 +810,7 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     init();
     add_nodes(nodes);
     add_edges(edges);
-    algorithms::topological_sort(this);
+    sort();
 }
 
 
@@ -756,8 +894,8 @@ void VG::circularize(id_t head, id_t tail) {
 void VG::circularize(vector<string> pathnames){
     for(auto p : pathnames){
         Path curr_path = paths.path(p);
-        Position start_pos = path_start(curr_path);
-        Position end_pos = path_end(curr_path);
+        Position start_pos = path_start_position(curr_path);
+        Position end_pos = path_end_position(curr_path);
         id_t head = start_pos.node_id();
         id_t tail = end_pos.node_id();
         if (start_pos.offset() != 0){
@@ -2951,6 +3089,47 @@ void VG::swap_node_id(Node* node, id_t new_id) {
     //assert(is_valid());
 
 }
+        
+void VG::sort() {
+    if (node_size() <= 1) {
+        // A graph with <2 nodes has only one sort.
+        return;
+    }
+    
+    apply_ordering(algorithms::topological_order(this));
+}
+    
+void VG::id_sort() {
+    if (node_size() <= 1) {
+        // A graph with <2 nodes has only one sort.
+        return;
+    }
+    
+    apply_ordering(algorithms::id_order(this));
+}
+        
+void VG::apply_ordering(const vector<handle_t>& ordering) {
+    
+    if (node_size() != ordering.size()) {
+        cerr << "error:[algorithms] attempting to sort a graph with an incomplete ordering" << endl;
+        exit(1);
+    }
+    
+    // TODO: we don't check that all nodes are present only once, which might be nice to do
+    
+    size_t index = 0;
+    for_each_handle([&](const handle_t& at_index) {
+        // For each handle in the graph, along with its index
+        
+        // Swap the handle we observe at this index with the handle that we know belongs at this index.
+        // The loop invariant is that all the handles before index are the correct sorted handles in the right order.
+        // Note that this ignores orientation
+        swap_handles(at_index, ordering.at(index));
+        
+        // Now we've written the sorted handles through one more space.
+        index++;
+    });
+}
 
 map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
     map<id_t, vcflib::Variant> ret;
@@ -3674,7 +3853,7 @@ int VG::node_rank(id_t id) {
 
 vector<Edge> VG::break_cycles(void) {
     // ensure we are sorted
-    algorithms::topological_sort(this);
+    sort();
     // remove any edge whose from has a higher index than its to
     vector<Edge*> to_remove;
     for_each_edge([&](Edge* e) {
@@ -3689,7 +3868,7 @@ vector<Edge> VG::break_cycles(void) {
         removed.push_back(*edge);
         destroy_edge(edge);
     }
-    algorithms::topological_sort(this);
+    sort();
     return removed;
 }
     
@@ -4829,7 +5008,7 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
         });
 
     // execute a semi partial order sort on the nodes
-    algorithms::topological_sort(this);
+    sort();
 
     // make the translation
     return make_translation(node_translation, added_nodes, orig_node_sizes);
@@ -5877,8 +6056,20 @@ bool VG::is_valid(bool check_nodes,
                 //       to sort by rank, but I'm not sure if any of this is by design or not...
 
                 auto& p1 = m1.position();
+                if (!has_node(p1.node_id())) {
+                    cerr << "graph path '" << path.name() << "' has invalid mapping " << pb2json(m1)
+                    << ": node does not exist" << endl;
+                    paths_ok = false;
+                    return;
+                }
                 auto& n1 = *get_node(p1.node_id());
                 auto& p2 = m2.position();
+                if (!has_node(p2.node_id())) {
+                    cerr << "graph path '" << path.name() << "' has invalid mapping " << pb2json(m2)
+                    << ": node does not exist" << endl;
+                    paths_ok = false;
+                    return;
+                }
                 auto& n2 = *get_node(p2.node_id());
                 // count up how many bases of the node m1 covers.
                 id_t m1_edit_length = m1.edit_size() == 0 ? n1.sequence().length() : 0;
@@ -6772,7 +6963,7 @@ Alignment VG::align(const Alignment& alignment,
     // trans is only required in the X-drop aligner; can be nullptr
     auto do_align = [&](VG& g) {
 #ifdef debug
-        stream::write_to_file(alignment, hash_alignment(alignment) + ".gam");
+        vg::io::write_to_file(alignment, hash_alignment(alignment) + ".gam");
         serialize_to_file(hash_alignment(alignment) + ".vg");
 #endif
         if (aligner && qual_adj_aligner) {
@@ -6857,7 +7048,7 @@ Alignment VG::align(const Alignment& alignment,
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
-        algorithms::topological_sort(&dag);
+        dag.sort();
         
         // run the alignment with id translation table
         do_align(dag);
@@ -6872,7 +7063,7 @@ Alignment VG::align(const Alignment& alignment,
                          << pb2json(a) << endl
                          << "expect:\t" << a.sequence() << endl
                          << "got:\t" << seq << endl;
-                    stream::write_to_file(a, "fail.gam");
+                    vg::io::write_to_file(a, "fail.gam");
                     graph.serialize_to_file("fail.vg");
                     assert(false);
                 }
@@ -8208,7 +8399,7 @@ VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
                 stable = true;
             }
             // sort the graph
-            algorithms::topological_sort(&dag);
+            dag.sort();
         } while (!stable);
     }
 

@@ -345,25 +345,6 @@ vector<handle_t> lazy_topological_order(const HandleGraph* g) {
 vector<handle_t> lazier_topological_order(const HandleGraph* g) {
     return lazy_topological_order_internal(g, true);
 }
-void topological_sort(MutableHandleGraph* g) {
-    if (g->node_size() <= 1) {
-        // A graph with <2 nodes has only one sort.
-        return;
-    }
-    
-    // No need to modify the graph; topological_sort is guaranteed to be stable.
-    
-    // Topologically sort, which orders and orients all the nodes, and apply the order to the backing graph
-    apply_ordering(g, topological_order(g));
-}
-    
-void lazy_topological_sort(MutableHandleGraph* g) {
-    apply_ordering(g, lazy_topological_order(g));
-}
-
-void lazier_topological_sort(MutableHandleGraph* g) {
-    apply_ordering(g, lazier_topological_order(g));
-}
     
 unordered_set<id_t> orient_nodes_forward(MutableHandleGraph* g) {
     // Topologically sort, which orders and orients all the nodes, and apply the orientations to the backing graph.

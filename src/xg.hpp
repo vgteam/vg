@@ -8,7 +8,9 @@
 #include <omp.h>
 #include <unordered_map>
 #include <unordered_set>
-#include "cpp/vg.pb.h"
+
+#include <vg/vg.pb.h>
+
 #include "sdsl/bit_vectors.hpp"
 #include "sdsl/enc_vector.hpp"
 #include "sdsl/dac_vector.hpp"
@@ -243,38 +245,51 @@ public:
     // Path handle graph API
     ////////////////////////
    
-    /// Determine if a path with a given name exists
-    virtual bool has_path(const string& path_name) const;
-    /// Look up the path handle for the given path name
-    virtual path_handle_t get_path_handle(const string& path_name) const;
-    /// Look up the name of a path from a handle to it
-    virtual string get_path_name(const path_handle_t& path_handle) const;
-    /// Returns the number of node occurrences in the path
-    virtual size_t get_occurrence_count(const path_handle_t& path_handle) const;
-    /// Returns the total length of sequence in the path
-    virtual size_t get_path_length(const path_handle_t& path_handle) const;
     /// Returns the number of paths stored in the graph
-    virtual size_t get_path_count() const;
+    size_t get_path_count() const;
+    /// Determine if a path with a given name exists
+    bool has_path(const string& path_name) const;
+    /// Look up the path handle for the given path name
+    path_handle_t get_path_handle(const string& path_name) const;
+    /// Look up the name of a path from a handle to it
+    string get_path_name(const path_handle_t& path_handle) const;
+    /// Look up whether a path is circular
+    bool get_is_circular(const path_handle_t& path_handle) const;
+    /// Returns the number of node steps in the path
+    size_t get_step_count(const path_handle_t& path_handle) const;
+    /// Returns the total length of sequence in the path
+    size_t get_path_length(const path_handle_t& path_handle) const;
+    /// Get a node handle (node ID and orientation) from a handle to a step on a path
+    handle_t get_handle_of_step(const step_handle_t& step_handle) const;
+    /// Returns a handle to the path that an step is on
+    path_handle_t get_path_handle_of_step(const step_handle_t& step_handle) const;
+    /// Get a handle to the first step, or in a circular path to an arbitrary step
+    /// considered "first". If the path is empty, returns the past-the-last step
+    /// returned by path_end.
+    step_handle_t path_begin(const path_handle_t& path_handle) const;
+    /// Get a handle to a fictitious position past the end of a path. This position is
+    /// return by get_next_step for the final step in a path in a non-circular path.
+    /// Note that get_next_step will *NEVER* return this value for a circular path.
+    step_handle_t path_end(const path_handle_t& path_handle) const;
+    /// Returns a handle to the next step on the path. If the given step is the final step
+    /// of a non-circular path, returns the past-the-last step that is also returned by
+    /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
+    /// the one returned by path_begin).
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    step_handle_t get_next_step(const step_handle_t& step_handle) const;
+    /// Returns a handle to the previous step on the path. If the given step is the first
+    /// step of a non-circular path, this method has undefined behavior. In a circular path,
+    /// it will loop around from the "first" step (i.e. the one returned by path_begin) to
+    /// the "last" step.
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    step_handle_t get_previous_step(const step_handle_t& step_handle) const;
+    
     /// Execute a function on each path in the graph
-    virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
-    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
-    virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Get a handle to the first occurrence in a path
-    virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
-    /// Get a handle to the last occurrence in a path
-    virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
-    /// Returns true if the occurrence is not the last occurence on the path, else false
-    virtual bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns true if the occurrence is not the first occurence on the path, else false
-    virtual bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns a handle to the next occurrence on the path
-    virtual occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns a handle to the previous occurrence on the path
-    virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns a handle to the path that an occurrence is on
-    virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Executes a function on each occurrence of a handle in any path.
-    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const;
+    bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
+    /// Executes a function on each step of a handle in any path.
+    bool for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API

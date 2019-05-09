@@ -72,9 +72,13 @@ DistanceIndex::DistanceIndex(const HandleGraph* vg, const SnarlManager* snarlMan
     setSnarlManager(snarlManager);
 }
 
-DistanceIndex::DistanceIndex (istream& in) : graph(nullptr), sm(nullptr) {
+DistanceIndex::DistanceIndex (istream& in) : DistanceIndex() {
     // Load the index
     load(in);
+}
+
+DistanceIndex::DistanceIndex () : graph(nullptr), sm(nullptr) {
+    // Nothing to do
 }
 
 void DistanceIndex::setGraph(const HandleGraph* new_graph) {
@@ -1824,10 +1828,6 @@ const Snarl* DistanceIndex::snarlOf (id_t nodeID) {
 
 
 void DistanceIndex::printSelf() {
-    cerr << "Nodes : Snarls" << endl;
-    for (size_t i = 0 ; i < nodeToSnarl.size() ; i++) {
-        cerr << i << " " << nodeToSnarl[i] << endl;
-    }
     cerr << "Snarls: " << endl;
     for (auto snarls : snarlDistances) {
         snarls.second.printSelf();

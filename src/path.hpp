@@ -8,7 +8,7 @@
 #include <list>
 #include <sstream>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "edit.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
@@ -104,7 +104,7 @@ public:
     // We need this in order to make sure we aren't adding duplicate mappings
     // with the same rank in the same path. Maps from path name and rank to
     // Mapping pointer.
-    map<string, hash_map<size_t, mapping_t*>> mappings_by_rank;
+    map<string, hash_map<int32_t, mapping_t*>> mappings_by_rank;
     // This maps from node ID, then path name, then rank and orientation, to
     // Mapping pointers for the mappings on that path to that node.
     hash_map<id_t, map<int64_t, set<mapping_t*>>> node_mapping;
@@ -152,7 +152,7 @@ public:
     // Does the given path have a mapping meeting the given criteria?
     // Is there a mapping in the given path with the given assigned rank? Note
     // that the rank passed may not be 0.
-    bool has_mapping(const string& name, size_t rank);
+    bool has_mapping(const string& name, int32_t rank);
     // We used to be able to search for a Mapping by value, but that's not
     // efficient if the Mappings don't have ranks, and it never checked the
     // edits for equality anyway.
@@ -215,7 +215,7 @@ public:
     void append_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank = 0, bool warn_on_duplicates = false);
     // TODO: Adapt this to use mapping_t instead.
     void prepend_mapping(const string& name, const Mapping& m, bool warn_on_duplicates = false);
-    void prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank, bool warn_on_duplicates = false);
+    void prepend_mapping(const string& name, id_t id, bool is_reverse, size_t length, size_t rank = 0, bool warn_on_duplicates = false);
     size_t get_next_rank(const string& name);
     void append(const Paths& paths, bool warn_on_duplicates = false, bool rebuild_indexes = true);
     void append(const Graph& g, bool warn_on_duplicates = false, bool rebuild_indexes = true);
@@ -312,8 +312,8 @@ pair<Path, Path> cut_path(const Path& path, const Position& pos);
 pair<Path, Path> cut_path(const Path& path, size_t offset);
 bool maps_to_node(const Path& p, id_t id);
 // the position that starts just after the path ends
-Position path_start(const Path& path);
-Position path_end(const Path& path);
+Position path_start_position(const Path& path);
+Position path_end_position(const Path& path);
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 // Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);

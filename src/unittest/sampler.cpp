@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../sampler.hpp"
 #include "catch.hpp"
 

@@ -14,6 +14,7 @@
 #include "utility.hpp"
 #include "crash.hpp"
 #include "preflight.hpp"
+#include "io/register_libvg_io.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -53,6 +54,13 @@ int main(int argc, char *argv[]) {
 
     // Set up stack trace support from crash.hpp
     enable_crash_handling();
+    
+    // Tell the IO library about libvg types.
+    // TODO: Make a more generic libvg startup function?
+    if (!vg::io::register_libvg_io()) {
+        cerr << "error[vg]: Could not register libvg types with libvgio" << endl;
+        return 1;
+    }
     
     // set a higher value for tcmalloc warnings
     setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);

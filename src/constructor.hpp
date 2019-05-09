@@ -16,7 +16,7 @@
 #include "types.hpp"
 #include "progressive.hpp"
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 // We need vcflib
 #include "Variant.h"
@@ -69,19 +69,11 @@ public:
     // Should alts be interpreted as flat (false) or aligned back to the
     // reference by vcflib (true)?
     bool flat = false;
-
-    // Prefix alt paths with this string. Paths beginning with _alt_ are required
-    // for making the GBWT
-    string alt_path_prefix = "_alt_";
     
     // Should we add paths for the different alts of variants, like
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_0 and
     // _alt_6079b4a76d0ddd6b4b44aeb14d738509e266961c_1?
     bool alt_paths = false;
-
-    // When writing alt paths, just take the name from the VCF ID field (but add _0, _1 etc.)
-    // like above.  
-    bool alt_names_from_vcf_id = false;
 
     // Should we handle structural variants in the VCF file,
     // or at least the ones we know how to?

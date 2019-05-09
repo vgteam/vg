@@ -10,11 +10,11 @@
 
 namespace vg {
     using namespace std;
-    // Takes in a pointer to a HandleGraph and converts it to a MutableHandleGraph graph.
+    /// Takes in a pointer to a HandleGraph and copies it into an empty MutableHandleGraph graph.
     void convert_handle_graph(const HandleGraph* converting, MutableHandleGraph* converted);
     
-    // Change paths to a mutable path.
-    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathDeletableHandleGraph* converted);
+    /// Takes in a pointer to a PathHandleGraph and copies it, inclding paths, into an empty MutablePathMutableHandleGraph graph.
+    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathMutableHandleGraph* converted);
 
 }
 
