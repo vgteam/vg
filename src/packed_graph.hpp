@@ -12,8 +12,11 @@
 
 #include "handle.hpp"
 #include "packed_structs.hpp"
+#include "split_strand_graph.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
+
+#include "algorithms/eades_algorithm.hpp"
 
 
 namespace vg {
@@ -313,6 +316,8 @@ private:
     PackedVector seq_length_iv;
     const static size_t SEQ_LENGTH_RECORD_SIZE;
 
+    // TODO: split up the edge lists into separate vectors
+    
     /// Encodes a series of edges lists of nodes.
     /// {ID|orientation (bit-packed), next edge index}
     PagedVector edge_lists_iv;

@@ -868,6 +868,88 @@ namespace vg {
     
     void PackedGraph::compact_ids() {
         
+        // use an overlay to convert to a single stranded digraph
+        StrandSplitGraph digraph(this);
+        
+        // get a low FAS layout using Eades-Lin-Smyth algorithm
+        vector<handle_t> layout = algorithms::eades_algorithm(&digraph);
+        // note: the single stranded graph will have a fully separated forward and reverse strands, so
+        // we have the guarantee that every handle in this layout is forward in the strand split graph
+        
+        // in place, take only the handles that are forward in the source graph and convert them back
+        // to the source handles
+        size_t skipped = 0;
+        for (size_t i = 0; i < layout.size(); ++i) {
+            handle_t underlying = digraph.get_underlying_handle(layout[i]);
+            if (get_is_reverse(underlying)) {
+                ++skipped;
+            }
+            else {
+                layout[i - skipped] = underlying;
+            }
+        }
+        // remove everything we skipped
+        layout.resize(layout.size() - skipped);
+        
+        assert(layout.size() == node_size());
+        
+        // use the layout to make a translator between current IDs and the IDs we will reassign
+        PagedVector id_trans(PAGE_WIDTH);
+        id_trans.resize(max_id - min_id + 1);
+        for (size_t i = 0; i < layout.size(); ++i) {
+            id_trans.set(get_id(layout[i]) - min_id, i + 1);
+        }
+        
+        // we don't need the layout anymore, so release the memory
+        layout.clear();
+        
+        // update the node IDs of edges
+        for (size_t i = EDGE_TRAV_OFFSET; i < edge_lists_iv.size(); i += EDGE_RECORD_SIZE) {
+            handle_t trav = decode_traversal(edge_lists_iv.get(i));
+            // only translate edges to nodes that have not been deleted
+            if (id_to_graph_iv.get(get_id(trav) - min_id)) {
+                trav = get_handle(id_trans.get(get_id(trav) - min_id), get_is_reverse(trav));
+                edge_lists_iv.set(i, encode_traversal(trav));
+            }
+        }
+        
+        // update the node IDs of steps on paths
+        for (PackedPath& packed_path : paths){
+            
+            if (packed_path.is_deleted) {
+                continue;
+            }
+            
+            for (size_t i = 0; i < packed_path.steps_iv.size(); i += STEP_RECORD_SIZE) {
+                handle_t trav = decode_traversal(packed_path.steps_iv.get(i));
+                // only translate step records of nodes that have not been deleted
+                if (id_to_graph_iv.get(get_id(trav) - min_id)) {
+                    trav = get_handle(id_trans.get(get_id(trav) - min_id), get_is_reverse(trav));
+                    packed_path.steps_iv.set(i, encode_traversal(trav));
+                }
+            }
+        }
+        
+        // make a vector to translate the new IDs to the offset of the node
+        PackedDeque new_id_to_graph_iv;
+        new_id_to_graph_iv.reserve(node_size());
+        for (id_t node_id = min_id; node_id <= max_id; ++node_id) {
+            size_t offset = id_to_graph_iv.get(node_id - min_id);
+            if (offset) {
+                new_id_to_graph_iv.append_back(offset);
+            }
+        }
+        
+        id_to_graph_iv = move(new_id_to_graph_iv);
+        
+        if (new_id_to_graph_iv.size() > 0) {
+            min_id = 1;
+            max_id = id_to_graph_iv.size();
+        }
+        else {
+            min_id = numeric_limits<id_t>::max();
+            max_id = 0;
+        }
     }
     
     void PackedGraph::tighten() {
@@ -1081,7 +1163,7 @@ namespace vg {
             compact_ids();
         }
         
-        // tighten up vectors and straighten out the linked lists they contain
+        // tighten up vector allocations and straighten out the linked lists they contain
         tighten();
     }
     
