@@ -1668,10 +1668,49 @@ string XG::get_sequence(const handle_t& handle) const {
     }
     
     if (handlegraph::number_bool_packing::unpack_bit(handle)) {
-        return reverse_complement(sequence);
-    } else {
-        return sequence;
+        reverse_complement_in_place(sequence);
     }
+    
+    return sequence;
+}
+
+char XG::get_base(const handle_t& handle, size_t index) const {
+    
+    // Figure out where the sequence starts
+    size_t sequence_start = g_iv[handlegraph::number_bool_packing::unpack_number(handle) + G_NODE_SEQ_START_OFFSET];
+    
+    // get the character
+    if (get_is_reverse(handle)) {
+        return reverse_complement(revdna3bit(s_iv[sequence_start + get_length(handle) - index - 1]));
+    }
+    else {
+        return revdna3bit(s_iv[sequence_start + index]);
+    }
+}
+
+string XG::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+    
+    // Figure out how big it should be
+    size_t sequence_size = get_length(handle);
+    // don't go past the end of the sequence
+    size = min(size, sequence_size - index);
+    // Figure out where the sequence starts
+    size_t sequence_start = g_iv[handlegraph::number_bool_packing::unpack_number(handle) + G_NODE_SEQ_START_OFFSET];
+
+    // Allocate the sequence string
+    string subsequence(size, '\0');
+    // unpack the sequence and handle orientation
+    if (get_is_reverse(handle)) {
+        for (size_t i = 0, subseq_start = sequence_start + get_length(handle) - index - size; i < size; ++i) {
+            subsequence[subsequence.size() - i - 1] = reverse_complement(revdna3bit(s_iv[subseq_start + i]));
+        }
+    }
+    else {
+        for (size_t i = 0, subseq_start = sequence_start + index; i < size; ++i) {
+            subsequence[i] = revdna3bit(s_iv[subseq_start + i]);
+        }
+    }
+    return subsequence;
 }
 
 bool XG::edge_filter(int type, bool is_to, bool want_left, bool is_reverse) const {

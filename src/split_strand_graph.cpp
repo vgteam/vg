@@ -80,7 +80,7 @@ using namespace std;
 
     handle_t StrandSplitGraph::get_underlying_handle(const handle_t& handle) const {
         return graph->get_handle(get_id(handle) >> 1,
-                                 (get_id(handle) & 1 == 1) != get_is_reverse(handle));
+                                 ((get_id(handle) & 1) == 1) != get_is_reverse(handle));
     }
 }
 
