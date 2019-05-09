@@ -112,5 +112,8 @@ using namespace std;
         return max_id;
     }
 
+    handle_t SubHandleGraph::get_underlying_handle(const handle_t& handle) const {
+        return handle;
+    }
 }
 
