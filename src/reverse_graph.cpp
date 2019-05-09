@@ -51,15 +51,16 @@ using namespace std;
         return sequence;
     }
     
-    bool ReverseGraph::follow_edges(const handle_t& handle, bool go_left,
-                                      const function<bool(const handle_t&)>& iteratee) const {
+    bool ReverseGraph::follow_edges_impl(const handle_t& handle, bool go_left,
+                                         const function<bool(const handle_t&)>& iteratee) const {
         // the left and right side have been switched, so reverse the direction
         return forward_graph->follow_edges(handle, !go_left, iteratee);
     }
     
-    void ReverseGraph::for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel) const {
-        // since the handles are
-        forward_graph->for_each_handle(iteratee, parallel);
+    bool ReverseGraph::for_each_handle_impl(const function<bool(const handle_t&)>& iteratee,
+                                            bool parallel) const {
+        // since the handles are the same we can just execute this
+        return forward_graph->for_each_handle(iteratee, parallel);
     }
     
     size_t ReverseGraph::node_size() const {

@@ -60,14 +60,16 @@ using namespace std;
         /// Loop over all the handles to next/previous (right/left) nodes. Passes
         /// them to a callback which returns false to stop iterating and true to
         /// continue. Returns true if we finished and false if we stopped early.
-        virtual bool follow_edges(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+        virtual bool follow_edges_impl(const handle_t& handle, bool go_left,
+                                       const function<bool(const handle_t&)>& iteratee) const;
         
         /// Loop over all the nodes in the graph in their local forward
         /// orientations, in their internal stored order. Stop if the iteratee
         /// returns false. Can be told to run in parallel, in which case stopping
         /// after a false return value is on a best-effort basis and iteration
         /// order is not defined.
-        virtual void for_each_handle(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+        virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee,
+                                          bool parallel = false) const;
         
         /// Return the number of nodes in the graph
         /// TODO: can't be node_count because XG has a field named node_count.
