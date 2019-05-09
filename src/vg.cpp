@@ -543,6 +543,11 @@ vector<handle_t> VG::divide_handle(const handle_t& handle, const vector<size_t>&
     
 }
 
+void VG::optimize(bool allow_id_reassignment) {
+    // no-op for now, but should we implement something?
+}
+    
+
 void VG::destroy_path(const path_handle_t& path) {
     paths.remove_path(get_path_name(path));
 }

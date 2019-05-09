@@ -154,7 +154,7 @@ using namespace std;
             graph.destroy_path(p2);
             graph.destroy_handle(h2);
             // reallocate and compress down to the smaller size
-            graph.compactify();
+            graph.optimize(false);
             
             REQUIRE(graph.get_sequence(h1) == "ATGTAG");
             REQUIRE(graph.get_sequence(h3) == "C");

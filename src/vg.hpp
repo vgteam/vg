@@ -235,6 +235,13 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
+    
+    /// Adjust the representation of the graph in memory to improve performance.
+    /// Optionally, allow the node IDs to be reassigned to further improve
+    /// performance.
+    /// Note: Ideally, this method is called one time once there is expected to be
+    /// few graph modifications in the future.
+    virtual void optimize(bool allow_id_reassignment = true);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface

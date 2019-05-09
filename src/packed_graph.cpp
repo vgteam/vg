@@ -866,7 +866,11 @@ namespace vg {
         }
     }
     
-    void PackedGraph::compactify() {
+    void PackedGraph::compact_ids() {
+        
+    }
+    
+    void PackedGraph::tighten() {
         
         // remove deleted paths and force them to eject deleted material
         for (size_t i = 0; i < paths.size(); i++) {
@@ -973,7 +977,7 @@ namespace vg {
         }
         
         // TODO: also defragment seq_iv?
-        // for now only doing that inside compactify
+        // for now only doing that inside tighten()
         
         if (deleted_edge_records > defrag_factor * (edge_lists_iv.size() / EDGE_RECORD_SIZE) || force) {
             
@@ -1068,6 +1072,17 @@ namespace vg {
             
             deleted_membership_records = 0;
         }
+    }
+    
+    void PackedGraph::optimize(bool allow_id_reassignment) {
+        
+        if (allow_id_reassignment) {
+            // reassign IDs into a contiguous interval ordered by an approximate sort
+            compact_ids();
+        }
+        
+        // tighten up vectors and straighten out the linked lists they contain
+        tighten();
     }
     
     void PackedGraph::clear(void) {

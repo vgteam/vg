@@ -36,6 +36,8 @@ using namespace std;
         // maps handles to records of ((in-degree, out-degree), bucket position)
         unordered_map<handle_t, pair<pair<int64_t, int64_t>, list<handle_t>::iterator>> degree_info;
         
+        // TODO: use a min bucket offset and resize the delta buckets dynamically
+        
         // buckets based on delta(u) among non-source, non-sink nodes (see paper)
         // buckets are numbered -n, -n + 1, ... , n - 1, n
         auto assign_bucket = [&](const int64_t& in_degree, const int64_t& out_degree) {
@@ -226,13 +228,13 @@ using namespace std;
             else {
                 // remove a node in the highest delta bucket from the graph
                 auto& bucket = delta_buckets[max_delta_bucket];
-                handle_t next = bucket.back();
+                handle_t next = bucket.front();
                 
 #ifdef debug_eades
                 cerr << "adding node " << graph->get_id(next) << (graph->get_is_reverse(next) ? "-" : "+") << " from delta bucket " << max_delta_bucket << endl;
 #endif
                 
-                bucket.pop_back();
+                bucket.pop_front();
                 degree_info.erase(next);
                 
                 // add it to the layout

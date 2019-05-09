@@ -337,12 +337,11 @@ namespace vg {
             MultipathAlignment& multipath_aln_1 = multipath_alns_1.front();
             MultipathAlignment& multipath_aln_2 = multipath_alns_2.front();
             
-            auto match_score = get_aligner()->match;
-            auto full_length_bonus = get_aligner()->full_length_bonus;
+            auto aligner = get_aligner();
             
             // score possible of a perfect match (at full base quality)
-            int32_t max_score_1 = multipath_aln_1.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
-            int32_t max_score_2 = multipath_aln_2.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
+            int32_t max_score_1 = multipath_aln_1.sequence().size() * aligner->match + 2 * aligner->full_length_bonus * !strip_bonuses;
+            int32_t max_score_2 = multipath_aln_2.sequence().size() * aligner->match + 2 * aligner->full_length_bonus * !strip_bonuses;
             
 #ifdef debug_multipath_mapper
             cerr << "single ended mappings achieves scores " << optimal_alignment_score(multipath_aln_1) << " and " << optimal_alignment_score(multipath_aln_2) << ", looking for scores " << .8 * max_score_1 << " and " << .8 * max_score_2 << endl;
@@ -724,27 +723,29 @@ namespace vg {
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
         
+        int64_t dist;
         if (use_min_dist_clusterer) {
             assert(!forward_strand);
-            int64_t dist = distance_index->minDistance(pos_1, pos_2);
-            if (dist == -1) {
-                dist = distance_index->minDistance(pos_2, pos_1);
-                if (dist == -1) {
-                    return numeric_limits<int64_t>::max();
-                }
-                else {
-                    return -dist;
-                }
+            // measure the distance in both directions and choose the minimum (or the only) absolute distance
+            int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
+            int64_t reverse_dist = distance_index->minDistance(pos_2, pos_1);
+            if (forward_dist == -1 && reverse_dist == -1) {
+                // unreachable both ways, convert to the sentinel that the client code expects
+                dist = numeric_limits<int64_t>::max();
+            }
+            else if (forward_dist == -1 || reverse_dist < forward_dist) {
+                dist = -reverse_dist;
             }
             else {
-                return dist;
+                dist = forward_dist;
             }
         }
         else {
-            return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+            dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                  id(pos_2), offset(pos_2), is_rev(pos_2),
                                                                  forward_strand);
         }
+        return dist;
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
