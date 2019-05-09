@@ -580,7 +580,8 @@ namespace vg {
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
                     
-                    if (!variant->hasSVTags()){
+                    if (!variant->canonical){
+                        // The variant did not have to be canonicalized.
                         // We will process the variant as a normal variant, based on its ref and alt sequences.
                         
                         for (auto &kv : alternates) {
