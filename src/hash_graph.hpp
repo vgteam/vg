@@ -74,6 +74,15 @@ public:
     
     /// Efficiently get the number of edges attached to one side of a handle.
     size_t get_degree(const handle_t& handle, bool go_left) const;
+    
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
 
     /// Create a new node with the given sequence and return the handle.
     handle_t create_handle(const std::string& sequence);

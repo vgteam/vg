@@ -276,6 +276,39 @@ bool VG::has_edge(const handle_t& left, const handle_t& right) const {
                     NodeSide(get_id(right), get_is_reverse(right)));
 }
 
+char VG::get_base(const handle_t& handle, size_t index) const {
+    auto found = node_by_id.find(get_id(handle));
+    
+    if (found != node_by_id.end()) {
+        if (get_is_reverse(handle)) {
+            const string& seq = found->second->sequence();
+            return reverse_complement(seq.at(seq.size() - index - 1));
+        }
+        else {
+            return found->second->sequence().at(index);
+        }
+    } else {
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+    }
+}
+
+string VG::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+    auto found = node_by_id.find(get_id(handle));
+    
+    if (found != node_by_id.end()) {
+        if (get_is_reverse(handle)) {
+            const string& seq = found->second->sequence();
+            size = min(size, seq.size() - index);
+            return reverse_complement(seq.substr(seq.size() - index - size, size));
+        }
+        else {
+            return found->second->sequence().substr(index, size);
+        }
+    } else {
+        throw runtime_error("No node " + to_string(get_id(handle)) + " in graph");
+    }
+}
+
 bool VG::has_path(const string& path_name) const {
     return paths.has_path(path_name);
 }

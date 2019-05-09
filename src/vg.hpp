@@ -132,6 +132,15 @@ public:
     /// index of node sides.
     virtual bool has_edge(const handle_t& left, const handle_t& right) const;
     
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    virtual char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////

@@ -76,6 +76,15 @@ public:
     /// order is not defined.
     bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual std::string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
+    
     /// Return the number of nodes in the graph
     size_t node_size(void) const;
     

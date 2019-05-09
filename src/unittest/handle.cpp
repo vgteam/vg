@@ -159,6 +159,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
                     REQUIRE(g->get_length(node_handle) == node->sequence().size());
                 }
                 
+                
                 handle_t rev1 = g->flip(node_handle);
                 handle_t rev2 = g->get_handle(node->id(), true);
                 
@@ -366,6 +367,23 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
         }
     }
 
+    SECTION("Handle graph subsequence accessors for VG and XG work") {
+        
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+            REQUIRE(g->get_sequence(g->get_handle(n0->id(), false)) == "CGA");
+            REQUIRE(g->get_sequence(g->get_handle(n1->id(), false)) == "TTGG");
+            REQUIRE(g->get_sequence(g->get_handle(n0->id(), true)) == "TCG");
+            REQUIRE(g->get_sequence(g->get_handle(n1->id(), true)) == "CCAA");
+            REQUIRE(g->get_base(g->get_handle(n0->id(), false), 2) == 'A');
+            REQUIRE(g->get_base(g->get_handle(n1->id(), false), 1) == 'T');
+            REQUIRE(g->get_base(g->get_handle(n0->id(), true), 2) == 'G');
+            REQUIRE(g->get_base(g->get_handle(n1->id(), true), 0) == 'C');
+            REQUIRE(g->get_subsequence(g->get_handle(n0->id(), false), 1, 2) == "GA");
+            REQUIRE(g->get_subsequence(g->get_handle(n1->id(), false), 2, 3) == "GG");
+            REQUIRE(g->get_subsequence(g->get_handle(n0->id(), true), 0, 1) == "T");
+            REQUIRE(g->get_subsequence(g->get_handle(n1->id(), true), 0, 3) == "CCA");
+        }
+    }
 }
 
 TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
@@ -567,6 +585,10 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
         {
             REQUIRE(graph.get_sequence(h) == "ATG");
             REQUIRE(graph.get_sequence(graph.flip(h)) == "CAT");
+            REQUIRE(graph.get_base(h, 1) == 'T');
+            REQUIRE(graph.get_base(graph.flip(h), 2) == 'T');
+            REQUIRE(graph.get_subsequence(h, 1, 3) == "TG");
+            REQUIRE(graph.get_subsequence(graph.flip(h), 0, 2) == "CA");
             REQUIRE(graph.get_length(h) == 3);
             REQUIRE(graph.has_node(graph.get_id(h)));
             REQUIRE(!graph.has_node(graph.get_id(h) + 1));
@@ -596,6 +618,10 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             
             REQUIRE(graph.get_sequence(h2) == "CT");
             REQUIRE(graph.get_sequence(graph.flip(h2)) == "AG");
+            REQUIRE(graph.get_base(h2, 1) == 'T');
+            REQUIRE(graph.get_base(graph.flip(h2), 0) == 'A');
+            REQUIRE(graph.get_subsequence(h2, 1, 10) == "T");
+            REQUIRE(graph.get_subsequence(graph.flip(h2), 0, 2) == "AG");
             REQUIRE(graph.get_length(h2) == 2);
             REQUIRE(graph.has_node(graph.get_id(h2)));
             REQUIRE(!graph.has_node(max(graph.get_id(h), graph.get_id(h2)) + 1));
@@ -624,6 +650,10 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
         {
             REQUIRE(graph.get_sequence(h3) == "GAC");
             REQUIRE(graph.get_sequence(graph.flip(h3)) == "GTC");
+            REQUIRE(graph.get_base(h3, 1) == 'A');
+            REQUIRE(graph.get_base(graph.flip(h3), 0) == 'G');
+            REQUIRE(graph.get_subsequence(h3, 1, 1) == "A");
+            REQUIRE(graph.get_subsequence(graph.flip(h3), 0, 5) == "GTC");
             REQUIRE(graph.get_length(h3) == 3);
             
             REQUIRE(graph.get_handle(graph.get_id(h3)) == h3);

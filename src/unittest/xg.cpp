@@ -703,36 +703,6 @@ TEST_CASE("Looping over XG handles in parallel works", "[xg]") {
     REQUIRE(count == 2);
 
 }
-        
-TEST_CASE("We can access XG sequences with the handle interface", "[xg]") {
-    
-    string graph_json = R"(
-    {"node":[{"id":1,"sequence":"GATT"},
-             {"id":2,"sequence":"ACA"}],
-        "edge":[{"to":2,"from":1}]}
-    )";
-    
-    // Load the JSON
-    Graph proto_graph;
-    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
-    
-    // Build the xg index
-    xg::XG xg_index(proto_graph);
-    
-    REQUIRE(xg_index.get_sequence(xg_index.get_handle(1, false)) == "GATT");
-    REQUIRE(xg_index.get_sequence(xg_index.get_handle(2, false)) == "ACA");
-    REQUIRE(xg_index.get_sequence(xg_index.get_handle(1, true)) == "AATC");
-    REQUIRE(xg_index.get_sequence(xg_index.get_handle(2, true)) == "TGT");
-    REQUIRE(xg_index.get_base(xg_index.get_handle(1, false), 2) == 'T');
-    REQUIRE(xg_index.get_base(xg_index.get_handle(2, false), 1) == 'C');
-    REQUIRE(xg_index.get_base(xg_index.get_handle(1, true), 3) == 'C');
-    REQUIRE(xg_index.get_base(xg_index.get_handle(2, true), 0) == 'T');
-    REQUIRE(xg_index.get_subsequence(xg_index.get_handle(1, false), 1, 2) == "AT");
-    REQUIRE(xg_index.get_subsequence(xg_index.get_handle(2, false), 2, 3) == "A");
-    REQUIRE(xg_index.get_subsequence(xg_index.get_handle(1, true), 0, 1) == "A");
-    REQUIRE(xg_index.get_subsequence(xg_index.get_handle(2, true), 0, 3) == "TGT");
-    
-}
 
 }
 }

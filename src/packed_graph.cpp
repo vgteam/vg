@@ -395,6 +395,33 @@ namespace vg {
         
     }
     
+    char PackedGraph::get_base(const handle_t& handle, size_t index) const {
+        size_t g_iv_index = graph_iv_index(handle);
+        size_t seq_start = seq_start_iv.get(graph_index_to_seq_start_index(g_iv_index));
+        if (get_is_reverse(handle)) {
+            size_t seq_len = seq_length_iv.get(graph_index_to_seq_len_index(g_iv_index));
+            return reverse_complement(decode_nucleotide(seq_iv.get(seq_start + seq_len - index - 1)));
+        }
+        else {
+            return decode_nucleotide(seq_iv.get(seq_start + index));
+        }
+    }
+    
+    string PackedGraph::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+        size_t g_iv_index = graph_iv_index(handle);
+        size_t seq_start = seq_start_iv.get(graph_index_to_seq_start_index(g_iv_index));
+        size_t seq_len = seq_length_iv.get(graph_index_to_seq_len_index(g_iv_index));
+        
+        size = min(size, seq_len - index);
+        size_t subseq_start = get_is_reverse(handle) ? seq_start + seq_len - size - index : seq_start + index;
+        
+        string subseq(size, 'N');
+        for (size_t i = 0; i < size; i++) {
+            subseq[i] = decode_nucleotide(seq_iv.get(subseq_start + i));
+        }
+        return get_is_reverse(handle) ? reverse_complement(subseq) : subseq;
+    }
+    
     handle_t PackedGraph::apply_orientation(const handle_t& handle) {
         
         if (get_is_reverse(handle)) {

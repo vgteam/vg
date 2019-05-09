@@ -115,6 +115,17 @@ namespace vg {
         return edge_list.size();
     }
     
+    char HashGraph::get_base(const handle_t& handle, size_t index) const {
+        const string& seq = graph.at(get_id(handle)).sequence;
+        return get_is_reverse(handle) ? reverse_complement(seq.at(seq.size() - index - 1)) : seq.at(index);
+    }
+    
+    string HashGraph::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+        const string& seq = graph.at(get_id(handle)).sequence;
+        size = min(size, seq.size() - index);
+        return get_is_reverse(handle) ? reverse_complement(seq.substr(seq.size() - index - size, size)) : seq.substr(index, size);
+    }
+    
     bool HashGraph::for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee,
                                          bool parallel) const {
         
