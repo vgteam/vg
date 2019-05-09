@@ -266,8 +266,8 @@ using namespace std;
             }
             
             // move the max bucket lower if it has been emptied
-            while (max_delta_bucket >= 0) {
-                if (!delta_buckets[max_delta_bucket].empty()) {
+            while (max_delta_bucket >= min_delta_bucket) {
+                if (!delta_buckets[max_delta_bucket - min_delta_bucket].empty()) {
                     break;
                 }
                 max_delta_bucket--;
