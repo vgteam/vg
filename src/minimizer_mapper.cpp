@@ -628,7 +628,7 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
         // TODO: Should we use the aligner instead of computing the score here?
 
         const Aligner* aligner = get_regular_aligner();
-        return (aln.sequence().length() - extended_seeds.front().mismatches()) * aligner->match +
+        return (aln.sequence().length() - extended_seeds.front().mismatches()) * aligner->match -
                extended_seeds.front().mismatches() * aligner->mismatch +
                2 * aligner->full_length_bonus;
     } else {
