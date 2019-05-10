@@ -36,6 +36,7 @@
 #include <gcsa/lcp.h>
 
 #include <iostream>
+#include <limits>
 #include <vector>
 
 #include <getopt.h>
@@ -50,7 +51,6 @@ void help_minimizer(char** argv) {
     std::cerr << "Builds a minimizer index of the graph in the XG index." << std::endl;
     std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << MinimizerIndex::KMER_LENGTH << ")" << std::endl;
     std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << MinimizerIndex::WINDOW_LENGTH << ")" << std::endl;
-    std::cerr << "    -m, --max-occs N       do not index minimizers with more than N occurrences" << std::endl;
     std::cerr << "    -i, --index-name X     store the index to file X (required)" << std::endl;
     std::cerr << "    -l, --load-index X     load the index from file X and insert the new kmers into it" << std::endl;
     std::cerr << "                           (overrides --kmer-length, --window-length, and --max-occs)" << std::endl;
@@ -80,7 +80,7 @@ int main_minimizer(int argc, char** argv) {
     // Command-line options.
     size_t kmer_length = MinimizerIndex::KMER_LENGTH;
     size_t window_length = MinimizerIndex::WINDOW_LENGTH;
-    size_t max_occs = MinimizerIndex::MAX_OCCS;
+    size_t max_occs = std::numeric_limits<size_t>::max();
     size_t max_errors = 0, min_hits = 1;
     std::string index_name, load_index, gbwt_name, xg_name, reads_name, gcsa_name;
     bool progress = false, locate = false, gapless_extend = false;
@@ -93,13 +93,13 @@ int main_minimizer(int argc, char** argv) {
         {
             { "kmer-length", required_argument, 0, 'k' },
             { "window-length", required_argument, 0, 'w' },
-            { "max-occs", required_argument, 0, 'm' },
             { "index-name", required_argument, 0, 'i' },
             { "load-index", required_argument, 0, 'l' },
             { "gbwt-name", required_argument, 0, 'g' },
             { "progress", no_argument, 0, 'p' },
             { "threads", required_argument, 0, 't' },
             { "benchmark", required_argument, 0, 'b' },
+            { "max-occs", required_argument, 0, 'm' },
             { "gcsa-name", required_argument, 0, 'G' },
             { "locate", no_argument, 0, 'L' },
             { "extend", required_argument, 0, 'e' },
@@ -108,7 +108,7 @@ int main_minimizer(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "k:w:m:i:l:g:pt:hb:G:Le:M:", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:w:i:l:g:pt:hb:m:G:Le:M:", long_options, &option_index);
         if (c == -1) { break; } // End of options.
 
         switch (c)
@@ -118,9 +118,6 @@ int main_minimizer(int argc, char** argv) {
             break;
         case 'w':
             window_length = parse<size_t>(optarg);
-            break;
-        case 'm':
-            max_occs = parse<size_t>(optarg);
             break;
         case 'i':
             index_name = optarg;
@@ -142,6 +139,9 @@ int main_minimizer(int argc, char** argv) {
             break;
         case 'b':
             reads_name = optarg;
+            break;
+        case 'm':
+            max_occs = parse<size_t>(optarg);
             break;
         case 'G':
             gcsa_name = optarg;
@@ -192,7 +192,7 @@ int main_minimizer(int argc, char** argv) {
     xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
     // Minimizer index.
-    std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length, max_occs));
+    std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length));
     if (!load_index.empty()) {
         if (progress) {
             std::cerr << "Loading minimizer index " << load_index << std::endl;
@@ -292,7 +292,7 @@ int main_minimizer(int argc, char** argv) {
 
     // Index statistics.
     if (progress) {
-        std::cerr << index->size() << " keys (" << index->unique_keys() << " unique, " << index->frequent_keys() << " too frequent)" << std::endl;
+        std::cerr << index->size() << " keys (" << index->unique_keys() << " unique)" << std::endl;
         std::cerr << "Minimizer occurrences: " << index->values() << std::endl;
         std::cerr << "Load factor: " << index->load_factor() << std::endl;
         double seconds = gbwt::readTimer() - start;
