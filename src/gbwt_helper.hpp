@@ -79,7 +79,7 @@ public:
     const gbwt::GBWT&   index;
     std::vector<char>   sequences;
     sdsl::int_vector<0> offsets;
-    std::vector<bool>   real_nodes;
+    sdsl::bit_vector    real_nodes;
     size_t              total_nodes;
 
     constexpr static size_t CHUNK_SIZE = 1024; // For parallel for_each_handle().
