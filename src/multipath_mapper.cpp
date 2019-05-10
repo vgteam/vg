@@ -2436,6 +2436,11 @@ namespace vg {
                     });
         
 #ifdef debug_multipath_mapper
+        cerr << "sorting cluster pairs by approximate likelihood:" << endl;
+        for (size_t i = 0; i < cluster_pairs.size(); i++) {
+            cerr << i << "-th cluster: " << cluster_pairs[i].first.first << " " << cluster_pairs[i].first.second << ", likelihood " << get_pair_approx_likelihood(cluster_pairs[i]) << endl;
+        }
+        
         cerr << "aligning to cluster pairs..." << endl;
 #endif
         
@@ -3545,6 +3550,7 @@ namespace vg {
         // just fragment score, for running without population adjustment, to make scores nonnegative
         double min_frag_score = numeric_limits<double>::max();
         
+        
         for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
             // For each pair of read placements
             pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair = multipath_aln_pairs[i];
@@ -3678,6 +3684,7 @@ namespace vg {
                                 best_pop_score[end] = pop_score.first / log_base;
                                 have_best_linearization[end] = true;
 #ifdef debug_multipath_mapper
+
                                 if (end == 0) {
                                     chosen_align_score[i].first = alignments[end][j].score();
                                     chosen_population_score[i].first = pop_score.first / log_base;
@@ -3800,7 +3807,7 @@ namespace vg {
         
             cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
-            << ", length: " << cluster_pairs[i].second;
+                << ", length: " << cluster_pairs[i].second;
             if (include_population_component && all_multipaths_pop_consistent) {
                 cerr << ", pop adjusted aligns: " << chosen_align_score[i].first << " " << chosen_align_score[i].second << ", population: " << chosen_population_score[i].first << " " << chosen_population_score[i].second;
             }

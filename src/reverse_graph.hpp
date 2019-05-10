@@ -1,13 +1,13 @@
-#ifndef VG_BACKWARDS_GRAPH_HPP_INCLUDED
-#define VG_BACKWARDS_GRAPH_HPP_INCLUDED
+#ifndef VG_REVERSE_GRAPH_HPP_INCLUDED
+#define VG_REVERSE_GRAPH_HPP_INCLUDED
 
 /** \file
- * backwards_graph.hpp: defines a handle graph implementation that reverses the sequences
+ * reverse_graph.hpp: defines a handle graph implementation that reverses the sequences
  * of some other graph
  */
 
-#include <unordered_map>
 #include "handle.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
@@ -15,21 +15,20 @@ using namespace std;
 
     /**
      * A HandleGraph implementation that wraps some other handle graph and reverses
-     * but does *NOT* complement the sequences.
-     *
-     * See also: ReverseComplementGraph
+     * and optionally complements the sequences.
      */
-    class BackwardsGraph : public HandleGraph {
+    class ReverseGraph : public ExpandingOverlayGraph {
     public:
         
-        /// Initialize as the backwards version of another graph
-        BackwardsGraph(const HandleGraph* forward_graph);
+        /// Initialize as the reverse version of another graph, optionally also
+        /// complementing
+        ReverseGraph(const HandleGraph* forward_graph, bool complement);
         
         /// Default constructor -- not actually functional
-        BackwardsGraph() = default;
+        ReverseGraph() = default;
         
         /// Default destructor
-        ~BackwardsGraph() = default;
+        ~ReverseGraph() = default;
         
         //////////////////////////
         /// HandleGraph interface
@@ -82,7 +81,7 @@ using namespace std;
         virtual id_t max_node_id() const;
         
         ////////////////////////////////////////////////////////////////////////////
-        // (Future) Overlay Interface
+        /// (Future) Overlay Interface
         ////////////////////////////////////////////////////////////////////////////
         
         /// Convert a backing graph handle to our handle to the same node
@@ -91,8 +90,22 @@ using namespace std;
         }
         
     protected:
+        
+        ///////////////////////////////////
+        /// ExpandingOverlayGraph interface
+        ///////////////////////////////////
+        
+        /**
+         * Returns the handle in the underlying graph that corresponds to a handle in the
+         * overlay
+         */
+        virtual handle_t get_underlying_handle(const handle_t& handle) const;
+        
         /// The forward version of the graph we're making backwards
         const HandleGraph* forward_graph = nullptr;
+        
+        /// Complement the sequences?
+        bool complement = false;
     };
 }
 

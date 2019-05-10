@@ -9,7 +9,7 @@
 #include "mem.hpp"
 #include "xdrop_aligner.hpp"
 #include "proto_handle_graph.hpp"
-#include "reverse_complement_graph.hpp"
+#include "reverse_graph.hpp"
 #include "extra_node_graph.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "convert_handle.hpp"
@@ -930,7 +930,7 @@ XdropAligner::align_pinned(
         // TODO: can we get around this somehow with proper use of reverse_complemented?
         
         // Flip the graph
-        ReverseComplementGraph rc(&g);
+        ReverseGraph rc(&g, true);
         
         // Flip the sequence
         string original_sequence(std::move(*alignment.mutable_sequence()));

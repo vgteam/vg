@@ -1,38 +1,35 @@
-#ifndef VG_SUBGRAPH_HPP_INCLUDED
-#define VG_SUBGRAPH_HPP_INCLUDED
+#ifndef VG_SPLIT_STRAND_GRAPH_HPP_INCLUDED
+#define VG_SPLIT_STRAND_GRAPH_HPP_INCLUDED
 
 /** \file
- * subgraph.hpp: defines a handle graph implementation of a subgraph
+ * split_strand_graph.hpp: defines a handle graph overlay that duplicates nodes
+ * and edges so that both the forward and reverse strand of the underlying graph
+ * are now on the forward strand
  */
 
-#include <unordered_map>
 #include "handle.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
 using namespace std;
 
     /**
-     * A HandleGraph implementation that acts as a subgraph of some other HandleGraph
-     * using a layer of indirection. Only subsets based on nodes; all edges between
-     * the nodes in the super graph are considered part of the subgraph. Subgraph
-     * handles can also be used by the super graph.
+     * A HandleGraph implementation that overlays some other handle graph and splits
+     * the two strands of its nodes into separate nodes
      */
-    class SubHandleGraph : public ExpandingOverlayGraph {
+    class StrandSplitGraph : public ExpandingOverlayGraph {
     public:
         
-        /// Initialize with a super graph and nodes returned by iterators to handles
-        /// from the super graph
-        template<typename HandleIter>
-        SubHandleGraph(const HandleGraph* super, HandleIter begin, HandleIter end);
+        /// Initialize as the reverse version of another graph, optionally also
+        /// complementing
+        StrandSplitGraph(const HandleGraph* graph);
         
-        /// Initialize as empty subgraph of a super graph
-        SubHandleGraph(const HandleGraph* super);
+        /// Default constructor -- not actually functional
+        StrandSplitGraph() = default;
         
-        /// Add a node from the super graph to the subgraph. Must be a handle to the
-        /// super graph. No effect if the node is already included in the subgraph.
-        /// Generally invalidates the results of any previous algorithms.
-        void add_handle(const handle_t& handle);
+        /// Default destructor
+        ~StrandSplitGraph() = default;
         
         //////////////////////////
         /// HandleGraph interface
@@ -63,16 +60,19 @@ using namespace std;
         /// Loop over all the handles to next/previous (right/left) nodes. Passes
         /// them to a callback which returns false to stop iterating and true to
         /// continue. Returns true if we finished and false if we stopped early.
-        virtual bool follow_edges_impl(const handle_t& handle, bool go_left, const function<bool(const handle_t&)>& iteratee) const;
+        virtual bool follow_edges_impl(const handle_t& handle, bool go_left,
+                                       const function<bool(const handle_t&)>& iteratee) const;
         
         /// Loop over all the nodes in the graph in their local forward
         /// orientations, in their internal stored order. Stop if the iteratee
         /// returns false. Can be told to run in parallel, in which case stopping
         /// after a false return value is on a best-effort basis and iteration
         /// order is not defined.
-        virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
+        virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee,
+                                          bool parallel = false) const;
         
         /// Return the number of nodes in the graph
+        /// TODO: can't be node_count because XG has a field named node_count.
         virtual size_t node_size() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the
@@ -94,22 +94,9 @@ using namespace std;
         virtual handle_t get_underlying_handle(const handle_t& handle) const;
         
     private:
-        const HandleGraph* super = nullptr;
-        unordered_set<id_t> contents;
-        // keep track of these separately rather than use an ordered set
-        id_t min_id = numeric_limits<id_t>::max();
-        id_t max_id = numeric_limits<id_t>::min();
-        
+        /// The underlying graph we're making splitting
+        const HandleGraph* graph = nullptr;
     };
-
-    
-    // Template constructor
-    template<typename HandleIter>
-    SubHandleGraph::SubHandleGraph(const HandleGraph* super, HandleIter begin, HandleIter end) : super(super) {
-        for (auto iter = begin; iter != end; ++iter) {
-            add_handle(*iter);
-        }
-    }
 }
 
 #endif
