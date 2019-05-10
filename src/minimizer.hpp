@@ -83,12 +83,12 @@ public:
     struct Header {
         std::uint32_t tag, version;
         std::uint64_t flags;
-        size_t        k, w;
-        size_t        keys, capacity, max_keys;
-        size_t        values;
-        size_t        unused1; // This used to be max_occs.
-        size_t        unique;
-        size_t        unused2; // This used to be frequent.
+        std::uint64_t k, w;
+        std::uint64_t keys, capacity, max_keys;
+        std::uint64_t values;
+        std::uint64_t unused1; // This used to be max_occs.
+        std::uint64_t unique;
+        std::uint64_t unused2; // This used to be frequent.
 
         constexpr static std::uint32_t TAG = 0x31513151;
         constexpr static std::uint32_t VERSION = 3;
