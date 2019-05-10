@@ -434,14 +434,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.substage("chain");
 #endif
                 
-                // Sort the extended seeds by read start position.
-                // TODO: Score estimation may have sorted them already.
-                std::sort(extensions.begin(), extensions.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
-                    // Return true if a needs to come before b.
-                    // This will happen if a is earlier in the read than b.
-                    return a.core_interval.first < b.core_interval.first;
-                });
-                
                 // Do the chaining and compute an alignment into out.
                 chain_extended_seeds(aln, extensions, out);
                 
@@ -648,13 +640,6 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
             // No score here
             return 0;
         }
-        
-        // Sort them in read order.
-        std::sort(extended_seeds.begin(), extended_seeds.end(), [&](const GaplessExtension& a, const GaplessExtension& b) -> bool {
-            // Return true if a needs to come before b.
-            // This will happen if a is earlier in the read than b.
-            return a.core_interval.first < b.core_interval.first;
-        });
         
         // Now we compute an estimate of the score: match count for all the
         // flank bases that aren't universal mismatches, mismatch count for

@@ -71,6 +71,7 @@ public:
      * 1. Call extend_seeds(). If there is a full-length alignment, return the result.
      * 2. Call maximal_extensions().
      * 3. Call extend_flanks() with max_mismatches / 2 mismatches.
+     * The extensions are sorted by (core_interval.first, core_interval.second).
      */
     std::vector<GaplessExtension> extend(cluster_type& cluster, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES) const;
 
