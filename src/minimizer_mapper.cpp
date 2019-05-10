@@ -12,6 +12,8 @@
 #include <iostream>
 #include <algorithm>
 
+#include <sdsl/int_vector.hpp>
+
 // We define this to turn on the detailed funnel instrumentation and correctness tracking.
 // Without this we just track per-read time.
 #define INSTRUMENT_MAPPING
@@ -190,32 +192,25 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Score the cluster in read coverage.
         
         // We set bits in here to true when query anchors cover them
-        vector<bool> covered(aln.sequence().size());
-        // We use this to convert iterators to indexes
-        auto start = aln.sequence().begin();
+        sdsl::bit_vector covered(aln.sequence().size(), 0);
+        std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index->k()];
         
-        for (auto& hit_index : cluster) {
+        for (auto hit_index : cluster) {
             // For each hit in the cluster, work out what anchor sequence it is from.
-            size_t source_index = seed_to_source.at(hit_index);
+            size_t source_index = seed_to_source[hit_index];
 
             // The offset of a reverse minimizer is the endpoint of the kmer
             size_t start_offset = minimizers[source_index].offset;
             if (minimizers[source_index].is_reverse) {
                 start_offset = start_offset + 1 - minimizer_index->k();
             }
-            
-            for (size_t i = start_offset; i < start_offset + minimizer_index->k(); i++) {
-                // Set all the bits in read space for that minimizer.
-                // Each minimizr is a length-k exact match starting at a position
-                covered[i] = true;
-            }
+
+            // Set the k bits starting at start_offset.
+            covered.set_int(start_offset, k_bit_mask, minimizer_index->k());
         }
         
         // Count up the covered positions
-        size_t covered_count = 0;
-        for (auto bit : covered) {
-            covered_count += bit;
-        }
+        size_t covered_count = sdsl::util::cnt_one_bits(covered);
         
         // Turn that into a fraction
         read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
