@@ -224,8 +224,8 @@ int main_paths(int argc, char** argv) {
     if (gbwt_index.get() != nullptr) {
 
         if (!(gbwt_index->hasMetadata() && gbwt_index->metadata.hasPathNames())) {
-            std::cerr << "error: [vg paths] the GBWT index does not contain thread names" << std::endl;
-            std::exit(EXIT_FAILURE);
+            std::cerr << "warning: [vg paths] the GBWT index does not contain thread names" << std::endl;
+            std::exit(EXIT_SUCCESS);
         }
 
         // Select the threads we are interested in.

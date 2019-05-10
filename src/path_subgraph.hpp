@@ -7,6 +7,7 @@
 
 #include "handle.hpp"
 #include <unordered_set>
+#include <vector>
 
 namespace vg {
 
@@ -28,6 +29,9 @@ using namespace std;
         /// perfect matches, and all adjacent mappings must properly cross a real
         /// edge.
         PathSubgraph(const HandleGraph* base, const Path& path);
+        
+        /// Get a topological order very easily, since the path defines one.
+        vector<handle_t> get_topological_order() const;
         
         //////////////////////////
         /// HandleGraph interface

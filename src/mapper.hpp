@@ -80,6 +80,7 @@ public:
     AlignmentChainModelVertex* max_vertex(void);
     vector<Alignment> traceback(const Alignment& read, int alt_alns, bool paired, bool debug);
     void display(ostream& out);
+    void display_dot(ostream& out, vector<AlignmentChainModelVertex*> vertex_trace);
     void clear_scores(void);
 };
 

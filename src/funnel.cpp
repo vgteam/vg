@@ -234,7 +234,7 @@ double Funnel::total_seconds() const {
     return to_seconds(funnel_duration);
 }
 
-void Funnel::for_each_time(const function<void(const string&, const string&, double)>& callback) {
+void Funnel::for_each_time(const function<void(const string&, const string&, double)>& callback) const {
     // Handle overall
     callback("", "", total_seconds());
 
@@ -248,6 +248,13 @@ void Funnel::for_each_time(const function<void(const string&, const string&, dou
             // Handle each substage
             callback(kv.first, kv2.first, to_seconds(kv2.second));
         }
+    }
+}
+
+void Funnel::for_each_stage(const function<void(const string&, size_t)>& callback) const {
+    for (auto& stage : stages) {
+        // Report the name and item count of each stage.
+        callback(stage.name, stage.items.size());
     }
 }
 
