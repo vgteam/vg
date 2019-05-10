@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: vg::SubHandleGraph Class Reference</title>
+<title>vg: vg::ReverseGraph Class Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -83,26 +83,27 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="classvg_1_1SubHandleGraph.html">SubHandleGraph</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespacevg.html">vg</a></li><li class="navelem"><a class="el" href="classvg_1_1ReverseGraph.html">ReverseGraph</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pri-attribs">Private Attributes</a> &#124;
-<a href="classvg_1_1SubHandleGraph-members.html">List of all members</a>  </div>
+<a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-attribs">Protected Attributes</a> &#124;
+<a href="classvg_1_1ReverseGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">vg::SubHandleGraph Class Reference</div>  </div>
+<div class="title">vg::ReverseGraph Class Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p><code>#include &lt;subgraph.hpp&gt;</code></p>
+<p><code>#include &lt;reverse_graph.hpp&gt;</code></p>
 <div class="dynheader">
-Inheritance diagram for vg::SubHandleGraph:</div>
+Inheritance diagram for vg::ReverseGraph:</div>
 <div class="dyncontent">
  <div class="center">
-  <img src="classvg_1_1SubHandleGraph.png" usemap="#vg::SubHandleGraph_map" alt=""/>
-  <map id="vg::SubHandleGraph_map" name="vg::SubHandleGraph_map">
+  <img src="classvg_1_1ReverseGraph.png" usemap="#vg::ReverseGraph_map" alt=""/>
+  <map id="vg::ReverseGraph_map" name="vg::ReverseGraph_map">
 <area href="classvg_1_1ExpandingOverlayGraph.html" alt="vg::ExpandingOverlayGraph" shape="rect" coords="0,56,172,80"/>
 <area href="classhandlegraph_1_1HandleGraph.html" alt="handlegraph::HandleGraph" shape="rect" coords="0,0,172,24"/>
 </map>
@@ -110,48 +111,47 @@ Inheritance diagram for vg::SubHandleGraph:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ae02101c50fc316637a11ed674637e6a4"><td class="memTemplParams" colspan="2">template&lt;typename HandleIter &gt; </td></tr>
-<tr class="memitem:ae02101c50fc316637a11ed674637e6a4"><td class="memTemplItemLeft" align="right" valign="top">&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#ae02101c50fc316637a11ed674637e6a4">SubHandleGraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1SubHandleGraph.html#aa17f9e8ba0b1b374b852390a9bf0c56a">super</a>, HandleIter begin, HandleIter <a class="el" href="namespacevg.html#ae28509de83b851bdc0d8ff2fa7bd4275">end</a>)</td></tr>
-<tr class="separator:ae02101c50fc316637a11ed674637e6a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1426a494a5d412485f5c4959f3b853c8"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a1426a494a5d412485f5c4959f3b853c8">SubHandleGraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1SubHandleGraph.html#aa17f9e8ba0b1b374b852390a9bf0c56a">super</a>)</td></tr>
-<tr class="memdesc:a1426a494a5d412485f5c4959f3b853c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initialize as empty subgraph of a super graph.  <a href="#a1426a494a5d412485f5c4959f3b853c8">More...</a><br/></td></tr>
-<tr class="separator:a1426a494a5d412485f5c4959f3b853c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2ab52610b56f49a48262faafc7e510df"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a2ab52610b56f49a48262faafc7e510df">add_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle)</td></tr>
-<tr class="separator:a2ab52610b56f49a48262faafc7e510df"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a144ec8427a5ee32e385b19077cb44bfc"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a144ec8427a5ee32e385b19077cb44bfc">has_node</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id) const </td></tr>
-<tr class="memdesc:a144ec8427a5ee32e385b19077cb44bfc"><td class="mdescLeft">&#160;</td><td class="mdescRight">HandleGraph interface.  <a href="#a144ec8427a5ee32e385b19077cb44bfc">More...</a><br/></td></tr>
-<tr class="separator:a144ec8427a5ee32e385b19077cb44bfc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a3cf7b154852b5e0b59213f8f708f5137"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a3cf7b154852b5e0b59213f8f708f5137">get_handle</a> (const <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &amp;node_id, bool is_reverse=false) const </td></tr>
-<tr class="memdesc:a3cf7b154852b5e0b59213f8f708f5137"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#a3cf7b154852b5e0b59213f8f708f5137">More...</a><br/></td></tr>
-<tr class="separator:a3cf7b154852b5e0b59213f8f708f5137"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a79385392d544ff91c2415f1c7bc81d97"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a79385392d544ff91c2415f1c7bc81d97">get_id</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:a79385392d544ff91c2415f1c7bc81d97"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the ID from a handle.  <a href="#a79385392d544ff91c2415f1c7bc81d97">More...</a><br/></td></tr>
-<tr class="separator:a79385392d544ff91c2415f1c7bc81d97"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2733ffe4a96aae755b3b7d966a3583f0"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a2733ffe4a96aae755b3b7d966a3583f0">get_is_reverse</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:a2733ffe4a96aae755b3b7d966a3583f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the orientation of a handle.  <a href="#a2733ffe4a96aae755b3b7d966a3583f0">More...</a><br/></td></tr>
-<tr class="separator:a2733ffe4a96aae755b3b7d966a3583f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af9b9c21bea0ae467e32c2a21eb7eb1c7"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#af9b9c21bea0ae467e32c2a21eb7eb1c7">flip</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:af9b9c21bea0ae467e32c2a21eb7eb1c7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Invert the orientation of a handle (potentially without getting its ID)  <a href="#af9b9c21bea0ae467e32c2a21eb7eb1c7">More...</a><br/></td></tr>
-<tr class="separator:af9b9c21bea0ae467e32c2a21eb7eb1c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adb5eb67b8156753f51d43e0f80e88ba8"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#adb5eb67b8156753f51d43e0f80e88ba8">get_length</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:adb5eb67b8156753f51d43e0f80e88ba8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of a node.  <a href="#adb5eb67b8156753f51d43e0f80e88ba8">More...</a><br/></td></tr>
-<tr class="separator:adb5eb67b8156753f51d43e0f80e88ba8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af7e06f11939cb2bad40a39cc0d993322"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#af7e06f11939cb2bad40a39cc0d993322">get_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="separator:af7e06f11939cb2bad40a39cc0d993322"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0a47207c8e7dfd447e65036077876897"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a0a47207c8e7dfd447e65036077876897">follow_edges_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
-<tr class="separator:a0a47207c8e7dfd447e65036077876897"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0b6cbc2d242128de09601f7e4f05303b"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a0b6cbc2d242128de09601f7e4f05303b">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
-<tr class="separator:a0b6cbc2d242128de09601f7e4f05303b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a08f5c5d5d2ee67d67a9979ed1a6b10e4"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a08f5c5d5d2ee67d67a9979ed1a6b10e4">node_size</a> () const </td></tr>
-<tr class="memdesc:a08f5c5d5d2ee67d67a9979ed1a6b10e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#a08f5c5d5d2ee67d67a9979ed1a6b10e4">More...</a><br/></td></tr>
-<tr class="separator:a08f5c5d5d2ee67d67a9979ed1a6b10e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a037570f6eee96071def9194c6f9718b3"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a037570f6eee96071def9194c6f9718b3">min_node_id</a> () const </td></tr>
-<tr class="separator:a037570f6eee96071def9194c6f9718b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aee5550e89bcd822842d1062d94bb98e4"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#aee5550e89bcd822842d1062d94bb98e4">max_node_id</a> () const </td></tr>
-<tr class="separator:aee5550e89bcd822842d1062d94bb98e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afe39643a7af3d3f5f445b7dc22a5da67"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#afe39643a7af3d3f5f445b7dc22a5da67">get_underlying_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
-<tr class="memdesc:afe39643a7af3d3f5f445b7dc22a5da67"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1ExpandingOverlayGraph.html">ExpandingOverlayGraph</a> interface.  <a href="#afe39643a7af3d3f5f445b7dc22a5da67">More...</a><br/></td></tr>
-<tr class="separator:afe39643a7af3d3f5f445b7dc22a5da67"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9122b516caa1f30b202ef7ef4cd83d60"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a9122b516caa1f30b202ef7ef4cd83d60">ReverseGraph</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *<a class="el" href="classvg_1_1ReverseGraph.html#ab5cdf413526444fe31d07e3dce91d0f8">forward_graph</a>, bool <a class="el" href="classvg_1_1ReverseGraph.html#af2508e0ccbc9186701840c7630b7c505">complement</a>)</td></tr>
+<tr class="separator:a9122b516caa1f30b202ef7ef4cd83d60"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4715727accf496a2b7f908688638d873"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a4715727accf496a2b7f908688638d873">ReverseGraph</a> ()=default</td></tr>
+<tr class="memdesc:a4715727accf496a2b7f908688638d873"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor &ndash; not actually functional.  <a href="#a4715727accf496a2b7f908688638d873">More...</a><br/></td></tr>
+<tr class="separator:a4715727accf496a2b7f908688638d873"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a202906f97f8aa781ed4a7c6ef41cbe85"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a202906f97f8aa781ed4a7c6ef41cbe85">~ReverseGraph</a> ()=default</td></tr>
+<tr class="memdesc:a202906f97f8aa781ed4a7c6ef41cbe85"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default destructor.  <a href="#a202906f97f8aa781ed4a7c6ef41cbe85">More...</a><br/></td></tr>
+<tr class="separator:a202906f97f8aa781ed4a7c6ef41cbe85"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abfd4427022931b26d02ab5633b12b17b"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#abfd4427022931b26d02ab5633b12b17b">has_node</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> node_id) const </td></tr>
+<tr class="memdesc:abfd4427022931b26d02ab5633b12b17b"><td class="mdescLeft">&#160;</td><td class="mdescRight">HandleGraph interface.  <a href="#abfd4427022931b26d02ab5633b12b17b">More...</a><br/></td></tr>
+<tr class="separator:abfd4427022931b26d02ab5633b12b17b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9d51922c79a7684e1ab4b310d0ad1abf"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a9d51922c79a7684e1ab4b310d0ad1abf">get_handle</a> (const <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &amp;node_id, bool is_reverse=false) const </td></tr>
+<tr class="memdesc:a9d51922c79a7684e1ab4b310d0ad1abf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#a9d51922c79a7684e1ab4b310d0ad1abf">More...</a><br/></td></tr>
+<tr class="separator:a9d51922c79a7684e1ab4b310d0ad1abf"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90d3c27f09092ddb49135dcf12038a33"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a90d3c27f09092ddb49135dcf12038a33">get_id</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a90d3c27f09092ddb49135dcf12038a33"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the ID from a handle.  <a href="#a90d3c27f09092ddb49135dcf12038a33">More...</a><br/></td></tr>
+<tr class="separator:a90d3c27f09092ddb49135dcf12038a33"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abc689044873a99d9f11d375a3bd4b9b7"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#abc689044873a99d9f11d375a3bd4b9b7">get_is_reverse</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:abc689044873a99d9f11d375a3bd4b9b7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the orientation of a handle.  <a href="#abc689044873a99d9f11d375a3bd4b9b7">More...</a><br/></td></tr>
+<tr class="separator:abc689044873a99d9f11d375a3bd4b9b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a540efce5144a002dc955e553c77dc1b4"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a540efce5144a002dc955e553c77dc1b4">flip</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a540efce5144a002dc955e553c77dc1b4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Invert the orientation of a handle (potentially without getting its ID)  <a href="#a540efce5144a002dc955e553c77dc1b4">More...</a><br/></td></tr>
+<tr class="separator:a540efce5144a002dc955e553c77dc1b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a37764415a533dfb0c79a243f30554927"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a37764415a533dfb0c79a243f30554927">get_length</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a37764415a533dfb0c79a243f30554927"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the length of a node.  <a href="#a37764415a533dfb0c79a243f30554927">More...</a><br/></td></tr>
+<tr class="separator:a37764415a533dfb0c79a243f30554927"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2ff6e43545152c971ad0aae225f56fff"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a2ff6e43545152c971ad0aae225f56fff">get_sequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="separator:a2ff6e43545152c971ad0aae225f56fff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aabca33796046f0bbab96095aa433b3c8"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#aabca33796046f0bbab96095aa433b3c8">follow_edges_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const </td></tr>
+<tr class="separator:aabca33796046f0bbab96095aa433b3c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9188168fb5a62be9a7b0002890af832d"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a9188168fb5a62be9a7b0002890af832d">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
+<tr class="separator:a9188168fb5a62be9a7b0002890af832d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a683ea4145331b50c842cc0757fb56813"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a683ea4145331b50c842cc0757fb56813">node_size</a> () const </td></tr>
+<tr class="separator:a683ea4145331b50c842cc0757fb56813"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acb536371a284afff6fb99325c2a3bd78"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#acb536371a284afff6fb99325c2a3bd78">min_node_id</a> () const </td></tr>
+<tr class="separator:acb536371a284afff6fb99325c2a3bd78"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0490941e466fc178368ea6997f62328c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a0490941e466fc178368ea6997f62328c">max_node_id</a> () const </td></tr>
+<tr class="separator:a0490941e466fc178368ea6997f62328c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a81ddb0da459164e18aaa89c4163b292c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a81ddb0da459164e18aaa89c4163b292c">from_backing</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;backing_handle) const </td></tr>
+<tr class="memdesc:a81ddb0da459164e18aaa89c4163b292c"><td class="mdescLeft">&#160;</td><td class="mdescRight">(Future) Overlay Interface  <a href="#a81ddb0da459164e18aaa89c4163b292c">More...</a><br/></td></tr>
+<tr class="separator:a81ddb0da459164e18aaa89c4163b292c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a5dcea1610fac82460ff304e07b4dd6e0 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplParams" colspan="2">template&lt;typename Iteratee &gt; </td></tr>
 <tr class="memitem:a5dcea1610fac82460ff304e07b4dd6e0 inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a5dcea1610fac82460ff304e07b4dd6e0">follow_edges</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const Iteratee &amp;iteratee) const </td></tr>
@@ -177,51 +177,44 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6a10d13e6e403d64221c0b2f3566b78f inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memTemplItemLeft" align="right" valign="top">bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a6a10d13e6e403d64221c0b2f3566b78f">for_each_edge</a> (const Iteratee &amp;iteratee, bool parallel=false) const </td></tr>
 <tr class="separator:a6a10d13e6e403d64221c0b2f3566b78f inherit pub_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
-Private Attributes</h2></td></tr>
-<tr class="memitem:aa17f9e8ba0b1b374b852390a9bf0c56a"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#aa17f9e8ba0b1b374b852390a9bf0c56a">super</a> = nullptr</td></tr>
-<tr class="separator:aa17f9e8ba0b1b374b852390a9bf0c56a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6d06eff177c6d87feadd561675c11b73"><td class="memItemLeft" align="right" valign="top">unordered_set&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a6d06eff177c6d87feadd561675c11b73">contents</a></td></tr>
-<tr class="separator:a6d06eff177c6d87feadd561675c11b73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a81878c5b09f4863b125f9de74ce11315"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a81878c5b09f4863b125f9de74ce11315">min_id</a> = numeric_limits&lt;<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&gt;::max()</td></tr>
-<tr class="separator:a81878c5b09f4863b125f9de74ce11315"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad0090894570f0c53d4c3011472a01d37"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#ad0090894570f0c53d4c3011472a01d37">max_id</a> = numeric_limits&lt;<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&gt;::min()</td></tr>
-<tr class="separator:ad0090894570f0c53d4c3011472a01d37"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
-Additional Inherited Members</h2></td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a957315233178b9716c635bd7d1c42246"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a957315233178b9716c635bd7d1c42246">get_underlying_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
+<tr class="memdesc:a957315233178b9716c635bd7d1c42246"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classvg_1_1ExpandingOverlayGraph.html">ExpandingOverlayGraph</a> interface.  <a href="#a957315233178b9716c635bd7d1c42246">More...</a><br/></td></tr>
+<tr class="separator:a957315233178b9716c635bd7d1c42246"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_methods_classhandlegraph_1_1HandleGraph"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classhandlegraph_1_1HandleGraph')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classhandlegraph_1_1HandleGraph.html">handlegraph::HandleGraph</a></td></tr>
 <tr class="memitem:a89bbc118fe1e8e1acb162c14be33e8b5 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a89bbc118fe1e8e1acb162c14be33e8b5">follow_edges_impl</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, bool go_left, const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee) const =0</td></tr>
 <tr class="separator:a89bbc118fe1e8e1acb162c14be33e8b5 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af48ba081fcb810267dc50e3a3e7ad391 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#af48ba081fcb810267dc50e3a3e7ad391">for_each_handle_impl</a> (const std::function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const =0</td></tr>
 <tr class="separator:af48ba081fcb810267dc50e3a3e7ad391 inherit pro_methods_classhandlegraph_1_1HandleGraph"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
+Protected Attributes</h2></td></tr>
+<tr class="memitem:ab5cdf413526444fe31d07e3dce91d0f8"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#ab5cdf413526444fe31d07e3dce91d0f8">forward_graph</a> = nullptr</td></tr>
+<tr class="memdesc:ab5cdf413526444fe31d07e3dce91d0f8"><td class="mdescLeft">&#160;</td><td class="mdescRight">The forward version of the graph we're making backwards.  <a href="#ab5cdf413526444fe31d07e3dce91d0f8">More...</a><br/></td></tr>
+<tr class="separator:ab5cdf413526444fe31d07e3dce91d0f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af2508e0ccbc9186701840c7630b7c505"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#af2508e0ccbc9186701840c7630b7c505">complement</a> = false</td></tr>
+<tr class="memdesc:af2508e0ccbc9186701840c7630b7c505"><td class="mdescLeft">&#160;</td><td class="mdescRight">Complement the sequences?  <a href="#af2508e0ccbc9186701840c7630b7c505">More...</a><br/></td></tr>
+<tr class="separator:af2508e0ccbc9186701840c7630b7c505"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>A HandleGraph implementation that acts as a subgraph of some other HandleGraph using a layer of indirection. Only subsets based on nodes; all edges between the nodes in the super graph are considered part of the subgraph. Subgraph handles can also be used by the super graph. </p>
+<div class="textblock"><p>A HandleGraph implementation that wraps some other handle graph and reverses and optionally complements the sequences. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="ae02101c50fc316637a11ed674637e6a4"></a>
+<a class="anchor" id="a9122b516caa1f30b202ef7ef4cd83d60"></a>
 <div class="memitem">
 <div class="memproto">
-<div class="memtemplate">
-template&lt;typename HandleIter &gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">vg::SubHandleGraph::SubHandleGraph </td>
+          <td class="memname">vg::ReverseGraph::ReverseGraph </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>super</em>, </td>
+          <td class="paramname"><em>forward_graph</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">HandleIter&#160;</td>
-          <td class="paramname"><em>begin</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">HandleIter&#160;</td>
-          <td class="paramname"><em>end</em>&#160;</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>complement</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -230,47 +223,11 @@ template&lt;typename HandleIter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Initialize with a super graph and nodes returned by iterators to handles from the super graph </p>
+<p>Initialize as the reverse version of another graph, optionally also complementing </p>
 
 </div>
 </div>
-<a class="anchor" id="a1426a494a5d412485f5c4959f3b853c8"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">vg::SubHandleGraph::SubHandleGraph </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *&#160;</td>
-          <td class="paramname"><em>super</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Initialize as empty subgraph of a super graph. </p>
-
-</div>
-</div>
-<h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="a2ab52610b56f49a48262faafc7e510df"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::SubHandleGraph::add_handle </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
-          <td class="paramname"><em>handle</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Add a node from the super graph to the subgraph. Must be a handle to the super graph. No effect if the node is already included in the subgraph. Generally invalidates the results of any previous algorithms. </p>
-
-</div>
-</div>
-<a class="anchor" id="af9b9c21bea0ae467e32c2a21eb7eb1c7"></a>
+<a class="anchor" id="a4715727accf496a2b7f908688638d873"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -278,7 +235,58 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::SubHandleGraph::flip </td>
+          <td class="memname">vg::ReverseGraph::ReverseGraph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Default constructor &ndash; not actually functional. </p>
+
+</div>
+</div>
+<a class="anchor" id="a202906f97f8aa781ed4a7c6ef41cbe85"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vg::ReverseGraph::~ReverseGraph </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">default</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Default destructor. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Function Documentation</h2>
+<a class="anchor" id="a540efce5144a002dc955e553c77dc1b4"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::ReverseGraph::flip </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -298,7 +306,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a0a47207c8e7dfd447e65036077876897"></a>
+<a class="anchor" id="aabca33796046f0bbab96095aa433b3c8"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -306,7 +314,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::SubHandleGraph::follow_edges_impl </td>
+          <td class="memname">bool vg::ReverseGraph::follow_edges_impl </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em>, </td>
@@ -339,7 +347,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a0b6cbc2d242128de09601f7e4f05303b"></a>
+<a class="anchor" id="a9188168fb5a62be9a7b0002890af832d"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -347,7 +355,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::SubHandleGraph::for_each_handle_impl </td>
+          <td class="memname">bool vg::ReverseGraph::for_each_handle_impl </td>
           <td>(</td>
           <td class="paramtype">const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;&#160;</td>
           <td class="paramname"><em>iteratee</em>, </td>
@@ -374,7 +382,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a3cf7b154852b5e0b59213f8f708f5137"></a>
+<a class="anchor" id="a81ddb0da459164e18aaa89c4163b292c"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -382,7 +390,34 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::SubHandleGraph::get_handle </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::ReverseGraph::from_backing </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>backing_handle</em></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>(Future) Overlay Interface </p>
+<p>Convert a backing graph handle to our handle to the same node </p>
+
+</div>
+</div>
+<a class="anchor" id="a9d51922c79a7684e1ab4b310d0ad1abf"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::ReverseGraph::get_handle </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &amp;&#160;</td>
           <td class="paramname"><em>node_id</em>, </td>
@@ -412,7 +447,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a79385392d544ff91c2415f1c7bc81d97"></a>
+<a class="anchor" id="a90d3c27f09092ddb49135dcf12038a33"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -420,7 +455,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::SubHandleGraph::get_id </td>
+          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::ReverseGraph::get_id </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -440,7 +475,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a2733ffe4a96aae755b3b7d966a3583f0"></a>
+<a class="anchor" id="abc689044873a99d9f11d375a3bd4b9b7"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -448,7 +483,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::SubHandleGraph::get_is_reverse </td>
+          <td class="memname">bool vg::ReverseGraph::get_is_reverse </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -468,7 +503,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="adb5eb67b8156753f51d43e0f80e88ba8"></a>
+<a class="anchor" id="a37764415a533dfb0c79a243f30554927"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -476,7 +511,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::SubHandleGraph::get_length </td>
+          <td class="memname">size_t vg::ReverseGraph::get_length </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -496,7 +531,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="af7e06f11939cb2bad40a39cc0d993322"></a>
+<a class="anchor" id="a2ff6e43545152c971ad0aae225f56fff"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -504,7 +539,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">string vg::SubHandleGraph::get_sequence </td>
+          <td class="memname">string vg::ReverseGraph::get_sequence </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -523,7 +558,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="afe39643a7af3d3f5f445b7dc22a5da67"></a>
+<a class="anchor" id="a957315233178b9716c635bd7d1c42246"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -531,7 +566,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::SubHandleGraph::get_underlying_handle </td>
+          <td class="memname"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> vg::ReverseGraph::get_underlying_handle </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
           <td class="paramname"><em>handle</em></td><td>)</td>
@@ -540,7 +575,7 @@ template&lt;typename HandleIter &gt; </div>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
@@ -552,7 +587,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a144ec8427a5ee32e385b19077cb44bfc"></a>
+<a class="anchor" id="abfd4427022931b26d02ab5633b12b17b"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -560,7 +595,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bool vg::SubHandleGraph::has_node </td>
+          <td class="memname">bool vg::ReverseGraph::has_node </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td>
           <td class="paramname"><em>node_id</em></td><td>)</td>
@@ -580,7 +615,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="aee5550e89bcd822842d1062d94bb98e4"></a>
+<a class="anchor" id="a0490941e466fc178368ea6997f62328c"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -588,7 +623,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::SubHandleGraph::max_node_id </td>
+          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::ReverseGraph::max_node_id </td>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
@@ -607,7 +642,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a037570f6eee96071def9194c6f9718b3"></a>
+<a class="anchor" id="acb536371a284afff6fb99325c2a3bd78"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -615,7 +650,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::SubHandleGraph::min_node_id </td>
+          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::ReverseGraph::min_node_id </td>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
@@ -634,7 +669,7 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a08f5c5d5d2ee67d67a9979ed1a6b10e4"></a>
+<a class="anchor" id="a683ea4145331b50c842cc0757fb56813"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -642,7 +677,7 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">size_t vg::SubHandleGraph::node_size </td>
+          <td class="memname">size_t vg::ReverseGraph::node_size </td>
           <td>(</td>
           <td class="paramtype">void&#160;</td>
           <td class="paramname"></td><td>)</td>
@@ -655,15 +690,14 @@ template&lt;typename HandleIter &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Return the number of nodes in the graph. </p>
+<p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab76511940f95dceb5fb162f39d316a1d">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
-<a class="anchor" id="a6d06eff177c6d87feadd561675c11b73"></a>
+<a class="anchor" id="af2508e0ccbc9186701840c7630b7c505"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -671,19 +705,21 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">unordered_set&lt;<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&gt; vg::SubHandleGraph::contents</td>
+          <td class="memname">bool vg::ReverseGraph::complement = false</td>
         </tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 
+<p>Complement the sequences? </p>
+
 </div>
 </div>
-<a class="anchor" id="ad0090894570f0c53d4c3011472a01d37"></a>
+<a class="anchor" id="ab5cdf413526444fe31d07e3dce91d0f8"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -691,61 +727,23 @@ template&lt;typename HandleIter &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::SubHandleGraph::max_id = numeric_limits&lt;<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&gt;::min()</td>
+          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>* vg::ReverseGraph::forward_graph = nullptr</td>
         </tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 
-</div>
-</div>
-<a class="anchor" id="a81878c5b09f4863b125f9de74ce11315"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::SubHandleGraph::min_id = numeric_limits&lt;<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&gt;::max()</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aa17f9e8ba0b1b374b852390a9bf0c56a"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a>* vg::SubHandleGraph::super = nullptr</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
+<p>The forward version of the graph we're making backwards. </p>
 
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following files:<ul>
-<li>src/<a class="el" href="subgraph_8hpp.html">subgraph.hpp</a></li>
-<li>src/<a class="el" href="subgraph_8cpp.html">subgraph.cpp</a></li>
+<li>src/<a class="el" href="reverse__graph_8hpp.html">reverse_graph.hpp</a></li>
+<li>src/<a class="el" href="reverse__graph_8cpp.html">reverse_graph.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

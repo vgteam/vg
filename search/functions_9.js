@@ -12,6 +12,7 @@ var searchData=
   ['identify_5fstart_5fsubpaths',['identify_start_subpaths',['../namespacevg.html#a84d3918e06a7c8948bb6e91ba1226fa9',1,'vg']]],
   ['identity',['identity',['../namespacevg.html#ab3c5c7a407962a8c735c1d533cc0b186',1,'vg']]],
   ['identity_5ftranslation',['identity_translation',['../classvg_1_1VG.html#abbd7b9f01799a351e0e5ba420fa06679',1,'vg::VG']]],
+  ['identityoverlay',['IdentityOverlay',['../classvg_1_1IdentityOverlay.html#ab287d9dd0b6b6c0832dc725a2cdb6740',1,'vg::IdentityOverlay::IdentityOverlay(const HandleGraph *graph)'],['../classvg_1_1IdentityOverlay.html#a8a699d8689c9d93e72a7e78023cc3413',1,'vg::IdentityOverlay::IdentityOverlay()=default']]],
   ['idify_5fgraph',['idify_graph',['../classxg_1_1XG.html#ac0835a2a24adf2989ad776ba8061cfab',1,'xg::XG']]],
   ['immutable_5fpath_5ffrom_5flength',['immutable_path_from_length',['../classvg_1_1MinimizerMapper.html#ab3008803e2ce57d5bbcd6a077f9dcde6',1,'vg::MinimizerMapper']]],
   ['in_5fnontrivial_5fchain',['in_nontrivial_chain',['../classvg_1_1SnarlManager.html#abe6a0924ce953c5dd1a43a91558c4391',1,'vg::SnarlManager']]],

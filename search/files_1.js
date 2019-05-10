@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['backwards_5fgraph_2ecpp',['backwards_graph.cpp',['../backwards__graph_8cpp.html',1,'']]],
-  ['backwards_5fgraph_2ehpp',['backwards_graph.hpp',['../backwards__graph_8hpp.html',1,'']]],
   ['banded_5fglobal_5faligner_2ecpp',['banded_global_aligner.cpp',['../banded__global__aligner_8cpp.html',1,'']]],
   ['banded_5fglobal_5faligner_2ehpp',['banded_global_aligner.hpp',['../banded__global__aligner_8hpp.html',1,'']]],
   ['basic_5fstream_2ecpp',['basic_stream.cpp',['../basic__stream_8cpp.html',1,'']]],

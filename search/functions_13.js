@@ -193,6 +193,7 @@ var searchData=
   ['stored_5fkmer_5fsizes',['stored_kmer_sizes',['../classvg_1_1Index.html#a3959e7eccaf4d3d001b585c4cfc6078b',1,'vg::Index']]],
   ['stpinchsegment_5fgetblockorientationsafe',['stPinchSegment_getBlockOrientationSafe',['../namespacevg.html#ab5d681cff3270646ab87c07bbf5a8d72',1,'vg']]],
   ['strand_5fbias',['strand_bias',['../namespacevg.html#a5b9c4e83112e55a3862015c55c4fd273',1,'vg']]],
+  ['strandsplitgraph',['StrandSplitGraph',['../classvg_1_1StrandSplitGraph.html#a0e170b8ad07ca370e31497b804932220',1,'vg::StrandSplitGraph::StrandSplitGraph(const HandleGraph *graph)'],['../classvg_1_1StrandSplitGraph.html#aede16e10fc0b17f2527a62861f155c6d',1,'vg::StrandSplitGraph::StrandSplitGraph()=default']]],
   ['strandsupport',['StrandSupport',['../structvg_1_1StrandSupport.html#a6fc31a16cc3df20cc8992e051bc08f0e',1,'vg::StrandSupport']]],
   ['stream_5fsort',['stream_sort',['../classvg_1_1StreamSorter.html#a3ef7c0c822f58db91184e6b069c3ce59',1,'vg::StreamSorter']]],
   ['streamindex',['StreamIndex',['../classvg_1_1StreamIndex.html#a3508617dbf1b8e8d1df051f4a214fa5e',1,'vg::StreamIndex']]],

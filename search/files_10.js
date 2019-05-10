@@ -11,7 +11,7 @@ var searchData=
   ['region_5fexpander_2ehpp',['region_expander.hpp',['../region__expander_8hpp.html',1,'']]],
   ['registry_2ecpp',['registry.cpp',['../registry_8cpp.html',1,'']]],
   ['registry_2ehpp',['registry.hpp',['../registry_8hpp.html',1,'']]],
-  ['reverse_5fcomplement_5fgraph_2ecpp',['reverse_complement_graph.cpp',['../reverse__complement__graph_8cpp.html',1,'']]],
-  ['reverse_5fcomplement_5fgraph_2ehpp',['reverse_complement_graph.hpp',['../reverse__complement__graph_8hpp.html',1,'']]],
+  ['reverse_5fgraph_2ecpp',['reverse_graph.cpp',['../reverse__graph_8cpp.html',1,'']]],
+  ['reverse_5fgraph_2ehpp',['reverse_graph.hpp',['../reverse__graph_8hpp.html',1,'']]],
   ['rna_5fmain_2ecpp',['rna_main.cpp',['../rna__main_8cpp.html',1,'']]]
 ];

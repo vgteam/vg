@@ -9,6 +9,6 @@ var searchData=
   ['replacelocalhaplotypecommand',['ReplaceLocalHaplotypeCommand',['../structvg_1_1ReplaceLocalHaplotypeCommand.html',1,'vg']]],
   ['replacesnarlhaplotypecommand',['ReplaceSnarlHaplotypeCommand',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html',1,'vg']]],
   ['representativetraversalfinder',['RepresentativeTraversalFinder',['../classvg_1_1RepresentativeTraversalFinder.html',1,'vg']]],
-  ['reversecomplementgraph',['ReverseComplementGraph',['../classvg_1_1ReverseComplementGraph.html',1,'vg']]],
+  ['reversegraph',['ReverseGraph',['../classvg_1_1ReverseGraph.html',1,'vg']]],
   ['rrmemo',['RRMemo',['../structhaplo_1_1haploMath_1_1RRMemo.html',1,'haplo::haploMath']]]
 ];

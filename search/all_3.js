@@ -177,7 +177,7 @@ var searchData=
   ['compare_5fkmers',['compare_kmers',['../classvg_1_1Index.html#aa64f755f8bc3e2d0c035179afde606c1',1,'vg::Index']]],
   ['compare_5fmain_2ecpp',['compare_main.cpp',['../compare__main_8cpp.html',1,'']]],
   ['compiler',['COMPILER',['../classvg_1_1Version.html#a20177da26bdbb15b48bae0c20b02b273',1,'vg::Version']]],
-  ['complement',['complement',['../structvg_1_1ChainIterator.html#a6699e092f944e1c311b4bbdf2e2cbe38',1,'vg::ChainIterator']]],
+  ['complement',['complement',['../classvg_1_1ReverseGraph.html#af2508e0ccbc9186701840c7630b7c505',1,'vg::ReverseGraph::complement()'],['../structvg_1_1ChainIterator.html#a6699e092f944e1c311b4bbdf2e2cbe38',1,'vg::ChainIterator::complement()']]],
   ['complement_5fcomponents',['complement_components',['../classvg_1_1PhaseUnfolder.html#aa9f017a0cd422c1229edd25c0235e17a',1,'vg::PhaseUnfolder']]],
   ['complement_5fencoded_5fnucleotide',['complement_encoded_nucleotide',['../classvg_1_1PackedGraph.html#af47116e32d103cb77f2e771d79ba2491',1,'vg::PackedGraph']]],
   ['complement_5ffilter',['complement_filter',['../classvg_1_1ReadFilter.html#a7a22a82c55e23fca581060934d03935e',1,'vg::ReadFilter']]],

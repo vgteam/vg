@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: src/multipath_mapper.hpp File Reference</title>
+<title>vg: src/split_strand_graph.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -89,47 +89,15 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">multipath_mapper.hpp File Reference</div>  </div>
+<div class="title">split_strand_graph.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><code>#include &quot;<a class="el" href="hash__map_8hpp.html">hash_map.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="mapper_8hpp.html">mapper.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="aligner_8hpp.html">aligner.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="src_2types_8hpp.html">types.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="multipath__alignment_8hpp.html">multipath_alignment.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="xg_8hpp.html">xg.hpp</a>&quot;</code><br/>
-<code>#include &lt;vg/vg.pb.h&gt;</code><br/>
-<code>#include &quot;<a class="el" href="position_8hpp.html">position.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="nodeside_8hpp.html">nodeside.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="path_8hpp.html">path.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="edit_8hpp.html">edit.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="haplotypes_8hpp.html">haplotypes.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="distance_8hpp.html">distance.hpp</a>&quot;</code><br/>
+<div class="textblock"><code>#include &quot;<a class="el" href="handle_8hpp.html">handle.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="utility_8hpp.html">utility.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="annotation_8hpp.html">annotation.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="identity__overlay_8hpp.html">identity_overlay.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="reverse__graph_8hpp.html">reverse_graph.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="split__strand__graph_8hpp.html">split_strand_graph.hpp</a>&quot;</code><br/>
-<code>#include &quot;<a class="el" href="hash__graph_8hpp.html">hash_graph.hpp</a>&quot;</code><br/>
-<code>#include &quot;algorithms/topological_sort.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/extract_containing_graph.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/extract_connecting_graph.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/extract_extending_graph.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/weakly_connected_components.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/is_acyclic.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/is_single_stranded.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/split_strands.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/count_walks.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/dagify.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/reverse_complement.hpp&quot;</code><br/>
-<code>#include &quot;algorithms/extend.hpp&quot;</code><br/>
-<code>#include &lt;structures/union_find.hpp&gt;</code><br/>
-<code>#include &lt;gbwt/gbwt.h&gt;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MultipathMapper.html">vg::MultipathMapper</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1StrandSplitGraph.html">vg::StrandSplitGraph</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -137,7 +105,9 @@ Namespaces</h2></td></tr>
 <tr class="memitem:namespacevg"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html">vg</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-</div><!-- contents -->
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p><a class="el" href="split__strand__graph_8hpp.html">split_strand_graph.hpp</a>: defines a handle graph overlay that duplicates nodes and edges so that both the forward and reverse strand of the underlying graph are now on the forward strand </p>
+</div></div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
