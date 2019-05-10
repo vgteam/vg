@@ -623,16 +623,14 @@ int MinimizerMapper::estimate_extension_group_score(const Alignment& aln, vector
     if (extended_seeds.empty()) {
         // TODO: We should never see an empty group of extensions
         return 0;
-    } else if (extended_seeds.size() == 1 && extended_seeds[0].full()) {
+    } else if (extended_seeds.size() == 1 && extended_seeds.front().full()) {
         // This is a full length match. Compute exact score.
-        
-        // Compute a score using the Aligner, which handles all the full length bonuses and so on.
-        // To do that we make a fake copy Alignment.
-        Alignment temp = aln;
-        *temp.mutable_path() = extended_seeds[0].path;
-        // TODO: have an implementation of this that takes a Path and a string and/or quality.
-        // TODO: Just do this based on mismatch count and match count but with aligner score parameters.
-        return get_regular_aligner()->score_ungapped_alignment(temp);
+        // TODO: Should we use the aligner instead of computing the score here?
+
+        const Aligner* aligner = get_regular_aligner();
+        return (aln.sequence().length() - extended_seeds.front().mismatches()) * aligner->match +
+               extended_seeds.front().mismatches() * aligner->mismatch +
+               2 * aligner->full_length_bonus;
     } else {
         // This is a collection of one or more non-full-length extended seeds.
         
