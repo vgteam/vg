@@ -46,7 +46,6 @@ var searchData=
   ['node_5ftraversal',['node_traversal',['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html#a6347ba68d0d1a79fa623928b2d2eadcc',1,'vg::PhasedGenome::HaplotypeNode']]],
   ['nodes',['nodes',['../classvg_1_1MEMClusterer_1_1HitGraph.html#aa1c634ccdab6c61d7fc0b9971014b276',1,'vg::MEMClusterer::HitGraph::nodes()'],['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a348fbee890bd78dc50c7c84368c5b2f6',1,'vg::MEMClusterer::DPScoreComparator::nodes()'],['../structvg_1_1FlowSort_1_1Growth.html#ace41b35679169dfbe0a6dda4c4837681',1,'vg::FlowSort::Growth::nodes()'],['../structhaplo_1_1gbwt__thread__t.html#a88bae446203703780f81cbcee5ff75cd',1,'haplo::gbwt_thread_t::nodes()'],['../classvg_1_1MaximalExactMatch.html#a1c34a3529b17b7ca55a3d29c0777f5e8',1,'vg::MaximalExactMatch::nodes()']]],
   ['nodetocomponent',['nodeToComponent',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aba2cf2a89db14bcc177d05f24ac0b3fe',1,'vg::DistanceIndex::MaxDistanceIndex']]],
-  ['nodetocycles',['nodeToCycles',['../classvg_1_1DistanceIndex.html#a0caa97544592bea7e92a035284300c8a',1,'vg::DistanceIndex']]],
   ['nodetosnarl',['nodeToSnarl',['../classvg_1_1DistanceIndex.html#ae22e146602760666fea5fe2f4dd43dce',1,'vg::DistanceIndex']]],
   ['nonce',['nonce',['../classvg_1_1Sampler.html#a36388c416226dd9c343b2da154aada5c',1,'vg::Sampler']]],
   ['normal_5faligners',['normal_aligners',['../classvg_1_1Genotyper.html#a91d6174a20ca4f121f68766fbf7fb4b0',1,'vg::Genotyper']]],

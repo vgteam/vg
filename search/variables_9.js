@@ -18,6 +18,7 @@ var searchData=
   ['in_5ffrom',['in_from',['../classvg_1_1ExtraNodeGraph.html#a4b2d9d6b68d55c26d367ad717b13da15',1,'vg::ExtraNodeGraph']]],
   ['include_5fendpoints',['include_endpoints',['../classvg_1_1VCFTraversalFinder.html#a27189437955d4b5f8b8ca92433c8fac2',1,'vg::VCFTraversalFinder']]],
   ['include_5ffull_5flength_5fbonuses',['include_full_length_bonuses',['../classvg_1_1Mapper.html#a9472c75cceb3382b70bbd27bfbc4a894',1,'vg::Mapper']]],
+  ['include_5fmaximum',['include_maximum',['../classvg_1_1DistanceIndex.html#ae130d315f8d0a9cfd6651c48093babd1',1,'vg::DistanceIndex']]],
   ['include_5freversing_5ftraversals',['include_reversing_traversals',['../classvg_1_1ExhaustiveTraversalFinder.html#a1904edecc299fc004b02ce44ea9301f8',1,'vg::ExhaustiveTraversalFinder']]],
   ['indel_5ferror_5fprop',['indel_error_prop',['../classvg_1_1NGSSimulator.html#ae16494345e539020ebd09b0998500559',1,'vg::NGSSimulator']]],
   ['indel_5fpoly_5frate',['indel_poly_rate',['../classvg_1_1NGSSimulator.html#af84310145f8991c92d48684a0664ba8e',1,'vg::NGSSimulator']]],

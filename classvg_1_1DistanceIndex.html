@@ -113,8 +113,8 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a5e6d7f707aaaf4e80b2ebb0855439488"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a5e6d7f707aaaf4e80b2ebb0855439488">DistanceIndex</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *vg, const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarlManager, uint64_t cap)</td></tr>
-<tr class="separator:a5e6d7f707aaaf4e80b2ebb0855439488"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9d45cd4e80744843de19f6f07bdcfa33"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a9d45cd4e80744843de19f6f07bdcfa33">DistanceIndex</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *vg, const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarlManager, uint64_t cap, bool <a class="el" href="classvg_1_1DistanceIndex.html#ae130d315f8d0a9cfd6651c48093babd1">include_maximum</a>=true)</td></tr>
+<tr class="separator:a9d45cd4e80744843de19f6f07bdcfa33"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa3dc49e9cdc337f6442f3273bfbd4d50"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#aa3dc49e9cdc337f6442f3273bfbd4d50">DistanceIndex</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *vg, const <a class="el" href="classvg_1_1SnarlManager.html">SnarlManager</a> *snarlManager, istream &amp;in)</td></tr>
 <tr class="separator:aa3dc49e9cdc337f6442f3273bfbd4d50"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4b2b6c0707ed80af8cc7dc4e5e4e2870"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a4b2b6c0707ed80af8cc7dc4e5e4e2870">DistanceIndex</a> (istream &amp;in)</td></tr>
@@ -141,6 +141,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4a67acfea2048be7afefd84003416065"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab4aab7a24a30a9fd02e81f902f86f6a4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#ab4aab7a24a30a9fd02e81f902f86f6a4">printSelf</a> ()</td></tr>
 <tr class="separator:ab4aab7a24a30a9fd02e81f902f86f6a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a124d6698b82b160533dd36ca064fa95f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a124d6698b82b160533dd36ca064fa95f">printSnarlStats</a> ()</td></tr>
+<tr class="separator:a124d6698b82b160533dd36ca064fa95f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -169,8 +171,6 @@ Protected Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
-<tr class="memitem:a0caa97544592bea7e92a035284300c8a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a0caa97544592bea7e92a035284300c8a">nodeToCycles</a></td></tr>
-<tr class="separator:a0caa97544592bea7e92a035284300c8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a45554ad0d13c6ab025ac828d9ae76eae"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; pair&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <br class="typebreak"/>
 bool &gt;, <a class="el" href="classvg_1_1DistanceIndex_1_1SnarlIndex.html">SnarlIndex</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a45554ad0d13c6ab025ac828d9ae76eae">snarlDistances</a></td></tr>
 <tr class="separator:a45554ad0d13c6ab025ac828d9ae76eae"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -186,6 +186,8 @@ bool &gt;, <a class="el" href="classvg_1_1DistanceIndex_1_1SnarlIndex.html">Snar
 <tr class="separator:a24c8a61fde2293f673f60d7b311fc41f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a719069f6a527678b707b4932dc4ebd85"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a719069f6a527678b707b4932dc4ebd85">maxNodeID</a></td></tr>
 <tr class="separator:a719069f6a527678b707b4932dc4ebd85"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae130d315f8d0a9cfd6651c48093babd1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#ae130d315f8d0a9cfd6651c48093babd1">include_maximum</a></td></tr>
+<tr class="separator:ae130d315f8d0a9cfd6651c48093babd1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a867358a62cbc467216d8d7fc73757da8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html">MaxDistanceIndex</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html#a867358a62cbc467216d8d7fc73757da8">maxIndex</a></td></tr>
 <tr class="separator:a867358a62cbc467216d8d7fc73757da8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -201,7 +203,7 @@ Friends</h2></td></tr>
 <tr class="separator:a1ec37a4a8425b4253c64b249d8eb1a4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a5e6d7f707aaaf4e80b2ebb0855439488"></a>
+<a class="anchor" id="a9d45cd4e80744843de19f6f07bdcfa33"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -221,7 +223,13 @@ Friends</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">uint64_t&#160;</td>
-          <td class="paramname"><em>cap</em>&#160;</td>
+          <td class="paramname"><em>cap</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>include_maximum</em> = <code>true</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -718,6 +726,21 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a124d6698b82b160533dd36ca064fa95f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::DistanceIndex::printSnarlStats </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a26d1fbd151407793cacc30622866ce46"></a>
 <div class="memitem">
 <div class="memproto">
@@ -919,6 +942,26 @@ Friends</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="ae130d315f8d0a9cfd6651c48093babd1"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::DistanceIndex::include_maximum</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a867358a62cbc467216d8d7fc73757da8"></a>
 <div class="memitem">
 <div class="memproto">
@@ -968,26 +1011,6 @@ Friends</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname"><a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> vg::DistanceIndex::minNodeID</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a0caa97544592bea7e92a035284300c8a"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt;<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t&gt; vg::DistanceIndex::nodeToCycles</td>
         </tr>
       </table>
   </td>
