@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 55
+plan tests 56
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -278,5 +278,8 @@ vg snarls -t x.vg > snarls.pb
 
 vg index -s snarls.pb -j distIndex -w 100 x.vg
 is $? 0 "building a distance index of a graph"
+
+vg index -s snarls.pb -j distIndex x.vg
+is $? 0 "building a distance index of a graph without maximum index"
 
 rm -f x.vg distIndex snarls.pb
