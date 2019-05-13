@@ -196,7 +196,7 @@ int main_cluster(int argc, char** argv) {
     distance_index->setSnarlManager(snarl_manager.get());
     
     // Make the clusterer
-    SnarlSeedClusterer clusterer;
+    SnarlSeedClusterer clusterer(*snarl_manager, *distance_index);
     
     // Make a Mapper to look up MEM seeds
     unique_ptr<Mapper> mapper;
@@ -272,7 +272,7 @@ int main_cluster(int argc, char** argv) {
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             

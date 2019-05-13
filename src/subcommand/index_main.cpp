@@ -82,7 +82,7 @@ void help_index(char** argv) {
          << "snarl distance index options" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "    -w  --max_dist N   cap beyond which the maximum distance is no longer accurate" << endl;
+         << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included, don't build maximum distance index" << endl;
 }
 
 // Convert Path to a GBWT path.
@@ -183,6 +183,7 @@ int main_index(int argc, char** argv) {
 
     //Distance index
     int cap = -1;
+    bool include_maximum = false;
 
     // Unused?
     bool compact = false;
@@ -442,6 +443,7 @@ int main_index(int argc, char** argv) {
         case 'w':
             build_dist = true;
             cap = parse<int>(optarg);
+            include_maximum = true;
             break;
 
         case 'h':
@@ -1200,7 +1202,7 @@ int main_index(int argc, char** argv) {
             cerr << "error: [vg index] distance index requires a snarl file" << endl;
             return 1;
             
-        } else if (cap < 0) {
+        } else if (include_maximum && cap < 0) {
             cerr << "error: [vg index] distance index requires a positive cap value" << endl;
             return 1;
             
@@ -1222,10 +1224,16 @@ int main_index(int argc, char** argv) {
             snarl_stream.close();
 
             // Create the DistanceIndex
-            DistanceIndex di (&vg, snarl_manager, cap);
+            if (include_maximum) {
+                DistanceIndex di (&vg, snarl_manager, cap);
+                // Save the completed DistanceIndex
+                vg::io::VPKG::save(di, dist_name);
+            } else {
+                DistanceIndex di (&vg, snarl_manager, 0, false);
+                // Save the completed DistanceIndex
+                vg::io::VPKG::save(di, dist_name);
+            }
             
-            // Save the completed DistanceIndex
-            vg::io::VPKG::save(di, dist_name);
         }
 
     }
