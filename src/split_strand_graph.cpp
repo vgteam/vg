@@ -15,7 +15,7 @@ using namespace std;
     }
     
     bool StrandSplitGraph::has_node(id_t node_id) const {
-        return graph->has_node(node_id / 2);
+        return graph->has_node(node_id >> 1);
     }
     
     handle_t StrandSplitGraph::get_handle(const id_t& node_id, bool is_reverse) const {
@@ -35,7 +35,7 @@ using namespace std;
     }
     
     size_t StrandSplitGraph::get_length(const handle_t& handle) const {
-        return graph->get_length(graph->get_handle(get_id(handle) / 2));
+        return graph->get_length(graph->get_handle(get_id(handle) >> 1));
     }
     
     string StrandSplitGraph::get_sequence(const handle_t& handle) const {
@@ -47,7 +47,7 @@ using namespace std;
         
         return graph->follow_edges(get_underlying_handle(handle), go_left,
                                    [&] (const handle_t& next) {
-            return iteratee(get_handle(2 * graph->get_id(next) + graph->get_is_reverse(next),
+            return iteratee(get_handle((graph->get_id(next) << 1) + graph->get_is_reverse(next),
                                        get_is_reverse(handle)));
         });
     }
@@ -57,30 +57,30 @@ using namespace std;
         return graph->for_each_handle([&](const handle_t& underlying_handle) {
             id_t node_id = graph->get_id(underlying_handle);
             // forward version of the node
-            bool keep_going = iteratee(get_handle(2 * node_id));
+            bool keep_going = iteratee(get_handle(node_id << 1));
             // reverse version of the node
             if (keep_going) {
-                keep_going = iteratee(get_handle(2 * node_id + 1));
+                keep_going = iteratee(get_handle((node_id << 1) | 1));
             }
             return keep_going;
         }, parallel);
     }
     
     size_t StrandSplitGraph::node_size() const {
-        return graph->node_size() * 2;
+        return graph->node_size() << 1;
     }
     
     id_t StrandSplitGraph::min_node_id() const {
-        return graph->min_node_id() * 2;
+        return graph->min_node_id() << 1;
     }
     
     id_t StrandSplitGraph::max_node_id() const {
-        return graph->max_node_id() * 2 + 1;
+        return (graph->max_node_id() << 1) | 1;
     }
 
     handle_t StrandSplitGraph::get_underlying_handle(const handle_t& handle) const {
-        return graph->get_handle(get_id(handle) / 2,
-                                 (get_id(handle) % 2 == 1) != get_is_reverse(handle));
+        return graph->get_handle(get_id(handle) >> 1,
+                                 ((get_id(handle) & 1) == 1) != get_is_reverse(handle));
     }
 }
 
