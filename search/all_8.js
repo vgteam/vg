@@ -90,7 +90,6 @@ var searchData=
   ['hash_5fmap_3c_20id_5ft_2c_20map_3c_20int64_5ft_2c_20set_3c_20vg_3a_3amapping_5ft_20_2a_20_3e_20_3e_20_3e',['hash_map&lt; id_t, map&lt; int64_t, set&lt; vg::mapping_t * &gt; &gt; &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20id_5ft_2c_20size_5ft_20_3e',['hash_map&lt; id_t, size_t &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20id_5ft_2c_20vector_3c_20pair_3c_20id_5ft_2c_20bool_20_3e_20_3e_20_3e',['hash_map&lt; id_t, vector&lt; pair&lt; id_t, bool &gt; &gt; &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
-  ['hash_5fmap_3c_20id_5ft_2c_20vector_3c_20vg_3a_3ahashgraph_3a_3apath_5fmapping_5ft_20_2a_20_3e_20_3e',['hash_map&lt; id_t, vector&lt; vg::HashGraph::path_mapping_t * &gt; &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20id_5ft_2c_20vg_3a_3adistanceindex_3a_3achainindex_20_3e',['hash_map&lt; id_t, vg::DistanceIndex::ChainIndex &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20id_5ft_2c_20vg_3a_3ahashgraph_3a_3anode_5ft_20_3e',['hash_map&lt; id_t, vg::HashGraph::node_t &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
   ['hash_5fmap_3c_20id_5ft_2c_20vg_3a_3anode_20_2a_20_3e',['hash_map&lt; id_t, vg::Node * &gt;',['../classvg_1_1hash__map.html',1,'vg']]],
@@ -121,8 +120,8 @@ var searchData=
   ['head_5fnodes',['head_nodes',['../classvg_1_1VG.html#a7eecc0bd555c31d1c541c3ce44b421c3',1,'vg::VG::head_nodes(vector&lt; Node * &gt; &amp;nodes)'],['../classvg_1_1VG.html#a3a44c415fb5882c184e2f35bb3999700',1,'vg::VG::head_nodes(void)']]],
   ['head_5foffset',['head_offset',['../classvg_1_1GaplessExtender.html#acc5406ca2347afdc0429e051f43297c3',1,'vg::GaplessExtender']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
-  ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html',1,'vg::MinimizerIndex']]],
   ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html#a5354bbaddd806761b65984f14423590e',1,'vg::MinimizerIndex::Header::Header()'],['../structvg_1_1MinimizerIndex_1_1Header.html#afcc17ddbd2330715df9b157b42a6eb56',1,'vg::MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key)'],['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex::header()']]],
+  ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html',1,'vg::MinimizerIndex']]],
   ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],
   ['help_5fadd',['help_add',['../add__main_8cpp.html#ad49fa30ce6a9b619ad5df1cfa8621d9a',1,'add_main.cpp']]],
   ['help_5falign',['help_align',['../align__main_8cpp.html#ac749b2692aaca8eeaa6b48d7b44e167d',1,'align_main.cpp']]],
@@ -196,8 +195,8 @@ var searchData=
   ['hit_5fcap',['hit_cap',['../classvg_1_1MinimizerMapper.html#a1097206776713f059fca80f221b8478c',1,'vg::MinimizerMapper']]],
   ['hit_5fmax',['hit_max',['../classvg_1_1BaseMapper.html#a29b8cec81cc68e9d90405c42fbc8ef64',1,'vg::BaseMapper']]],
   ['hit_5ft',['hit_t',['../classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7',1,'vg::MEMClusterer']]],
-  ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html#adfc12ed7c93d550e05882555d0004235',1,'vg::MEMClusterer::HitEdge::HitEdge(size_t to_idx, int32_t weight, int64_t distance)'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a16766cbf34e0ec89d8bbdcd7f9d42988',1,'vg::MEMClusterer::HitEdge::HitEdge()=default']]],
+  ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a958836b9c8114478f0b162c34eec2ab9',1,'vg::MEMClusterer::HitGraph']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html#a3156b62ac2208fdac8d0b12475011472',1,'vg::MEMClusterer::HitNode::HitNode(const MaximalExactMatch &amp;mem, pos_t start_pos, int32_t score)'],['../classvg_1_1MEMClusterer_1_1HitNode.html#aaeb6e6e2bb1c2ce2cda76adce19a40d6',1,'vg::MEMClusterer::HitNode::HitNode()=default']]],
@@ -211,6 +210,6 @@ var searchData=
   ['hts_5ffor_5feach',['hts_for_each',['../namespacevg.html#ad78ddf79cde91ee5ee05cf6d74dbec39',1,'vg::hts_for_each(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda, xg::XG *xgindex)'],['../namespacevg.html#ad7abb14966c1c20cff85c5744a47de0e',1,'vg::hts_for_each(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda)']]],
   ['hts_5ffor_5feach_5fparallel',['hts_for_each_parallel',['../namespacevg.html#a5ffaa04b09a709602834dbf5a4e8509b',1,'vg::hts_for_each_parallel(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda, xg::XG *xgindex)'],['../namespacevg.html#a59c6c494c2e7663fb14e40c978b4f9e5',1,'vg::hts_for_each_parallel(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda)']]],
   ['hts_5fstring_5fheader',['hts_string_header',['../namespacevg.html#a03de4dcf9bfbc8ef1735076da3b922cc',1,'vg']]],
-  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html',1,'vg']]],
-  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html#a15e163926b485559f53d765f440844f0',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length)'],['../classvg_1_1HTSAlignmentEmitter.html#a0c76946bf064ecac88e21a2467ea2410',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const HTSAlignmentEmitter &amp;other)=delete'],['../classvg_1_1HTSAlignmentEmitter.html#a780156f43d54cf16906948ad8286c20f',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(HTSAlignmentEmitter &amp;&amp;other)=delete']]]
+  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html#a15e163926b485559f53d765f440844f0',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length)'],['../classvg_1_1HTSAlignmentEmitter.html#a0c76946bf064ecac88e21a2467ea2410',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const HTSAlignmentEmitter &amp;other)=delete'],['../classvg_1_1HTSAlignmentEmitter.html#a780156f43d54cf16906948ad8286c20f',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(HTSAlignmentEmitter &amp;&amp;other)=delete']]],
+  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html',1,'vg']]]
 ];

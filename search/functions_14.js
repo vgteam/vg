@@ -14,6 +14,7 @@ var searchData=
   ['thread_5fto_5fgraph_5fspanned',['thread_to_graph_spanned',['../namespacevg.html#ad3f6522436ea7320bf6728fe47451151',1,'vg']]],
   ['threads_5fnamed_5fstarting',['threads_named_starting',['../classxg_1_1XG.html#ae4ae377e91ef85fae31b4448f30d9a42',1,'xg::XG']]],
   ['threads_5fstarting_5fon_5fside',['threads_starting_on_side',['../classxg_1_1XG.html#ad4c16da64509fe8e3d993a7b5c6e7688',1,'xg::XG']]],
+  ['tighten',['tighten',['../classvg_1_1PackedGraph.html#a644c7b4993cb2e14d0c92fc7678d02f1',1,'vg::PackedGraph']]],
   ['tipanchoredmaxdistance',['TipAnchoredMaxDistance',['../classvg_1_1TipAnchoredMaxDistance.html#a6c5366249e20e42a9fdeba724441728f',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance()=default'],['../classvg_1_1TipAnchoredMaxDistance.html#aaeefac45698566ac66d6bad11f9328e4',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex &amp;distance_index)']]],
   ['tn_5fbake',['tn_bake',['../classxg_1_1XG.html#abe0bbc75707d0b6aad3c92fa58304e27',1,'xg::XG']]],
   ['to_5fbacking',['to_backing',['../classvg_1_1ExtraNodeGraph.html#a9e2ba1f5f6b655494074901c11491ffd',1,'vg::ExtraNodeGraph::to_backing()'],['../classvg_1_1SourceSinkOverlay.html#a57984042ec4b444b5f540634f268e9c0',1,'vg::SourceSinkOverlay::to_backing()']]],

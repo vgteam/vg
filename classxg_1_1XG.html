@@ -172,6 +172,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac5c6db511eb943b93edb19779d377093"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ac5c6db511eb943b93edb19779d377093">max_node_rank</a> (void) const </td></tr>
 <tr class="separator:ac5c6db511eb943b93edb19779d377093"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4f97f49fc5e0161dc6b5f8918f77942c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a4f97f49fc5e0161dc6b5f8918f77942c">has_node</a> (int64_t id) const </td></tr>
+<tr class="memdesc:a4f97f49fc5e0161dc6b5f8918f77942c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Method to check if a node exists by ID.  <a href="#a4f97f49fc5e0161dc6b5f8918f77942c">More...</a><br/></td></tr>
 <tr class="separator:a4f97f49fc5e0161dc6b5f8918f77942c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a86e7434bf7f023c202ceaccd5832c6ed"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a86e7434bf7f023c202ceaccd5832c6ed">node_at_seq_pos</a> (size_t pos) const </td></tr>
 <tr class="memdesc:a86e7434bf7f023c202ceaccd5832c6ed"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the node ID at the given sequence position. Works in 1-based coordinates.  <a href="#a86e7434bf7f023c202ceaccd5832c6ed">More...</a><br/></td></tr>
@@ -265,6 +266,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a24f00a47b292a43b2ab77b120d439b6b"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a24f00a47b292a43b2ab77b120d439b6b">max_node_id</a> () const </td></tr>
 <tr class="memdesc:a24f00a47b292a43b2ab77b120d439b6b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the maximum node ID used in the graph, if any are used.  <a href="#a24f00a47b292a43b2ab77b120d439b6b">More...</a><br/></td></tr>
 <tr class="separator:a24f00a47b292a43b2ab77b120d439b6b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac568bbac8d7b094f52a6aee2179400f2"><td class="memItemLeft" align="right" valign="top">virtual char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ac568bbac8d7b094f52a6aee2179400f2">get_base</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index) const </td></tr>
+<tr class="separator:ac568bbac8d7b094f52a6aee2179400f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae0b7112715026007b7b21109641297b6"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ae0b7112715026007b7b21109641297b6">get_subsequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index, size_t size) const </td></tr>
+<tr class="separator:ae0b7112715026007b7b21109641297b6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0dfa4e3b00e3bb8c59c1b776e3d81c0"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ad0dfa4e3b00e3bb8c59c1b776e3d81c0">get_path_count</a> () const </td></tr>
 <tr class="memdesc:ad0dfa4e3b00e3bb8c59c1b776e3d81c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of paths stored in the graph.  <a href="#ad0dfa4e3b00e3bb8c59c1b776e3d81c0">More...</a><br/></td></tr>
 <tr class="separator:ad0dfa4e3b00e3bb8c59c1b776e3d81c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2454,6 +2459,43 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="ac568bbac8d7b094f52a6aee2179400f2"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">char xg::XG::get_base </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>index</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns one base of a handle's sequence, in the orientation of the handle. </p>
+
+<p>Reimplemented from <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab81250d605ef63546d70475432633aed">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="aca02cad7859b608ebabddf56fa3ddbba"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3024,6 +3066,49 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="ae0b7112715026007b7b21109641297b6"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string xg::XG::get_subsequence </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns a substring of a handle's sequence, in the orientation of the handle. If the indicated substring would extend beyond the end of the handle's sequence, the return value is truncated to the sequence's end. </p>
+
+<p>Reimplemented from <a class="el" href="classhandlegraph_1_1HandleGraph.html#a98ee3b143ad6a5a1d259122386ce6556">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="af291ce024c0e2d8b46e03553f079ad1a"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3175,7 +3260,7 @@ Additional Inherited Members</h2></td></tr>
           <td class="memname">bool xg::XG::has_node </td>
           <td>(</td>
           <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>id</em></td><td>)</td>
+          <td class="paramname"><em>node_id</em></td><td>)</td>
           <td> const</td>
         </tr>
       </table>
@@ -3185,6 +3270,8 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+
+<p>Method to check if a node exists by ID. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a6e58a79001cd7d839ac1f1adaff34dfb">handlegraph::HandleGraph</a>.</p>
 

@@ -162,6 +162,10 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ac1a8a09a49ea348f3714377b893319f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a150b452102319b93490e53b2dc62e920"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a150b452102319b93490e53b2dc62e920">has_edge</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;left, const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;right) const </td></tr>
 <tr class="separator:a150b452102319b93490e53b2dc62e920"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac1546dff9dc144260cb40050bf8dcfa2"><td class="memItemLeft" align="right" valign="top">virtual char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ac1546dff9dc144260cb40050bf8dcfa2">get_base</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index) const </td></tr>
+<tr class="separator:ac1546dff9dc144260cb40050bf8dcfa2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae8a010d477eb8e1e2cfd91efa8a29e6"><td class="memItemLeft" align="right" valign="top">virtual string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#aae8a010d477eb8e1e2cfd91efa8a29e6">get_subsequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index, size_t <a class="el" href="classvg_1_1VG.html#a9e3720ce267c8167ce679a015063dab6">size</a>) const </td></tr>
+<tr class="separator:aae8a010d477eb8e1e2cfd91efa8a29e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a20417af67e14d7800b20df8b0ac763f9"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a20417af67e14d7800b20df8b0ac763f9">get_path_count</a> () const </td></tr>
 <tr class="memdesc:a20417af67e14d7800b20df8b0ac763f9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the number of paths stored in the graph.  <a href="#a20417af67e14d7800b20df8b0ac763f9">More...</a><br/></td></tr>
 <tr class="separator:a20417af67e14d7800b20df8b0ac763f9"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -224,6 +228,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:ab5ee06ac168f037f2cff3b332079b49c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7a5dbc95fa80e7fe3dc04d62ac6d7b3c"><td class="memItemLeft" align="right" valign="top">virtual vector&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a7a5dbc95fa80e7fe3dc04d62ac6d7b3c">divide_handle</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, const vector&lt; size_t &gt; &amp;offsets)</td></tr>
 <tr class="separator:a7a5dbc95fa80e7fe3dc04d62ac6d7b3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0b4fa1970f08f3e4d0cf2f8c33a967a5"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a0b4fa1970f08f3e4d0cf2f8c33a967a5">optimize</a> (bool allow_id_reassignment=true)</td></tr>
+<tr class="separator:a0b4fa1970f08f3e4d0cf2f8c33a967a5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adb25bd1fdb9e36c55157c5be864ca403"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#adb25bd1fdb9e36c55157c5be864ca403">destroy_path</a> (const <a class="el" href="structhandlegraph_1_1path__handle__t.html">path_handle_t</a> &amp;path)</td></tr>
 <tr class="memdesc:adb25bd1fdb9e36c55157c5be864ca403"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the given path. Invalidates handles to the path and its node steps.  <a href="#adb25bd1fdb9e36c55157c5be864ca403">More...</a><br/></td></tr>
 <tr class="separator:adb25bd1fdb9e36c55157c5be864ca403"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -5324,6 +5330,43 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
+<a class="anchor" id="ac1546dff9dc144260cb40050bf8dcfa2"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">char vg::VG::get_base </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>index</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns one base of a handle's sequence, in the orientation of the handle. </p>
+
+<p>Reimplemented from <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab81250d605ef63546d70475432633aed">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="ac1a8a09a49ea348f3714377b893319f6"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5931,6 +5974,49 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 <p>Returns the number of node steps in the path. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1PathHandleGraph.html#add91075c3490f8dc5acf667f2b26832c">handlegraph::PathHandleGraph</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="aae8a010d477eb8e1e2cfd91efa8a29e6"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::VG::get_subsequence </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns a substring of a handle's sequence, in the orientation of the handle. If the indicated substring would extend beyond the end of the handle's sequence, the return value is truncated to the sequence's end. </p>
+
+<p>Reimplemented from <a class="el" href="classhandlegraph_1_1HandleGraph.html#a98ee3b143ad6a5a1d259122386ce6556">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>
@@ -7470,6 +7556,33 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Move assignment operator. </p>
+
+</div>
+</div>
+<a class="anchor" id="a0b4fa1970f08f3e4d0cf2f8c33a967a5"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::optimize </td>
+          <td>(</td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>allow_id_reassignment</em> = <code>true</code></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Adjust the representation of the graph in memory to improve performance. Optionally, allow the node IDs to be reassigned to further improve performance. Note: Ideally, this method is called one time once there is expected to be few graph modifications in the future. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1MutableHandleGraph.html#a195c81fa446b62d94fda8841eaa3bb85">handlegraph::MutableHandleGraph</a>.</p>
 
 </div>
 </div>

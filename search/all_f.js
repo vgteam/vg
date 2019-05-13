@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['occurrences',['occurrences',['../classvg_1_1HashGraph.html#ab92287302405c3d227d95f348ffa6dd7',1,'vg::HashGraph']]],
+  ['occurrences',['occurrences',['../structvg_1_1HashGraph_1_1node__t.html#a3e3b1817918ec35b2ef21c590bea84d5',1,'vg::HashGraph::node_t']]],
   ['of_5fnode',['of_node',['../classvg_1_1Paths.html#abda01c563a3455d491b152a23b22a27a',1,'vg::Paths']]],
   ['off_5fmask',['OFF_MASK',['../classvg_1_1MinimizerIndex.html#aba6a8d15678c7391be9824cbee18eefd',1,'vg::MinimizerIndex']]],
   ['off_5ft',['off_t',['../namespacevg.html#a9cdb6d0305bd8cbf46efed9b2799877a',1,'vg::off_t()'],['../namespacehandlegraph.html#a4ceaa14f55bfa14f49b423fd9d903462',1,'handlegraph::off_t()']]],
@@ -59,8 +59,9 @@ var searchData=
   ['optimal_5falignments',['optimal_alignments',['../namespacevg.html#aeb27a72a431b2f681c6eb88eb594a62c',1,'vg']]],
   ['optimal_5falignments_5fwith_5fdisjoint_5fsubpaths',['optimal_alignments_with_disjoint_subpaths',['../namespacevg.html#a78ead1fdf3f2d57f7a35755d24fd5999',1,'vg']]],
   ['optimal_5fscore_5fon_5fgenome',['optimal_score_on_genome',['../classvg_1_1PhasedGenome.html#aab26653dddeea64012b2629b4ebc3836',1,'vg::PhasedGenome']]],
-  ['option',['Option',['../classvg_1_1Option.html',1,'vg']]],
+  ['optimize',['optimize',['../classvg_1_1HashGraph.html#a7780bb6a53c298df47289b163edc9545',1,'vg::HashGraph::optimize()'],['../classvg_1_1PackedGraph.html#a76d6c516c376128d58986dcf60133d89',1,'vg::PackedGraph::optimize()'],['../classvg_1_1VG.html#a0b4fa1970f08f3e4d0cf2f8c33a967a5',1,'vg::VG::optimize()'],['../classhandlegraph_1_1MutableHandleGraph.html#a195c81fa446b62d94fda8841eaa3bb85',1,'handlegraph::MutableHandleGraph::optimize()']]],
   ['option',['Option',['../classvg_1_1Option.html#a636f83c45d4a863e53dcb2f9d1d753aa',1,'vg::Option::Option()'],['../classvg_1_1Option_3_01vector_3_01Item_01_4_00_01Parser_01_4.html#aa01cfc188e53cf0fb37a6ccc9b4b0043',1,'vg::Option&lt; vector&lt; Item &gt;, Parser &gt;::Option()']]],
+  ['option',['Option',['../classvg_1_1Option.html',1,'vg']]],
   ['option_2ecpp',['option.cpp',['../option_8cpp.html',1,'']]],
   ['option_2ehpp',['option.hpp',['../option_8hpp.html',1,'']]],
   ['option_3c_20bool_20_3e',['Option&lt; bool &gt;',['../classvg_1_1Option.html',1,'vg']]],

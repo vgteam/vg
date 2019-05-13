@@ -120,6 +120,7 @@ Inheritance diagram for handlegraph::HandleGraph:</div>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a6e58a79001cd7d839ac1f1adaff34dfb"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a6e58a79001cd7d839ac1f1adaff34dfb">has_node</a> (<a class="el" href="namespacehandlegraph.html#acfee0df419f087fab4a5cbf2cabff734">nid_t</a> node_id) const =0</td></tr>
+<tr class="memdesc:a6e58a79001cd7d839ac1f1adaff34dfb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Method to check if a node exists by ID.  <a href="#a6e58a79001cd7d839ac1f1adaff34dfb">More...</a><br/></td></tr>
 <tr class="separator:a6e58a79001cd7d839ac1f1adaff34dfb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6dd9d70931835f5c75518b23a780b744"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a6dd9d70931835f5c75518b23a780b744">get_handle</a> (const <a class="el" href="namespacehandlegraph.html#acfee0df419f087fab4a5cbf2cabff734">nid_t</a> &amp;node_id, bool is_reverse=false) const =0</td></tr>
 <tr class="memdesc:a6dd9d70931835f5c75518b23a780b744"><td class="mdescLeft">&#160;</td><td class="mdescRight">Look up the handle for the node with the given ID in the given orientation.  <a href="#a6dd9d70931835f5c75518b23a780b744">More...</a><br/></td></tr>
@@ -158,6 +159,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a6f6828fde4d2a0063efef7e421a4118c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a6f6828fde4d2a0063efef7e421a4118c">has_edge</a> (const <a class="el" href="namespacehandlegraph.html#a91452647367df9cfc96454c0cd07ce7b">edge_t</a> &amp;edge)</td></tr>
 <tr class="memdesc:a6f6828fde4d2a0063efef7e421a4118c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient wrapper of has_edge for edge_t argument.  <a href="#a6f6828fde4d2a0063efef7e421a4118c">More...</a><br/></td></tr>
 <tr class="separator:a6f6828fde4d2a0063efef7e421a4118c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab81250d605ef63546d70475432633aed"><td class="memItemLeft" align="right" valign="top">virtual char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#ab81250d605ef63546d70475432633aed">get_base</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index) const </td></tr>
+<tr class="separator:ab81250d605ef63546d70475432633aed"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a98ee3b143ad6a5a1d259122386ce6556"><td class="memItemLeft" align="right" valign="top">virtual std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a98ee3b143ad6a5a1d259122386ce6556">get_subsequence</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle, size_t index, size_t size) const </td></tr>
+<tr class="separator:a98ee3b143ad6a5a1d259122386ce6556"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a996223319f59bf614a02a78a3038bd89"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classhandlegraph_1_1HandleGraph.html#a996223319f59bf614a02a78a3038bd89">forward</a> (const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;handle) const </td></tr>
 <tr class="memdesc:a996223319f59bf614a02a78a3038bd89"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the locally forward version of a handle.  <a href="#a996223319f59bf614a02a78a3038bd89">More...</a><br/></td></tr>
 <tr class="separator:a996223319f59bf614a02a78a3038bd89"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -425,6 +430,43 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
+<a class="anchor" id="ab81250d605ef63546d70475432633aed"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">char handlegraph::HandleGraph::get_base </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>index</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns one base of a handle's sequence, in the orientation of the handle. </p>
+
+<p>Reimplemented in <a class="el" href="classxg_1_1XG.html#ac568bbac8d7b094f52a6aee2179400f2">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#ac1546dff9dc144260cb40050bf8dcfa2">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#af02093086c96e8bf863771d596ce9d24">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#a8a54e955a72daaffd692d2919512a962">vg::HashGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a8800aafcd81470ba313839138f608a39"></a>
 <div class="memitem">
 <div class="memproto">
@@ -611,6 +653,49 @@ template&lt;typename Iteratee &gt; </div>
 
 </div>
 </div>
+<a class="anchor" id="a98ee3b143ad6a5a1d259122386ce6556"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">std::string handlegraph::HandleGraph::get_subsequence </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;&#160;</td>
+          <td class="paramname"><em>handle</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>index</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Returns a substring of a handle's sequence, in the orientation of the handle. If the indicated substring would extend beyond the end of the handle's sequence, the return value is truncated to the sequence's end. </p>
+
+<p>Reimplemented in <a class="el" href="classxg_1_1XG.html#ae0b7112715026007b7b21109641297b6">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#aae8a010d477eb8e1e2cfd91efa8a29e6">vg::VG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a94e4d519698e8d5686b8d9e29e272994">vg::PackedGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#aa7eaf3e0aabdfca2b57d378fe4b69487">vg::HashGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="adda410641b362f9530c62dd503a7abec"></a>
 <div class="memitem">
 <div class="memproto">
@@ -696,6 +781,8 @@ template&lt;typename Iteratee &gt; </div>
 </table>
 </div><div class="memdoc">
 
+<p>Method to check if a node exists by ID. </p>
+
 <p>Implemented in <a class="el" href="classvg_1_1VG.html#a37c72c4989c1bebcec7e98115041b501">vg::VG</a>, <a class="el" href="classvg_1_1NetGraph.html#aa582a32d6303d8e70e9ad2c3196ced42">vg::NetGraph</a>, <a class="el" href="classxg_1_1XG.html#a4f97f49fc5e0161dc6b5f8918f77942c">xg::XG</a>, <a class="el" href="classvg_1_1GBWTGraph.html#a8e42f07cc942255abae3e96e2f3f9053">vg::GBWTGraph</a>, <a class="el" href="classvg_1_1IndexedVG.html#a4cbc01737ab923b2e78ab0f590576c3c">vg::IndexedVG</a>, <a class="el" href="classvg_1_1SourceSinkOverlay.html#ac82bba64dbe1b39554b54b5b65b7b819">vg::SourceSinkOverlay</a>, <a class="el" href="classvg_1_1ProtoHandleGraph.html#a1f011fbc24623567b93d97aa41764351">vg::ProtoHandleGraph</a>, <a class="el" href="classvg_1_1ExtraNodeGraph.html#a2226f166a4ac59c8c393fcb6e341c55d">vg::ExtraNodeGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#ac6c0404ec39b09a6da748ad6426b5090">vg::PackedGraph</a>, <a class="el" href="classvg_1_1SubHandleGraph.html#a144ec8427a5ee32e385b19077cb44bfc">vg::SubHandleGraph</a>, <a class="el" href="classvg_1_1PathSubgraph.html#a36c29ecdaf82fa5eb115589bf2c7068d">vg::PathSubgraph</a>, <a class="el" href="classvg_1_1StrandSplitGraph.html#a039d515079bbf55ea928cc33ec5236cf">vg::StrandSplitGraph</a>, <a class="el" href="classvg_1_1ReverseGraph.html#abfd4427022931b26d02ab5633b12b17b">vg::ReverseGraph</a>, <a class="el" href="classvg_1_1IdentityOverlay.html#ad509d72952a83ae5ce0eed14bf32aab8">vg::IdentityOverlay</a>, <a class="el" href="classvg_1_1NullMaskingGraph.html#ae97aa10bafd27ba9a824899c6c3ea3b0">vg::NullMaskingGraph</a>, and <a class="el" href="classvg_1_1HashGraph.html#aefb348c5eeabcde13c11fdbb41cae1c0">vg::HashGraph</a>.</p>
 
 </div>
@@ -722,7 +809,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Return the largest ID in the graph, or some larger number if the largest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1NetGraph.html#ac320c318d27bc042a1856b5ff2e78c32">vg::NetGraph</a>, <a class="el" href="classxg_1_1XG.html#a24f00a47b292a43b2ab77b120d439b6b">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a3751016fff6e1e38d154515a13949e74">vg::VG</a>, <a class="el" href="classvg_1_1GBWTGraph.html#ac30ecde27f9a724f6e13f320fbfca393">vg::GBWTGraph</a>, <a class="el" href="classvg_1_1IndexedVG.html#abb8f891e5bce026fedc16336c3440b4e">vg::IndexedVG</a>, <a class="el" href="classvg_1_1SourceSinkOverlay.html#a56574a7fa724b795a2aa0067f2bc4f9b">vg::SourceSinkOverlay</a>, <a class="el" href="classvg_1_1ProtoHandleGraph.html#abf231b54bbc84b79e70e4a9c7e618df9">vg::ProtoHandleGraph</a>, <a class="el" href="classvg_1_1PathSubgraph.html#a1323c4cbeb5556be3b7db17f2e45c377">vg::PathSubgraph</a>, <a class="el" href="classvg_1_1ExtraNodeGraph.html#af6cae5da5015e2bc52fccf49958c4eed">vg::ExtraNodeGraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#a205e6873f65cace24fdd0e07c7f30f3f">vg::PackedGraph</a>, <a class="el" href="classvg_1_1StrandSplitGraph.html#a41c702028236fd82f5c76e9bbdc51ee3">vg::StrandSplitGraph</a>, <a class="el" href="classvg_1_1SubHandleGraph.html#aee5550e89bcd822842d1062d94bb98e4">vg::SubHandleGraph</a>, <a class="el" href="classvg_1_1ReverseGraph.html#a0490941e466fc178368ea6997f62328c">vg::ReverseGraph</a>, <a class="el" href="classvg_1_1NullMaskingGraph.html#a935440ba15451c3be311f60d1f258e7c">vg::NullMaskingGraph</a>, <a class="el" href="classvg_1_1IdentityOverlay.html#a08935f57619b3e9b75204136a5254f07">vg::IdentityOverlay</a>, and <a class="el" href="classvg_1_1HashGraph.html#a8a1a36f27466b0c0183a7393954c834b">vg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1NetGraph.html#ac320c318d27bc042a1856b5ff2e78c32">vg::NetGraph</a>, <a class="el" href="classxg_1_1XG.html#a24f00a47b292a43b2ab77b120d439b6b">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a3751016fff6e1e38d154515a13949e74">vg::VG</a>, <a class="el" href="classvg_1_1GBWTGraph.html#ac30ecde27f9a724f6e13f320fbfca393">vg::GBWTGraph</a>, <a class="el" href="classvg_1_1IndexedVG.html#abb8f891e5bce026fedc16336c3440b4e">vg::IndexedVG</a>, <a class="el" href="classvg_1_1PackedGraph.html#a205e6873f65cace24fdd0e07c7f30f3f">vg::PackedGraph</a>, <a class="el" href="classvg_1_1SourceSinkOverlay.html#a56574a7fa724b795a2aa0067f2bc4f9b">vg::SourceSinkOverlay</a>, <a class="el" href="classvg_1_1ProtoHandleGraph.html#abf231b54bbc84b79e70e4a9c7e618df9">vg::ProtoHandleGraph</a>, <a class="el" href="classvg_1_1PathSubgraph.html#a1323c4cbeb5556be3b7db17f2e45c377">vg::PathSubgraph</a>, <a class="el" href="classvg_1_1ExtraNodeGraph.html#af6cae5da5015e2bc52fccf49958c4eed">vg::ExtraNodeGraph</a>, <a class="el" href="classvg_1_1StrandSplitGraph.html#a41c702028236fd82f5c76e9bbdc51ee3">vg::StrandSplitGraph</a>, <a class="el" href="classvg_1_1SubHandleGraph.html#aee5550e89bcd822842d1062d94bb98e4">vg::SubHandleGraph</a>, <a class="el" href="classvg_1_1ReverseGraph.html#a0490941e466fc178368ea6997f62328c">vg::ReverseGraph</a>, <a class="el" href="classvg_1_1NullMaskingGraph.html#a935440ba15451c3be311f60d1f258e7c">vg::NullMaskingGraph</a>, <a class="el" href="classvg_1_1IdentityOverlay.html#a08935f57619b3e9b75204136a5254f07">vg::IdentityOverlay</a>, and <a class="el" href="classvg_1_1HashGraph.html#a8a1a36f27466b0c0183a7393954c834b">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -748,7 +835,7 @@ template&lt;typename Iteratee &gt; </div>
 </div><div class="memdoc">
 <p>Return the smallest ID in the graph, or some smaller number if the smallest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1NetGraph.html#ae48193d78129b7a8985874de74da45dd">vg::NetGraph</a>, <a class="el" href="classxg_1_1XG.html#a7533b06f70676a9d16f193156cb2f3a2">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a78f9c36b6c3f7cbe933f705e9e9ba782">vg::VG</a>, <a class="el" href="classvg_1_1GBWTGraph.html#aff073096e1ad6d80bdd257924e602961">vg::GBWTGraph</a>, <a class="el" href="classvg_1_1IndexedVG.html#afb7005358b144e8af82b8ebebfd1d79f">vg::IndexedVG</a>, <a class="el" href="classvg_1_1SourceSinkOverlay.html#ab77b1bc649a78ccbd3fbf2ac473e61c0">vg::SourceSinkOverlay</a>, <a class="el" href="classvg_1_1ProtoHandleGraph.html#a688b7421f89f63e81dc17aabbebf212e">vg::ProtoHandleGraph</a>, <a class="el" href="classvg_1_1ExtraNodeGraph.html#a04ab7c18851df28c69c6d78961446a56">vg::ExtraNodeGraph</a>, <a class="el" href="classvg_1_1PathSubgraph.html#ae21ea67194ee0dd3be946bc1621ba638">vg::PathSubgraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#a997a7c7e4314d13b4640cb107d14f0bb">vg::PackedGraph</a>, <a class="el" href="classvg_1_1StrandSplitGraph.html#ad7a3847aae4a800c525f2a48d65ccb03">vg::StrandSplitGraph</a>, <a class="el" href="classvg_1_1SubHandleGraph.html#a037570f6eee96071def9194c6f9718b3">vg::SubHandleGraph</a>, <a class="el" href="classvg_1_1ReverseGraph.html#acb536371a284afff6fb99325c2a3bd78">vg::ReverseGraph</a>, <a class="el" href="classvg_1_1NullMaskingGraph.html#af0dc18e6bb9dba7a73103c3c6d7f4e6c">vg::NullMaskingGraph</a>, <a class="el" href="classvg_1_1IdentityOverlay.html#a036ac3df3dc4bc31e9bb8f9ed8412aa2">vg::IdentityOverlay</a>, and <a class="el" href="classvg_1_1HashGraph.html#a16a3cd1543c185ad84e656dda708bf0a">vg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1NetGraph.html#ae48193d78129b7a8985874de74da45dd">vg::NetGraph</a>, <a class="el" href="classxg_1_1XG.html#a7533b06f70676a9d16f193156cb2f3a2">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a78f9c36b6c3f7cbe933f705e9e9ba782">vg::VG</a>, <a class="el" href="classvg_1_1GBWTGraph.html#aff073096e1ad6d80bdd257924e602961">vg::GBWTGraph</a>, <a class="el" href="classvg_1_1IndexedVG.html#afb7005358b144e8af82b8ebebfd1d79f">vg::IndexedVG</a>, <a class="el" href="classvg_1_1SourceSinkOverlay.html#ab77b1bc649a78ccbd3fbf2ac473e61c0">vg::SourceSinkOverlay</a>, <a class="el" href="classvg_1_1PackedGraph.html#a997a7c7e4314d13b4640cb107d14f0bb">vg::PackedGraph</a>, <a class="el" href="classvg_1_1ProtoHandleGraph.html#a688b7421f89f63e81dc17aabbebf212e">vg::ProtoHandleGraph</a>, <a class="el" href="classvg_1_1ExtraNodeGraph.html#a04ab7c18851df28c69c6d78961446a56">vg::ExtraNodeGraph</a>, <a class="el" href="classvg_1_1PathSubgraph.html#ae21ea67194ee0dd3be946bc1621ba638">vg::PathSubgraph</a>, <a class="el" href="classvg_1_1StrandSplitGraph.html#ad7a3847aae4a800c525f2a48d65ccb03">vg::StrandSplitGraph</a>, <a class="el" href="classvg_1_1SubHandleGraph.html#a037570f6eee96071def9194c6f9718b3">vg::SubHandleGraph</a>, <a class="el" href="classvg_1_1ReverseGraph.html#acb536371a284afff6fb99325c2a3bd78">vg::ReverseGraph</a>, <a class="el" href="classvg_1_1NullMaskingGraph.html#af0dc18e6bb9dba7a73103c3c6d7f4e6c">vg::NullMaskingGraph</a>, <a class="el" href="classvg_1_1IdentityOverlay.html#a036ac3df3dc4bc31e9bb8f9ed8412aa2">vg::IdentityOverlay</a>, and <a class="el" href="classvg_1_1HashGraph.html#a16a3cd1543c185ad84e656dda708bf0a">vg::HashGraph</a>.</p>
 
 </div>
 </div>
@@ -775,7 +862,7 @@ template&lt;typename Iteratee &gt; </div>
 
 <p>Return the number of nodes in the graph. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1NetGraph.html#a4ec4d16c1c412ca85b854405aebd45a2">vg::NetGraph</a>, <a class="el" href="classxg_1_1XG.html#afa7fb605bd6b69d99514211cd5ab73c7">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a85f84f601f2ef13c0d9df3741ccdc192">vg::VG</a>, <a class="el" href="classvg_1_1GBWTGraph.html#af08989ba9953967cae4b800cbcc411b9">vg::GBWTGraph</a>, <a class="el" href="classvg_1_1IndexedVG.html#a2e820172168c7c3972e80a9a0ce08714">vg::IndexedVG</a>, <a class="el" href="classvg_1_1SourceSinkOverlay.html#a2dd68000a3c3c801e5377d08e291dc19">vg::SourceSinkOverlay</a>, <a class="el" href="classvg_1_1ProtoHandleGraph.html#a5fa4504d78304117a53807bf8ad3d8d8">vg::ProtoHandleGraph</a>, <a class="el" href="classvg_1_1ExtraNodeGraph.html#a457d2385e3e5980a509e552996f7a0a4">vg::ExtraNodeGraph</a>, <a class="el" href="classvg_1_1PathSubgraph.html#ade5e8471d062103e4fbe64f33e6a6798">vg::PathSubgraph</a>, <a class="el" href="classvg_1_1PackedGraph.html#a1bc65594abfca94e73dcc974a8560500">vg::PackedGraph</a>, <a class="el" href="classvg_1_1StrandSplitGraph.html#ab7dfb0693f7937c961651e9093ee32c1">vg::StrandSplitGraph</a>, <a class="el" href="classvg_1_1SubHandleGraph.html#a08f5c5d5d2ee67d67a9979ed1a6b10e4">vg::SubHandleGraph</a>, <a class="el" href="classvg_1_1ReverseGraph.html#a683ea4145331b50c842cc0757fb56813">vg::ReverseGraph</a>, <a class="el" href="classvg_1_1NullMaskingGraph.html#a1ff1d8215a36f27a7e9ba065c192d6d2">vg::NullMaskingGraph</a>, <a class="el" href="classvg_1_1IdentityOverlay.html#a44cc01cdb5395e63d216de7ca4406a3d">vg::IdentityOverlay</a>, and <a class="el" href="classvg_1_1HashGraph.html#a43b6f2f2873d2d5876062131c334cfd0">vg::HashGraph</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1NetGraph.html#a4ec4d16c1c412ca85b854405aebd45a2">vg::NetGraph</a>, <a class="el" href="classxg_1_1XG.html#afa7fb605bd6b69d99514211cd5ab73c7">xg::XG</a>, <a class="el" href="classvg_1_1VG.html#a85f84f601f2ef13c0d9df3741ccdc192">vg::VG</a>, <a class="el" href="classvg_1_1GBWTGraph.html#af08989ba9953967cae4b800cbcc411b9">vg::GBWTGraph</a>, <a class="el" href="classvg_1_1IndexedVG.html#a2e820172168c7c3972e80a9a0ce08714">vg::IndexedVG</a>, <a class="el" href="classvg_1_1SourceSinkOverlay.html#a2dd68000a3c3c801e5377d08e291dc19">vg::SourceSinkOverlay</a>, <a class="el" href="classvg_1_1PackedGraph.html#a1bc65594abfca94e73dcc974a8560500">vg::PackedGraph</a>, <a class="el" href="classvg_1_1ProtoHandleGraph.html#a5fa4504d78304117a53807bf8ad3d8d8">vg::ProtoHandleGraph</a>, <a class="el" href="classvg_1_1ExtraNodeGraph.html#a457d2385e3e5980a509e552996f7a0a4">vg::ExtraNodeGraph</a>, <a class="el" href="classvg_1_1PathSubgraph.html#ade5e8471d062103e4fbe64f33e6a6798">vg::PathSubgraph</a>, <a class="el" href="classvg_1_1StrandSplitGraph.html#ab7dfb0693f7937c961651e9093ee32c1">vg::StrandSplitGraph</a>, <a class="el" href="classvg_1_1SubHandleGraph.html#a08f5c5d5d2ee67d67a9979ed1a6b10e4">vg::SubHandleGraph</a>, <a class="el" href="classvg_1_1ReverseGraph.html#a683ea4145331b50c842cc0757fb56813">vg::ReverseGraph</a>, <a class="el" href="classvg_1_1NullMaskingGraph.html#a1ff1d8215a36f27a7e9ba065c192d6d2">vg::NullMaskingGraph</a>, <a class="el" href="classvg_1_1IdentityOverlay.html#a44cc01cdb5395e63d216de7ca4406a3d">vg::IdentityOverlay</a>, and <a class="el" href="classvg_1_1HashGraph.html#a43b6f2f2873d2d5876062131c334cfd0">vg::HashGraph</a>.</p>
 
 </div>
 </div>
