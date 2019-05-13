@@ -3252,9 +3252,9 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
 }
     
     MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
-                                                           const vector<MaximalExactMatch>& mems,
-                                                           const GSSWAligner* aligner,
-                                                           size_t min_mem_length) {
+                                                                const vector<MaximalExactMatch>& mems,
+                                                                const GSSWAligner* aligner,
+                                                                size_t min_mem_length) {
     
     // intialize with nodes
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);

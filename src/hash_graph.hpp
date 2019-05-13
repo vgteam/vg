@@ -74,6 +74,15 @@ public:
     
     /// Efficiently get the number of edges attached to one side of a handle.
     size_t get_degree(const handle_t& handle, bool go_left) const;
+    
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
 
     /// Create a new node with the given sequence and return the handle.
     handle_t create_handle(const std::string& sequence);
@@ -119,6 +128,13 @@ public:
     /// passed in.
     /// Updates stored paths.
     vector<handle_t> divide_handle(const handle_t& handle, const std::vector<size_t>& offsets);
+    
+    /// Adjust the representation of the graph in memory to improve performance.
+    /// Optionally, allow the node IDs to be reassigned to further improve
+    /// performance.
+    /// Note: Ideally, this method is called one time once there is expected to be
+    /// few graph modifications in the future.
+    void optimize(bool allow_id_reassignment = true);
     
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
@@ -236,25 +252,14 @@ public:
     // Non-handle methods
     ////////////////////////////////////////////////////////////////////////////
     
+    /// Write the graph to an out stream.
     void serialize(ostream& out) const;
     
+    /// Read the graph (in the format written by serialize()) from an in stream.
     void deserialize(istream& in);
     
 private:
     
-    /*
-     * A node object with the sequence and its edge lists
-     */
-    struct node_t {
-        node_t() {}
-        node_t(const string& sequence) : sequence(sequence) {}
-        string sequence;
-        vector<handle_t> left_edges;
-        vector<handle_t> right_edges;
-        
-        void serialize(ostream& out) const;
-        void deserialize(istream& in);
-    };
     
     /*
      * A linked list record representing a single node in an embedded path
@@ -267,6 +272,26 @@ private:
         int64_t path_id;
         struct path_mapping_t* prev = nullptr;
         struct path_mapping_t* next = nullptr;
+    };
+    
+    /*
+     * A node object with the sequence and its edge lists
+     */
+    struct node_t {
+        node_t() {}
+        node_t(const string& sequence) : sequence(sequence) {}
+        string sequence;
+        /// Adjacency list from the left side of the node
+        vector<handle_t> left_edges;
+        /// Adjacency list from the right side of the node
+        vector<handle_t> right_edges;
+        /// The occurrences of this node on paths;
+        vector<path_mapping_t*> occurrences;
+        
+        /// Write the node to an out stream.
+        void serialize(ostream& out) const;
+        /// Read the node (in the format written by serialize()) from an in stream.
+        void deserialize(istream& in);
     };
     
     /*
@@ -305,8 +330,10 @@ private:
         /// is null, inserts at the end.
         path_mapping_t* insert_before(const handle_t& handle, path_mapping_t* mapping);
         
+        /// Write the path to an out stream.
         void serialize(ostream& out) const;
         
+        /// Read the path (in the format written by serialize()) from an in stream.
         void deserialize(istream& in);
         
         path_mapping_t* head = nullptr;
@@ -330,9 +357,6 @@ private:
     
     /// Maps path IDs to the actual paths
     hash_map<int64_t, path_t> paths;
-    
-    /// Maps node IDs to their occurrences on paths
-    hash_map<id_t, vector<path_mapping_t*>> occurrences;
     
     /// The next path ID we will assign to a new path
     int64_t next_path_id = 1;

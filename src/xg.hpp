@@ -236,6 +236,13 @@ public:
     virtual id_t min_node_id() const;
     /// Get the maximum node ID used in the graph, if any are used
     virtual id_t max_node_id() const;
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    virtual char get_base(const handle_t& handle, size_t index) const;
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
     
     // TODO: There's currently no really good efficient way to implement
     // get_degree; we have to decode each edge to work out what node side it is

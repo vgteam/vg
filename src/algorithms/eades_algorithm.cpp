@@ -21,10 +21,6 @@ using namespace std;
         
         // decide which strand will be "forward" for each node
         vector<handle_t> canonical_orientation = single_stranded_orientation(graph);
-        if (canonical_orientation.size() < graph->node_size()) {
-            cerr << "error:[eades_algorithm] Eades' algorithm only valid on graphs with a single stranded orientation" << endl;
-            exit(1);
-        }
         
 #ifdef debug_eades
         cerr << "got canonical orientation:" << endl;
@@ -33,15 +29,39 @@ using namespace std;
         }
 #endif
         
+        if (canonical_orientation.size() < graph->node_size()) {
+            cerr << "error:[eades_algorithm] Eades' algorithm only valid on graphs with a single stranded orientation" << endl;
+            exit(1);
+        }
+        
         // maps handles to records of ((in-degree, out-degree), bucket position)
         unordered_map<handle_t, pair<pair<int64_t, int64_t>, list<handle_t>::iterator>> degree_info;
+        
+        // TODO: use a min bucket offset and resize the delta buckets dynamically
         
         // buckets based on delta(u) among non-source, non-sink nodes (see paper)
         // buckets are numbered -n, -n + 1, ... , n - 1, n
         auto assign_bucket = [&](const int64_t& in_degree, const int64_t& out_degree) {
             return out_degree - in_degree + int64_t(canonical_orientation.size());
         };
-        vector<list<handle_t>> delta_buckets(2 * canonical_orientation.size() + 1);
+        
+        int64_t min_delta_bucket = 0;
+        deque<list<handle_t>> delta_buckets(1);
+        
+        function<list<handle_t>*(const int64_t&)> get_bucket = [&](const int64_t& bucket_num) {
+            if (bucket_num < min_delta_bucket) {
+                for (int64_t i = bucket_num; i < min_delta_bucket; ++i) {
+                    delta_buckets.emplace_front();
+                }
+                min_delta_bucket = bucket_num;
+            }
+            else if (bucket_num - min_delta_bucket >= delta_buckets.size()) {
+                for (int64_t i = delta_buckets.size() + min_delta_bucket; i <= bucket_num; ++i) {
+                    delta_buckets.emplace_back();
+                }
+            }
+            return &delta_buckets[bucket_num - min_delta_bucket];
+        };
         
         
         vector<handle_t> sources;
@@ -68,7 +88,7 @@ using namespace std;
             }
             else {
                 // non-source, non-sink
-                auto& bucket = delta_buckets[assign_bucket(in_degree, out_degree)];
+                list<handle_t>& bucket = *get_bucket(assign_bucket(in_degree, out_degree));
                 bucket.emplace_front(handle);
                 degree_info[handle] = make_pair(make_pair(in_degree, out_degree), bucket.begin());
 #ifdef debug_eades
@@ -78,13 +98,7 @@ using namespace std;
         }
         
         // identify the highest non-empty bucket
-        int64_t max_delta_bucket = delta_buckets.size() - 1;
-        while (max_delta_bucket >= 0) {
-            if (!delta_buckets[max_delta_bucket].empty()) {
-                break;
-            }
-            max_delta_bucket--;
-        }
+        int64_t max_delta_bucket = delta_buckets.size() - min_delta_bucket - 1;
         
         // init the layout to fill
         vector<handle_t> layout(canonical_orientation.size());
@@ -103,7 +117,7 @@ using namespace std;
                 // remove it from the current bucket
                 auto& degrees = iter->second.first;
                 int64_t current_bucket_num = assign_bucket(degrees.first, degrees.second);
-                auto& bucket = delta_buckets[current_bucket_num];
+                list<handle_t>& bucket = *get_bucket(current_bucket_num);
                 bucket.erase(iter->second.second);
                 
                 // update the degrees to remove the inward edge
@@ -116,7 +130,7 @@ using namespace std;
                 else {
                     // this moves up one bucket
                     current_bucket_num++;
-                    auto& new_bucket = delta_buckets[current_bucket_num];
+                    list<handle_t>& new_bucket = *get_bucket(current_bucket_num);
                     new_bucket.emplace_front(next);
                     iter->second.second = new_bucket.begin();
                     
@@ -135,7 +149,7 @@ using namespace std;
                 // remove it from the current bucket
                 auto& degrees = iter->second.first;
                 int64_t current_bucket_num = assign_bucket(degrees.first, degrees.second);
-                auto& bucket = delta_buckets[current_bucket_num];
+                list<handle_t>& bucket = *get_bucket(current_bucket_num);
                 bucket.erase(iter->second.second);
                 
                 // update the degrees to remove the outward edge
@@ -148,7 +162,7 @@ using namespace std;
                 else {
                     // this moves down one bucket
                     current_bucket_num--;
-                    auto& new_bucket = delta_buckets[current_bucket_num];
+                    list<handle_t>& new_bucket = *get_bucket(current_bucket_num);
                     new_bucket.emplace_front(prev);
                     iter->second.second = new_bucket.begin();
                 }
@@ -225,14 +239,14 @@ using namespace std;
             }
             else {
                 // remove a node in the highest delta bucket from the graph
-                auto& bucket = delta_buckets[max_delta_bucket];
-                handle_t next = bucket.back();
+                list<handle_t>& bucket = *get_bucket(max_delta_bucket);
+                handle_t next = bucket.front();
                 
 #ifdef debug_eades
                 cerr << "adding node " << graph->get_id(next) << (graph->get_is_reverse(next) ? "-" : "+") << " from delta bucket " << max_delta_bucket << endl;
 #endif
                 
-                bucket.pop_back();
+                bucket.pop_front();
                 degree_info.erase(next);
                 
                 // add it to the layout
@@ -252,8 +266,8 @@ using namespace std;
             }
             
             // move the max bucket lower if it has been emptied
-            while (max_delta_bucket >= 0) {
-                if (!delta_buckets[max_delta_bucket].empty()) {
+            while (max_delta_bucket >= min_delta_bucket) {
+                if (!delta_buckets[max_delta_bucket - min_delta_bucket].empty()) {
                     break;
                 }
                 max_delta_bucket--;

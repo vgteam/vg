@@ -2278,20 +2278,26 @@ void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t
 }
     
 pos_t initial_position(const Path& path) {
-    if (!path.mapping_size()) {
-        return pos_t();
+    pos_t pos;
+    if (path.mapping_size()) {
+        const Position& position = path.mapping(0).position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset();
     }
-    return path.mapping_size() ? make_pos_t(path.mapping(0).position()) : pos_t();
+    return pos;
 }
 
 pos_t final_position(const Path& path) {
-    if (!path.mapping_size()) {
-        return pos_t();
+    pos_t pos;
+    if (path.mapping_size()) {
+        const Mapping& mapping = path.mapping(path.mapping_size() - 1);
+        const Position& position = mapping.position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset() + mapping_from_length(mapping);
     }
-    const Mapping& mapping = path.mapping(path.mapping_size() - 1);
-    return make_pos_t(mapping.position().node_id(),
-                      mapping.position().is_reverse(),
-                      mapping.position().offset() + mapping_from_length(mapping) - 1);
+    return pos;
 }
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {

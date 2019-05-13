@@ -12,8 +12,11 @@
 
 #include "handle.hpp"
 #include "packed_structs.hpp"
+#include "split_strand_graph.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
+
+#include "algorithms/eades_algorithm.hpp"
 
 
 namespace vg {
@@ -73,6 +76,15 @@ public:
     /// order is not defined.
     bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual std::string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
+    
     /// Return the number of nodes in the graph
     size_t node_size(void) const;
     
@@ -128,6 +140,13 @@ public:
     /// passed in.
     /// Updates stored paths.
     vector<handle_t> divide_handle(const handle_t& handle, const std::vector<size_t>& offsets);
+    
+    /// Adjust the representation of the graph in memory to improve performance.
+    /// Optionally, allow the node IDs to be reassigned to further improve
+    /// performance.
+    /// Note: Ideally, this method is called one time once there is expected to be
+    /// few graph modifications in the future.
+    void optimize(bool allow_id_reassignment = true);
     
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
@@ -239,24 +258,20 @@ public:
      */
     void set_circularity(const path_handle_t& path, bool circular);
     
-    ////////////////////////////////////////////////////////////////////////////
-    /// Specialized PackedGraph methods
-    ////////////////////////////////////////////////////////////////////////////
-    
-    /// Attempt to compress data into less memory, possibly using more memory temporarily
-    /// (especially useful before serializing). Node handles remain valid, but path and
-    /// step handles are invalidated.
-    void compactify(void);
-    
 private:
     
     // Forward declaration so we can use it as an argument to methods
     struct PackedPath;
     
-    /// The maximum ID in the graph
-    id_t max_id = 0;
-    /// The minimum ID in the graph
-    id_t min_id = std::numeric_limits<id_t>::max();
+    /// Attempt to compress data into less memory, possibly using more memory temporarily
+    /// (especially useful before serializing). Node handles remain valid, but path and
+    /// step handles are invalidated.
+    void tighten(void);
+    
+    /// Compact the node ID space to [1, num_nodes], attempting to assign regions of
+    /// local topological order into ascending IDs and regions of linear local structure
+    /// into contiguous IDs.
+    void compact_ids(void);
     
     /// Initialize all of the data corresponding with a new node and return
     /// it's 1-based offset
@@ -279,11 +294,16 @@ private:
     /// WARNING: invalidates step_handle_t's to this path.
     void defragment_path(PackedPath& path, bool force = false);
     
-    /// Defragment when the orphaned records are this fraction of the whole.
+    /// Defragment data structures when the orphaned records are this fraction of the whole.
     const static double defrag_factor;
     
     /// We use a standard page width for all page-compressed vectors
     const static size_t PAGE_WIDTH;
+    
+    /// The maximum ID in the graph
+    id_t max_id = 0;
+    /// The minimum ID in the graph
+    id_t min_id = std::numeric_limits<id_t>::max();
     
     // TODO: some of these offsets are a little silly and only are around as legacy.
     // They could be removed once the factoring stabilizes, but optimization will also
@@ -305,6 +325,8 @@ private:
     PackedVector seq_length_iv;
     const static size_t SEQ_LENGTH_RECORD_SIZE;
 
+    // TODO: split up the edge lists into separate vectors
+    
     /// Encodes a series of edges lists of nodes.
     /// {ID|orientation (bit-packed), next edge index}
     PagedVector edge_lists_iv;
