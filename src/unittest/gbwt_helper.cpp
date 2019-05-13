@@ -156,6 +156,23 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
         }
     }
 
+    // Substrings and characters.
+    SECTION("access to partial sequence") {
+        for (id_t id : correct_nodes) {
+            handle_t fw = gbwt_graph.get_handle(id, false);
+            handle_t rev = gbwt_graph.get_handle(id, true);
+            std::string fw_str = gbwt_graph.get_sequence(fw);
+            std::string rev_str = gbwt_graph.get_sequence(rev);
+            REQUIRE(fw_str.length() == rev_str.length());
+            for (size_t i = 0; i < fw_str.length(); i++) {
+                REQUIRE(gbwt_graph.get_base(fw, i) == fw_str[i]);
+                REQUIRE(gbwt_graph.get_base(rev, i) == rev_str[i]);
+                REQUIRE(gbwt_graph.get_subsequence(fw, i, 2) == fw_str.substr(i, 2));
+                REQUIRE(gbwt_graph.get_subsequence(rev, i, 2) == rev_str.substr(i, 2));
+            }
+        }
+    }
+
     // get_sequence_view() and starts_with() / ends_with().
     SECTION("direct access to the sequence") {
         for (id_t id : correct_nodes) {

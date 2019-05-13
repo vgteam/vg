@@ -152,6 +152,18 @@ std::string GBWTGraph::get_sequence(const handle_t& handle) const {
     return std::string(this->sequences.begin() + this->offsets[offset], this->sequences.begin() + this->offsets[offset + 1]);
 }
 
+char GBWTGraph::get_base(const handle_t& handle, size_t index) const {
+    size_t offset = this->node_offset(handle);
+    return this->sequences[this->offsets[offset] + index];
+}
+
+std::string GBWTGraph::get_subsequence(const handle_t& handle, size_t index, size_t size) const {
+    size_t offset = this->node_offset(handle);
+    size_t start = std::min(static_cast<size_t>(this->offsets[offset] + index), static_cast<size_t>(this->offsets[offset + 1]));
+    size = std::min(size, static_cast<size_t>(this->offsets[offset + 1] - start));
+    return std::string(this->sequences.begin() + start, this->sequences.begin() + start + size);
+}
+
 size_t GBWTGraph::node_size() const {
     return total_nodes;
 }
