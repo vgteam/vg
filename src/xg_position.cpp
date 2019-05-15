@@ -212,7 +212,9 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg:
     }
 }
 
-map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx) {
+map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG* xgidx, const Alignment& aln, bool just_min,
+    bool nearby, size_t search_limit) {
+    
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
     
@@ -250,7 +252,7 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignm
        
             // Find the positions for this end of this Mapping
             auto pos_offs = (nearby ?
-                             xgidx->nearest_offsets_in_paths(mapping_pos, aln.sequence().size())
+                             xgidx->nearest_offsets_in_paths(mapping_pos, search_limit == 0 ? aln.sequence().size() : search_limit)
                              : xgidx->offsets_in_paths(mapping_pos));
             for (auto& p : pos_offs) {
                 // For each path, splice the list of path positions for this
@@ -265,7 +267,7 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignm
     }
     if (!nearby && offsets.empty()) {
         // find the nearest if we couldn't find any before
-        return xg_alignment_path_offsets(aln, just_min, true, xgidx);
+        return xg_alignment_path_offsets(xgidx, aln, just_min, true, search_limit);
     }
     if (just_min) {
         // We need the minimum position for each path
@@ -282,9 +284,9 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignm
     return offsets;
 }
 
-void xg_annotate_with_initial_path_positions(Alignment& aln, const xg::XG* xgidx) {
+void xg_annotate_with_initial_path_positions(const xg::XG* xgidx, Alignment& aln, size_t search_limit) {
     if (!aln.refpos_size()) {
-        auto init_path_positions = xg_alignment_path_offsets(aln, true, false, xgidx);
+        auto init_path_positions = xg_alignment_path_offsets(xgidx, aln, true, false, search_limit);
         for (const pair<string, vector<pair<size_t, bool> > >& pos_record : init_path_positions) {
             for (auto& pos : pos_record.second) {
                 Position* refpos = aln.add_refpos();

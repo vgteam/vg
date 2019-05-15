@@ -27,6 +27,7 @@ void help_annotate(char** argv) {
          << "    -a, --gam FILE         file of Alignments to annotate (required)" << endl
          << "    -x, --xg-name FILE     xg index of the graph against which the Alignments are aligned (required)" << endl
          << "    -p, --positions        annotate alignments with reference positions" << endl
+         << "    -l, --search-limit N   when annotating with positions, search this far for paths (default: read length)" << endl
          << "    -b, --bed-name FILE    annotate alignments with overlapping region names from this BED. May repeat." << endl
          << "    -n, --novelty          output TSV table with header describing how much of each Alignment is novel" << endl
          << "    -t, --threads          use the specified number of threads" << endl;
@@ -88,6 +89,7 @@ int main_annotate(int argc, char** argv) {
     vector<string> gff_names;
     string gam_name;
     bool add_positions = false;
+    size_t search_limit = 0;
     bool novelty = false;
     bool output_ggff = false;
     string snarls_name;
@@ -99,6 +101,7 @@ int main_annotate(int argc, char** argv) {
         {
             {"gam", required_argument, 0, 'a'},
             {"positions", no_argument, 0, 'p'},
+            {"search-limit", required_argument, 0, 'l'},
             {"xg-name", required_argument, 0, 'x'},
             {"bed-name", required_argument, 0, 'b'},
             {"gff-name", required_argument, 0, 'f'},
@@ -111,7 +114,7 @@ int main_annotate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:pb:f:gs:nt:h",
+        c = getopt_long (argc, argv, "hx:a:pl:b:f:gs:nt:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -146,6 +149,10 @@ int main_annotate(int argc, char** argv) {
 
         case 'p':
             add_positions = true;
+            break;
+            
+        case 'l':
+            search_limit = parse<size_t>(optarg);
             break;
             
         case 'n':
@@ -301,7 +308,7 @@ int main_annotate(int argc, char** argv) {
                     if (add_positions) {
                         // Annotate it with its initial position on each path it touches
                         aln.clear_refpos();
-                        mapper.annotate_with_initial_path_positions(aln);
+                        mapper.annotate_with_initial_path_positions(aln, search_limit);
                     }
                     
                     if (!features_on_node.empty()) {
