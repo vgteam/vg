@@ -37,7 +37,7 @@ MinimizerMapper::MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_
 
 void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // For each input alignment
-        
+
     // Make a new funnel instrumenter to watch us map this read.
     Funnel funnel;
     // Start timing
@@ -98,7 +98,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             for (auto& hit : minimizer_index->find(minimizers[i])) {
                 // Reverse the hits for a reverse minimizer
                 if (minimizers[i].is_reverse) {
-                    size_t node_length = extender.graph->get_length(extender.graph->get_handle(id(hit)));
+                    size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // For each position, remember it and what minimizer it came from
@@ -282,37 +282,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         }
         
         // Extend seed hits in the cluster into one or more gapless extensions
-        auto extensions = extender.extend(seed_matchings, aln.sequence());
-        
-        bool has_negative_offsets = false;
-        for (auto& extension : extensions) {
-            for (auto& mapping : extension.path.mapping()) {
-                if (mapping.position().offset() < 0) {
-                    has_negative_offsets = true;
-                    cerr << "Warning: Skipping extension on read " << aln.name() << " due to negative offset in gapless extension: " << pb2json(extension.path) << endl;
-                    break;
-                }
-            }
-            if (has_negative_offsets) {
-                break;
-            }
-        }
-
-        if (!has_negative_offsets) {
-            // Only keep the extensions that don't get negative offsets in them.
-            cluster_extensions.emplace_back(std::move(extensions));
-        }
+        cluster_extensions.emplace_back(extender.extend(seed_matchings, aln.sequence()));
         
 #ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
-        if (has_negative_offsets) {
-            // Record that we killed this clustr
-            funnel.kill(cluster_num);
-        } else {
-            // Record with the funnel that the previous group became a group of this size.
-            // Don't bother recording the seed to extension matching...
-            funnel.project_group(cluster_num, cluster_extensions.back().size());
-        }
+        // Record with the funnel that the previous group became a group of this size.
+        // Don't bother recording the seed to extension matching...
+        funnel.project_group(cluster_num, cluster_extensions.back().size());
         
         // Say we finished with this cluster, for now.
         funnel.processed_input();
@@ -410,7 +386,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 funnel.substage("direct");
 #endif
 
-                *out.mutable_path() = extensions[0].path;
+                *out.mutable_path() = extensions.front().to_path(gbwt_graph, out.sequence());
                 
                 // The score estimate is exact.
                 int alignment_score = cluster_extension_scores[extension_num];
@@ -807,9 +783,9 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
     for (auto& extended_seed : extended_seeds) {
         Subpath* s = mp.add_subpath();
         // Copy in the path.
-        *s->mutable_path() = extended_seed.path;
+        *s->mutable_path() = extended_seed.to_path(gbwt_graph, out.sequence());
         // Score it
-        s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, extended_seed.path,
+        s->set_score(get_regular_aligner()->score_partial_alignment(aln, gbwt_graph, s->path(),
             aln.sequence().begin() + extended_seed.core_interval.first));
         // The position in the read it occurs at will be handled by the multipath topology.
         if (extended_seed.core_interval.first == 0) {
@@ -858,7 +834,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                     e->set_to_length(before_sequence.size());
                     e->set_sequence(before_sequence);
                     // Since the softclip consumes no graph, we place it on the node we are going to.
-                    *m->mutable_position() = extended_seeds[source].path.mapping(0).position();
+                    *m->mutable_position() = extended_seeds[source].starting_position(gbwt_graph);
                     
 #ifdef debug
                     cerr << "New best alignment: " << pb2json(best_path) << endl;
@@ -1008,16 +984,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                                 e->set_to_length(trailing_sequence.size());
                                 e->set_sequence(trailing_sequence);
                                 // We need to set a position at the end of where we are coming from.
-                                const Mapping& prev_mapping = extended_seeds[from].path.mapping(
-                                    extended_seeds[from].path.mapping_size() - 1);
-                                const Position& coming_from = prev_mapping.position();
-                                size_t last_node_length = gbwt_graph.get_length(gbwt_graph.get_handle(coming_from.node_id()));
-                                m->mutable_position()->set_node_id(coming_from.node_id());
-                                m->mutable_position()->set_is_reverse(coming_from.is_reverse());
-                                m->mutable_position()->set_offset(last_node_length);
-
-                                // We should only have this case if we are coming from the end of a node.
-                                assert(mapping_from_length(prev_mapping) + coming_from.offset() == last_node_length);
+                                *m->mutable_position() = extended_seeds[from].tail_position(gbwt_graph);
                             }
                         } else {
 
@@ -1145,7 +1112,7 @@ void MinimizerMapper::chain_extended_seeds(const Alignment& aln, const vector<Ga
                                 e->set_to_length(intervening_sequence.size());
                                 e->set_sequence(intervening_sequence);
                                 // We can copy the position of where we are going to, since we consume no graph.
-                                *m->mutable_position() = extended_seeds[to].path.mapping(0).position();
+                                *m->mutable_position() = extended_seeds[to].starting_position(gbwt_graph);
                             }
                         }
                     } else {
@@ -1275,14 +1242,12 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
 
     for (size_t i = 0; i < extended_seeds.size(); i++) {
         // For each extension
-        // Where does it start?
-        auto& pos = extended_seeds[i].path.mapping(0).position();
 
         // Get the handle it is on
-        handle_t handle = gbwt_graph.get_handle(pos.node_id(), pos.is_reverse());
+        handle_t handle = extended_seeds[i].path.front();
 
         // Record that this extension starts at this offset along that handle
-        extensions_by_handle[handle].emplace_back(pos.offset(), i);
+        extensions_by_handle[handle].emplace_back(extended_seeds[i].offset, i);
 
         // Assume it is a source
         sources.insert(i);
@@ -1292,8 +1257,6 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
             << " at offset " << pos.offset() << " corresponding to read "
             << extended_seeds[i].core_interval.first << " - " << extended_seeds[i].core_interval.second << endl;
 #endif
-
-        assert(pos.offset() >= 0);
     }
 
     for (auto& kv : extensions_by_handle) {
@@ -1309,9 +1272,8 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
         // For each starting seed
 
         // Where do we cut the graph just after its end?
-        auto& last_mapping = extended_seeds[i].path.mapping(extended_seeds[i].path.mapping_size() - 1);
-        Position cut_pos_graph = last_mapping.position();
-        cut_pos_graph.set_offset(cut_pos_graph.offset() + mapping_from_length(last_mapping));
+        handle_t start_handle = extended_seeds[i].path.back();
+        Position cut_pos_graph = extended_seeds[i].tail_position(gbwt_graph);
         // And the read?
         size_t cut_pos_read = extended_seeds[i].core_interval.second;
 
@@ -1321,9 +1283,6 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
 #endif
 
         assert(cut_pos_graph.offset() >= 0);
-
-        // Get a handle in the GBWTGraph
-        handle_t start_handle = gbwt_graph.get_handle(cut_pos_graph.node_id(), cut_pos_graph.is_reverse());
 
         // Decide if we need to actually do GBWT search, or if we can find a destination on the same node we ended on
         bool do_gbwt_search = true;
@@ -1354,14 +1313,6 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
                         e->set_from_length(next_offset_and_index.first - m->position().offset());
                         e->set_to_length(next_offset_and_index.first - m->position().offset());
                     }
-
-#ifdef debug
-                    cerr << "Found path on node between seed at "
-                    << pb2json(extended_seeds[i].path.mapping(extended_seeds[i].path.mapping_size() - 1).position())
-                    << " and seed at "
-                    << pb2json(extended_seeds[next_offset_and_index.second].path.mapping(0).position())
-                    << ":" << endl << "\t" << pb2json(connecting) <<  endl;
-#endif
 
                     // Emit that connection
                     to_return[i][next_offset_and_index.second].emplace_back(std::move(connecting));
@@ -1418,14 +1369,6 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
                             
                             extended = extended.push_front(m);
                         }
-
-#ifdef debug
-                        cerr << "Found graph path between seed at "
-                            << pb2json(extended_seeds[i].path.mapping(extended_seeds[i].path.mapping_size() - 1).position())
-                            << " and seed at "
-                            << pb2json(extended_seeds[next_offset_and_index.second].path.mapping(0).position())
-                            << ":" << endl << "\t" << pb2json(to_path(extended)) <<  endl;
-#endif
 
                         // And emit that connection
                         to_return[i][next_offset_and_index.second].emplace_back(to_path(extended));
@@ -1485,7 +1428,7 @@ MinimizerMapper::find_connecting_paths(const vector<GaplessExtension>& extended_
 #endif
 
             // Find its start
-            Position start = extended_seeds[i].path.mapping(0).position();
+            Position start = extended_seeds[i].starting_position(gbwt_graph);
             
 #ifdef debug
             cerr << "\tPosition read-forward to search left before: " << pb2json(start) << endl;

@@ -15,7 +15,8 @@ namespace vg {
 
 /**
  * A result of the gapless extension of a seed.
- * - 'path' covers 'core_interval' of the read.
+ * - 'path' covers 'core_interval' of the read, starting from 'offset' in the initial
+ *   node.
  * - The intervals are semi-open [first, second) intervals.
  * - 'state' is the search state corresponding to 'path'.
  * - If 'is_full_alignment' is set, the path is a full-length alignment and may contain
@@ -27,20 +28,45 @@ namespace vg {
  */
 struct GaplessExtension
 {
-  Path                      path;
-  gbwt::BidirectionalState  state;
-  std::pair<size_t, size_t> core_interval;
-  bool                      is_full_alignment;
+    std::vector<handle_t>     path;
+    size_t                    offset;
 
-  std::pair<size_t, size_t> flanked_interval;
-  std::vector<size_t>       mismatch_positions;
+    gbwt::BidirectionalState  state;
+    std::pair<size_t, size_t> core_interval;
+    bool                      is_full_alignment;
 
-  size_t core_length() const { return this->core_interval.second - this->core_interval.first; }
-  size_t flanked_length() const { return this->flanked_interval.second - this->flanked_interval.first; }
-  bool empty() const { return (this->core_length() == 0); }
-  bool full() const { return this->is_full_alignment; }
-  bool exact() const { return this->mismatch_positions.empty(); }
-  size_t mismatches() const { return this->mismatch_positions.size(); }
+    std::pair<size_t, size_t> flanked_interval;
+    std::vector<size_t>       mismatch_positions;
+
+    /// Length of the core interval.
+    size_t core_length() const { return this->core_interval.second - this->core_interval.first; }
+
+    /// Length of the flanked interval.
+    size_t flanked_length() const { return this->flanked_interval.second - this->flanked_interval.first; }
+
+    /// Is the extension empty?
+    bool empty() const { return (this->core_length() == 0); }
+
+    /// Is the extension a full-length alignment?
+    bool full() const { return this->is_full_alignment; }
+
+    /// Is the extension an exact match?
+    bool exact() const { return this->mismatch_positions.empty(); }
+
+    /// Number of mismatches in the extension.
+    size_t mismatches() const { return this->mismatch_positions.size(); }
+
+    /// Return the starting position of the core interval.
+    Position starting_position(const GBWTGraph& graph) const;
+
+    /// Return the position after the core interval.
+    Position tail_position(const GBWTGraph& graph) const;
+
+    /// Return the node offset after the core interval
+    size_t tail_offset(const GBWTGraph& graph) const;
+
+    /// Convert the extension into a Path.
+    Path to_path(const GBWTGraph& graph, const std::string& sequence) const;
 };
 
 //------------------------------------------------------------------------------
@@ -98,10 +124,6 @@ public:
     void extend_flanks(std::vector<GaplessExtension>& extensions, const std::string& sequence, size_t max_mismatches = MAX_MISMATCHES / 2) const;
 
     const GBWTGraph* graph;
-
-private:
-    static size_t head_offset(const Path& path);
-    static size_t tail_offset(const Path& path);
 };
 
 //------------------------------------------------------------------------------
