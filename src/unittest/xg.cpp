@@ -744,20 +744,52 @@ TEST_CASE("next_path_position can search out for several nodes", "[xg]") {
     
     SECTION("nothing is found when searching a slightly too-short distance") {
         pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, false, 0), 5);
+        REQUIRE(id(result.first) == 0);
+    }
+    
+    SECTION("something is found at the right distance when searching an exactly sufficiently long distance") {
+        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, false, 0), 6);
+        
+        REQUIRE(id(result.first) == 7);
+        REQUIRE(result.second == 6);
+    }
+    
+    SECTION("something is found at the rigth distance when searching an overly-long distance") {
+        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, false, 0), 100);
+        
+        REQUIRE(id(result.first) == 7);
+        REQUIRE(result.second == 6);
+    }
+    
+    SECTION("nothing is found when searching a zero distance in reverse") {
+        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, true, 1), 0);
         
         REQUIRE(id(result.first) == 0);
     }
     
-    SECTION("something is found when searching an exactly sufficiently long distance") {
-        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, false, 0), 6);
+    SECTION("nothing is found when searching a too-short distance in reverse") {
+        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, true, 1), 2);
         
-        REQUIRE(id(result.first) == 7);
+        REQUIRE(id(result.first) == 0);
     }
     
-    SECTION("something is found when searching an overly-long distance") {
-        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, false, 0), 100);
+    SECTION("nothing is found when searching a slightly too-short distance in reverse") {
+        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, true, 1), 5);
+        REQUIRE(id(result.first) == 0);
+    }
+    
+    SECTION("something is found at the right distance when searching an exactly sufficiently long distance in reverse") {
+        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, true, 1), 6);
         
         REQUIRE(id(result.first) == 7);
+        REQUIRE(result.second == 6);
+    }
+    
+    SECTION("something is found at the rigth distance when searching an overly-long distance in reverse") {
+        pair<pos_t, int64_t> result = xg_index.next_path_position(make_pos_t(1, true, 1), 100);
+        
+        REQUIRE(id(result.first) == 7);
+        REQUIRE(result.second == 6);
     }
 }
 
