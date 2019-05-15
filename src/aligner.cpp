@@ -19,7 +19,7 @@ gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g) const {
 
 gssw_graph* GSSWAligner::create_gssw_graph(const HandleGraph& g, const vector<handle_t>& topological_order) const {
     
-    gssw_graph* graph = gssw_graph_create(g.node_size());
+    gssw_graph* graph = gssw_graph_create(g.get_node_count());
     unordered_map<int64_t, gssw_node*> nodes;
     
 #ifdef debug
@@ -972,7 +972,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             // we can only run gssw's DP on non-empty graphs, but we may have masked the entire graph
             // if it consists of only empty nodes, so don't both with the DP in that case
             gssw_graph_mapping** gms = nullptr;
-            if (align_graph->node_size() > 0) {
+            if (align_graph->get_node_count() > 0) {
                 gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
                 size_t j = 0;
                 for (size_t i = 0; i < graph->size; i++) {
@@ -1047,7 +1047,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                     }
                 }
             }
-            else if (g.node_size() > 0) {
+            else if (g.get_node_count() > 0) {
                 // we didn't get any alignments either because the graph was empty and we couldn't run
                 // gssw DP or because they had score 0 and gssw didn't want to do traceback. however,
                 // we can infer the location of softclips based on the pinning nodes, so we'll just make
@@ -1503,7 +1503,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
     if (traceback_aln) {
         if (pinned) {
             gssw_graph_mapping** gms = nullptr;
-            if (align_graph->node_size() > 0) {
+            if (align_graph->get_node_count() > 0) {
                 
                 gssw_node** pinning_nodes = (gssw_node**) malloc(pinning_ids.size() * sizeof(gssw_node*));
                 size_t j = 0;
@@ -1580,7 +1580,7 @@ void QualAdjAligner::align_internal(Alignment& alignment, vector<Alignment>* mul
                     }
                 }
             }
-            else if (g.node_size() > 0) {
+            else if (g.get_node_count() > 0) {
                 /// we didn't get any alignments either because the graph was empty and we couldn't run
                 // gssw DP or because they had score 0 and gssw didn't want to do traceback. however,
                 // we can infer the location of softclips based on the pinning nodes, so we'll just make

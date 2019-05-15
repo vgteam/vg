@@ -88,7 +88,7 @@ public:
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     
     /// Return the smallest ID in the graph.
     virtual id_t min_node_id() const;

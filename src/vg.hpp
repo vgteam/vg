@@ -117,7 +117,7 @@ public:
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
@@ -178,6 +178,22 @@ public:
     /// return by get_next_step for the final step in a path in a non-circular path.
     /// Note that get_next_step will *NEVER* return this value for a circular path.
     virtual step_handle_t path_end(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    virtual step_handle_t path_back(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    virtual step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    
+    /// Returns true if the step is not the last step in a non-circular path.
+    virtual bool has_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the first step in a non-circular path.
+    virtual bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
@@ -580,7 +596,7 @@ public:
     
     /// Modifies underlying graph so that nodes occur in the same order as in the provided vector. Vector
     /// must contain exactly one handle for each node.
-    void apply_ordering(const vector<handle_t>& ordering);
+    void apply_ordering(const vector<handle_t>& ordering, bool compact_ids = false);
     
     /// Iteratively add when nodes and edges are novel. Good when there are very
     /// many overlaps. TODO: If you are using this with warn on duplicates on,

@@ -52,8 +52,8 @@ using namespace std;
         graph->for_each_handle(iteratee, parallel);
     }
     
-    size_t IdentityOverlay::node_size() const {
-        return graph->node_size();
+    size_t IdentityOverlay::get_node_count() const {
+        return graph->get_node_count();
     }
     
     id_t IdentityOverlay::min_node_id() const {

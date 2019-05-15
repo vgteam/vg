@@ -2220,7 +2220,7 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
     return true;
 }
     
-size_t NetGraph::node_size() const {
+size_t NetGraph::get_node_count() const {
     // TODO: this is inefficient!
     size_t size = 0;
     for_each_handle([&](const handle_t& ignored) {
