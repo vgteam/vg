@@ -212,7 +212,6 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg:
     }
 }
 
-#define debug
 map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG* xgidx, const Alignment& aln, bool just_min,
     bool nearby, size_t search_limit) {
     
