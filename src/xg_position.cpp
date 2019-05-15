@@ -212,8 +212,24 @@ set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg:
     }
 }
 
+#define debug
 map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG* xgidx, const Alignment& aln, bool just_min,
     bool nearby, size_t search_limit) {
+    
+    if (nearby && search_limit == 0) {
+        // Fill in the search limit
+        search_limit = aln.sequence().size();
+    }
+    
+#ifdef debug
+    cerr << "Searching for path positions for " << aln.name();
+    if (nearby) {
+        cerr << " within " << search_limit << " bp";
+    } else {
+        cerr << " that are actually touched";
+    }
+    cerr << endl;
+#endif
     
     map<string, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
@@ -252,7 +268,7 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG
        
             // Find the positions for this end of this Mapping
             auto pos_offs = (nearby ?
-                             xgidx->nearest_offsets_in_paths(mapping_pos, search_limit == 0 ? aln.sequence().size() : search_limit)
+                             xgidx->nearest_offsets_in_paths(mapping_pos, search_limit)
                              : xgidx->offsets_in_paths(mapping_pos));
             for (auto& p : pos_offs) {
                 // For each path, splice the list of path positions for this
@@ -262,6 +278,10 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG
                 auto& y = p.second;
                 v.reserve(v.size() + distance(y.begin(),y.end()));
                 v.insert(v.end(),y.begin(),y.end());
+                
+#ifdef debug
+                cerr << "\tFound hit on path " << p.first << endl; 
+#endif
             }
         }
     }
