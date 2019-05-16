@@ -24,8 +24,22 @@ public:
     HashGraph();
     ~HashGraph();
     
+    ////////////////////////////////////////////////////////////////////////////
+    // I/O methods
+    ////////////////////////////////////////////////////////////////////////////
+    
     /// Deserialize from a stream of data
     HashGraph(istream& in);
+    
+    /// Write the graph to an out stream.
+    void serialize(ostream& out) const;
+    
+    /// Read the graph (in the format written by serialize()) from an in stream.
+    void deserialize(istream& in);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Handle methods
+    ////////////////////////////////////////////////////////////////////////////
     
     /// Method to check if a node exists by ID
     bool has_node(id_t node_id) const;
@@ -269,16 +283,6 @@ public:
      * to the method path_begin.
      */
     void set_circularity(const path_handle_t& path, bool circular);
-    
-    ////////////////////////////////////////////////////////////////////////////
-    // Non-handle methods
-    ////////////////////////////////////////////////////////////////////////////
-    
-    /// Write the graph to an out stream.
-    void serialize(ostream& out) const;
-    
-    /// Read the graph (in the format written by serialize()) from an in stream.
-    void deserialize(istream& in);
     
 private:
     

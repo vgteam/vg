@@ -471,8 +471,12 @@ id_t XGPath::local_id(id_t id) const {
 id_t XGPath::external_id(id_t id) const {
     return id+min_node_id-1;
 }
+    
+void XG::serialize(ostream& out) const {
+    serialize_and_measure(out);
+}
 
-size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
+size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
 
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
     size_t written = 0;

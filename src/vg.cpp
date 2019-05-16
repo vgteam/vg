@@ -127,7 +127,109 @@ VG::VG(const Graph& from, bool showp, bool warn_on_duplicates) {
     // Store paths in graph
     paths.to_graph(graph);
 }
+
+void VG::serialize(ostream& out) const {
+    // we have to duplicate some functionality here to match the handle graph interface,
+    // which is const
+    // this makes it hard to colocate path steps with their nodes, so we don't really try
+    // to
     
+    size_t num_records_per_chunk = 1000;
+    vg::io::ProtobufEmitter<Graph> emitter(out, 1);
+    
+    // use this chunk as a buffer
+    Graph chunk;
+    size_t chunk_size = 0;
+    for_each_handle([&](const handle_t& handle) {
+        
+        // add the node
+        Node* node = chunk.add_node();
+        node->set_id(get_id(handle));
+        node->set_sequence(get_sequence(handle));
+        chunk_size++;
+        
+        // add edges on this node, breaking symmetry to only add one time
+        follow_edges(handle, true, [&](const handle_t& prev) {
+            edge_t canonical_edge = edge_handle(prev, handle);
+            
+            if (flip(handle) == canonical_edge.first) {
+                Edge* edge = chunk.add_edge();
+                
+                edge->set_from(get_id(canonical_edge.first));
+                edge->set_from_start(get_is_reverse(canonical_edge.first));
+                edge->set_to(get_id(canonical_edge.second));
+                edge->set_to_end(get_is_reverse(canonical_edge.second));
+                
+                chunk_size++;
+            }
+        });
+        follow_edges(handle, false, [&](const handle_t& next) {
+            edge_t canonical_edge = edge_handle(handle, next);
+            
+            if (handle == canonical_edge.first) {
+                Edge* edge = chunk.add_edge();
+                
+                edge->set_from(get_id(canonical_edge.first));
+                edge->set_from_start(get_is_reverse(canonical_edge.first));
+                edge->set_to(get_id(canonical_edge.second));
+                edge->set_to_end(get_is_reverse(canonical_edge.second));
+                
+                chunk_size++;
+            }
+        });
+        
+        // emit if large enough and clear buffer
+        if (chunk_size > num_records_per_chunk) {
+            emitter.write_copy(chunk);
+            chunk.Clear();
+            chunk_size = 0;
+        }
+    });
+    
+    for_each_path_handle([&](const path_handle_t& path_handle) {
+        // init the path
+        Path* path = chunk.add_path();
+        path->set_name(get_path_name(path_handle));
+        path->set_is_circular(get_is_circular(path_handle));
+        
+        // manually keep track of rank so we don't need to sync paths and can therefor
+        // keep this const
+        int32_t rank = 1;
+        for_each_step_in_path(path_handle, [&](const step_handle_t& step) {
+            
+            // add step in the path
+            Mapping* mapping = path->add_mapping();
+            
+            Position* position = mapping->mutable_position();
+            position->set_node_id(get_id(get_handle_of_step(step)));
+            position->set_is_reverse(get_is_reverse(get_handle_of_step(step)));
+            
+            mapping->set_rank(rank);
+            rank++;
+            
+            chunk_size++;
+            
+            // emit if large enough and clear buffer
+            if (chunk_size > num_records_per_chunk) {
+                emitter.write_copy(chunk);
+                chunk.Clear();
+                chunk_size = 0;
+                
+                // we want to keep working on this path, so make it again in the
+                path = chunk.add_path();
+                path->set_name(get_path_name(path_handle));
+                path->set_is_circular(get_is_circular(path_handle));
+            }
+        });
+    });
+    
+    // flush the chunk buffer
+    emitter.write_copy(chunk);
+}
+
+void VG::deserialize(istream& in) {
+    from_istream(in);
+}
 
 handle_t VG::get_handle(const id_t& node_id, bool is_reverse) const {
     return handlegraph::number_bool_packing::pack(node_id, is_reverse);
@@ -410,6 +512,23 @@ step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
     
     return next_step_handle;
 }
+    
+    bool VG::has_next_step(const step_handle_t& step_handle) const {
+        if (get_is_circular(get_path_handle_of_step(step_handle)) && !is_empty(get_path_handle_of_step(step_handle))) {
+            return true;
+        }
+        list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+        ++iter;
+        return iter != paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).end();
+    }
+    
+    bool VG::has_previous_step(const step_handle_t& step_handle) const {
+        if (get_is_circular(get_path_handle_of_step(step_handle)) && !is_empty(get_path_handle_of_step(step_handle))) {
+            return true;
+        }
+        list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+        return iter != paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).begin();
+    }
 
 step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
     step_handle_t prev_step_handle;

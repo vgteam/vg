@@ -83,6 +83,19 @@ namespace vg {
 class VG : public Progressive, public MutablePathDeletableHandleGraph {
 
 public:
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // HandleGraph serialization
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Write the contents of this graph to an ostream.
+    virtual void serialize(ostream& out) const;
+    
+    /// Sets the contents of this graph to the contents of a serialized graph from
+    /// an istream. The serialized graph must be from the same implementation of the
+    /// HandleGraph interface as is calling deserialize(). Can only be called by an
+    /// empty graph.
+    virtual void deserialize(istream& in);
 
     ////////////////////////////////////////////////////////////////////////////
     // Handle-based interface
@@ -210,6 +223,12 @@ public:
     /// Note: to iterate over each step one time, even in a circular path, consider
     /// for_each_step_in_path.
     virtual step_handle_t get_previous_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the last step in the path
+    virtual bool has_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the first step in the path
+    virtual bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Execute a function on each path in the graph
     virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;

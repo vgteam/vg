@@ -124,10 +124,12 @@ public:
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
     void load(istream& in);
+    
+    void serialize(std::ostream& out) const;
     // Save this XG index to a stream.
-    size_t serialize(std::ostream& out,
-                     sdsl::structure_tree_node* v = NULL,
-                     std::string name = "") const;
+    size_t serialize_and_measure(std::ostream& out,
+                                 sdsl::structure_tree_node* v = NULL,
+                                 std::string name = "") const;
                      
     
     ////////////////////////////////////////////////////////////////////////////
