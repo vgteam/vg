@@ -3018,6 +3018,10 @@ void VG::include(const Path& path) {
 
 void VG::compact_ids(void) {
     hash_map<id_t, id_t> new_id;
+    compact_ids(new_id);
+}
+
+void VG::compact_ids(hash_map<id_t, id_t> & new_id) {
     id_t id = 1; // start at 1
     for_each_node([&id, &new_id](Node* n) {
             new_id[n->id()] = id++; });

@@ -556,6 +556,10 @@ public:
 
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
+    /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
+    /// Record translation in provided map.
+    void compact_ids(hash_map<id_t, id_t> & new_id);
+    
     /// Add the given value to all node IDs. Preserves the paths.
     void increment_node_ids(id_t increment);
     /// Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
