@@ -1933,13 +1933,13 @@ step_handle_t XG::path_front_end(const path_handle_t& path_handle) const {
 }
 
 bool XG::has_next_step(const step_handle_t& step_handle) const {
-    return (as_integers(step_handle)[1] < get_step_count(get_path_handle_of_step(step_handle))
+    return (as_integers(step_handle)[1] + 1 < get_step_count(get_path_handle_of_step(step_handle))
             || (get_is_circular(get_path_handle_of_step(step_handle))
                 && get_step_count(get_path_handle_of_step(step_handle)) > 0));
 }
 
 bool XG::has_previous_step(const step_handle_t& step_handle) const {
-    return (as_integers(step_handle)[1] >= 0
+    return (as_integers(step_handle)[1] > 0
             || (get_is_circular(get_path_handle_of_step(step_handle))
                 && get_step_count(get_path_handle_of_step(step_handle)) > 0));
 }

@@ -1730,6 +1730,12 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
             
             REQUIRE(graph.get_id(handle) == mapping.position().node_id());
             REQUIRE(graph.get_is_reverse(handle) == mapping.position().is_reverse());
+            
+            bool should_have_next = path.is_circular() || mapping_idx + 1 < path.mapping_size();
+            bool should_have_prev = path.is_circular() || mapping_idx > 0;
+            
+            REQUIRE(graph.has_next_step(step_handle) == should_have_next);
+            REQUIRE(graph.has_previous_step(step_handle) == should_have_prev);
         };
         
         step_handle_t step_handle = graph.path_begin(path_handle);
@@ -2046,6 +2052,15 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
                 
+                if (graph.get_is_circular(p)) {
+                    REQUIRE(graph.has_next_step(step));
+                    REQUIRE(graph.has_previous_step(step));
+                }
+                else {
+                    REQUIRE(graph.has_next_step(step) == i + 1 < steps.size());
+                    REQUIRE(graph.has_previous_step(step) == i > 0);
+                }
+                
                 step = graph.get_next_step(step);
             }
             
@@ -2056,23 +2071,30 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
                 REQUIRE(step == graph.path_end(p));
             }
             
-            step = graph.get_previous_step(step);
+            step = graph.path_back(p);
             
             for (int i = steps.size() - 1; i >= 0; i--) {
                 
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
                 
-                if (i != 0 || (graph.get_is_circular(p) && !graph.is_empty(p))) {
-                    step = graph.get_previous_step(step);
+                if (graph.get_is_circular(p)) {
+                    REQUIRE(graph.has_next_step(step));
+                    REQUIRE(graph.has_previous_step(step));
                 }
+                else {
+                    REQUIRE(graph.has_next_step(step) == i + 1 < steps.size());
+                    REQUIRE(graph.has_previous_step(step) == i > 0);
+                }
+                
+                step = graph.get_previous_step(step);
             }
             
             if (graph.get_is_circular(p) && !graph.is_empty(p)) {
-                REQUIRE(graph.get_handle_of_step(step) == steps.back());
+                REQUIRE(step == graph.path_back(p));
             }
             else {
-                REQUIRE(step == graph.path_begin(p));
+                REQUIRE(step == graph.path_front_end(p));
             }
         };
         

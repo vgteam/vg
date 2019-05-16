@@ -377,27 +377,37 @@ step_handle_t VG::path_back(const path_handle_t& path_handle) const {
 }
 
 step_handle_t VG::path_front_end(const path_handle_t& path_handle) const {
-    // we'll re-use the sentinel
-    return path_end(path_handle);
+    // i'm a little uncomfortable using this value as a pointer sentinel, but i think it'll
+    // only matter if there are 2^63 - 1 bytes, right?
+    step_handle_t step_handle;
+    as_integers(step_handle)[0] = as_integer(path_handle);
+    as_integers(step_handle)[1] = numeric_limits<uint64_t>::max();
+    return step_handle;
 }
 
 step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
     step_handle_t next_step_handle;
     as_integers(next_step_handle)[0] = as_integers(step_handle)[0];
     auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle))));
-    list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
-    ++iter;
-    if (iter == path_list.end()) {
-        if (get_is_circular(get_path_handle_of_step(step_handle))) {
-            as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(&path_list.front());
-        }
-        else {
-            as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
-        }
+    if (as_integers(step_handle)[1] == numeric_limits<uint64_t>::max()) {
+        as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(&path_list.front());
     }
     else {
-        as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+        auto iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+        ++iter;
+        if (iter == path_list.end()) {
+            if (get_is_circular(get_path_handle_of_step(step_handle))) {
+                as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(&path_list.front());
+            }
+            else {
+                as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
+            }
+        }
+        else {
+            as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+        }
     }
+    
     return next_step_handle;
 }
 
@@ -405,20 +415,24 @@ step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
     step_handle_t prev_step_handle;
     as_integers(prev_step_handle)[0] = as_integers(step_handle)[0];
     auto& path_list = paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle))));
-    list<mapping_t>::const_iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
-    if (iter == path_list.begin()) {
-        if (get_is_circular(get_path_handle_of_step(step_handle))) {
-            as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&path_list.back());
-        }
-        else {
-            as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
-        }
+    if (as_integers(step_handle)[1] == reinterpret_cast<int64_t>(nullptr)) {
+        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&path_list.back());
     }
     else {
-        --iter;
-        as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+        auto iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
+        if (iter == path_list.begin()) {
+            if (get_is_circular(get_path_handle_of_step(step_handle))) {
+                as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&path_list.back());
+            }
+            else {
+                as_integers(prev_step_handle)[1] = numeric_limits<uint64_t>::max();
+            }
+        }
+        else {
+            --iter;
+            as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&(*iter));
+        }
     }
-    
     return prev_step_handle;
 }
 
