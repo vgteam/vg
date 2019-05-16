@@ -439,6 +439,8 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a161ef56bd0eeee937602f60b8617f24d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d">compact_ids</a> (void)</td></tr>
 <tr class="memdesc:a161ef56bd0eeee937602f60b8617f24d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Squish the node IDs down into as small a space as possible. Fixes up paths itself.  <a href="#a161ef56bd0eeee937602f60b8617f24d">More...</a><br/></td></tr>
 <tr class="separator:a161ef56bd0eeee937602f60b8617f24d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1d9faa901ab4d768d607454ffbfeac0f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a1d9faa901ab4d768d607454ffbfeac0f">compact_ids</a> (<a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;new_id)</td></tr>
+<tr class="separator:a1d9faa901ab4d768d607454ffbfeac0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a522cc6a9721f305ab01ce823d843662d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a522cc6a9721f305ab01ce823d843662d">increment_node_ids</a> (<a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> increment)</td></tr>
 <tr class="memdesc:a522cc6a9721f305ab01ce823d843662d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add the given value to all node IDs. Preserves the paths.  <a href="#a522cc6a9721f305ab01ce823d843662d">More...</a><br/></td></tr>
 <tr class="separator:a522cc6a9721f305ab01ce823d843662d"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -3141,6 +3143,23 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 </div><div class="memdoc">
 
 <p>Squish the node IDs down into as small a space as possible. Fixes up paths itself. </p>
+
+</div>
+</div>
+<a class="anchor" id="a1d9faa901ab4d768d607454ffbfeac0f"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::VG::compact_ids </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classvg_1_1hash__map.html">hash_map</a>&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;&#160;</td>
+          <td class="paramname"><em>new_id</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Squish the node IDs down into as small a space as possible. Fixes up paths itself. Record translation in provided map. </p>
 
 </div>
 </div>

@@ -117,12 +117,14 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ac548308ac95bfc17da9139df4d994dfe"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1VG.html">VG</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ac548308ac95bfc17da9139df4d994dfe">splice_graph</a> () const </td></tr>
 <tr class="memdesc:ac548308ac95bfc17da9139df4d994dfe"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns spliced variation graph.  <a href="#ac548308ac95bfc17da9139df4d994dfe">More...</a><br/></td></tr>
 <tr class="separator:ac548308ac95bfc17da9139df4d994dfe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a012f7eec60cb36b505d7e4692ef70b8a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a012f7eec60cb36b505d7e4692ef70b8a">remove_non_transcribed</a> (const bool keep_reference)</td></tr>
+<tr class="separator:a012f7eec60cb36b505d7e4692ef70b8a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9084366eefa5e787e3f567156ab1ef87"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a9084366eefa5e787e3f567156ab1ef87">compact_ordered</a> ()</td></tr>
+<tr class="memdesc:a9084366eefa5e787e3f567156ab1ef87"><td class="mdescLeft">&#160;</td><td class="mdescRight">Topological sort and compact graph.  <a href="#a9084366eefa5e787e3f567156ab1ef87">More...</a><br/></td></tr>
+<tr class="separator:a9084366eefa5e787e3f567156ab1ef87"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a454b0f6b9989a73bcc1b9828e99c58c8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a454b0f6b9989a73bcc1b9828e99c58c8">add_paths_to_graph</a> ()</td></tr>
 <tr class="memdesc:a454b0f6b9989a73bcc1b9828e99c58c8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Embeds transcript paths in variation graph.  <a href="#a454b0f6b9989a73bcc1b9828e99c58c8">More...</a><br/></td></tr>
 <tr class="separator:a454b0f6b9989a73bcc1b9828e99c58c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1a1cc5c3236b84cd028e117f5f75e104"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#a1a1cc5c3236b84cd028e117f5f75e104">remove_non_transcribed</a> ()</td></tr>
-<tr class="memdesc:a1a1cc5c3236b84cd028e117f5f75e104"><td class="mdescLeft">&#160;</td><td class="mdescRight">Removes non-transcribed (not in transcript paths) nodes.  <a href="#a1a1cc5c3236b84cd028e117f5f75e104">More...</a><br/></td></tr>
-<tr class="separator:a1a1cc5c3236b84cd028e117f5f75e104"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad4f4ab33718c5e5eff171f698e6ddf5e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Transcriptome.html#ad4f4ab33718c5e5eff171f698e6ddf5e">construct_gbwt</a> (gbwt::GBWTBuilder *gbwt_builder) const </td></tr>
 <tr class="memdesc:ad4f4ab33718c5e5eff171f698e6ddf5e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add transcript paths as threads in GBWT index.  <a href="#ad4f4ab33718c5e5eff171f698e6ddf5e">More...</a><br/></td></tr>
 <tr class="separator:ad4f4ab33718c5e5eff171f698e6ddf5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -369,6 +371,23 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a9084366eefa5e787e3f567156ab1ef87"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::Transcriptome::compact_ordered </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Topological sort and compact graph. </p>
+
+</div>
+</div>
 <a class="anchor" id="ad4f4ab33718c5e5eff171f698e6ddf5e"></a>
 <div class="memitem">
 <div class="memproto">
@@ -591,20 +610,20 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a1a1cc5c3236b84cd028e117f5f75e104"></a>
+<a class="anchor" id="a012f7eec60cb36b505d7e4692ef70b8a"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
           <td class="memname">void vg::Transcriptome::remove_non_transcribed </td>
           <td>(</td>
-          <td class="paramname"></td><td>)</td>
+          <td class="paramtype">const bool&#160;</td>
+          <td class="paramname"><em>keep_reference</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>Removes non-transcribed (not in transcript paths) nodes. </p>
+<p>Removes non-transcribed (not in transcript paths) nodes. Optionally create new reference paths that only include trancribed nodes and edges. </p>
 
 </div>
 </div>
