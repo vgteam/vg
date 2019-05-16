@@ -95,6 +95,11 @@ XG::~XG(void) {
         paths.pop_back();
     }
 }
+    
+void XG::deserialize(std::istream& in) {
+    // simple alias to match an external interface
+    load(in);
+}
 
 void XG::load(istream& in) {
 
@@ -239,7 +244,7 @@ void XG::load(istream& in) {
 
                 // Load all the B_s arrays for sides.
                 // Baking required before serialization.
-                deserialize(bs_single_array, in);
+                deserialize_rsiv(bs_single_array, in);
                 
                 if (file_version < 7) {
                     // No haplotype count; one needs to be genenrated by hackily parsing the thread names.
@@ -5483,7 +5488,7 @@ size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
 #endif
 }
 
-void deserialize(XG::rank_select_int_vector& target, istream& in) {
+void deserialize_rsiv(XG::rank_select_int_vector& target, istream& in) {
 #if GPBWT_MODE == MODE_SDSL
     // We just load using the SDSL deserialization code
     target.load(in);

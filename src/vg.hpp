@@ -80,7 +80,7 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutablePathDeletableHandleGraph {
+class VG : public Progressive, public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
 
 public:
     
@@ -202,12 +202,6 @@ public:
     /// Note: get_previous_step will *NEVER* return this value for a circular path.
     virtual step_handle_t path_front_end(const path_handle_t& path_handle) const;
     
-    /// Returns true if the step is not the last step in a non-circular path.
-    virtual bool has_next_step(const step_handle_t& step_handle) const;
-    
-    /// Returns true if the step is not the first step in a non-circular path.
-    virtual bool has_previous_step(const step_handle_t& step_handle) const;
-    
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
     /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
@@ -224,10 +218,10 @@ public:
     /// for_each_step_in_path.
     virtual step_handle_t get_previous_step(const step_handle_t& step_handle) const;
     
-    /// Returns true if the step is not the last step in the path
+    /// Returns true if the step is not the last step in a non-circular path.
     virtual bool has_next_step(const step_handle_t& step_handle) const;
     
-    /// Returns true if the step is not the first step in the path
+    /// Returns true if the step is not the first step in a non-circular path.
     virtual bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Execute a function on each path in the graph

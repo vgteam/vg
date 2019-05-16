@@ -512,23 +512,6 @@ step_handle_t VG::get_next_step(const step_handle_t& step_handle) const {
     
     return next_step_handle;
 }
-    
-    bool VG::has_next_step(const step_handle_t& step_handle) const {
-        if (get_is_circular(get_path_handle_of_step(step_handle)) && !is_empty(get_path_handle_of_step(step_handle))) {
-            return true;
-        }
-        list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
-        ++iter;
-        return iter != paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).end();
-    }
-    
-    bool VG::has_previous_step(const step_handle_t& step_handle) const {
-        if (get_is_circular(get_path_handle_of_step(step_handle)) && !is_empty(get_path_handle_of_step(step_handle))) {
-            return true;
-        }
-        list<mapping_t>::iterator iter = paths.mapping_itr.at(reinterpret_cast<mapping_t*>(as_integers(step_handle)[1])).first;
-        return iter != paths._paths.at(paths.get_path_name(as_integer(get_path_handle_of_step(step_handle)))).begin();
-    }
 
 step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
     step_handle_t prev_step_handle;

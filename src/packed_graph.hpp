@@ -24,7 +24,7 @@ namespace vg {
 using namespace std;
 
 
-class PackedGraph : public MutablePathDeletableHandleGraph {
+class PackedGraph : public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
         
 public:
     PackedGraph();
