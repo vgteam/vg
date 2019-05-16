@@ -411,7 +411,7 @@ step_handle_t VG::get_previous_step(const step_handle_t& step_handle) const {
             as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(&path_list.back());
         }
         else {
-            as_integers(next_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
+            as_integers(prev_step_handle)[1] = reinterpret_cast<int64_t>(nullptr);
         }
     }
     else {
@@ -3162,7 +3162,7 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 }
         
 void VG::sort() {
-    if (node_size() <= 1) {
+    if (get_node_count() <= 1) {
         // A graph with <2 nodes has only one sort.
         return;
     }
@@ -3171,7 +3171,7 @@ void VG::sort() {
 }
     
 void VG::id_sort() {
-    if (node_size() <= 1) {
+    if (get_node_count() <= 1) {
         // A graph with <2 nodes has only one sort.
         return;
     }
@@ -3181,7 +3181,7 @@ void VG::id_sort() {
         
 void VG::apply_ordering(const vector<handle_t>& ordering, bool compact_ids) {
     
-    if (node_size() != ordering.size()) {
+    if (get_node_count() != ordering.size()) {
         cerr << "error:[algorithms] attempting to sort a graph with an incomplete ordering" << endl;
         exit(1);
     }

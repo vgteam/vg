@@ -86,7 +86,7 @@ public:
     virtual std::string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
     
     /// Return the number of nodes in the graph
-    size_t node_size(void) const;
+    size_t get_node_count(void) const;
     
     /// Return the smallest ID in the graph, or some smaller number if the
     /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
@@ -148,6 +148,12 @@ public:
     /// few graph modifications in the future.
     void optimize(bool allow_id_reassignment = true);
     
+    /// Reorder the graph's internal structure to match that given.
+    /// This sets the order that is used for iteration in functions like for_each_handle.
+    /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
+    void apply_ordering(const vector<handle_t>& order, bool compact_ids = false);
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
@@ -183,6 +189,22 @@ public:
     /// return by get_next_step for the final step in a path in a non-circular path.
     /// Note that get_next_step will *NEVER* return this value for a circular path.
     step_handle_t path_end(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    step_handle_t path_back(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    
+    /// Returns true if the step is not the last step in a non-circular path.
+    bool has_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the first step in a non-circular path.
+    bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
@@ -268,10 +290,9 @@ private:
     /// step handles are invalidated.
     void tighten(void);
     
-    /// Compact the node ID space to [1, num_nodes], attempting to assign regions of
-    /// local topological order into ascending IDs and regions of linear local structure
-    /// into contiguous IDs.
-    void compact_ids(void);
+    /// Compact the node ID space to [1, num_nodes] according the indicated order. Every node
+    /// must be present in the vector exactly one time to be valid.
+    void compact_ids(const vector<handle_t>& order);
     
     /// Initialize all of the data corresponding with a new node and return
     /// it's 1-based offset

@@ -354,7 +354,7 @@ namespace vg {
         return keep_going;
     }
     
-    size_t PackedGraph::node_size(void) const {
+    size_t PackedGraph::get_node_count(void) const {
         return graph_iv.size() / GRAPH_RECORD_SIZE - deleted_node_records;
     }
     
@@ -893,42 +893,16 @@ namespace vg {
         }
     }
     
-    void PackedGraph::compact_ids() {
+    void PackedGraph::compact_ids(const vector<handle_t>& order) {
         
-        // use an overlay to convert to a single stranded digraph
-        StrandSplitGraph digraph(this);
-        
-        // get a low FAS layout using Eades-Lin-Smyth algorithm
-        vector<handle_t> layout = algorithms::eades_algorithm(&digraph);
-        // note: the single stranded graph will have a fully separated forward and reverse strands, so
-        // we have the guarantee that every handle in this layout is forward in the strand split graph
-        
-        // in place, take only the handles that are forward in the source graph and convert them back
-        // to the source handles
-        size_t skipped = 0;
-        for (size_t i = 0; i < layout.size(); ++i) {
-            handle_t underlying = digraph.get_underlying_handle(layout[i]);
-            if (get_is_reverse(underlying)) {
-                ++skipped;
-            }
-            else {
-                layout[i - skipped] = underlying;
-            }
-        }
-        // remove everything we skipped
-        layout.resize(layout.size() - skipped);
-        
-        assert(layout.size() == node_size());
+        assert(order.size() == get_node_count());
         
         // use the layout to make a translator between current IDs and the IDs we will reassign
         PagedVector id_trans(PAGE_WIDTH);
         id_trans.resize(max_id - min_id + 1);
-        for (size_t i = 0; i < layout.size(); ++i) {
-            id_trans.set(get_id(layout[i]) - min_id, i + 1);
+        for (size_t i = 0; i < order.size(); ++i) {
+            id_trans.set(get_id(order[i]) - min_id, i + 1);
         }
-        
-        // we don't need the layout anymore, so release the memory
-        layout.clear();
         
         // update the node IDs of edges
         for (size_t i = EDGE_TRAV_OFFSET; i < edge_lists_iv.size(); i += EDGE_RECORD_SIZE) {
@@ -959,7 +933,7 @@ namespace vg {
         
         // make a vector to translate the new IDs to the offset of the node
         PackedDeque new_id_to_graph_iv;
-        new_id_to_graph_iv.reserve(node_size());
+        new_id_to_graph_iv.reserve(get_node_count());
         for (id_t node_id = min_id; node_id <= max_id; ++node_id) {
             size_t offset = id_to_graph_iv.get(node_id - min_id);
             if (offset) {
@@ -1187,13 +1161,45 @@ namespace vg {
         
         if (allow_id_reassignment) {
             // reassign IDs into a contiguous interval ordered by an approximate sort
-            compact_ids();
+            
+            // use an overlay to convert to a single stranded digraph
+            StrandSplitGraph digraph(this);
+            
+            // get a low FAS layout using Eades-Lin-Smyth algorithm
+            vector<handle_t> layout = algorithms::eades_algorithm(&digraph);
+            // note: the single stranded graph will have a fully separated forward and reverse strands, so
+            // we have the guarantee that every handle in this layout is forward in the strand split graph
+            
+            // in place, take only the handles that are forward in the source graph and convert them back
+            // to the source handles
+            size_t skipped = 0;
+            for (size_t i = 0; i < layout.size(); ++i) {
+                handle_t underlying = digraph.get_underlying_handle(layout[i]);
+                if (get_is_reverse(underlying)) {
+                    ++skipped;
+                }
+                else {
+                    layout[i - skipped] = underlying;
+                }
+            }
+            // remove everything we skipped
+            layout.resize(layout.size() - skipped);
+            
+            compact_ids(layout);
         }
         
         // tighten up vector allocations and straighten out the linked lists they contain
         tighten();
     }
     
+    
+    void PackedGraph::apply_ordering(const vector<handle_t>& order, bool compact_ids) {
+        
+        if (compact_ids) {
+            // reassign IDs into a contiguous interval ordered by an approximate sort
+            this->compact_ids(order);
+        }
+    }
     void PackedGraph::clear(void) {
         graph_iv.clear();
         seq_start_iv.clear();
@@ -1266,6 +1272,28 @@ namespace vg {
         as_integers(step)[0] = as_integer(path_handle);
         as_integers(step)[1] = 0;
         return step;
+    }
+    
+    step_handle_t PackedGraph::path_back(const path_handle_t& path_handle) const {
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path_handle);
+        as_integers(step)[1] = paths.at(as_integer(path_handle)).tail;
+        return step;
+    }
+    
+    step_handle_t PackedGraph::path_front_end(const path_handle_t& path_handle) const {
+        // we will actually reuse the same sentinel
+        return path_end(path_handle);
+    }
+    
+    bool PackedGraph::has_next_step(const step_handle_t& step_handle) const {
+        const PackedPath& packed_path = paths.at(as_integers(step_handle)[0]);
+        return get_step_next(packed_path, as_integers(step_handle)[1]) != 0;
+    }
+    
+    bool PackedGraph::has_previous_step(const step_handle_t& step_handle) const {
+        const PackedPath& packed_path = paths.at(as_integers(step_handle)[0]);
+        return get_step_prev(packed_path, as_integers(step_handle)[1]) != 0;
     }
     
     step_handle_t PackedGraph::get_next_step(const step_handle_t& step_handle) const {

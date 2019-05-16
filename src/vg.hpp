@@ -267,6 +267,12 @@ public:
     /// Note: Ideally, this method is called one time once there is expected to be
     /// few graph modifications in the future.
     virtual void optimize(bool allow_id_reassignment = true);
+    
+    /// Reorder the graph's internal structure to match that given.
+    /// This sets the order that is used for iteration in functions like for_each_handle.
+    /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
+    virtual void apply_ordering(const std::vector<handle_t>& order, bool compact_ids = false);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface
@@ -593,10 +599,6 @@ public:
     
     /// Order the backing graph data structure by node ID
     void id_sort();
-    
-    /// Modifies underlying graph so that nodes occur in the same order as in the provided vector. Vector
-    /// must contain exactly one handle for each node.
-    void apply_ordering(const vector<handle_t>& ordering, bool compact_ids = false);
     
     /// Iteratively add when nodes and edges are novel. Good when there are very
     /// many overlaps. TODO: If you are using this with warn on duplicates on,

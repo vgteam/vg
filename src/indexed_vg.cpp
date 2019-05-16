@@ -279,7 +279,7 @@ bool IndexedVG::for_each_handle_impl(const function<bool(const handle_t&)>& iter
     return keep_going;
 }
 
-size_t IndexedVG::node_size() const {
+size_t IndexedVG::get_node_count() const {
     // TODO: Add total distinct node count to the index or cache it or something.
     // Right now we just scan.
     

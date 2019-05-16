@@ -9,7 +9,7 @@ using namespace std;
         
         vector<handle_t> sinks;
         unordered_map<handle_t, size_t> count;
-        count.reserve(graph->node_size());
+        count.reserve(graph->get_node_count());
         
         // identify sources and sinks
         graph->for_each_handle([&](const handle_t& handle) {

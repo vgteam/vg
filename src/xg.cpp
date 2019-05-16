@@ -1917,6 +1917,33 @@ step_handle_t XG::path_end(const path_handle_t& path_handle) const {
     return step;
 }
 
+step_handle_t XG::path_back(const path_handle_t& path_handle) const {
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path_handle);
+    as_integers(step)[1] = get_step_count(path_handle) - 1;
+    return step;
+    
+}
+
+step_handle_t XG::path_front_end(const path_handle_t& path_handle) const {
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path_handle);
+    as_integers(step)[1] = -1;
+    return step;
+}
+
+bool XG::has_next_step(const step_handle_t& step_handle) const {
+    return (as_integers(step_handle)[1] < get_step_count(get_path_handle_of_step(step_handle))
+            || (get_is_circular(get_path_handle_of_step(step_handle))
+                && get_step_count(get_path_handle_of_step(step_handle)) > 0));
+}
+
+bool XG::has_previous_step(const step_handle_t& step_handle) const {
+    return (as_integers(step_handle)[1] >= 0
+            || (get_is_circular(get_path_handle_of_step(step_handle))
+                && get_step_count(get_path_handle_of_step(step_handle)) > 0));
+}
+
 step_handle_t XG::get_next_step(const step_handle_t& step_handle) const {
     step_handle_t next_step;
     as_integers(next_step)[0] = as_integers(step_handle)[0];
@@ -1972,7 +1999,7 @@ bool XG::for_each_step_on_handle_impl(const handle_t& handle, const function<boo
     return true;
 }
 
-size_t XG::node_size() const {
+size_t XG::get_node_count() const {
     return this->node_count;
 }
 

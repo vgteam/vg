@@ -290,6 +290,10 @@ namespace vg {
         paths.rehash(paths.size() * 0.5 * (paths.min_load_factor() + paths.max_load_factor()));
     }
     
+    void HashGraph::apply_ordering(const vector<handle_t>& order, bool compact_ids) {
+        // TODO: implement ID compaction I guess?
+    }
+    
     void HashGraph::destroy_handle(const handle_t& handle) {
         
         // remove backwards references from edges on other nodes

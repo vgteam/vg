@@ -166,7 +166,7 @@ TEST_CASE("IndexedVG works on random graphs", "[handle][indexed-vg]") {
             });
             
             // Make sure basic statistics agree
-            REQUIRE(indexed.node_size() == random.node_size());
+            REQUIRE(indexed.get_node_count() == random.get_node_count());
             REQUIRE(indexed.min_node_id() == random.min_node_id());
             REQUIRE(indexed.max_node_id() == random.max_node_id());
             

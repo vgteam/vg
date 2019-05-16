@@ -577,7 +577,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
         
         DeletableHandleGraph& graph = *implementation;
         
-        REQUIRE(graph.node_size() == 0);
+        REQUIRE(graph.get_node_count() == 0);
         
         handle_t h = graph.create_handle("ATG", 2);
         
@@ -597,7 +597,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             REQUIRE(!graph.get_is_reverse(h));
             REQUIRE(graph.get_is_reverse(graph.flip(h)));
             
-            REQUIRE(graph.node_size() == 1);
+            REQUIRE(graph.get_node_count() == 1);
             REQUIRE(graph.min_node_id() == graph.get_id(h));
             REQUIRE(graph.max_node_id() == graph.get_id(h));
             
@@ -628,7 +628,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             
             REQUIRE(graph.get_handle(graph.get_id(h2)) == h2);
             
-            REQUIRE(graph.node_size() == 2);
+            REQUIRE(graph.get_node_count() == 2);
             REQUIRE(graph.min_node_id() == graph.get_id(h2));
             REQUIRE(graph.max_node_id() == graph.get_id(h));
             
@@ -658,7 +658,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             
             REQUIRE(graph.get_handle(graph.get_id(h3)) == h3);
             
-            REQUIRE(graph.node_size() == 3);
+            REQUIRE(graph.get_node_count() == 3);
             REQUIRE(graph.min_node_id() == graph.get_id(h2));
             REQUIRE(graph.max_node_id() == graph.get_id(h3));
             
@@ -685,7 +685,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             
             REQUIRE(graph.get_handle(graph.get_id(h4)) == h4);
             
-            REQUIRE(graph.node_size() == 4);
+            REQUIRE(graph.get_node_count() == 4);
             REQUIRE(graph.min_node_id() == graph.get_id(h2));
             REQUIRE(graph.max_node_id() == graph.get_id(h3));
             

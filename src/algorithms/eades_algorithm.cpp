@@ -29,7 +29,7 @@ using namespace std;
         }
 #endif
         
-        if (canonical_orientation.size() < graph->node_size()) {
+        if (canonical_orientation.size() < graph->get_node_count()) {
             cerr << "error:[eades_algorithm] Eades' algorithm only valid on graphs with a single stranded orientation" << endl;
             exit(1);
         }
