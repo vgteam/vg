@@ -100,7 +100,7 @@ using namespace std;
         }
     }
     
-    size_t SubHandleGraph::node_size() const {
+    size_t SubHandleGraph::get_node_count() const {
         return contents.size();
     }
     

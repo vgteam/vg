@@ -25,7 +25,7 @@ unordered_map<id_t, id_t> extract_connecting_graph(const HandleGraph* source,
     cerr << "[extract_connecting_graph] max len: " << max_len << ", pos 1: " << pos_1 << ", pos 2: " << pos_2 << endl;
 #endif
     
-    if (into->node_size()) {
+    if (into->get_node_count()) {
         cerr << "error:[extract_connecting_graph] must extract into an empty graph" << endl;
         exit(1);
     }

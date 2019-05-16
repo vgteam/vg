@@ -17,7 +17,7 @@ using namespace structures;
 unordered_map<id_t, id_t> extract_extending_graph(const HandleGraph* source, DeletableHandleGraph* into, int64_t max_dist, pos_t pos,
                                                   bool backward, bool preserve_cycles_on_src_node) {
     
-    if (into->node_size()) {
+    if (into->get_node_count()) {
         cerr << "error:[extract_extending_graph] must extract into an empty graph" << endl;
         assert(false);
     }

@@ -183,8 +183,8 @@ bool ExtraNodeGraph::for_each_handle_impl(const function<bool(const handle_t&)>&
     }, parallel);
 }
 
-size_t ExtraNodeGraph::node_size() const {
-    return backing->node_size() + 1;
+size_t ExtraNodeGraph::get_node_count() const {
+    return backing->get_node_count() + 1;
 }
 
 id_t ExtraNodeGraph::min_node_id() const {

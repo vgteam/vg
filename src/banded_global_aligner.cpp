@@ -1805,7 +1805,7 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
         }
     }
     
-    if (topological_order.size() < graph.node_size()) {
+    if (topological_order.size() < graph.get_node_count()) {
         cerr << "error:[BandedGlobalAligner] alignment graph must be a DAG" << endl;
     }
     
@@ -1845,7 +1845,7 @@ BandedGlobalAligner<IntType>::BandedGlobalAligner(Alignment& alignment, const Ha
 #endif
     
     // initialize DP matrices for each node
-    banded_matrices.resize(graph.node_size(), nullptr);
+    banded_matrices.resize(graph.get_node_count(), nullptr);
     for (int64_t i = 0; i < topological_order.size(); i++) {
         
 #ifdef debug_banded_aligner_objects

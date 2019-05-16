@@ -169,7 +169,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
         REQUIRE(dag.is_acyclic() == true);
-        REQUIRE(dag.node_size() == 2);
+        REQUIRE(dag.get_node_count() == 2);
         REQUIRE(dag.edge_count() == 1);
     }
     
@@ -194,7 +194,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
         REQUIRE(dag.is_acyclic() == true);
-        REQUIRE(dag.node_size() >= 2);
+        REQUIRE(dag.get_node_count() >= 2);
     }
     
     SECTION("a tiny cyclic graph with doubly reversing edges should become acyclic") {
@@ -218,7 +218,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
         REQUIRE(dag.is_acyclic() == true);
-        REQUIRE(dag.node_size() >= 2);
+        REQUIRE(dag.get_node_count() >= 2);
     }
     
 }
@@ -1872,7 +1872,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         graph.normalize();
         
         // One of the two alternative Ts should have been eliminated
-        REQUIRE(graph.node_size() == 4);
+        REQUIRE(graph.get_node_count() == 4);
         
     }
     

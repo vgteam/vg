@@ -185,7 +185,7 @@ using namespace std;
         return true;
     }
     
-    size_t PathSubgraph::node_size() const {
+    size_t PathSubgraph::get_node_count() const {
         return defining_path.mapping_size();
     }
     

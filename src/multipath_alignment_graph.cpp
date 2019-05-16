@@ -3350,7 +3350,7 @@ namespace vg {
                                                                                                true);             // enforce max distance strictly
                 
                 
-                if (connecting_graph.node_size() == 0) {
+                if (connecting_graph.get_node_count() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
 #ifdef debug_multipath_alignment
                     cerr << "Remove edge " << j << " -> " << edge.first << " because we got no nodes in the connecting graph "

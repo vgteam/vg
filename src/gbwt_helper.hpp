@@ -112,7 +112,7 @@ public:
     virtual std::string get_sequence(const handle_t& handle) const;
 
     /// Return the number of nodes in the graph.
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
 
     /// Return the smallest ID in the graph, or some smaller number if the
     /// smallest ID is unavailable. Return value is unspecified if the graph is empty.

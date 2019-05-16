@@ -790,7 +790,7 @@ XdropAligner::align(
 	// fprintf(stderr, "called, direction(%u)\n", reverse_complemented);
 	// bench_start(bench);
 	// the indices are iterated by size_t (64-bit unsigned), though
-	assert(graph.graph.node_size() < UINT32_MAX);
+	assert(graph.graph.get_node_count() < UINT32_MAX);
     // TODO: also check the edge count without iterating over all of them.
 
 	// debug_print(alignment, graph, mems[0], reverse_complemented);
