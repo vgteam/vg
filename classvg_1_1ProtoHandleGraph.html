@@ -151,8 +151,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a93da5cc3b252caa22b881e5ee7730079"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aed0d94f1b360336ca8ccb91c36f9c7c2"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ProtoHandleGraph.html#aed0d94f1b360336ca8ccb91c36f9c7c2">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
 <tr class="separator:aed0d94f1b360336ca8ccb91c36f9c7c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5fa4504d78304117a53807bf8ad3d8d8"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ProtoHandleGraph.html#a5fa4504d78304117a53807bf8ad3d8d8">node_size</a> () const </td></tr>
-<tr class="separator:a5fa4504d78304117a53807bf8ad3d8d8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a34bb2ebe4949838dac981e29e9f40318"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ProtoHandleGraph.html#a34bb2ebe4949838dac981e29e9f40318">get_node_count</a> () const </td></tr>
+<tr class="separator:a34bb2ebe4949838dac981e29e9f40318"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a688b7421f89f63e81dc17aabbebf212e"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ProtoHandleGraph.html#a688b7421f89f63e81dc17aabbebf212e">min_node_id</a> () const </td></tr>
 <tr class="separator:a688b7421f89f63e81dc17aabbebf212e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abf231b54bbc84b79e70e4a9c7e618df9"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ProtoHandleGraph.html#abf231b54bbc84b79e70e4a9c7e618df9">max_node_id</a> () const </td></tr>
@@ -589,6 +589,33 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a34bb2ebe4949838dac981e29e9f40318"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::ProtoHandleGraph::get_node_count </td>
+          <td>(</td>
+          <td class="paramtype">void&#160;</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a9f95108e6c3f68f404fa93bd3306e4c6">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a47d72f4dd582f94624a040781ae2740d"></a>
 <div class="memitem">
 <div class="memproto">
@@ -696,33 +723,6 @@ Additional Inherited Members</h2></td></tr>
 <p>Return the smallest ID in the graph, or some smaller number if the smallest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a85c52fe4b5f483504ed142d0ad94a969">handlegraph::HandleGraph</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a5fa4504d78304117a53807bf8ad3d8d8"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::ProtoHandleGraph::node_size </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab76511940f95dceb5fb162f39d316a1d">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>

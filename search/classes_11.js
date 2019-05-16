@@ -2,6 +2,7 @@ var searchData=
 [
   ['sampler',['Sampler',['../classvg_1_1Sampler.html',1,'vg']]],
   ['scoreprovider',['ScoreProvider',['../classhaplo_1_1ScoreProvider.html',1,'haplo']]],
+  ['serializablehandlegraph',['SerializableHandleGraph',['../classhandlegraph_1_1SerializableHandleGraph.html',1,'handlegraph']]],
   ['shuffledpairs',['ShuffledPairs',['../classvg_1_1ShuffledPairs.html',1,'vg']]],
   ['simpleconsistencycalculator',['SimpleConsistencyCalculator',['../classvg_1_1SimpleConsistencyCalculator.html',1,'vg']]],
   ['simpletraversalsupportcalculator',['SimpleTraversalSupportCalculator',['../classvg_1_1SimpleTraversalSupportCalculator.html',1,'vg']]],

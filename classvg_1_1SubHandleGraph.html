@@ -142,9 +142,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a0a47207c8e7dfd447e65036077876897"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0b6cbc2d242128de09601f7e4f05303b"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a0b6cbc2d242128de09601f7e4f05303b">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
 <tr class="separator:a0b6cbc2d242128de09601f7e4f05303b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a08f5c5d5d2ee67d67a9979ed1a6b10e4"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a08f5c5d5d2ee67d67a9979ed1a6b10e4">node_size</a> () const </td></tr>
-<tr class="memdesc:a08f5c5d5d2ee67d67a9979ed1a6b10e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#a08f5c5d5d2ee67d67a9979ed1a6b10e4">More...</a><br/></td></tr>
-<tr class="separator:a08f5c5d5d2ee67d67a9979ed1a6b10e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a46b3d6c53e4e0da0153398c00824adea"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a46b3d6c53e4e0da0153398c00824adea">get_node_count</a> () const </td></tr>
+<tr class="memdesc:a46b3d6c53e4e0da0153398c00824adea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#a46b3d6c53e4e0da0153398c00824adea">More...</a><br/></td></tr>
+<tr class="separator:a46b3d6c53e4e0da0153398c00824adea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a037570f6eee96071def9194c6f9718b3"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#a037570f6eee96071def9194c6f9718b3">min_node_id</a> () const </td></tr>
 <tr class="separator:a037570f6eee96071def9194c6f9718b3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee5550e89bcd822842d1062d94bb98e4"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SubHandleGraph.html#aee5550e89bcd822842d1062d94bb98e4">max_node_id</a> () const </td></tr>
@@ -500,6 +500,34 @@ template&lt;typename HandleIter &gt; </div>
 
 </div>
 </div>
+<a class="anchor" id="a46b3d6c53e4e0da0153398c00824adea"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::SubHandleGraph::get_node_count </td>
+          <td>(</td>
+          <td class="paramtype">void&#160;</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return the number of nodes in the graph. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a9f95108e6c3f68f404fa93bd3306e4c6">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="af7e06f11939cb2bad40a39cc0d993322"></a>
 <div class="memitem">
 <div class="memproto">
@@ -635,34 +663,6 @@ template&lt;typename HandleIter &gt; </div>
 <p>Return the smallest ID in the graph, or some smaller number if the smallest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a85c52fe4b5f483504ed142d0ad94a969">handlegraph::HandleGraph</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a08f5c5d5d2ee67d67a9979ed1a6b10e4"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::SubHandleGraph::node_size </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Return the number of nodes in the graph. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab76511940f95dceb5fb162f39d316a1d">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>

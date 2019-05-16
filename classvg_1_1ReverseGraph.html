@@ -143,8 +143,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aabca33796046f0bbab96095aa433b3c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9188168fb5a62be9a7b0002890af832d"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a9188168fb5a62be9a7b0002890af832d">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
 <tr class="separator:a9188168fb5a62be9a7b0002890af832d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a683ea4145331b50c842cc0757fb56813"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a683ea4145331b50c842cc0757fb56813">node_size</a> () const </td></tr>
-<tr class="separator:a683ea4145331b50c842cc0757fb56813"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af7cf3f07383dae43e5949eb625bfd491"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#af7cf3f07383dae43e5949eb625bfd491">get_node_count</a> () const </td></tr>
+<tr class="separator:af7cf3f07383dae43e5949eb625bfd491"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acb536371a284afff6fb99325c2a3bd78"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#acb536371a284afff6fb99325c2a3bd78">min_node_id</a> () const </td></tr>
 <tr class="separator:acb536371a284afff6fb99325c2a3bd78"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0490941e466fc178368ea6997f62328c"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1ReverseGraph.html#a0490941e466fc178368ea6997f62328c">max_node_id</a> () const </td></tr>
@@ -535,6 +535,33 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="af7cf3f07383dae43e5949eb625bfd491"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::ReverseGraph::get_node_count </td>
+          <td>(</td>
+          <td class="paramtype">void&#160;</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a9f95108e6c3f68f404fa93bd3306e4c6">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a2ff6e43545152c971ad0aae225f56fff"></a>
 <div class="memitem">
 <div class="memproto">
@@ -670,33 +697,6 @@ Protected Attributes</h2></td></tr>
 <p>Return the smallest ID in the graph, or some smaller number if the smallest ID is unavailable. Return value is unspecified if the graph is empty. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a85c52fe4b5f483504ed142d0ad94a969">handlegraph::HandleGraph</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a683ea4145331b50c842cc0757fb56813"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::ReverseGraph::node_size </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-<p>Return the number of nodes in the graph TODO: can't be node_count because XG has a field named node_count. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab76511940f95dceb5fb162f39d316a1d">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>

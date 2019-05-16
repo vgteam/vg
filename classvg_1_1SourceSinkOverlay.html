@@ -142,9 +142,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aa137cf25225b9b001f4257daeee68ed4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af3eaa6933b2768cfb010ac1258ad63f3"><td class="memItemLeft" align="right" valign="top">virtual bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html#af3eaa6933b2768cfb010ac1258ad63f3">for_each_handle_impl</a> (const function&lt; bool(const <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &amp;)&gt; &amp;iteratee, bool parallel=false) const </td></tr>
 <tr class="separator:af3eaa6933b2768cfb010ac1258ad63f3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a2dd68000a3c3c801e5377d08e291dc19"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html#a2dd68000a3c3c801e5377d08e291dc19">node_size</a> () const </td></tr>
-<tr class="memdesc:a2dd68000a3c3c801e5377d08e291dc19"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#a2dd68000a3c3c801e5377d08e291dc19">More...</a><br/></td></tr>
-<tr class="separator:a2dd68000a3c3c801e5377d08e291dc19"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeea8bc2ed12cc2a78f4fbcc3fe3c5202"><td class="memItemLeft" align="right" valign="top">virtual size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html#aeea8bc2ed12cc2a78f4fbcc3fe3c5202">get_node_count</a> () const </td></tr>
+<tr class="memdesc:aeea8bc2ed12cc2a78f4fbcc3fe3c5202"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the number of nodes in the graph.  <a href="#aeea8bc2ed12cc2a78f4fbcc3fe3c5202">More...</a><br/></td></tr>
+<tr class="separator:aeea8bc2ed12cc2a78f4fbcc3fe3c5202"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab77b1bc649a78ccbd3fbf2ac473e61c0"><td class="memItemLeft" align="right" valign="top">virtual <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SourceSinkOverlay.html#ab77b1bc649a78ccbd3fbf2ac473e61c0">min_node_id</a> () const </td></tr>
 <tr class="memdesc:ab77b1bc649a78ccbd3fbf2ac473e61c0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the smallest ID in the graph.  <a href="#ab77b1bc649a78ccbd3fbf2ac473e61c0">More...</a><br/></td></tr>
 <tr class="separator:ab77b1bc649a78ccbd3fbf2ac473e61c0"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -565,6 +565,34 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="aeea8bc2ed12cc2a78f4fbcc3fe3c5202"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t vg::SourceSinkOverlay::get_node_count </td>
+          <td>(</td>
+          <td class="paramtype">void&#160;</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Return the number of nodes in the graph. </p>
+
+<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a9f95108e6c3f68f404fa93bd3306e4c6">handlegraph::HandleGraph</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="a3b67ac50e192a15c105adbb3043f7319"></a>
 <div class="memitem">
 <div class="memproto">
@@ -733,34 +761,6 @@ Protected Attributes</h2></td></tr>
 <p>Return the smallest ID in the graph. </p>
 
 <p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#a85c52fe4b5f483504ed142d0ad94a969">handlegraph::HandleGraph</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a2dd68000a3c3c801e5377d08e291dc19"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::SourceSinkOverlay::node_size </td>
-          <td>(</td>
-          <td class="paramtype">void&#160;</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Return the number of nodes in the graph. </p>
-
-<p>Implements <a class="el" href="classhandlegraph_1_1HandleGraph.html#ab76511940f95dceb5fb162f39d316a1d">handlegraph::HandleGraph</a>.</p>
 
 </div>
 </div>

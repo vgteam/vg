@@ -172,7 +172,7 @@ var searchData=
   ['common_5fbin',['common_bin',['../classvg_1_1StreamIndexBase.html#a8486253e2bf627ef07fbb2eec5614bd3',1,'vg::StreamIndexBase']]],
   ['common_5fprefix_5flength',['common_prefix_length',['../classvg_1_1BitString.html#a2a67ae209cbd617642e3a16ef387539a',1,'vg::BitString']]],
   ['compact',['compact',['../classvg_1_1Index.html#a335bd7a4bbdc75659366ed84acae422e',1,'vg::Index']]],
-  ['compact_5fids',['compact_ids',['../classvg_1_1PackedGraph.html#a9e3b9356be440552d2624a8ac85af4d2',1,'vg::PackedGraph::compact_ids()'],['../classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d',1,'vg::VG::compact_ids(void)'],['../classvg_1_1VG.html#a1d9faa901ab4d768d607454ffbfeac0f',1,'vg::VG::compact_ids(hash_map&lt; id_t, id_t &gt; &amp;new_id)']]],
+  ['compact_5fids',['compact_ids',['../classvg_1_1PackedGraph.html#a62f4071b0fe9c16eb836c48f011d18f7',1,'vg::PackedGraph::compact_ids()'],['../classvg_1_1VG.html#a161ef56bd0eeee937602f60b8617f24d',1,'vg::VG::compact_ids(void)'],['../classvg_1_1VG.html#a1d9faa901ab4d768d607454ffbfeac0f',1,'vg::VG::compact_ids(hash_map&lt; id_t, id_t &gt; &amp;new_id)']]],
   ['compact_5fordered',['compact_ordered',['../classvg_1_1Transcriptome.html#a9084366eefa5e787e3f567156ab1ef87',1,'vg::Transcriptome']]],
   ['compact_5franks',['compact_ranks',['../classvg_1_1Paths.html#aaf065b12a8a942c96f6d88a2c6db7c8e',1,'vg::Paths']]],
   ['compare',['compare',['../classvg_1_1XdropAligner.html#a5090116005c979770c34703c71c02beb',1,'vg::XdropAligner']]],
