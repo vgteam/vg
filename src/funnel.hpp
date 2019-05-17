@@ -111,9 +111,6 @@ public:
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
     
-    /// Get the total number of seconds elapsed between start() and stop()
-    double total_seconds() const;
-
     /// Call the given callback with stage name and number of results at that stage, for each stage.
     void for_each_stage(const function<void(const string&, size_t)>& callback) const;
 

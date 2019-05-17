@@ -46,8 +46,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (!read_group.empty()) {
         aln.set_read_group(read_group);
     }
-    
-#ifdef INSTRUMENT_MAPPING
+   
+#ifdef TRACK_PROVENANCE
     // Start the minimizer finding stage
     funnel.stage("minimizer");
 #endif
@@ -63,11 +63,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Find minimizers in the query
     minimizers = minimizer_index->minimizers(aln.sequence());
     
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
     // Record how many we found, as new lines.
     funnel.introduce(minimizers.size());
-#endif
     
     // Start the minimizer locating stage
     funnel.stage("seed");
@@ -77,11 +75,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < minimizers.size(); i++) {
         // For each minimizer
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         // Say we're working on it
         funnel.processing_input(i);
-#endif
 #endif
         
         if (hit_cap == 0 || minimizer_index->count(minimizers[i]) <= hit_cap) {
@@ -102,33 +98,26 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 seed_to_source.push_back(i);
             }
             
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
             // Record in the funnel that this minimizer gave rise to these seeds.
             funnel.expand(i, seeds.size() - seeds_before);
-#endif
 #endif
         } else {
             // The minimizer is too frequent
             rejected_count++;
             
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
             // Record in the funnel thast we rejected it
             funnel.kill(i);
 #endif
-#endif
         }
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         // Say we're done with this input item
         funnel.processed_input();
 #endif
-#endif
     }
 
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
 #ifdef TRACK_CORRECTNESS
     // Tag seeds with correctness based on proximity along paths to the input read's refpos
@@ -152,14 +141,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     }
 #endif
 #endif
-#endif
         
 #ifdef debug
     cerr << "Read " << aln.name() << ": " << aln.sequence() << endl;
     cerr << "Found " << seeds.size() << " seeds from " << (minimizers.size() - rejected_count) << " minimizers, rejected " << rejected_count << endl;
 #endif
 
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     // Begin the clustering stage
     funnel.stage("cluster");
 #endif
@@ -167,7 +155,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Cluster the seeds. Get sets of input seed indexes that go together.
     vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
     
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     funnel.substage("score");
 #endif
 
@@ -178,11 +166,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // For each cluster
         auto& cluster = clusters[i];
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         // Say we're making it
         funnel.producing_output(i);
-#endif
 #endif
         
         // Score the cluster in read coverage.
@@ -218,7 +204,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Turn that into a fraction
         read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         // Record the cluster in the funnel as a group of the size of the number of items.
         funnel.merge_group(cluster.begin(), cluster.end());
@@ -226,7 +211,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
         // Say we made it.
         funnel.produced_output();
-#endif
 #endif
     }
 
@@ -247,7 +231,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
     });
     
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
     funnel.stage("extend");
 #endif
@@ -260,10 +244,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         funnel.processing_input(cluster_num);
-#endif
 #endif
 
         vector<size_t>& cluster = clusters[cluster_num];
@@ -306,7 +288,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             cluster_extensions.emplace_back(std::move(extensions));
         }
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         if (has_negative_offsets) {
             // Record that we killed this clustr
@@ -320,10 +301,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Say we finished with this cluster, for now.
         funnel.processed_input();
 #endif
-#endif
     }
     
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     funnel.substage("score");
 #endif
     
@@ -333,22 +313,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < cluster_extensions.size(); i++) {
         // For each group of GaplessExtensions
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         funnel.producing_output(i);
-#endif
 #endif
         
         auto& extensions = cluster_extensions[i];
         // Count the matches suggested by the group and use that as a score.
         cluster_extension_scores.push_back(estimate_extension_group_score(aln, extensions));
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         // Record the score with the funnel
         funnel.score(i, cluster_extension_scores.back());
         funnel.produced_output();
-#endif
 #endif
     }
     
@@ -365,7 +341,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
     });
     
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     funnel.stage("align");
 #endif
     
@@ -390,10 +366,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         funnel.processing_input(extension_num);
-#endif
 #endif
 
         auto& extensions = cluster_extensions[extension_num];
@@ -409,7 +383,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             if (extensions.size() == 1 && extensions[0].full()) {
                 // We got a full-length extension, so directly convert to an Alignment.
                 
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
                 funnel.substage("direct");
 #endif
 
@@ -426,14 +400,14 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 out.set_score(alignment_score);
                 out.set_identity(identity);
                 
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
                 // Stop the current substage
                 funnel.substage_stop();
 #endif
             } else if (do_chaining) {
                 // We need to do chaining.
                 
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
                 funnel.substage("chain");
 #endif
                 
@@ -448,7 +422,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 // Do the chaining and compute an alignment into out.
                 chain_extended_seeds(aln, extensions, out);
                 
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
                 // We're done chaining. Next alignment may not go through this substage.
                 funnel.substage_stop();
 #endif
@@ -465,7 +439,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 second_best_score = out.score();
             }
             
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
             // Record the Alignment and its score with the funnel
             funnel.project(extension_num);
@@ -474,16 +447,13 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
             // We're done with this input item
             funnel.processed_input();
 #endif
-#endif
         } else {
             // If this score is insignificant, nothing past here is significant.
             // Don't do any more.
             
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
             funnel.kill_all(extension_indexes_in_order.begin() + i, extension_indexes_in_order.end());
             funnel.processed_input();
-#endif
 #endif
             
             break;
@@ -494,11 +464,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         // Say it came from nowhere
         funnel.introduce();
-#endif
 #endif
     }
     
@@ -515,7 +483,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return alignments[a].score() > alignments[b].score();
     });
     
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     // Now say we are finding the winner(s)
     funnel.stage("winner");
 #endif
@@ -527,22 +495,18 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         size_t& alignment_num = alignments_in_order[i];
         mappings.emplace_back(std::move(alignments[alignment_num]));
         
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
         // Tell the funnel
         funnel.project(alignment_num);
         funnel.score(alignment_num, mappings.back().score());
 #endif
-#endif
     }
 
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
     if (max_multimaps < alignments_in_order.size()) {
         // Some things stop here
         funnel.kill_all(alignments_in_order.begin() + max_multimaps, alignments_in_order.end());
     }
-#endif
     
     funnel.substage("mapq");
 #endif
@@ -574,7 +538,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Make sure to clamp 0-60.
     mappings.front().set_mapping_quality(max(min(mapq, 60.0), 0.0));
     
-#ifdef INSTRUMENT_MAPPING
+#ifdef TRACK_PROVENANCE
     funnel.substage_stop();
 #endif
     
@@ -589,7 +553,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Stop this alignment
     funnel.stop();
     
-#ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
     
     // And with the number of results in play at each stage
@@ -600,7 +563,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #ifdef TRACK_CORRECTNESS
     // And with the last stage at which we had any descendants of the correct seed hit locations
     set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
-#endif
 #endif
 #endif
     
