@@ -7,6 +7,7 @@
 #include <cassert>
 #include <functional>
 #include <iostream>
+#include <limits>
 
 /** 
  * \file funnel.hpp

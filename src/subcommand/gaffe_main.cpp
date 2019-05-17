@@ -270,15 +270,23 @@ int main_gaffe(int argc, char** argv) {
     // Set up output to an emitter that will handle serialization
     unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {});
 
+    // Set up counters per-thread for total reads mapped
+    vector<size_t> reads_mapped_by_thread(omp_get_num_threads(), 0); 
+
 #ifdef USE_CALLGRIND
     // We want to profile the alignment, not the loading.
     CALLGRIND_START_INSTRUMENTATION;
 #endif
+
+    // Start timing overall mapping time now that indexes are loaded.
+    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
     
     // Define how to align and output a read, in a thread.
     auto map_read = [&](Alignment& aln) {
-        // Map the read with the MinimizerMapper
+        // Map the read with the MinimizerMapper.
         minimizer_mapper.map(aln, *alignment_emitter);
+        // Record that we mapped a read.
+        reads_mapped_by_thread[omp_get_thread_num()]++;
     };
         
     for (auto& gam_name : gam_filenames) {
@@ -293,6 +301,27 @@ int main_gaffe(int argc, char** argv) {
         // For every FASTQ file to map, map all its reads in parallel.
         fastq_unpaired_for_each_parallel(fastq_name, map_read);
     }
+    
+    // Now mapping is done
+    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end-start;
+    
+    // How many reads did we map?
+    size_t total_reads_mapped = 0;
+    for (auto& reads_mapped : reads_mapped_by_thread) {
+        total_reads_mapped += reads_mapped;
+    }
+    
+    // How many threads did we map them over
+    size_t thread_count = omp_get_num_threads();
+    
+    // Produce a report
+    cerr << "Mapped " << total_reads_mapped << " reads across "
+        << thread_count << " threads in "
+        << elapsed_seconds.count() << " seconds." << endl;
+        
+    cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
+        << " reads per second per thread" << endl;
         
     return 0;
 }
