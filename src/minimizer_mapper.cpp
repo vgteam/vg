@@ -12,11 +12,9 @@
 #include <iostream>
 #include <algorithm>
 
-// We define this to turn on the detailed funnel instrumentation and correctness tracking.
-// Without this we just track per-read time.
-#define INSTRUMENT_MAPPING
-// With INSTRUMENT_MAPPING on, set this to track provenance of intermediate results
-#define TRACK_PROVENANCE
+
+// Set this to track provenance of intermediate results
+//#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
 //#define TRACK_CORRECTNESS
 
@@ -38,7 +36,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         
     // Make a new funnel instrumenter to watch us map this read.
     Funnel funnel;
-    // Start timing
+    // Start this alignment 
     funnel.start(aln.name());
     
     // Annotate the original read with metadata
@@ -429,7 +427,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 out.set_identity(identity);
                 
 #ifdef INSTRUMENT_MAPPING
-                // Stop the timer on the current substage
+                // Stop the current substage
                 funnel.substage_stop();
 #endif
             } else if (do_chaining) {
@@ -588,26 +586,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         out.set_is_secondary(i > 0);
     }
     
-    // Stop timing with the funnel
+    // Stop this alignment
     funnel.stop();
     
-    // Annotate with total, stage, and substage runtimes.
-    // If we didn't record stages, we just get the total.
-    funnel.for_each_time([&](const string& stage, const string& substage, double seconds) {
-        if (stage == "") {
-            // Overall runtime
-            set_annotation(mappings[0], "map_seconds", seconds);
-        } else {
-            if (substage == "") {
-                // Overall time for this stage
-                set_annotation(mappings[0], "stage_" + stage + "_seconds", seconds);
-            } else {
-                // Time for just this substage
-                set_annotation(mappings[0], "stage_" + stage + "_" + substage + "_seconds", seconds);
-            }
-        }
-    });
-
 #ifdef INSTRUMENT_MAPPING
 #ifdef TRACK_PROVENANCE
     
