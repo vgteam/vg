@@ -269,9 +269,19 @@ int main_gaffe(int argc, char** argv) {
     
     // Set up output to an emitter that will handle serialization
     unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {});
+    
+    // Work out the number of threads we will have
+    size_t thread_count = 0;
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            thread_count = omp_get_num_threads();
+        }
+    }
 
     // Set up counters per-thread for total reads mapped
-    vector<size_t> reads_mapped_by_thread(omp_get_num_threads(), 0); 
+    vector<size_t> reads_mapped_by_thread(thread_count, 0); 
 
 #ifdef USE_CALLGRIND
     // We want to profile the alignment, not the loading.
@@ -286,7 +296,7 @@ int main_gaffe(int argc, char** argv) {
         // Map the read with the MinimizerMapper.
         minimizer_mapper.map(aln, *alignment_emitter);
         // Record that we mapped a read.
-        reads_mapped_by_thread[omp_get_thread_num()]++;
+        reads_mapped_by_thread.at(omp_get_thread_num())++;
     };
         
     for (auto& gam_name : gam_filenames) {
@@ -311,9 +321,6 @@ int main_gaffe(int argc, char** argv) {
     for (auto& reads_mapped : reads_mapped_by_thread) {
         total_reads_mapped += reads_mapped;
     }
-    
-    // How many threads did we map them over
-    size_t thread_count = omp_get_num_threads();
     
     // Produce a report
     cerr << "Mapped " << total_reads_mapped << " reads across "

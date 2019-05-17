@@ -269,10 +269,6 @@ void Funnel::to_dot(ostream& out) {
     out << "}" << endl;
 }
 
-Funnel::Timepoint Funnel::now() const {
-    return chrono::high_resolution_clock::now();
-}
-
 Funnel::Item& Funnel::get_item(size_t index) {
     assert(!stages.empty());
     if (index >= stages.back().items.size()) {
