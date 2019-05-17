@@ -705,8 +705,7 @@ int main_map(int argc, char** argv) {
     vector<Mapper*> mapper;
     mapper.resize(thread_count);
     
-    vector<vector<Alignment> > output_buffer;
-    output_buffer.resize(thread_count);
+    // When outputting single-ended alignments, we need an empty vector to pass around
     vector<Alignment> empty_alns;
     
     // if no paths were given take all of those in the index
@@ -850,8 +849,22 @@ int main_map(int argc, char** argv) {
         if (!qual.empty()) {
             unaligned.set_quality(qual);
         }
+        
+        std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned,
+                                                                kmer_size,
+                                                                kmer_stride,
+                                                                max_mem_length,
+                                                                band_width,
+                                                                band_overlap,
+                                                                xdrop_alignment);
+        std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        if (!alignments.empty()) {
+            // Record runtime as an annotation
+            set_annotation(alignments[0], "map_seconds", elapsed_seconds.count());
+        }
 
-        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
         if(alignments.size() == 0 && !exclude_unaligned) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
@@ -885,8 +898,21 @@ int main_map(int argc, char** argv) {
                     // Make an alignment
                     Alignment unaligned;
                     unaligned.set_sequence(line);
-
-                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width, band_overlap, xdrop_alignment);
+                    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
+                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned,
+                                                                            kmer_size,
+                                                                            kmer_stride,
+                                                                            max_mem_length,
+                                                                            band_width,
+                                                                            band_overlap,
+                                                                            xdrop_alignment);
+                    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = end-start;
+                    if (!alignments.empty()) {
+                        // Record runtime as an annotation
+                        set_annotation(alignments[0], "map_seconds", elapsed_seconds.count());
+                    }
+                    
 
                     for(auto& alignment : alignments) {
                         // Set the alignment metadata
@@ -912,6 +938,7 @@ int main_map(int argc, char** argv) {
                 unaligned.set_sequence(seq);
                 unaligned.set_name(name);
                 int tid = omp_get_thread_num();
+                std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
                 vector<Alignment> alignments = mapper[tid]->align_multi(unaligned,
                                                                         kmer_size,
                                                                         kmer_stride,
@@ -919,6 +946,13 @@ int main_map(int argc, char** argv) {
                                                                         band_width,
                                                                         band_overlap,
                                                                         xdrop_alignment);
+                std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                std::chrono::duration<double> elapsed_seconds = end-start;
+                if (!alignments.empty()) {
+                    // Record runtime as an annotation
+                    set_annotation(alignments[0], "map_seconds", elapsed_seconds.count());
+                }
+                
                 for(auto& alignment : alignments) {
                     // Set the alignment metadata
                     if (!sample_name.empty()) alignment.set_sample_name(sample_name);
@@ -944,6 +978,7 @@ int main_map(int argc, char** argv) {
             }
 
             int tid = omp_get_thread_num();
+            std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
             vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
                                                                     kmer_size,
                                                                     kmer_stride,
@@ -951,6 +986,12 @@ int main_map(int argc, char** argv) {
                                                                     band_width,
                                                                     band_overlap,
                                                                     xdrop_alignment);
+            std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed_seconds = end-start;
+            if (!alignments.empty()) {
+                // Record runtime as an annotation
+                set_annotation(alignments[0], "map_seconds", elapsed_seconds.count());
+            }
                                                                     
             for(auto& alignment : alignments) {
                 // Set the alignment metadata
@@ -1029,6 +1070,7 @@ int main_map(int argc, char** argv) {
             // single
             function<void(Alignment&)> lambda = [&](Alignment& alignment) {
                         int tid = omp_get_thread_num();
+                        std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
                         vector<Alignment> alignments = mapper[tid]->align_multi(alignment,
                                                                                 kmer_size,
                                                                                 kmer_stride,
@@ -1036,6 +1078,12 @@ int main_map(int argc, char** argv) {
                                                                                 band_width,
                                                                                 band_overlap,
                                                                                 xdrop_alignment);
+                        std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+                        std::chrono::duration<double> elapsed_seconds = end-start;
+                        if (!alignments.empty()) {
+                            // Record runtime as an annotation
+                            set_annotation(alignments[0], "map_seconds", elapsed_seconds.count());
+                        }
                         //cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                         output_alignments(alignments, empty_alns);
                     };
@@ -1103,6 +1151,7 @@ int main_map(int argc, char** argv) {
     if (!gam_input.empty()) {
         ifstream gam_in(gam_input);
         if (interleaved_input) {
+            // Paired-end GAM input
             auto output_func = [&] (Alignment& aln1,
                                     Alignment& aln2,
                                     pair<vector<Alignment>, vector<Alignment>>& alnp) {
@@ -1166,6 +1215,7 @@ int main_map(int argc, char** argv) {
                 our_mapper->imperfect_pairs_to_retry.clear();
             }
         } else {
+            // Processing single-end GAM input
             function<void(Alignment&)> lambda = [&](Alignment& alignment) {
                 int tid = omp_get_thread_num();
                 std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
@@ -1178,10 +1228,14 @@ int main_map(int argc, char** argv) {
                                                                         xdrop_alignment);
                 std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
-                // Output the alignments in JSON or protobuf as appropriate.
                 if (compare_gam) {
+                    // Compare against true input at mapping time
                     alignments.front().set_correct(overlap(alignment.path(), alignments.front().path()));
                     alignment_set_distance_to_correct(alignments.front(), alignment);
+                }
+                if (!alignments.empty()) {
+                    // Record runtime as an annotation
+                    set_annotation(alignments[0], "map_seconds", elapsed_seconds.count());
                 }
                 output_alignments(alignments, empty_alns);
             };
