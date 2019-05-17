@@ -10,6 +10,7 @@
 #include <vector>
 #include <unordered_set>
 #include <chrono>
+#include <atomic>
 
 #include "subcommand.hpp"
 
@@ -276,11 +277,15 @@ int main_gaffe(int argc, char** argv) {
 #endif
     
     // Define how to align and output a read, in a thread.
+    std::atomic<size_t> reads(0);
     auto map_read = [&](Alignment& aln) {
         // Map the read with the MinimizerMapper
         minimizer_mapper.map(aln, *alignment_emitter);
+        reads++;
     };
-        
+
+    double start = gbwt::readTimer();
+
     for (auto& gam_name : gam_filenames) {
         // For every GAM file to remap
         get_input_file(gam_name, [&](istream& in) {
@@ -293,7 +298,13 @@ int main_gaffe(int argc, char** argv) {
         // For every FASTQ file to map, map all its reads in parallel.
         fastq_unpaired_for_each_parallel(fastq_name, map_read);
     }
-        
+
+    double seconds = gbwt::readTimer() - start;
+    size_t threads = omp_get_max_threads();
+    double reads_second = reads / (seconds * threads);
+    // FIXME show_progress
+    std::cerr << reads << " reads in " << seconds << " seconds using " << threads << " threads (" << reads_second << " reads / second)" << std::endl;
+
     return 0;
 }
 
