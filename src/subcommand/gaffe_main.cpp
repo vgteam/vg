@@ -73,7 +73,7 @@ int main_gaffe(int argc, char** argv) {
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
-    size_t hit_cap = 10;
+    size_t hit_cap = 30;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
     // Whould we use the xdrop aligner for aligning tails?
