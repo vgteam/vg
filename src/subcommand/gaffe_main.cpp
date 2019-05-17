@@ -267,9 +267,6 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
     
-    // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {});
-    
     // Work out the number of threads we will have
     size_t thread_count = 0;
     #pragma omp parallel
@@ -281,36 +278,45 @@ int main_gaffe(int argc, char** argv) {
     }
 
     // Set up counters per-thread for total reads mapped
-    vector<size_t> reads_mapped_by_thread(thread_count, 0); 
+    vector<size_t> reads_mapped_by_thread(thread_count, 0);
+    
+    // Have a place to log start time
+    std::chrono::time_point<std::chrono::system_clock> start;
+    
+    {
+        // Set up output to an emitter that will handle serialization
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {});
 
 #ifdef USE_CALLGRIND
-    // We want to profile the alignment, not the loading.
-    CALLGRIND_START_INSTRUMENTATION;
+        // We want to profile the alignment, not the loading.
+        CALLGRIND_START_INSTRUMENTATION;
 #endif
 
-    // Start timing overall mapping time now that indexes are loaded.
-    std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-    
-    // Define how to align and output a read, in a thread.
-    auto map_read = [&](Alignment& aln) {
-        // Map the read with the MinimizerMapper.
-        minimizer_mapper.map(aln, *alignment_emitter);
-        // Record that we mapped a read.
-        reads_mapped_by_thread.at(omp_get_thread_num())++;
-    };
+        // Start timing overall mapping time now that indexes are loaded.
+        start = std::chrono::system_clock::now();
         
-    for (auto& gam_name : gam_filenames) {
-        // For every GAM file to remap
-        get_input_file(gam_name, [&](istream& in) {
-            // Open it and map all the reads in parallel.
-            vg::io::for_each_parallel<Alignment>(in, map_read);
-        });
-    }
+        // Define how to align and output a read, in a thread.
+        auto map_read = [&](Alignment& aln) {
+            // Map the read with the MinimizerMapper.
+            minimizer_mapper.map(aln, *alignment_emitter);
+            // Record that we mapped a read.
+            reads_mapped_by_thread.at(omp_get_thread_num())++;
+        };
+            
+        for (auto& gam_name : gam_filenames) {
+            // For every GAM file to remap
+            get_input_file(gam_name, [&](istream& in) {
+                // Open it and map all the reads in parallel.
+                vg::io::for_each_parallel<Alignment>(in, map_read);
+            });
+        }
+        
+        for (auto& fastq_name : fastq_filenames) {
+            // For every FASTQ file to map, map all its reads in parallel.
+            fastq_unpaired_for_each_parallel(fastq_name, map_read);
+        }
     
-    for (auto& fastq_name : fastq_filenames) {
-        // For every FASTQ file to map, map all its reads in parallel.
-        fastq_unpaired_for_each_parallel(fastq_name, map_read);
-    }
+    } // Make sure alignment emitter is destroyed and all alignments are on disk.
     
     // Now mapping is done
     std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
