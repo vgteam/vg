@@ -2959,7 +2959,7 @@ namespace vg {
                 // the later code's expectations are met
                 // TODO: can we do this without the copy constructor?
                 align_graph = *graph;
-                node_trans.reserve(graph->node_size());
+                node_trans.reserve(graph->get_node_count());
                 graph->for_each_handle([&](const handle_t& handle) {
                     node_trans[graph->get_id(handle)] = make_pair(graph->get_id(handle), false);
                     return true;

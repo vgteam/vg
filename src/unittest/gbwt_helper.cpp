@@ -116,7 +116,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
         static_cast<id_t>(9)
     };
     SECTION("node id space is correct") {
-        REQUIRE(gbwt_graph.node_size() == correct_nodes.size());
+        REQUIRE(gbwt_graph.get_node_count() == correct_nodes.size());
         REQUIRE(gbwt_graph.min_node_id() == *(correct_nodes.begin()));
         REQUIRE(gbwt_graph.max_node_id() == *(correct_nodes.rbegin()));
         for (id_t id = gbwt_graph.min_node_id(); id <= gbwt_graph.max_node_id(); id++) {

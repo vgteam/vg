@@ -66,8 +66,8 @@ using namespace std;
         }, parallel);
     }
     
-    size_t StrandSplitGraph::node_size() const {
-        return graph->node_size() << 1;
+    size_t StrandSplitGraph::get_node_count() const {
+        return graph->get_node_count() << 1;
     }
     
     id_t StrandSplitGraph::min_node_id() const {

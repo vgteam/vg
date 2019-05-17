@@ -73,7 +73,7 @@ using namespace std;
         
         /// Return the number of nodes in the graph
         /// TODO: can't be node_count because XG has a field named node_count.
-        virtual size_t node_size() const;
+        virtual size_t get_node_count() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the
         /// smallest ID is unavailable. Return value is unspecified if the graph is empty.

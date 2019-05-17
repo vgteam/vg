@@ -11,7 +11,7 @@ bool is_acyclic(const HandleGraph* graph) {
     
     // the existence of reversing cycles is equivalent to whether a single stranded
     // orientation exists
-    if (single_stranded_orientation(graph).size() < graph->node_size()) {
+    if (single_stranded_orientation(graph).size() < graph->get_node_count()) {
         return false;
     }
     // the existence of non-reversing cycles is checked by the directed acyclic algorithm

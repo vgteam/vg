@@ -901,7 +901,7 @@ int main_stats(int argc, char** argv) {
             // Net graph info
             // Internal connectivity not important, we just want the size.
             auto netGraph = manager.net_graph_of(snarl, graph.get(), false);
-            cout << "net-graph-size\t" << netGraph.node_size() << endl;
+            cout << "net-graph-size\t" << netGraph.get_node_count() << endl;
             
         });
         

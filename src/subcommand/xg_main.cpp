@@ -304,7 +304,7 @@ int main_xg(int argc, char** argv) {
         // Encapsulate output in VPKG
         vg::io::VPKG::with_save_stream(out, "XG", [&](ostream& tagged) {
             // Serialize to the file while recording space usage to the structure.
-            graph->serialize(tagged, structure.get(), "xg");
+            graph->serialize_and_measure(tagged, structure.get(), "xg");
         });
         
         out.flush();

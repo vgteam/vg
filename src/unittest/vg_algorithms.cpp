@@ -3158,7 +3158,7 @@ namespace vg {
                 }
                 
                 SECTION( "All nodes are placed" ) {
-                    REQUIRE(handle_sort.size() == vg.node_size());
+                    REQUIRE(handle_sort.size() == vg.get_node_count());
                 
                     unordered_set<id_t> found;
                     
@@ -3166,7 +3166,7 @@ namespace vg {
                         found.insert(vg.get_id(handle));
                     }
                     
-                    REQUIRE(found.size() == vg.node_size());
+                    REQUIRE(found.size() == vg.get_node_count());
                     
                 }
                
@@ -3219,7 +3219,7 @@ namespace vg {
                 }
                 
                 SECTION( "All nodes are placed" ) {
-                    REQUIRE(handle_sort.size() == vg.node_size());
+                    REQUIRE(handle_sort.size() == vg.get_node_count());
                 
                     unordered_set<id_t> found;
                     
@@ -3227,7 +3227,7 @@ namespace vg {
                         found.insert(vg.get_id(handle));
                     }
                     
-                    REQUIRE(found.size() == vg.node_size());
+                    REQUIRE(found.size() == vg.get_node_count());
                     
                 }
                
@@ -5409,7 +5409,7 @@ namespace vg {
             
             handle_t r1, r2, r3, r4;
             bool found1 = false, found2 = false, found3 = false, found4 = false;
-            REQUIRE(rev_graph.node_size() == 4);
+            REQUIRE(rev_graph.get_node_count() == 4);
             rev_graph.for_each_handle([&](const handle_t& h) {
                 if (rev_graph.get_sequence(h) == graph.get_sequence(graph.flip(h1))) {
                     r1 = h;

@@ -97,7 +97,7 @@ namespace vg {
         return keep_going;
     }
     
-    size_t HashGraph::node_size(void) const {
+    size_t HashGraph::get_node_count(void) const {
         return graph.size();
     }
     
@@ -290,6 +290,10 @@ namespace vg {
         paths.rehash(paths.size() * 0.5 * (paths.min_load_factor() + paths.max_load_factor()));
     }
     
+    void HashGraph::apply_ordering(const vector<handle_t>& order, bool compact_ids) {
+        // TODO: implement ID compaction I guess?
+    }
+    
     void HashGraph::destroy_handle(const handle_t& handle) {
         
         // remove backwards references from edges on other nodes
@@ -396,6 +400,26 @@ namespace vg {
         as_integers(step)[0] = as_integer(path_handle);
         as_integers(step)[1] = intptr_t(nullptr);
         return step;
+    }
+    
+    step_handle_t HashGraph::path_back(const path_handle_t& path_handle) const {
+        step_handle_t step;
+        as_integers(step)[0] = as_integer(path_handle);
+        as_integers(step)[1] = intptr_t(paths.at(as_integer(path_handle)).tail);
+        return step;
+    }
+    
+    step_handle_t HashGraph::path_front_end(const path_handle_t& path_handle) const {
+        // we'll actually use the same sentinel
+        return path_end(path_handle);
+    }
+    
+    bool HashGraph::has_next_step(const step_handle_t& step_handle) const {
+        return ((path_mapping_t*) intptr_t(as_integers(step_handle)[1]))->next != nullptr;
+    }
+    
+    bool HashGraph::has_previous_step(const step_handle_t& step_handle) const {
+        return ((path_mapping_t*) intptr_t(as_integers(step_handle)[1]))->prev != nullptr;
     }
     
     step_handle_t HashGraph::get_next_step(const step_handle_t& step_handle) const {

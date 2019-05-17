@@ -100,11 +100,16 @@ class Transcriptome {
         /// Returns spliced variation graph.
         const VG & splice_graph() const; 
 
+        /// Removes non-transcribed (not in transcript paths) nodes.
+        /// Optionally create new reference paths that only include
+        /// trancribed nodes and edges.
+        void remove_non_transcribed(const bool keep_reference);
+
+        /// Topological sort and compact graph.
+        void compact_ordered();
+
         /// Embeds transcript paths in variation graph.
         void add_paths_to_graph();
-
-        /// Removes non-transcribed (not in transcript paths) nodes
-        void remove_non_transcribed();
 
         /// Add transcript paths as threads in GBWT index.
         void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const;
