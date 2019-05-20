@@ -2132,7 +2132,7 @@ class TestDistanceIndex : public DistanceIndex {
 
 */
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 100; i++) {
             //1000 different graphs
             VG graph;
             random_graph(1000, 20, 100, &graph);
