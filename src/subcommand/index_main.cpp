@@ -1229,7 +1229,7 @@ int main_index(int argc, char** argv) {
                 // Save the completed DistanceIndex
                 vg::io::VPKG::save(di, dist_name);
             } else {
-                DistanceIndex di (&vg, snarl_manager, 0, false);
+                DistanceIndex di (&vg, snarl_manager, 0);
                 // Save the completed DistanceIndex
                 vg::io::VPKG::save(di, dist_name);
             }

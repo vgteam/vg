@@ -61,8 +61,8 @@ namespace unittest {
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
-        DistanceIndex dist_index (&graph, &snarl_manager, 20);
-        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+        SnarlSeedClusterer clusterer(dist_index);
 
         SECTION( "One cluster" ) {
  
@@ -147,9 +147,9 @@ namespace unittest {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
-        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
 
-        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+        SnarlSeedClusterer clusterer(dist_index);
 
         SECTION( "One cluster" ) {
             vector<pos_t> seeds;
@@ -161,7 +161,7 @@ namespace unittest {
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
-    TEST_CASE( "Revese in chain left","[cluster]" ) {
+    TEST_CASE( "Reverse in chain left","[cluster]" ) {
         VG graph;
 
         Node* n1 = graph.create_node("GCA");
@@ -194,14 +194,22 @@ namespace unittest {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
-        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
 
-        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+        SnarlSeedClusterer clusterer(dist_index);
 
         SECTION( "One cluster" ) {
             vector<pos_t> seeds;
             seeds.push_back(make_pos_t(7, false, 0));
             seeds.push_back(make_pos_t(7, false, 0));
+            seeds.push_back(make_pos_t(6, false, 0));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 20); 
+            REQUIRE( clusters.size() == 1);
+        }
+        SECTION( "different snarl" ) {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(8, false, 0));
             seeds.push_back(make_pos_t(6, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, 20); 
@@ -260,9 +268,9 @@ namespace unittest {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
-        DistanceIndex dist_index (&graph, &snarl_manager, 20);
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
 
-        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+        SnarlSeedClusterer clusterer(dist_index);
 
         SECTION( "Two clusters in a chain and loop of snarl boundary" ) {
             vector<pos_t> seeds;
@@ -356,8 +364,8 @@ namespace unittest {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
-        DistanceIndex dist_index (&graph, &snarl_manager, 20);
-        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+        SnarlSeedClusterer clusterer(dist_index);
 
 
 
@@ -454,8 +462,8 @@ namespace unittest {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
-        DistanceIndex dist_index (&graph, &snarl_manager, 20);
-        SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+        MinimumDistanceIndex dist_index (&graph, &snarl_manager);
+        SnarlSeedClusterer clusterer(dist_index);
 
         SECTION("Two clusters") {
             vector<pos_t> seeds;
@@ -470,7 +478,6 @@ namespace unittest {
         }
     }
 
-/*
     TEST_CASE("Random graphs", "[cluster]"){
 
         for (int i = 0; i < 1000; i++) {
@@ -481,9 +488,9 @@ namespace unittest {
 
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
-            DistanceIndex dist_index (&graph, &snarl_manager, 20);
+            MinimumDistanceIndex dist_index (&graph, &snarl_manager);
 
-            SnarlSeedClusterer clusterer(snarl_manager, dist_index);
+            SnarlSeedClusterer clusterer(dist_index);
 
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {
@@ -551,7 +558,7 @@ namespace unittest {
                                 int64_t dist2 = dist_index.minDistance(pos1, rev2);
                                 int64_t dist3 = dist_index.minDistance(rev1, pos2);
                                 int64_t dist4 = dist_index.minDistance(rev1, rev2);
-                                int64_t dist = DistanceIndex::minPos({dist1, 
+                                int64_t dist = MinimumDistanceIndex::minPos({dist1, 
                                                    dist2, dist3, dist4});
                                 if ( dist != -1 && dist <= lim+2) {
                                     assignments.insert(b);
@@ -622,6 +629,5 @@ namespace unittest {
             }
         }
     } //end test case
-*/
 }
 }
