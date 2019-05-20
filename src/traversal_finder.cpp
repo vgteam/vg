@@ -2477,7 +2477,8 @@ void VCFTraversalFinder::create_variant_index(vcflib::VariantCallFile& vcf, Fast
             }
         }
         if (!path_found) {
-            cerr << "[VCFTraversalFinder] Warning: No alt path found in graph for variant.  It will be ignored:\n"
+            cerr << "[VCFTraversalFinder] Warning: No alt path (prefix="
+                 << ("_alt_" + make_variant_id(var) + "_") << ") found in graph for variant.  It will be ignored:\n"
                  << var << endl;
         }
     }
@@ -2589,7 +2590,7 @@ void VCFTraversalFinder::brute_force_alt_traversals(
     // todo: we can move to a ranking (eg by support), where instead of filtering, we just
     // take the K most supported traversals.  this would avoid ever skipping a site
     if (!check_max_trav_cutoff(alt_alleles)) {
-        cerr << "[VCFTraversalFinder]: Site " << pb2json(site) << " with " << site_variants.size()
+        cerr << "[VCFTraversalFinder] Warning: Site " << pb2json(site) << " with " << site_variants.size()
              << " variants contains too many traversals (>" << max_traversal_cutoff 
              << ") to enumerate so it will be skipped:";
         for (auto site_var : site_variants) {
@@ -3033,20 +3034,33 @@ vector<vector<int>> VCFTraversalFinder::get_pruned_alt_alleles(
 
     for (int var_i = 0; var_i < site_variants.size(); ++var_i) {
         for (int allele = 0; allele < site_variants[var_i]->alleles.size(); ++allele) {
-            if (skip_alt == nullptr ||
-                skip_alt(get_alt_path(site_variants[var_i], allele, path_index).first) == false) {
-                alt_alleles[var_i].push_back(allele);
-            }
-#ifdef debug
-            else if (skip_alt != nullptr) {
-                cerr << "Pruning allele " << allele << " from variant " << site_variants[var_i]->id << endl;
-            }
-#endif
+            alt_alleles[var_i].push_back(allele);
         }
-        // always leave at least one path through the site, even if that means
-        // going through a reference allele that fails the skip_alt check.
-        if (alt_alleles[var_i].empty()) {
-            alt_alleles[var_i].push_back(0);
+    }
+
+    // only invoke pruning if we exceed our cutoff.  fairly rare on most graphs
+    if (!check_max_trav_cutoff(alt_alleles)) {
+        for (auto& alleles : alt_alleles) {
+            alleles.clear();
+        }
+        
+        for (int var_i = 0; var_i < site_variants.size(); ++var_i) {
+            for (int allele = 0; allele < site_variants[var_i]->alleles.size(); ++allele) {
+                if (skip_alt == nullptr ||
+                    skip_alt(get_alt_path(site_variants[var_i], allele, path_index).first) == false) {
+                    alt_alleles[var_i].push_back(allele);
+                }
+#ifdef debug
+                else {
+                    cerr << "Pruning allele " << allele << " from variant " << site_variants[var_i]->id << endl;
+                }
+#endif
+            }
+            // always leave at least one path through the site, even if that means
+            // going through a reference allele that fails the skip_alt check.
+            if (alt_alleles[var_i].empty()) {
+                alt_alleles[var_i].push_back(0);
+            }
         }
     }
 

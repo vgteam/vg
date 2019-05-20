@@ -80,9 +80,22 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutablePathDeletableHandleGraph {
+class VG : public Progressive, public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
 
 public:
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // HandleGraph serialization
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Write the contents of this graph to an ostream.
+    virtual void serialize(ostream& out) const;
+    
+    /// Sets the contents of this graph to the contents of a serialized graph from
+    /// an istream. The serialized graph must be from the same implementation of the
+    /// HandleGraph interface as is calling deserialize(). Can only be called by an
+    /// empty graph.
+    virtual void deserialize(istream& in);
 
     ////////////////////////////////////////////////////////////////////////////
     // Handle-based interface
@@ -117,7 +130,7 @@ public:
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
@@ -131,6 +144,15 @@ public:
     /// Efficiently check for the existence of an edge using VG graph's internal
     /// index of node sides.
     virtual bool has_edge(const handle_t& left, const handle_t& right) const;
+    
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    virtual char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
@@ -170,6 +192,16 @@ public:
     /// Note that get_next_step will *NEVER* return this value for a circular path.
     virtual step_handle_t path_end(const path_handle_t& path_handle) const;
     
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    virtual step_handle_t path_back(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    virtual step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
     /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
@@ -185,6 +217,12 @@ public:
     /// Note: to iterate over each step one time, even in a circular path, consider
     /// for_each_step_in_path.
     virtual step_handle_t get_previous_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the last step in a non-circular path.
+    virtual bool has_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the first step in a non-circular path.
+    virtual bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Execute a function on each path in the graph
     virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
@@ -235,6 +273,19 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
+    
+    /// Adjust the representation of the graph in memory to improve performance.
+    /// Optionally, allow the node IDs to be reassigned to further improve
+    /// performance.
+    /// Note: Ideally, this method is called one time once there is expected to be
+    /// few graph modifications in the future.
+    virtual void optimize(bool allow_id_reassignment = true);
+    
+    /// Reorder the graph's internal structure to match that given.
+    /// This sets the order that is used for iteration in functions like for_each_handle.
+    /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
+    virtual void apply_ordering(const std::vector<handle_t>& order, bool compact_ids = false);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface
@@ -249,6 +300,16 @@ public:
     
     /// Append a visit to a node to the given path
     virtual step_handle_t append_step(const path_handle_t& path, const handle_t& to_append);
+    
+    /// Append a visit to a node to the given path
+    virtual step_handle_t prepend_step(const path_handle_t& path, const handle_t& to_prepend);
+    
+    
+    /// Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair
+    ///  of step_handle_t's that indicate the range of the new segment in the path.
+    virtual pair<step_handle_t, step_handle_t> rewrite_segment(const step_handle_t& segment_begin,
+                                                               const step_handle_t& segment_end,
+                                                               const vector<handle_t>& new_segment);
     
     /// Make a path circular or non-circular. If the path is becoming circular, the
     /// last step is joined to the first step. If the path is becoming linear, the
@@ -530,6 +591,10 @@ public:
 
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
+    /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
+    /// Record translation in provided map.
+    void compact_ids(hash_map<id_t, id_t> & new_id);
+    
     /// Add the given value to all node IDs. Preserves the paths.
     void increment_node_ids(id_t increment);
     /// Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
@@ -551,10 +616,6 @@ public:
     
     /// Order the backing graph data structure by node ID
     void id_sort();
-    
-    /// Modifies underlying graph so that nodes occur in the same order as in the provided vector. Vector
-    /// must contain exactly one handle for each node.
-    void apply_ordering(const vector<handle_t>& ordering);
     
     /// Iteratively add when nodes and edges are novel. Good when there are very
     /// many overlaps. TODO: If you are using this with warn on duplicates on,
@@ -1372,7 +1433,10 @@ private:
     /// Placeholder for functions that sometimes need to be passed an empty vector
     vector<pair<id_t, bool>> empty_edge_ends;
 
+    bool warned_about_rewrites = false;
 };
+
+
 
 } // end namespace vg
 

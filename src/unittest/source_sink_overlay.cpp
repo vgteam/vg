@@ -246,7 +246,7 @@ TEST_CASE("SourceSinkOverlay agrees with VG::add_start_end_markers in a tiny gra
             }
         }, true);
         
-        REQUIRE(found == produced.node_size() + 2);
+        REQUIRE(found == produced.get_node_count() + 2);
     }
 }
 

@@ -2,8 +2,7 @@
  * \file
  * constructor.cpp: contains implementations for vg construction functions.
  */
-
-
+ 
 #include "vg.hpp"
 #include "constructor.hpp"
 
@@ -536,7 +535,7 @@ namespace vg {
 
                     // Name the variant and place it in the order that we'll
                     // actually construct nodes in (see utility.hpp)
-                    string variant_name = alt_names_from_vcf_id ? variant->id : make_variant_id(*variant);
+                    string variant_name = make_variant_id(*variant);
                     if (variants_by_name.count(variant_name)) {
                         // Some VCFs may include multiple variants at the same
                         // position with the same ref and alt. We will only take the
@@ -581,7 +580,8 @@ namespace vg {
                     // Note: we still want bounds for SVs, we just have to get them differently
                     std::pair<int64_t, int64_t> bounds;
                     
-                    if (!variant->hasSVTags()){
+                    if (!variant->canonical){
+                        // The variant did not have to be canonicalized.
                         // We will process the variant as a normal variant, based on its ref and alt sequences.
                         
                         for (auto &kv : alternates) {
@@ -715,7 +715,7 @@ namespace vg {
                         // Declare its ref path straight away.
                         // We fill in the ref paths after we make all the nodes for the edits.
                         variant_ref_paths[variant] = to_return.graph.add_path();
-                        variant_ref_paths[variant]->set_name(alt_path_prefix + variant_name + "_0");
+                        variant_ref_paths[variant]->set_name("_alt_" + variant_name + "_0");
                     }
 
                     for (size_t alt_index = 0; alt_index < parsed_clump[variant].size(); alt_index++) {                
@@ -723,7 +723,7 @@ namespace vg {
 
                         // Name the alt after the number that this allele has.
                         // We have to bump the allele index because the first alt is 0.
-                        string alt_name = alt_path_prefix + variant_name + "_" + to_string(alt_index + 1);
+                        string alt_name = "_alt_" + variant_name + "_" + to_string(alt_index + 1);
 
                         // There should be a path named after it.
                         Path* alt_path = nullptr;
@@ -1548,7 +1548,7 @@ namespace vg {
         // Modifies the chunk in place.
         auto wire_and_emit = [&](ConstructedChunk& chunk) {
             // When each chunk comes back:
-
+            
             if (chunk.left_ends.size() == 1 && last_node_buffer.id() != 0) {
                 // We have a last node from the last chunk that we want to glom onto
                 // this chunk.
@@ -1644,8 +1644,7 @@ namespace vg {
 
                 // We know it's the last node in the graph
                 last_node_buffer = chunk.graph.node(chunk.graph.node_size() - 1);
-
-
+                
                 assert(chunk.right_ends.count(last_node_buffer.id()));
 
                 // Remove it
@@ -1661,6 +1660,10 @@ namespace vg {
 
                 // Update its ID separately, since it's no longer in the graph.
                 last_node_buffer.set_id(last_node_buffer.id() + max_id);
+                
+#ifdef debug
+                cerr << "Buffered final node becomes: " << last_node_buffer.id() << endl;
+#endif
             }
 
             // Up all the IDs in the graph

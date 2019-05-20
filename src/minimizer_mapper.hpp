@@ -45,6 +45,7 @@ public:
     size_t hit_cap = 10;
     size_t distance_limit = 1000;
     bool do_chaining = true;
+    bool use_xdrop_for_tails = false;
     string sample_name;
     string read_group;
 

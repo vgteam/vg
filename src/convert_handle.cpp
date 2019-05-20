@@ -2,7 +2,8 @@
 namespace vg {
 using namespace std;
     void convert_handle_graph(const HandleGraph* converting, MutableHandleGraph* converted) {
-        assert(converted->node_size() == 0);
+        
+        assert(converted->get_node_count() == 0);
         
         // If xg is a null pointer, throw a runtime error
         if (converting == nullptr) {
@@ -11,7 +12,6 @@ using namespace std;
         if (converted == nullptr) {
             throw runtime_error("There is no graph to convert to");
         }
-        assert(converted->node_size() == 0);
 
         // Iterate through each handle in xg and create the same handle in mutable graph
         converting->for_each_handle([&](const handle_t& here) {

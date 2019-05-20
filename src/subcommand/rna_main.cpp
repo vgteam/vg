@@ -27,7 +27,7 @@ void help_rna(char** argv) {
          << "    -e, --use-embedded-paths   project transcripts onto embedded graph paths" << endl
          << "    -r, --filter-reference     filter transcripts on reference chromosomes/contigs" << endl
          << "    -c, --do-not-collapse      do not collapse identical transcripts across haplotypes" << endl
-         << "    -d, --remove-non-gene      remove intergenic and intronic regions (includes reference paths)" << endl
+         << "    -d, --remove-non-gene      remove intergenic and intronic regions (removes reference paths if -a)" << endl
          << "    -a, --add-paths            add transcripts as embedded paths in the graph" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -g, --write-gam FILE       write transcripts as alignments to GAM file" << endl
@@ -214,17 +214,16 @@ int32_t main_rna(int32_t argc, char** argv) {
 
     if (remove_non_transcribed) {
 
-        if (show_progress) { cerr << "[vg rna] Remove non-transcribed regions and paths ..." << endl; }
-
-        // Remove non-transcribed nodes and non transcript paths
-        transcriptome.remove_non_transcribed();
+        if (show_progress) { cerr << "[vg rna] Removing non-transcribed regions ..." << endl; }
+        transcriptome.remove_non_transcribed(!add_transcript_paths);
     }
+
+    if (show_progress) { cerr << "[vg rna] Topological sorting and compacting graph ..." << endl; }
+    transcriptome.compact_ordered();
 
     if (add_transcript_paths) {
 
         if (show_progress) { cerr << "[vg rna] Adding transcript paths to graph ..." << endl; }
-
-        // Add transcript as embedded paths in the graph
         transcriptome.add_paths_to_graph();
     }
 

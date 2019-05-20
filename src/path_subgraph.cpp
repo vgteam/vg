@@ -25,6 +25,26 @@ using namespace std;
         return result;
     }
     
+    vector<handle_t> PathSubgraph::get_topological_order() const {
+        vector<handle_t> order;
+        order.reserve(defining_path.mapping_size());
+        for (id_t i = 1; i <= defining_path.mapping_size(); i++) {
+            // Make one handle per node in the path
+            order.push_back(get_handle(i, false));
+        }
+        
+#ifdef debug
+        cerr << "Path: " << pb2json(defining_path) << endl;
+        cerr << "Order:";
+        for (auto& h : order) {
+            cerr << " " << get_id(h) << (get_is_reverse(h) ? "-" : "+");
+        }
+        cerr << endl;
+#endif
+        
+        return order;
+    }
+    
     handle_t PathSubgraph::get_handle(const id_t& node_id, bool is_reverse) const {
         assert(node_id >= 1 && node_id <= defining_path.mapping_size());
         handle_t handle = handlegraph::number_bool_packing::pack(node_id, is_reverse);
@@ -165,7 +185,7 @@ using namespace std;
         return true;
     }
     
-    size_t PathSubgraph::node_size() const {
+    size_t PathSubgraph::get_node_count() const {
         return defining_path.mapping_size();
     }
     

@@ -3350,7 +3350,7 @@ namespace vg {
                                                                                                true);             // enforce max distance strictly
                 
                 
-                if (connecting_graph.node_size() == 0) {
+                if (connecting_graph.get_node_count() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
 #ifdef debug_multipath_alignment
                     cerr << "Remove edge " << j << " -> " << edge.first << " because we got no nodes in the connecting graph "
@@ -3513,8 +3513,6 @@ namespace vg {
             const Mapping& final_mapping = path_node.path.mapping(path_node.path.mapping_size() - 1);
             
             pos_t end_pos = final_position(path_node.path);
-            // want past-the-last instead of last index here
-            get_offset(end_pos)++;
             
             for (const Alignment& tail_alignment : alt_alignments) {
                 
@@ -3624,8 +3622,6 @@ namespace vg {
                     int64_t target_length = ((alignment.sequence().end() - path_node.end) +
                                              aligner->longest_detectable_gap(alignment, path_node.end));
                     pos_t end_pos = final_position(path_node.path);
-                    // want past-the-last instead of last index here
-                    get_offset(end_pos)++;
                     
                     HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,

@@ -66,7 +66,7 @@ TEST_CASE("We can read and write XG", "[vpkg][xg]") {
         REQUIRE(loaded.get() != nullptr);
         
         // Make sure it is the thing we saved
-        REQUIRE(loaded->node_size() == 2);
+        REQUIRE(loaded->get_node_count() == 2);
         REQUIRE(loaded->get_sequence(loaded->get_handle(1, false)) == "GATT");
     }
     
@@ -82,7 +82,7 @@ TEST_CASE("We can read and write XG", "[vpkg][xg]") {
         REQUIRE(loaded.get() != nullptr);
         
         // Make sure it is the thing we saved
-        REQUIRE(loaded->node_size() == 2);
+        REQUIRE(loaded->get_node_count() == 2);
         REQUIRE(loaded->get_sequence(loaded->get_handle(1, false)) == "GATT");
     }
 }

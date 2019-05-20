@@ -25,7 +25,7 @@ void check_unfolded_nodes(VG& vg_graph,
                           const std::set<vg::id_t>& expected_nodes,
                           const std::multiset<vg::id_t>& corresponding_nodes) {
 
-    REQUIRE(vg_graph.node_size() == expected_nodes.size());
+    REQUIRE(vg_graph.get_node_count() == expected_nodes.size());
 
     SECTION("the set of nodes should be the expected one") {
         std::set<vg::id_t> found_nodes;

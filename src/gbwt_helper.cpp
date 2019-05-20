@@ -129,7 +129,7 @@ std::string GBWTGraph::get_sequence(const handle_t& handle) const {
     return std::string(this->sequences.begin() + this->offsets[offset], this->sequences.begin() + this->offsets[offset + 1]);
 }
 
-size_t GBWTGraph::node_size() const {
+size_t GBWTGraph::get_node_count() const {
     return total_nodes;
 }
 

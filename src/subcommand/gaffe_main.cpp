@@ -23,7 +23,7 @@
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 
-#define USE_CALLGRIND
+//#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
@@ -54,6 +54,7 @@ void help_gaffe(char** argv) {
     << "  -R, --read-group NAME         add this read group" << endl
     << "computational parameters:" << endl
     << "  -C, --no-chaining             disable seed chaining and all gapped alignment" << endl
+    << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
@@ -75,6 +76,8 @@ int main_gaffe(int argc, char** argv) {
     size_t hit_cap = 10;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
+    // Whould we use the xdrop aligner for aligning tails?
+    bool use_xdrop_for_tails = false;
     // What GAMs should we realign?
     vector<string> gam_filenames;
     // What FASTQs should we align.
@@ -107,12 +110,13 @@ int main_gaffe(int argc, char** argv) {
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"no-chaining", no_argument, 0, 'C'},
+            {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:c:G:f:M:Ct:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:c:G:f:M:CXt:",
                          long_options, &option_index);
 
 
@@ -190,6 +194,10 @@ int main_gaffe(int argc, char** argv) {
                 do_chaining = false;
                 break;
                 
+            case 'X':
+                use_xdrop_for_tails = true;
+                break;
+                
             case 't':
             {
                 int num_threads = parse<int>(optarg);
@@ -252,6 +260,7 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.hit_cap = hit_cap;
     minimizer_mapper.distance_limit = distance_limit;
     minimizer_mapper.do_chaining = do_chaining;
+    minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
     
