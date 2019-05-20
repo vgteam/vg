@@ -159,6 +159,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
                     REQUIRE(g->get_length(node_handle) == node->sequence().size());
                 }
                 
+                
                 handle_t rev1 = g->flip(node_handle);
                 handle_t rev2 = g->get_handle(node->id(), true);
                 
@@ -366,6 +367,23 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
         }
     }
 
+    SECTION("Handle graph subsequence accessors for VG and XG work") {
+        
+        for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
+            REQUIRE(g->get_sequence(g->get_handle(n0->id(), false)) == "CGA");
+            REQUIRE(g->get_sequence(g->get_handle(n1->id(), false)) == "TTGG");
+            REQUIRE(g->get_sequence(g->get_handle(n0->id(), true)) == "TCG");
+            REQUIRE(g->get_sequence(g->get_handle(n1->id(), true)) == "CCAA");
+            REQUIRE(g->get_base(g->get_handle(n0->id(), false), 2) == 'A');
+            REQUIRE(g->get_base(g->get_handle(n1->id(), false), 1) == 'T');
+            REQUIRE(g->get_base(g->get_handle(n0->id(), true), 2) == 'G');
+            REQUIRE(g->get_base(g->get_handle(n1->id(), true), 0) == 'C');
+            REQUIRE(g->get_subsequence(g->get_handle(n0->id(), false), 1, 2) == "GA");
+            REQUIRE(g->get_subsequence(g->get_handle(n1->id(), false), 2, 3) == "GG");
+            REQUIRE(g->get_subsequence(g->get_handle(n0->id(), true), 0, 1) == "T");
+            REQUIRE(g->get_subsequence(g->get_handle(n1->id(), true), 0, 3) == "CCA");
+        }
+    }
 }
 
 TEST_CASE("Deletable handle graphs work", "[handle][vg]") {
@@ -559,7 +577,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
         
         DeletableHandleGraph& graph = *implementation;
         
-        REQUIRE(graph.node_size() == 0);
+        REQUIRE(graph.get_node_count() == 0);
         
         handle_t h = graph.create_handle("ATG", 2);
         
@@ -567,6 +585,10 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
         {
             REQUIRE(graph.get_sequence(h) == "ATG");
             REQUIRE(graph.get_sequence(graph.flip(h)) == "CAT");
+            REQUIRE(graph.get_base(h, 1) == 'T');
+            REQUIRE(graph.get_base(graph.flip(h), 2) == 'T');
+            REQUIRE(graph.get_subsequence(h, 1, 3) == "TG");
+            REQUIRE(graph.get_subsequence(graph.flip(h), 0, 2) == "CA");
             REQUIRE(graph.get_length(h) == 3);
             REQUIRE(graph.has_node(graph.get_id(h)));
             REQUIRE(!graph.has_node(graph.get_id(h) + 1));
@@ -575,7 +597,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             REQUIRE(!graph.get_is_reverse(h));
             REQUIRE(graph.get_is_reverse(graph.flip(h)));
             
-            REQUIRE(graph.node_size() == 1);
+            REQUIRE(graph.get_node_count() == 1);
             REQUIRE(graph.min_node_id() == graph.get_id(h));
             REQUIRE(graph.max_node_id() == graph.get_id(h));
             
@@ -596,13 +618,17 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             
             REQUIRE(graph.get_sequence(h2) == "CT");
             REQUIRE(graph.get_sequence(graph.flip(h2)) == "AG");
+            REQUIRE(graph.get_base(h2, 1) == 'T');
+            REQUIRE(graph.get_base(graph.flip(h2), 0) == 'A');
+            REQUIRE(graph.get_subsequence(h2, 1, 10) == "T");
+            REQUIRE(graph.get_subsequence(graph.flip(h2), 0, 2) == "AG");
             REQUIRE(graph.get_length(h2) == 2);
             REQUIRE(graph.has_node(graph.get_id(h2)));
             REQUIRE(!graph.has_node(max(graph.get_id(h), graph.get_id(h2)) + 1));
             
             REQUIRE(graph.get_handle(graph.get_id(h2)) == h2);
             
-            REQUIRE(graph.node_size() == 2);
+            REQUIRE(graph.get_node_count() == 2);
             REQUIRE(graph.min_node_id() == graph.get_id(h2));
             REQUIRE(graph.max_node_id() == graph.get_id(h));
             
@@ -624,11 +650,15 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
         {
             REQUIRE(graph.get_sequence(h3) == "GAC");
             REQUIRE(graph.get_sequence(graph.flip(h3)) == "GTC");
+            REQUIRE(graph.get_base(h3, 1) == 'A');
+            REQUIRE(graph.get_base(graph.flip(h3), 0) == 'G');
+            REQUIRE(graph.get_subsequence(h3, 1, 1) == "A");
+            REQUIRE(graph.get_subsequence(graph.flip(h3), 0, 5) == "GTC");
             REQUIRE(graph.get_length(h3) == 3);
             
             REQUIRE(graph.get_handle(graph.get_id(h3)) == h3);
             
-            REQUIRE(graph.node_size() == 3);
+            REQUIRE(graph.get_node_count() == 3);
             REQUIRE(graph.min_node_id() == graph.get_id(h2));
             REQUIRE(graph.max_node_id() == graph.get_id(h3));
             
@@ -655,7 +685,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
             
             REQUIRE(graph.get_handle(graph.get_id(h4)) == h4);
             
-            REQUIRE(graph.node_size() == 4);
+            REQUIRE(graph.get_node_count() == 4);
             REQUIRE(graph.min_node_id() == graph.get_id(h2));
             REQUIRE(graph.max_node_id() == graph.get_id(h3));
             
@@ -1682,63 +1712,68 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
         REQUIRE(xg_index.get_path_count() == 3);
     }
     
-    SECTION("Handles can traverse paths") {
+    // check that a path is correctly accessible and traversible
+    auto check_path_traversal = [&](const PathHandleGraph& graph, const Path& path) {
         
-        // check that a path is correctly accessible and traversible
-        auto check_path_traversal = [&](const PathHandleGraph& graph, const Path& path) {
+        path_handle_t path_handle = graph.get_path_handle(path.name());
+        
+        REQUIRE(graph.get_step_count(path_handle) == path.mapping_size());
+        
+        // check that steps is pointing to the same index along the path
+        auto check_step = [&](const step_handle_t& step_handle,
+                              int mapping_idx) {
+            REQUIRE(graph.get_path_handle_of_step(step_handle) == path_handle);
             
-            path_handle_t path_handle = graph.get_path_handle(path.name());
+            const Mapping& mapping = path.mapping(mapping_idx);
             
-            REQUIRE(graph.get_step_count(path_handle) == path.mapping_size());
+            handle_t handle = graph.get_handle_of_step(step_handle);
             
-            // check that steps is pointing to the same index along the path
-            auto check_step = [&](const step_handle_t& step_handle,
-                                  int mapping_idx) {
-                REQUIRE(graph.get_path_handle_of_step(step_handle) == path_handle);
-                
-                const Mapping& mapping = path.mapping(mapping_idx);
-                
-                handle_t handle = graph.get_handle_of_step(step_handle);
-                
-                REQUIRE(graph.get_id(handle) == mapping.position().node_id());
-                REQUIRE(graph.get_is_reverse(handle) == mapping.position().is_reverse());
-            };
+            REQUIRE(graph.get_id(handle) == mapping.position().node_id());
+            REQUIRE(graph.get_is_reverse(handle) == mapping.position().is_reverse());
             
-            step_handle_t step_handle = graph.path_begin(path_handle);
+            bool should_have_next = path.is_circular() || mapping_idx + 1 < path.mapping_size();
+            bool should_have_prev = path.is_circular() || mapping_idx > 0;
             
-            // iterate front to back
-            for (int i = 0; i < path.mapping_size(); i++) {
-                
-                if (i > 0) {
-                    step_handle_t previous = graph.get_previous_step(step_handle);
-                    check_step(previous, i - 1);
-                }
-                else if (path.is_circular()) {
-                    step_handle_t previous = graph.get_previous_step(step_handle);
-                    check_step(previous, path.mapping_size() - 1);
-                }
-                
-                check_step(step_handle, i);
-                step_handle = graph.get_next_step(step_handle);
-            }
-            
-            if (path.is_circular() && path.mapping_size() > 0) {
-                REQUIRE(step_handle == graph.path_begin(path_handle));
-            }
-            else {
-                REQUIRE(step_handle == graph.path_end(path_handle));
-            }
-
-            // iterate front to back with the iteration function
-            {
-                int i = 0;
-                graph.for_each_step_in_path(path_handle, [&i, &check_step](const step_handle_t& step_handle) {
-                    check_step(step_handle, i);
-                    i++;
-                });
-                REQUIRE(i == path.mapping_size());
-            }
+            REQUIRE(graph.has_next_step(step_handle) == should_have_next);
+            REQUIRE(graph.has_previous_step(step_handle) == should_have_prev);
         };
+        
+        step_handle_t step_handle = graph.path_begin(path_handle);
+        
+        // iterate front to back
+        for (int i = 0; i < path.mapping_size(); i++) {
+            if (i > 0) {
+                step_handle_t previous = graph.get_previous_step(step_handle);
+                check_step(previous, i - 1);
+            }
+            else if (path.is_circular()) {
+                step_handle_t previous = graph.get_previous_step(step_handle);
+                check_step(previous, path.mapping_size() - 1);
+            }
+            
+            check_step(step_handle, i);
+            step_handle = graph.get_next_step(step_handle);
+        }
+        
+        if (path.is_circular() && path.mapping_size() > 0) {
+            REQUIRE(step_handle == graph.path_begin(path_handle));
+        }
+        else {
+            REQUIRE(step_handle == graph.path_end(path_handle));
+        }
+        
+        // iterate front to back with the iteration function
+        {
+            int i = 0;
+            graph.for_each_step_in_path(path_handle, [&i, &check_step](const step_handle_t& step_handle) {
+                check_step(step_handle, i);
+                i++;
+            });
+            REQUIRE(i == path.mapping_size());
+        }
+    };
+    
+    SECTION("Handles can traverse paths") {
         
         check_path_traversal(vg, path1);
         check_path_traversal(vg, path2);
@@ -1746,6 +1781,47 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
         check_path_traversal(xg_index, path1);
         check_path_traversal(xg_index, path2);
         check_path_traversal(xg_index, path3);
+    }
+    
+    SECTION("VG can rewrite a segment of a path") {
+        
+        // get the segments we want to replace
+        
+        path_handle_t path_handle_1 = vg.get_path_handle("1");
+        step_handle_t segment_begin_1 = vg.get_next_step(vg.get_next_step(vg.path_begin(path_handle_1)));
+        step_handle_t segment_end_1 = vg.get_next_step(vg.get_next_step(segment_begin_1));
+        
+        path_handle_t path_handle_2 = vg.get_path_handle("2");
+        step_handle_t segment_begin_2 = vg.path_begin(path_handle_2);
+        step_handle_t segment_end_2 = vg.get_next_step(segment_begin_2);
+        
+        path_handle_t path_handle_3 = vg.get_path_handle("3");
+        step_handle_t segment_end_3 = vg.path_end(path_handle_3);
+        step_handle_t segment_begin_3 = vg.get_previous_step(vg.get_previous_step(segment_end_3));
+        
+        // replace them
+        auto new_segment_1 = vg.rewrite_segment(segment_begin_1, segment_end_1, {vg.get_handle(n2->id()), vg.get_handle(n3->id())});
+        auto new_segment_2 = vg.rewrite_segment(segment_begin_2, segment_end_2, {vg.get_handle(n4->id())});
+        auto new_segment_3 = vg.rewrite_segment(segment_begin_3, segment_end_3, {vg.get_handle(n6->id(), true), vg.get_handle(n5->id(), true), vg.get_handle(n4->id(), true)});
+        
+        // update the Path objects to match our edits
+        path1.mutable_mapping(3)->mutable_position()->set_node_id(n3->id());
+        
+        path2.mutable_mapping(0)->mutable_position()->set_node_id(n4->id());
+        
+        path3.mutable_mapping(1)->mutable_position()->set_node_id(n6->id());
+        path3.mutable_mapping(2)->mutable_position()->set_node_id(n5->id());
+        Mapping* mapping = path3.add_mapping();
+        Position* position = mapping->mutable_position();
+        position->set_node_id(n4->id());
+        position->set_is_reverse(true);
+        
+        // check to make sure the handle backings are correct
+        check_path_traversal(vg, path1);
+        check_path_traversal(vg, path2);
+        check_path_traversal(vg, path3);
+        
+        // TODO: check the replaced segments' handles
     }
 }
     
@@ -1968,11 +2044,22 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
         
         auto check_path = [&](const path_handle_t& p, const vector<handle_t>& steps) {
             
+            REQUIRE(graph.get_step_count(p) == steps.size());
+            
             step_handle_t step = graph.path_begin(p);
-            for (int i = 0; i < steps.size(); i++){
+            for (int i = 0; i < steps.size(); i++) {
                 
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
+                
+                if (graph.get_is_circular(p)) {
+                    REQUIRE(graph.has_next_step(step));
+                    REQUIRE(graph.has_previous_step(step));
+                }
+                else {
+                    REQUIRE(graph.has_next_step(step) == i + 1 < steps.size());
+                    REQUIRE(graph.has_previous_step(step) == i > 0);
+                }
                 
                 step = graph.get_next_step(step);
             }
@@ -1984,23 +2071,30 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
                 REQUIRE(step == graph.path_end(p));
             }
             
-            step = graph.get_previous_step(step);
+            step = graph.path_back(p);
             
-            for (int i = steps.size() - 1; i >= 0; i--){
+            for (int i = steps.size() - 1; i >= 0; i--) {
                 
                 REQUIRE(graph.get_path_handle_of_step(step) == p);
                 REQUIRE(graph.get_handle_of_step(step) == steps[i]);
                 
-                if (i != 0 || (graph.get_is_circular(p) && !graph.is_empty(p))) {
-                    step = graph.get_previous_step(step);
+                if (graph.get_is_circular(p)) {
+                    REQUIRE(graph.has_next_step(step));
+                    REQUIRE(graph.has_previous_step(step));
                 }
+                else {
+                    REQUIRE(graph.has_next_step(step) == i + 1 < steps.size());
+                    REQUIRE(graph.has_previous_step(step) == i > 0);
+                }
+                
+                step = graph.get_previous_step(step);
             }
             
             if (graph.get_is_circular(p) && !graph.is_empty(p)) {
-                REQUIRE(graph.get_handle_of_step(step) == steps.back());
+                REQUIRE(step == graph.path_back(p));
             }
             else {
-                REQUIRE(step == graph.path_begin(p));
+                REQUIRE(step == graph.path_front_end(p));
             }
         };
         
@@ -2228,6 +2322,57 @@ TEST_CASE("Mutable handle graphs with mutable paths work", "[handle][packed][has
         
         // check flips to see if membership records are still functional
         check_flips(p2, {h1, graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0]), h3});
+        
+        // make a path to rewrite
+        path_handle_t p4 = graph.create_path_handle("4");
+        graph.prepend_step(p4, h3);
+        graph.prepend_step(p4, segments[2]);
+        graph.prepend_step(p4, segments[1]);
+        graph.prepend_step(p4, segments[0]);
+        graph.prepend_step(p4, h1);
+        
+        check_flips(p4, {h1, segments[0], segments[1], segments[2], h3});
+        
+        auto check_rewritten_segment = [&](const pair<step_handle_t, step_handle_t>& new_segment,
+                                           const vector<handle_t>& steps) {
+            int i = 0;
+            for (auto step = new_segment.first; step != new_segment.second; step = graph.get_next_step(step)) {
+                REQUIRE(graph.get_handle_of_step(step) == steps[i]);
+                i++;
+            }
+            REQUIRE(i == steps.size());
+        };
+        
+        // rewrite the middle portion of a path
+        
+        step_handle_t s1 = graph.get_next_step(graph.path_begin(p4));
+        step_handle_t s2 = graph.get_next_step(graph.get_next_step(graph.get_next_step(s1)));
+        
+        auto new_segment = graph.rewrite_segment(s1, s2, {graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0])});
+        
+        check_flips(p4, {h1, graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0]), h3});
+        check_rewritten_segment(new_segment, {graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0])});
+        
+        // rewrite around the end of a circular path to delete
+        
+        graph.create_edge(h3, h1);
+        graph.create_edge(segments[2], segments[0]);
+        graph.set_circularity(p4, true);
+        
+        s1 = graph.get_previous_step(graph.path_begin(p4));
+        s2 = graph.get_next_step(graph.path_begin(p4));
+        
+        new_segment = graph.rewrite_segment(s1, s2, vector<handle_t>());
+        
+        check_flips(p4, {graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0])});
+        check_rewritten_segment(new_segment, vector<handle_t>());
+        
+        // add into an empty slot
+        
+        new_segment = graph.rewrite_segment(new_segment.first, new_segment.second, {graph.flip(h1), graph.flip(h3)});
+        
+        check_flips(p4, {graph.flip(h1), graph.flip(h3), graph.flip(segments[2]), graph.flip(segments[1]), graph.flip(segments[0])});
+        check_rewritten_segment(new_segment, {graph.flip(h1), graph.flip(h3)});
         
     }
     

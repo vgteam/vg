@@ -7,9 +7,9 @@ namespace algorithms {
                         const HandleGraph* graph_2, bool verbose) {
         
         
-        if (graph_1->node_size() != graph_2->node_size()) {
+        if (graph_1->get_node_count() != graph_2->get_node_count()) {
             if (verbose) {
-                cerr << "graphs have different numbers of nodes: " << graph_1->node_size() << " and " << graph_2->node_size() << endl;
+                cerr << "graphs have different numbers of nodes: " << graph_1->get_node_count() << " and " << graph_2->get_node_count() << endl;
             }
             return false;
         }

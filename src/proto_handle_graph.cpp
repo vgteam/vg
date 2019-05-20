@@ -109,7 +109,7 @@ using namespace handlegraph;
         }
     }
     
-    size_t ProtoHandleGraph::node_size() const {
+    size_t ProtoHandleGraph::get_node_count() const {
         return graph->node_size();
     }
     

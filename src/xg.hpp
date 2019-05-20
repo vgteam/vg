@@ -66,7 +66,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG : public PathHandleGraph {
+class XG : public PathHandleGraph, public SerializableHandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -124,10 +124,15 @@ public:
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
     void load(istream& in);
+    
+    // Alias for load() to match the SerializableHandleGraph interface
+    void deserialize(istream& in);
+    
+    void serialize(std::ostream& out) const;
     // Save this XG index to a stream.
-    size_t serialize(std::ostream& out,
-                     sdsl::structure_tree_node* v = NULL,
-                     std::string name = "") const;
+    size_t serialize_and_measure(std::ostream& out,
+                                 sdsl::structure_tree_node* v = NULL,
+                                 std::string name = "") const;
                      
     
     ////////////////////////////////////////////////////////////////////////////
@@ -231,11 +236,18 @@ public:
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
     /// Get the maximum node ID used in the graph, if any are used
     virtual id_t max_node_id() const;
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    virtual char get_base(const handle_t& handle, size_t index) const;
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
     
     // TODO: There's currently no really good efficient way to implement
     // get_degree; we have to decode each edge to work out what node side it is
@@ -271,6 +283,18 @@ public:
     /// return by get_next_step for the final step in a path in a non-circular path.
     /// Note that get_next_step will *NEVER* return this value for a circular path.
     step_handle_t path_end(const path_handle_t& path_handle) const;
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    step_handle_t path_back(const path_handle_t& path_handle) const;
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    /// Returns true if the step is not the last step in a non-circular path.
+    bool has_next_step(const step_handle_t& step_handle) const;
+    /// Returns true if the step is not the first step in a non-circular path.
+    bool has_previous_step(const step_handle_t& step_handle) const;
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
     /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
@@ -926,7 +950,7 @@ size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name);
 
 // Deserialize a rank_select_int_vector in an SDSL serialization compatible way.
-void deserialize(XG::rank_select_int_vector& target, istream& in);
+void deserialize_rsiv(XG::rank_select_int_vector& target, istream& in);
 
 // Determine if two edges are equivalent (the same or one is the reverse of the other)
 bool edges_equivalent(const Edge& e1, const Edge& e2);

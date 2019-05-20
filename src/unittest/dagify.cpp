@@ -36,7 +36,7 @@ namespace unittest {
             unordered_map<id_t, id_t> trans = algorithms::dagify(&graph, &dagified, preserved_length);
             
             REQUIRE(algorithms::is_acyclic(&dagified));
-            REQUIRE(dagified.node_size() == 6);
+            REQUIRE(dagified.get_node_count() == 6);
             
             handle_t d1, d2, d3, d4, d5, d6;
             bool f1 = false, f2 = false, f3 = false, f4 = false, f5 = false, f6 = false;
@@ -154,7 +154,7 @@ namespace unittest {
             unordered_map<id_t, id_t> trans = algorithms::dagify(&graph, &dagified, preserved_length);
             
             REQUIRE(algorithms::is_acyclic(&dagified));
-            REQUIRE(dagified.node_size() == 8);
+            REQUIRE(dagified.get_node_count() == 8);
 
             handle_t d1, d2, d3, d4, d5, d6, d7, d8;
             bool f1 = false, f2 = false, f3 = false, f4 = false, f5 = false, f6 = false, f7 = false, f8 = false;
@@ -283,7 +283,7 @@ namespace unittest {
             unordered_map<id_t, id_t> trans = algorithms::dagify(&graph, &dagified, preserved_length);
             
             REQUIRE(algorithms::is_acyclic(&dagified));
-            REQUIRE(dagified.node_size() == 6);
+            REQUIRE(dagified.get_node_count() == 6);
             
             handle_t d1, d2, d3, d4, d5, d6;
             bool f1 = false, f2 = false, f3 = false, f4 = false, f5 = false, f6 = false;

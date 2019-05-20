@@ -12,8 +12,11 @@
 
 #include "handle.hpp"
 #include "packed_structs.hpp"
+#include "split_strand_graph.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
+
+#include "algorithms/eades_algorithm.hpp"
 
 
 namespace vg {
@@ -21,11 +24,15 @@ namespace vg {
 using namespace std;
 
 
-class PackedGraph : public MutablePathDeletableHandleGraph {
+class PackedGraph : public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
         
 public:
     PackedGraph();
     ~PackedGraph();
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // I/O methods
+    ////////////////////////////////////////////////////////////////////////////
     
     /// Construct from a stream
     PackedGraph(istream& in);
@@ -73,9 +80,17 @@ public:
     /// order is not defined.
     bool for_each_handle_impl(const std::function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual std::string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
+    
     /// Return the number of nodes in the graph
-    /// TODO: can't be node_count because XG has a field named node_count.
-    size_t node_size(void) const;
+    size_t get_node_count(void) const;
     
     /// Return the smallest ID in the graph, or some smaller number if the
     /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
@@ -111,17 +126,6 @@ public:
     /// Remove all nodes and edges. Does not update any stored paths.
     void clear(void);
     
-    /// TODO: swap_handles is actually not yet supported
-    
-    /// Swap the nodes corresponding to the given handles, in the ordering used
-    /// by for_each_handle when looping over the graph. Other handles to the
-    /// nodes being swapped must not be invalidated. If a swap is made while
-    /// for_each_handle is running, it affects the order of the handles
-    /// traversed during the current traversal (so swapping an already seen
-    /// handle to a later handle's position will make the seen handle be visited
-    /// again and the later handle not be visited at all).
-    void swap_handles(const handle_t& a, const handle_t& b);
-    
     /// Alter the node that the given handle corresponds to so the orientation
     /// indicated by the handle becomes the node's local forward orientation.
     /// Rewrites all edges pointing to the node and the node's sequence to
@@ -140,6 +144,19 @@ public:
     /// passed in.
     /// Updates stored paths.
     vector<handle_t> divide_handle(const handle_t& handle, const std::vector<size_t>& offsets);
+    
+    /// Adjust the representation of the graph in memory to improve performance.
+    /// Optionally, allow the node IDs to be reassigned to further improve
+    /// performance.
+    /// Note: Ideally, this method is called one time once there is expected to be
+    /// few graph modifications in the future.
+    void optimize(bool allow_id_reassignment = true);
+    
+    /// Reorder the graph's internal structure to match that given.
+    /// This sets the order that is used for iteration in functions like for_each_handle.
+    /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
+    void apply_ordering(const vector<handle_t>& order, bool compact_ids = false);
     
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
@@ -176,6 +193,22 @@ public:
     /// return by get_next_step for the final step in a path in a non-circular path.
     /// Note that get_next_step will *NEVER* return this value for a circular path.
     step_handle_t path_end(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    step_handle_t path_back(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    
+    /// Returns true if the step is not the last step in a non-circular path.
+    bool has_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the first step in a non-circular path.
+    bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
@@ -222,6 +255,26 @@ public:
      * steps on the path, and to other paths, must remain valid.
      */
     step_handle_t append_step(const path_handle_t& path, const handle_t& to_append);
+    
+    /**
+     * Prepend a visit to a node to the given path. Returns a handle to the new
+     * first step on the path which is appended. If the path is cirular, the new
+     * step is placed between the steps considered "last" and "first" by the
+     * method path_begin. Handles to later steps on the path, and to other paths,
+     * must remain valid.
+     */
+    step_handle_t prepend_step(const path_handle_t& path, const handle_t& to_prepend);
+    
+    /**
+     * Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair
+     * of step_handle_t's that indicate the range of the new segment in the path. The segment to
+     * delete should be designated by the first and the past-the-last step handle.  If the step
+     * that is returned by path_begin is deleted, path_begin will now return the first step from
+     * the new segment or, in the case that the new segment is empty, segment_end.
+     */
+    pair<step_handle_t, step_handle_t> rewrite_segment(const step_handle_t& segment_begin,
+                                                       const step_handle_t& segment_end,
+                                                       const vector<handle_t>& new_segment);
 
     /**
      * Make a path circular or non-circular. If the path is becoming circular, the
@@ -231,20 +284,19 @@ public:
      */
     void set_circularity(const path_handle_t& path, bool circular);
     
-    ////////////////////////////////////////////////////////////////////////////
-    /// Specialized PackedGraph methods
-    ////////////////////////////////////////////////////////////////////////////
-    
-    /// Attempt to compress data into less memory, possibly using more memory temporarily
-    /// (especially useful before serializing).
-    void compactify(void);
-    
 private:
     
-    /// The maximum ID in the graph
-    id_t max_id = 0;
-    /// The minimum ID in the graph
-    id_t min_id = std::numeric_limits<id_t>::max();
+    // Forward declaration so we can use it as an argument to methods
+    struct PackedPath;
+    
+    /// Attempt to compress data into less memory, possibly using more memory temporarily
+    /// (especially useful before serializing). Node handles remain valid, but path and
+    /// step handles are invalidated.
+    void tighten(void);
+    
+    /// Compact the node ID space to [1, num_nodes] according the indicated order. Every node
+    /// must be present in the vector exactly one time to be valid.
+    void compact_ids(const vector<handle_t>& order);
     
     /// Initialize all of the data corresponding with a new node and return
     /// it's 1-based offset
@@ -253,16 +305,30 @@ private:
     /// Find and edge on given handle, to a given handle, and remove it from the edge list
     void remove_edge_reference(const handle_t& on, const handle_t& to);
     
+    /// If we've deleted any paths, remove them from the paths vector and reassign path IDs
+    void eject_deleted_paths();
+    
     /// Check if have orphaned enough records in the graph's various linked lists to
     /// warrant reallocating and defragmenting them. If so, do it. Optionally, defragment
     /// even if we have not deleted many things.
     void defragment(bool force = false);
     
-    /// Defragment when the orphaned records are this fraction of the whole.
+    /// Check if have orphaned enough records in the linked list of the path to warrant
+    /// reallocating and defragmenting it. If so, do it. Optionally, defragment even if
+    /// we have not deleted many things.
+    /// WARNING: invalidates step_handle_t's to this path.
+    void defragment_path(PackedPath& path, bool force = false);
+    
+    /// Defragment data structures when the orphaned records are this fraction of the whole.
     const static double defrag_factor;
     
     /// We use a standard page width for all page-compressed vectors
-    const static size_t PAGE_WIDTH = 128;
+    const static size_t PAGE_WIDTH;
+    
+    /// The maximum ID in the graph
+    id_t max_id = 0;
+    /// The minimum ID in the graph
+    id_t min_id = std::numeric_limits<id_t>::max();
     
     // TODO: some of these offsets are a little silly and only are around as legacy.
     // They could be removed once the factoring stabilizes, but optimization will also
@@ -272,24 +338,26 @@ private:
     /// offsets in edge_lists_iv.
     /// {start edge list index, end edge list index}
     PagedVector graph_iv;
-    const static size_t GRAPH_RECORD_SIZE = 2;
-    const static size_t GRAPH_START_EDGES_OFFSET = 0;
-    const static size_t GRAPH_END_EDGES_OFFSET = 1;
+    const static size_t GRAPH_RECORD_SIZE;
+    const static size_t GRAPH_START_EDGES_OFFSET;
+    const static size_t GRAPH_END_EDGES_OFFSET;
     
     /// Encodes the start of a node's sequence in seq_iv. Matches the order of graph_iv.
     PagedVector seq_start_iv;
-    const static size_t SEQ_START_RECORD_SIZE = 1;
+    const static size_t SEQ_START_RECORD_SIZE;
     
     /// Encodes the length of a node's sequence in seq_iv. Matches the order of graph_iv.
     PackedVector seq_length_iv;
-    const static size_t SEQ_LENGTH_RECORD_SIZE = 1;
+    const static size_t SEQ_LENGTH_RECORD_SIZE;
 
+    // TODO: split up the edge lists into separate vectors
+    
     /// Encodes a series of edges lists of nodes.
     /// {ID|orientation (bit-packed), next edge index}
     PagedVector edge_lists_iv;
-    const static size_t EDGE_RECORD_SIZE = 2;
-    const static size_t EDGE_TRAV_OFFSET = 0;
-    const static size_t EDGE_NEXT_OFFSET = 1;
+    const static size_t EDGE_RECORD_SIZE;
+    const static size_t EDGE_TRAV_OFFSET;
+    const static size_t EDGE_NEXT_OFFSET;
     
     // TODO: template out the deque and back id_to_graph_iv with a paged vector? might
     // provide better compression now that it can handle 0's gracefully. unsure how the
@@ -307,24 +375,27 @@ private:
     /// Consists of 1-based offset to the corresponding heads of linked lists in
     /// path_membership_value_iv, which contains the actual pointers into the paths.
     PagedVector path_membership_node_iv;
-    const static size_t NODE_MEMBER_RECORD_SIZE = 1;
+    const static size_t NODE_MEMBER_RECORD_SIZE;
     
-    /// Encodes a series of linked lists of the memberships within paths. Consists of
-    /// fixed width records of the following form. Path IDs are 0-based indexes, the
-    /// other two indexes are 1-based and expressed in units of PATH_RECORD_SIZE and
-    /// MEMBERSHIP_RECORD_SIZE respectively.
-    /// {path ID, index in path, next membership record index}
-    PagedVector path_membership_value_iv;
-    const static size_t MEMBERSHIP_RECORD_SIZE = 3;
-    const static size_t MEMBERSHIP_PATH_OFFSET = 0;
-    const static size_t MEMBERSHIP_STEP_OFFSET = 1;
-    const static size_t MEMBERSHIP_NEXT_OFFSET = 2;
+    /// Encodes a series of linked lists of the memberships within paths. The nodes
+    /// in the linked list are split over three separate vectors, with the entry at
+    /// the same index in each vector corresponding to the same linked list node.
+    /// Path ID (0-based index)
+    PagedVector path_membership_id_iv;
+    /// 1-based offset of the occurrence of the node in the corresponding PackedPath vector.
+    PagedVector path_membership_offset_iv;
+    /// 1-based offset of the next occurrence of this node on a path within this vector (or
+    /// 0 if there is none)
+    PagedVector path_membership_next_iv;
+    const static size_t MEMBERSHIP_ID_RECORD_SIZE;
+    const static size_t MEMBERSHIP_OFFSET_RECORD_SIZE;
+    const static size_t MEMBERSHIP_NEXT_RECORD_SIZE;
     
     /*
      * A struct to package the data associated with a path through the graph.
      */
     struct PackedPath {
-        PackedPath(const string& name, bool is_circular) : name(name), is_circular(is_circular), steps_iv(PAGE_WIDTH) {}
+        PackedPath(const string& name, bool is_circular) : name(name), is_circular(is_circular), steps_iv(PAGE_WIDTH), links_iv(PAGE_WIDTH) {}
         
         /// The path's name
         string name;
@@ -335,11 +406,12 @@ private:
         /// Marks whether this path is circular
         bool is_circular = false;
         
-        // TODO: split up steps_iv into adjacencies and travs separately
-        
         /// Linked list records that encode the oriented nodes of the path. Indexes are
         /// 1-based, with 0 used as a sentinel to indicate none further.
-        /// {ID|orientation (bit-packed), prev step index, next step index}
+        /// {prev index, next index}
+        PagedVector links_iv;
+        /// The traversal value is stored in a separate vector at the matching index.
+        /// {ID|orientation (bit-packed)}
         PagedVector steps_iv;
         
         /// 1-based index of the head of the linked list in steps_iv.
@@ -347,11 +419,15 @@ private:
         
         /// 1-based index of the tail of the linked list in steps_iv.
         size_t tail = 0;
+        
+        /// The number of steps that have been deleted from the path
+        uint64_t deleted_step_records = 0;
     };
-    const static size_t PATH_RECORD_SIZE = 3;
-    const static size_t PATH_TRAV_OFFSET = 0;
-    const static size_t PATH_PREV_OFFSET = 1;
-    const static size_t PATH_NEXT_OFFSET = 2;
+    const static size_t PATH_RECORD_SIZE;
+    const static size_t PATH_PREV_OFFSET;
+    const static size_t PATH_NEXT_OFFSET;
+    
+    const static size_t STEP_RECORD_SIZE;
     
     /// Map from path names to index in the paths vector.
     string_hash_map<string, int64_t> path_id;
@@ -384,6 +460,8 @@ private:
     inline uint64_t get_membership_step(const uint64_t& membership_index) const;
     inline uint64_t get_membership_path(const uint64_t& membership_index) const;
     inline void set_next_membership(const uint64_t& membership_index, const uint64_t& next);
+    inline void set_membership_step(const uint64_t& membership_index, const uint64_t& step);
+    inline void set_membership_path(const uint64_t& membership_index, const uint64_t& path);
     
     inline uint64_t get_step_trav(const PackedPath& path, const uint64_t& step_index) const;
     inline uint64_t get_step_prev(const PackedPath& path, const uint64_t& step_index) const;
@@ -478,43 +556,51 @@ inline void PackedGraph::set_edge_target(const uint64_t& edge_index, const handl
 }
     
 inline uint64_t PackedGraph::get_next_membership(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET);
+    return path_membership_next_iv.get((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE);
 }
     
 inline uint64_t PackedGraph::get_membership_step(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_STEP_OFFSET);
+    return path_membership_offset_iv.get((membership_index - 1) * MEMBERSHIP_OFFSET_RECORD_SIZE);
 }
 
 inline uint64_t PackedGraph::get_membership_path(const uint64_t& membership_index) const {
-    return path_membership_value_iv.get((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_PATH_OFFSET);
+    return path_membership_id_iv.get((membership_index - 1) * MEMBERSHIP_ID_RECORD_SIZE);
 }
 
 inline void PackedGraph::set_next_membership(const uint64_t& membership_index, const uint64_t& next) {
-    path_membership_value_iv.set((membership_index - 1) * MEMBERSHIP_RECORD_SIZE + MEMBERSHIP_NEXT_OFFSET, next);
+    path_membership_next_iv.set((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE, next);
+}
+    
+inline void PackedGraph::set_membership_step(const uint64_t& membership_index, const uint64_t& step) {
+    path_membership_offset_iv.set((membership_index - 1) * MEMBERSHIP_ID_RECORD_SIZE, step);
+}
+    
+inline void PackedGraph::set_membership_path(const uint64_t& membership_index, const uint64_t& path) {
+    path_membership_id_iv.set((membership_index - 1) * MEMBERSHIP_NEXT_RECORD_SIZE, path);
 }
 
 inline uint64_t PackedGraph::get_step_trav(const PackedPath& path, const uint64_t& step_index) const {
-    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET);
+    return path.steps_iv.get((step_index - 1) * STEP_RECORD_SIZE);
 }
 
 inline uint64_t PackedGraph::get_step_prev(const PackedPath& path, const uint64_t& step_index) const {
-    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET);
+    return path.links_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET);
 }
 
 inline uint64_t PackedGraph::get_step_next(const PackedPath& path, const uint64_t& step_index) const {
-    return path.steps_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET);
+    return path.links_iv.get((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET);
 }
 
 inline void PackedGraph::set_step_trav(PackedPath& path, const uint64_t& step_index, const uint64_t& trav) {
-    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_TRAV_OFFSET, trav);
+    path.steps_iv.set((step_index - 1) * STEP_RECORD_SIZE, trav);
 }
 
 inline void PackedGraph::set_step_prev(PackedPath& path, const uint64_t& step_index, const uint64_t& prev_index) {
-    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET, prev_index);
+    path.links_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_PREV_OFFSET, prev_index);
 }
 
 inline void PackedGraph::set_step_next(PackedPath& path, const uint64_t& step_index, const uint64_t& next_index) {
-    path.steps_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, next_index);
+    path.links_iv.set((step_index - 1) * PATH_RECORD_SIZE + PATH_NEXT_OFFSET, next_index);
 }
 
 } // end dankness

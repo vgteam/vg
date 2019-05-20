@@ -7,6 +7,7 @@
 
 #include "handle.hpp"
 #include <unordered_set>
+#include <vector>
 
 namespace vg {
 
@@ -28,6 +29,9 @@ using namespace std;
         /// perfect matches, and all adjacent mappings must properly cross a real
         /// edge.
         PathSubgraph(const HandleGraph* base, const Path& path);
+        
+        /// Get a topological order very easily, since the path defines one.
+        vector<handle_t> get_topological_order() const;
         
         //////////////////////////
         /// HandleGraph interface
@@ -71,7 +75,7 @@ using namespace std;
     public:
         /// Return the number of nodes in the graph
         /// TODO: can't be node_count because XG has a field named node_count.
-        virtual size_t node_size() const;
+        virtual size_t get_node_count() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the
         /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
