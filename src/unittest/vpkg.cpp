@@ -132,6 +132,37 @@ TEST_CASE("We cannot read a base HandleGraph from an empty file", "[vpkg][handle
     REQUIRE(loaded.get() == nullptr);
 }
 
+TEST_CASE("We can read from a VPKG-wrapped stream as a HandleGraph", "[vpkg][handlegraph][vg]") {
+    string graph_json = R"(
+    {"node":[{"id":1,"sequence":"GATT"},
+    {"id":2,"sequence":"ACA"}],
+    "edge":[{"to":2,"from":1}]}
+    )";
+    
+    // Load the JSON
+    Graph proto_graph;
+    json2pb(proto_graph, graph_json.c_str(), graph_json.size());
+    
+    // Build the VG
+    vg::VG vg_graph(proto_graph);
+    
+    // Save it
+    stringstream ss;
+    vg::io::VPKG::save(vg_graph, ss);
+    
+    // There should be some data
+    REQUIRE(ss.str().size() != 0);
+    
+    unique_ptr<HandleGraph> loaded = vg::io::VPKG::load_one<HandleGraph>(ss);
+    
+    // Make sure we got something
+    REQUIRE(loaded.get() != nullptr);
+    
+    // Make sure it is the thing we saved
+    REQUIRE(loaded->get_node_count() == 2);
+    REQUIRE(loaded->get_sequence(loaded->get_handle(1, false)) == "GATT");
+}
+
 }
 
 }
