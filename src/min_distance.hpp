@@ -35,7 +35,9 @@ class MinimumDistanceIndex {
     //Load serialized object from in. Does not rely on the internal graph or snarl manager pointers.
     void load(istream& in);
     
-    /*Get the minimum distance between two position
+    /*Get the minimum distance between two positions
+     * Distance includes only one of the positions. The distance from a 
+     * position to itself would be 1
      *If there is no path between the two positions then the distance is -1
      */
     int64_t minDistance( pos_t pos1, pos_t pos2);
@@ -321,7 +323,7 @@ class MinimumDistanceIndex {
       the direction of pos)
     */
     tuple<int64_t, int64_t, pair<id_t, bool>> distToCommonAncestor(
-                pair<id_t, bool> commonAncestor, pos_t& pos, bool rev); 
+                pair<size_t, bool> common_ancestor, pos_t& pos, bool rev); 
 
 
     friend class SnarlIndex;

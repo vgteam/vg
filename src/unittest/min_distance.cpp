@@ -189,6 +189,17 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
             NetGraph ng2 = NetGraph(snarl2->start(), snarl2->end(), snarl_manager.chains_of(snarl2), &graph);
             NetGraph ng3 = NetGraph(snarl3->start(), snarl3->end(), snarl_manager.chains_of(snarl3), &graph);
 
+            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+                                   make_pos_t(2, false, 0) ) == 3);
+            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+                                   make_pos_t(8, false, 0) ) == 3);
+            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+                                   make_pos_t(6, false, 0) ) == 4);
+            REQUIRE(di.minDistance(make_pos_t(2, false, 0),
+                                   make_pos_t(6, false, 0) ) == 1);
+            REQUIRE(di.minDistance(make_pos_t(1, false, 0),
+                                   make_pos_t(7, false, 0) ) == 5);
+
 //            REQUIRE(sd1.snarlDistance(start1, make_pair(2, false)) == 3); 
 //            REQUIRE(sd1.snarlDistance(start1, make_pair(2, true)) == -1); 
 //            REQUIRE(sd1.snarlDistance(start2r, make_pair(1,true)) == 3); 
@@ -740,6 +751,17 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
+
+            auto snarl1 = snarl_manager.into_which_snarl(1, true);
+            auto snarl2 = snarl_manager.into_which_snarl(2, true);
+            auto snarl3 = snarl_manager.into_which_snarl(3, false);
+            auto snarl7 = snarl_manager.into_which_snarl(7, true);
+
+
+            NetGraph ng7 = NetGraph(snarl7->start(), snarl7->end(), snarl_manager.chains_of(snarl7), &graph);
+            ng7.for_each_handle([&](const handle_t& h)->bool {
+                                       cerr << ng7.get_id(h) << " "; 
+                                       return true;} );
         TestMinDistanceIndex di (&graph, &snarl_manager);
 
 
@@ -753,24 +775,6 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
             #ifdef print
             di.printSelf();
             #endif
-            auto snarl1 = snarl_manager.into_which_snarl(1, true);
-            auto snarl2 = snarl_manager.into_which_snarl(2, true);
-            auto snarl3 = snarl_manager.into_which_snarl(3, false);
-            auto snarl7 = snarl_manager.into_which_snarl(7, true);
-
-            const Chain* chain = snarl_manager.chain_of(snarl2);
-            TestMinDistanceIndex::SnarlIndex& sd1 = 
-                     di.snarl_indexes[di.primary_snarl_assignments[snarl1->start().node_id()-di.min_node_id]];
- 
-            TestMinDistanceIndex::SnarlIndex& sd2 = 
-                     di.snarl_indexes[di.primary_snarl_assignments[snarl2->start().node_id() - di.min_node_id]];
-            TestMinDistanceIndex::SnarlIndex& sd7 = 
-                     di.snarl_indexes[di.primary_snarl_assignments[snarl7->start().node_id() - di.min_node_id]];  
-
-
-            NetGraph ng1 = NetGraph(snarl1->start(), snarl1->end(), snarl_manager.chains_of(snarl1), &graph);
-            NetGraph ng2 = NetGraph(snarl2->start(), snarl2->end(), snarl_manager.chains_of(snarl2), &graph);
-            NetGraph ng7 = NetGraph(snarl7->start(), snarl7->end(), snarl_manager.chains_of(snarl7), &graph);
 //            TestMinDistanceIndex::ChainIndex& cd = di.chainDistances.at(get_start_of(*chain).node_id());
 
 //            REQUIRE(sd1.snarlDistance(make_pair(1, true), make_pair(1, false))

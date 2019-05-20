@@ -241,11 +241,8 @@ int main_gaffe(int argc, char** argv) {
     unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
     unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
     unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
-    unique_ptr<DistanceIndex> distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_name);
+    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
-    // Connect the DistanceIndex to the other things it needs to work.
-    distance_index->setGraph(xg_index.get());
-    distance_index->setSnarlManager(snarl_manager.get());
 
     // Set up the mapper
     MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), snarl_manager.get(), distance_index.get());
