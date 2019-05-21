@@ -495,8 +495,10 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                 #ifdef debugIndex
                                     cerr << " recurse" << endl;
                                 #endif
-                                bool rev_in_snarl = curr_id.first !=
-                                            get_start_of(*curr_chain).node_id();
+                                bool rev_in_snarl = curr_id.first ==
+                                            get_start_of(*curr_chain).node_id()
+                                          ? get_start_of(*curr_chain).backward()
+                                          : !get_end_of(*curr_chain).backward();
                                 node_len = calculateMinIndex(graph, 
                                              snarl_manager, curr_chain, 
                                              start_in_chain, rev_in_snarl,
@@ -582,7 +584,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                 curr_chain.emplace_back(curr_snarl, false);
                                 bool rev_in_snarl = curr_id.first == snarl_id 
                                               ? snarl_rev 
-                                              : end_rev;
+                                              : !end_rev;
                                 calculateMinIndex(graph, snarl_manager,
                                                  &curr_chain, start_in_chain,
                                                  rev_in_snarl, true, depth + 1);
