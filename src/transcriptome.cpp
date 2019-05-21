@@ -95,11 +95,11 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
             continue;
         }
 
-        // Parse start and end exon position.
+        // Parse start and end exon position and convert to 0-base.
         getline(transcript_stream, pos, '\t');
-        int32_t spos = stoi(pos);
+        int32_t spos = stoi(pos) - 1;
         getline(transcript_stream, pos, '\t');
-        int32_t epos = stoi(pos);
+        int32_t epos = stoi(pos) - 1;
 
         assert(spos <= epos);
 
