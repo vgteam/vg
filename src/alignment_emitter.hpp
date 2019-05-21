@@ -28,21 +28,52 @@ using namespace std;
  */
 class AlignmentEmitter {
 public:
+    
+    // These batched methods are the ones you need to implement. We batch for
+    // efficiency. If there are any locks necessary to ensure thread safety,
+    // you must lock once per batch instead of locking for every read.
+
+    /// Emit a batch of Alignments
+    virtual void emit_singles(vector<Alignment>&& aln_batch) = 0;
+    /// Emit batch of Alignments with secondaries. All secondaries must have is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) = 0;
+    /// Emit a batch of pairs of Alignments. The tlen_limit_batch, if
+    /// specified, is the maximum pairing distance for ewch pair to flag
+    /// properly paired, if the output format cares about such things. TODO:
+    /// Move to a properly paired annotation that runs with the Alignment.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch) = 0;
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already. The tlen_limit_batch, if specified,
+    /// is the maximum pairing distance for each pair to flag properly paired,
+    /// if the output format cares about such things. TODO: Move to a properly
+    /// paired annotation that runs with the Alignment.
+    ///
+    /// Both ends of each pair must have the same number of mappings.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch) = 0;
+    
+    
+    // These single-read methods have default implementations.
+    
     /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln) = 0;
+    virtual void emit_single(Alignment&& aln);
     /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns) = 0;
+    virtual void emit_mapped_single(vector<Alignment>&& alns);
     /// Emit a pair of Alignments. The tlen_limit, if specified, is the maximum
     /// pairing distance to flag properly paired, if the output format cares
     /// about such things. TODO: Move to a properly paired annotation that runs
     /// with the Alignment.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0) = 0;
+    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
     /// Emit the mappings of a pair of Alignments. All secondaries must have
     /// is_secondary set already. The tlen_limit, if specified, is the maximum
     /// pairing distance to flag properly paired, if the output format cares
     /// about such things. TODO: Move to a properly paired annotation that runs
     /// with the Alignment.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0) = 0;
+    ///
+    /// Both ends of the pair must have the same number of mappings.
+    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2,
+        int64_t tlen_limit = 0);
     
     /// Allow destruction through base class pointer.
     virtual ~AlignmentEmitter() = default;
@@ -66,14 +97,18 @@ public:
     /// Destroy and flush all the buffers
     ~OMPThreadBufferedAlignmentEmitter();
     
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
     /// Save all the buffered alignments from the given thread.
@@ -82,17 +117,19 @@ private:
     /// Keep a reference to the backing emitter
     unique_ptr<AlignmentEmitter> backing;
     
-    // We have one buffer for each type of emit operation, for each thread
+    // We have one set of buffers for each type of emit operation, for each thread
     vector<vector<Alignment>> single_buffer;
     vector<vector<vector<Alignment>>> mapped_single_buffer;
-    vector<vector<tuple<Alignment, Alignment, size_t>>> pair_buffer;
-    vector<vector<tuple<vector<Alignment>, vector<Alignment>, size_t>>> mapped_pair_buffer;
+    vector<tuple<vector<Alignment>, vector<Alignment>, vector<int64_t>>> pair_buffer;
+    vector<tuple<vector<vector<Alignment>>, vector<vector<Alignment>>, vector<int64_t>>> mapped_pair_buffer;
 
-    const static size_t BUFFER_LIMIT = 1000;
+    const static size_t FLUSH_THRESHOLD = 1000;
 };
 
 /**
  * Emit a TSV table describing alignments.
+ *
+ * TODO: Holds the output stream lock through TSV conversion.
  */
 class TSVAlignmentEmitter : public AlignmentEmitter {
 public:
@@ -103,14 +140,18 @@ public:
     /// The default destructor should clean up the open file, if any.
     ~TSVAlignmentEmitter() = default;
     
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
 
@@ -120,11 +161,9 @@ private:
     /// Access to the output stream is protected by this mutex
     mutex sync;
 
-    /// Emit a single alignment as TSV
-    void emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock);
-    
-    /// Emit a pair of alignments as TSV, in order.
-    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock);
+    /// Emit single alignment as TSV.
+    /// This is all we use; we don't do anything for pairing.
+    void emit(Alignment&& aln_batch, const lock_guard<mutex>& lock);
 };
 
 /**
@@ -151,37 +190,58 @@ public:
     HTSAlignmentEmitter& operator=(HTSAlignmentEmitter&& other) = delete;
     
     
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
     
-    /// We need a mutex to synchronize on
-    mutex sync;
-
     /// Remember what format we are using.
     string format;
     
     /// Sorte the path length map until the header can be made.
     map<string, int64_t> path_length;
     
-    /// We need a samFile
-    samFile* sam_file = nullptr;
-    /// We need a header
-    bam_hdr_t* hdr = nullptr;
-    /// We also need a header string
-    string sam_header;
+    /// We need a samFile that gets opened when we are opened.
+    samFile* sam_file;
+    /// We need a mutex to synchronize on to protect the output file.
+    mutex file_mutex;
     
-    /// Emit a single alignment, with a lock already held.
-    void emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock);
-    /// Emit a pair of alignments, with a lock already held.
-    void emit_pair_internal(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit, const lock_guard<mutex>& lock);
+    /// We need a header
+    atomic<bam_hdr_t*> atomic_header;
+    /// We also need a header string.
+    /// Not atomic, because by the time re wead it we know the header is ready
+    /// and nobody is writing to it.
+    string sam_header;
+    /// If the header isn't present when we want to write, we need a mutex to control creating it.
+    mutex header_mutex;
+    
+    /// Convert an unpaired alignment to HTS format.
+    /// Header must have been created already.
+    void convert_unpaired(Alignment& aln, vector<bam1_t*>& dest);
+    /// Convert a paired alignment to HTS format.
+    /// Header must have been created already.
+    void convert_paired(Alignment& aln1, Alignment& aln2, int64_t tlen_limit, vector<bam1_t*>& dest);
+    
+    /// Write and deallocate a bunch of BAM records. Takes care of locking the
+    /// file. Header must have been written already.
+    void save_records(bam_hdr_t* header, vector<bam1_t*>& records);
+    
+    /// Make sure that the HTS header has been written.
+    /// If it has not been written, blocks until it has been written.
+    /// If we end up being the thread to write it, sniff header information from the given alignment.
+    /// Returns the header pointer, so we don't have to do another atomic read later.
+    bam_hdr_t* ensure_header(const Alignment& sniff);
+    
 };
 
 /**
@@ -199,14 +259,18 @@ public:
     /// Finish and drstroy a VGAlignmentEmitter.
     ~VGAlignmentEmitter();
     
-    /// Emit a single Alignment
-    virtual void emit_single(Alignment&& aln);
-    /// Emit a single Alignment with secondaries. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_single(vector<Alignment>&& alns);
-    /// Emit a pair of Alignments.
-    virtual void emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit = 0);
-    /// Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.
-    virtual void emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit = 0);
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
 

@@ -13,6 +13,28 @@
 namespace vg {
 using namespace std;
 
+// Implement all the single-read methods in terms of one-read batches
+void AlignmentEmitter::emit_single(Alignment&& aln) {
+    vector<Alignment> batch = { aln };
+    emit_singles(std::move(batch));
+}
+void AlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
+    vector<vector<Alignment>> batch = { alns };
+    emit_mapped_singles(std::move(batch));
+}
+void AlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
+    vector<Alignment> batch1 = { aln1 };
+    vector<Alignment> batch2 = { aln2 };
+    vector<int64_t> tlen_limit_batch(1, tlen_limit);
+    emit_pairs(std::move(batch1), std::move(batch2), std::move(tlen_limit_batch));
+}
+void AlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
+    vector<vector<Alignment>> batch1 = { alns1 };
+    vector<vector<Alignment>> batch2 = { alns2 };
+    vector<int64_t> tlen_limit_batch(1, tlen_limit);
+    emit_mapped_pairs(std::move(batch1), std::move(batch2), std::move(tlen_limit_batch));
+}
+
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, const map<string, int64_t>& path_length) {
 
     // Make the backing, non-buffered emitter
@@ -45,6 +67,18 @@ OMPThreadBufferedAlignmentEmitter::OMPThreadBufferedAlignmentEmitter(AlignmentEm
             mapped_single_buffer.resize(threads);
             mapped_pair_buffer.resize(threads);
         }
+        
+        // Now make sure we don't have to re-allocate while buffering.
+        // With batches we can go over our flush threshold, so allocate twice as much space.
+        size_t i = omp_get_thread_num();
+        single_buffer[i].reserve(FLUSH_THRESHOLD * 2);
+        get<0>(pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
+        get<1>(pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
+        get<2>(pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
+        mapped_single_buffer[i].reserve(FLUSH_THRESHOLD * 2);
+        get<0>(mapped_pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
+        get<1>(mapped_pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
+        get<2>(mapped_pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
     }
     
 }
@@ -60,52 +94,72 @@ OMPThreadBufferedAlignmentEmitter::~OMPThreadBufferedAlignmentEmitter() {
 
 void OMPThreadBufferedAlignmentEmitter::flush(size_t thread) {
     // Flush all the buffers
-    for (auto& aln : single_buffer[thread]) {
-        backing->emit_single(std::move(aln));
-    }
+    backing->emit_singles(std::move(single_buffer[thread]));
     single_buffer[thread].clear();
-    for (auto& record : pair_buffer[thread]) {
-        backing->emit_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
-    }
-    pair_buffer[thread].clear();
-    for (auto& alns : mapped_single_buffer[thread]) {
-        backing->emit_mapped_single(std::move(alns));
-    }
+    single_buffer[thread].reserve(FLUSH_THRESHOLD * 2);
+    
+    backing->emit_pairs(std::move(get<0>(pair_buffer[thread])),
+        std::move(get<1>(pair_buffer[thread])),
+        std::move(get<2>(pair_buffer[thread]))); 
+    get<0>(pair_buffer[thread]).clear();
+    get<1>(pair_buffer[thread]).clear();
+    get<2>(pair_buffer[thread]).clear();
+    get<0>(pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
+    get<1>(pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
+    get<2>(pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
+    
+    backing->emit_mapped_singles(std::move(mapped_single_buffer[thread]));
     mapped_single_buffer[thread].clear();
-    for (auto& record : mapped_pair_buffer[thread]) {
-        backing->emit_mapped_pair(std::move(get<0>(record)), std::move(get<1>(record)), get<2>(record));
-    }
-    mapped_pair_buffer[thread].clear();
+    mapped_single_buffer[thread].reserve(FLUSH_THRESHOLD * 2);
+     
+    backing->emit_mapped_pairs(std::move(get<0>(mapped_pair_buffer[thread])),
+        std::move(get<1>(mapped_pair_buffer[thread])),
+        std::move(get<2>(mapped_pair_buffer[thread])));
+    get<0>(mapped_pair_buffer[thread]).clear();
+    get<1>(mapped_pair_buffer[thread]).clear();
+    get<2>(mapped_pair_buffer[thread]).clear();
+    get<0>(mapped_pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
+    get<1>(mapped_pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
+    get<2>(mapped_pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
 }
 
-void OMPThreadBufferedAlignmentEmitter::emit_single(Alignment&& aln) {
+void OMPThreadBufferedAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     size_t i = omp_get_thread_num();
-    single_buffer[i].emplace_back(std::move(aln));
-    if (single_buffer[i].size() >= BUFFER_LIMIT) {
+    std::move(aln_batch.begin(), aln_batch.end(), std::back_inserter(single_buffer[i]));
+    if (single_buffer[i].size() >= FLUSH_THRESHOLD) {
         flush(i);
     }
 }
 
-void OMPThreadBufferedAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
+void OMPThreadBufferedAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
     size_t i = omp_get_thread_num();
-    mapped_single_buffer[i].emplace_back(std::move(alns));
-    if (mapped_single_buffer[i].size() >= BUFFER_LIMIT) {
+    std::move(alns_batch.begin(), alns_batch.end(), std::back_inserter(mapped_single_buffer[i]));
+    if (mapped_single_buffer[i].size() >= FLUSH_THRESHOLD) {
         flush(i);
     }
 }
 
-void OMPThreadBufferedAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
+void OMPThreadBufferedAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
+                                                   vector<Alignment>&& aln2_batch,
+                                                   vector<int64_t>&& tlen_limit_batch) {
+    
     size_t i = omp_get_thread_num();
-    pair_buffer[i].emplace_back(std::move(aln1), std::move(aln2), tlen_limit);
-    if (pair_buffer[i].size() >= BUFFER_LIMIT) {
+    std::move(aln1_batch.begin(), aln1_batch.end(), std::back_inserter(get<0>(pair_buffer[i])));
+    std::move(aln2_batch.begin(), aln2_batch.end(), std::back_inserter(get<1>(pair_buffer[i])));
+    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(pair_buffer[i])));
+    if (get<0>(pair_buffer[i]).size() >= FLUSH_THRESHOLD) {
         flush(i);
     }
 }
 
-void OMPThreadBufferedAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
+void OMPThreadBufferedAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+                                                          vector<vector<Alignment>>&& alns2_batch,
+                                                          vector<int64_t>&& tlen_limit_batch) {
     size_t i = omp_get_thread_num();
-    mapped_pair_buffer[i].emplace_back(std::move(alns1), std::move(alns2), tlen_limit);
-    if (mapped_pair_buffer[i].size() >= BUFFER_LIMIT) {
+    std::move(alns1_batch.begin(), alns1_batch.end(), std::back_inserter(get<0>(mapped_pair_buffer[i])));
+    std::move(alns2_batch.begin(), alns2_batch.end(), std::back_inserter(get<1>(mapped_pair_buffer[i])));
+    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(mapped_pair_buffer[i])));
+    if (get<0>(mapped_pair_buffer[i]).size() >= FLUSH_THRESHOLD) {
         flush(i);
     }
 }
@@ -118,37 +172,53 @@ TSVAlignmentEmitter::TSVAlignmentEmitter(const string& filename) : out_file(file
     }
 }
 
-void TSVAlignmentEmitter::emit_single(Alignment&& aln) {
+void TSVAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     lock_guard<mutex> lock(sync);
-    emit_single_internal(std::move(aln), lock);
-}
-
-void TSVAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
-    lock_guard<mutex> lock(sync);
-    for (auto& aln : alns) {
-        // Emit each mapping of the alignment in order in a single run
-        emit_single_internal(std::move(aln), lock);
+    for (auto&& aln : aln_batch) {
+        emit(std::move(aln), lock);
     }
 }
 
-void TSVAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
+void TSVAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
     lock_guard<mutex> lock(sync);
-    // Emit the two paired alignments paired with each other.
-    emit_pair_internal(std::move(aln1), std::move(aln2), lock);
-}
-
-
-void TSVAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
-    lock_guard<mutex> lock(sync);
-    // Make sure we have the same number of mappings on each side.
-    assert(alns1.size() == alns2.size());
-    for (size_t i = 0; i < alns1.size(); i++) {
-        // Emit each pair as paired alignments
-        emit_pair_internal(std::move(alns1[i]), std::move(alns2[i]), lock);
+    for (auto&& alns : alns_batch) {
+        for (auto&& aln : alns) {
+            emit(std::move(aln), lock);
+        }
     }
 }
 
-void TSVAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock) {
+void TSVAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
+                                     vector<Alignment>&& aln2_batch, 
+                                     vector<int64_t>&& tlen_limit_batch) {
+    lock_guard<mutex> lock(sync);
+    // Ignore the tlen limit.
+    assert(aln1_batch.size() == aln2_batch.size());
+    for (size_t i = 0; i < aln1_batch.size(); i++) {
+        // Emit each pair in order as read 1, then read 2
+        emit(std::move(aln1_batch[i]), lock);
+        emit(std::move(aln2_batch[i]), lock);
+    }
+}
+
+
+void TSVAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+                                            vector<vector<Alignment>>&& alns2_batch,
+                                            vector<int64_t>&& tlen_limit_batch) {
+    lock_guard<mutex> lock(sync);
+    assert(alns1_batch.size() == alns2_batch.size());
+    for (size_t i = 0; i < alns1_batch.size(); i++) {
+        // For each pair
+        assert(alns1_batch[i].size() == alns2_batch[i].size());
+        for (size_t j = 0; j < alns1_batch[i].size(); j++) {
+            // Emit read 1 and read 2 pairs, together
+            emit(std::move(alns1_batch[i][j]), lock);
+            emit(std::move(alns2_batch[i][j]), lock);
+        }
+    }
+}
+
+void TSVAlignmentEmitter::emit(Alignment&& aln, const lock_guard<mutex>& lock) {
     Position refpos;
     if (aln.refpos_size()) {
         refpos = aln.refpos(0);
@@ -164,13 +234,8 @@ void TSVAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard
         << aln.score() << "\n";
 }
 
-void TSVAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2, const lock_guard<mutex>& lock) {
-    emit_single_internal(std::move(aln1), lock);
-    emit_single_internal(std::move(aln2), lock);
-}
-
 HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length) : 
-    format(format), path_length(path_length) {
+    format(format), path_length(path_length), sam_file(nullptr), file_mutex(), atomic_header(nullptr) {
     
     // Make sure we have an HTS format
     assert(format == "SAM" || format == "BAM" || format == "CRAM");
@@ -207,34 +272,61 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
 }
 
 HTSAlignmentEmitter::~HTSAlignmentEmitter() {
-    if (hdr != nullptr) {
-        bam_hdr_destroy(hdr);
+    // Note that the destructor runs in only one thread, and only when
+    // destruction is safe. No need to lock the header.
+    if (atomic_header.load() != nullptr) {
+        bam_hdr_destroy(atomic_header.load());
     }
     sam_close(sam_file);
 }
 
-void HTSAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard<mutex>& lock) {
-    // We are already locked, so we can touch the header.
-    
-    if (hdr == nullptr) {
-        // Create and write the header
+bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff) {
+    bam_hdr_t* header = atomic_header.load();
+    if (header == nullptr) {
+        // The header does not exist.
+        
+        // Lock the header mutex so we have exclusive control of the header
+        lock_guard<mutex> header_lock(header_mutex);
+        
+        bam_hdr_t* header = atomic_header.load();
+        if (header != nullptr) {
+            // Someone else beat us to creating the header.
+            // Header is ready.
+            return header;
+        }
+        
+        // Otherwise it is our turn to make the header.
         
         // Sniff out the read group and sample, and map from RG to sample
         map<string, string> rg_sample;
-        if (!aln.sample_name().empty() && !aln.read_group().empty()) {
+        if (!sniff.sample_name().empty() && !sniff.read_group().empty()) {
             // We have a sample and a read group
-            rg_sample[aln.read_group()] = aln.sample_name();
+            rg_sample[sniff.read_group()] = sniff.sample_name();
         }
         
-        hdr = hts_string_header(sam_header, path_length, rg_sample);
+        // Make the header
+        header = hts_string_header(sam_header, path_length, rg_sample);
         
-        // write the header
-        if (sam_hdr_write(sam_file, hdr) != 0) {
-            cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
-            exit(1);
+        {
+            // Lock the file
+            lock_guard<mutex> file_lock(file_mutex);
+        
+            // Write the header to the file.
+            if (sam_hdr_write(sam_file, header) != 0) {
+                cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
+                exit(1);
+            }
         }
+        
+        // Save back to the atomic only after the header has been written and
+        // it is safe for other threads to use it.
+        atomic_header.store(header);
     }
     
+    return header;
+}
+
+void HTSAlignmentEmitter::convert_unpaired(Alignment& aln, vector<bam1_t*>& dest) {
     // Look up the stuff we need from the Alignment to express it in BAM.
     // We assume the position is available in refpos(0)
     assert(aln.refpos_size() == 1);
@@ -250,43 +342,15 @@ void HTSAlignmentEmitter::emit_single_internal(Alignment&& aln, const lock_guard
     // TODO: We're passing along a text header so we can make a SAM file so
     // we can make a BAM record by re-reading it, which we can then
     // possibly output as SAM again. Make this less complicated.
-    bam1_t* b = alignment_to_bam(sam_header,
-                                 aln,
-                                 aln.refpos(0).name(),
-                                 pos,
-                                 aln.refpos(0).is_reverse(),
-                                 cigar);
-    int r = 0;
-    r = sam_write1(sam_file, hdr, b);
-    if (r == 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
-        exit(1);
-    }
-    bam_destroy1(b);
+    dest.emplace_back(alignment_to_bam(sam_header,
+                                       aln,
+                                       aln.refpos(0).name(),
+                                       pos,
+                                       aln.refpos(0).is_reverse(),
+                                       cigar));
 }
 
-void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit, const lock_guard<mutex>& lock) {
-    // We are already locked, so we can touch the header.
-    
-    if (hdr == nullptr) {
-        // Create and write the header
-        
-        // Sniff out the read group and sample, and map from RG to sample
-        map<string, string> rg_sample;
-        if (!aln1.sample_name().empty() && !aln1.read_group().empty()) {
-            // We have a sample and a read group
-            rg_sample[aln1.read_group()] = aln1.sample_name();
-        }
-        
-        hdr = hts_string_header(sam_header, path_length, rg_sample);
-        
-        // write the header
-        if (sam_hdr_write(sam_file, hdr) != 0) {
-            cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
-            exit(1);
-        }
-    }
-    
+void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, int64_t tlen_limit, vector<bam1_t*>& dest) {
     // Look up the stuff we need from the Alignment to express it in BAM.
     // We assume the position is available in refpos(0)
     assert(aln1.refpos_size() == 1);
@@ -314,73 +378,180 @@ void HTSAlignmentEmitter::emit_pair_internal(Alignment&& aln1, Alignment&& aln2,
     // TODO: We're passing along a text header so we can make a SAM file so
     // we can make a BAM record by re-reading it, which we can then
     // possibly output as SAM again. Make this less complicated.
-    bam1_t* b1 = alignment_to_bam(sam_header,
-                                  aln1,
-                                  aln1.refpos(0).name(),
-                                  pos1,
-                                  aln1.refpos(0).is_reverse(),
-                                  cigar1,
-                                  aln2.refpos(0).name(),
-                                  pos2,
-                                  aln2.refpos(0).is_reverse(),
-                                  tlens.first,
-                                  tlen_limit);
-    bam1_t* b2 = alignment_to_bam(sam_header,
-                                  aln2,
-                                  aln2.refpos(0).name(),
-                                  pos2,
-                                  aln2.refpos(0).is_reverse(),
-                                  cigar2,
-                                  aln1.refpos(0).name(),
-                                  pos1,
-                                  aln1.refpos(0).is_reverse(),
-                                  tlens.second,
-                                  tlen_limit);
+    dest.emplace_back(alignment_to_bam(sam_header,
+                                       aln1,
+                                       aln1.refpos(0).name(),
+                                       pos1,
+                                       aln1.refpos(0).is_reverse(),
+                                       cigar1,
+                                       aln2.refpos(0).name(),
+                                       pos2,
+                                       aln2.refpos(0).is_reverse(),
+                                       tlens.first,
+                                       tlen_limit));
+    dest.emplace_back(alignment_to_bam(sam_header,
+                                       aln2,
+                                       aln2.refpos(0).name(),
+                                       pos2,
+                                       aln2.refpos(0).is_reverse(),
+                                       cigar2,
+                                       aln1.refpos(0).name(),
+                                       pos1,
+                                       aln1.refpos(0).is_reverse(),
+                                       tlens.second,
+                                       tlen_limit));
     
-    int r = 0;
-    r = sam_write1(sam_file, hdr, b1);
-    if (r == 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
-        exit(1);
-    }
-    bam_destroy1(b1);
-    r = 0;
-    r = sam_write1(sam_file, hdr, b2);
-    if (r == 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
-        exit(1);
-    }
-    bam_destroy1(b2);
 }
 
-void HTSAlignmentEmitter::emit_single(Alignment&& aln) {
-    lock_guard<mutex> lock(sync);
-    emit_single_internal(std::move(aln), lock);
-}
-
-void HTSAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
-    lock_guard<mutex> lock(sync);
-    for (auto& aln : alns) {
-        // Emit each mapping of the alignment in order in a single run
-        emit_single_internal(std::move(aln), lock);
+void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& records) {
+    {
+        // Lock the file for output
+        lock_guard<mutex> file_lock(file_mutex);
+        for (auto& b : records) {
+            // Emit each record
+            if (sam_write1(sam_file, header, b) == 0) {
+                cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
+                exit(1);
+            }
+        }
+    }
+    
+    for (auto& b : records) {
+        // After unlocking the file, deallocate all the records
+        bam_destroy1(b);
     }
 }
 
-void HTSAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
-    lock_guard<mutex> lock(sync);
-    // Emit the two paired alignments paired with each other.
-    emit_pair_internal(std::move(aln1), std::move(aln2), tlen_limit, lock);
+void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
+    if (aln_batch.empty()) {
+        // Nothing to do
+        return;
+    }
+    
+    // Make sure header exists
+    bam_hdr_t* header = ensure_header(aln_batch.front());
+    
+    vector<bam1_t*> records;
+    records.reserve(aln_batch.size());
+    
+    for (auto& aln : aln_batch) {
+        // Convert each alignment to HTS format
+        convert_unpaired(aln, records);
+    }
+    
+    // Save to the file, locking once.
+    save_records(header, records);
+}
+
+void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
+    // Count the total alignments to do
+    size_t count = 0;
+    // And find an alignment to base the header on
+    Alignment* sniff = nullptr;
+    for (auto& alns : alns_batch) {
+        count += alns.size();
+        if (!alns.empty() && sniff == nullptr) {
+            sniff = &alns.front();
+        }
+    }
+    
+    if (count == 0) {
+        // Nothing to do
+        return;
+    }
+    
+    // Make sure header exists
+    assert(sniff != nullptr);
+    bam_hdr_t* header = ensure_header(*sniff);
+    
+    vector<bam1_t*> records;
+    records.reserve(count);
+    
+    for (auto& alns : alns_batch) {
+        for (auto& aln : alns) {
+            // Convert each alignment to HTS format
+            convert_unpaired(aln, records);
+        }
+    }
+    
+    // Save to the file, locking once.
+    save_records(header, records);
+
 }
 
 
-void HTSAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
-    lock_guard<mutex> lock(sync);
-    // Make sure we have the same number of mappings on each side.
-    assert(alns1.size() == alns2.size());
-    for (size_t i = 0; i < alns1.size(); i++) {
-        // Emit each pair as paired alignments
-        emit_pair_internal(std::move(alns1[i]), std::move(alns2[i]), tlen_limit, lock);
+void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
+                                     vector<Alignment>&& aln2_batch,
+                                     vector<int64_t>&& tlen_limit_batch) {
+    assert(aln1_batch.size() == aln2_batch.size());
+    assert(aln1_batch.size() == tlen_limit_batch.size());
+    
+    
+    if (aln1_batch.empty()) {
+        // Nothing to do
+        return;
     }
+    
+    // Make sure header exists
+    bam_hdr_t* header = ensure_header(aln1_batch.front());
+    
+    vector<bam1_t*> records;
+    records.reserve(aln1_batch.size() * 2);
+    
+    for (size_t i = 0; i < aln1_batch.size(); i++) {
+        // Convert each alignment pair to HTS format
+        convert_paired(aln1_batch[i], aln2_batch[i], tlen_limit_batch[i], records);
+    }
+    
+    // Save to the file, locking once.
+    save_records(header, records);
+}
+    
+    
+void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch, 
+                                            vector<vector<Alignment>>&& alns2_batch,
+                                            vector<int64_t>&& tlen_limit_batch) {
+                                            
+    assert(alns1_batch.size() == alns2_batch.size());
+    assert(alns1_batch.size() == tlen_limit_batch.size());
+    
+    // Count the total alignments to do
+    size_t count = 0;
+    // And find an alignment to base the header on
+    Alignment* sniff = nullptr;
+    for (size_t i = 0; i < alns1_batch.size(); i++) {
+        // Go through all pairs
+        
+        // Make sure each end of the pair has the same number of mappings
+        assert(alns1_batch[i].size() == alns2_batch[i].size());
+        
+        count += alns1_batch[i].size() * 2;
+        if (!alns1_batch[i].empty() && sniff == nullptr) {
+            sniff = &alns1_batch[i].front();
+        }
+    }
+    
+    if (count == 0) {
+        // Nothing to do
+        return;
+    }
+    
+    // Make sure header exists
+    assert(sniff != nullptr);
+    bam_hdr_t* header = ensure_header(*sniff);
+    
+    vector<bam1_t*> records;
+    records.reserve(count);
+    
+    for (size_t i = 0; i < alns1_batch.size(); i++) {
+        for (size_t j = 0; j < alns1_batch[i].size(); j++) {
+            // Convert each alignment pair to HTS format
+            convert_paired(alns1_batch[i][j], alns2_batch[i][j], tlen_limit_batch[i], records);
+        }
+    }
+    
+    // Save to the file, locking once.
+    save_records(header, records);
 }
 
 VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& format) {
@@ -411,8 +582,6 @@ VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& for
 }
 
 VGAlignmentEmitter::~VGAlignmentEmitter() {
-    // TODO: We've had trouble with alignments going missing. Hopefully this fiexs that.
-
     if (proto.get() != nullptr) {
         // Flush the ProtobufEmitter
         proto->emit_group(); 
@@ -431,34 +600,17 @@ VGAlignmentEmitter::~VGAlignmentEmitter() {
     }
 }
 
-void VGAlignmentEmitter::emit_single(Alignment&& aln) {
+void VGAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     if (proto.get() != nullptr) {
-        // Save in protobuf
-        proto->write(std::move(aln));
-    } else {
-        // Find a stream to write JSON to
-        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
-        
-        // Serialize to a string in our thread
-        string data = pb2json(aln);
-        
-        // Lock and emit the string
-        lock_guard<mutex> lock(stream_mutex);
-        out << data << endl;
-    }
-}
-
-void VGAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
-    if (proto.get() != nullptr) {
-        // Save in protobuf
-        proto->write_many(std::move(alns));
+        // Save in protobuf with a single lock
+        proto->write_many(std::move(aln_batch));
     } else {
         // Find a stream to write JSON to
         ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
         
         // Serialize to a string in our thread
         stringstream data;
-        for (auto& aln : alns) {
+        for (auto& aln : aln_batch) {
             data << pb2json(aln) << endl;
         }
         
@@ -468,23 +620,39 @@ void VGAlignmentEmitter::emit_mapped_single(vector<Alignment>&& alns) {
     }
 }
 
-void VGAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t tlen_limit) {
+void VGAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
     if (proto.get() != nullptr) {
-        // Save in protobuf
+        // Count up alignments
+        size_t count = 0;
+        for (auto& alns : alns_batch) {
+            count += alns.size();
+        }
         
-        // Arrange into a vector
-        vector<Alignment> alns {std::move(aln1), std::move(aln2)};
+        if (count == 0) {
+            // Nothing to do
+            return;
+        }
         
-        // Save as a single unit
-        proto->write_many(std::move(alns));
+        // Collate one big vector to write together
+        vector<Alignment> all;
+        all.reserve(count);
+        for (auto&& alns : alns_batch) {
+            std::move(alns.begin(), alns.end(), std::back_inserter(all));
+        }
+        
+        // Save in protobuf with a single lock
+        proto->write_many(std::move(all));
     } else {
         // Find a stream to write JSON to
         ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
         
         // Serialize to a string in our thread
         stringstream data;
-        data << pb2json(aln1) << endl;
-        data << pb2json(aln2) << endl;
+        for (auto& alns : alns_batch) {
+            for (auto& aln : alns) {
+                data << pb2json(aln) << endl;
+            }
+        }
         
         // Lock and emit the string
         lock_guard<mutex> lock(stream_mutex);
@@ -492,32 +660,88 @@ void VGAlignmentEmitter::emit_pair(Alignment&& aln1, Alignment&& aln2, int64_t t
     }
 }
 
-void VGAlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignment>&& alns2, int64_t tlen_limit) {
+void VGAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
+                                    vector<Alignment>&& aln2_batch,
+                                    vector<int64_t>&& tlen_limit_batch) {
     // Sizes need to match up
-    assert(alns1.size() == alns2.size());
+    assert(aln1_batch.size() == aln2_batch.size());
+    assert(aln1_batch.size() == tlen_limit_batch.size());
+    if (proto.get() != nullptr) {
+        // Save in protobuf
+        
+        // Arrange into a vector in collated order
+        vector<Alignment> all;
+        all.reserve(aln1_batch.size() + aln2_batch.size());
+        for (size_t i = 0; i < aln1_batch.size(); i++) {
+            all.emplace_back(std::move(aln1_batch[i]));
+            all.emplace_back(std::move(aln2_batch[i]));
+        }
+        
+        // Save as a single unit with a single lock
+        proto->write_many(std::move(all));
+    } else {
+        // Find a stream to write JSON to
+        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
+        
+        // Serialize to a string in our thread in collated order
+        stringstream data;
+        for (size_t i = 0; i < aln1_batch.size(); i++) {
+            data << pb2json(aln1_batch[i]) << endl;
+            data << pb2json(aln2_batch[i]) << endl;
+        }
+        
+        // Lock and emit the string
+        lock_guard<mutex> lock(stream_mutex);
+        out << data.str();
+    }
+}
+
+void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+                                           vector<vector<Alignment>>&& alns2_batch,
+                                           vector<int64_t>&& tlen_limit_batch) {
+    // Sizes need to match up
+    assert(alns1_batch.size() == alns2_batch.size());
+    assert(alns1_batch.size() == tlen_limit_batch.size());
     
     if (proto.get() != nullptr) {
         // Save in protobuf
         
-        // Arrange into an interleaved vector
-        vector<Alignment> alns;
-        alns.reserve(alns1.size() + alns2.size());
-        for (size_t i = 0; i < alns1.size(); i++) {
-            alns.emplace_back(std::move(alns1[i]));
-            alns.emplace_back(std::move(alns2[i]));
+        // Count up all the alignments
+        size_t count = 0;
+        for (size_t i = 0; i < alns1_batch.size(); i++) {
+            assert(alns1_batch[i].size() == alns2_batch[i].size());
+            count += alns1_batch[i].size() * 2;
         }
         
-        // Save the interleaved vector
-        proto->write_many(std::move(alns));
+        if (count == 0) {
+            // Nothing to do
+            return;
+        }
+        
+        // Arrange into an interleaved vector
+        vector<Alignment> all;
+        all.reserve(count);
+        for (size_t i = 0; i < alns1_batch.size(); i++) {
+            for (size_t j = 0; i < alns1_batch[i].size(); j++) {
+                all.emplace_back(std::move(alns1_batch[i][j]));
+                all.emplace_back(std::move(alns2_batch[i][j]));
+            }
+        }
+        
+        // Save the interleaved vector with one lock
+        proto->write_many(std::move(all));
     } else {
         // Find a stream to write JSON to
         ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
         
         // Serialize to an interleaved string in our thread
         stringstream data;
-        for (size_t i = 0; i < alns1.size(); i++) {
-            data << pb2json(alns1[i]) << endl;
-            data << pb2json(alns2[i]) << endl;
+        for (size_t i = 0; i < alns1_batch.size(); i++) {
+            assert(alns1_batch[i].size() == alns1_batch[i].size());
+            for (size_t j = 0; i < alns1_batch[i].size(); j++) {
+                data << pb2json(alns1_batch[i][j]) << endl;
+                data << pb2json(alns2_batch[i][j]) << endl;
+            }
         }
         
         // Lock and emit the string
