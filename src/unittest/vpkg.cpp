@@ -7,9 +7,7 @@
 
 #include "catch.hpp"
 
-#define debug
 #include <vg/io/vpkg.hpp>
-#undef debug
 #include "../xg.hpp"
 #include "../seed_clusterer.hpp"
 #include "../json2pb.h"
