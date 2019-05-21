@@ -146,21 +146,23 @@ namespace vg {
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                         OrientedDistanceMeasurer* distance_measurer) const {
         
+        vector<MultipathMapper::memcluster_t> return_val;
         if (use_tvs_clusterer) {
             TVSClusterer clusterer(xindex, distance_index);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else if (use_min_dist_clusterer) {
             MinDistanceClusterer clusterer(distance_index);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        return return_val;
     }
     
     vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
@@ -733,7 +735,7 @@ namespace vg {
                 // unreachable both ways, convert to the sentinel that the client code expects
                 dist = numeric_limits<int64_t>::max();
             }
-            else if (forward_dist == -1 || reverse_dist < forward_dist) {
+            else if (forward_dist == -1 || (reverse_dist < forward_dist && reverse_dist != -1)) {
                 dist = -reverse_dist;
             }
             else {
