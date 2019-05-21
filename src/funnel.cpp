@@ -13,23 +13,17 @@ void Funnel::start(const string& name) {
     assert(!name.empty());
 
     // (Re)start the funnel.
-    funnel_start_time = now();
     funnel_name = name;
     
     // Clear out old data
     stage_name.clear();
     substage_name.clear();
-    stage_durations.clear();
-    substage_durations.clear();
     stages.clear();
 }
 
 void Funnel::stop() {
-    // Stop any lingering stage (which takes care of substages and processing/producing timers)
+    // Stop any lingering stage (which takes care of substages)
     stage_stop();
-    
-    // Record the ultimate duration.
-    funnel_duration = now() - funnel_start_time;
 }
 
 void Funnel::stage(const string& name) {
@@ -43,9 +37,8 @@ void Funnel::stage(const string& name) {
     stages.emplace_back();
     stages.back().name = name;
     
-    // Save the name and start time
+    // Save the name
     stage_name = name;
-    stage_start_time = now();
 }
 
 void Funnel::stage_stop() {
@@ -54,14 +47,9 @@ void Funnel::stage_stop() {
         
         // Stop any substage.
         substage_stop();
-        // Stop any process/produce timers
+        // Stop any process/produce 
         processed_input();
         produced_output();
-        
-        // Get the elapsed stage time
-        Duration stage_duration = now() - stage_start_time;
-        // Save it, coalescing by name
-        stage_durations[stage_name] += stage_duration;
         
         // Say the stage is stopped 
         stage_name.clear();
@@ -76,23 +64,17 @@ void Funnel::substage(const string& name) {
     // Stop previous substage if any.
     substage_stop();
     
-    // Substages don't bound produce/process timers.
+    // Substages don't bound produce/process.
     
-    // Save the name and start time
+    // Save the name 
     substage_name = name;
-    substage_start_time = now();
 }
     
 void Funnel::substage_stop() {
     if (!substage_name.empty()) {
         // A substage was running.
         
-        // Substages don't bound produce/process timers.
-        
-        // Get the elapsed substage time
-        Duration substage_duration = now() - substage_start_time;
-        // Save it, coalescing by name
-        substage_durations[stage_name][substage_name] += substage_duration;
+        // Substages don't bound produce/process.
         
         // Say the stage is stopped 
         substage_name.clear();
@@ -106,22 +88,16 @@ void Funnel::processing_input(size_t prev_stage_item) {
     assert(prev_stage_item != numeric_limits<size_t>::max());
     assert(stages[stages.size() - 2].items.size() > prev_stage_item);
 
-    // Stop any previous input processing timer
+    // Stop any previous input processing
     processed_input();
     
     // Start this one
     input_in_progress = prev_stage_item;
-    input_start_time = now();
 }
 
 void Funnel::processed_input() {
     if (input_in_progress != numeric_limits<size_t>::max()) {
         // We were processing an input
-        
-        // Work out how long it took
-        Duration input_duration = now() - input_start_time;
-        // Add it in
-        stages[stages.size() - 2].items[input_in_progress].process_duration += input_duration;
         
         // Say we're done with the input.
         input_in_progress = numeric_limits<size_t>::max();
@@ -134,22 +110,16 @@ void Funnel::producing_output(size_t item) {
     assert(!stages.empty());
     assert(item != numeric_limits<size_t>::max());
     
-    // Stop any previous input processing timer
+    // Stop any previous input processing
     produced_output();
     
     // Start this one
     output_in_progress = item;
-    output_start_time = now();
 }
 
 void Funnel::produced_output() {
     if (output_in_progress != numeric_limits<size_t>::max()) {
         // We were producing an output
-        
-        // Work out how long it took
-        Duration output_duration = now() - output_start_time;
-        // Add it in
-        get_item(output_in_progress).produce_duration += output_duration;
         
         // Say we're done with the output.
         output_in_progress = numeric_limits<size_t>::max();
@@ -226,31 +196,6 @@ size_t Funnel::latest() const {
     return stages.back().items.size() - 1;
 }
 
-double Funnel::to_seconds(const Duration& time) const {
-    return chrono::duration_cast<chrono::duration<double>>(time).count();
-}
-
-double Funnel::total_seconds() const {
-    return to_seconds(funnel_duration);
-}
-
-void Funnel::for_each_time(const function<void(const string&, const string&, double)>& callback) const {
-    // Handle overall
-    callback("", "", total_seconds());
-
-    for (auto& kv : stage_durations) {
-        // Handle each stage
-        callback(kv.first, "", to_seconds(kv.second));
-    }
-
-    for (auto& kv : substage_durations) {
-        for (auto& kv2 : kv.second) {
-            // Handle each substage
-            callback(kv.first, kv2.first, to_seconds(kv2.second));
-        }
-    }
-}
-
 void Funnel::for_each_stage(const function<void(const string&, size_t)>& callback) const {
     for (auto& stage : stages) {
         // Report the name and item count of each stage.
@@ -261,9 +206,6 @@ void Funnel::for_each_stage(const function<void(const string&, size_t)>& callbac
 void Funnel::to_dot(ostream& out) {
     out << "digraph graphname {" << endl;
     out << "rankdir=\"TB\";" << endl;
-
-    // Get total time
-    double total_time = total_seconds();
 
     for (size_t s = 0; s < stages.size(); s++) {
         // For each stage in order
@@ -319,57 +261,12 @@ void Funnel::to_dot(ostream& out) {
                 }
             }
 
-            // Assign generation time
-            double item_time = to_seconds(item.produce_duration);
-            if (item_time > 0 && total_time > 0) {
-                // We can have a time node attached to this item
-                double item_portion = item_time / total_time;
-
-                // Make an ID for the time node
-                string time_id = item_id + "t1";
-                
-                // Make the time node like a little bar chart
-                out << time_id << "[shape=box style=filled label=\"\" color=red fixedsize=true width=\"0.5\" height=\""
-                    << item_portion << "\" tooltip=\"" << item_time << " seconds" << "\"];" << endl;
-
-                // Attach it to the item
-                out << item_id << "->" << time_id << "[dir=none style=dashed constraint=false];" << endl;
-            }
-
-        }
-
-        if (s > 1) {
-            // Make time nodes in this stage for processing things from the previous stage
-            for (size_t prev_stage_item = 0; prev_stage_item < stages[s - 1].items.size(); prev_stage_item++) {
-                auto& item = stages[s - 1].items[prev_stage_item];
-
-                double item_time = to_seconds(item.process_duration);
-                if (item_time > 0 && total_time > 0) {
-                    // We can have a time node attached to this item
-                    double item_portion = item_time / total_time;
-
-                    // Make an ID for the time node
-                    string item_id = "s" + to_string(s - 1) + "i" + to_string(prev_stage_item);
-                    string time_id = item_id + "t2";
-                    
-                    // Make the time node like a little bar chart
-                    out << time_id << "[shape=box style=filled label=\"\" color=red fixedsize=true width=\"0.5\" height=\""
-                        << item_portion << "\" tooltip=\"" << item_time << " seconds" << "\"];" << endl;
-
-                    // Attach it to the item
-                    out << item_id << "->" << time_id << "[dir=none style=dashed];" << endl;
-                }
-            }
         }
 
         out << "}" << endl;
     }
 
     out << "}" << endl;
-}
-
-Funnel::Timepoint Funnel::now() const {
-    return chrono::high_resolution_clock::now();
 }
 
 Funnel::Item& Funnel::get_item(size_t index) {
