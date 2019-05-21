@@ -26,7 +26,6 @@ var searchData=
   ['output_5fin_5fprogress',['output_in_progress',['../classvg_1_1Funnel.html#ae946f8189275c0f4b77f29433406a24b',1,'vg::Funnel']]],
   ['output_5fnames',['output_names',['../classVectorizer.html#aadb47085d4b369b1c9ea341b06311341',1,'Vectorizer']]],
   ['output_5fpng',['output_png',['../classvg_1_1Viz.html#a8b50b34356875c1c0aa3917c7c67e445',1,'vg::Viz']]],
-  ['output_5fstart_5ftime',['output_start_time',['../classvg_1_1Funnel.html#a10d8e4795153dbb7d4f2f0d10738470a',1,'vg::Funnel']]],
   ['output_5fsvg',['output_svg',['../classvg_1_1Viz.html#a82a23ca5a5a6ababff6176743247be04',1,'vg::Viz']]],
   ['output_5ftabbed',['output_tabbed',['../classVectorizer.html#a7be5208d3a51438a989dd406fb808fd9',1,'Vectorizer']]],
   ['output_5fversion',['OUTPUT_VERSION',['../classvg_1_1StreamIndexBase.html#ad8e4be116b6b053e08a4221da069a092',1,'vg::StreamIndexBase::OUTPUT_VERSION()'],['../classxg_1_1XG.html#abb5bdf6d3612b6e93db96a36954a4882',1,'xg::XG::OUTPUT_VERSION()']]],

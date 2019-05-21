@@ -90,7 +90,7 @@ var searchData=
   ['make_5ftranslation',['make_translation',['../classvg_1_1VG.html#a12bbb607ad1e55d73f61bbe002ee2511',1,'vg::VG']]],
   ['make_5ftrav',['make_trav',['../namespacexg.html#a40ac382740a65d915b2486b331e69c1f',1,'xg']]],
   ['make_5fvariant_5fid',['make_variant_id',['../namespacevg.html#aa74ef603900cf05ce35dbab813d21deb',1,'vg']]],
-  ['manage',['manage',['../classvg_1_1SnarlManager.html#a597046dc213a9fdcde3638093d45c56d',1,'vg::SnarlManager']]],
+  ['manage',['manage',['../classvg_1_1SnarlManager.html#a77a061a13a6836b3eafa13db4df1c377',1,'vg::SnarlManager']]],
   ['manager',['manager',['../classvg_1_1GenomeState.html#a6c9277391547084f77ff1dbfbe481310',1,'vg::GenomeState']]],
   ['map',['map',['../classvg_1_1MinimizerMapper.html#a4c955e7607a1c07d2ca2b22a065e8b91',1,'vg::MinimizerMapper']]],
   ['map_5fkeys_5fto_5fset',['map_keys_to_set',['../namespacevg.html#ace99283a6b34f0891dc0b49f0cd60eea',1,'vg']]],

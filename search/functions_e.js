@@ -12,7 +12,7 @@ var searchData=
   ['new_5fnode_5frecord',['new_node_record',['../classvg_1_1PackedGraph.html#ac43f7cfe8c2733b9e5d22c07d079b4c0',1,'vg::PackedGraph']]],
   ['new_5fpath_5fid',['new_path_id',['../classvg_1_1Index.html#aae2499f500eef27aeb1ceff0a2ccfa82',1,'vg::Index']]],
   ['new_5fside',['new_side',['../classhaplo_1_1hDP__graph__accessor.html#a544ded6f4fb5e30bb46dc9ede66ebafc',1,'haplo::hDP_graph_accessor::new_side()'],['../classhaplo_1_1hDP__gbwt__graph__accessor.html#a733ccc0ac6e17253f258957d8d105a88',1,'haplo::hDP_gbwt_graph_accessor::new_side()']]],
-  ['next',['Next',['../classvg_1_1io_1_1BlockedGzipInputStream.html#a91e4dc4f48957737a80e99a8ad32ba53',1,'vg::io::BlockedGzipInputStream::Next()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a0c3e80161a999b884abf3965dd0a5a39',1,'vg::io::BlockedGzipOutputStream::Next()'],['../classvg_1_1WindowedVcfBuffer.html#a0d66b5a177f55cb726122577840d8911',1,'vg::WindowedVcfBuffer::next()']]],
+  ['next',['next',['../classvg_1_1WindowedVcfBuffer.html#a0d66b5a177f55cb726122577840d8911',1,'vg::WindowedVcfBuffer::next()'],['../classvg_1_1io_1_1BlockedGzipInputStream.html#a91e4dc4f48957737a80e99a8ad32ba53',1,'vg::io::BlockedGzipInputStream::Next()'],['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a0c3e80161a999b884abf3965dd0a5a39',1,'vg::io::BlockedGzipOutputStream::Next()']]],
   ['next_5fempty_5falignment',['next_empty_alignment',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a08e8eed8f95a621c9786bca1b0850dd2',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['next_5fis_5fempty',['next_is_empty',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a016150b6b6f4551ee3eb7600d7037b67',1,'vg::BandedGlobalAligner::AltTracebackStack']]],
   ['next_5fpath_5fposition',['next_path_position',['../classxg_1_1XG.html#a5ed430a9930e82b434f32e06bc0af0d2',1,'xg::XG']]],
@@ -68,7 +68,6 @@ var searchData=
   ['normal_5fpdf',['normal_pdf',['../namespacevg.html#a97e831d426c5d0eaed85a981adb0704a',1,'vg']]],
   ['normalize',['normalize',['../classvg_1_1VG.html#a217f8b5abd62bcdb256cf15926c9fe5c',1,'vg::VG']]],
   ['normalize_5falignment',['normalize_alignment',['../namespacevg.html#afa0c54720b2b1007ae540dc70b5b8024',1,'vg']]],
-  ['now',['now',['../classvg_1_1Funnel.html#a38ac7bda14a9c20e93f59073817b3879',1,'vg::Funnel']]],
   ['nullmaskinggraph',['NullMaskingGraph',['../classvg_1_1NullMaskingGraph.html#a2d348fa5aa3bd9216fc4133d320575ef',1,'vg::NullMaskingGraph::NullMaskingGraph(const HandleGraph *graph)'],['../classvg_1_1NullMaskingGraph.html#addeb1ab4002f516c686a5af59018597f',1,'vg::NullMaskingGraph::NullMaskingGraph()=default']]],
   ['num_5fhaplotypes',['num_haplotypes',['../classvg_1_1PhasedGenome.html#af17e5f99a07028d41f94885480cdddf7',1,'vg::PhasedGenome']]]
 ];

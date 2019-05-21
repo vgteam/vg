@@ -44,7 +44,7 @@ var searchData=
   ['fill_5fnonredundant_5fsub_5fmem_5fnodes',['fill_nonredundant_sub_mem_nodes',['../classvg_1_1BaseMapper.html#a3d3cdacd0ec3e6b27ced793aeb9b561a',1,'vg::BaseMapper']]],
   ['fill_5fvalue',['fill_value',['../classvg_1_1io_1_1ProtobufIterator.html#aec100b14b027d294e2a0aaaaad3b4abd',1,'vg::io::ProtobufIterator']]],
   ['filled',['filled',['../classvg_1_1PackedVector.html#a7eb182c44220bfde11be3ad96167a72e',1,'vg::PackedVector::filled()'],['../classvg_1_1PagedVector.html#a07af7c8a08a67bb822839e74d5f57445',1,'vg::PagedVector::filled()'],['../classvg_1_1PackedDeque.html#a09c56fb373879aca3f8db32e3455b1e1',1,'vg::PackedDeque::filled()']]],
-  ['filter',['Filter',['../classvg_1_1Filter.html#a1a9dadc8fe8b9abe295373627e033b89',1,'vg::Filter::Filter()'],['../classvg_1_1ReadFilter.html#a7fe8cb61ed8a2f376b0404e934af8b91',1,'vg::ReadFilter::filter()']]],
+  ['filter',['filter',['../classvg_1_1ReadFilter.html#a7fe8cb61ed8a2f376b0404e934af8b91',1,'vg::ReadFilter::filter()'],['../classvg_1_1Filter.html#a1a9dadc8fe8b9abe295373627e033b89',1,'vg::Filter::Filter()']]],
   ['filter',['Filter',['../classvg_1_1Filter.html',1,'vg']]],
   ['filter_2ecpp',['filter.cpp',['../filter_8cpp.html',1,'']]],
   ['filter_2ehpp',['filter.hpp',['../filter_8hpp.html',1,'']]],
@@ -69,6 +69,7 @@ var searchData=
   ['find_5fbest_5ftraversals',['find_best_traversals',['../classvg_1_1SupportCaller.html#abfd7e51e300c2fe08c5ae08043197786',1,'vg::SupportCaller']]],
   ['find_5fbreakpoints',['find_breakpoints',['../classvg_1_1VG.html#a67e451c4a4a95e15244acc4972296124',1,'vg::VG']]],
   ['find_5fbubble',['find_bubble',['../classvg_1_1NestedTraversalFinder.html#ad9fd7aef8b98fdc56b429e4613113c6f',1,'vg::NestedTraversalFinder::find_bubble()'],['../classvg_1_1RepresentativeTraversalFinder.html#a83b5380d4dfa86aa0559b88cf1be670d',1,'vg::RepresentativeTraversalFinder::find_bubble()']]],
+  ['find_5fclosest_5fwith_5fpaths',['find_closest_with_paths',['../classxg_1_1XG.html#a56454fe157764ef082c63b5722f2e790',1,'xg::XG']]],
   ['find_5fconnecting_5fpaths',['find_connecting_paths',['../classvg_1_1MinimizerMapper.html#a6045a66e4c271c4901ad9e539d01a1d6',1,'vg::MinimizerMapper']]],
   ['find_5fedges_5fto_5fprune',['find_edges_to_prune',['../namespacevg.html#a9e892bf26f768618a2b8c2abea6a6a60',1,'vg']]],
   ['find_5fin_5forientation',['find_in_orientation',['../structvg_1_1PathIndex.html#a370381104e7ea9d891dddaf9ae76d06f',1,'vg::PathIndex']]],
@@ -163,7 +164,6 @@ var searchData=
   ['for_5feach_5fstep_5fon_5fhandle',['for_each_step_on_handle',['../classhandlegraph_1_1PathHandleGraph.html#ae63696ee6a047a75505c6096c635c16b',1,'handlegraph::PathHandleGraph']]],
   ['for_5feach_5fstep_5fon_5fhandle_5fimpl',['for_each_step_on_handle_impl',['../classvg_1_1HashGraph.html#a3b6a98f483140331042ffd20f81a9c84',1,'vg::HashGraph::for_each_step_on_handle_impl()'],['../classvg_1_1PackedGraph.html#af4ada20d068021f390084c4a65662397',1,'vg::PackedGraph::for_each_step_on_handle_impl()'],['../classvg_1_1VG.html#af1c6f800abfa14fdca58936e97907004',1,'vg::VG::for_each_step_on_handle_impl()'],['../classxg_1_1XG.html#ac538b7bd4b5ea54997d501a29b1187ac',1,'xg::XG::for_each_step_on_handle_impl()'],['../classhandlegraph_1_1PathHandleGraph.html#a2bbdf56b268001c629cf000f5bd8bb9a',1,'handlegraph::PathHandleGraph::for_each_step_on_handle_impl()']]],
   ['for_5feach_5fstream',['for_each_stream',['../classvg_1_1Paths.html#a8ceb67abc89bd22659c751c946906e23',1,'vg::Paths']]],
-  ['for_5feach_5ftime',['for_each_time',['../classvg_1_1Funnel.html#a45d5a865dfb4a5998e2fcb510b11cf15',1,'vg::Funnel']]],
   ['for_5feach_5ftop_5flevel_5fsnarl',['for_each_top_level_snarl',['../classvg_1_1SnarlManager.html#a6b42f12442007c78fd32607d61ba3ccb',1,'vg::SnarlManager']]],
   ['for_5feach_5ftop_5flevel_5fsnarl_5fparallel',['for_each_top_level_snarl_parallel',['../classvg_1_1SnarlManager.html#a71710865e315d8a49d832ff23938ff12',1,'vg::SnarlManager']]],
   ['for_5feach_5fwindow',['for_each_window',['../namespacevg.html#a38deb09e330017467f53de09f96cfc14',1,'vg']]],
@@ -239,7 +239,5 @@ var searchData=
   ['funnel',['Funnel',['../classvg_1_1Funnel.html',1,'vg']]],
   ['funnel_2ecpp',['funnel.cpp',['../funnel_8cpp.html',1,'']]],
   ['funnel_2ehpp',['funnel.hpp',['../funnel_8hpp.html',1,'']]],
-  ['funnel_5fduration',['funnel_duration',['../classvg_1_1Funnel.html#a2068e21a16063030a6eec7444538ec09',1,'vg::Funnel']]],
-  ['funnel_5fname',['funnel_name',['../classvg_1_1Funnel.html#aae00e188df16e84d5ecdb12e6ce5d51e',1,'vg::Funnel']]],
-  ['funnel_5fstart_5ftime',['funnel_start_time',['../classvg_1_1Funnel.html#acaad8aad0e4360c140e0cdd1c9327c8b',1,'vg::Funnel']]]
+  ['funnel_5fname',['funnel_name',['../classvg_1_1Funnel.html#aae00e188df16e84d5ecdb12e6ce5d51e',1,'vg::Funnel']]]
 ];

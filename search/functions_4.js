@@ -10,7 +10,7 @@ var searchData=
   ['deconstructor',['Deconstructor',['../classvg_1_1Deconstructor.html#ac164fa41d5d207dec36a99b891d405be',1,'vg::Deconstructor']]],
   ['decrement_5fnode_5fids',['decrement_node_ids',['../classvg_1_1VG.html#a356612f42ba60fe5895f3abe7501173a',1,'vg::VG']]],
   ['deduplicate_5fcluster_5fpairs',['deduplicate_cluster_pairs',['../classvg_1_1MEMClusterer.html#ae99c87e944c8c1056abb8efc7da5786e',1,'vg::MEMClusterer']]],
-  ['deep_5fcontents',['deep_contents',['../classvg_1_1SnarlManager.html#a1a6a288f8d3607c98db20e0b55fd9b40',1,'vg::SnarlManager']]],
+  ['deep_5fcontents',['deep_contents',['../classvg_1_1SnarlManager.html#a17e06c6cda3f0668b70bc97e1a98a206',1,'vg::SnarlManager']]],
   ['deflect_5fto_5fmatrix',['deflect_to_matrix',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a6abbf28540a3e93c039ee2ec6ccf26be',1,'vg::BandedGlobalAligner::AltTracebackStack::deflect_to_matrix()'],['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack.html#a5c24b2c60ef30f7ff29f3b28534496c2',1,'vg::BandedGlobalAligner::AltTracebackStack::deflect_to_matrix(int64_t &amp;to_node_id)']]],
   ['deflection',['Deflection',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a44389670dc49e1dadf64104423dd064f',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],
   ['defragment',['defragment',['../classvg_1_1PackedGraph.html#a27f66502e40b92222c957aa7aab1b4bf',1,'vg::PackedGraph']]],

@@ -92,8 +92,6 @@ var searchData=
   ['priority',['priority',['../classvg_1_1subcommand_1_1Subcommand.html#a3f995aec9b4e2367530e1a6bcccb2e53',1,'vg::subcommand::Subcommand']]],
   ['prng',['prng',['../classvg_1_1NGSSimulator_1_1MarkovDistribution.html#a1452b78239d8d8256d5de172e648a3c0',1,'vg::NGSSimulator::MarkovDistribution::prng()'],['../classvg_1_1NGSSimulator.html#a5f51639901d929d02716db6b2cced7f7',1,'vg::NGSSimulator::prng()']]],
   ['prob_5fsampler',['prob_sampler',['../classvg_1_1NGSSimulator.html#a36ca291ed15a9a3942809d21d0574bc1',1,'vg::NGSSimulator']]],
-  ['process_5fduration',['process_duration',['../structvg_1_1Funnel_1_1Item.html#ad9fe47892c1303e6b2db81063cef7f83',1,'vg::Funnel::Item']]],
-  ['produce_5fduration',['produce_duration',['../structvg_1_1Funnel_1_1Item.html#a52ab54c5e0bd64476820d578e6c2e2f5',1,'vg::Funnel::Item']]],
   ['progress',['progress',['../classvg_1_1Progressive.html#af78e64e28b252828a0ba86439125fea4',1,'vg::Progressive']]],
   ['progress_5fbars',['progress_bars',['../classvg_1_1VGset.html#acc491d0a5c0a54c6bbd0636fa44431b7',1,'vg::VGset']]],
   ['progress_5fcount',['progress_count',['../classvg_1_1Progressive.html#a71e61fe99d71d23542d2d7387c23fd4d',1,'vg::Progressive']]],

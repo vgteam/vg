@@ -82,7 +82,6 @@ var searchData=
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
   ['input',['input',['../structvg_1_1io_1_1hFILE__cppstream.html#a301bcdddd00f4d40033b4ca94691f9a6',1,'vg::io::hFILE_cppstream']]],
   ['input_5fin_5fprogress',['input_in_progress',['../classvg_1_1Funnel.html#a755941e4c7988487e539256c16b507bb',1,'vg::Funnel']]],
-  ['input_5fstart_5ftime',['input_start_time',['../classvg_1_1Funnel.html#affb3e5cfe02a4996dc0d716d1cb04cb1',1,'vg::Funnel']]],
   ['inputstream',['inputStream',['../namespacevg_1_1io.html#a857cf3810d138ef43e25aa37f147ac25',1,'vg::io']]],
   ['ins',['INS',['../xdrop__aligner_8cpp.html#a06fc87d81c62e9abb8790b6e5713c55ba958fa7aa9ac4b5cd6e56237041b90584',1,'xdrop_aligner.cpp']]],
   ['ins_5ffasta',['ins_fasta',['../classvg_1_1SupportCaller.html#afc1209f27455e07ab97aae155418e5e6',1,'vg::SupportCaller']]],
@@ -113,7 +112,6 @@ var searchData=
   ['insertionrecord',['InsertionRecord',['../structvg_1_1PileupAugmenter_1_1InsertionRecord.html',1,'vg::PileupAugmenter']]],
   ['insertions',['insertions',['../structvg_1_1InsertHaplotypeCommand.html#a5dfd52deff7c8c3fc76fa7b4dee45032',1,'vg::InsertHaplotypeCommand::insertions()'],['../structvg_1_1ReplaceLocalHaplotypeCommand.html#a44ad82bbfa6098c648bc1a6fcd61d102',1,'vg::ReplaceLocalHaplotypeCommand::insertions()']]],
   ['insertrow',['InsertRow',['../classvg_1_1BandedGlobalAligner.html#a5f62e09b67082ec3c7ed538b930d8e2fac7adaac601fdfa40491cb7906ca9e989',1,'vg::BandedGlobalAligner']]],
-  ['instrument_5fmapping',['INSTRUMENT_MAPPING',['../minimizer__mapper_8cpp.html#acb6438c6947f47724c633f5008d5a16e',1,'minimizer_mapper.cpp']]],
   ['int_5fis_5finc',['int_is_inc',['../structhaplo_1_1haplo__DP__rectangle.html#a45856786beeaa7213275fcaf3eaa6878',1,'haplo::haplo_DP_rectangle']]],
   ['int_5fitvl_5ft',['int_itvl_t',['../structhaplo_1_1int__itvl__t.html',1,'haplo']]],
   ['int_5fweighted_5fsum',['int_weighted_sum',['../namespacehaplo_1_1haploMath.html#a5bc2868874173d377a55c788f21796ef',1,'haplo::haploMath::int_weighted_sum(double *values, int64_t *counts, size_t n_values)'],['../namespacehaplo_1_1haploMath.html#ab17ccf8a6fa509f269bdaf1c69e4f6bc',1,'haplo::haploMath::int_weighted_sum(vector&lt; double &gt; values, vector&lt; int64_t &gt; counts)']]],
@@ -123,10 +121,10 @@ var searchData=
   ['internal_5findex',['internal_index',['../classvg_1_1PackedDeque.html#a5578cfc59c41359b22d38eca8bec3cef',1,'vg::PackedDeque']]],
   ['intersection',['intersection',['../structhaplo_1_1int__itvl__t.html#ade4051b750fcce428be13a69663ec035',1,'haplo::int_itvl_t']]],
   ['interval_5fsize',['interval_size',['../structhaplo_1_1haplo__DP__rectangle.html#a6b3ef8d3d6e3f1f38fb462ab903c2bb1',1,'haplo::haplo_DP_rectangle']]],
-  ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html#a929348710988ce5d6d5d334e8a400961',1,'vg::IntervalBitfield']]],
   ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html',1,'vg']]],
+  ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html#a929348710988ce5d6d5d334e8a400961',1,'vg::IntervalBitfield']]],
   ['intervals',['intervals',['../classvg_1_1SRPE.html#a5fc255cb93b3221c2b8a01ae7553ac7b',1,'vg::SRPE']]],
-  ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1SnarlManager.html#a75df598ce937690899e8933ae6ec5ace',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const '],['../classvg_1_1SnarlManager.html#aa519884a5484a5aaa2dcfe9de0bc1031',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const ']]],
+  ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1SnarlManager.html#a78f488b3c39067118b28666d834dd6b1',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const '],['../classvg_1_1SnarlManager.html#a976c4bdaded285896fe607118ace6ac3',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const ']]],
   ['introduce',['introduce',['../classvg_1_1Funnel.html#adfe8a13519ae236c400f3ad68980e16c',1,'vg::Funnel']]],
   ['invalid',['invalid',['../structhaplo_1_1linear__haplo__structure.html#a3180d362cdac21750aebf6d4fe77e0d8a26ab26b5bf5a066a0902a79defda6b5d',1,'haplo::linear_haplo_structure']]],
   ['inverse',['inverse',['../classvg_1_1Filter.html#a05e7274611008cdd5b89d1fa81605882',1,'vg::Filter']]],
@@ -187,7 +185,7 @@ var searchData=
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]],
   ['iteratee_2ehpp',['iteratee.hpp',['../iteratee_8hpp.html',1,'']]],
   ['iterator',['iterator',['../structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482',1,'vg::PathIndex::iterator()'],['../classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096',1,'vg::ShuffledPairs::iterator::iterator(const iterator &amp;other)=default'],['../classvg_1_1ShuffledPairs_1_1iterator.html#a3b52dd39c46e409ef1bfd67ab8ee76e4',1,'vg::ShuffledPairs::iterator::iterator(const ShuffledPairs &amp;iteratee, size_t start_at)'],['../classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441',1,'vg::PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode *haplo_node)'],['../classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf',1,'vg::PhasedGenome::iterator::iterator()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a03bdcb94d8ed8b6e895ff003412185e4',1,'vg::PhasedGenome::iterator::iterator(const iterator &amp;other)'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ac02b7134a97591fcd4a821093a0a4ab4',1,'handlegraph::PathForEachSocket::iterator::iterator(const iterator &amp;other)=default'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#aed3d6dd2502cf236a6a55ed29e8c41dc',1,'handlegraph::PathForEachSocket::iterator::iterator()=delete'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#af854ca3bd6cdbcfc8af01f7879f85106',1,'handlegraph::PathForEachSocket::iterator::iterator(const step_handle_t &amp;step, bool force_unequal, const PathHandleGraph *graph)']]],
+  ['iterator',['iterator',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html',1,'handlegraph::PathForEachSocket']]],
   ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]],
-  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]],
-  ['iterator',['iterator',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html',1,'handlegraph::PathForEachSocket']]]
+  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]]
 ];

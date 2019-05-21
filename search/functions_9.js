@@ -61,7 +61,7 @@ var searchData=
   ['intersection',['intersection',['../structhaplo_1_1int__itvl__t.html#ade4051b750fcce428be13a69663ec035',1,'haplo::int_itvl_t']]],
   ['interval_5fsize',['interval_size',['../structhaplo_1_1haplo__DP__rectangle.html#a6b3ef8d3d6e3f1f38fb462ab903c2bb1',1,'haplo::haplo_DP_rectangle']]],
   ['intervalbitfield',['IntervalBitfield',['../structvg_1_1IntervalBitfield.html#a929348710988ce5d6d5d334e8a400961',1,'vg::IntervalBitfield']]],
-  ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1SnarlManager.html#a75df598ce937690899e8933ae6ec5ace',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const '],['../classvg_1_1SnarlManager.html#aa519884a5484a5aaa2dcfe9de0bc1031',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const ']]],
+  ['into_5fwhich_5fsnarl',['into_which_snarl',['../classvg_1_1SnarlManager.html#a78f488b3c39067118b28666d834dd6b1',1,'vg::SnarlManager::into_which_snarl(int64_t id, bool reverse) const '],['../classvg_1_1SnarlManager.html#a976c4bdaded285896fe607118ace6ac3',1,'vg::SnarlManager::into_which_snarl(const Visit &amp;visit) const ']]],
   ['introduce',['introduce',['../classvg_1_1Funnel.html#adfe8a13519ae236c400f3ad68980e16c',1,'vg::Funnel']]],
   ['inversion_5ffilter',['inversion_filter',['../classvg_1_1Filter.html#a5503147c786a4d9bfb18fc081630b5f6',1,'vg::Filter']]],
   ['is_5facyclic',['is_acyclic',['../classvg_1_1VG.html#a71388f637b255bf16a940e735a12aacd',1,'vg::VG']]],

@@ -445,7 +445,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:ade155e217ce261575908701440aa8c30"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#ade155e217ce261575908701440aa8c30">min_approx_path_distance</a> (int64_t id1, int64_t id2) const </td></tr>
 <tr class="separator:ade155e217ce261575908701440aa8c30"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a5ed430a9930e82b434f32e06bc0af0d2"><td class="memItemLeft" align="right" valign="top">pair&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a5ed430a9930e82b434f32e06bc0af0d2">next_path_position</a> (<a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> pos, int64_t max_search) const </td></tr>
-<tr class="memdesc:a5ed430a9930e82b434f32e06bc0af0d2"><td class="mdescLeft">&#160;</td><td class="mdescRight">nearest position that is in a path and the distance between it and the current position  <a href="#a5ed430a9930e82b434f32e06bc0af0d2">More...</a><br/></td></tr>
 <tr class="separator:a5ed430a9930e82b434f32e06bc0af0d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a72cfb39b8f29c75e47a0c4c912566f26"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a72cfb39b8f29c75e47a0c4c912566f26">paths_on_same_component</a> (size_t path_rank_1, size_t path_rank_2) const </td></tr>
 <tr class="memdesc:a72cfb39b8f29c75e47a0c4c912566f26"><td class="mdescLeft">&#160;</td><td class="mdescRight">returns true if the paths are on the same connected component of the graph (constant time)  <a href="#a72cfb39b8f29c75e47a0c4c912566f26">More...</a><br/></td></tr>
@@ -477,6 +476,9 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a577fdd1213e0bc84f1fd13672f3397f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a17cf097021f229c6cb9626603cec2789"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a17cf097021f229c6cb9626603cec2789">closest_shared_path_oriented_distance</a> (int64_t id1, size_t offset1, bool rev1, int64_t id2, size_t offset2, bool rev2, bool forward_strand=false, size_t max_search_dist=100, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr, unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *handle_memo=nullptr) const </td></tr>
 <tr class="separator:a17cf097021f229c6cb9626603cec2789"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a56454fe157764ef082c63b5722f2e790"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, <br class="typebreak"/>
+size_t, bool &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a56454fe157764ef082c63b5722f2e790">find_closest_with_paths</a> (<a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> start, size_t max_search_dist, size_t right_extra_dist=0, size_t left_extra_dist=0, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr) const </td></tr>
+<tr class="separator:a56454fe157764ef082c63b5722f2e790"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a63f6625b55f8b0a55dd23f143b6920f6"><td class="memItemLeft" align="right" valign="top">vector&lt; tuple&lt; int64_t, bool, <br class="typebreak"/>
 size_t &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classxg_1_1XG.html#a63f6625b55f8b0a55dd23f143b6920f6">jump_along_closest_path</a> (int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist, unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *paths_of_node_memo=nullptr, unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *oriented_occurrences_memo=nullptr, unordered_map&lt; pair&lt; int64_t, bool &gt;, <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a> &gt; *handle_memo=nullptr) const </td></tr>
 <tr class="separator:a63f6625b55f8b0a55dd23f143b6920f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -2173,6 +2175,60 @@ Additional Inherited Members</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Extract a set of threads matching a pattern. </p>
+
+</div>
+</div>
+<a class="anchor" id="a56454fe157764ef082c63b5722f2e790"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; tuple&lt; <a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>, size_t, bool &gt; &gt; xg::XG::find_closest_with_paths </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="structhandlegraph_1_1handle__t.html">handle_t</a>&#160;</td>
+          <td class="paramname"><em>start</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_search_dist</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>right_extra_dist</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>left_extra_dist</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; int64_t, vector&lt; size_t &gt;&gt; *&#160;</td>
+          <td class="paramname"><em>paths_of_node_memo</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; pair&lt; int64_t, size_t &gt;, vector&lt; pair&lt; size_t, bool &gt;&gt;&gt; *&#160;</td>
+          <td class="paramname"><em>oriented_occurrences_memo</em> = <code>nullptr</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Return a vector of pairs of handles that occur on the same relative strand as the start handle, the distance from the right or left end of the start handle needed to reach them, and whether they were reached going right (true) or left (false) from the start. The handles are the closest one(s) to the start handle that touch any paths.</p>
+<p>Distances are always positive. If specified, right_extra_dist and left_extra_dist are added to the search distances, to allow for searching from a particular point on the starting node.</p>
+<p>Search does not exceed max_search_dist bases.</p>
+<p>Will only ever return an empty vector or a 1-element vector. </p>
 
 </div>
 </div>
@@ -4091,8 +4147,7 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-
-<p>nearest position that is in a path and the distance between it and the current position </p>
+<p>nearest position that is in a path and the distance between it and the current position is &lt;= max_search. Will search over multiple nodes. </p>
 
 </div>
 </div>
