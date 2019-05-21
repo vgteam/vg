@@ -1016,6 +1016,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set pruning and clustering parameters
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
+    multipath_mapper.use_min_dist_clusterer = use_min_dist_clusterer;
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;

@@ -724,7 +724,7 @@ namespace vg {
 #endif
         
         int64_t dist;
-        if (use_min_dist_clusterer) {
+        if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
             // measure the distance in both directions and choose the minimum (or the only) absolute distance
             int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
