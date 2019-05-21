@@ -153,7 +153,7 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
         vg::io::ProtobufIterator<message_t> it(datastream);
         
         size_t index_found = 0;
-        while (it.has_next()) {
+        while (it.has_current()) {
 #ifdef debug
         cerr << "We wrote " << index_found << " at VO " << it.tell_group() << endl;
 #endif
@@ -183,7 +183,7 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     
     SECTION("Data can be iterated back all in a run") {
         size_t index_expected = 0;
-        for (vg::io::ProtobufIterator<message_t> it(datastream); it.has_next(); it.get_next()) {
+        for (vg::io::ProtobufIterator<message_t> it(datastream); it.has_current(); it.advance()) {
             auto vo_parts = unvo(it.tell_group());
 #ifdef debug
             cerr << "Found item " << (*it).node_id() << " at VO " << it.tell_group()
