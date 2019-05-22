@@ -91,6 +91,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
+<a href="#pri-attribs">Private Attributes</a> &#124;
 <a href="classvg_1_1MEMClusterer_1_1HitGraph-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::MEMClusterer::HitGraph Class Reference</div>  </div>
@@ -101,15 +102,19 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a958836b9c8114478f0b162c34eec2ab9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a958836b9c8114478f0b162c34eec2ab9">HitGraph</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length=1)</td></tr>
-<tr class="memdesc:a958836b9c8114478f0b162c34eec2ab9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initializes nodes in the hit graph, but does not add edges.  <a href="#a958836b9c8114478f0b162c34eec2ab9">More...</a><br/></td></tr>
-<tr class="separator:a958836b9c8114478f0b162c34eec2ab9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af8b973948228e8cb287a166af90dcd96"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#af8b973948228e8cb287a166af90dcd96">HitGraph</a> (const vector&lt; <a class="el" href="classvg_1_1MaximalExactMatch.html">MaximalExactMatch</a> &gt; &amp;mems, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, size_t min_mem_length=1, bool <a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96">track_components</a>=false)</td></tr>
+<tr class="memdesc:af8b973948228e8cb287a166af90dcd96"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initializes nodes in the hit graph, but does not add edges.  <a href="#af8b973948228e8cb287a166af90dcd96">More...</a><br/></td></tr>
+<tr class="separator:af8b973948228e8cb287a166af90dcd96"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9ea6a73a76afd51e8e3faee8d76575a2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a9ea6a73a76afd51e8e3faee8d76575a2">add_edge</a> (size_t from, size_t to, int32_t weight, int64_t distance)</td></tr>
 <tr class="memdesc:a9ea6a73a76afd51e8e3faee8d76575a2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Add an edge.  <a href="#a9ea6a73a76afd51e8e3faee8d76575a2">More...</a><br/></td></tr>
 <tr class="separator:a9ea6a73a76afd51e8e3faee8d76575a2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a34d7904686d0f953620a404f483c1a6c"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="classvg_1_1MEMClusterer.html#a3c8d3cab3de27ed08403fb300ea6dd6d">cluster_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a34d7904686d0f953620a404f483c1a6c">clusters</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const <a class="el" href="classvg_1_1GSSWAligner.html">GSSWAligner</a> *aligner, int32_t max_qual_score, int32_t log_likelihood_approx_factor, size_t min_median_mem_coverage_for_split, double suboptimal_edge_pruning_factor)</td></tr>
 <tr class="memdesc:a34d7904686d0f953620a404f483c1a6c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the top scoring connected components.  <a href="#a34d7904686d0f953620a404f483c1a6c">More...</a><br/></td></tr>
 <tr class="separator:a34d7904686d0f953620a404f483c1a6c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6879622d8abb7f9841a18e357e8a1812"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a6879622d8abb7f9841a18e357e8a1812">for_each_hit_pair</a> (const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;lambda)</td></tr>
+<tr class="separator:a6879622d8abb7f9841a18e357e8a1812"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a20347e290954050d64c46770c9cbd08d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a20347e290954050d64c46770c9cbd08d">for_each_hit_pair_greedy</a> (const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;lambda)</td></tr>
+<tr class="separator:a20347e290954050d64c46770c9cbd08d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -121,7 +126,7 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:a1d78037320926a35cb897cdeaae0e5ae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a1d78037320926a35cb897cdeaae0e5ae">connected_components</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;components_out) const </td></tr>
 <tr class="memdesc:a1d78037320926a35cb897cdeaae0e5ae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Identify weakly connected components in the graph.  <a href="#a1d78037320926a35cb897cdeaae0e5ae">More...</a><br/></td></tr>
 <tr class="separator:a1d78037320926a35cb897cdeaae0e5ae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab2949f31f3e43410189eafa260544baf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#ab2949f31f3e43410189eafa260544baf">prune_low_scoring_edges</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;components, size_t component_idx, double score_factor)</td></tr>
+<tr class="memitem:ab2949f31f3e43410189eafa260544baf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#ab2949f31f3e43410189eafa260544baf">prune_low_scoring_edges</a> (vector&lt; vector&lt; size_t &gt;&gt; &amp;<a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#ab0952f2992c99f031ac813bfa563bf34">components</a>, size_t component_idx, double score_factor)</td></tr>
 <tr class="separator:ab2949f31f3e43410189eafa260544baf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6a5314b3408ca05c265648b8b6053e1d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a6a5314b3408ca05c265648b8b6053e1d">perform_dp</a> ()</td></tr>
 <tr class="memdesc:a6a5314b3408ca05c265648b8b6053e1d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Perform dynamic programming and store scores in nodes.  <a href="#a6a5314b3408ca05c265648b8b6053e1d">More...</a><br/></td></tr>
@@ -137,9 +142,18 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a3d781e43df99ad3ce2b7e65af456f5f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a248d840cdd8d2eb5ebb7007535de3de2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a248d840cdd8d2eb5ebb7007535de3de2">median_mem_coverage</a> (const vector&lt; size_t &gt; &amp;component, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln) const </td></tr>
 <tr class="separator:a248d840cdd8d2eb5ebb7007535de3de2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
+Private Attributes</h2></td></tr>
+<tr class="memitem:a6bc63fbe77aee54235636bbc228a9e96"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96">track_components</a></td></tr>
+<tr class="memdesc:a6bc63fbe77aee54235636bbc228a9e96"><td class="mdescLeft">&#160;</td><td class="mdescRight">Should we actively keep track of connected components?  <a href="#a6bc63fbe77aee54235636bbc228a9e96">More...</a><br/></td></tr>
+<tr class="separator:a6bc63fbe77aee54235636bbc228a9e96"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab0952f2992c99f031ac813bfa563bf34"><td class="memItemLeft" align="right" valign="top">UnionFind&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MEMClusterer_1_1HitGraph.html#ab0952f2992c99f031ac813bfa563bf34">components</a></td></tr>
+<tr class="memdesc:ab0952f2992c99f031ac813bfa563bf34"><td class="mdescLeft">&#160;</td><td class="mdescRight">Keeps track of the connected components.  <a href="#ab0952f2992c99f031ac813bfa563bf34">More...</a><br/></td></tr>
+<tr class="separator:ab0952f2992c99f031ac813bfa563bf34"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a958836b9c8114478f0b162c34eec2ab9"></a>
+<a class="anchor" id="af8b973948228e8cb287a166af90dcd96"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -165,7 +179,13 @@ Private Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>min_mem_length</em> = <code>1</code>&#160;</td>
+          <td class="paramname"><em>min_mem_length</em> = <code>1</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>track_components</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -334,6 +354,40 @@ Private Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a6879622d8abb7f9841a18e357e8a1812"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MEMClusterer::HitGraph::for_each_hit_pair </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>lambda</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Execute a lambda on each pair of indexes of nodes (i, j), where i &lt; j. Pairs are produced in lexicographic order. </p>
+
+</div>
+</div>
+<a class="anchor" id="a20347e290954050d64c46770c9cbd08d"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::MEMClusterer::HitGraph::for_each_hit_pair_greedy </td>
+          <td>(</td>
+          <td class="paramtype">const function&lt; void(pair&lt; size_t, size_t &gt;)&gt; &amp;&#160;</td>
+          <td class="paramname"><em>lambda</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Execute a lambda on each pair of indexes of nodes (i, j), where 1) i &lt; j, and 2) i and j are not in the same connected component. The edges (and hence the the connected components) are allowed to change as a side effect of lambda. Pairs are produced in increasing order of the absolute distance on the read of the end of node i's MEM and the beginning of node j's MEM. Hit graph must have been constructed to track components to filter out pairs that are in the same component. </p>
+
+</div>
+</div>
 <a class="anchor" id="a6f516a61ac5a9a7194c6841eabc39e42"></a>
 <div class="memitem">
 <div class="memproto">
@@ -498,6 +552,28 @@ Private Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a class="anchor" id="ab0952f2992c99f031ac813bfa563bf34"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">UnionFind vg::MEMClusterer::HitGraph::components</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Keeps track of the connected components. </p>
+
+</div>
+</div>
 <a class="anchor" id="aa1c634ccdab6c61d7fc0b9971014b276"></a>
 <div class="memitem">
 <div class="memproto">
@@ -507,6 +583,28 @@ Private Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a6bc63fbe77aee54235636bbc228a9e96"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::MEMClusterer::HitGraph::track_components</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Should we actively keep track of connected components? </p>
 
 </div>
 </div>

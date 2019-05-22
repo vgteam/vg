@@ -199,7 +199,7 @@ var searchData=
   ['hit_5ft',['hit_t',['../classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7',1,'vg::MEMClusterer']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html#adfc12ed7c93d550e05882555d0004235',1,'vg::MEMClusterer::HitEdge::HitEdge(size_t to_idx, int32_t weight, int64_t distance)'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a16766cbf34e0ec89d8bbdcd7f9d42988',1,'vg::MEMClusterer::HitEdge::HitEdge()=default']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
-  ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a958836b9c8114478f0b162c34eec2ab9',1,'vg::MEMClusterer::HitGraph']]],
+  ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html#af8b973948228e8cb287a166af90dcd96',1,'vg::MEMClusterer::HitGraph']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html#a3156b62ac2208fdac8d0b12475011472',1,'vg::MEMClusterer::HitNode::HitNode(const MaximalExactMatch &amp;mem, pos_t start_pos, int32_t score)'],['../classvg_1_1MEMClusterer_1_1HitNode.html#aaeb6e6e2bb1c2ce2cda76adce19a40d6',1,'vg::MEMClusterer::HitNode::HitNode()=default']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html',1,'vg::MEMClusterer']]],
