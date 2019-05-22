@@ -12,8 +12,6 @@
 #include <iostream>
 #include <algorithm>
 
-#include <sdsl/int_vector.hpp>
-
 // Set this to track provenance of intermediate results
 #define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
@@ -72,6 +70,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     funnel.stage("seed");
 #endif
 
+    // How informative each minimizer is?
+    // The score is 1 + log max_hits - log hits.
+    vector<int> minimizer_score(minimizers.size());
+    size_t max_hits = 0;
+
     size_t rejected_count = 0;
     for (size_t i = 0; i < minimizers.size(); i++) {
         // For each minimizer
@@ -80,7 +83,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Say we're working on it
         funnel.processing_input(i);
 #endif
-        
+
         if (hit_cap == 0 || minimizer_index->count(minimizers[i]) <= hit_cap) {
             // The minimizer is infrequent enough to be informative, so feed it into clustering
             
@@ -98,10 +101,15 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                 seeds.push_back(hit);
                 seed_to_source.push_back(i);
             }
+
+            // Collect information for scoring the minimizers.
+            size_t hits = seeds.size() - seeds_before;
+            max_hits = std::max(max_hits, hits);
+            minimizer_score[i] = 1 - static_cast<int>(gbwt::bit_length(hits));
             
 #ifdef TRACK_PROVENANCE
             // Record in the funnel that this minimizer gave rise to these seeds.
-            funnel.expand(i, seeds.size() - seeds_before);
+            funnel.expand(i, hits);
 #endif
         } else {
             // The minimizer is too frequent
@@ -118,6 +126,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         funnel.processed_input();
 #endif
     }
+
+    // Add log max_hits to minimizer scores.
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        minimizer_score[i] += gbwt::bit_length(max_hits);
+    }
+
 
 #ifdef TRACK_PROVENANCE
 #ifdef TRACK_CORRECTNESS
@@ -160,9 +174,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     funnel.substage("score");
 #endif
 
-    // Compute the covered portion of the read represented by each cluster.
-    // TODO: Put this and sorting into the clusterer to deduplicate with vg cluster.
-    vector<double> read_coverage_by_cluster;
+    // Cluster score is the sum of minimizer scores.
+    // TODO: Should there be a penalty for missing minimizers?
+    vector<int> cluster_score(clusters.size(), 0);
     for (size_t i = 0; i < clusters.size(); i++) {
         // For each cluster
         auto& cluster = clusters[i];
@@ -171,37 +185,24 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Say we're making it
         funnel.producing_output(i);
 #endif
-        
-        // Score the cluster in read coverage.
-        
-        // We set bits in here to true when query anchors cover them
-        sdsl::bit_vector covered(aln.sequence().size(), 0);
-        std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index->k()];
-        
+
+        // Which minimizers are present in the cluster.
+        vector<bool> present(minimizers.size(), false);
         for (auto hit_index : cluster) {
-            // For each hit in the cluster, work out what anchor sequence it is from.
-            size_t source_index = seed_to_source[hit_index];
-
-            // The offset of a reverse minimizer is the endpoint of the kmer
-            size_t start_offset = minimizers[source_index].offset;
-            if (minimizers[source_index].is_reverse) {
-                start_offset = start_offset + 1 - minimizer_index->k();
-            }
-
-            // Set the k bits starting at start_offset.
-            covered.set_int(start_offset, k_bit_mask, minimizer_index->k());
+            present[seed_to_source[hit_index]] = true;
         }
-        
-        // Count up the covered positions
-        size_t covered_count = sdsl::util::cnt_one_bits(covered);
-        
-        // Turn that into a fraction
-        read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+
+        // Compute the score.
+        for (size_t j = 0; j < minimizers.size(); j++) {
+            if (present[j]) {
+                cluster_score[i] += minimizer_score[j];
+            }
+        }
         
 #ifdef TRACK_PROVENANCE
         // Record the cluster in the funnel as a group of the size of the number of items.
         funnel.merge_group(cluster.begin(), cluster.end());
-        funnel.score(funnel.latest(), read_coverage_by_cluster.back());
+        funnel.score(funnel.latest(), cluster_score[i]);
         
         // Say we made it.
         funnel.produced_output();
@@ -222,7 +223,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Put the most covering cluster's index first
     std::sort(cluster_indexes_in_order.begin(), cluster_indexes_in_order.end(), [&](const size_t& a, const size_t& b) -> bool {
         // Return true if a must come before b, and false otherwise
-        return read_coverage_by_cluster.at(a) > read_coverage_by_cluster.at(b);
+        return (cluster_score[a] > cluster_score[b]);
     });
     
 #ifdef TRACK_PROVENANCE
