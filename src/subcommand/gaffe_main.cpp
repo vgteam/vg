@@ -203,7 +203,7 @@ int main_gaffe(int argc, char** argv) {
                 do_chaining = false;
                 break;
 
-            case 'E':
+            case 'e':
                 {
                     size_t extensions = parse<size_t>(optarg);
                     if (extensions <= 0) {
