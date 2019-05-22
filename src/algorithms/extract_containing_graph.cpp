@@ -26,7 +26,7 @@ void extract_containing_graph(const HandleGraph* source,
         assert(false);
     }
     
-    if (into->node_size()) {
+    if (into->get_node_count()) {
         cerr << "error:[extract_containing_graph] must extract into an empty graph" << endl;
         assert(false);
     }

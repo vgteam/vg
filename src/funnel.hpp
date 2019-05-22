@@ -1,13 +1,13 @@
 #ifndef VG_FUNNEL_HPP_INCLUDED
 #define VG_FUNNEL_HPP_INCLUDED
 
-#include <chrono>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <cassert>
 #include <functional>
 #include <iostream>
+#include <limits>
 
 /** 
  * \file funnel.hpp
@@ -22,32 +22,26 @@ using namespace std;
  * Represents a record of an invocation of a pipeline for an input.
  *
  * Tracks the history of "lines" of data "item" provenance through a series of
- * timed "stages".
+ * "stages".
  *
  * Lines are "introduced", and "project" from earlier stages to later stages,
  * possibly "expanding" or "merging", until they are "killed" or reach the
  * final stage. At each stage, items occur in a linear order and are identified
  * by index.
  *
- * Each stage has its runtime recorded, and the runtime for substages of the
- * stage are recorded as well.
- *
  * An item may be a "group", with a certain size.
- *
- * We can also allocate time to processing input items from the previous stage,
- * or ourput items of the current stage.
  *
  * We also can assign scores to items at a stage.
  */
 class Funnel {
 
 public:
-    /// Start the timer for processing the given named input.
+    /// Start processing the given named input.
     /// Name must not be empty.
     /// No stage or substage will be active.
     void start(const string& name);
     
-    /// Stop the timer for processing the given named input.
+    /// Stop processing the given named input.
     /// All stages and substages are stopped.
     void stop();
     
@@ -56,7 +50,7 @@ public:
     /// Multiple stages with the same name will be coalesced.
     void stage(const string& name);
     
-    /// Stop counting time against the current stage.
+    /// Stop the current stage.
     void stage_stop();
     
     /// Start the given substage, nested insude the current stage. End all previous substages.
@@ -64,19 +58,19 @@ public:
     /// Name must not be empty.
     void substage(const string& name);
     
-    /// Stop counting time against the current substage.
+    /// Stop the current substage.
     void substage_stop();
     
-    /// Start a clock assigning runtime to processing the given item coming from the previous stage.
+    /// Start processing the given item coming from the previous stage.
     void processing_input(size_t prev_stage_item);
     
-    /// Stop the clock assigning runtime to processing an item from the previous stage.
+    /// Stop processing an item from the previous stage.
     void processed_input();
     
-    /// Start a clock assigning time to producing the given output item, whether it has been projected yet or not. 
+    /// Start producing the given output item, whether it has been projected yet or not. 
     void producing_output(size_t item);
     
-    /// Stop the clock assigning time to producing an output item.
+    /// Stop producing an output item.
     void produced_output();
     
     /// Introduce the given number of new items, starting their own lines of provenance (default 1).
@@ -118,67 +112,31 @@ public:
     /// Get the index of the most recent item created in the current stage.
     size_t latest() const;
     
-    /// Get the total number of seconds elapsed between start() and stop()
-    double total_seconds() const;
-
-    /// Call the given callback with stage name (or ""), substage name (or ""), and
-    /// time in seconds overall, for each stage, and for each substage in a stage.
-    void for_each_time(const function<void(const string&, const string&, double)>& callback) const;
-    
     /// Call the given callback with stage name and number of results at that stage, for each stage.
     void for_each_stage(const function<void(const string&, size_t)>& callback) const;
 
     /// Dump information from the Funnel as a dot-format Graphviz graph to the given stream.
-    /// Illustrates stages, provenance, and runtime assignment.
+    /// Illustrates stages and provenance.
     void to_dot(ostream& out);
     
 protected:
     
-    /// How do we record durations internally?
-    using Duration = chrono::nanoseconds;
-    /// How do we record timepoints internally?
-    using Timepoint = chrono::time_point<chrono::high_resolution_clock>;
-    
-    // Members we need for time tracking
-    
     /// What's the name of the funnel we start()-ed. Will be empty if nothing is running.
     string funnel_name;
-    /// When did we start it the funnel?
-    Timepoint funnel_start_time;
-    /// If we finished the funnel, how long did it last?
-    Duration funnel_duration;
     
     /// What's the name of the current stage? Will be empty if no stage is running.
     string stage_name;
-    /// When did we start the stage?
-    Timepoint stage_start_time;
-    /// Records total duration of all stages by name.
-    unordered_map<string, Duration> stage_durations;
     
     /// What's the name of the current substage? Will be empty if no substage is running.
     string substage_name;
-    /// When did we start the substage?
-    Timepoint substage_start_time;
-    /// Records total duration of all substages by substage name and stage name.
-    unordered_map<string, unordered_map<string, Duration>> substage_durations;
     
     /// What's the current prev-stage input we are processing?
     /// Will be numeric_limits<size_t>::max() if none.
     size_t input_in_progress = numeric_limits<size_t>::max();
-    /// When did we start processing that input?
-    Timepoint input_start_time;
     
     /// what's the current current-stage output we are generating?
     /// Will be numeric_limits<size_t>::max() if none.
     size_t output_in_progress = numeric_limits<size_t>::max();
-    /// When did we start processing that input?
-    Timepoint output_start_time;
-    
-    /// Produce the current time
-    Timepoint now() const;
-
-    /// Convert a Duration to fractional seconds
-    double to_seconds(const Duration& time) const;
     
     // Now members we need for provenance tracking
     
@@ -190,10 +148,6 @@ protected:
         bool correct = false;
         /// What previous stage items were combined to make this one, if any?
         vector<size_t> prev_stage_items = {};
-        /// How long did it take to produce this item, in total?
-        Duration produce_duration{0};
-        /// How long was spent processing this item as an input, in total?
-        Duration process_duration{0};
     };
     
     /// Represents a Stage which is a series of Items, which track their own provenance.
@@ -201,7 +155,7 @@ protected:
         string name;
         vector<Item> items;
         /// How many of the items were actually projected?
-        /// Needed because items may need to expand to hold production times for items that have not been projected yet.
+        /// Needed because items may need to expand to hold information for items that have not been projected yet.
         size_t projected_count = 0;
         /// Does this stage contain any items tagged as correct?
         bool has_correct = false;

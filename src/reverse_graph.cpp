@@ -63,8 +63,8 @@ using namespace std;
         return forward_graph->for_each_handle(iteratee, parallel);
     }
     
-    size_t ReverseGraph::node_size() const {
-        return forward_graph->node_size();
+    size_t ReverseGraph::get_node_count() const {
+        return forward_graph->get_node_count();
     }
     
     id_t ReverseGraph::min_node_id() const {

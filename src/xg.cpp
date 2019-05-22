@@ -95,6 +95,11 @@ XG::~XG(void) {
         paths.pop_back();
     }
 }
+    
+void XG::deserialize(std::istream& in) {
+    // simple alias to match an external interface
+    load(in);
+}
 
 void XG::load(istream& in) {
 
@@ -239,7 +244,7 @@ void XG::load(istream& in) {
 
                 // Load all the B_s arrays for sides.
                 // Baking required before serialization.
-                deserialize(bs_single_array, in);
+                deserialize_rsiv(bs_single_array, in);
                 
                 if (file_version < 7) {
                     // No haplotype count; one needs to be genenrated by hackily parsing the thread names.
@@ -471,8 +476,12 @@ id_t XGPath::local_id(id_t id) const {
 id_t XGPath::external_id(id_t id) const {
     return id+min_node_id-1;
 }
+    
+void XG::serialize(ostream& out) const {
+    serialize_and_measure(out);
+}
 
-size_t XG::serialize(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
+size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
 
     sdsl::structure_tree_node* child = sdsl::structure_tree::add_child(s, name, sdsl::util::class_name(*this));
     size_t written = 0;
@@ -1917,6 +1926,33 @@ step_handle_t XG::path_end(const path_handle_t& path_handle) const {
     return step;
 }
 
+step_handle_t XG::path_back(const path_handle_t& path_handle) const {
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path_handle);
+    as_integers(step)[1] = get_step_count(path_handle) - 1;
+    return step;
+    
+}
+
+step_handle_t XG::path_front_end(const path_handle_t& path_handle) const {
+    step_handle_t step;
+    as_integers(step)[0] = as_integer(path_handle);
+    as_integers(step)[1] = -1;
+    return step;
+}
+
+bool XG::has_next_step(const step_handle_t& step_handle) const {
+    return (as_integers(step_handle)[1] + 1 < get_step_count(get_path_handle_of_step(step_handle))
+            || (get_is_circular(get_path_handle_of_step(step_handle))
+                && get_step_count(get_path_handle_of_step(step_handle)) > 0));
+}
+
+bool XG::has_previous_step(const step_handle_t& step_handle) const {
+    return (as_integers(step_handle)[1] > 0
+            || (get_is_circular(get_path_handle_of_step(step_handle))
+                && get_step_count(get_path_handle_of_step(step_handle)) > 0));
+}
+
 step_handle_t XG::get_next_step(const step_handle_t& step_handle) const {
     step_handle_t next_step;
     as_integers(next_step)[0] = as_integers(step_handle)[0];
@@ -1972,7 +2008,7 @@ bool XG::for_each_step_on_handle_impl(const handle_t& handle, const function<boo
     return true;
 }
 
-size_t XG::node_size() const {
+size_t XG::get_node_count() const {
     return this->node_count;
 }
 
@@ -2690,37 +2726,33 @@ bool XG::path_is_circular(size_t rank) const {
 }
 
 pair<pos_t, int64_t> XG::next_path_position(pos_t pos, int64_t max_search) const {
+    // We need the closest on-a-path position to the passed in position, and the approximate rightward offset to it.
+    // Offset will be negative if you have to go left instead.
+    
+    // Get a handle to where we start
     handle_t h_fwd = get_handle(id(pos), is_rev(pos));
-    handle_t h_rev = get_handle(id(pos), !is_rev(pos));
-    int64_t fwd_seen = offset(pos);
-    int64_t rev_seen = node_length(id(pos)) - offset(pos);
-    pair<pos_t, int64_t> fwd_next = make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
-    pair<pos_t, int64_t> rev_next = make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
-    follow_edges(h_fwd, false, [&](const handle_t& n) {
-            id_t id = get_id(n);
-            if (!paths_of_node(id).empty()) {
-                fwd_next = make_pair(make_pos_t(id, get_is_reverse(n), 0), fwd_seen);
-                return false;
-            } else {
-                fwd_seen += node_length(id);
-                return fwd_seen < max_search;
-            }
-        });
-    follow_edges(h_rev, false, [&](const handle_t& n) {
-            id_t id = get_id(n);
-            if (!paths_of_node(id).empty()) {
-                rev_next = make_pair(make_pos_t(id, !get_is_reverse(n), 0), rev_seen);
-                return false;
-            } else {
-                rev_seen += node_length(id);
-                return rev_seen < max_search;
-            }
-        });
-    if (fwd_next.second <= rev_next.second) {
-        return fwd_next;
+    
+    // Record offsets to its ends
+    int64_t rev_seen = offset(pos);
+    int64_t fwd_seen = node_length(id(pos)) - offset(pos);
+    
+    // Find the closest on-a-path node, accounting for offsets to start/end of this node.
+    vector<tuple<handle_t, size_t, bool>> closest = find_closest_with_paths(h_fwd, max_search, fwd_seen, rev_seen);
+    
+    if (!closest.empty()) {
+        // We found something.
+        // Unpack it.
+        auto& found = get<0>(closest.front());
+        auto& dist = get<1>(closest.front());
+        auto& arrived_at_end = get<2>(closest.front());
+        
+        // Output the position. Make sure to get the offset we end up at in the
+        // node's forward strand for the end of the node we arrive at.
+        return make_pair(make_pos_t(get_id(found), get_is_reverse(found),
+            (arrived_at_end != get_is_reverse(found)) ? (get_length(found) - 1) : 0), dist);
     } else {
-        rev_next.second = -rev_next.second;
-        return rev_next;
+        // We aren't connected to anything on a path within the requested distance limit
+        return make_pair(make_pos_t(0,false,0), numeric_limits<int64_t>::max());
     }
 }
 
@@ -3319,6 +3351,109 @@ int64_t XG::closest_shared_path_oriented_distance(int64_t id1, size_t offset1, b
     
     return (on_reverse_strand && forward_strand) ? -approx_dist : approx_dist;
 }
+
+vector<tuple<handle_t, size_t, bool>> XG::find_closest_with_paths(handle_t start, size_t max_search_dist,
+    size_t right_extra_dist, size_t left_extra_dist,
+    unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
+    unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo) const {
+    
+    // Holds all the handles with paths, their unsigned distances from the start handle, and whether they were found going left.
+    vector<tuple<handle_t, size_t, bool>> to_return;
+    
+    // a local struct for traversals that are ordered by search distance and keep
+    // track of whether we're searching to the left or right
+    struct Traversal {
+        Traversal() {}
+        Traversal(int64_t dist, handle_t handle, bool search_left) :
+        dist(dist), handle(handle), search_left(search_left) {}
+        handle_t handle;
+        int64_t dist;
+        bool search_left;
+        inline bool operator<(const Traversal& other) const {
+            return dist > other.dist; // opposite order so priority queue selects minimum
+        }
+    };
+    
+    // Check if the node for the given handle occurs on any paths.
+    // Remember we reached it at the given distance, and whether we reached it searching left or not.
+    // Record the handle and its signed distance if it has paths.
+    // Return true if any paths touching the handle were found.
+    function<bool(handle_t,int64_t,bool)> look_for_paths = [&](handle_t handle, int64_t search_dist, bool search_left) {
+        
+        bool found_path = false;
+        
+        int64_t trav_id = get_id(handle);
+        bool trav_is_rev = get_is_reverse(handle);
+        
+#ifdef debug_algorithms
+        cerr << "[XG] checking for paths for " << trav_id << (trav_is_rev ? "-" : "+") << " at search dist "
+            << search_dist << " from searching " << (search_left ? "leftwards" : "rightwards") << endl;
+#endif
+        
+        for (pair<size_t, vector<pair<size_t, bool>>>& oriented_occurrences : memoized_oriented_paths_of_node(trav_id,
+            paths_of_node_memo, oriented_occurrences_memo)) {
+            
+            // For each path this node occurs on
+            
+            const XGPath& path = *paths[oriented_occurrences.first - 1];
+            
+            if (!oriented_occurrences.second.empty()) {
+                // The node has some occurrences on this path. Record that fact.
+                to_return.emplace_back(handle, search_dist, search_left);
+                return true;
+            }
+        }
+        
+        return false;
+    };
+    
+    // TODO: This is *NOT* a Dijkstra traversal! We should maybe use a UpdateablePriorityQueue.
+    priority_queue<Traversal> queue;
+    unordered_set<handle_t> traversed;
+    
+    handle_t handle = start; 
+    
+    // add in the initial traversals in both directions from the start position
+    queue.emplace(left_extra_dist, handle, true);
+    queue.emplace(right_extra_dist, handle, false);
+    
+    // Start by checking the start node
+    traversed.insert(handle);
+    bool found_path = look_for_paths(handle, 0, false);
+    
+    while (!queue.empty() && !found_path) {
+        // get the queue that has the next shortest path
+        
+        Traversal trav = queue.top();
+        queue.pop();
+        
+#ifdef debug_algorithms
+        cerr << "[XG] traversing " << get_id(trav.handle) << (get_is_reverse(trav.handle) ? "-" : "+") << " in " << (trav.search_left ? "leftward" : "rightward") << " direction at distance " << trav.dist << endl;
+#endif
+        
+        function<bool(const handle_t& next)> check_next = [&](const handle_t& next) {
+#ifdef debug_algorithms
+            cerr << "\tfollowing edge to " << get_id(next) << (get_is_reverse(next) ? "-" : "+") << " at dist " << trav.dist << endl;
+#endif
+            
+            if (!traversed.count(next)) {
+                found_path = look_for_paths(next, trav.dist, trav.search_left);
+                
+                int64_t dist_thru = trav.dist + get_length(next);
+                
+                if (dist_thru <= (int64_t) max_search_dist) {
+                    queue.emplace(dist_thru, next, trav.search_left);
+                }
+                traversed.emplace(next);
+            }
+            return !found_path;
+        };
+        
+        follow_edges(trav.handle, trav.search_left, check_next);
+    }
+    
+    return std::move(to_return);
+}
     
 vector<tuple<int64_t, bool, size_t>> XG::jump_along_closest_path(int64_t id, bool is_rev, size_t offset, int64_t jump_dist, size_t max_search_dist,
                                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo,
@@ -3792,7 +3927,7 @@ map<string, vector<pair<size_t, bool> > > XG::nearest_offsets_in_paths(pos_t pos
     auto& path_pos = pz.first;
     auto& diff = pz.second;
     if (id(path_pos)) {
-        // TODO apply approximate offset, second in pair returned by next_path_position
+        // Now apply approximate offset, second in pair returned by next_path_position
         auto offsets = offsets_in_paths(path_pos);
         for (auto& o : offsets) {
             for (auto& p : o.second) {
@@ -5452,7 +5587,7 @@ size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
 #endif
 }
 
-void deserialize(XG::rank_select_int_vector& target, istream& in) {
+void deserialize_rsiv(XG::rank_select_int_vector& target, istream& in) {
 #if GPBWT_MODE == MODE_SDSL
     // We just load using the SDSL deserialization code
     target.load(in);

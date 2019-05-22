@@ -164,7 +164,7 @@ std::string GBWTGraph::get_subsequence(const handle_t& handle, size_t index, siz
     return std::string(this->sequences.begin() + start, this->sequences.begin() + start + size);
 }
 
-size_t GBWTGraph::node_size() const {
+size_t GBWTGraph::get_node_count() const {
     return total_nodes;
 }
 

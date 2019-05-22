@@ -296,7 +296,7 @@ Alignment Sampler::mutate(const Alignment& aln,
     mutaln.set_sequence(alignment_seq(mutaln));
     mutaln.set_name(aln.name());
     mutaln.clear_refpos();
-    xg_annotate_with_initial_path_positions(mutaln, xgidx);
+    xg_annotate_with_initial_path_positions(xgidx, mutaln);
     return mutaln;
 }
 
@@ -421,7 +421,7 @@ Alignment Sampler::alignment_to_path(const string& source_path, size_t length) {
     // And set its identity
     aln.set_identity(identity(aln.path()));
     aln.clear_refpos();
-    xg_annotate_with_initial_path_positions(aln, xgidx);
+    xg_annotate_with_initial_path_positions(xgidx, aln);
     return aln;
 }
 
@@ -473,7 +473,7 @@ Alignment Sampler::alignment_to_graph(size_t length) {
     }
     // And set its identity
     aln.set_identity(identity(aln.path()));
-    xg_annotate_with_initial_path_positions(aln, xgidx);
+    xg_annotate_with_initial_path_positions(xgidx, aln);
     return aln;
 }
 
@@ -516,7 +516,7 @@ Alignment Sampler::alignment_with_error(size_t length,
     
     // Check the alignment to make sure we didn't mess it up
     assert(is_valid(aln));
-    xg_annotate_with_initial_path_positions(aln, xgidx);
+    xg_annotate_with_initial_path_positions(xgidx, aln);
     return aln;
 }
 
@@ -767,7 +767,7 @@ Alignment NGSSimulator::sample_read() {
     apply_N_mask(*aln.mutable_sequence(), qual_and_masks.second);
     
     aln.set_name(get_read_name());
-    xg_annotate_with_initial_path_positions(aln, &xg_index);
+    xg_annotate_with_initial_path_positions(&xg_index, aln);
     return aln;
 }
 
@@ -873,8 +873,8 @@ pair<Alignment, Alignment> NGSSimulator::sample_read_pair() {
     string name = get_read_name();
     aln_pair.first.set_name(name + "_1");
     aln_pair.second.set_name(name + "_2");
-    xg_annotate_with_initial_path_positions(aln_pair.first, &xg_index);
-    xg_annotate_with_initial_path_positions(aln_pair.second, &xg_index);
+    xg_annotate_with_initial_path_positions(&xg_index, aln_pair.first);
+    xg_annotate_with_initial_path_positions(&xg_index, aln_pair.second);
     return aln_pair;
 }
 

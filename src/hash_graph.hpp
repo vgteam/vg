@@ -17,15 +17,29 @@ namespace vg {
     
 using namespace std;
 
-class HashGraph : public MutablePathDeletableHandleGraph {
+class HashGraph : public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
         
 public:
     
     HashGraph();
     ~HashGraph();
     
+    ////////////////////////////////////////////////////////////////////////////
+    // I/O methods
+    ////////////////////////////////////////////////////////////////////////////
+    
     /// Deserialize from a stream of data
     HashGraph(istream& in);
+    
+    /// Write the graph to an out stream.
+    void serialize(ostream& out) const;
+    
+    /// Read the graph (in the format written by serialize()) from an in stream.
+    void deserialize(istream& in);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Handle methods
+    ////////////////////////////////////////////////////////////////////////////
     
     /// Method to check if a node exists by ID
     bool has_node(id_t node_id) const;
@@ -62,7 +76,7 @@ public:
     
     /// Return the number of nodes in the graph
     /// TODO: can't be node_count because XG has a field named node_count.
-    size_t node_size(void) const;
+    size_t get_node_count(void) const;
     
     /// Return the smallest ID in the graph, or some smaller number if the
     /// smallest ID is unavailable. Return value is unspecified if the graph is empty.
@@ -136,6 +150,12 @@ public:
     /// few graph modifications in the future.
     void optimize(bool allow_id_reassignment = true);
     
+    /// Reorder the graph's internal structure to match that given.
+    /// This sets the order that is used for iteration in functions like for_each_handle.
+    /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
+    void apply_ordering(const vector<handle_t>& order, bool compact_ids = false);
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
@@ -174,6 +194,22 @@ public:
     /// return by get_next_step for the final step in a path in a non-circular path.
     /// Note that get_next_step will *NEVER* return this value for a circular path.
     step_handle_t path_end(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    step_handle_t path_back(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    
+    /// Returns true if the step is not the last step in a non-circular path.
+    bool has_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the first step in a non-circular path.
+    bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
@@ -247,16 +283,6 @@ public:
      * to the method path_begin.
      */
     void set_circularity(const path_handle_t& path, bool circular);
-    
-    ////////////////////////////////////////////////////////////////////////////
-    // Non-handle methods
-    ////////////////////////////////////////////////////////////////////////////
-    
-    /// Write the graph to an out stream.
-    void serialize(ostream& out) const;
-    
-    /// Read the graph (in the format written by serialize()) from an in stream.
-    void deserialize(istream& in);
     
 private:
     

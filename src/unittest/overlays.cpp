@@ -36,7 +36,7 @@ using namespace std;
             StrandSplitGraph split(&graph);
             REQUIRE(algorithms::is_single_stranded(&split));
             
-            REQUIRE(split.node_size() == 2 * graph.node_size());
+            REQUIRE(split.get_node_count() == 2 * graph.get_node_count());
             
             unordered_map<handle_t, int> node_count;
             

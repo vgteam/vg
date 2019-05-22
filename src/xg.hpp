@@ -66,7 +66,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG : public PathHandleGraph {
+class XG : public PathHandleGraph, public SerializableHandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -124,10 +124,15 @@ public:
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
     void load(istream& in);
+    
+    // Alias for load() to match the SerializableHandleGraph interface
+    void deserialize(istream& in);
+    
+    void serialize(std::ostream& out) const;
     // Save this XG index to a stream.
-    size_t serialize(std::ostream& out,
-                     sdsl::structure_tree_node* v = NULL,
-                     std::string name = "") const;
+    size_t serialize_and_measure(std::ostream& out,
+                                 sdsl::structure_tree_node* v = NULL,
+                                 std::string name = "") const;
                      
     
     ////////////////////////////////////////////////////////////////////////////
@@ -231,7 +236,7 @@ public:
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
     /// Get the maximum node ID used in the graph, if any are used
@@ -278,6 +283,18 @@ public:
     /// return by get_next_step for the final step in a path in a non-circular path.
     /// Note that get_next_step will *NEVER* return this value for a circular path.
     step_handle_t path_end(const path_handle_t& path_handle) const;
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    step_handle_t path_back(const path_handle_t& path_handle) const;
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    /// Returns true if the step is not the last step in a non-circular path.
+    bool has_next_step(const step_handle_t& step_handle) const;
+    /// Returns true if the step is not the first step in a non-circular path.
+    bool has_previous_step(const step_handle_t& step_handle) const;
     /// Returns a handle to the next step on the path. If the given step is the final step
     /// of a non-circular path, returns the past-the-last step that is also returned by
     /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
@@ -409,7 +426,8 @@ public:
     // nearest node (in steps) that is in a path, and the paths
     pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
     int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
-    /// nearest position that is in a path and the distance between it and the current position
+    /// nearest position that is in a path and the distance between it and the current position is <= max_search.
+    /// Will search over multiple nodes.
     pair<pos_t, int64_t> next_path_position(pos_t pos, int64_t max_search) const;
     
     /// returns true if the paths are on the same connected component of the graph (constant time)
@@ -465,6 +483,24 @@ public:
                                                   unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
                                                   unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
                                                   unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
+                                                  
+    /// Return a vector of pairs of handles that occur on the same relative
+    /// strand as the start handle, the distance from the right or left end
+    /// of the start handle needed to reach them, and whether they were reached
+    /// going right (true) or left (false) from the start. The handles are the
+    /// closest one(s) to the start handle that touch any paths.
+    ///
+    /// Distances are always positive. If specified, right_extra_dist and
+    /// left_extra_dist are added to the search distances, to allow for
+    /// searching from a particular point on the starting node. 
+    ///
+    /// Search does not exceed max_search_dist bases.
+    ///
+    /// Will only ever return an empty vector or a 1-element vector.
+    vector<tuple<handle_t, size_t, bool>> find_closest_with_paths(handle_t start, size_t max_search_dist,
+                                                                  size_t right_extra_dist = 0, size_t left_extra_dist = 0,
+                                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
+                                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
     
     /// returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance
     /// along path(s) from the given position. if the position is not on a path, searches from the position to a path
@@ -933,7 +969,7 @@ size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name);
 
 // Deserialize a rank_select_int_vector in an SDSL serialization compatible way.
-void deserialize(XG::rank_select_int_vector& target, istream& in);
+void deserialize_rsiv(XG::rank_select_int_vector& target, istream& in);
 
 // Determine if two edges are equivalent (the same or one is the reverse of the other)
 bool edges_equivalent(const Edge& e1, const Edge& e2);

@@ -666,6 +666,9 @@ def main(args):
     # Close the TSV
     tsv.close()
     
+    # Print the table now in case histogram plotting fails
+    print_table(read_count, stats_total)
+    
     # Plot the histogram
     svg_path = os.path.join(options.outdir, 'times.svg')
     histogram.main(['histogram.py', tsv_path, '--save', svg_path,
@@ -679,8 +682,7 @@ def main(args):
         '--legend_overlay', 'lower right',
         '--categories', 'total'] + STAGES)
         
-    # Print the table
-    print_table(read_count, stats_total)
+    
    
 def entrypoint():
     """
