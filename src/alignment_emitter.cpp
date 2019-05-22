@@ -35,296 +35,32 @@ void AlignmentEmitter::emit_mapped_pair(vector<Alignment>&& alns1, vector<Alignm
     emit_mapped_pairs(std::move(batch1), std::move(batch2), std::move(tlen_limit_batch));
 }
 
-unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, const map<string, int64_t>& path_length) {
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format,
+    const map<string, int64_t>& path_length, size_t max_threads) {
 
     // Make the backing, non-buffered emitter
     AlignmentEmitter* backing = nullptr;
     if (format == "GAM" || format == "JSON") {
         // Make an emitter that supports VG formats
-        backing = new VGAlignmentEmitter(filename, format);
+        backing = new VGAlignmentEmitter(filename, format, max_threads);
     } else if (format == "SAM" || format == "BAM" || format == "CRAM") {
         // Make an emitter that supports HTSlib formats
-        backing = new HTSAlignmentEmitter(filename, format, path_length);
+        backing = new HTSAlignmentEmitter(filename, format, path_length, max_threads);
     } else if (format == "TSV") {
-        backing = new TSVAlignmentEmitter(filename);
+        backing = new TSVAlignmentEmitter(filename, max_threads);
     } else {
         cerr << "error [vg::get_alignment_emitter]: Unimplemented output format " << format << endl;
         exit(1);
     }
     
-    // Make a buffering emitter to own the backing one, and return it in a unique_ptr.
-    return make_unique<OMPSingleWriterBufferedAlignmentEmitter>(backing);
+    // Wrap it in a unique_ptr that will delete it
+    return unique_ptr<AlignmentEmitter>(backing);
 }
 
-OMPThreadBufferedAlignmentEmitter::OMPThreadBufferedAlignmentEmitter(AlignmentEmitter* backing) : backing(backing) {
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            size_t threads = omp_get_num_threads();
-            single_buffer.resize(threads);
-            pair_buffer.resize(threads);
-            mapped_single_buffer.resize(threads);
-            mapped_pair_buffer.resize(threads);
-        }
-        
-        // Now make sure we don't have to re-allocate while buffering.
-        // With batches we can go over our flush threshold, so allocate twice as much space.
-        size_t i = omp_get_thread_num();
-        single_buffer[i].reserve(FLUSH_THRESHOLD * 2);
-        get<0>(pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
-        get<1>(pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
-        get<2>(pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
-        mapped_single_buffer[i].reserve(FLUSH_THRESHOLD * 2);
-        get<0>(mapped_pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
-        get<1>(mapped_pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
-        get<2>(mapped_pair_buffer[i]).reserve(FLUSH_THRESHOLD * 2);
-    }
+TSVAlignmentEmitter::TSVAlignmentEmitter(const string& filename, size_t max_threads) :
+    out_file(filename == "-" ? nullptr : new ofstream(filename)),
+    multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads) {
     
-}
-
-OMPThreadBufferedAlignmentEmitter::~OMPThreadBufferedAlignmentEmitter() {
-    // Flush our buffers
-    for (size_t i = 0; i < single_buffer.size(); i++) {
-        flush(i);
-    }
-    // Then we can clean up our backing emitter
-    backing.reset();
-}
-
-void OMPThreadBufferedAlignmentEmitter::flush(size_t thread) {
-    // Flush all the buffers
-    backing->emit_singles(std::move(single_buffer[thread]));
-    single_buffer[thread].clear();
-    single_buffer[thread].reserve(FLUSH_THRESHOLD * 2);
-    
-    backing->emit_pairs(std::move(get<0>(pair_buffer[thread])),
-        std::move(get<1>(pair_buffer[thread])),
-        std::move(get<2>(pair_buffer[thread]))); 
-    get<0>(pair_buffer[thread]).clear();
-    get<1>(pair_buffer[thread]).clear();
-    get<2>(pair_buffer[thread]).clear();
-    get<0>(pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
-    get<1>(pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
-    get<2>(pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
-    
-    backing->emit_mapped_singles(std::move(mapped_single_buffer[thread]));
-    mapped_single_buffer[thread].clear();
-    mapped_single_buffer[thread].reserve(FLUSH_THRESHOLD * 2);
-     
-    backing->emit_mapped_pairs(std::move(get<0>(mapped_pair_buffer[thread])),
-        std::move(get<1>(mapped_pair_buffer[thread])),
-        std::move(get<2>(mapped_pair_buffer[thread])));
-    get<0>(mapped_pair_buffer[thread]).clear();
-    get<1>(mapped_pair_buffer[thread]).clear();
-    get<2>(mapped_pair_buffer[thread]).clear();
-    get<0>(mapped_pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
-    get<1>(mapped_pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
-    get<2>(mapped_pair_buffer[thread]).reserve(FLUSH_THRESHOLD * 2);
-}
-
-void OMPThreadBufferedAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
-    size_t i = omp_get_thread_num();
-    std::move(aln_batch.begin(), aln_batch.end(), std::back_inserter(single_buffer[i]));
-    if (single_buffer[i].size() >= FLUSH_THRESHOLD) {
-        flush(i);
-    }
-}
-
-void OMPThreadBufferedAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
-    size_t i = omp_get_thread_num();
-    std::move(alns_batch.begin(), alns_batch.end(), std::back_inserter(mapped_single_buffer[i]));
-    if (mapped_single_buffer[i].size() >= FLUSH_THRESHOLD) {
-        flush(i);
-    }
-}
-
-void OMPThreadBufferedAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
-                                                   vector<Alignment>&& aln2_batch,
-                                                   vector<int64_t>&& tlen_limit_batch) {
-    
-    size_t i = omp_get_thread_num();
-    std::move(aln1_batch.begin(), aln1_batch.end(), std::back_inserter(get<0>(pair_buffer[i])));
-    std::move(aln2_batch.begin(), aln2_batch.end(), std::back_inserter(get<1>(pair_buffer[i])));
-    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(pair_buffer[i])));
-    if (get<0>(pair_buffer[i]).size() >= FLUSH_THRESHOLD) {
-        flush(i);
-    }
-}
-
-void OMPThreadBufferedAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
-                                                          vector<vector<Alignment>>&& alns2_batch,
-                                                          vector<int64_t>&& tlen_limit_batch) {
-    size_t i = omp_get_thread_num();
-    std::move(alns1_batch.begin(), alns1_batch.end(), std::back_inserter(get<0>(mapped_pair_buffer[i])));
-    std::move(alns2_batch.begin(), alns2_batch.end(), std::back_inserter(get<1>(mapped_pair_buffer[i])));
-    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(mapped_pair_buffer[i])));
-    if (get<0>(mapped_pair_buffer[i]).size() >= FLUSH_THRESHOLD) {
-        flush(i);
-    }
-}
-
-OMPSingleWriterBufferedAlignmentEmitter::OMPSingleWriterBufferedAlignmentEmitter(AlignmentEmitter* backing) : backing(backing), stop(false) {
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            size_t threads = omp_get_num_threads();
-            single_buffer.resize(threads);
-            pair_buffer.resize(threads);
-            mapped_single_buffer.resize(threads);
-            mapped_pair_buffer.resize(threads);
-            buffer_mutexes.resize(threads);
-        }
-    }
-    
-    writer = thread(&OMPSingleWriterBufferedAlignmentEmitter::writer_thread_function, this);
-    
-}
-
-OMPSingleWriterBufferedAlignmentEmitter::~OMPSingleWriterBufferedAlignmentEmitter() {
-    // Stop our writer thread
-    stop.store(true);
-    // Wait on it
-    writer.join();
-    
-    // Flush our buffers that are still not empty
-    for (size_t i = 0; i < single_buffer.size(); i++) {
-        flush(i);
-    }
-    // Then we can clean up our backing emitter
-    backing.reset();
-}
-
-
-void OMPSingleWriterBufferedAlignmentEmitter::writer_thread_function() {
-    
-    
-#ifdef debug
-    // Track max buffer fill when we empty anything.
-    // This has different semantics between data types but we ignore that.
-    size_t buffer_high_water = 0;
-#endif
-    
-    while(!stop.load()) {
-        // Until we are told to stop
-        
-        for (size_t i = 0; i < buffer_mutexes.size(); i++) {
-            // For each buffer, lock it
-            if (buffer_mutexes[i].try_lock()) {
-
-#ifdef debug
-                buffer_high_water = max(buffer_high_water, single_buffer[i].size());
-                buffer_high_water = max(buffer_high_water, get<0>(pair_buffer[i]).size());
-                buffer_high_water = max(buffer_high_water, mapped_single_buffer[i].size());
-                buffer_high_water = max(buffer_high_water, get<0>(mapped_pair_buffer[i]).size());
-#endif
-                
-                
-                // We got it. Flush.
-                // TODO: Double-buffer so we don't stall this other thread.
-                flush(i);
-                
-                buffer_mutexes[i].unlock();
-            }
-        }
-        
-    }
-    
-#ifdef debug
-    cerr << "Buffer high water mark: " << buffer_high_water << " items" << endl;
-#endif
-}
-
-void OMPSingleWriterBufferedAlignmentEmitter::flush(size_t thread) {
-    // Flush all the buffers
-    backing->emit_singles(std::move(single_buffer[thread]));
-    single_buffer[thread].clear();
-    
-    backing->emit_pairs(std::move(get<0>(pair_buffer[thread])),
-        std::move(get<1>(pair_buffer[thread])),
-        std::move(get<2>(pair_buffer[thread]))); 
-    get<0>(pair_buffer[thread]).clear();
-    get<1>(pair_buffer[thread]).clear();
-    get<2>(pair_buffer[thread]).clear();
-    
-    backing->emit_mapped_singles(std::move(mapped_single_buffer[thread]));
-    mapped_single_buffer[thread].clear();
-     
-    backing->emit_mapped_pairs(std::move(get<0>(mapped_pair_buffer[thread])),
-        std::move(get<1>(mapped_pair_buffer[thread])),
-        std::move(get<2>(mapped_pair_buffer[thread])));
-    get<0>(mapped_pair_buffer[thread]).clear();
-    get<1>(mapped_pair_buffer[thread]).clear();
-    get<2>(mapped_pair_buffer[thread]).clear();
-}
-
-void OMPSingleWriterBufferedAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
-    size_t i = omp_get_thread_num();
-    buffer_mutexes[i].lock();
-    while(single_buffer[i].size() >= MAX_BUFFER_SIZE) {
-        // Avoid OOM by letting someone else run.
-        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
-        buffer_mutexes[i].unlock();
-        std::this_thread::yield();
-        buffer_mutexes[i].lock();
-    }
-    std::move(aln_batch.begin(), aln_batch.end(), std::back_inserter(single_buffer[i]));
-    buffer_mutexes[i].unlock();
-}
-
-void OMPSingleWriterBufferedAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
-    size_t i = omp_get_thread_num();
-    buffer_mutexes[i].lock();
-    while(mapped_single_buffer[i].size() >= MAX_BUFFER_SIZE) {
-        // Avoid OOM by letting someone else run.
-        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
-        buffer_mutexes[i].unlock();
-        std::this_thread::yield();
-        buffer_mutexes[i].lock();
-    }
-    std::move(alns_batch.begin(), alns_batch.end(), std::back_inserter(mapped_single_buffer[i]));
-    buffer_mutexes[i].unlock();
-}
-
-void OMPSingleWriterBufferedAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
-                                                   vector<Alignment>&& aln2_batch,
-                                                   vector<int64_t>&& tlen_limit_batch) {
-    
-    size_t i = omp_get_thread_num();
-    buffer_mutexes[i].lock();
-    while(get<0>(pair_buffer[i]).size() >= MAX_BUFFER_SIZE) {
-        // Avoid OOM by letting someone else run.
-        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
-        buffer_mutexes[i].unlock();
-        std::this_thread::yield();
-        buffer_mutexes[i].lock();
-    }
-    std::move(aln1_batch.begin(), aln1_batch.end(), std::back_inserter(get<0>(pair_buffer[i])));
-    std::move(aln2_batch.begin(), aln2_batch.end(), std::back_inserter(get<1>(pair_buffer[i])));
-    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(pair_buffer[i])));
-    buffer_mutexes[i].unlock();
-}
-
-void OMPSingleWriterBufferedAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
-                                                          vector<vector<Alignment>>&& alns2_batch,
-                                                          vector<int64_t>&& tlen_limit_batch) {
-    size_t i = omp_get_thread_num();
-    buffer_mutexes[i].lock();
-    while(get<0>(mapped_pair_buffer[i]).size() >= MAX_BUFFER_SIZE) {
-        // Avoid OOM by letting someone else run.
-        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
-        buffer_mutexes[i].unlock();
-        std::this_thread::yield();
-        buffer_mutexes[i].lock();
-    }
-    std::move(alns1_batch.begin(), alns1_batch.end(), std::back_inserter(get<0>(mapped_pair_buffer[i])));
-    std::move(alns2_batch.begin(), alns2_batch.end(), std::back_inserter(get<1>(mapped_pair_buffer[i])));
-    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(mapped_pair_buffer[i])));
-    buffer_mutexes[i].unlock();
-}
-
-TSVAlignmentEmitter::TSVAlignmentEmitter(const string& filename) : out_file(filename == "-" ? nullptr : new ofstream(filename)) {
     if (out_file.get() != nullptr && !*out_file) {
         // Make sure we opened a file if we aren't writing to standard output
         cerr << "[vg::TSVAlignmentEmitter] failed to open " << filename << " for writing" << endl;
@@ -333,59 +69,59 @@ TSVAlignmentEmitter::TSVAlignmentEmitter(const string& filename) : out_file(file
 }
 
 void TSVAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
-    lock_guard<mutex> lock(sync);
     for (auto&& aln : aln_batch) {
-        emit(std::move(aln), lock);
+        emit(std::move(aln));
     }
+    multiplexer.register_breakpoint(omp_get_thread_num());
 }
 
 void TSVAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
-    lock_guard<mutex> lock(sync);
     for (auto&& alns : alns_batch) {
         for (auto&& aln : alns) {
-            emit(std::move(aln), lock);
+            emit(std::move(aln));
         }
     }
+    multiplexer.register_breakpoint(omp_get_thread_num());
 }
 
 void TSVAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
                                      vector<Alignment>&& aln2_batch, 
                                      vector<int64_t>&& tlen_limit_batch) {
-    lock_guard<mutex> lock(sync);
     // Ignore the tlen limit.
     assert(aln1_batch.size() == aln2_batch.size());
     for (size_t i = 0; i < aln1_batch.size(); i++) {
         // Emit each pair in order as read 1, then read 2
-        emit(std::move(aln1_batch[i]), lock);
-        emit(std::move(aln2_batch[i]), lock);
+        emit(std::move(aln1_batch[i]));
+        emit(std::move(aln2_batch[i]));
     }
+    multiplexer.register_breakpoint(omp_get_thread_num());
 }
 
 
 void TSVAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
                                             vector<vector<Alignment>>&& alns2_batch,
                                             vector<int64_t>&& tlen_limit_batch) {
-    lock_guard<mutex> lock(sync);
     assert(alns1_batch.size() == alns2_batch.size());
     for (size_t i = 0; i < alns1_batch.size(); i++) {
         // For each pair
         assert(alns1_batch[i].size() == alns2_batch[i].size());
         for (size_t j = 0; j < alns1_batch[i].size(); j++) {
             // Emit read 1 and read 2 pairs, together
-            emit(std::move(alns1_batch[i][j]), lock);
-            emit(std::move(alns2_batch[i][j]), lock);
+            emit(std::move(alns1_batch[i][j]));
+            emit(std::move(alns2_batch[i][j]));
         }
     }
+    multiplexer.register_breakpoint(omp_get_thread_num());
 }
 
-void TSVAlignmentEmitter::emit(Alignment&& aln, const lock_guard<mutex>& lock) {
+void TSVAlignmentEmitter::emit(Alignment&& aln) {
     Position refpos;
     if (aln.refpos_size()) {
         refpos = aln.refpos(0);
     }
 
-    // Work out if we are writing to standard output or an open file
-    ostream& out = (out_file.get() == nullptr) ? cout : *out_file;
+    // Get the stream to write to
+    ostream& out = multiplexer.get_thread_stream(omp_get_thread_num());
 
     out << aln.name() << "\t"
         << refpos.name() << "\t"
@@ -394,7 +130,8 @@ void TSVAlignmentEmitter::emit(Alignment&& aln, const lock_guard<mutex>& lock) {
         << aln.score() << "\n";
 }
 
-HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length) : 
+HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
+    const map<string, int64_t>& path_length, size_t max_threads) : 
     format(format), path_length(path_length), sam_file(nullptr), file_mutex(), atomic_header(nullptr) {
     
     // Make sure we have an HTS format
@@ -714,13 +451,15 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     save_records(header, records);
 }
 
-VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& format) {
+VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& format, size_t max_threads):
+    out_file(filename == "-" ? nullptr : new ofstream(filename)),
+    multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads) {
+    
     // We only support GAM and JSON formats
     assert(format == "GAM" || format == "JSON");
     
     if (filename != "-") {
-        // Open the file
-        out_file = make_unique<ofstream>(filename);
+        // Check the file
         if (!*out_file) {
             // We couldn't get it open
             cerr << "[vg::VGAlignmentEmitter] failed to open " << filename << " for writing " << format << " output" << endl;
@@ -729,59 +468,55 @@ VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& for
     }
     
     if (format == "GAM") {
-        // We ened an emitter
-        
-        // Pick where to send the output
-        ostream& out_stream = (filename != "-") ? *out_file : cout;
-        
-        // Point a ProtobufEmitter there
-        proto = make_unique<vg::io::ProtobufEmitter<Alignment>>(out_stream);
+        // We need per-thread emitters
+        proto.reserve(max_threads);
+        for (size_t i = 0; i < max_threads; i++) {
+            // Make an emitter for each thread.
+            proto.emplace_back(new vg::io::ProtobufEmitter<Alignment>(multiplexer.get_thread_stream(i)));
+        }
     }
     
     // We later infer our format and output destination from out_file and proto being empty/set.
 }
 
 VGAlignmentEmitter::~VGAlignmentEmitter() {
-    if (proto.get() != nullptr) {
-        // Flush the ProtobufEmitter
-        proto->emit_group(); 
-        // Make it go away before the stream
-        proto.reset();
+    if (!proto.empty()) {
+        for (auto& emitter : proto) {
+            // Flush each ProtobufEmitter
+            emitter->flush(); 
+            // Make it go away before the stream
+            emitter.reset();
+        }
     }
     
-    if (out_file.get() != nullptr) {
-        // Flush our file stream
-        out_file->flush();
-        // Destroy it
-        out_file.reset();
-    } else {
-        // Flush standard output
-        cout.flush();
-    }
+    // Don't flush the backing file. Let the StreamMultiplexer destroy itself first.
 }
 
 void VGAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
-    if (proto.get() != nullptr) {
-        // Save in protobuf with a single lock
-        proto->write_many(std::move(aln_batch));
+    size_t thread_number = omp_get_thread_num();
+    if (!proto.empty()) {
+        // Save in protobuf
+        proto[thread_number]->write_many(std::move(aln_batch));
+        if (multiplexer.want_breakpoint(thread_number)) {
+            // The multiplexer wants our data.
+            // Flush and create a breakpoint.
+            proto[thread_number]->flush();
+            multiplexer.register_breakpoint(thread_number);
+        }
     } else {
-        // Find a stream to write JSON to
-        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
-        
         // Serialize to a string in our thread
         stringstream data;
         for (auto& aln : aln_batch) {
-            data << pb2json(aln) << endl;
+            multiplexer.get_thread_stream(thread_number) << pb2json(aln) << endl;
         }
-        
-        // Lock and emit the string
-        lock_guard<mutex> lock(stream_mutex);
-        out << data.str();
+        // No need to flush, we can always register a breakpoint.
+        multiplexer.register_breakpoint(thread_number);
     }
 }
 
 void VGAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
-    if (proto.get() != nullptr) {
+    size_t thread_number = omp_get_thread_num();
+    if (!proto.empty()) {
         // Count up alignments
         size_t count = 0;
         for (auto& alns : alns_batch) {
@@ -800,23 +535,23 @@ void VGAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_ba
             std::move(alns.begin(), alns.end(), std::back_inserter(all));
         }
         
-        // Save in protobuf with a single lock
-        proto->write_many(std::move(all));
+        // Save in protobuf
+        proto[thread_number]->write_many(std::move(all));
+        if (multiplexer.want_breakpoint(thread_number)) {
+            // The multiplexer wants our data.
+            // Flush and create a breakpoint.
+            proto[thread_number]->flush();
+            multiplexer.register_breakpoint(thread_number);
+        }
     } else {
-        // Find a stream to write JSON to
-        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
-        
         // Serialize to a string in our thread
-        stringstream data;
         for (auto& alns : alns_batch) {
             for (auto& aln : alns) {
-                data << pb2json(aln) << endl;
+                multiplexer.get_thread_stream(thread_number) << pb2json(aln) << endl;
             }
         }
-        
-        // Lock and emit the string
-        lock_guard<mutex> lock(stream_mutex);
-        out << data.str();
+        // No need to flush, we can always register a breakpoint.
+        multiplexer.register_breakpoint(thread_number);
     }
 }
 
@@ -826,7 +561,10 @@ void VGAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     // Sizes need to match up
     assert(aln1_batch.size() == aln2_batch.size());
     assert(aln1_batch.size() == tlen_limit_batch.size());
-    if (proto.get() != nullptr) {
+    
+    size_t thread_number = omp_get_thread_num();
+    
+    if (!proto.empty()) {
         // Save in protobuf
         
         // Arrange into a vector in collated order
@@ -837,22 +575,23 @@ void VGAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
             all.emplace_back(std::move(aln2_batch[i]));
         }
         
-        // Save as a single unit with a single lock
-        proto->write_many(std::move(all));
+        // Save in protobuf
+        proto[thread_number]->write_many(std::move(all));
+        if (multiplexer.want_breakpoint(thread_number)) {
+            // The multiplexer wants our data.
+            // Flush and create a breakpoint.
+            proto[thread_number]->flush();
+            multiplexer.register_breakpoint(thread_number);
+        }
     } else {
-        // Find a stream to write JSON to
-        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
-        
         // Serialize to a string in our thread in collated order
         stringstream data;
         for (size_t i = 0; i < aln1_batch.size(); i++) {
-            data << pb2json(aln1_batch[i]) << endl;
-            data << pb2json(aln2_batch[i]) << endl;
+            multiplexer.get_thread_stream(thread_number) << pb2json(aln1_batch[i]) << endl
+                << pb2json(aln2_batch[i]) << endl;
         }
-        
-        // Lock and emit the string
-        lock_guard<mutex> lock(stream_mutex);
-        out << data.str();
+        // No need to flush, we can always register a breakpoint.
+        multiplexer.register_breakpoint(thread_number);
     }
 }
 
@@ -863,7 +602,9 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
     assert(alns1_batch.size() == alns2_batch.size());
     assert(alns1_batch.size() == tlen_limit_batch.size());
     
-    if (proto.get() != nullptr) {
+    size_t thread_number = omp_get_thread_num();
+    
+    if (!proto.empty()) {
         // Save in protobuf
         
         // Count up all the alignments
@@ -888,25 +629,27 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
             }
         }
         
-        // Save the interleaved vector with one lock
-        proto->write_many(std::move(all));
+        // Save in protobuf
+        proto[thread_number]->write_many(std::move(all));
+        if (multiplexer.want_breakpoint(thread_number)) {
+            // The multiplexer wants our data.
+            // Flush and create a breakpoint.
+            proto[thread_number]->flush();
+            multiplexer.register_breakpoint(thread_number);
+        }
     } else {
-        // Find a stream to write JSON to
-        ostream& out = (out_file.get() != nullptr) ? *out_file : cout;
-        
         // Serialize to an interleaved string in our thread
         stringstream data;
         for (size_t i = 0; i < alns1_batch.size(); i++) {
             assert(alns1_batch[i].size() == alns1_batch[i].size());
             for (size_t j = 0; i < alns1_batch[i].size(); j++) {
-                data << pb2json(alns1_batch[i][j]) << endl;
-                data << pb2json(alns2_batch[i][j]) << endl;
+                multiplexer.get_thread_stream(thread_number) << pb2json(alns1_batch[i][j]) << endl
+                    << pb2json(alns2_batch[i][j]) << endl;
             }
         }
         
-        // Lock and emit the string
-        lock_guard<mutex> lock(stream_mutex);
-        out << data.str();
+        // No need to flush, we can always register a breakpoint.
+        multiplexer.register_breakpoint(thread_number);
     }
 }
 

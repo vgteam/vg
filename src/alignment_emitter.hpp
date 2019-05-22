@@ -18,6 +18,7 @@
 
 #include <vg/vg.pb.h>
 #include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/stream_multiplexer.hpp>
 
 namespace vg {
 using namespace std;
@@ -27,6 +28,8 @@ using namespace std;
  * relationships, and writes them out somewhere.
  *
  * All implementations must be thread safe.
+ *
+ * All implementations assume OMP threading.
  */
 class AlignmentEmitter {
 public:
@@ -83,8 +86,10 @@ public:
 
 /// Get an AlignmentEmitter that can emit to the given file (or "-") in the
 /// given format. A table of contig lengths is required for HTSlib formats.
-/// Automatically applies buffering.
-unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, const map<string, int64_t>& path_length);
+/// Automatically applies per-thread buffering, but needs to know how many OMP
+/// threads will be in use.
+unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, 
+    const map<string, int64_t>& path_length,  size_t max_threads);
 
 /**
  * Discards all alignments.
@@ -101,116 +106,13 @@ public:
 };
 
 /**
- * Throws per-OMP-thread buffers over the top of a backing AlignmentEmitter, which it owns.
- */
-class OMPThreadBufferedAlignmentEmitter : public AlignmentEmitter {
-public:
-    /// Create an OMPThreadBufferedAlignmentEmitter that emits alignments to
-    /// the given backing AlignmentEmitter. The backing emitter will become
-    /// owned by this one.
-    OMPThreadBufferedAlignmentEmitter(AlignmentEmitter* backing);
-    
-    /// Destroy and flush all the buffers
-    ~OMPThreadBufferedAlignmentEmitter();
-    
-    /// Emit a batch of Alignments.
-    virtual void emit_singles(vector<Alignment>&& aln_batch);
-    /// Emit a batch of Alignments with secondaries. All secondaries must have
-    /// is_secondary set already.
-    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
-    /// Emit a batch of pairs of Alignments.
-    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
-        vector<int64_t>&& tlen_limit_batch);
-    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
-    /// must have is_secondary set already.
-    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
-        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
-    
-private:
-    /// Save all the buffered alignments from the given thread.
-    void flush(size_t thread);
-
-    /// Keep a reference to the backing emitter
-    unique_ptr<AlignmentEmitter> backing;
-    
-    // We have one set of buffers for each type of emit operation, for each thread
-    vector<vector<Alignment>> single_buffer;
-    vector<vector<vector<Alignment>>> mapped_single_buffer;
-    vector<tuple<vector<Alignment>, vector<Alignment>, vector<int64_t>>> pair_buffer;
-    vector<tuple<vector<vector<Alignment>>, vector<vector<Alignment>>, vector<int64_t>>> mapped_pair_buffer;
-
-    const static size_t FLUSH_THRESHOLD = 1000;
-};
-
-/**
- * Allows each OMP thread to write to an unbounded buffer. A single writer thread goes around and flushes all the threads' buffers.
- */
-class OMPSingleWriterBufferedAlignmentEmitter : public AlignmentEmitter {
-public:
-    /// Create an OMPSingleWriterBufferedAlignmentEmitter that emits alignments to
-    /// the given backing AlignmentEmitter. The backing emitter will become
-    /// owned by this one.
-    OMPSingleWriterBufferedAlignmentEmitter(AlignmentEmitter* backing);
-    
-    /// Destroy and flush all the buffers
-    ~OMPSingleWriterBufferedAlignmentEmitter();
-
-    /// Emit a batch of Alignments.
-    virtual void emit_singles(vector<Alignment>&& aln_batch);
-    /// Emit a batch of Alignments with secondaries. All secondaries must have
-    /// is_secondary set already.
-    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
-    /// Emit a batch of pairs of Alignments.
-    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
-        vector<int64_t>&& tlen_limit_batch);
-    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
-    /// must have is_secondary set already.
-    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
-        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
-    
-private:
-    /// Save all the buffered alignments from the given thread.
-    void flush(size_t thread);
-    
-    // Periodically try and flush all the buffers
-    void writer_thread_function();
-
-    /// Keep a reference to the backing emitter
-    unique_ptr<AlignmentEmitter> backing;
-
-    // We have one set of buffers for each type of emit operation, for each thread
-    vector<vector<Alignment>> single_buffer;
-    vector<vector<vector<Alignment>>> mapped_single_buffer;
-    vector<tuple<vector<Alignment>, vector<Alignment>, vector<int64_t>>> pair_buffer;
-    vector<tuple<vector<vector<Alignment>>, vector<vector<Alignment>>, vector<int64_t>>> mapped_pair_buffer;
-    
-    // We have a vector of mutexes, one per worker thread, protecting the thread's buffer.
-    // The threads will lock them when writing, and the writer thread will lock them when reading.
-    // We use a deque beceuse we need random access but mutex isn't copyable
-    deque<mutex> buffer_mutexes;
-    
-    // We have a termination flag
-    atomic<bool> stop;
-    
-    // We have a writer thread
-    thread writer;
-    
-    // We have a number of queued items of a type beyond which we refuse to
-    // make any more and just wait for the writer thread to service us.
-    // This is to avoid unbounded memory usage.
-    const static size_t MAX_BUFFER_SIZE = 200000;
-};
-
-/**
  * Emit a TSV table describing alignments.
- *
- * TODO: Holds the output stream lock through TSV conversion.
  */
 class TSVAlignmentEmitter : public AlignmentEmitter {
 public:
     
     /// Create a TSVAlignmentEmitter writing to the given file (or "-")
-    TSVAlignmentEmitter(const string& filename);
+    TSVAlignmentEmitter(const string& filename, size_t max_threads);
 
     /// The default destructor should clean up the open file, if any.
     ~TSVAlignmentEmitter() = default;
@@ -232,13 +134,14 @@ private:
 
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
-
-    /// Access to the output stream is protected by this mutex
-    mutex sync;
+    
+    /// This holds a StreamMultiplexer on the output stream, for sharing it
+    /// between threads.
+    vg::io::StreamMultiplexer multiplexer;
 
     /// Emit single alignment as TSV.
     /// This is all we use; we don't do anything for pairing.
-    void emit(Alignment&& aln_batch, const lock_guard<mutex>& lock);
+    void emit(Alignment&& aln_batch);
 };
 
 /**
@@ -253,7 +156,7 @@ public:
     /// groups for the header will be guessed from the first reads. HTSlib
     /// positions will be read from the alignments' refpos, and the alignments
     /// must be surjected.
-    HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length);
+    HTSAlignmentEmitter(const string& filename, const string& format, const map<string, int64_t>& path_length, size_t max_threads);
     
     /// Tear down an HTSAlignmentEmitter and destroy HTSlib structures.
     ~HTSAlignmentEmitter();
@@ -329,7 +232,7 @@ class VGAlignmentEmitter : public AlignmentEmitter {
 public:
     /// Create a VGAlignmentEmitter writing to the given file (or "-") in the given
     /// non-HTS format ("JSON", "GAM").
-    VGAlignmentEmitter(const string& filename, const string& format);
+    VGAlignmentEmitter(const string& filename, const string& format, size_t max_threads);
     
     /// Finish and drstroy a VGAlignmentEmitter.
     ~VGAlignmentEmitter();
@@ -351,12 +254,13 @@ private:
 
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
-
-    /// If we are doing Protobuf output we need a backing emitter. If we are doing JSON out, this will be empty.
-    unique_ptr<vg::io::ProtobufEmitter<Alignment>> proto;
     
-    /// If we are doing JSON, we need to take care of our own stream locking.
-    mutex stream_mutex;
+    /// This holds a StreamMultiplexer on the output stream, for sharing it
+    /// between threads.
+    vg::io::StreamMultiplexer multiplexer;
+    
+    /// We also keep ProtobufEmitters, one per thread, if we are doing protobuf output.
+    vector<unique_ptr<vg::io::ProtobufEmitter<Alignment>>> proto;
 };
 
 }

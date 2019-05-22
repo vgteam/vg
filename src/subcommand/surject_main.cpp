@@ -205,12 +205,12 @@ int main_surject(int argc, char** argv) {
         auto name = xgidx->path_name(i);
         path_length[name] = xgidx->path_length(name);
     }
-    
-    // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length);
-
-    // Count out threads
+   
+    // Count our threads
     int thread_count = get_thread_count();
+   
+    // Set up output to an emitter that will handle serialization
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count);
 
     if (input_format == "GAM") {
         get_input_file(file_name, [&](istream& in) {

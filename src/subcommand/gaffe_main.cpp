@@ -285,7 +285,7 @@ int main_gaffe(int argc, char** argv) {
     
     {
         // Set up output to an emitter that will handle serialization
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {});
+        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {}, thread_count);
 
 #ifdef USE_CALLGRIND
         // We want to profile the alignment, not the loading.
