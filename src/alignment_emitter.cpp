@@ -51,9 +51,9 @@ unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const
         cerr << "error [vg::get_alignment_emitter]: Unimplemented output format " << format << endl;
         exit(1);
     }
-
+    
     // Make a buffering emitter to own the backing one, and return it in a unique_ptr.
-    return make_unique<OMPThreadBufferedAlignmentEmitter>(backing);
+    return make_unique<OMPSingleWriterBufferedAlignmentEmitter>(backing);
 }
 
 OMPThreadBufferedAlignmentEmitter::OMPThreadBufferedAlignmentEmitter(AlignmentEmitter* backing) : backing(backing) {
@@ -162,6 +162,166 @@ void OMPThreadBufferedAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignmen
     if (get<0>(mapped_pair_buffer[i]).size() >= FLUSH_THRESHOLD) {
         flush(i);
     }
+}
+
+OMPSingleWriterBufferedAlignmentEmitter::OMPSingleWriterBufferedAlignmentEmitter(AlignmentEmitter* backing) : backing(backing), stop(false) {
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            size_t threads = omp_get_num_threads();
+            single_buffer.resize(threads);
+            pair_buffer.resize(threads);
+            mapped_single_buffer.resize(threads);
+            mapped_pair_buffer.resize(threads);
+            buffer_mutexes.resize(threads);
+        }
+    }
+    
+    writer = thread(&OMPSingleWriterBufferedAlignmentEmitter::writer_thread_function, this);
+    
+}
+
+OMPSingleWriterBufferedAlignmentEmitter::~OMPSingleWriterBufferedAlignmentEmitter() {
+    // Stop our writer thread
+    stop.store(true);
+    // Wait on it
+    writer.join();
+    
+    // Flush our buffers that are still not empty
+    for (size_t i = 0; i < single_buffer.size(); i++) {
+        flush(i);
+    }
+    // Then we can clean up our backing emitter
+    backing.reset();
+}
+
+
+void OMPSingleWriterBufferedAlignmentEmitter::writer_thread_function() {
+    
+    
+#ifdef debug
+    // Track max buffer fill when we empty anything.
+    // This has different semantics between data types but we ignore that.
+    size_t buffer_high_water = 0;
+#endif
+    
+    while(!stop.load()) {
+        // Until we are told to stop
+        
+        for (size_t i = 0; i < buffer_mutexes.size(); i++) {
+            // For each buffer, lock it
+            if (buffer_mutexes[i].try_lock()) {
+
+#ifdef debug
+                buffer_high_water = max(buffer_high_water, single_buffer[i].size());
+                buffer_high_water = max(buffer_high_water, get<0>(pair_buffer[i]).size());
+                buffer_high_water = max(buffer_high_water, mapped_single_buffer[i].size());
+                buffer_high_water = max(buffer_high_water, get<0>(mapped_pair_buffer[i]).size());
+#endif
+                
+                
+                // We got it. Flush.
+                // TODO: Double-buffer so we don't stall this other thread.
+                flush(i);
+                
+                buffer_mutexes[i].unlock();
+            }
+        }
+        
+    }
+    
+#ifdef debug
+    cerr << "Buffer high water mark: " << buffer_high_water << " items" << endl;
+#endif
+}
+
+void OMPSingleWriterBufferedAlignmentEmitter::flush(size_t thread) {
+    // Flush all the buffers
+    backing->emit_singles(std::move(single_buffer[thread]));
+    single_buffer[thread].clear();
+    
+    backing->emit_pairs(std::move(get<0>(pair_buffer[thread])),
+        std::move(get<1>(pair_buffer[thread])),
+        std::move(get<2>(pair_buffer[thread]))); 
+    get<0>(pair_buffer[thread]).clear();
+    get<1>(pair_buffer[thread]).clear();
+    get<2>(pair_buffer[thread]).clear();
+    
+    backing->emit_mapped_singles(std::move(mapped_single_buffer[thread]));
+    mapped_single_buffer[thread].clear();
+     
+    backing->emit_mapped_pairs(std::move(get<0>(mapped_pair_buffer[thread])),
+        std::move(get<1>(mapped_pair_buffer[thread])),
+        std::move(get<2>(mapped_pair_buffer[thread])));
+    get<0>(mapped_pair_buffer[thread]).clear();
+    get<1>(mapped_pair_buffer[thread]).clear();
+    get<2>(mapped_pair_buffer[thread]).clear();
+}
+
+void OMPSingleWriterBufferedAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
+    size_t i = omp_get_thread_num();
+    buffer_mutexes[i].lock();
+    while(single_buffer[i].size() >= MAX_BUFFER_SIZE) {
+        // Avoid OOM by letting someone else run.
+        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
+        buffer_mutexes[i].unlock();
+        std::this_thread::yield();
+        buffer_mutexes[i].lock();
+    }
+    std::move(aln_batch.begin(), aln_batch.end(), std::back_inserter(single_buffer[i]));
+    buffer_mutexes[i].unlock();
+}
+
+void OMPSingleWriterBufferedAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
+    size_t i = omp_get_thread_num();
+    buffer_mutexes[i].lock();
+    while(mapped_single_buffer[i].size() >= MAX_BUFFER_SIZE) {
+        // Avoid OOM by letting someone else run.
+        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
+        buffer_mutexes[i].unlock();
+        std::this_thread::yield();
+        buffer_mutexes[i].lock();
+    }
+    std::move(alns_batch.begin(), alns_batch.end(), std::back_inserter(mapped_single_buffer[i]));
+    buffer_mutexes[i].unlock();
+}
+
+void OMPSingleWriterBufferedAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
+                                                   vector<Alignment>&& aln2_batch,
+                                                   vector<int64_t>&& tlen_limit_batch) {
+    
+    size_t i = omp_get_thread_num();
+    buffer_mutexes[i].lock();
+    while(get<0>(pair_buffer[i]).size() >= MAX_BUFFER_SIZE) {
+        // Avoid OOM by letting someone else run.
+        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
+        buffer_mutexes[i].unlock();
+        std::this_thread::yield();
+        buffer_mutexes[i].lock();
+    }
+    std::move(aln1_batch.begin(), aln1_batch.end(), std::back_inserter(get<0>(pair_buffer[i])));
+    std::move(aln2_batch.begin(), aln2_batch.end(), std::back_inserter(get<1>(pair_buffer[i])));
+    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(pair_buffer[i])));
+    buffer_mutexes[i].unlock();
+}
+
+void OMPSingleWriterBufferedAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+                                                          vector<vector<Alignment>>&& alns2_batch,
+                                                          vector<int64_t>&& tlen_limit_batch) {
+    size_t i = omp_get_thread_num();
+    buffer_mutexes[i].lock();
+    while(get<0>(mapped_pair_buffer[i]).size() >= MAX_BUFFER_SIZE) {
+        // Avoid OOM by letting someone else run.
+        // TODO: this is a wasteful spin where we could use a condition variable for buffer emptied.
+        buffer_mutexes[i].unlock();
+        std::this_thread::yield();
+        buffer_mutexes[i].lock();
+    }
+    std::move(alns1_batch.begin(), alns1_batch.end(), std::back_inserter(get<0>(mapped_pair_buffer[i])));
+    std::move(alns2_batch.begin(), alns2_batch.end(), std::back_inserter(get<1>(mapped_pair_buffer[i])));
+    std::move(tlen_limit_batch.begin(), tlen_limit_batch.end(), std::back_inserter(get<2>(mapped_pair_buffer[i])));
+    buffer_mutexes[i].unlock();
 }
 
 TSVAlignmentEmitter::TSVAlignmentEmitter(const string& filename) : out_file(filename == "-" ? nullptr : new ofstream(filename)) {

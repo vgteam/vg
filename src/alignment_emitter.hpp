@@ -8,7 +8,9 @@
  */
 
 #include <mutex>
+#include <thread>
 #include <vector>
+#include <deque>
 
 #include <htslib/hfile.h>
 #include <htslib/hts.h>
@@ -85,6 +87,20 @@ public:
 unique_ptr<AlignmentEmitter> get_alignment_emitter(const string& filename, const string& format, const map<string, int64_t>& path_length);
 
 /**
+ * Discards all alignments.
+ */
+class NullAlignmentEmitter : public AlignmentEmitter {
+public:
+    inline virtual void emit_singles(vector<Alignment>&& aln_batch) {}
+    inline virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {}
+    inline virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch) {}
+    inline virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch) {}
+        
+};
+
+/**
  * Throws per-OMP-thread buffers over the top of a backing AlignmentEmitter, which it owns.
  */
 class OMPThreadBufferedAlignmentEmitter : public AlignmentEmitter {
@@ -124,6 +140,65 @@ private:
     vector<tuple<vector<vector<Alignment>>, vector<vector<Alignment>>, vector<int64_t>>> mapped_pair_buffer;
 
     const static size_t FLUSH_THRESHOLD = 1000;
+};
+
+/**
+ * Allows each OMP thread to write to an unbounded buffer. A single writer thread goes around and flushes all the threads' buffers.
+ */
+class OMPSingleWriterBufferedAlignmentEmitter : public AlignmentEmitter {
+public:
+    /// Create an OMPSingleWriterBufferedAlignmentEmitter that emits alignments to
+    /// the given backing AlignmentEmitter. The backing emitter will become
+    /// owned by this one.
+    OMPSingleWriterBufferedAlignmentEmitter(AlignmentEmitter* backing);
+    
+    /// Destroy and flush all the buffers
+    ~OMPSingleWriterBufferedAlignmentEmitter();
+
+    /// Emit a batch of Alignments.
+    virtual void emit_singles(vector<Alignment>&& aln_batch);
+    /// Emit a batch of Alignments with secondaries. All secondaries must have
+    /// is_secondary set already.
+    virtual void emit_mapped_singles(vector<vector<Alignment>>&& alns_batch);
+    /// Emit a batch of pairs of Alignments.
+    virtual void emit_pairs(vector<Alignment>&& aln1_batch, vector<Alignment>&& aln2_batch,
+        vector<int64_t>&& tlen_limit_batch);
+    /// Emit the mappings of a batch of pairs of Alignments. All secondaries
+    /// must have is_secondary set already.
+    virtual void emit_mapped_pairs(vector<vector<Alignment>>&& alns1_batch,
+        vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
+    
+private:
+    /// Save all the buffered alignments from the given thread.
+    void flush(size_t thread);
+    
+    // Periodically try and flush all the buffers
+    void writer_thread_function();
+
+    /// Keep a reference to the backing emitter
+    unique_ptr<AlignmentEmitter> backing;
+
+    // We have one set of buffers for each type of emit operation, for each thread
+    vector<vector<Alignment>> single_buffer;
+    vector<vector<vector<Alignment>>> mapped_single_buffer;
+    vector<tuple<vector<Alignment>, vector<Alignment>, vector<int64_t>>> pair_buffer;
+    vector<tuple<vector<vector<Alignment>>, vector<vector<Alignment>>, vector<int64_t>>> mapped_pair_buffer;
+    
+    // We have a vector of mutexes, one per worker thread, protecting the thread's buffer.
+    // The threads will lock them when writing, and the writer thread will lock them when reading.
+    // We use a deque beceuse we need random access but mutex isn't copyable
+    deque<mutex> buffer_mutexes;
+    
+    // We have a termination flag
+    atomic<bool> stop;
+    
+    // We have a writer thread
+    thread writer;
+    
+    // We have a number of queued items of a type beyond which we refuse to
+    // make any more and just wait for the writer thread to service us.
+    // This is to avoid unbounded memory usage.
+    const static size_t MAX_BUFFER_SIZE = 200000;
 };
 
 /**
