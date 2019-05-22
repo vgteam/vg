@@ -199,6 +199,26 @@ TEST_CASE("ProtobufIterator can read serialized data", "[stream]") {
     }
 }
 
+TEST_CASE("We can read a tag-only GAM file with for_each_parallel", "[stream][gam][empty]") {
+
+    stringstream ss;
+    {
+        // Make an empty GAM by creating and destroying an Alignment ProtobufEmitter
+        vg::io::ProtobufEmitter<Alignment> empty_gam_maker(ss);
+    }
+    
+    // Make sure it wrote something
+    REQUIRE(ss.str().size() != 0);
+    
+    vg::io::for_each_parallel<Alignment>(ss, [&](const Alignment& observed) {
+        // Should never be triggered
+        REQUIRE(false);
+    });
+    
+    // We should complete the test without any errors from the reader code.
+
+}
+
 }
 
 }
