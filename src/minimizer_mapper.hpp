@@ -39,6 +39,8 @@ public:
     // Mapping settings.
     // TODO: document each
 
+    /// How many clusters should we align?
+    size_t max_extensions = 48;
     /// How many extended clusters should we align, max?
     size_t max_alignments = 48;
     size_t max_multimaps = 1;

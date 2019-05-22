@@ -15,9 +15,9 @@
 #include <sdsl/int_vector.hpp>
 
 // Set this to track provenance of intermediate results
-//#define TRACK_PROVENANCE
+#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
-//#define TRACK_CORRECTNESS
+#define TRACK_CORRECTNESS
 
 namespace vg {
 
@@ -234,7 +234,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<vector<GaplessExtension>> cluster_extensions;
     cluster_extensions.reserve(cluster_indexes_in_order.size());
     
-    for (size_t i = 0; i < clusters.size(); i++) {
+    for (size_t i = 0; i < clusters.size() && i < max_extensions; i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
         

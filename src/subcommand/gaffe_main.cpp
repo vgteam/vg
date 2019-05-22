@@ -56,6 +56,7 @@ void help_gaffe(char** argv) {
     << "computational parameters:" << endl
     << "  -C, --no-chaining             disable seed chaining and all gapped alignment" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
+    << "  -a, --max-alignments INT      align up to INT extensions [48]" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -88,8 +89,10 @@ int main_gaffe(int argc, char** argv) {
     vector<string> fastq_filenames;
     // How many mappings per read can we emit?
     size_t max_multimaps = 1;
-    // How many extended clusters should we align, max?
+    // How many clusters should we extend?
     size_t max_extensions = 48;
+    // How many extended clusters should we align, max?
+    size_t max_alignments = 48;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -115,13 +118,14 @@ int main_gaffe(int argc, char** argv) {
             {"read-group", required_argument, 0, 'R'},
             {"no-chaining", no_argument, 0, 'C'},
             {"max-extensions", required_argument, 0, 'e'},
+            {"max-alignments", required_argument, 0, 'a'},
             {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:c:pG:f:M:Ce:Xt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:c:pG:f:M:Ce:a:Xt:",
                          long_options, &option_index);
 
 
@@ -211,6 +215,17 @@ int main_gaffe(int argc, char** argv) {
                         exit(1);
                     }
                     max_extensions = extensions;
+                }
+                break;
+
+            case 'a':
+                {
+                    size_t alignments = parse<size_t>(optarg);
+                    if (alignments <= 0) {
+                        cerr << "error: [vg gaffe] Number of alignments (" << alignments << ") must be a positive integer" << endl;
+                        exit(1);
+                    }
+                    max_alignments = alignments;
                 }
                 break;
                 
@@ -303,7 +318,12 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "--max-extensions " << max_extensions << endl;
     }
-    minimizer_mapper.max_alignments = max_extensions;
+    minimizer_mapper.max_extensions = max_extensions;
+
+    if (progress) {
+        cerr << "--max-alignments " << max_alignments << endl;
+    }
+    minimizer_mapper.max_alignments = max_alignments;
 
     if (progress) {
         cerr << "--max-multipmaps " << max_multimaps << endl;
