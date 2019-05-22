@@ -45,6 +45,7 @@ void help_gaffe(char** argv) {
     << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -c, --hit-cap INT             ignore minimizers with more than this many locations [10]" << endl
+    << "  -p, --progress                show progress" << endl
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
     << "  -f, --fastq-in FILE           read and align FASTQ-format reads from FILE (may repeat)" << endl
@@ -54,6 +55,7 @@ void help_gaffe(char** argv) {
     << "  -R, --read-group NAME         add this read group" << endl
     << "computational parameters:" << endl
     << "  -C, --no-chaining             disable seed chaining and all gapped alignment" << endl
+    << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -74,6 +76,7 @@ int main_gaffe(int argc, char** argv) {
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
     size_t hit_cap = 30;
+    bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
     // Whould we use the xdrop aligner for aligning tails?
@@ -86,7 +89,7 @@ int main_gaffe(int argc, char** argv) {
     // How many mappings per read can we emit?
     size_t max_multimaps = 1;
     // How many extended clusters should we align, max?
-    size_t max_alignments = 48;
+    size_t max_extensions = 48;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -104,19 +107,21 @@ int main_gaffe(int argc, char** argv) {
             {"snarls", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'd'},
             {"hit-cap", required_argument, 0, 'c'},
+            {"progress", no_argument, 0, 'p'},
             {"gam-in", required_argument, 0, 'G'},
             {"fastq-in", required_argument, 0, 'f'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
             {"no-chaining", no_argument, 0, 'C'},
+            {"max-extensions", required_argument, 0, 'e'},
             {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:c:G:f:M:CXt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:c:pG:f:M:Ce:Xt:",
                          long_options, &option_index);
 
 
@@ -169,6 +174,10 @@ int main_gaffe(int argc, char** argv) {
             case 'c':
                 hit_cap = parse<size_t>(optarg);
                 break;
+
+            case 'p':
+                progress = true;
+                break;
                 
             case 'G':
                 gam_filenames.push_back(optarg);
@@ -192,6 +201,17 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'C':
                 do_chaining = false;
+                break;
+
+            case 'E':
+                {
+                    size_t extensions = parse<size_t>(optarg);
+                    if (extensions <= 0) {
+                        cerr << "error: [vg gaffe] Number of extensions (" << extensions << ") must be a positive integer" << endl;
+                        exit(1);
+                    }
+                    max_extensions = extensions;
+                }
                 break;
                 
             case 'X':
@@ -245,10 +265,29 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // create in-memory objects
+    if (progress) {
+        cerr << "Loading XG index " << xg_name << endl;
+    }
     unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
+
+    if (progress) {
+        cerr << "Loading GBWT index " << gbwt_name << endl;
+    }
     unique_ptr<gbwt::GBWT> gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_name);
+
+    if (progress) {
+        cerr << "Loading minimizer index " << minimizer_name << endl;
+    }
     unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
+
+    if (progress) {
+        cerr << "Loading snarls from " << snarls_name << endl;
+    }
     unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
+
+    if (progress) {
+        cerr << "Loading distance index " << distance_name << endl;
+    }
     unique_ptr<DistanceIndex> distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_name);
     
     // Connect the DistanceIndex to the other things it needs to work.
@@ -256,14 +295,41 @@ int main_gaffe(int argc, char** argv) {
     distance_index->setSnarlManager(snarl_manager.get());
 
     // Set up the mapper
+    if (progress) {
+        cerr << "Initializing MinimizerMapper" << endl;
+    }
     MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), snarl_manager.get(), distance_index.get());
 
-    minimizer_mapper.max_alignments = max_alignments;
+    if (progress) {
+        cerr << "--max-extensions " << max_extensions << endl;
+    }
+    minimizer_mapper.max_alignments = max_extensions;
+
+    if (progress) {
+        cerr << "--max-multipmaps " << max_multimaps << endl;
+    }
     minimizer_mapper.max_multimaps = max_multimaps;
+
+    if (progress) {
+        cerr << "--hit-cap " << hit_cap << endl;
+    }
     minimizer_mapper.hit_cap = hit_cap;
+
+    if (progress) {
+        cerr << "--distance-limit " << distance_limit << endl;
+    }
     minimizer_mapper.distance_limit = distance_limit;
+
+    if (progress) {
+        cerr << "--no-chaining " << (!do_chaining) << endl;
+    }
     minimizer_mapper.do_chaining = do_chaining;
+
+    if (progress) {
+        cerr << "--xdrop " << use_xdrop_for_tails << endl;
+    }
     minimizer_mapper.use_xdrop_for_tails = use_xdrop_for_tails;
+
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
     
@@ -329,12 +395,14 @@ int main_gaffe(int argc, char** argv) {
     }
     
     // Produce a report
-    cerr << "Mapped " << total_reads_mapped << " reads across "
-        << thread_count << " threads in "
-        << elapsed_seconds.count() << " seconds." << endl;
+    if (progress) {
+        cerr << "Mapped " << total_reads_mapped << " reads across "
+            << thread_count << " threads in "
+            << elapsed_seconds.count() << " seconds." << endl;
         
-    cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
-        << " reads per second per thread" << endl;
+        cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
+            << " reads per second per thread" << endl;        
+    }
         
     return 0;
 }
