@@ -1014,7 +1014,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
     
     return trivial_chain ? 
        snarl_indexes[primary_snarl_assignments[get_start_of(*chain).node_id()-min_node_id]].snarlLength() :
-       chain_indexes[curr_chain_assignment].prefix_sum[chain_indexes[curr_chain_assignment].prefix_sum.size() - 1];
+       chain_indexes[curr_chain_assignment].prefix_sum[chain_indexes[curr_chain_assignment].prefix_sum.size() - 1] - 1;
 };
 
 
