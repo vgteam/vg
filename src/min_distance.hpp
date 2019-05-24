@@ -65,7 +65,7 @@ class MinimumDistanceIndex {
             //if inChain is true, parentIndex and revInParent are for a chain
             //otherwise, for the parent snarl
             SnarlIndex(id_t parent_id, bool rev_in_parent, 
-                       id_t id_in_parent, size_t depth, 
+                       id_t id_in_parent, bool is_unary_snarl, size_t depth,
                        size_t num_nodes, bool in_chain);
            
             //Construct and empty SnarlIndex. Must call load after construction to populate it 
@@ -144,6 +144,10 @@ class MinimumDistanceIndex {
             //Depth in the snarl tree - 0 for root
             size_t depth;
             
+            //True if this snarl is a unary snarl
+            //Since the start and end node are the same, the last ranking
+            //node is no longer the end node
+            bool is_unary_snarl;
 
             //The index into distances for distance start->end
             size_t index(size_t start, size_t end);
