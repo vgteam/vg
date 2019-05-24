@@ -1009,7 +1009,7 @@ namespace vg {
 
             for (size_t j = 0 ; j <= i ; j++){
                 //Go through other child net graph nodes up to and including i
-                pair<size_t, size_t> other_node = child_nodes[j].first;
+                auto& other_node = child_nodes[j].first;
 
                 // Note that other_node.second is the type, and other_node.first is the
                 // *number* of the other_node in that type, *not* the heading node ID.
