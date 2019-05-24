@@ -79,8 +79,7 @@ namespace vg {
                                          dist_index.snarl_indexes[snarl_i];
 
 #ifdef DEBUG
-                cerr << "At depth " << depth << " snarl number " << snarl_i << "with children "
-                << endl;
+                cerr << "At depth " << depth << " snarl number " << snarl_i << " with children " << endl;
                 for (auto it2 : kv.second) {
                     cerr << "\t node " << it2.first.first << " type " << it2.first.second << endl;
                 }
@@ -135,24 +134,38 @@ namespace vg {
 
                 // Get the chain's number
                 size_t chain_i = kv.first;
-                // Find the node ID that heads the parent of that chain.
-                size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
-                cerr << "Child chain headed by node ID " << dist_index.chain_indexes[chain_i].id_in_parent << " with parent headed by node ID " << parent_id << " which should be in range " << dist_index.min_node_id << " to " << dist_index.max_node_id << endl;
-                assert(parent_id >= dist_index.min_node_id);
-                assert(parent_id <= dist_index.max_node_id);
-                // Map it to the snarl number that should contain it (and thus also contain the chain)
-                size_t parent_snarl_i = dist_index.primary_snarl_assignments[
-                            parent_id-dist_index.min_node_id];
                 
-                // Compute the clusters and register them as relevant for that parent snarl.
-                parent_snarl_children[parent_snarl_i].push_back(
-                  make_pair(make_pair(chain_i, CHAIN),
-                        get_clusters_chain( seeds, union_find_clusters,
-                             cluster_dists, kv.second, curr_snarl_children,
-                             node_to_seeds, distance_limit, chain_i)));
+#ifdef DEBUG
+                cerr << "At depth " << depth << " chain number " << chain_i << " with children " << endl;
+                for (auto it2 : kv.second) {
+                    cerr << "\t snarl number " << get<1>(it2) << endl;
+                }
+#endif
+
+                // Compute the clusters for the chain
+                auto chain_clusters = get_clusters_chain(seeds, union_find_clusters,
+                    cluster_dists, kv.second, curr_snarl_children,
+                    node_to_seeds, distance_limit, chain_i);
+                
+                if (depth > 0) {
+                    // We actually have a parent
+                    
+                    // Find the node ID that heads the parent of that chain.
+                    size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
+                    // It must be a legitimate node ID we cover.
+                    assert(parent_id >= dist_index.min_node_id);
+                    assert(parent_id <= dist_index.max_node_id);
+                    // Map it to the snarl number that should be represented by it (and thus also contain the chain)
+                    size_t parent_snarl_i = dist_index.primary_snarl_assignments[
+                                parent_id-dist_index.min_node_id];
+                    
+                    // Register clusters as relevant for that parent snarl.
+                    parent_snarl_children[parent_snarl_i].emplace_back(make_pair(chain_i, CHAIN), std::move(chain_clusters));
+                } 
             }
 
-            curr_snarl_children= move(parent_snarl_children);
+            // Swap buffer over for the next level
+            curr_snarl_children = move(parent_snarl_children);
         }
 
 #ifdef DEBUG 
