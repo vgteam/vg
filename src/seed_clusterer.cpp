@@ -39,7 +39,8 @@ namespace vg {
 
         int tree_depth = snarl_to_nodes.size()-1; 
 
-        //Maps snarls in the current level to be clustered to its children
+        //Maps snarls in the current level to be clustered (by snarl number) to its children.
+        //Children are stored as child index in its type, and child type.
         hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>> 
                                                             curr_snarl_children;
                   
@@ -59,6 +60,8 @@ namespace vg {
             hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>>
                                                           parent_snarl_children;
             if (depth != 0) {
+                // Bring in the direct child nodes that come in at this level in the snarl tree.
+                // They only ever occur below the root.
                 parent_snarl_children = move(snarl_to_nodes[depth - 1]);
             }
 
@@ -69,7 +72,7 @@ namespace vg {
             //snarl's orientation in the chain
             hash_map<size_t, vector<tuple<size_t, size_t, bool>>> chain_to_snarls; 
 
-            for (auto kv : curr_snarl_children){
+            for (auto& kv : curr_snarl_children){
                 //Go through each of the snarls at this level, cluster them,
                 //and find which chains they belong to, if any
                 //key is the index of the snarl and value is a vector of pair of
@@ -79,9 +82,11 @@ namespace vg {
                                          dist_index.snarl_indexes[snarl_i];
 
 #ifdef DEBUG
-                cerr << "At depth " << depth << " snarl number " << snarl_i << " with children " << endl;
+                cerr << "At depth " << depth << " snarl number " << snarl_i
+                    << " headed by " << snarl_index.id_in_parent
+                    << " with children " << endl;
                 for (auto it2 : kv.second) {
-                    cerr << "\t node " << it2.first.first << " type " << it2.first.second << endl;
+                    cerr << "\t" << typeToString(it2.first.second) << " number " << it2.first.first << endl;
                 }
 #endif
                 if (snarl_index.in_chain){
@@ -89,11 +94,11 @@ namespace vg {
                     //but don't cluster yet
 
 #ifdef DEBUG
-                    dist_index.printSelf();
+                    /*dist_index.printSelf();
                     for (size_t i = 0 ; i < dist_index.chain_assignments.size() ; i++) {
                         cerr << dist_index.chain_assignments[i] << " ";
                     }
-                    cerr << endl;
+                    cerr << endl;*/
 #endif
 
                     size_t chain_assignment = dist_index.chain_assignments[
@@ -103,6 +108,11 @@ namespace vg {
 
                     chain_to_snarls[chain_assignment].push_back( 
                           make_tuple(rank, snarl_i, snarl_index.rev_in_parent));
+                          
+#ifdef debug
+                    cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
+                        << " as a child of chain number " << chain_assignment << " headed by " << snarl_index.parent_id << endl;
+#endif
                     
                 } else {
                     //If this snarl is not in a chain, add it as a child of the
@@ -121,6 +131,14 @@ namespace vg {
                                          cluster_dists, kv.second, 
                                          node_to_seeds, distance_limit,
                                          snarl_i, false)));
+                                         
+#ifdef DEBUG
+                        cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
+                            << " as a child of snarl number " << parent_snarl_i
+                            << " headed by " << snarl_index.parent_id << endl;
+                        cerr << "Snarl number " << parent_snarl_i << " has "
+                            << parent_snarl_children[parent_snarl_i].size() << " children now" << endl;
+#endif
                     } else {
                          get_clusters_snarl(seeds, union_find_clusters,
                                     cluster_dists, kv.second, 
@@ -161,6 +179,12 @@ namespace vg {
                     
                     // Register clusters as relevant for that parent snarl.
                     parent_snarl_children[parent_snarl_i].emplace_back(make_pair(chain_i, CHAIN), std::move(chain_clusters));
+#ifdef DEBUG
+                    cerr << "Recording chain number " << chain_i << " headed by " << dist_index.chain_indexes[chain_i].id_in_parent
+                        << " as a child of snarl number " << parent_snarl_i << " headed by " << parent_id << endl;
+                    cerr << "Snarl number " << parent_snarl_i << " has "
+                        << parent_snarl_children[parent_snarl_i].size() << " children now" << endl;
+#endif
                 } 
             }
 
@@ -244,7 +268,7 @@ namespace vg {
                        size_t distance_limit, 
                        id_t root, int64_t node_length) {
 #ifdef DEBUG 
-        cerr << "Finding clusters on node " << root << " Which has length " <<
+        cerr << "Finding clusters on node " << root << " which has length " <<
         node_length << endl;
 #endif
         /*Find clusters of seeds in this node, root. 
@@ -394,7 +418,10 @@ namespace vg {
                                                             curr_snarl_children,
                        hash_map<id_t, vector<size_t>>& node_to_seeds,
                        size_t distance_limit,  size_t chain_index_i) {
-        /*Find all the clusters in the given chain */
+        /*
+         * Find all the clusters in the given chain, given clusters inside its child snarls.
+         * Processes the child snarls and then combines into the chain.
+         */
  
         //Sort vector of snarls by rank
         std::sort(snarls_in_chain.begin(), snarls_in_chain.end(), 
@@ -405,7 +432,7 @@ namespace vg {
         MinimumDistanceIndex::ChainIndex& chain_index = dist_index.chain_indexes[
                                                             chain_index_i];
 #ifdef DEBUG 
-        cerr << "Finding clusters on chain " << chain_index.id_in_parent << endl;
+        cerr << "Finding clusters on chain number " << chain_index_i << " headed by node " << chain_index.id_in_parent << endl;
 #endif
         hash_set<size_t> chain_cluster_ids;
 
@@ -476,6 +503,11 @@ namespace vg {
                 }
                 best_right = best_right == -1 ? -1 : best_right + offset;
             }
+
+#ifdef DEBUG
+            cerr << "Going to get clusters for snarl number " << curr_snarl_i << " by clustering from its "
+                << curr_snarl_children[curr_snarl_i].size() << " children" << endl;
+#endif
 
             //Find the clusters of the current snarl
             hash_set<size_t> snarl_clusters; 
@@ -786,7 +818,7 @@ namespace vg {
         MinimumDistanceIndex::SnarlIndex& snarl_index = dist_index.snarl_indexes[
                                                     snarl_index_i];
 #ifdef DEBUG 
-        cerr << "Finding clusters on snarl " << snarl_index.id_in_parent << endl;
+        cerr << "Finding clusters on snarl number " << snarl_index_i << " headed by node " << snarl_index.id_in_parent << endl;
 #endif
         int64_t start_length = snarl_index.nodeLength(0);
         int64_t end_length = snarl_index.nodeLength(snarl_index.num_nodes*2 -1);
@@ -845,14 +877,30 @@ namespace vg {
             child_node_t& child = children.first;
             child_cluster_t& curr_child_clusters = children.second;
 
+            // Note that child.second is the type, and child.first is the
+            // *number* of the child in that type, *not* the heading node ID.
+            // Ranks in parents are computed from node ID, so we have to get it.
+            id_t child_node_id;
+            switch (child.second) {
+            case NODE:
+                child_node_id = child.first;
+                break;
+            case SNARL:
+                child_node_id = dist_index.snarl_indexes[child.first].id_in_parent;
+                break;
+            case CHAIN:
+                child_node_id = dist_index.chain_indexes[child.first].id_in_parent;
+                break;
+            }
+            
             //Rank of this node in the snarl
             //If this node is a snarl/chain, then this snarl will be the
             //secondary snarl
             size_t node_rank = child.second == NODE 
                     ? dist_index.primary_snarl_ranks[
-                                   child.first - dist_index.min_node_id]
+                                   child_node_id - dist_index.min_node_id]
                     : dist_index.secondary_snarl_ranks[
-                                   child.first-dist_index.min_node_id];
+                                   child_node_id - dist_index.min_node_id];
             size_t rev_rank = node_rank % 2 == 0
                            ? node_rank + 1 : node_rank - 1;
 
@@ -865,8 +913,8 @@ namespace vg {
                 hash_set<size_t> c; 
                 tie (c, child_dist_left, child_dist_right) = get_clusters_node(
                          seeds, union_find_clusters, cluster_dists, 
-                         node_to_seeds[child.first], distance_limit, 
-                         child.first, node_len);
+                         node_to_seeds[child_node_id], distance_limit, 
+                         child_node_id, node_len);
                 child_clusters[i].insert(child_clusters[i].end(),
                            make_move_iterator(c.begin()),
                            make_move_iterator(c.end())); 
@@ -884,22 +932,31 @@ namespace vg {
             }
             dist_bounds[i] = make_pair(child_dist_left, child_dist_right);
 
+#ifdef DEBUG
+            cerr << "Finding distances to parent snarl " << snarl_index_i << " ends from child " << i << "/" << num_children << endl;
+            cerr << "Child is " << typeToString(child.second) << " number " << child.first << " headed by " << child_node_id << endl;
+            cerr << "Node rank is " << node_rank << " fwd, " << rev_rank << " rev of " << snarl_index.num_nodes * 2 << endl;
+#endif
+            // Make sure the net graph node is actually in the net graph.
+            assert(node_rank != numeric_limits<size_t>::max());
+
 //TODO: Use distToEnds
             //For child node i, find distances to ends of root snarl
+            size_t end_rank = snarl_index.is_unary_snarl ? 1 : snarl_index.num_nodes * 2 - 1;
             int64_t dist_s_l = snarl_index.snarlDistance(0, node_rank);
             int64_t dist_s_r = snarl_index.snarlDistance(0, rev_rank);
             int64_t dist_e_l = snarl_index.snarlDistance(
-                                          snarl_index.num_nodes*2-1, node_rank);
+                                          end_rank, node_rank);
             int64_t dist_e_r = snarl_index.snarlDistance(
-                                           snarl_index.num_nodes*2-1, rev_rank);
+                                           end_rank, rev_rank);
             dist_s_l = dist_s_l == -1 ? -1 
                                       : dist_s_l + snarl_index.nodeLength(0);
             dist_s_r = dist_s_r == -1 ? -1 
                                       : dist_s_r + snarl_index.nodeLength(0);
             dist_e_l = dist_e_l == -1 ? -1 
-                 : dist_e_l + snarl_index.nodeLength(snarl_index.num_nodes*2-1);
+                 : dist_e_l + snarl_index.nodeLength(end_rank);
             dist_e_r = dist_e_r == -1 ? -1 
-                 : dist_e_r + snarl_index.nodeLength(snarl_index.num_nodes*2-1);
+                 : dist_e_r + snarl_index.nodeLength(end_rank);
 
 
 
@@ -931,13 +988,13 @@ namespace vg {
                 pair<int64_t, int64_t> new_dists = make_pair (
                          min_positive(new_dist_s_l, new_dist_s_r), 
                          min_positive(new_dist_e_l, new_dist_e_r));
-                if (child.first == 0 || child.first == 1){
+                if (node_rank == 0 || node_rank == 1){
                     //If this is the first node of the chain then the dist
                     //left is just the distance to the start of the snarl
                     new_dists.first = snarl_index.rev_in_parent
                                 ? dists_c.second : dists_c.first ;
-                } else if (child.first == snarl_index.num_nodes * 2-1 ||
-                    child.first == snarl_index.num_nodes * 2 - 2) {
+                } else if (node_rank == snarl_index.num_nodes * 2-1 ||
+                    node_rank == snarl_index.num_nodes * 2 - 2) {
                     new_dists.second = snarl_index.rev_in_parent
                            ? dists_c.first : dists_c.second ;
                 } 
@@ -951,15 +1008,31 @@ namespace vg {
             
 
             for (size_t j = 0 ; j <= i ; j++){
-                //Go through child nodes up to and including i
+                //Go through other child net graph nodes up to and including i
                 pair<size_t, size_t> other_node = child_nodes[j].first;
+
+                // Note that other_node.second is the type, and other_node.first is the
+                // *number* of the other_node in that type, *not* the heading node ID.
+                // Ranks in parents are computed from node ID, so we have to get it.
+                id_t other_node_id;
+                switch (child.second) {
+                case NODE:
+                    other_node_id = other_node.first;
+                    break;
+                case SNARL:
+                    other_node_id = dist_index.snarl_indexes[other_node.first].id_in_parent;
+                    break;
+                case CHAIN:
+                    other_node_id = dist_index.chain_indexes[other_node.first].id_in_parent;
+                    break;
+                }
 
                 //Rank of this node in the snarl
                 size_t other_rank = other_node.second == NODE ? 
                        dist_index.primary_snarl_ranks[
-                          other_node.first - dist_index.min_node_id]
+                          other_node_id - dist_index.min_node_id]
                     : dist_index.secondary_snarl_ranks[
-                           other_node.first-dist_index.min_node_id];
+                           other_node_id - dist_index.min_node_id];
                 size_t other_rev = other_rank % 2 == 0
                                     ? other_rank + 1 : other_rank - 1;
 
@@ -1082,7 +1155,7 @@ namespace vg {
             }
         }
 #ifdef DEBUG 
-        cerr << "Found clusters on snarl " << snarl_index.id_in_parent << endl;
+        cerr << "Found clusters on snarl number " << snarl_index_i << " headed by" << snarl_index.id_in_parent << endl;
         cerr << "    with best left and right values: " << best_left << " " 
              << best_right << endl;
         bool got_left = false;

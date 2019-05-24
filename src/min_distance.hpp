@@ -81,12 +81,13 @@ class MinimumDistanceIndex {
             */
             void serialize(ostream& out) const;
             
-            //Distance between start and end, not including the lengths of
-            //the two nodes
-            //start and end are the ranks of the node+direction, given by
-            //primary_snarls and secondary_snarl
-            //Only works for nodes heading their chains (which represent the 
-            //chains), or snarl boundaries.
+            ///Distance between start and end, not including the lengths of
+            ///the two nodes
+            ///start and end are the ranks of the node+direction, given by
+            ///primary_snarls and secondary_snarl
+            ///Only works for nodes heading their chains (which represent the 
+            ///chains), or snarl boundaries.
+            ///Rank 0 is the start node and rank num_nodes*2-1 is the end node.
             int64_t snarlDistance(size_t start, size_t end);
 
 
