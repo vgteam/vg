@@ -1015,7 +1015,7 @@ namespace vg {
                 // *number* of the other_node in that type, *not* the heading node ID.
                 // Ranks in parents are computed from node ID, so we have to get it.
                 id_t other_node_id;
-                switch (child.second) {
+                switch (other_node.second) {
                 case NODE:
                     other_node_id = other_node.first;
                     break;
@@ -1026,6 +1026,11 @@ namespace vg {
                     other_node_id = dist_index.chain_indexes[other_node.first].id_in_parent;
                     break;
                 }
+                
+#ifdef DEBUG
+                cerr << "Other net graph node is " << typeToString(other_node.second) << " number "
+                    << other_node.first << " headed by node " << other_node_id << endl;
+#endif
 
                 //Rank of this node in the snarl
                 size_t other_rank = other_node.second == NODE ? 
