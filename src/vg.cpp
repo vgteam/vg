@@ -5,6 +5,7 @@
 #include "genotypekit.hpp"
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/id_sort.hpp"
+#include "augment.hpp"
 #include <raptor2/raptor2.h>
 #include <stPinchGraphs.h>
 
@@ -5112,103 +5113,36 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 
 // The correct way to edit the graph
 vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool update_paths, bool break_at_ends) {
-    // Collect the breakpoints
-    map<id_t, set<pos_t>> breakpoints;
-
-#ifdef debug
-    for (auto& p : paths_to_add) {
-        cerr << pb2json(p) << endl;
-    }
-#endif
-
-    std::vector<Path> simplified_paths;
-
-    for(auto path : paths_to_add) {
-        // Simplify the path, just to eliminate adjacent match Edits in the same
-        // Mapping (because we don't have or want a breakpoint there)
-        simplified_paths.push_back(simplify(path));
-    }
 
     // If we are going to actually add the paths to the graph, we need to break at path ends
     break_at_ends |= save_paths;
 
-    for(auto path : simplified_paths) {
-        // Add in breakpoints from each path
-        find_breakpoints(path, breakpoints, break_at_ends);
-    }
-
-    // Invert the breakpoints that are on the reverse strand
-    breakpoints = forwardize_breakpoints(breakpoints);
-
     // Clear existing path ranks.
     paths.clear_mapping_ranks();
 
-    // get the node sizes, for use when making the translation
-    map<id_t, size_t> orig_node_sizes;
-    for_each_node([&](Node* node) {
-            orig_node_sizes[node->id()] = node->sequence().size();
-        });
+    // We require updating if we're going to save with new interface
+    update_paths |= save_paths;
 
-    // Break any nodes that need to be broken. Save the map we need to translate
-    // from offsets on old nodes to new nodes. Note that this would mess up the
-    // ranks of nodes in their existing paths, which is why we clear and rebuild
-    // them.
-    auto node_translation = ensure_breakpoints(breakpoints);
+    // Augment the graph with the paths, modifying paths in place if update true
+    vector<Translation> translations = augment(this, paths_to_add, update_paths, break_at_ends);
 
-    // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, vector<Node*>> added_seqs;
-    // we will record the nodes that we add, so we can correctly make the returned translation
-    map<Node*, Path> added_nodes;
-    for(auto& path : simplified_paths) {
-        // Now go through each new path again, by reference so we can overwrite.
-        
-        // Create new nodes/wire things up. Get the added version of the path.
-        Path added = add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
-        
-        if (save_paths) {
+    // Add the paths into the graph
+    if (save_paths) {
+        for (auto& added : paths_to_add) {
             // Add this path to the graph's paths object without rebuilding path ranks, aux mapping, etc.
             paths.extend(added, false, false);
         }
-        
-        if (update_paths) {
-            // Replace the simplified path in original graph space with one in new graph space.
-            path = added;
-        }
-    }
-
-    if (update_paths) {
-        // We replaced all the paths in simplifies_paths, so send those back out as the embedded versions.
-        std::swap(simplified_paths, paths_to_add);
     }
 
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
 
-    // something is off about this check.
-    // with the paths sorted, let's double-check that the edges are here
-    paths.for_each([&](const Path& path) {
-            for (size_t i = 1; i < path.mapping_size(); ++i) {
-                auto& m1 = path.mapping(i-1);
-                auto& m2 = path.mapping(i);
-                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
-                auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
-                auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
-                // check that we always have an edge between the two nodes in the correct direction
-                if (!has_edge(s1, s2)) {
-                    //cerr << "edge missing! " << s1 << " " << s2 << endl;
-                    // force these edges in
-                    create_edge(s1, s2);
-                }
-            }
-        });
-
     // execute a semi partial order sort on the nodes
     sort();
 
-    // make the translation
-    return make_translation(node_translation, added_nodes, orig_node_sizes);
+    return translations;
 }
-
+    
 // The not quite as robust (TODO: how?) but actually efficient way to edit the graph.
 vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size) {
     // Collect the breakpoints
