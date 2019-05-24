@@ -102,7 +102,7 @@ int main_augment(int argc, char** argv) {
     bool label_paths = false;
 
     // Merge alleles from this loci file instead of GAM
-    string loci_filename;
+    string loci_file;
 
     // Merge only alleles from called genotypes in the loci file
     bool called_genotypes_only = false;
@@ -219,10 +219,10 @@ int main_augment(int argc, char** argv) {
 
             // Loci Options
         case 'l':
-            loci_filename = optarg;
+            loci_file = optarg;
             break;
         case 'L':
-            loci_filename = optarg;
+            loci_file = optarg;
             called_genotypes_only = true;
             break;
             
@@ -281,7 +281,7 @@ int main_augment(int argc, char** argv) {
         gam_in_file_name = get_input_file_name(optind, argc, argv);
     }
 
-    if (gam_in_file_name.empty() && loci_filename.empty()) {
+    if (gam_in_file_name.empty() && loci_file.empty()) {
         cerr << "[vg augment] error: gam file argument required" << endl;
         return 1;
     }
@@ -547,77 +547,47 @@ int main_augment(int argc, char** argv) {
             augmenter._augmented_graph.write_supports(support_file);
             support_file.close();
         }       
-    } else if (!loci_filename.empty()) {
-        // Open the file
-        ifstream loci_file(loci_filename);
-        assert(loci_file.is_open());
-    
-        // What nodes and edges are called as present by the loci?
-        set<Node*> called_nodes;
-        set<Edge*> called_edges;
-    
-        function<void(Locus&)> lambda = [&](Locus& locus) {
-            // For each locus
-            
-            if (locus.genotype_size() == 0) {
-                // No call made here. Just remove all the nodes/edges. TODO:
-                // should we keep them all if we don't know if they're there or
-                // not? Or should the caller call ref with some low confidence?
-                return;
-            }
-            
-            const Genotype& gt = locus.genotype(0);
-            
-            for (size_t j = 0; j < gt.allele_size(); j++) {
-                // For every allele called as present
-                int allele_number = gt.allele(j);
-                const Path& allele = locus.allele(allele_number);
-                
-                for (size_t i = 0; i < allele.mapping_size(); i++) {
-                    // For every Mapping in the allele
-                    const Mapping& m = allele.mapping(i);
-                    
-                    // Remember to keep this node
-                    called_nodes.insert(graph->get_node(m.position().node_id()));
-                    
-                    if (i + 1 < allele.mapping_size()) {
-                        // Look at the next mapping, which exists
-                        const Mapping& m2 = allele.mapping(i + 1);
-                        
-                        // Find the edge from the last Mapping's node to this one and mark it as used
-                        called_edges.insert(graph->get_edge(NodeSide(m.position().node_id(), !m.position().is_reverse()),
-                            NodeSide(m2.position().node_id(), m2.position().is_reverse())));
+    } else if (!loci_file.empty()) {
+        // read in the alignments and save their paths
+        vector<Path> paths;
+        function<void(Locus&)> lambda = [&graph, &paths, &called_genotypes_only](Locus& locus) {
+            // if we are only doing called genotypes, record so we can filter alleles
+            set<int> alleles_in_genotype;
+            if (called_genotypes_only) {
+                for (int i = 0; i < locus.genotype_size(); ++i) {
+                    for (int j = 0; j < locus.genotype(i).allele_size(); ++j) {
+                        alleles_in_genotype.insert(locus.genotype(i).allele(j));
                     }
                 }
             }
+            for (int i = 0; i < locus.allele_size(); ++i) {
+                // skip alleles not in the genotype if using only called genotypes
+                if (!alleles_in_genotype.empty()) {
+                    if (!alleles_in_genotype.count(i)) continue;
+                }
+                Path path = simplify(locus.allele(i));
+                stringstream name;
+                name << locus.name() << ":" << i;
+                path.set_name(name.str());
+                paths.push_back(path);
+            }
         };
-        vg::io::for_each(loci_file, lambda);
-        
-        // Collect all the unused nodes and edges (so we don't try to delete
-        // while iterating...)
-        set<Node*> unused_nodes;
-        set<Edge*> unused_edges;
-        
-        graph->for_each_node([&](Node* n) {
-            if (!called_nodes.count(n)) {
-                unused_nodes.insert(n);
-            }
-        });
-        
-        graph->for_each_edge([&](Edge* e) {
-            if (!called_edges.count(e)) {
-                unused_edges.insert(e);
-            }
-        });
-        
-        // Destroy all the extra edges (in case they use extra nodes)
-        for (auto* e : unused_edges) {
-            graph->destroy_edge(e);
+        if (loci_file == "-") {
+            vg::io::for_each(std::cin, lambda);
+        } else {
+            ifstream in;
+            in.open(loci_file.c_str());
+            vg::io::for_each(in, lambda);
         }
-        
-        for (auto* n : unused_nodes) {
-            graph->destroy_node(n);
+        // execute the edits and produce the translation if requested.
+        // Make sure to break at node ends, but don't add any paths because they're just loci alleles and not real paths.
+        auto translation = graph->edit(paths, false, false, true);
+        if (!translation_file_name.empty()) {
+            ofstream out(translation_file_name);
+            vg::io::write_buffered(out, translation, 0);
+            out.close();
         }
+        graph->serialize_to_ostream(cout);
     }
 
     if (pileups != nullptr) {
