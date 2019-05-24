@@ -116,6 +116,8 @@ cerr << endl;
 
                     if (depth != 0 && snarl_index.parent_id != 0){
                         //If this has a parent, record it
+                        assert(snarl_index.parent_id >= dist_index.min_node_id);
+                        assert(snarl_index.parent_id <= dist_index.max_node_id);
                         size_t parent_snarl_i = 
                                dist_index.primary_snarl_assignments[
                                   snarl_index.parent_id-dist_index.min_node_id];
@@ -134,12 +136,20 @@ cerr << endl;
                 }
             }
             for (auto& kv : chain_to_snarls) {
-                //For each chain in this level, find the clusters 
+                //For each chain at this level that has relevant child snarls in it, find the clusters.
 
+                // Get the chain's number
                 size_t chain_i = kv.first;
+                // Find the node ID that heads the parent of that chain.
                 size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
+                cerr << "Child chain headed by node ID " << dist_index.chain_indexes[chain_i].id_in_parent << " with parent headed by node ID " << parent_id << " which should be in range " << dist_index.min_node_id << " to " << dist_index.max_node_id << endl;
+                assert(parent_id >= dist_index.min_node_id);
+                assert(parent_id <= dist_index.max_node_id);
+                // Map it to the snarl number that should contain it (and thus also contain the chain)
                 size_t parent_snarl_i = dist_index.primary_snarl_assignments[
                             parent_id-dist_index.min_node_id];
+                
+                // Compute the clusters and register them as relevant for that parent snarl.
                 parent_snarl_children[parent_snarl_i].push_back(
                   make_pair(make_pair(chain_i, CHAIN),
                         get_clusters_chain( seeds, union_find_clusters,
