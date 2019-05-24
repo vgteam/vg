@@ -11,6 +11,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 
 // Set this to track provenance of intermediate results
 #define TRACK_PROVENANCE
@@ -70,54 +71,70 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     funnel.stage("seed");
 #endif
 
-    // How informative each minimizer is?
-    // The score is 1 + log max_hits - log hits.
-    vector<int> minimizer_score(minimizers.size());
-    size_t max_hits = 0;
-
-    size_t rejected_count = 0;
+    // Compute minimizer scores for all minimizers as 1 + ln(hard_hit_cap) - ln(hits).
+    std::vector<double> minimizer_score(minimizers.size(), 0.0);
+    double target_score = 0.0;
     for (size_t i = 0; i < minimizers.size(); i++) {
-        // For each minimizer
-        
+        size_t hits = minimizer_index->count(minimizers[i]);
+        if (hits > 0) {
+            if (hits <= hard_hit_cap) {
+                minimizer_score[i] = 1.0 + std::log(hard_hit_cap) - std::log(hits);
+            } else {
+                minimizer_score[i] = 1.0;
+            }
+        }
+        target_score += minimizer_score[i];
+    }
+    target_score *= minimizer_score_fraction;
+
+    // Sort the minimizers by score.
+    std::vector<size_t> minimizers_in_order(minimizers.size());
+    for (size_t i = 0; i < minimizers_in_order.size(); i++) {
+        minimizers_in_order[i] = i;
+    }
+    std::sort(minimizers_in_order.begin(), minimizers_in_order.end(), [&minimizer_score](const size_t a, const size_t b) {
+        return (minimizer_score[a] > minimizer_score[b]);
+    });
+
+    // Select the minimizers we use for seeds.
+    size_t rejected_count = 0;
+    double selected_score = 0.0;
+    for (size_t i = 0; i < minimizers.size(); i++) {
+        size_t minimizer_num = minimizers_in_order[i];
+
 #ifdef TRACK_PROVENANCE
         // Say we're working on it
-        funnel.processing_input(i);
+        funnel.processing_input(minimizer_num);
 #endif
 
-        if (hit_cap == 0 || minimizer_index->count(minimizers[i]) <= hit_cap) {
-            // The minimizer is infrequent enough to be informative, so feed it into clustering
-            
-            // How many seeds were there before now?
-            size_t seeds_before = seeds.size();
-            
-            // Locate it in the graph
-            for (auto& hit : minimizer_index->find(minimizers[i])) {
+        // Select the minimizer if it is informative enough or if the total score
+        // of the selected minimizers is not high enough.
+        size_t hits = minimizer_index->count(minimizers[minimizer_num]);
+        if (hits <= hit_cap || (hits <= hard_hit_cap && selected_score + minimizer_score[minimizer_num] <= target_score)) {
+
+            // Locate the hits.
+            for (auto& hit : minimizer_index->find(minimizers[minimizer_num])) {
                 // Reverse the hits for a reverse minimizer
-                if (minimizers[i].is_reverse) {
+                if (minimizers[minimizer_num].is_reverse) {
                     size_t node_length = gbwt_graph.get_length(gbwt_graph.get_handle(id(hit)));
                     hit = reverse_base_pos(hit, node_length);
                 }
                 // For each position, remember it and what minimizer it came from
                 seeds.push_back(hit);
-                seed_to_source.push_back(i);
+                seed_to_source.push_back(minimizer_num);
             }
-
-            // Collect information for scoring the minimizers.
-            size_t hits = seeds.size() - seeds_before;
-            max_hits = std::max(max_hits, hits);
-            minimizer_score[i] = 1 - static_cast<int>(gbwt::bit_length(hits));
+            selected_score += minimizer_score[minimizer_num];
             
 #ifdef TRACK_PROVENANCE
             // Record in the funnel that this minimizer gave rise to these seeds.
-            funnel.expand(i, hits);
+            funnel.expand(minimizer_num, hits);
 #endif
         } else {
-            // The minimizer is too frequent
             rejected_count++;
             
 #ifdef TRACK_PROVENANCE
             // Record in the funnel thast we rejected it
-            funnel.kill(i);
+            funnel.kill(minimizer_num);
 #endif
         }
         
@@ -125,11 +142,6 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Say we're done with this input item
         funnel.processed_input();
 #endif
-    }
-
-    // Add log max_hits to minimizer scores.
-    for (size_t i = 0; i < minimizers.size(); i++) {
-        minimizer_score[i] += gbwt::bit_length(max_hits);
     }
 
 
@@ -175,8 +187,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
 
     // Cluster score is the sum of minimizer scores.
-    // TODO: Should there be a penalty for missing minimizers?
-    vector<int> cluster_score(clusters.size(), 0);
+    std::vector<double> cluster_score(clusters.size(), 0.0);
     for (size_t i = 0; i < clusters.size(); i++) {
         // For each cluster
         auto& cluster = clusters[i];

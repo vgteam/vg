@@ -44,7 +44,6 @@ void help_gaffe(char** argv) {
     << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
     << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
-    << "  -c, --hit-cap INT             ignore minimizers with more than this many locations [10]" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
     << "  -G, --gam-in FILE             read and realign GAM-format reads from FILE (may repeat)" << endl
@@ -54,9 +53,12 @@ void help_gaffe(char** argv) {
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
     << "computational parameters:" << endl
-    << "  -C, --no-chaining             disable seed chaining and all gapped alignment" << endl
+    << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
+    << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
+    << "  -F, --score-fraction FLOAT    select minimizers between hit caps until score is FLOAT of total [0.6]" << endl
     << "  -e, --max-extensions INT      extend up to INT clusters [48]" << endl
-    << "  -a, --max-alignments INT      align up to INT extensions [48]" << endl
+    << "  -a, --max-alignments INT      align up to INT extensions [8]" << endl
+    << "  -O, --no-chaining             disable seed chaining and all gapped alignment" << endl
     << "  -X, --xdrop                   use xdrop alignment for tails" << endl
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
@@ -76,7 +78,8 @@ int main_gaffe(int argc, char** argv) {
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
-    size_t hit_cap = 30;
+    size_t hit_cap = 10, hard_hit_cap = 300;
+    double minimizer_score_fraction = 0.6;
     bool progress = false;
     // Should we try chaining or just give up if we can't find a full length gapless alignment?
     bool do_chaining = true;
@@ -92,7 +95,7 @@ int main_gaffe(int argc, char** argv) {
     // How many clusters should we extend?
     size_t max_extensions = 48;
     // How many extended clusters should we align, max?
-    size_t max_alignments = 48;
+    size_t max_alignments = 8;
     // What sample name if any should we apply?
     string sample_name;
     // What read group if any should we apply?
@@ -109,23 +112,25 @@ int main_gaffe(int argc, char** argv) {
             {"minimizer-name", required_argument, 0, 'm'},
             {"snarls", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'd'},
-            {"hit-cap", required_argument, 0, 'c'},
             {"progress", no_argument, 0, 'p'},
             {"gam-in", required_argument, 0, 'G'},
             {"fastq-in", required_argument, 0, 'f'},
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
-            {"no-chaining", no_argument, 0, 'C'},
+            {"hit-cap", required_argument, 0, 'c'},
+            {"hard-hit-cap", required_argument, 0, 'C'},
             {"max-extensions", required_argument, 0, 'e'},
             {"max-alignments", required_argument, 0, 'a'},
+            {"score-fraction", required_argument, 0, 'F'},
+            {"no-chaining", no_argument, 0, 'O'},
             {"xdrop", no_argument, 0, 'X'},
             {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:c:pG:f:M:Ce:a:Xt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:c:C:F:e:a:OXt:",
                          long_options, &option_index);
 
 
@@ -174,10 +179,6 @@ int main_gaffe(int argc, char** argv) {
                     exit(1);
                 }
                 break;
-            
-            case 'c':
-                hit_cap = parse<size_t>(optarg);
-                break;
 
             case 'p':
                 progress = true;
@@ -202,9 +203,31 @@ int main_gaffe(int argc, char** argv) {
             case 'R':
                 read_group = optarg;
                 break;
-                
+
+            case 'c':
+                {
+                    size_t cap = parse<size_t>(optarg);
+                    if (cap <= 0) {
+                        cerr << "error: [vg gaffe] Hit cap (" << cap << ") must be a positive integer" << endl;
+                        exit(1);
+                    }
+                    hit_cap = cap;
+                }
+                break;
+
             case 'C':
-                do_chaining = false;
+                {
+                    size_t cap = parse<size_t>(optarg);
+                    if (cap <= 0) {
+                        cerr << "error: [vg gaffe] Hard hit cap (" << cap << ") must be a positive integer" << endl;
+                        exit(1);
+                    }
+                    hard_hit_cap = cap;
+                }
+                break;
+
+            case 'F':
+                minimizer_score_fraction = parse<double>(optarg);
                 break;
 
             case 'e':
@@ -227,6 +250,10 @@ int main_gaffe(int argc, char** argv) {
                     }
                     max_alignments = alignments;
                 }
+                break;
+
+            case 'O':
+                do_chaining = false;
                 break;
                 
             case 'X':
@@ -315,6 +342,22 @@ int main_gaffe(int argc, char** argv) {
     }
     MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), snarl_manager.get(), distance_index.get());
 
+
+    if (progress) {
+        cerr << "--hit-cap " << hit_cap << endl;
+    }
+    minimizer_mapper.hit_cap = hit_cap;
+
+    if (progress) {
+        cerr << "--hard-hit-cap " << hard_hit_cap << endl;
+    }
+    minimizer_mapper.hard_hit_cap = hard_hit_cap;
+
+    if (progress) {
+        cerr << "--score-fraction " << minimizer_score_fraction << endl;
+    }
+    minimizer_mapper.minimizer_score_fraction = minimizer_score_fraction;
+
     if (progress) {
         cerr << "--max-extensions " << max_extensions << endl;
     }
@@ -326,24 +369,19 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.max_alignments = max_alignments;
 
     if (progress) {
+        cerr << "--no-chaining " << (!do_chaining) << endl;
+    }
+    minimizer_mapper.do_chaining = do_chaining;
+
+    if (progress) {
         cerr << "--max-multipmaps " << max_multimaps << endl;
     }
     minimizer_mapper.max_multimaps = max_multimaps;
 
     if (progress) {
-        cerr << "--hit-cap " << hit_cap << endl;
-    }
-    minimizer_mapper.hit_cap = hit_cap;
-
-    if (progress) {
         cerr << "--distance-limit " << distance_limit << endl;
     }
     minimizer_mapper.distance_limit = distance_limit;
-
-    if (progress) {
-        cerr << "--no-chaining " << (!do_chaining) << endl;
-    }
-    minimizer_mapper.do_chaining = do_chaining;
 
     if (progress) {
         cerr << "--xdrop " << use_xdrop_for_tails << endl;
@@ -354,14 +392,7 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.read_group = read_group;
     
     // Work out the number of threads we will have
-    size_t thread_count = 0;
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            thread_count = omp_get_num_threads();
-        }
-    }
+    size_t thread_count = omp_get_max_threads();
 
     // Set up counters per-thread for total reads mapped
     vector<size_t> reads_mapped_by_thread(thread_count, 0);

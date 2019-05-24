@@ -39,12 +39,23 @@ public:
     // Mapping settings.
     // TODO: document each
 
+    /// Use all minimizers with at most hit_cap hits
+    size_t hit_cap = 10;
+
+    /// Ignore all minimizers with more than hard_hit_cap hits
+    size_t hard_hit_cap = 300;
+
+    /// Take minimizers between hit_cap and hard_hit_cap hits until this fraction
+    /// of total score
+    double minimizer_score_fraction = 0.6;
+
     /// How many clusters should we align?
     size_t max_extensions = 48;
+
     /// How many extended clusters should we align, max?
-    size_t max_alignments = 48;
+    size_t max_alignments = 8;
+
     size_t max_multimaps = 1;
-    size_t hit_cap = 10;
     size_t distance_limit = 1000;
     bool do_chaining = true;
     bool use_xdrop_for_tails = false;
