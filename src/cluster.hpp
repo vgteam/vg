@@ -223,7 +223,7 @@ public:
     
     /// Initializes nodes in the hit graph, but does not add edges
     HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
-             size_t min_mem_length = 1);
+             size_t min_mem_length = 1, bool track_components = false);
     
     /// Add an edge
     void add_edge(size_t from, size_t to, int32_t weight, int64_t distance);
@@ -237,6 +237,19 @@ public:
                                double suboptimal_edge_pruning_factor);
     
     vector<HitNode> nodes;
+    
+    /// Execute a lambda on each pair of indexes of nodes (i, j), where i < j. Pairs
+    /// are produced in lexicographic order.
+    void for_each_hit_pair(const function<void(pair<size_t, size_t>)>& lambda);
+    
+    /// Execute a lambda on each pair of indexes of nodes (i, j), where 1) i < j, and
+    /// 2) i and j are not in the same connected component. The edges (and hence the
+    /// the connected components) are allowed to change as a side effect of lambda.
+    /// Pairs are produced in increasing order of the absolute distance on the read
+    /// of the end of node i's MEM and the beginning of node j's MEM. Hit graph must
+    /// have been constructed to track components to filter out pairs that are in the
+    /// same component.
+    void for_each_hit_pair_greedy(const function<void(pair<size_t, size_t>)>& lambda);
     
 private:
     
@@ -263,7 +276,11 @@ private:
     /// redundant sub-MEMs
     size_t median_mem_coverage(const vector<size_t>& component, const Alignment& aln) const;
     
+    /// Should we actively keep track of connected components?
+    bool track_components;
     
+    /// Keeps track of the connected components
+    UnionFind components;
 };
     
 class MEMClusterer::HitNode {

@@ -470,7 +470,7 @@ void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, i
 }
     
 MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
-                                 size_t min_mem_length) {
+                                 size_t min_mem_length, bool track_components) : track_components(track_components), components(0, false) {
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
     
@@ -503,11 +503,53 @@ MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Al
 #endif
         }
     }
+    
+    // init the component tracker
+    if (track_components) {
+        components = UnionFind(nodes.size(), false);
+    }
 }
 
 void MEMClusterer::HitGraph::add_edge(size_t from, size_t to, int32_t weight, int64_t distance) {
     nodes[from].edges_from.emplace_back(to, weight, distance);
     nodes[to].edges_to.emplace_back(from, weight, distance);
+    
+    if (track_components) {
+        components.union_groups(from, to);
+    }
+}
+    
+void MEMClusterer::HitGraph::for_each_hit_pair(const function<void(pair<size_t, size_t>)>& lambda) {
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        for (size_t j = i + 1; j < nodes.size(); ++j) {
+            lambda(make_pair(i, j));
+        }
+    }
+}
+
+void MEMClusterer::HitGraph::for_each_hit_pair_greedy(const function<void(pair<size_t, size_t>)>& lambda) {
+    
+    // make a vector of all pairs
+    vector<pair<size_t, size_t>> node_pairs(nodes.size() * (nodes.size() - 1) / 2);
+    size_t k = 0;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        for (size_t j = i + 1; j < nodes.size(); ++j, ++k) {
+            node_pairs[k] = make_pair(i, j);
+        }
+    }
+    
+    // sort it in increasing order by inter-MEM distance
+    sort(node_pairs.begin(), node_pairs.end(), [&](const pair<size_t, size_t>& node_pair_1,
+                                                   const pair<size_t, size_t>& node_pair_2) {
+        return (abs(nodes[node_pair_1.first].mem->end - nodes[node_pair_1.second].mem->begin)
+                < abs(nodes[node_pair_2.first].mem->end - nodes[node_pair_2.second].mem->begin));
+    });
+    
+    for (const pair<size_t, size_t>& node_pair : node_pairs) {
+        if (components.find_group(node_pair.first) != components.find_group(node_pair.second)) {
+            lambda(node_pair);
+        }
+    }
 }
     
 void MEMClusterer::HitGraph::connected_components(vector<vector<size_t>>& components_out) const {
