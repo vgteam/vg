@@ -1,5 +1,5 @@
 //#define debugIndex
-//#define debugDistance
+#define debugDistance
 
 #include "min_distance.hpp"
 
@@ -83,7 +83,6 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     }
     #ifdef debugIndex
     //Every node should be assigned to a snarl
-    printSelf(); 
     auto check_assignments = [&](const handle_t& h)-> bool {
         id_t id = graph->get_id(h); 
             cerr << id << endl;
@@ -469,7 +468,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                 //Get loop dist- enter and exit chain at same side
                                 if (get_start_of(*curr_chain).backward() 
                                                             == curr_id.second) {
-                                    //If traversing snarl forward in chain
+                                    //If traversing chain forward in snarl
 
                                     loop_dist = chain_dists.loop_fd[0] - 1;
 
@@ -511,7 +510,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                              start_in_chain, rev_in_snarl,
                                              false, depth + 1);
 
-                                ChainIndex& curr_chain_dists =chain_indexes.back();
+                                ChainIndex& curr_chain_dists = chain_indexes[
+                                    chain_assignments[chain_start-min_node_id]];
                                 if (get_start_of( *curr_chain).backward()
                                                  == curr_id.second) {
                                     //If traversing snarl forward in chain
@@ -617,6 +617,10 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
                                     loop_dist = curr_snarl_dists.snarlDistance(0, 1);
 
+                                    handle_t temp_handle = 
+                                          graph->get_handle(
+                                             curr_snarl->start().node_id(),
+                                             curr_snarl->start().backward());
                                      if (loop_dist != -1) { 
                                          loop_dist = loop_dist 
                                              + 2*graph->get_length(curr_handle);
@@ -1990,7 +1994,11 @@ int64_t MinimumDistanceIndex::ChainIndex::chainLength() {
 void MinimumDistanceIndex::ChainIndex::printSelf() {
     //Print the contenst of ChainDistance
    
-    cerr << "Chain index for chain starting at " << id_in_parent << endl;
+    if (is_looping_chain) {
+        cerr << "Looping chain starting at " << id_in_parent << endl;
+    } else {
+        cerr << "Chain starting at " << id_in_parent << endl;
+    }
     cerr << "Parent snarl " << parent_id << endl;
     
     cerr << "Distances:" << endl;
