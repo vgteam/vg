@@ -1,5 +1,5 @@
 //#define debugIndex
-#define debugDistance
+//#define debugDistance
 
 #include "min_distance.hpp"
 
@@ -8,6 +8,7 @@ namespace vg {
 
 //TODO: Compress things
 //TODO: Offset assignment/rank vectors by one to stop using inf
+//TODO: Serialize properly
 /*TODO: 
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph

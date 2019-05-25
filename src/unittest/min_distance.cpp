@@ -1390,32 +1390,17 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
         CactusSnarlFinder bubble_finder(vg);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
-        TestMinDistanceIndex di (&vg, &snarl_manager, 50);
-        pos_t pos1 = make_pos_t(98, false, 4);
-        pos_t pos2 = make_pos_t(98, true, 6); 
-        REQUIRE(di.maxDistance(pos1, pos2) >= 41);
-
-            for (size_t i = 0 ; i < vg.max_node_id(); i++) {
-                if (vg.has_node(i+1)) {
-                    REQUIRE(di.maxIndex.nodeToComponent[i] > 0);
-                    REQUIRE(di.maxIndex.maxDistances[i] >= 
-                            di.maxIndex.minDistances[i]);
-                    REQUIRE(di.maxIndex.minDistances[i] >= 0);
-                    REQUIRE(di.maxIndex.maxDistances[i] >= 0);
-                    if (di.maxIndex.nodeToComponent[i] > 
-                                di.maxIndex.numCycles) {
-                        REQUIRE(di.maxIndex.maxDistances[i] > 0);
-                        REQUIRE(di.maxIndex.minDistances[i] > 0);
-                    }
-                }
-            }
-
+        TestMinDistanceIndex di (&vg, &snarl_manager);
+        di.printSelf();
+        pos_t pos1 = make_pos_t(177, false, 17);
+        pos_t pos2 = make_pos_t(208, false, 5); 
+        REQUIRE(di.minDistance(pos1, pos2) == 564);
 */
 
         for (int i = 0; i < 0; i++) {
             //1000 different graphs
             VG graph;
-            random_graph(100, 10, 10, &graph);
+            random_graph(1000, 20, 100, &graph);
 
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
