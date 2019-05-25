@@ -14,7 +14,7 @@
 #include <random>
 #include <time.h> 
 
-//#define print
+#define print
 
 namespace vg {
 namespace unittest {
@@ -1415,10 +1415,10 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
 
 */
 
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 1000; i++) {
             //1000 different graphs
             VG graph;
-            random_graph(1000, 20, 100, &graph);
+            random_graph(100, 10, 10, &graph);
 
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 

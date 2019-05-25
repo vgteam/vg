@@ -227,7 +227,10 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
     if (!trivial_chain) {
         //If this is a chain, initialize a new ChainIndex object
         chain_indexes.emplace_back(parent_id, get_start_of(*chain).node_id(),
-                                   rev_in_parent, chain->size());
+                                   rev_in_parent, 
+                                   get_start_of(*chain).node_id() 
+                                            == get_end_of(*chain).node_id(), 
+                                   chain->size());
         chain_assignments[get_start_of(*chain).node_id()-min_node_id] = 
                                                        chain_indexes.size() - 1;
         chain_ranks[get_start_of(*chain).node_id()-min_node_id] = 0;
@@ -473,19 +476,25 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     loop_dist = chain_dists.loop_fd[0] - 1;
 
                                     if (loop_dist != -1) {
+                                        auto visit = get_start_of(*curr_chain);
+                                        handle_t temp_handle= graph->get_handle(
+                                                             visit.node_id(),
+                                                             visit.backward());
+
                                        loop_dist = loop_dist + 
-                                               graph->get_length(curr_handle) ;
+                                               graph->get_length(temp_handle) ;
                                      }
 
                                 } else {
                                     loop_dist = chain_dists.loop_rev[
                                              chain_dists.loop_rev.size()-1] - 1;
-                                    auto end_visit = get_end_of(*curr_chain);
-                                    handle_t temp_handle = graph->get_handle(
-                                                   end_visit.node_id(),
-                                                   end_visit.backward());
 
                                     if (loop_dist != -1) { 
+
+                                        auto end_visit= get_end_of(*curr_chain);
+                                        handle_t temp_handle= graph->get_handle(
+                                                   end_visit.node_id(),
+                                                   end_visit.backward());
                                         loop_dist = loop_dist + 
                                            graph->get_length(temp_handle);
                                      }
@@ -512,8 +521,13 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     loop_dist = curr_chain_dists.loop_fd[0] - 1;
 
                                     if (loop_dist != -1) {
-                                        loop_dist = loop_dist + 
-                                                 graph->get_length(curr_handle);
+                                        auto visit = get_start_of(*curr_chain);
+                                        handle_t temp_handle= graph->get_handle(
+                                                             visit.node_id(),
+                                                             visit.backward());
+
+                                       loop_dist = loop_dist + 
+                                               graph->get_length(temp_handle) ;
                                     }
                                 } else {
 
@@ -553,8 +567,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     loop_dist = snarl_dists.snarlDistance(0, 1);
 
                                      if (loop_dist != -1) { 
+                                         handle_t temp_handle =
+                                              graph->get_handle(
+                                                curr_snarl->start().node_id(),
+                                                curr_snarl->start().backward());
                                          loop_dist = loop_dist
-                                             + 2*graph->get_length(curr_handle);
+                                             + 2*graph->get_length(temp_handle);
                                      }
                                 } else {
                                     size_t end_in = snarl_dists.is_unary_snarl ?
@@ -1580,52 +1598,27 @@ int64_t MinimumDistanceIndex::minPos (vector<int64_t> vals) {
 
 void MinimumDistanceIndex::printSelf() {
     //TODO: DOn't actually know the node ids when we're printing things out
-    cerr << "Primary snarl assignments" << endl;
-    for (size_t i : primary_snarl_assignments) {
-        if (i == std::numeric_limits<size_t>::max()) {
-            cerr << "/\t";
-        } else {
-            cerr << snarl_indexes[i].id_in_parent << "\t";
-        }
-    }
-    cerr << endl << "Primary snarl ranks " << endl;
-    for (size_t i = 0 ; i < primary_snarl_ranks.size() ; i++) {
-        if (primary_snarl_assignments[i] == std::numeric_limits<size_t>::max()){
-            cerr << "/\t";
-        } else {
-            cerr << primary_snarl_ranks[i] << "\t";
-        }
-    }
-    cerr << endl << "Secondary snarl assignments" << endl;
-    for (size_t i : secondary_snarl_assignments) {
-        if (i == std::numeric_limits<size_t>::max()) {
-            cerr << "/\t";
-        } else {
-            cerr << snarl_indexes[i].id_in_parent << "\t";
-        }
-    }
-    cerr << endl << "Secondary snarl ranks" << endl;
-    for (size_t i = 0 ; i < secondary_snarl_ranks.size() ; i++) {
-        if (secondary_snarl_assignments[i] == std::numeric_limits<size_t>::max()){
-            cerr << "/\t";
-        } else {
-            cerr << secondary_snarl_ranks[i] << "\t";
-        }
-    }
-    cerr << endl << "Chain assignments" << endl;
-    for (size_t i : chain_assignments) {
-        if (i == std::numeric_limits<size_t>::max()) {
-            cerr << "/\t";
-        } else {
-            cerr << chain_indexes[i].id_in_parent << "\t";
-        }
-    }
-    cerr << endl << "Chain ranks " << endl;
-    for (size_t i = 0 ; i < chain_ranks.size() ; i++) {
-        if (chain_assignments[i] == std::numeric_limits<size_t>::max()){
-            cerr << "/\t";
-        } else {
-            cerr << chain_ranks[i] << "\t";
+    cerr << "node id \t primary snarl \t rank \t secondary snarl \t rank \t chain \t rank" << endl;
+    for (size_t i = 0 ; i < primary_snarl_assignments.size() ; i ++ ) {
+        if (primary_snarl_assignments[i] != std::numeric_limits<size_t>::max()){
+            cerr << i + min_node_id << "\t";
+
+             cerr << snarl_indexes[primary_snarl_assignments[i]].id_in_parent 
+                  << "\t" << primary_snarl_ranks[i] << "\t";
+
+            if (secondary_snarl_assignments[i] == std::numeric_limits<size_t>::max()) {
+                cerr << "/\t/\t";
+            } else {
+                cerr << snarl_indexes[secondary_snarl_assignments[i]].id_in_parent 
+                     << "\t" << secondary_snarl_ranks[i] << "\t";
+            }
+            if (chain_assignments[i] == std::numeric_limits<size_t>::max()) {
+                cerr << "/\t/\t";
+            } else {
+                cerr << chain_indexes[chain_assignments[i]].id_in_parent 
+                     << "\t" << chain_ranks[i] << "\t";
+            }
+            cerr << endl;
         }
     }
 
@@ -1745,8 +1738,13 @@ int64_t MinimumDistanceIndex::SnarlIndex::snarlLength() {
     if (dist == -1) {
         return -1;
     } else {
-        int64_t node_len = nodeLength(num_nodes * 2 - 1) + nodeLength(0);
-        return dist + node_len; 
+        if (num_nodes == 1) {
+            //TODO: 
+            return distances[0]-1;
+        } else {
+            int64_t node_len = nodeLength(num_nodes * 2 - 1) + nodeLength(0);
+            return dist + node_len; 
+        }
     }
  
 }
@@ -1758,9 +1756,10 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::distToEnds(size_t rank,
        Rev is true if the node is reversed in the snarl
     */
     int64_t start_len = nodeLength(0);
-    int64_t end_len = nodeLength(num_nodes * 2 - 1);
+    int64_t end_len = is_unary_snarl ? start_len 
+                                     : nodeLength(num_nodes * 2 - 1);
     size_t rev_rank = rank % 2 == 0 ? rank + 1 : rank - 1;
-    size_t end_rank = is_unary_snarl ? 1 : num_nodes * 2 - 1;
+    size_t end_rank = is_unary_snarl ? 0 : num_nodes * 2 - 1;
     
     int64_t dsl = snarlDistance(0, rank); 
 
@@ -1802,8 +1801,11 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::distToEnds(size_t rank,
 void MinimumDistanceIndex::SnarlIndex::printSelf() {
     //Print the nodes contained in SnarlDistance
     cerr << endl;
-     
-    cerr << "Snarl index for snarl starting at " << id_in_parent;
+    if (is_unary_snarl) {
+        cerr << "Unary snarl starting at " << id_in_parent;
+    } else {
+        cerr << "Snarl starting at " << id_in_parent;
+    }
 
     if (in_chain) {
         cerr << endl << "Parent chain: " << parent_id;
@@ -1836,9 +1838,10 @@ void MinimumDistanceIndex::SnarlIndex::printSelf() {
 //ChainDistance methods
 
 MinimumDistanceIndex::ChainIndex::ChainIndex( 
-                       size_t parent_id, size_t id_in_parent, bool rev_in_parent, size_t length):
-                parent_id(parent_id), id_in_parent(id_in_parent),
-                rev_in_parent(rev_in_parent) {
+                       size_t parent_id, size_t id_in_parent, 
+                       bool rev_in_parent, bool loops, size_t length):
+                parent_id(parent_id), id_in_parent(id_in_parent), 
+                is_looping_chain(loops), rev_in_parent(rev_in_parent) {
     
 
     util::assign(prefix_sum, int_vector<>(length+2, 0));
@@ -1876,8 +1879,41 @@ void MinimumDistanceIndex::ChainIndex::serialize(ostream& out) const {
    
 
 }
-int64_t MinimumDistanceIndex::ChainIndex::chainDistance(pair<size_t, bool> start, 
-         pair<size_t, bool> end, int64_t start_len, int64_t end_len) {
+int64_t MinimumDistanceIndex::ChainIndex::loopDistance(
+         pair<size_t, bool> start, pair<size_t, bool> end, 
+         int64_t start_len, int64_t end_len) {
+
+    if (start.first == 0 ) {
+        return chainDistance(make_pair(prefix_sum.size() - 2, start.second), 
+                             end, prefix_sum[prefix_sum.size() - 1]-1,
+                             end_len, true);
+    } else if (end.first == 0) {
+        return chainDistance(start,make_pair(prefix_sum.size() - 2, end.second),
+                     start_len, prefix_sum[prefix_sum.size() - 1]-1, true);
+
+    } else if (start.first < end.first && start.second) {
+
+        return chainDistance(start, make_pair(0, start.second),
+                             start_len, prefix_sum[0]-1, true)
+              + 
+                chainDistance(make_pair(prefix_sum.size() - 2, start.second),
+                             end, prefix_sum[prefix_sum.size() - 1]-1, 
+                             end_len, true);
+    } else if (start.first > end.first && !start.second) {
+        return chainDistance(start, 
+                          make_pair(prefix_sum.size() - 2, start.second),
+                          start_len, prefix_sum[prefix_sum.size() - 1]-1, true) 
+              + 
+                chainDistance(make_pair(0, start.second),
+                             end, prefix_sum[0]-1, end_len, true);
+    } else {
+        return -1;
+    }
+
+}
+int64_t MinimumDistanceIndex::ChainIndex::chainDistance(
+         pair<size_t, bool> start, pair<size_t, bool> end, 
+         int64_t start_len, int64_t end_len, bool check_loop) {
 
     /*
      * Return the distance between the given node sides, except node side is
@@ -1887,39 +1923,46 @@ int64_t MinimumDistanceIndex::ChainIndex::chainDistance(pair<size_t, bool> start
 
     int64_t start_sum = start.first == 0 ? 0 : prefix_sum[start.first] - 1;
     int64_t end_sum = end.first == 0 ? 0 : prefix_sum[end.first] - 1;
+    int64_t loop_dist = -1;
+    if (is_looping_chain && !check_loop) {
+        loop_dist = loopDistance(start, end, start_len, end_len);
+    }
     if (!start.second && !end.second) {
         //If start and end are facing forward relative to the start of the chain
         if (start.first <= end.first) {
-            return end_sum - start_sum;
+            return minPos({loop_dist, end_sum - start_sum});
         } else {
             int64_t rev1 = loop_fd[start.first] - 1;
             int64_t rev2 = loop_rev[end.first] - 1;
 
             int64_t chain_dist = (start_sum + start_len) - (end_sum + end_len); 
-            return (rev1 == -1 || rev2 == -1) ? -1 : chain_dist + rev1 + rev2;
+            return minPos({loop_dist, 
+                   (rev1 == -1 || rev2 == -1) ? -1 : chain_dist + rev1 + rev2});
         }
 
     } else if (start.second && end.second ){
         //If start and end are both reversed relative to the start of the chain
         if (start.first >= end.first) {
-            return (start_sum + start_len) - (end_sum + end_len);
+            return minPos({loop_dist, 
+                            (start_sum + start_len) - (end_sum + end_len)});
             
         } else {
             int64_t rev1 = loop_rev[start.first] - 1;
             int64_t rev2 = loop_fd[end.first] - 1;
             int64_t chain_dist = end_sum - start_sum; 
-            return (rev1 == -1 || rev2 == -1) ? -1 : chain_dist+ rev1 + rev2; 
+            return minPos({loop_dist, 
+                    (rev1 == -1 || rev2 == -1) ? -1 : chain_dist+ rev1 + rev2});
         }
     } else if (!start.second && end.second) {
         //Start is forward, end is reversed
         if (start.first <= end.first) {
             int64_t rev = loop_fd[end.first] - 1;
             int64_t chain_dist = end_sum - start_sum;
-            return rev == -1 ? -1 : rev + chain_dist ;
+            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist });
         } else {
             int64_t rev = loop_fd[start.first] - 1;
             int64_t chain_dist = (start_sum+start_len) - (end_sum+end_len);
-            return rev == -1 ? -1 : rev + chain_dist;
+            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist});
         }
         
     } else {
@@ -1927,13 +1970,13 @@ int64_t MinimumDistanceIndex::ChainIndex::chainDistance(pair<size_t, bool> start
         if (start.first <= end.first) {
             int64_t rev = loop_rev[start.first] - 1;
             int64_t chain_dist = end_sum - start_sum;
-            return rev == -1 ? -1 : rev + chain_dist;
+            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist});
 
             
         } else {
             int64_t rev = loop_rev[end.first] - 1; 
             int64_t chain_dist = (start_sum+start_len) - (end_sum+end_len);
-            return rev == -1 ? -1 : rev + chain_dist;
+            return minPos({loop_dist, rev == -1 ? -1 : rev + chain_dist});
         }
     }
 }

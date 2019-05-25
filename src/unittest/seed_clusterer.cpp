@@ -13,7 +13,7 @@
 #include <random>
 #include <time.h>
 
-//#define print
+#define print
 
 namespace vg {
 namespace unittest {

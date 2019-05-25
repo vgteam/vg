@@ -166,7 +166,8 @@ class MinimumDistanceIndex {
             //Constructor
             //Takes the index into snarlIndexes of the parent snarl, 
             //whether it is reversed in the snarl, and the chain length
-            ChainIndex(size_t parent_id, size_t id_in_parent, bool rev_in_parent, size_t length);
+            ChainIndex(size_t parent_id, size_t id_in_parent, bool rev_in_parent,
+                       bool loops, size_t length);
 
             //Constructor from vector of ints after serialization
             ChainIndex();
@@ -194,6 +195,10 @@ class MinimumDistanceIndex {
              * include the distance by taking the loop 
              */
             int64_t chainDistance(pair<size_t, bool> start, 
+                                  pair<size_t, bool> end, int64_t startLen, 
+                                  int64_t endLen, bool check_loop=false);
+
+            int64_t loopDistance(pair<size_t, bool> start, 
                                   pair<size_t, bool> end, int64_t startLen, 
                                   int64_t endLen);
 
@@ -229,13 +234,8 @@ class MinimumDistanceIndex {
             id_t parent_id;
             bool rev_in_parent;
             id_t id_in_parent; //Id of the start node of this chain 
+            bool is_looping_chain; //True if the chain loops
 
-
-        
-            /*Helper function for finding distances*/
-            int64_t chainDistanceHelper(pair<size_t, bool> start, 
-                     pair<size_t, bool> end, const Snarl* startSnarl, 
-                        const Snarl* endSnarl, bool recurse = true);
 
 
         friend class MinimumDistanceIndex;   
