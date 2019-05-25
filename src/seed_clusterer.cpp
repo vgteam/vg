@@ -93,7 +93,7 @@ for (auto it2 : kv.second) {
          << it2.first.first.second << endl; 
 }
 #endif
-                if (snarl_index.in_chain && snarl_index.parent_id != 0){
+                if (snarl_index.in_chain){
                     //If this snarl is in a chain, add it to chains
                     //but don't cluster yet
                     

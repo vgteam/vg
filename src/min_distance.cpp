@@ -1,5 +1,5 @@
-#define debugIndex
-#define debugDistance
+//#define debugIndex
+//#define debugDistance
 
 #include "min_distance.hpp"
 

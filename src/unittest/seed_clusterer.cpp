@@ -13,7 +13,7 @@
 #include <random>
 #include <time.h>
 
-#define print
+//#define print
 
 namespace vg {
 namespace unittest {
@@ -480,7 +480,7 @@ namespace unittest {
 
     TEST_CASE("Random graphs", "[cluster]"){
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 0; i++) {
             // For each random graph
             VG graph;
             random_graph(1000, 20, 100, &graph);
