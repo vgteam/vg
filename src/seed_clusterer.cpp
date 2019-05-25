@@ -89,17 +89,9 @@ namespace vg {
                     cerr << "\t" << typeToString(it2.first.second) << " number " << it2.first.first << endl;
                 }
 #endif
-                if (snarl_index.in_chain){
+                if (snarl_index.in_chain && snarl_index.parent_id != 0){
                     //If this snarl is in a chain, add it to chains
                     //but don't cluster yet
-
-#ifdef DEBUG
-                    /*dist_index.printSelf();
-                    for (size_t i = 0 ; i < dist_index.chain_assignments.size() ; i++) {
-                        cerr << dist_index.chain_assignments[i] << " ";
-                    }
-                    cerr << endl;*/
-#endif
 
                     size_t chain_assignment = dist_index.chain_assignments[
                                   snarl_index.parent_id-dist_index.min_node_id];
