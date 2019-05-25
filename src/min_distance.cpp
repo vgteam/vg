@@ -291,7 +291,6 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                       snarl_manager->into_which_snarl(id, true) :
                       temp_snarl; 
                 if (curr_snarl != NULL) {
-            cerr << "    Getting child " << id << endl;
                     //If this node represents a snarl or chain, then this snarl
                     //is a secondary snarl
 //                    has_secondary_snarl_bv[id-min_node_id] = 1;
@@ -299,7 +298,6 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                                            = snarl_assignment;
                     secondary_snarl_ranks[id - min_node_id] = all_nodes.size();
                 } else {
-            cerr << "    Getting node " << id << endl;
                     //Otherwise this is the node's primary snarl
                     primary_snarl_assignments[id-min_node_id] =snarl_assignment;
                     primary_snarl_ranks[id - min_node_id] = all_nodes.size();
@@ -652,7 +650,6 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     }
  
                     if (curr_id == start_id) {
-                        cerr << "Adding length of node " << curr_id.first << " : " << node_len << endl;;
                         snarl_indexes[snarl_assignment].distances[
                                             start_node_rank/2]  = node_len + 1; 
                     }
@@ -785,7 +782,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                                         curr_chain_rank]+dist;
 
                 #ifdef debugIndex
-                    cerr << "Prefix sum before snarl reverse start: " <<  chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank + 1]<< endl;
+                    cerr << "Prefix sum before snarl reverse start: " 
+                         <<  chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank + 1]<< endl;
                 #endif
             
             } else { 
@@ -799,7 +797,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                 chain_indexes[curr_chain_assignment].prefix_sum[
                                                         curr_chain_rank]+dist;
                 #ifdef debugIndex
-                    cerr << "Prefix sum before snarl end: " << chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank + 1] << endl;
+                    cerr << "Prefix sum before snarl end: " 
+                    << chain_indexes[curr_chain_assignment].prefix_sum[
+                                                    curr_chain_rank + 1] << endl;
                 #endif
             }
         }
@@ -1021,7 +1021,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                sd.snarlDistance(0, sd.num_nodes * 2 - 2);
                 dist_start_end = dist_start_end == -1 ? -1 :
                         dist_start_end + sd.nodeLength(0);
-                int64_t loop_distance = minPos({fd_loop_dist, last_loop + dist_end_start + dist_start_end});
+                int64_t loop_distance = minPos({fd_loop_dist, 
+                                  last_loop + dist_end_start + dist_start_end});
                 cd.loop_fd[curr_chain_rank] = loop_distance + 1;
             }           
           
@@ -1031,8 +1032,10 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
     //return length of entire chain
     
     return trivial_chain ? 
-       snarl_indexes[primary_snarl_assignments[get_start_of(*chain).node_id()-min_node_id]].snarlLength() :
-       chain_indexes[curr_chain_assignment].prefix_sum[chain_indexes[curr_chain_assignment].prefix_sum.size() - 1] - 1;
+       snarl_indexes[primary_snarl_assignments[
+                    get_start_of(*chain).node_id()-min_node_id]].snarlLength() :
+       chain_indexes[curr_chain_assignment].prefix_sum[chain_indexes[
+                              curr_chain_assignment].prefix_sum.size() - 1] - 1;
 };
 
 
@@ -1361,10 +1364,8 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
                 //If this node is reversed
                 rev_rank1 = rank1;
                 rank1 = rev_rank1 % 2 == 0 ? rev_rank1 + 1 : rev_rank1 - 1;
-cerr << "Node1 " << snarl_tree_node1.first << " is reversed, fd rank: " << rank1 << " rev rank " << rev_rank1 << endl;
             } else {
                 rev_rank1 = rank1 % 2 == 0 ? rank1 + 1 : rank1 - 1;
-cerr << "Node1 " << snarl_tree_node1.first << " is forward, fd rank: " << rank1 << " rev rank " << rev_rank1 << endl;
             }
 
             size_t rank2 = primary_snarl_assignments[snarl_tree_node2.first 
@@ -1376,10 +1377,8 @@ cerr << "Node1 " << snarl_tree_node1.first << " is forward, fd rank: " << rank1 
                 //If this node is reversed
                 rev_rank2 = rank2;
                 rank2 = rev_rank2 % 2 == 0 ?  rev_rank2 + 1 : rev_rank2 - 1;
-cerr << "Node2 " << snarl_tree_node2.first << " is reversed, fd rank: " << rank2 << " rev rank " << rev_rank2 << endl;
             } else {
                 rev_rank2 = rank2 % 2 == 0 ?  rank2 + 1 : rank2 - 1;
-cerr << "Node2 " << snarl_tree_node2.first << " is forward, fd rank: " << rank2 << " rev rank " << rev_rank2 << endl;
             }
 
 
@@ -1459,7 +1458,8 @@ tuple<int64_t, int64_t, pair<id_t, bool>> MinimumDistanceIndex::distToCommonAnce
     cerr << "Finding the distance to the common ancestor " << endl;
     cerr << "  Dist to the "; 
     rev ? cerr << "end " : cerr << "start ";
-    cerr << "of node " << get_id(pos) << " offset " <<           offset <<" reversed " << is_rev(pos) << " in snarl " << snarl_index.id_in_parent << ": " ;
+    cerr << "of node " << get_id(pos) << " offset " << offset <<" reversed " 
+         << is_rev(pos) << " in snarl " << snarl_index.id_in_parent << ": " ;
     
     #endif
     if (is_rev(pos)) {
@@ -1683,8 +1683,6 @@ void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
 size_t MinimumDistanceIndex::SnarlIndex::index(size_t start, size_t end) {
     /*Get the index of dist from start to end in a snarl distance matrix
       given the node ids + direction */
-      //TODO: Double check this
-      //TODO: Check boundary node orientations
       
     //The second node must be reversed so that the distance matrix is
     // symmetrical. Since the distance from n1 fd to n2 fd is the same as

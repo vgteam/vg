@@ -759,9 +759,6 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
 
 
             NetGraph ng7 = NetGraph(snarl7->start(), snarl7->end(), snarl_manager.chains_of(snarl7), &graph);
-            ng7.for_each_handle([&](const handle_t& h)->bool {
-                                       cerr << ng7.get_id(h) << " "; 
-                                       return true;} );
         TestMinDistanceIndex di (&graph, &snarl_manager);
 
 
