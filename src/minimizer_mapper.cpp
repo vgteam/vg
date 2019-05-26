@@ -14,9 +14,9 @@
 #include <cmath>
 
 // Set this to track provenance of intermediate results
-#define TRACK_PROVENANCE
+//#define TRACK_PROVENANCE
 // With TRACK_PROVENANCE on, set this to track correctness, which requires some expensive XG queries
-#define TRACK_CORRECTNESS
+//#define TRACK_CORRECTNESS
 
 namespace vg {
 
