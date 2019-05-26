@@ -8,8 +8,7 @@ namespace vg {
 
 //TODO: Compress things
 //TODO: Offset assignment/rank vectors by one to stop using inf
-//TODO: Serialize properly
-/*TODO: 
+/*TODO: Remove old distance index from vg index 
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
  */
@@ -1665,6 +1664,7 @@ void MinimumDistanceIndex::SnarlIndex::load(istream& in){
     sdsl::read_member(id_in_parent, in);
     sdsl::read_member(num_nodes, in);
     sdsl::read_member(depth, in);
+    sdsl::read_member(is_unary_snarl, in);
 }
 
 void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
@@ -1681,6 +1681,7 @@ void MinimumDistanceIndex::SnarlIndex::serialize(ostream& out) const {
     sdsl::write_member(id_in_parent, out);
     sdsl::write_member(num_nodes, out);
     sdsl::write_member(depth, out);
+    sdsl::write_member(is_unary_snarl, out);
 
 }
 
@@ -1864,6 +1865,7 @@ void MinimumDistanceIndex::ChainIndex::load(istream& in){
     sdsl::read_member(parent_id, in);
     sdsl::read_member(rev_in_parent, in);
     sdsl::read_member(id_in_parent, in);
+    sdsl::read_member(is_looping_chain, in);
 }
 
 void MinimumDistanceIndex::ChainIndex::serialize(ostream& out) const {
@@ -1879,6 +1881,7 @@ void MinimumDistanceIndex::ChainIndex::serialize(ostream& out) const {
     sdsl::write_member(parent_id, out);
     sdsl::write_member(rev_in_parent, out);
     sdsl::write_member(id_in_parent, out);
+    sdsl::write_member(is_looping_chain, out);
    
 
 }
