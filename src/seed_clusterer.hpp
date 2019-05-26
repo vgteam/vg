@@ -27,6 +27,19 @@ class SnarlSeedClusterer {
 
 
         enum ChildNodeType {CHAIN, SNARL, NODE};
+        
+        static inline string typeToString(ChildNodeType t) {
+            switch (t) {
+            case CHAIN:
+                return "CHAIN";
+            case SNARL:
+                return "SNARL";
+            case NODE:
+                return "NODE";
+            default:
+                return "OUT_OF_BOUNDS";
+            }
+        }
 
         //child nodes of a snarl's netgraph 
         //size_t is the node id if the node is just a node, index into

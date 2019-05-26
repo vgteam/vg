@@ -39,7 +39,8 @@ namespace vg {
 
         int tree_depth = snarl_to_nodes.size()-1; 
 
-        //Maps snarls in the current level to be clustered to its children
+        //Maps snarls in the current level to be clustered (by snarl number) to its children.
+        //Children are stored as child index in its type, and child type.
         hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>> 
                                                             curr_snarl_children;
                   
@@ -59,6 +60,8 @@ namespace vg {
             hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>>
                                                           parent_snarl_children;
             if (depth != 0) {
+                // Bring in the direct child nodes that come in at this level in the snarl tree.
+                // They only ever occur below the root.
                 parent_snarl_children = move(snarl_to_nodes[depth - 1]);
             }
 
@@ -69,7 +72,7 @@ namespace vg {
             //snarl's orientation in the chain
             hash_map<size_t, vector<tuple<size_t, size_t, bool>>> chain_to_snarls; 
 
-            for (auto kv : curr_snarl_children){
+            for (auto& kv : curr_snarl_children){
                 //Go through each of the snarls at this level, cluster them,
                 //and find which chains they belong to, if any
                 //key is the index of the snarl and value is a vector of pair of
@@ -79,24 +82,17 @@ namespace vg {
                                          dist_index.snarl_indexes[snarl_i];
 
 #ifdef DEBUG
-cerr << "At depth " << depth << " snarl " << snarl->start() << "with children "
-<< endl;
-for (auto it2 : kv.second) {
-    auto type = "";
-    switch(it2.first.second) {case 0 : type = "chain";
-                                break;
-                       case 1 : type = "snarl";
-                                break;
-                       case 2 : type = "node";
-                                 break;};
-    cerr << " " << type << ": " << it2.first.first.first << " " 
-         << it2.first.first.second << endl; 
-}
+                cerr << "At depth " << depth << " snarl number " << snarl_i
+                    << " headed by " << snarl_index.id_in_parent
+                    << " with children " << endl;
+                for (auto it2 : kv.second) {
+                    cerr << "\t" << typeToString(it2.first.second) << " number " << it2.first.first << endl;
+                }
 #endif
                 if (snarl_index.in_chain){
                     //If this snarl is in a chain, add it to chains
                     //but don't cluster yet
-                    
+
                     size_t chain_assignment = dist_index.chain_assignments[
                                   snarl_index.parent_id-dist_index.min_node_id];
                     size_t rank = dist_index.chain_ranks[
@@ -104,6 +100,11 @@ for (auto it2 : kv.second) {
 
                     chain_to_snarls[chain_assignment].push_back( 
                           make_tuple(rank, snarl_i, snarl_index.rev_in_parent));
+                          
+#ifdef debug
+                    cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
+                        << " as a child of chain number " << chain_assignment << " headed by " << snarl_index.parent_id << endl;
+#endif
                     
                 } else {
                     //If this snarl is not in a chain, add it as a child of the
@@ -111,6 +112,8 @@ for (auto it2 : kv.second) {
 
                     if (depth != 0 && snarl_index.parent_id != 0){
                         //If this has a parent, record it
+                        assert(snarl_index.parent_id >= dist_index.min_node_id);
+                        assert(snarl_index.parent_id <= dist_index.max_node_id);
                         size_t parent_snarl_i = 
                                dist_index.primary_snarl_assignments[
                                   snarl_index.parent_id-dist_index.min_node_id];
@@ -120,6 +123,14 @@ for (auto it2 : kv.second) {
                                          cluster_dists, kv.second, 
                                          node_to_seeds, distance_limit,
                                          snarl_i, false)));
+                                         
+#ifdef DEBUG
+                        cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
+                            << " as a child of snarl number " << parent_snarl_i
+                            << " headed by " << snarl_index.parent_id << endl;
+                        cerr << "Snarl number " << parent_snarl_i << " has "
+                            << parent_snarl_children[parent_snarl_i].size() << " children now" << endl;
+#endif
                     } else {
                          get_clusters_snarl(seeds, union_find_clusters,
                                     cluster_dists, kv.second, 
@@ -129,30 +140,58 @@ for (auto it2 : kv.second) {
                 }
             }
             for (auto& kv : chain_to_snarls) {
-                //For each chain in this level, find the clusters 
+                //For each chain at this level that has relevant child snarls in it, find the clusters.
 
+                // Get the chain's number
                 size_t chain_i = kv.first;
-                size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
-                size_t parent_snarl_i = dist_index.primary_snarl_assignments[
-                            parent_id-dist_index.min_node_id];
-                parent_snarl_children[parent_snarl_i].push_back(
-                  make_pair(make_pair(chain_i, CHAIN),
-                        get_clusters_chain( seeds, union_find_clusters,
-                             cluster_dists, kv.second, curr_snarl_children,
-                             node_to_seeds, distance_limit, chain_i)));
+                
+#ifdef DEBUG
+                cerr << "At depth " << depth << " chain number " << chain_i << " with children " << endl;
+                for (auto it2 : kv.second) {
+                    cerr << "\t snarl number " << get<1>(it2) << endl;
+                }
+#endif
+
+                // Compute the clusters for the chain
+                auto chain_clusters = get_clusters_chain(seeds, union_find_clusters,
+                    cluster_dists, kv.second, curr_snarl_children,
+                    node_to_seeds, distance_limit, chain_i);
+                
+                if (depth > 0) {
+                    // We actually have a parent
+                    
+                    // Find the node ID that heads the parent of that chain.
+                    size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
+                    // It must be a legitimate node ID we cover.
+                    assert(parent_id >= dist_index.min_node_id);
+                    assert(parent_id <= dist_index.max_node_id);
+                    // Map it to the snarl number that should be represented by it (and thus also contain the chain)
+                    size_t parent_snarl_i = dist_index.primary_snarl_assignments[
+                                parent_id-dist_index.min_node_id];
+                    
+                    // Register clusters as relevant for that parent snarl.
+                    parent_snarl_children[parent_snarl_i].emplace_back(make_pair(chain_i, CHAIN), std::move(chain_clusters));
+#ifdef DEBUG
+                    cerr << "Recording chain number " << chain_i << " headed by " << dist_index.chain_indexes[chain_i].id_in_parent
+                        << " as a child of snarl number " << parent_snarl_i << " headed by " << parent_id << endl;
+                    cerr << "Snarl number " << parent_snarl_i << " has "
+                        << parent_snarl_children[parent_snarl_i].size() << " children now" << endl;
+#endif
+                } 
             }
 
-            curr_snarl_children= move(parent_snarl_children);
+            // Swap buffer over for the next level
+            curr_snarl_children = move(parent_snarl_children);
         }
 
 #ifdef DEBUG 
-cerr << "Found clusters : " << endl;
-for (auto group : union_find_clusters.all_groups()){
-    for (size_t c : group) {
-       cerr << seeds[c] << " ";
-    }
-    cerr << endl;
-}
+        cerr << "Found clusters : " << endl;
+        for (auto group : union_find_clusters.all_groups()){
+            for (size_t c : group) {
+               cerr << seeds[c] << " ";
+            }
+            cerr << endl;
+        }
 #endif
         return union_find_clusters.all_groups();
         
@@ -221,8 +260,8 @@ for (auto group : union_find_clusters.all_groups()){
                        size_t distance_limit, 
                        id_t root, int64_t node_length) {
 #ifdef DEBUG 
-cerr << "Finding clusters on node " << root << " Which has length " <<
-node_length << endl;
+        cerr << "Finding clusters on node " << root << " which has length " <<
+        node_length << endl;
 #endif
         /*Find clusters of seeds in this node, root. 
          * Returns a hash_set of the union find group IDs of the new clusters,
@@ -259,26 +298,21 @@ node_length << endl;
             hash_set<size_t> cluster_group_ids;
             cluster_group_ids.insert(group_id);
 #ifdef DEBUG 
-assert (group_id == union_find_clusters.find_group(group_id));
-cerr << "Found single cluster on node " << root << endl;
-bool got_left = false;
-bool got_right = false;
-for (size_t c : cluster_group_ids) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    assert(dists.first == -1 || dists.first >= best_dist_left);
-    assert(dists.second == -1 || dists.second >= best_dist_right);
-    if (dists.first == best_dist_left) {got_left = true;}
-    if (dists.second == best_dist_right) {got_right = true;}
-    cerr << "\t" << c << ": left: " << dists.first << " right : " << 
-                                               dists.second << "\t seeds: ";
-    vector<size_t> seed_is = union_find_clusters.group(c);
-    for (size_t s : seed_is) {
-        cerr << seeds[s] << " ";
-    }
-    cerr << endl;
-}
-assert(got_left);
-assert(got_right);
+            assert (group_id == union_find_clusters.find_group(group_id));
+            cerr << "Found single cluster on node " << root << endl;
+            bool got_left = false;
+            bool got_right = false;
+            for (size_t c : cluster_group_ids) {
+                pair<int64_t, int64_t> dists = cluster_dists[c];
+                assert(dists.first == -1 || dists.first >= best_dist_left);
+                assert(dists.second == -1 || dists.second >= best_dist_right);
+                if (dists.first == best_dist_left) {got_left = true;}
+                if (dists.second == best_dist_right) {got_right = true;}
+                cerr << "\t" << c << ": left: " << dists.first << " right : " << 
+                                                           dists.second << endl;
+            }
+            assert(got_left);
+            assert(got_right);
 #endif
             return make_tuple(move(cluster_group_ids), 
                               best_dist_left, best_dist_right);
@@ -344,29 +378,23 @@ assert(got_right);
         }
         
 #ifdef DEBUG 
-cerr << "Found clusters on node " << snarl_index.id_in_parent << endl;
-bool got_left = false;
-bool got_right = false;
-for (size_t c : cluster_group_ids) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    assert(dists.first == -1 || dists.first >= best_left);
-    assert(dists.first == -1 || dists.second >= best_right);
-    if (dists.first == best_left) {got_left = true;}
-    if (dists.second == best_right) {got_right = true;}
-    cerr << "\t" << c << ": left: " << dists.first << " right : " 
-         << dists.second << "\t seeds: ";
-    vector<size_t> seed_is = union_find_clusters.group(c);
-    for (size_t s : seed_is) {
-        cerr << seeds[s] << " ";
-    }
-    cerr << endl;
-}
-assert(got_left );
-assert(got_right);
-for (size_t group_id : cluster_group_ids) {
-
-assert (group_id == union_find_clusters.find_group(group_id));
-}
+        cerr << "Found clusters on node " << root << endl;
+        bool got_left = false;
+        bool got_right = false;
+        for (size_t c : cluster_group_ids) {
+            pair<int64_t, int64_t> dists = cluster_dists[c];
+            assert(dists.first == -1 || dists.first >= best_left);
+            assert(dists.first == -1 || dists.second >= best_right);
+            if (dists.first == best_left) {got_left = true;}
+            if (dists.second == best_right) {got_right = true;}
+            cerr << "\t" << c << ": left: " << dists.first << " right : " 
+                 << dists.second << endl;
+        }
+        assert(got_left );
+        assert(got_right);
+        for (size_t group_id : cluster_group_ids) {
+            assert (group_id == union_find_clusters.find_group(group_id));
+        }
 #endif
         return make_tuple(move(cluster_group_ids), best_left, best_right);
         
@@ -382,7 +410,10 @@ assert (group_id == union_find_clusters.find_group(group_id));
                                                             curr_snarl_children,
                        hash_map<id_t, vector<size_t>>& node_to_seeds,
                        size_t distance_limit,  size_t chain_index_i) {
-        /*Find all the clusters in the given chain */
+        /*
+         * Find all the clusters in the given chain, given clusters inside its child snarls.
+         * Processes the child snarls and then combines into the chain.
+         */
  
         //Sort vector of snarls by rank
         std::sort(snarls_in_chain.begin(), snarls_in_chain.end(), 
@@ -393,7 +424,7 @@ assert (group_id == union_find_clusters.find_group(group_id));
         MinimumDistanceIndex::ChainIndex& chain_index = dist_index.chain_indexes[
                                                             chain_index_i];
 #ifdef DEBUG 
-cerr << "Finding clusters on chain " << chain_index.id_in_parent << endl;
+        cerr << "Finding clusters on chain number " << chain_index_i << " headed by node " << chain_index.id_in_parent << endl;
 #endif
         hash_set<size_t> chain_cluster_ids;
 
@@ -464,6 +495,11 @@ cerr << "Finding clusters on chain " << chain_index.id_in_parent << endl;
                 }
                 best_right = best_right == -1 ? -1 : best_right + offset;
             }
+
+#ifdef DEBUG
+            cerr << "Going to get clusters for snarl number " << curr_snarl_i << " by clustering from its "
+                << curr_snarl_children[curr_snarl_i].size() << " children" << endl;
+#endif
 
             //Find the clusters of the current snarl
             hash_set<size_t> snarl_clusters; 
@@ -574,36 +610,24 @@ cerr << "Finding clusters on chain " << chain_index.id_in_parent << endl;
             }
  
 #ifdef DEBUG
-cerr << "  Snarl distance limits: " << child_dist_left << " " << child_dist_right << endl;
-cerr << "  Snarl clusters to add: " << endl;
-for (size_t c : snarl_clusters) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    cerr << "\tleft: " << dists.first << " right : " << dists.second 
-         << "\t seeds: ";
-    vector<size_t> ss = union_find_clusters.group(c);
-    for (size_t s : ss) {
-        cerr << seeds[s] << " ";
-    }
-    
-    cerr << endl;
-}
-cerr << endl;
+            cerr << "  Snarl distance limits: " << child_dist_left << " " << child_dist_right << endl;
+            cerr << "  Snarl clusters to add: " << endl;
+            for (size_t c : snarl_clusters) {
+                pair<int64_t, int64_t> dists = cluster_dists[c];
+                cerr << "\tleft: " << dists.first << " right : " << dists.second 
+                     << endl;
+            }
+            cerr << endl;
 
-cerr << "  Clusters on chain: " << endl;
+            cerr << "  Clusters on chain: " << endl;
 
-cerr << "  best left: " << best_left << " best right: " << best_right << endl;
-for (size_t c : chain_cluster_ids) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    cerr << "\tleft: " << dists.first << " right : " << dists.second 
-         << "\t seeds: ";
-    vector<size_t> ss = union_find_clusters.group(c);
-    for (size_t s : ss) {
-        cerr << seeds[s] << " ";
-    }
-    
-    cerr << endl;
-}
-cerr << endl;
+            cerr << "  best left: " << best_left << " best right: " << best_right << endl;
+            for (size_t c : chain_cluster_ids) {
+                pair<int64_t, int64_t> dists = cluster_dists[c];
+                cerr << "\tleft: " << dists.first << " right : " << dists.second 
+                     << endl;
+            }
+            cerr << endl;
 #endif
 
 
@@ -695,7 +719,7 @@ cerr << endl;
                         //limit, then it cannot cluster with anything else
                         //so we can stop keeping track of it
 #ifdef DEBUG
-cerr << "Removing cluster " << i << endl;
+                        cerr << "Removing cluster " << i << endl;
 #endif
                         to_erase.push_back(i);
                     } else {
@@ -721,19 +745,12 @@ cerr << "Removing cluster " << i << endl;
             }
                   
 #ifdef DEBUG 
-cerr << "\t at snarl " << curr_snarl->start().node_id() << ", clusters:" <<endl;
+            cerr << "\t at snarl number " << curr_snarl_i << ", clusters:" <<endl;
 
-for (size_t c : chain_cluster_ids) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    cerr << "\tleft: " << dists.first << " right : " << dists.second 
-    << "\t seeds: ";
-    vector<size_t> ss = union_find_clusters.group(c);
-    for (size_t s : ss) {
-        cerr << seeds[s] << " ";
-    }
-    
-    cerr << endl;
-}
+            for (size_t c : chain_cluster_ids) {
+                pair<int64_t, int64_t> dists = cluster_dists[c];
+                cerr << "\tleft: " << dists.first << " right : " << dists.second << endl;
+            }
 #endif
                 
         }
@@ -754,30 +771,25 @@ for (size_t c : chain_cluster_ids) {
         }
 
 #ifdef DEBUG 
-cerr << "Found clusters on chain " << chain_index.id_in_parent << endl;
-cerr << "best left : " << best_left << " best right : " << best_right << endl;
-bool got_left = false;
-bool got_right = false;
-for (size_t c : chain_cluster_ids) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    assert(dists.first == -1 || dists.first >= best_left);
-    assert(dists.second == -1 || dists.second >= best_right);
-    if (dists.first == best_left) {got_left = true;}
-    if (dists.second == best_right) {got_right = true;}
-    cerr << "\t" << c << ": left: " << dists.first << " right : " 
-         << dists.second << "\t seeds: ";
-    vector<size_t> seed_is = union_find_clusters.group(c);
-    for (size_t s : seed_is) {
-        cerr << seeds[s] << " ";
-    }
-    cerr << endl;
-}
-assert(got_left);
-assert(got_right);
-for (size_t group_id : chain_cluster_ids) {
+        cerr << "Found clusters on chain " << chain_index.id_in_parent << endl;
+        cerr << "best left : " << best_left << " best right : " << best_right << endl;
+        bool got_left = false;
+        bool got_right = false;
+        for (size_t c : chain_cluster_ids) {
+            pair<int64_t, int64_t> dists = cluster_dists[c];
+            assert(dists.first == -1 || dists.first >= best_left);
+            assert(dists.second == -1 || dists.second >= best_right);
+            if (dists.first == best_left) {got_left = true;}
+            if (dists.second == best_right) {got_right = true;}
+            cerr << "\t" << c << ": left: " << dists.first << " right : " 
+                 << dists.second << endl;
+        }
+        assert(got_left);
+        assert(got_right);
+        for (size_t group_id : chain_cluster_ids) {
 
-    assert (group_id == union_find_clusters.find_group(group_id));
-}
+            assert (group_id == union_find_clusters.find_group(group_id));
+        }
 #endif
         return make_tuple(move(chain_cluster_ids), best_left, best_right) ; 
     };
@@ -797,9 +809,9 @@ for (size_t group_id : chain_cluster_ids) {
          * Nodes have not yet been clustered */
         MinimumDistanceIndex::SnarlIndex& snarl_index = dist_index.snarl_indexes[
                                                     snarl_index_i];
-        #ifdef DEBUG 
-        cerr << "Finding clusters on snarl " << snarl_index.id_in_parent << endl;
-        #endif
+#ifdef DEBUG 
+        cerr << "Finding clusters on snarl number " << snarl_index_i << " headed by node " << snarl_index.id_in_parent << endl;
+#endif
         int64_t start_length = snarl_index.nodeLength(0);
         int64_t end_length = snarl_index.nodeLength(snarl_index.num_nodes*2 -1);
 
@@ -857,14 +869,30 @@ for (size_t group_id : chain_cluster_ids) {
             child_node_t& child = children.first;
             child_cluster_t& curr_child_clusters = children.second;
 
+            // Note that child.second is the type, and child.first is the
+            // *number* of the child in that type, *not* the heading node ID.
+            // Ranks in parents are computed from node ID, so we have to get it.
+            id_t child_node_id;
+            switch (child.second) {
+            case NODE:
+                child_node_id = child.first;
+                break;
+            case SNARL:
+                child_node_id = dist_index.snarl_indexes[child.first].id_in_parent;
+                break;
+            case CHAIN:
+                child_node_id = dist_index.chain_indexes[child.first].id_in_parent;
+                break;
+            }
+            
             //Rank of this node in the snarl
             //If this node is a snarl/chain, then this snarl will be the
             //secondary snarl
             size_t node_rank = child.second == NODE 
                     ? dist_index.primary_snarl_ranks[
-                                   child.first - dist_index.min_node_id]
+                                   child_node_id - dist_index.min_node_id]
                     : dist_index.secondary_snarl_ranks[
-                                   child.first-dist_index.min_node_id];
+                                   child_node_id - dist_index.min_node_id];
             size_t rev_rank = node_rank % 2 == 0
                            ? node_rank + 1 : node_rank - 1;
 
@@ -877,8 +905,8 @@ for (size_t group_id : chain_cluster_ids) {
                 hash_set<size_t> c; 
                 tie (c, child_dist_left, child_dist_right) = get_clusters_node(
                          seeds, union_find_clusters, cluster_dists, 
-                         node_to_seeds[child.first], distance_limit, 
-                         child.first, node_len);
+                         node_to_seeds[child_node_id], distance_limit, 
+                         child_node_id, node_len);
                 child_clusters[i].insert(child_clusters[i].end(),
                            make_move_iterator(c.begin()),
                            make_move_iterator(c.end())); 
@@ -896,22 +924,31 @@ for (size_t group_id : chain_cluster_ids) {
             }
             dist_bounds[i] = make_pair(child_dist_left, child_dist_right);
 
+#ifdef DEBUG
+            cerr << "Finding distances to parent snarl " << snarl_index_i << " ends from child " << i << "/" << num_children << endl;
+            cerr << "Child is " << typeToString(child.second) << " number " << child.first << " headed by " << child_node_id << endl;
+            cerr << "Node rank is " << node_rank << " fwd, " << rev_rank << " rev of " << snarl_index.num_nodes * 2 << endl;
+#endif
+            // Make sure the net graph node is actually in the net graph.
+            assert(node_rank != numeric_limits<size_t>::max());
+
 //TODO: Use distToEnds
             //For child node i, find distances to ends of root snarl
+            size_t end_rank = snarl_index.is_unary_snarl ? 1 : snarl_index.num_nodes * 2 - 1;
             int64_t dist_s_l = snarl_index.snarlDistance(0, node_rank);
             int64_t dist_s_r = snarl_index.snarlDistance(0, rev_rank);
             int64_t dist_e_l = snarl_index.snarlDistance(
-                                          snarl_index.num_nodes*2-1, node_rank);
+                                          end_rank, node_rank);
             int64_t dist_e_r = snarl_index.snarlDistance(
-                                           snarl_index.num_nodes*2-1, rev_rank);
+                                           end_rank, rev_rank);
             dist_s_l = dist_s_l == -1 ? -1 
                                       : dist_s_l + snarl_index.nodeLength(0);
             dist_s_r = dist_s_r == -1 ? -1 
                                       : dist_s_r + snarl_index.nodeLength(0);
             dist_e_l = dist_e_l == -1 ? -1 
-                 : dist_e_l + snarl_index.nodeLength(snarl_index.num_nodes*2-1);
+                 : dist_e_l + snarl_index.nodeLength(end_rank);
             dist_e_r = dist_e_r == -1 ? -1 
-                 : dist_e_r + snarl_index.nodeLength(snarl_index.num_nodes*2-1);
+                 : dist_e_r + snarl_index.nodeLength(end_rank);
 
 
 
@@ -943,13 +980,13 @@ for (size_t group_id : chain_cluster_ids) {
                 pair<int64_t, int64_t> new_dists = make_pair (
                          min_positive(new_dist_s_l, new_dist_s_r), 
                          min_positive(new_dist_e_l, new_dist_e_r));
-                if (child.first == 0 || child.first == 1){
+                if (node_rank == 0 || node_rank == 1){
                     //If this is the first node of the chain then the dist
                     //left is just the distance to the start of the snarl
                     new_dists.first = snarl_index.rev_in_parent
                                 ? dists_c.second : dists_c.first ;
-                } else if (child.first == snarl_index.num_nodes * 2-1 ||
-                    child.first == snarl_index.num_nodes * 2 - 2) {
+                } else if (node_rank == snarl_index.num_nodes * 2-1 ||
+                    node_rank == snarl_index.num_nodes * 2 - 2) {
                     new_dists.second = snarl_index.rev_in_parent
                            ? dists_c.first : dists_c.second ;
                 } 
@@ -963,15 +1000,36 @@ for (size_t group_id : chain_cluster_ids) {
             
 
             for (size_t j = 0 ; j <= i ; j++){
-                //Go through child nodes up to and including i
-                pair<size_t, size_t> other_node = child_nodes[j].first;
+                //Go through other child net graph nodes up to and including i
+                auto& other_node = child_nodes[j].first;
+
+                // Note that other_node.second is the type, and other_node.first is the
+                // *number* of the other_node in that type, *not* the heading node ID.
+                // Ranks in parents are computed from node ID, so we have to get it.
+                id_t other_node_id;
+                switch (other_node.second) {
+                case NODE:
+                    other_node_id = other_node.first;
+                    break;
+                case SNARL:
+                    other_node_id = dist_index.snarl_indexes[other_node.first].id_in_parent;
+                    break;
+                case CHAIN:
+                    other_node_id = dist_index.chain_indexes[other_node.first].id_in_parent;
+                    break;
+                }
+                
+#ifdef DEBUG
+                cerr << "Other net graph node is " << typeToString(other_node.second) << " number "
+                    << other_node.first << " headed by node " << other_node_id << endl;
+#endif
 
                 //Rank of this node in the snarl
                 size_t other_rank = other_node.second == NODE ? 
                        dist_index.primary_snarl_ranks[
-                          other_node.first - dist_index.min_node_id]
+                          other_node_id - dist_index.min_node_id]
                     : dist_index.secondary_snarl_ranks[
-                           other_node.first-dist_index.min_node_id];
+                           other_node_id - dist_index.min_node_id];
                 size_t other_rev = other_rank % 2 == 0
                                     ? other_rank + 1 : other_rank - 1;
 
@@ -1094,31 +1152,23 @@ for (size_t group_id : chain_cluster_ids) {
             }
         }
 #ifdef DEBUG 
-cerr << "Found clusters on snarl " << snarl_index.id_in_parent << endl;
-cerr << "    with best left and right values: " << best_left << " " 
-     << best_right << endl;
-bool got_left = false;
-bool got_right = false;
-for (size_t c : snarl_cluster_ids) {
-    pair<int64_t, int64_t> dists = cluster_dists[c];
-    if (dists.first == best_left) {got_left = true;}
-    if (dists.second == best_right) {got_right = true;}
-    cerr << "\t" << c << ": left: " << dists.first << " right : " 
-         << dists.second << "\t seeds: ";
-    vector<size_t> seed_is = union_find_clusters.group(c);
-    assert(dists.first == -1 || dists.first >= best_left);
-    assert(dists.second == -1 || dists.second >= best_right);
-    for (size_t s : seed_is) {
-        cerr << seeds[s] << " ";
-    }
-    cerr << endl;
-}
-assert(got_left);
-assert(got_right);
-for (size_t group_id : snarl_cluster_ids) {
-
-assert (group_id == union_find_clusters.find_group(group_id));
-}
+        cerr << "Found clusters on snarl number " << snarl_index_i << " headed by" << snarl_index.id_in_parent << endl;
+        cerr << "    with best left and right values: " << best_left << " " 
+             << best_right << endl;
+        bool got_left = false;
+        bool got_right = false;
+        for (size_t c : snarl_cluster_ids) {
+            pair<int64_t, int64_t> dists = cluster_dists[c];
+            if (dists.first == best_left) {got_left = true;}
+            if (dists.second == best_right) {got_right = true;}
+            cerr << "\t" << c << ": left: " << dists.first << " right : " 
+                 << dists.second << endl;
+        }
+        assert(got_left);
+        assert(got_right);
+        for (size_t group_id : snarl_cluster_ids) {
+            assert (group_id == union_find_clusters.find_group(group_id));
+        }
 #endif
         return make_tuple(move(snarl_cluster_ids), best_left, best_right);
     };

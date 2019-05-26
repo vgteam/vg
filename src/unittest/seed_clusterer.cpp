@@ -63,6 +63,8 @@ namespace unittest {
 
         MinimumDistanceIndex dist_index (&graph, &snarl_manager);
         SnarlSeedClusterer clusterer(dist_index);
+        
+        graph.to_dot(cerr);
 
         SECTION( "One cluster" ) {
  
