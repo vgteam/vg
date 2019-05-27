@@ -1,6 +1,6 @@
 #include "seed_clusterer.hpp"
 
-//#define DEBUG 
+#define DEBUG 
 
 namespace vg {
 
@@ -14,6 +14,9 @@ namespace vg {
          * seeds that are closer than the limit cluster together. 
          * Returns a vector of cluster assignments 
          */ 
+#ifdef DEBUG
+cerr << endl << "New cluster calculation:" << endl;
+#endif
 
         //Create a union find structure to hold the cluster assignments of
         //each seed. Each seed is initially its own cluster 
@@ -238,7 +241,9 @@ namespace vg {
 
                 //Map node to seed
                 node_to_seeds.emplace(id, vector<size_t>({i}));
-                int64_t node_length = snarl_index->nodeLength(id);
+                int64_t node_length = snarl_index->nodeLength(
+                         dist_index.primary_snarl_ranks[
+                                                 id - dist_index.min_node_id]);
 
                 //Map snarl to node
                 if (snarl_to_nodes.size() < depth+1) {
@@ -521,6 +526,7 @@ namespace vg {
 
              
             //Combine snarl clusters that can be reached by looping
+            //TODO: Make the secondary snarl rank indicate whether it is reversed or not
             int64_t loop_dist_end = chain_index.loop_fd[start_rank + 1] - 1 ;
             int64_t loop_dist_start = chain_index.loop_rev[start_rank] - 1; 
 
@@ -528,21 +534,33 @@ namespace vg {
                 //If there is a loop in the chain, then it may
                 //be possible for two clusters on the same snarl to
                 //be combined
+#ifdef DEBUG
+cerr << "      Getting distances from loops in chain " << endl;
+#endif
                 vector<size_t> to_remove;
                 size_t combined_left = -1;
                 size_t combined_right = -1;
                 for (size_t c : snarl_clusters) {
                     pair<int64_t, int64_t> dists = cluster_dists[c];
                     //Find new distances to ends using loops
-//                    int64_t new_left = dists.second == -1 || loop_dist_end == -1
-//                          ? -1
-//                          : dists.second + loop_end + snarl_length - end_length;
-//                    int64_t new_right=dists.first == -1 || loop_dist_start == -1
-//                                        ? -1
-//                                        : dists.first + loop_dist_start 
-//                                               + snarl_length - start_length;
-//                    bool combined = false;
-//                        //TODO: ALso need to update distances to ends of snarl here????
+                    int64_t new_left = dists.second == -1 || loop_dist_end == -1
+                          ? -1
+                          : dists.second + loop_dist_end + snarl_length 
+                                         - end_length;
+                    int64_t new_right=dists.first == -1 || loop_dist_start == -1
+                                        ? -1
+                                        : dists.first + loop_dist_start 
+                                               + snarl_length - start_length;
+                    //If this cluster was not combined with the another, 
+                    //Update its left and right distances with loop dists
+                    cluster_dists[c] = make_pair(
+                        min_positive(dists.first, new_left),
+                        min_positive(dists.second, new_right));
+#ifdef DEBUG
+cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].first << " " << cluster_dists[c].second << endl;
+#endif
+
+                        //TODO: ALso need to update distances to ends of snarl here????
 
                     if (child_dist_left != -1 && loop_dist_start != -1 &&
                         dists.first != -1 && 
@@ -580,6 +598,7 @@ namespace vg {
                                          - end_length < distance_limit) {  
                         //If this cluster can be combined with another cluster
                         //from the right 
+
                         if (combined_right == -1) {
                             combined_right = c;
                         } else {
@@ -616,6 +635,12 @@ namespace vg {
                 pair<int64_t, int64_t> dists = cluster_dists[c];
                 cerr << "\tleft: " << dists.first << " right : " << dists.second 
                      << endl;
+                cerr << "\t\t";
+                for (size_t x = 0 ; x < seeds.size() ; x++) {
+                    if (union_find_clusters.find_group(x) == c) {
+                        cerr << seeds[x] << " ";
+                    }
+                }
             }
             cerr << endl;
 
@@ -626,6 +651,13 @@ namespace vg {
                 pair<int64_t, int64_t> dists = cluster_dists[c];
                 cerr << "\tleft: " << dists.first << " right : " << dists.second 
                      << endl;
+                cerr << "\t\t";
+                for (size_t x = 0 ; x < seeds.size() ; x++) {
+                    if (union_find_clusters.find_group(x) == c) {
+                        cerr << seeds[x] << " ";
+                    }
+                }
+                cerr << endl;
             }
             cerr << endl;
 #endif
@@ -713,7 +745,7 @@ namespace vg {
                     //distance to the end of the current snarl
                     chain_dists.second += dist_to_end;
                     if (chain_dists.first > distance_limit &&
-                        chain_dists.second > distance_limit) {
+                        chain_dists.second - end_length > distance_limit) {
                         //If the distance from the seeds in this cluster to
                         //either end of the chain is greater than the distance
                         //limit, then it cannot cluster with anything else
@@ -749,7 +781,14 @@ namespace vg {
 
             for (size_t c : chain_cluster_ids) {
                 pair<int64_t, int64_t> dists = cluster_dists[c];
-                cerr << "\tleft: " << dists.first << " right : " << dists.second << endl;
+                cerr << "\t\tleft: " << dists.first << " right : " << dists.second << endl;
+                cerr << "\t\t\t";
+                for (size_t x = 0 ; x < seeds.size() ; x++) {
+                    if (union_find_clusters.find_group(x) == c) {
+                        cerr << seeds[x] << " ";
+                    }
+                }
+                cerr << endl;
             }
 #endif
                 
@@ -773,6 +812,15 @@ namespace vg {
 #ifdef DEBUG 
         cerr << "Found clusters on chain " << chain_index.id_in_parent << endl;
         cerr << "best left : " << best_left << " best right : " << best_right << endl;
+        for (size_t c : chain_cluster_ids) {
+            cerr << "\t";
+            for (size_t x = 0 ; x < seeds.size() ; x++) {
+                if (union_find_clusters.find_group(x) == c) {
+                    cerr << seeds[x] << " ";
+                }
+            }
+            cerr << endl;
+        }
         bool got_left = false;
         bool got_right = false;
         for (size_t c : chain_cluster_ids) {
@@ -895,6 +943,16 @@ namespace vg {
                                    child_node_id - dist_index.min_node_id];
             size_t rev_rank = node_rank % 2 == 0
                            ? node_rank + 1 : node_rank - 1;
+            if ((child.second == SNARL && dist_index.snarl_indexes[
+                          dist_index.primary_snarl_assignments[child_node_id-dist_index.min_node_id]].rev_in_parent) || 
+                 (child.second == CHAIN && dist_index.chain_indexes[
+                     dist_index.chain_assignments[child_node_id-dist_index.min_node_id]].rev_in_parent)) {
+                //If this node (child snarl/chain) is reversed in the snarl
+                //TODO: Make the secondary snarl rank indicate whether it is reversed or not
+                size_t temp = node_rank;
+                node_rank = rev_rank;
+                rev_rank = temp;
+            }
 
             //The clusters furthest to the left and right for this child node
             int64_t child_dist_left; int64_t child_dist_right;
@@ -928,29 +986,21 @@ namespace vg {
             cerr << "Finding distances to parent snarl " << snarl_index_i << " ends from child " << i << "/" << num_children << endl;
             cerr << "Child is " << typeToString(child.second) << " number " << child.first << " headed by " << child_node_id << endl;
             cerr << "Node rank is " << node_rank << " fwd, " << rev_rank << " rev of " << snarl_index.num_nodes * 2 << endl;
-#endif
+            cerr << "Clusters at this child:" << endl; 
+            for (size_t c : child_clusters[i]) {
+                cerr << "\tdist left: " << cluster_dists[c].first << " dist right: " << cluster_dists[c].second << endl;
+                cerr << "\t\t";
+                for (size_t x = 0 ; x < seeds.size() ; x++) {
+                    if (union_find_clusters.find_group(x) == c) {
+                        cerr << seeds[x] << " ";
+                    }
+                }
+                cerr << endl;
+            }
+
             // Make sure the net graph node is actually in the net graph.
             assert(node_rank != numeric_limits<size_t>::max());
-
-//TODO: Use distToEnds
-            //For child node i, find distances to ends of root snarl
-            size_t end_rank = snarl_index.is_unary_snarl ? 1 : snarl_index.num_nodes * 2 - 1;
-            int64_t dist_s_l = snarl_index.snarlDistance(0, node_rank);
-            int64_t dist_s_r = snarl_index.snarlDistance(0, rev_rank);
-            int64_t dist_e_l = snarl_index.snarlDistance(
-                                          end_rank, node_rank);
-            int64_t dist_e_r = snarl_index.snarlDistance(
-                                           end_rank, rev_rank);
-            dist_s_l = dist_s_l == -1 ? -1 
-                                      : dist_s_l + snarl_index.nodeLength(0);
-            dist_s_r = dist_s_r == -1 ? -1 
-                                      : dist_s_r + snarl_index.nodeLength(0);
-            dist_e_l = dist_e_l == -1 ? -1 
-                 : dist_e_l + snarl_index.nodeLength(end_rank);
-            dist_e_r = dist_e_r == -1 ? -1 
-                 : dist_e_r + snarl_index.nodeLength(end_rank);
-
-
+#endif
 
             vector<size_t>& children_i = child_clusters[i];
             for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
@@ -962,24 +1012,9 @@ namespace vg {
                 pair<int64_t, int64_t> dists_c= cluster_dists[c];
                 old_dists[c] = dists_c;
 
-    
-                //find distances to ends of snarl for this cluster 
-                int64_t new_dist_s_l = dist_s_l == -1  ||  
-                                       dists_c.first == -1 
-                            ? -1 : dist_s_l + dists_c.first;
-                int64_t new_dist_s_r = dist_s_r == -1 ||  
-                                       dists_c.second == -1 
-                            ? -1 : dist_s_r + dists_c.second;
-                int64_t new_dist_e_l = dist_e_l == -1 || 
-                                       dists_c.first == -1
-                            ? -1 : dist_e_l + dists_c.first;
-                int64_t new_dist_e_r = dist_e_r == -1 || 
-                                       dists_c.second == -1
-                            ? -1 : dist_e_r + dists_c.second;
-      
-                pair<int64_t, int64_t> new_dists = make_pair (
-                         min_positive(new_dist_s_l, new_dist_s_r), 
-                         min_positive(new_dist_e_l, new_dist_e_r));
+                pair<int64_t, int64_t> new_dists = snarl_index.distToEnds(node_rank,
+                                        dists_c.first,dists_c.second);
+                /*
                 if (node_rank == 0 || node_rank == 1){
                     //If this is the first node of the chain then the dist
                     //left is just the distance to the start of the snarl
@@ -990,6 +1025,8 @@ namespace vg {
                     new_dists.second = snarl_index.rev_in_parent
                            ? dists_c.first : dists_c.second ;
                 } 
+                */
+
                 best_left = min_positive(best_left, new_dists.first);
                 best_right = min_positive(best_right, new_dists.second);
 
@@ -1021,7 +1058,10 @@ namespace vg {
                 
 #ifdef DEBUG
                 cerr << "Other net graph node is " << typeToString(other_node.second) << " number "
-                    << other_node.first << " headed by node " << other_node_id << endl;
+                    << other_node.first << " headed by node " << other_node_id
+                    << " with dists: " << dist_bounds[j].first << " " << dist_bounds[j].second << endl;
+                    
+                    
 #endif
 
                 //Rank of this node in the snarl
@@ -1053,8 +1093,12 @@ namespace vg {
 
                 pair<int64_t, int64_t> dist_bounds_j = dist_bounds[j];
 
-                if (min_positive(dist_bounds_j.first, dist_bounds_j.second)
-                                        < distance_limit) {
+                if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1
+                   && MinimumDistanceIndex::minPos({dist_l_l, dist_l_r, 
+                                           dist_r_l, dist_r_r}) < distance_limit
+                   && min_positive(child_dist_left, child_dist_right) 
+                                                             < distance_limit) {
+                    //If the two nodes are reachable
                     for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
                         //for each cluster of child node i
 
@@ -1097,13 +1141,7 @@ namespace vg {
                         }
 
                     }
-                }
-                if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1
-                   && MinimumDistanceIndex::minPos({dist_l_l, dist_l_r, 
-                                           dist_r_l, dist_r_r}) < distance_limit
-                   && min_positive(child_dist_left, child_dist_right) 
-                                                             < distance_limit) {
-                    //If the two nodes are reachable
+                    //Go through children of j
                     vector<size_t>& children_j =  child_clusters[j];
 
                     for (size_t k_i = 0 ; k_i < children_j.size() ; k_i++){
@@ -1163,6 +1201,13 @@ namespace vg {
             if (dists.second == best_right) {got_right = true;}
             cerr << "\t" << c << ": left: " << dists.first << " right : " 
                  << dists.second << endl;
+            cerr << "\t\t";
+            for (size_t x = 0 ; x < seeds.size() ; x++) {
+                if (union_find_clusters.find_group(x) == c) {
+                    cerr << seeds[x] << " ";
+                }
+            }
+            cerr << endl;
         }
         assert(got_left);
         assert(got_right);
