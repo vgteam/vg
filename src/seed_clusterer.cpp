@@ -1014,6 +1014,9 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
 
                 pair<int64_t, int64_t> new_dists = snarl_index.distToEnds(node_rank,
                                         dists_c.first,dists_c.second);
+#ifdef DEBUG
+cerr << "\tcluster: " << c_i << "dists to ends in snarl" << snarl_index.id_in_parent << " : " << new_dists.first << " " << new_dists.second << endl;
+#endif
                 /*
                 if (node_rank == 0 || node_rank == 1){
                     //If this is the first node of the chain then the dist
@@ -1073,6 +1076,16 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                 size_t other_rev = other_rank % 2 == 0
                                     ? other_rank + 1 : other_rank - 1;
 
+            if ((other_node.second == SNARL && dist_index.snarl_indexes[
+                          dist_index.primary_snarl_assignments[other_node_id-dist_index.min_node_id]].rev_in_parent) || 
+                 (other_node.second == CHAIN && dist_index.chain_indexes[
+                     dist_index.chain_assignments[other_node_id-dist_index.min_node_id]].rev_in_parent)) {
+                //If this node (child snarl/chain) is reversed in the snarl
+                //TODO: Make the secondary snarl rank indicate whether it is reversed or not
+                size_t temp = other_rank;
+                other_rank = other_rev;
+                other_rev = temp;
+            }
                 //Find distance from each end of current node to 
                 //each end of other node
                 int64_t dist_l_l = snarl_index.snarlDistance(
@@ -1083,6 +1096,11 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                                                     node_rank, other_rank);
                 int64_t dist_r_r = snarl_index.snarlDistance(
                                                      node_rank, other_rev);
+#ifdef DEBUG
+cerr << "\t distances between ranks " << node_rank << " and " << other_rank 
+     << ": " << dist_l_l << " " << dist_l_r << " " << dist_r_l << " "  
+     << dist_r_r << endl;
+#endif
 
                 //group ids of clusters combined between node i left and 
                 //node j left, etc
