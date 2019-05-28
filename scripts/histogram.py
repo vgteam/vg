@@ -282,10 +282,11 @@ def main(args):
     # Calculate our own bins, over all the data. First we need the largest and
     # smallest observed values. The fors in the comprehension have to be in
     # normal for loop order and not the other order.
+    # Make sure to filter out 0s from bounds determination if using log space.
     bin_min = options.x_min if options.x_min is not None else min((pair[0]
-        for pair_list in all_data.values() for pair in pair_list))
+        for pair_list in all_data.values() for pair in pair_list if (not options.log or pair[0] != 0)))
     bin_max = options.x_max if options.x_max is not None else max((pair[0]
-        for pair_list in all_data.values() for pair in pair_list))
+        for pair_list in all_data.values() for pair in pair_list if (not options.log or pair[0] != 0)))
     
     if options.log:
         # Do our bins in log space, so they look evenly spaced on the plot.

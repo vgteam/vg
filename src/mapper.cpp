@@ -1972,7 +1972,7 @@ pos_t Mapper::likely_mate_position(const Alignment& aln, bool is_first_mate) {
 }
 
 map<string, vector<pair<size_t, bool> > > Mapper::alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby) const {
-    return xg_alignment_path_offsets(aln, just_min, nearby, xindex);
+    return xg_alignment_path_offsets(xindex, aln, just_min, nearby);
 }
 
 vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_mate) {
@@ -2956,12 +2956,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
 }
 
-void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns) const {
-    for (auto& aln : alns) annotate_with_initial_path_positions(aln);
+void Mapper::annotate_with_initial_path_positions(vector<Alignment>& alns, size_t search_limit) const {
+    for (auto& aln : alns) annotate_with_initial_path_positions(aln, search_limit);
 }
 
-void Mapper::annotate_with_initial_path_positions(Alignment& aln) const {
-    xg_annotate_with_initial_path_positions(aln, xindex);
+void Mapper::annotate_with_initial_path_positions(Alignment& aln, size_t search_limit) const {
+    xg_annotate_with_initial_path_positions(xindex, aln, search_limit);
 }
 
 double Mapper::compute_cluster_mapping_quality(const vector<vector<MaximalExactMatch> >& clusters,
