@@ -253,6 +253,9 @@ class MinimumDistanceIndex {
     //vector of all chain indexes
     vector< ChainIndex> chain_indexes;
 
+    //Each of these int vectors is offset by 1: 0 is stored as 1, etc.
+    //This is so that we can store -1 as 0 instead of int max
+
     //Vector of length max node id - min node id
     //For each node, stores the index into snarlIndexes for the snarl
     //containing the node and the rank of the node in the snarlIndex 
@@ -273,7 +276,6 @@ class MinimumDistanceIndex {
     sdsl::int_vector<> secondary_snarl_assignments;
     sdsl::int_vector<> secondary_snarl_ranks;
     
-    //TODO: Change these bit vectors to rank_support_v
     //For each node, stores 1 if the node is in a secondary snarl and 0
     //otherwise. Use rank to find which index into secondary_snarls
     //a node's secondary snarl is at
@@ -309,14 +311,6 @@ class MinimumDistanceIndex {
                        size_t parent_id, bool rev_in_parent, 
                        bool trivial_chain, size_t depth); 
 
-
-    /*Minimum distance of a loop that involves node or edge
-      Edge (traversing nodes in orientation specified by bool) must exist
-      in the graph
-    */
-    int64_t loopDistance(pair<id_t, bool> node1, pair<id_t, bool> node2); 
-    int64_t loopDistance( const Snarl* snarl1, const Snarl* snarl2,
-                          pair<id_t, bool> node1, pair<id_t, bool> node2); 
 
     /*Helper function for distance calculation
       Returns the distance to the start of and end of the child snarl of

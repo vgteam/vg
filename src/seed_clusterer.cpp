@@ -97,9 +97,9 @@ cerr << endl << "New cluster calculation:" << endl;
                     //but don't cluster yet
 
                     size_t chain_assignment = dist_index.chain_assignments[
-                                  snarl_index.parent_id-dist_index.min_node_id];
+                           snarl_index.parent_id-dist_index.min_node_id]-1;
                     size_t rank = dist_index.chain_ranks[
-                       snarl_index.id_in_parent-dist_index.min_node_id];
+                       snarl_index.id_in_parent-dist_index.min_node_id]-1;
 
                     chain_to_snarls[chain_assignment].push_back( 
                           make_tuple(rank, snarl_i, snarl_index.rev_in_parent));
@@ -119,7 +119,7 @@ cerr << endl << "New cluster calculation:" << endl;
                         assert(snarl_index.parent_id <= dist_index.max_node_id);
                         size_t parent_snarl_i = 
                                dist_index.primary_snarl_assignments[
-                                  snarl_index.parent_id-dist_index.min_node_id];
+                                  snarl_index.parent_id-dist_index.min_node_id] - 1;
                         parent_snarl_children[parent_snarl_i].push_back(
                             make_pair(make_pair(snarl_i, SNARL), 
                                   get_clusters_snarl(seeds, union_find_clusters,
@@ -170,7 +170,7 @@ cerr << endl << "New cluster calculation:" << endl;
                     assert(parent_id <= dist_index.max_node_id);
                     // Map it to the snarl number that should be represented by it (and thus also contain the chain)
                     size_t parent_snarl_i = dist_index.primary_snarl_assignments[
-                                parent_id-dist_index.min_node_id];
+                                parent_id-dist_index.min_node_id]-1;
                     
                     // Register clusters as relevant for that parent snarl.
                     parent_snarl_children[parent_snarl_i].emplace_back(make_pair(chain_i, CHAIN), std::move(chain_clusters));
@@ -228,7 +228,7 @@ cerr << endl << "New cluster calculation:" << endl;
             id_t id = get_id(pos);
 
             size_t snarl_i = dist_index.primary_snarl_assignments[
-                                          id - dist_index.min_node_id];
+                                          id - dist_index.min_node_id]-1;
 
             MinimumDistanceIndex::SnarlIndex* snarl_index =
                                              &dist_index.snarl_indexes[snarl_i];
@@ -243,7 +243,7 @@ cerr << endl << "New cluster calculation:" << endl;
                 node_to_seeds.emplace(id, vector<size_t>({i}));
                 int64_t node_length = snarl_index->nodeLength(
                          dist_index.primary_snarl_ranks[
-                                                 id - dist_index.min_node_id]);
+                                           id - dist_index.min_node_id]-1);
 
                 //Map snarl to node
                 if (snarl_to_nodes.size() < depth+1) {
@@ -986,15 +986,15 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
             //secondary snarl
             size_t node_rank = child.second == NODE 
                     ? dist_index.primary_snarl_ranks[
-                                   child_node_id - dist_index.min_node_id]
+                                  child_node_id - dist_index.min_node_id]-1
                     : dist_index.secondary_snarl_ranks[
-                                   child_node_id - dist_index.min_node_id];
+                                 child_node_id - dist_index.min_node_id]-1;
             size_t rev_rank = node_rank % 2 == 0
                            ? node_rank + 1 : node_rank - 1;
             if ((child.second == SNARL && dist_index.snarl_indexes[
-                          dist_index.primary_snarl_assignments[child_node_id-dist_index.min_node_id]].rev_in_parent) || 
+                          dist_index.primary_snarl_assignments[child_node_id-dist_index.min_node_id]-1].rev_in_parent) || 
                  (child.second == CHAIN && dist_index.chain_indexes[
-                     dist_index.chain_assignments[child_node_id-dist_index.min_node_id]].rev_in_parent)) {
+                     dist_index.chain_assignments[child_node_id-dist_index.min_node_id]-1].rev_in_parent)) {
                 //If this node (child snarl/chain) is reversed in the snarl
                 //TODO: Make the secondary snarl rank indicate whether it is reversed or not
                 size_t temp = node_rank;
@@ -1118,16 +1118,16 @@ cerr << "\tcluster: " << c_i << "dists to ends in snarl" << snarl_index.id_in_pa
                 //Rank of this node in the snarl
                 size_t other_rank = other_node.second == NODE ? 
                        dist_index.primary_snarl_ranks[
-                          other_node_id - dist_index.min_node_id]
+                          other_node_id - dist_index.min_node_id]-1
                     : dist_index.secondary_snarl_ranks[
-                           other_node_id - dist_index.min_node_id];
+                           other_node_id - dist_index.min_node_id]-1;
                 size_t other_rev = other_rank % 2 == 0
                                     ? other_rank + 1 : other_rank - 1;
 
             if ((other_node.second == SNARL && dist_index.snarl_indexes[
-                          dist_index.primary_snarl_assignments[other_node_id-dist_index.min_node_id]].rev_in_parent) || 
+                          dist_index.primary_snarl_assignments[other_node_id-dist_index.min_node_id]-1].rev_in_parent) || 
                  (other_node.second == CHAIN && dist_index.chain_indexes[
-                     dist_index.chain_assignments[other_node_id-dist_index.min_node_id]].rev_in_parent)) {
+                     dist_index.chain_assignments[other_node_id-dist_index.min_node_id]-1].rev_in_parent)) {
                 //If this node (child snarl/chain) is reversed in the snarl
                 //TODO: Make the secondary snarl rank indicate whether it is reversed or not
                 size_t temp = other_rank;
