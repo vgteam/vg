@@ -7,6 +7,7 @@
 #include "alignment_emitter.hpp"
 #include "alignment.hpp"
 #include "json2pb.h"
+#include <vg/io/hfile_cppstream.hpp>
 
 #include <sstream>
 
@@ -131,8 +132,17 @@ void TSVAlignmentEmitter::emit(Alignment&& aln) {
 }
 
 HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
-    const map<string, int64_t>& path_length, size_t max_threads) : 
-    format(format), path_length(path_length), sam_file(nullptr), file_mutex(), atomic_header(nullptr) {
+    const map<string, int64_t>& path_length, size_t max_threads) :
+    out_file(filename == "-" ? nullptr : new ofstream(filename)),
+    multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
+    path_length(path_length), sam_files(), atomic_header(nullptr),
+    sam_header(), header_mutex(), hts_mode() {
+    
+    if (out_file.get() != nullptr && !*out_file) {
+        // Make sure we opened a file if we aren't writing to standard output
+        cerr << "[vg::HTSAlignmentEmitter] failed to open " << filename << " for writing" << endl;
+        exit(1);
+    }
     
     // Make sure we have an HTS format
     assert(format == "SAM" || format == "BAM" || format == "CRAM");
@@ -156,28 +166,42 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
         tmp[0] = compress_level + '0'; tmp[1] = '\0';
         strcat(out_mode, tmp);
     }
-    
-    // Open the file
-    sam_file = sam_open(filename.c_str(), out_mode);
-    
-    if (sam_file == nullptr) {
-        // We couldn't open the output file.
-        cerr << "[vg::HTSAlignmentEmitter] failed to open " << filename << " for writing " << format << " output" << endl;
-        exit(1);
+    // Save to a C++ string
+    hts_mode = out_mode;
+   
+    sam_files.reserve(max_threads);
+    for (size_t i = 0; i < max_threads; i++) {
+        // For each thread, open an HTS file to write to over its stream.
+        // We rely on sam_open just being a macro for hts_open, and use
+        // hts_hopen instead to redirect output to a C++ stream.
+        //
+        // hts_hopen demands a filename, but appears to just store it, and
+        // doesn't document how required it it.
+        sam_files.push_back(hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(i)), "-", hts_mode.c_str()));
+        
+         if (sam_files.back() == nullptr) {
+            // We couldn't open the output file.
+            cerr << "[vg::HTSAlignmentEmitter] failed to open internal stream for writing " << format << " output" << endl;
+            exit(1);
+        }
     }
-
 }
 
 HTSAlignmentEmitter::~HTSAlignmentEmitter() {
     // Note that the destructor runs in only one thread, and only when
     // destruction is safe. No need to lock the header.
     if (atomic_header.load() != nullptr) {
+        // Delete the header
         bam_hdr_destroy(atomic_header.load());
     }
-    sam_close(sam_file);
+    
+    for (auto& sam_file : sam_files) {
+        // Close out all the SAM files before the multiplexer destructs
+        sam_close(sam_file);
+    }
 }
 
-bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff) {
+bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thread_number) {
     bam_hdr_t* header = atomic_header.load();
     if (header == nullptr) {
         // The header does not exist.
@@ -185,7 +209,9 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff) {
         // Lock the header mutex so we have exclusive control of the header
         lock_guard<mutex> header_lock(header_mutex);
         
-        bam_hdr_t* header = atomic_header.load();
+        // Load into the enclosing scope header. Don't shadow, because the
+        // enclosing scope variable is what will get returned.
+        header = atomic_header.load();
         if (header != nullptr) {
             // Someone else beat us to creating the header.
             // Header is ready.
@@ -204,17 +230,20 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff) {
         // Make the header
         header = hts_string_header(sam_header, path_length, rg_sample);
         
-        {
-            // Lock the file
-            lock_guard<mutex> file_lock(file_mutex);
-        
-            // Write the header to the file.
-            if (sam_hdr_write(sam_file, header) != 0) {
-                cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
-                exit(1);
-            }
+        // Write the header to the file for our thread.
+        // TODO: We rely on this write flushing the backing hfile to get out of having to close and reopen.
+        if (sam_hdr_write(sam_files[thread_number], header) != 0) {
+            cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
+            exit(1);
         }
         
+        // We assume the header write flushed.
+        
+        // TODO: if/in case we are doing CRAM, we may need to show the header to the HTS files we didn't write it with.
+        
+        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
+        multiplexer.register_barrier(thread_number);
+       
         // Save back to the atomic only after the header has been written and
         // it is safe for other threads to use it.
         atomic_header.store(header);
@@ -300,22 +329,30 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, int64
     
 }
 
-void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& records) {
-    {
-        // Lock the file for output
-        lock_guard<mutex> file_lock(file_mutex);
-        for (auto& b : records) {
-            // Emit each record
-            if (sam_write1(sam_file, header, b) == 0) {
-                cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
-                exit(1);
-            }
+void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
+    
+    
+    for (auto& b : records) {
+        // Emit each record
+        
+        if (sam_write1(sam_files[thread_number], header, b) == 0) {
+            cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
+            exit(1);
         }
     }
     
     for (auto& b : records) {
         // After unlocking the file, deallocate all the records
         bam_destroy1(b);
+    }
+    
+    if (multiplexer.want_breakpoint(thread_number)) {
+        // We have written enough that we ought to give the multiplexer a chance to multiplex soon.
+        // There's no way to do this without closing and re-opening the HTS file.
+        sam_close(sam_files[thread_number]);
+        multiplexer.register_breakpoint(thread_number);
+        sam_files[thread_number] = hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number)), "-", hts_mode.c_str());
+        // TODO: CRAM output might not be happy if no header is shown to the writer.
     }
 }
 
@@ -325,8 +362,12 @@ void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
         return;
     }
     
+    // Work out what thread we are
+    size_t thread_number = omp_get_thread_num();
+    
     // Make sure header exists
-    bam_hdr_t* header = ensure_header(aln_batch.front());
+    bam_hdr_t* header = ensure_header(aln_batch.front(), thread_number);
+    assert(header != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(aln_batch.size());
@@ -336,8 +377,8 @@ void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
         convert_unpaired(aln, records);
     }
     
-    // Save to the file, locking once.
-    save_records(header, records);
+    // Save to the stream for this thread.
+    save_records(header, records, thread_number);
 }
 
 void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_batch) {
@@ -357,9 +398,13 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
         return;
     }
     
+    // Work out what thread we are
+    size_t thread_number = omp_get_thread_num();
+    
     // Make sure header exists
     assert(sniff != nullptr);
-    bam_hdr_t* header = ensure_header(*sniff);
+    bam_hdr_t* header = ensure_header(*sniff, thread_number);
+    assert(header != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(count);
@@ -371,8 +416,8 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
         }
     }
     
-    // Save to the file, locking once.
-    save_records(header, records);
+    // Save to the stream for this thread.
+    save_records(header, records, thread_number);
 
 }
 
@@ -389,8 +434,12 @@ void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
         return;
     }
     
+    // Work out what thread we are
+    size_t thread_number = omp_get_thread_num();
+    
     // Make sure header exists
-    bam_hdr_t* header = ensure_header(aln1_batch.front());
+    bam_hdr_t* header = ensure_header(aln1_batch.front(), thread_number);
+    assert(header != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(aln1_batch.size() * 2);
@@ -400,8 +449,8 @@ void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
         convert_paired(aln1_batch[i], aln2_batch[i], tlen_limit_batch[i], records);
     }
     
-    // Save to the file, locking once.
-    save_records(header, records);
+    // Save to the stream for this thread.
+    save_records(header, records, thread_number);
 }
     
     
@@ -433,9 +482,13 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
         return;
     }
     
+    // Work out what thread we are
+    size_t thread_number = omp_get_thread_num();
+    
     // Make sure header exists
     assert(sniff != nullptr);
-    bam_hdr_t* header = ensure_header(*sniff);
+    bam_hdr_t* header = ensure_header(*sniff, thread_number);
+    assert(header != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(count);
@@ -447,8 +500,8 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
         }
     }
     
-    // Save to the file, locking once.
-    save_records(header, records);
+    // Save to the stream for this thread.
+    save_records(header, records, thread_number);
 }
 
 VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& format, size_t max_threads):

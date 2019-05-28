@@ -182,26 +182,31 @@ public:
         vector<vector<Alignment>>&& alns2_batch, vector<int64_t>&& tlen_limit_batch);
     
 private:
+
+    /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
+    unique_ptr<ofstream> out_file;
     
-    /// Remember what format we are using.
-    string format;
+    /// This holds a StreamMultiplexer on the output stream, for sharing it
+    /// between threads.
+    vg::io::StreamMultiplexer multiplexer;
     
-    /// Sorte the path length map until the header can be made.
+    /// Store the path length map until the header can be made.
     map<string, int64_t> path_length;
     
-    /// We need a samFile that gets opened when we are opened.
-    samFile* sam_file;
-    /// We need a mutex to synchronize on to protect the output file.
-    mutex file_mutex;
+    /// We make one samFile* per thread, on each thread's output stream form the multiplexer.
+    vector<samFile*> sam_files;
     
     /// We need a header
     atomic<bam_hdr_t*> atomic_header;
     /// We also need a header string.
-    /// Not atomic, because by the time re wead it we know the header is ready
+    /// Not atomic, because by the time we read it we know the header is ready
     /// and nobody is writing to it.
     string sam_header;
     /// If the header isn't present when we want to write, we need a mutex to control creating it.
     mutex header_mutex;
+    
+    // Remember the HTSlib mode string we need to open our files.
+    string hts_mode;
     
     /// Convert an unpaired alignment to HTS format.
     /// Header must have been created already.
@@ -212,13 +217,13 @@ private:
     
     /// Write and deallocate a bunch of BAM records. Takes care of locking the
     /// file. Header must have been written already.
-    void save_records(bam_hdr_t* header, vector<bam1_t*>& records);
+    void save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number);
     
     /// Make sure that the HTS header has been written.
     /// If it has not been written, blocks until it has been written.
     /// If we end up being the thread to write it, sniff header information from the given alignment.
     /// Returns the header pointer, so we don't have to do another atomic read later.
-    bam_hdr_t* ensure_header(const Alignment& sniff);
+    bam_hdr_t* ensure_header(const Alignment& sniff, size_t thread_number);
     
 };
 
