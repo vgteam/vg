@@ -10,30 +10,6 @@ namespace vg {
 
 using namespace std;
 
-/*
-void cruft() {
-    // Clear existing path ranks.
-    paths.clear_mapping_ranks();
-
-    if (save_paths) {
-        // Add this path to the graph's paths object without rebuilding path ranks, aux mapping, etc.
-        paths.extend(added, false, false);
-    }
-
-    // If we are going to actually add the paths to the graph, we need to break at path ends
-    break_at_ends |= save_paths;
-
-    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
-    paths.compact_ranks();
-
-    
-    // execute a semi partial order sort on the nodes
-    sort();
-
-}
-*/
-
-
 // The correct way to edit the graph
 vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_stream,
                             ostream* gam_out_stream, function<void(Path&)> save_path_fn,
