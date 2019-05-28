@@ -340,7 +340,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                  (snarl_end_rev ? all_nodes.size() - 1 : all_nodes.size() - 2) :
                  (snarl_start_rev ? 1 : 0);
         } 
-        if ((!trivial_chain || snarl_start_id == snarl_end_id) &&
+        if (!trivial_chain &&
                       secondary_snarl_assignments[end_in_chain-min_node_id] 
                                        == std::numeric_limits<size_t>::max()){
             //Otherwise, assign the first boundary node a secondary snarl
@@ -1784,7 +1784,8 @@ pair<int64_t, int64_t> MinimumDistanceIndex::SnarlIndex::distToEnds(size_t rank,
         dsl = 0;
     } else if (rev_rank == 0) {
         dsr = 0;
-    } else if (rank == end_rank) {
+    }
+    if (rank == end_rank) {
         del = 0;
     } else if (rev_rank == end_rank) {
         der = 0;

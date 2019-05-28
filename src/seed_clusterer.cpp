@@ -1,6 +1,6 @@
 #include "seed_clusterer.hpp"
 
-#define DEBUG 
+//#define DEBUG 
 
 namespace vg {
 
@@ -416,7 +416,8 @@ cerr << endl << "New cluster calculation:" << endl;
                        hash_map<id_t, vector<size_t>>& node_to_seeds,
                        size_t distance_limit,  size_t chain_index_i) {
         /*
-         * Find all the clusters in the given chain, given clusters inside its child snarls.
+         * Find all the clusters in the given chain, given clusters inside its 
+         * child snarls.
          * Processes the child snarls and then combines into the chain.
          */
  
@@ -560,7 +561,6 @@ cerr << "      Getting distances from loops in chain " << endl;
 cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].first << " " << cluster_dists[c].second << endl;
 #endif
 
-                        //TODO: ALso need to update distances to ends of snarl here????
 
                     if (child_dist_left != -1 && loop_dist_start != -1 &&
                         dists.first != -1 && 
@@ -803,10 +803,53 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
            int64_t dist_to_end = chain_index.chainLength()
                        - last_dist - last_len;
            for (size_t i : chain_cluster_ids) {
-               int64_t& d = cluster_dists[i].second;
-               d += dist_to_end;
-               best_right = min_positive(best_right, d);
+               int64_t d = cluster_dists[i].second;
+               cluster_dists[i].second = d == -1 ? -1 : d + dist_to_end;
+               best_right = min_positive(best_right, cluster_dists[i].second);
            }
+        }
+
+
+        if (chain_index.is_looping_chain) {
+            //If the chain loops, then the clusters might be connected by 
+            //looping around the chain
+            //
+            int64_t first_length = chain_index.prefix_sum[0];
+            vector<size_t> to_erase; //old cluster group ids
+            //New cluster- there will be at most one new cluster to add
+            size_t combined_cluster = -1;
+
+            for (size_t i : chain_cluster_ids) {
+                //For each chain cluster
+                pair<int64_t, int64_t>& chain_dists = cluster_dists[i];
+
+                if ((chain_dists.second != -1 && best_left != -1 &&
+                     chain_dists.second + best_left - first_length 
+                                                          < distance_limit) ||
+                   (chain_dists.first != -1 && best_right != -1 && 
+                      chain_dists.first + best_right - first_length 
+                                                          < distance_limit)){
+                    //If this chain cluster is in the combined cluster
+                    if (combined_cluster == -1) {
+                        combined_cluster = i;
+                    } else {
+                        union_find_clusters.union_groups(combined_cluster, i);
+                        size_t new_group = union_find_clusters.find_group(i);
+                        if (new_group == i) {
+                            to_erase.push_back(combined_cluster);
+                        } else {
+                            to_erase.push_back(i);
+                        }
+                        combined_cluster = new_group;
+                    }
+                }
+            }
+            for (size_t i : to_erase) {
+                chain_cluster_ids.erase(i);
+            }
+            //Don't need to update best left and right distances because
+            //a looping chain will be the top level chain
+
         }
 
 #ifdef DEBUG 
@@ -825,20 +868,25 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
         bool got_right = false;
         for (size_t c : chain_cluster_ids) {
             pair<int64_t, int64_t> dists = cluster_dists[c];
-            assert(dists.first == -1 || dists.first >= best_left);
-            assert(dists.second == -1 || dists.second >= best_right);
+            if (!chain_index.is_looping_chain){
+                assert(dists.first == -1 || dists.first >= best_left);
+                assert(dists.second == -1 || dists.second >= best_right);
+            }
             if (dists.first == best_left) {got_left = true;}
             if (dists.second == best_right) {got_right = true;}
             cerr << "\t" << c << ": left: " << dists.first << " right : " 
                  << dists.second << endl;
         }
-        assert(got_left);
-        assert(got_right);
+        if (!chain_index.is_looping_chain) {
+            assert(got_left);
+            assert(got_right);
+        }
         for (size_t group_id : chain_cluster_ids) {
 
             assert (group_id == union_find_clusters.find_group(group_id));
         }
 #endif
+
         return make_tuple(move(chain_cluster_ids), best_left, best_right) ; 
     };
 
