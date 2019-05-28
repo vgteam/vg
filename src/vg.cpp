@@ -5115,7 +5115,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool update_paths, bool break_at_ends) {
 
     // Collect the breakpoints
-    map<id_t, set<pos_t>> breakpoints;
+    unordered_map<id_t, set<pos_t>> breakpoints;
 
 #ifdef debug
     for (auto& p : paths_to_add) {
@@ -5146,7 +5146,8 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
     paths.clear_mapping_ranks();
 
     // get the node sizes, for use when making the translation
-    map<id_t, size_t> orig_node_sizes;
+    unordered_map<id_t, size_t> orig_node_sizes;
+    orig_node_sizes.reserve(get_node_count());
     for_each_node([&](Node* node) {
             orig_node_sizes[node->id()] = node->sequence().size();
         });
@@ -5158,9 +5159,9 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
     auto node_translation = ensure_breakpoints(this, breakpoints);
 
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, vector<id_t>> added_seqs;
+    unordered_map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation
-    map<id_t, Path> added_nodes;
+    unordered_map<id_t, Path> added_nodes;
     for(auto& path : simplified_paths) {
         // Now go through each new path again, by reference so we can overwrite.
         
@@ -5226,9 +5227,6 @@ vector<Translation> VG::edit(istream& paths_to_add, bool save_paths, ostream* ou
         };
     }
 
-    // Clear existing path ranks.
-    paths.clear_mapping_ranks();
-
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
     
@@ -5249,7 +5247,7 @@ vector<Translation> VG::edit(istream& paths_to_add, bool save_paths, ostream* ou
 // The not quite as robust (TODO: how?) but actually efficient way to edit the graph.
 vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size) {
     // Collect the breakpoints
-    map<id_t, set<pos_t>> breakpoints;
+    unordered_map<id_t, set<pos_t>> breakpoints;
 
     // Every path we add needs to be simplified to merge adjacent match edits
     // and prevent spurious breakpoints.
@@ -5263,7 +5261,7 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
     
     // Get the node sizes of nodes that are getting destroyed, for use when
     // making the translations and when reverse complementing old-graph paths.
-    map<id_t, size_t> orig_node_sizes;
+    unordered_map<id_t, size_t> orig_node_sizes;
     for (auto& kv : breakpoints) {
         // Just get the size of every node with a breakpoint on it.
         // There might be extra, but it's way smaller than the whole graph.
@@ -5281,9 +5279,9 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
 #endif
     
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, vector<id_t>> added_seqs;
+    unordered_map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
-    map<id_t, Path> added_nodes;
+    unordered_map<id_t, Path> added_nodes;
     // create new nodes/wire things up.
     add_nodes_and_edges(this, path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, max_node_size);
 

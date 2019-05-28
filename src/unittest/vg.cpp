@@ -1565,12 +1565,12 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     // This can be empty if no changes have been made yet
     map<pos_t, id_t> node_translation;
     // As can this
-    map<pair<pos_t, string>, vector<id_t>> added_seqs;
+    unordered_map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // And this
-    map<id_t, Path> added_nodes;
+    unordered_map<id_t, Path> added_nodes;
     
     // This actually needs to be filled in
-    map<id_t, size_t> orig_node_sizes;
+    unordered_map<id_t, size_t> orig_node_sizes;
     graph.for_each_node([&](Node* node) {
         orig_node_sizes[node->id()] = node->sequence().size();
     });
@@ -1797,7 +1797,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
     // We will find breakpoints for a path
     Path path;
     // And store them here.
-    map<id_t, set<pos_t>> breakpoints;
+    unordered_map<id_t, set<pos_t>> breakpoints;
     
     SECTION("find_breakpoints() works on a single edit perfect match") {
         

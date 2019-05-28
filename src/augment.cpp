@@ -15,7 +15,7 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_s
                             ostream* gam_out_stream, function<void(Path&)> save_path_fn,
                             bool break_at_ends, bool remove_softclips) {
     // Collect the breakpoints
-    map<id_t, set<pos_t>> breakpoints;
+    unordered_map<id_t, set<pos_t>> breakpoints;
 
     // First pass: find the breakpoints
     vg::io::for_each(gam_stream, (function<void(Alignment&)>)[&](Alignment& aln) {
@@ -41,7 +41,8 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_s
     breakpoints = forwardize_breakpoints(graph, breakpoints);
 
     // get the node sizes, for use when making the translation
-    map<id_t, size_t> orig_node_sizes;
+    unordered_map<id_t, size_t> orig_node_sizes;
+    orig_node_sizes.reserve(graph->get_node_count());
     graph->for_each_handle([&](handle_t node) {
             orig_node_sizes[graph->get_id(node)] = graph->get_length(node);
         });
@@ -53,9 +54,9 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_s
     auto node_translation = ensure_breakpoints(graph, breakpoints);
 
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, vector<id_t>> added_seqs;
+    unordered_map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation
-    map<id_t, Path> added_nodes;
+    unordered_map<id_t, Path> added_nodes;
     // output gam buffer
     vector<Alignment> gam_buffer;
 
@@ -144,7 +145,7 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_s
 
 
 // returns breakpoints on the forward strand of the nodes
-void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
+void find_breakpoints(const Path& path, unordered_map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
@@ -239,8 +240,9 @@ void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool
 
 }
 
-map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph, const map<id_t, set<pos_t>>& breakpoints) {
-    map<id_t, set<pos_t>> fwd;
+unordered_map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph,
+                                                       const unordered_map<id_t, set<pos_t>>& breakpoints) {
+    unordered_map<id_t, set<pos_t>> fwd;
     for (auto& p : breakpoints) {
         id_t node_id = p.first;
         assert(graph->has_node(node_id));
@@ -264,7 +266,8 @@ map<id_t, set<pos_t>> forwardize_breakpoints(const HandleGraph* graph, const map
     return fwd;
 }
 
-map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph, const map<id_t, set<pos_t>>& breakpoints) {
+map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph,
+                                    const unordered_map<id_t, set<pos_t>>& breakpoints) {
     // Set up the map we will fill in with the new node start positions in the
     // old nodes.
     map<pos_t, id_t> toReturn;
@@ -360,9 +363,9 @@ map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph, const map<id_t, s
 Path add_nodes_and_edges(MutableHandleGraph* graph,
                          const Path& path,
                          const map<pos_t, id_t>& node_translation,
-                         map<pair<pos_t, string>, vector<id_t>>& added_seqs,
-                         map<id_t, Path>& added_nodes,
-                         const map<id_t, size_t>& orig_node_sizes,
+                         unordered_map<pair<pos_t, string>, vector<id_t>>& added_seqs,
+                         unordered_map<id_t, Path>& added_nodes,
+                         const unordered_map<id_t, size_t>& orig_node_sizes,
                          size_t max_node_size) {
     
     set<NodeSide> dangling;
@@ -380,9 +383,9 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
 Path add_nodes_and_edges(MutableHandleGraph* graph,
                          const Path& path,
                          const map<pos_t, id_t>& node_translation,
-                         map<pair<pos_t, string>, vector<id_t>>& added_seqs,
-                         map<id_t, Path>& added_nodes,
-                         const map<id_t, size_t>& orig_node_sizes,
+                         unordered_map<pair<pos_t, string>, vector<id_t>>& added_seqs,
+                         unordered_map<id_t, Path>& added_nodes,
+                         const unordered_map<id_t, size_t>& orig_node_sizes,
                          set<NodeSide>& dangling,
                          size_t max_node_size) {
     
@@ -726,8 +729,8 @@ Path add_nodes_and_edges(MutableHandleGraph* graph,
 
 vector<Translation> make_translation(const HandleGraph* graph,
                                      const map<pos_t, id_t>& node_translation,
-                                     const map<id_t, Path>& added_nodes,
-                                     const map<id_t, size_t>& orig_node_sizes) {
+                                     const unordered_map<id_t, Path>& added_nodes,
+                                     const unordered_map<id_t, size_t>& orig_node_sizes) {
     vector<Translation> translation;
     // invert the translation
     map<id_t, pos_t> inv_node_trans;
