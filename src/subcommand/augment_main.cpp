@@ -48,7 +48,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "general options:" << endl
          << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [direct]" << endl
          << "    -i, --include-paths         merge the paths implied by alignments into the graph" << endl
-         << "    -C, --cut-softclips         when including paths, drop softclips from the paths" << endl
+         << "    -C, --cut-softclips         drop softclips from the paths (recommended)" << endl
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
@@ -289,8 +289,8 @@ int main_augment(int argc, char** argv) {
         cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;
         return 1;
     }
-    if (gam_in_file_name == "-" && !gam_out_file_name.empty()) {
-        cerr << "[vg augment] error: cannot stream input gam when using -A option (as it requires 2 passes)" << endl;
+    if (gam_in_file_name == "-" && !include_paths && !label_paths) {
+        cerr << "[vg augment] error: cannot stream input gam when not using -i option (as it requires 2 passes)" << endl;
         return 1;
     }
 
@@ -360,74 +360,67 @@ int main_augment(int argc, char** argv) {
             delete pileups;
             pileups = nullptr;
         }
-    
-        // Load all the reads
-        vector<Alignment> reads;
-        // And pull out their paths
-        vector<Path> read_paths;
 
-        if (include_paths) {
-            // verbatim from vg mod -i
-            function<void(Alignment&)> lambda = [&](Alignment& aln) {
-                if (!include_softclips) {
-                    int cut_start = softclip_start(aln);
-                    int cut_end = softclip_end(aln);
-                    // Cut the sequence and quality
-                    aln.set_sequence(aln.sequence().substr(cut_start, aln.sequence().size() - cut_start - cut_end));
-                    if (aln.quality().size() != 0) {
-                        aln.set_quality(aln.quality().substr(cut_start, aln.quality().size() - cut_start - cut_end));
-                    }
-                    // Trim the path
-                    *aln.mutable_path() = trim_hanging_ends(aln.path());
-                }
-                Path path = simplify(aln.path());
-                path.set_name(aln.name());
-                read_paths.push_back(path);
-                if (!gam_out_file_name.empty()) {
-                    reads.push_back(aln);
-                }
-            };
-            if (gam_in_file_name == "-") {
-                vg::io::for_each(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(gam_in_file_name.c_str());
-                vg::io::for_each(in, lambda);
-            }
-        }
-        else {
+        vector<Translation> translation;
+
+        // Just add path names with extend()
+        if (label_paths) {
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
                     vg::io::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
-                            // Trim the softclips off of every read
-                            // Work out were to cut
-                            int cut_start = softclip_start(alignment);
-                            int cut_end = softclip_end(alignment);
-                            // Cut the sequence and quality
-                            alignment.set_sequence(alignment.sequence().substr(cut_start, alignment.sequence().size() - cut_start - cut_end));
-                            if (alignment.quality().size() != 0) {
-                                alignment.set_quality(alignment.quality().substr(cut_start, alignment.quality().size() - cut_start - cut_end));
+                            if (!include_softclips) {
+                                softclip_trim(alignment);
                             }
-                            // Trim the path
-                            *alignment.mutable_path() = trim_hanging_ends(alignment.path());
-                
-                            // Save every read
-                            if (!gam_out_file_name.empty()) {
-                                reads.push_back(alignment);
-                            }
-                            // And the path for the read, separately
-                            // TODO: Make edit use callbacks or something so it doesn't need a vector of paths necessarily
-                            read_paths.push_back(alignment.path());
+                            Path simplified_path = simplify(alignment.path());
+                            *simplified_path.mutable_name() = alignment.name();
+                            graph->paths.extend(simplified_path, false, false);
                         });
                 });
-        }
-        
-        // Augment the graph, rewriting the paths.
-        vector<Translation> translation;
-        if (!label_paths) {
+            graph->paths.sort_by_mapping_rank();
+            graph->paths.rebuild_mapping_aux();
+        }                            
+        // We use the old interface when streaming in paths to include in order to preserve
+        // backward compatibility (with vg mod - -i aln.gam ), as the new interface can't read from stdin.
+        else if (include_paths && gam_in_file_name == "-") {
+            // Load all the reads
+            vector<Alignment> reads;
+            // And pull out their paths
+            vector<Path> read_paths;
+            vg::io::for_each(std::cin, (function<void(Alignment&)>)[&](Alignment& aln) {
+                    if (!include_softclips) {
+                        softclip_trim(aln);
+                    }
+                    read_paths.push_back(aln.path());
+                    reads.push_back(aln);
+                    *reads.back().mutable_path() = Path();
+                });
             translation = graph->edit(read_paths, include_paths, !gam_out_file_name.empty(), false);
-        } else {
-            // just add the path labels to the graph
-            graph->paths.extend(read_paths);
+            if (!gam_out_file_name.empty()) {
+                ofstream gam_out_file(gam_out_file_name);
+                vector<Alignment> gam_buffer;
+                for (size_t i = 0; i < reads.size(); i++) {
+                    // Say we are going to write out the alignment
+                    gam_buffer.push_back(reads[i]);                
+                    // Set its path to the corrected embedded path
+                    *gam_buffer.back().mutable_path() = read_paths[i];
+                    // Write it back out
+                    vg::io::write_buffered(gam_out_file, gam_buffer, 100);
+                }
+                // Flush the buffer
+                vg::io::write_buffered(gam_out_file, gam_buffer, 0);
+            }
+        }
+        // The new streaming interface doesn't keep the GAM in memory.  It does make two passes of it though,
+        // so it won't work with stdin
+        else {
+            assert(gam_in_file_name != "-");
+            ifstream gam_in_file(gam_in_file_name);
+            ofstream gam_out_file;
+            if (!gam_out_file_name.empty()) {
+                gam_out_file.open(gam_out_file_name);
+            }
+            translation = graph->edit(gam_in_file, include_paths,
+                                      !gam_out_file_name.empty() ? &gam_out_file : nullptr,
+                                      false, !include_softclips);
         }
         
         // Write the augmented graph
@@ -450,30 +443,6 @@ int main_augment(int argc, char** argv) {
             translation_file.close();
         }        
         
-        if (!gam_out_file_name.empty() && reads.size() == read_paths.size()) {
-            // Write out the modified GAM
-            
-            ofstream gam_out_file(gam_out_file_name);
-            if (!gam_out_file) {
-                cerr << "[vg augment]: Error opening output GAM file: " << gam_out_file_name << endl;
-                return 1;
-            }
-            
-            // We use this buffer and do a buffered write
-            vector<Alignment> gam_buffer;
-            for (size_t i = 0; i < reads.size(); i++) {
-                // Say we are going to write out the alignment
-                gam_buffer.push_back(reads[i]);
-                
-                // Set its path to the corrected embedded path
-                *gam_buffer.back().mutable_path() = read_paths[i];
-                
-                // Write it back out
-                vg::io::write_buffered(gam_out_file, gam_buffer, 100);
-            }
-            // Flush the buffer
-            vg::io::write_buffered(gam_out_file, gam_buffer, 0);
-        }
     } else if (augmentation_mode == "pileup") {
         // We want to augment with pileups
         

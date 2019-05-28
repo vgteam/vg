@@ -184,6 +184,7 @@ int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
 int softclip_start(const Alignment& alignment);
 int softclip_end(const Alignment& alignment);
+int softclip_trim(Alignment& alignment);
 int query_overlap(const Alignment& aln1, const Alignment& aln2);
 int edit_count(const Alignment& alignment);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);

@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "../vg.hpp"
+#include "../augment.hpp"
 #include "../utility.hpp"
 
 namespace vg {
@@ -1562,11 +1563,11 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     // First prepare the various state things we need to pass
     
     // This can be empty if no changes have been made yet
-    map<pos_t, Node*> node_translation;
+    map<pos_t, id_t> node_translation;
     // As can this
-    map<pair<pos_t, string>, vector<Node*>> added_seqs;
+    map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // And this
-    map<Node*, Path> added_nodes;
+    map<id_t, Path> added_nodes;
     
     // This actually needs to be filled in
     map<id_t, size_t> orig_node_sizes;
@@ -1578,7 +1579,7 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     set<NodeSide> dangling;
     
     // Do the addition, but limit node size.
-    graph.add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
+    add_nodes_and_edges(&graph, path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
     
     // Make sure it's still connected
     list<VG> subgraphs;
@@ -1807,7 +1808,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
         json2pb(path, path_string.c_str(), path_string.size());
         
         SECTION("asking for breakpoints at the end gets us the two end breakpoints") {
-            vg.find_breakpoints(path, breakpoints);
+            find_breakpoints(path, breakpoints);
             
             REQUIRE(breakpoints.size() == 1);
             REQUIRE(breakpoints.count(n1->id()) == 1);
@@ -1819,7 +1820,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
         }
         
         SECTION("asking for no breakpoints at the end gets us no breakpoints") {
-            vg.find_breakpoints(path, breakpoints, false);
+            find_breakpoints(path, breakpoints, false);
             
             REQUIRE(breakpoints.empty());
         }

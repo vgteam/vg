@@ -5114,27 +5114,130 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 // The correct way to edit the graph
 vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool update_paths, bool break_at_ends) {
 
+    // Collect the breakpoints
+    map<id_t, set<pos_t>> breakpoints;
+
+#ifdef debug
+    for (auto& p : paths_to_add) {
+        cerr << pb2json(p) << endl;
+    }
+#endif
+
+    std::vector<Path> simplified_paths;
+
+    for(auto path : paths_to_add) {
+        // Simplify the path, just to eliminate adjacent match Edits in the same
+        // Mapping (because we don't have or want a breakpoint there)
+        simplified_paths.push_back(simplify(path));
+    }
+
     // If we are going to actually add the paths to the graph, we need to break at path ends
     break_at_ends |= save_paths;
+
+    for(auto path : simplified_paths) {
+        // Add in breakpoints from each path
+        find_breakpoints(path, breakpoints, break_at_ends);
+    }
+
+    // Invert the breakpoints that are on the reverse strand
+    breakpoints = forwardize_breakpoints(this, breakpoints);
 
     // Clear existing path ranks.
     paths.clear_mapping_ranks();
 
-    // We require updating if we're going to save with new interface
-    update_paths |= save_paths;
+    // get the node sizes, for use when making the translation
+    map<id_t, size_t> orig_node_sizes;
+    for_each_node([&](Node* node) {
+            orig_node_sizes[node->id()] = node->sequence().size();
+        });
 
-    // Augment the graph with the paths, modifying paths in place if update true
-    vector<Translation> translations = augment(this, paths_to_add, update_paths, break_at_ends);
+    // Break any nodes that need to be broken. Save the map we need to translate
+    // from offsets on old nodes to new nodes. Note that this would mess up the
+    // ranks of nodes in their existing paths, which is why we clear and rebuild
+    // them.
+    auto node_translation = ensure_breakpoints(this, breakpoints);
 
-    // Add the paths into the graph
-    if (save_paths) {
-        for (auto& added : paths_to_add) {
+    // we remember the sequences of nodes we've added at particular positions on the forward strand
+    map<pair<pos_t, string>, vector<id_t>> added_seqs;
+    // we will record the nodes that we add, so we can correctly make the returned translation
+    map<id_t, Path> added_nodes;
+    for(auto& path : simplified_paths) {
+        // Now go through each new path again, by reference so we can overwrite.
+        
+        // Create new nodes/wire things up. Get the added version of the path.
+        Path added = add_nodes_and_edges(this, path, node_translation, added_seqs, added_nodes, orig_node_sizes);
+        
+        if (save_paths) {
             // Add this path to the graph's paths object without rebuilding path ranks, aux mapping, etc.
             paths.extend(added, false, false);
         }
+        
+        if (update_paths) {
+            // Replace the simplified path in original graph space with one in new graph space.
+            path = added;
+        }
+    }
+
+    if (update_paths) {
+        // We replaced all the paths in simplifies_paths, so send those back out as the embedded versions.
+        std::swap(simplified_paths, paths_to_add);
     }
 
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+    paths.compact_ranks();
+
+    // something is off about this check.
+    // with the paths sorted, let's double-check that the edges are here
+    paths.for_each([&](const Path& path) {
+            for (size_t i = 1; i < path.mapping_size(); ++i) {
+                auto& m1 = path.mapping(i-1);
+                auto& m2 = path.mapping(i);
+                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+                auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+                // check that we always have an edge between the two nodes in the correct direction
+                if (!has_edge(s1, s2)) {
+                    //cerr << "edge missing! " << s1 << " " << s2 << endl;
+                    // force these edges in
+                    create_edge(s1, s2);
+                }
+            }
+        });
+
+    // execute a semi partial order sort on the nodes
+    sort();
+
+    // make the translation
+    return make_translation(this, node_translation, added_nodes, orig_node_sizes);
+}
+
+// Streaming edit will use much less memory than the older version (above), at the cost of needing to
+// do multiple passes over the input paths. 
+vector<Translation> VG::edit(istream& paths_to_add, bool save_paths, ostream* out_gam_stream,
+                             bool break_at_ends, bool remove_softclips) {
+
+    // If we are going to actually add the paths to the graph, we need to break at path ends
+    break_at_ends |= save_paths;
+
+    function<void(Path&)> save_fn = nullptr;
+    if (save_paths) {
+        save_fn = [&](Path& added) {
+            paths.extend(added, false, false);
+        };
+    }
+
+    // Clear existing path ranks.
+    paths.clear_mapping_ranks();
+
+    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+    paths.compact_ranks();
+    
+    // Augment the graph with the paths, modifying paths in place if update true
+    vector<Translation> translations = augment(this, paths_to_add, out_gam_stream, save_fn,
+                                               break_at_ends, remove_softclips);
+        
+    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+    // Todo: can we just do this once?
     paths.compact_ranks();
 
     // execute a semi partial order sort on the nodes
@@ -5156,7 +5259,7 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
     find_breakpoints(path, breakpoints);
 
     // Invert the breakpoints that are on the reverse strand
-    breakpoints = forwardize_breakpoints(breakpoints);
+    breakpoints = forwardize_breakpoints(this, breakpoints);
     
     // Get the node sizes of nodes that are getting destroyed, for use when
     // making the translations and when reverse complementing old-graph paths.
@@ -5169,7 +5272,7 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
 
     // Break any nodes that need to be broken. Save the map we need to translate
     // from start positions on old nodes to new nodes.
-    map<pos_t, Node*> node_translation = ensure_breakpoints(breakpoints);
+    map<pos_t, id_t> node_translation = ensure_breakpoints(this, breakpoints);
     
 #ifdef debug
     for(auto& kv : node_translation) {
@@ -5178,11 +5281,11 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
 #endif
     
     // we remember the sequences of nodes we've added at particular positions on the forward strand
-    map<pair<pos_t, string>, vector<Node*>> added_seqs;
+    map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation for novel insert nodes
-    map<Node*, Path> added_nodes;
+    map<id_t, Path> added_nodes;
     // create new nodes/wire things up.
-    add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, max_node_size);
+    add_nodes_and_edges(this, path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, max_node_size);
 
     // Make the translations (in about the same format as VG::edit(), but
     // without a translation for every single node and with just the nodes we
@@ -5191,14 +5294,14 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
     
     for (auto& kv : node_translation) {
         // For every translation from an old position to a new node (which may be null)
-        if (kv.second == nullptr) {
+        if (kv.second == 0) {
             // Ignore the past-the-end entries
             continue;
         }
         // There are reverse and forward entries and we make Translations for both.
                 
         // Get the length of sequence involved
-        auto seq_length = kv.second->sequence().size();
+        auto seq_length = get_node(kv.second)->sequence().size();
                 
         // Make a translation
         Translation trans;
@@ -5209,7 +5312,7 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
         // from mapping, since we're going to be making translations on
         // both strands and the new node is the same local orientation
         // as the old node.
-        *(to_mapping->mutable_position()) = make_position(kv.second->id(), is_rev(kv.first), 0);
+        *(to_mapping->mutable_position()) = make_position(kv.second, is_rev(kv.first), 0);
         auto* to_edit = to_mapping->add_edit();
         to_edit->set_from_length(seq_length);
         to_edit->set_to_length(seq_length );
@@ -5227,682 +5330,6 @@ vector<Translation> VG::edit_fast(const Path& path, set<NodeSide>& dangling, siz
     // TODO: maybe we should also add translations to anchor completely novel nodes?
 
     return translations;
-}
-
-vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translation,
-                                         const map<Node*, Path>& added_nodes,
-                                         const map<id_t, size_t>& orig_node_sizes) {
-    vector<Translation> translation;
-    // invert the translation
-    map<Node*, pos_t> inv_node_trans;
-    for (auto& t : node_translation) {
-        if (!is_rev(t.first)) {
-            inv_node_trans[t.second] = t.first;
-        }
-    }
-    // walk the whole graph
-    for_each_node([&](Node* node) {
-            translation.emplace_back();
-            auto& trans = translation.back();
-            auto f = inv_node_trans.find(node);
-            auto added = added_nodes.find(node);
-            if (f != inv_node_trans.end()) {
-                // if the node is in the inverted translation, use the position to make a mapping
-                auto pos = f->second;
-                auto from_mapping = trans.mutable_from()->add_mapping();
-                auto to_mapping = trans.mutable_to()->add_mapping();
-                // Make sure the to mapping is in the same orientation as the
-                // from mapping, since we're going to be making translations on
-                // both strands and the new node is the same local orientation
-                // as the old node.
-                *to_mapping->mutable_position() = make_position(node->id(), is_rev(pos), 0);
-                *from_mapping->mutable_position() = make_position(pos);
-                auto match_length = node->sequence().size();
-                auto to_edit = to_mapping->add_edit();
-                to_edit->set_to_length(match_length);
-                to_edit->set_from_length(match_length);
-                auto from_edit = from_mapping->add_edit();
-                from_edit->set_to_length(match_length);
-                from_edit->set_from_length(match_length);
-            } else if (added != added_nodes.end()) {
-                // the node is novel
-                auto to_mapping = trans.mutable_to()->add_mapping();
-                *to_mapping->mutable_position() = make_position(node->id(), false, 0);
-                auto to_edit = to_mapping->add_edit();
-                to_edit->set_to_length(node->sequence().size());
-                to_edit->set_from_length(node->sequence().size());
-                auto from_path = trans.mutable_from();
-                *trans.mutable_from() = added->second;
-            } else {
-                // otherwise we assume that the graph is unchanged
-                auto from_mapping = trans.mutable_from()->add_mapping();
-                auto to_mapping = trans.mutable_to()->add_mapping();
-                *to_mapping->mutable_position() = make_position(node->id(), false, 0);
-                *from_mapping->mutable_position() = make_position(node->id(), false, 0);
-                auto match_length = node->sequence().size();
-                auto to_edit = to_mapping->add_edit();
-                to_edit->set_to_length(match_length);
-                to_edit->set_from_length(match_length);
-                auto from_edit = from_mapping->add_edit();
-                from_edit->set_to_length(match_length);
-                from_edit->set_from_length(match_length);
-            }
-        });
-    std::sort(translation.begin(), translation.end(),
-              [&](const Translation& t1, const Translation& t2) {
-                  if (!t1.from().mapping_size() && !t2.from().mapping_size()) {
-                      // warning: this won't work if we don't have to mappings
-                      // this guards against the lurking segfault
-                      return t1.to().mapping_size() && t2.to().mapping_size()
-                          && make_pos_t(t1.to().mapping(0).position())
-                          < make_pos_t(t2.to().mapping(0).position());
-                  } else if (!t1.from().mapping_size()) {
-                      return true;
-                  } else if (!t2.from().mapping_size()) {
-                      return false;
-                  } else {
-                      return make_pos_t(t1.from().mapping(0).position())
-                          < make_pos_t(t2.from().mapping(0).position());
-                  }
-              });
-    // append the reverse complement of the translation
-    vector<Translation> reverse_translation;
-    auto get_curr_node_length = [&](id_t id) {
-        return get_node(id)->sequence().size();
-    };
-    auto get_orig_node_length = [&](id_t id) {
-        auto f = orig_node_sizes.find(id);
-        if (f == orig_node_sizes.end()) {
-            // The node has no entry, so it must not have been broken
-            return get_node(id)->sequence().size();
-        }
-        return f->second;
-    };
-    for (auto& trans : translation) {
-        reverse_translation.emplace_back();
-        auto& rev_trans = reverse_translation.back();
-        *rev_trans.mutable_to() = simplify(reverse_complement_path(trans.to(), get_curr_node_length));
-        *rev_trans.mutable_from() = simplify(reverse_complement_path(trans.from(), get_orig_node_length));
-    }
-    translation.insert(translation.end(), reverse_translation.begin(), reverse_translation.end());
-    return translation;
-}
-
-map<id_t, set<pos_t>> VG::forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints) {
-    map<id_t, set<pos_t>> fwd;
-    for (auto& p : breakpoints) {
-        id_t node_id = p.first;
-        assert(has_node(node_id));
-        size_t node_length = get_node(node_id)->sequence().size();
-        auto bp = p.second;
-        for (auto& pos : bp) {
-            pos_t x = pos;
-            if (offset(pos) == node_length) continue;
-            if (offset(pos) > node_length) {
-                cerr << "VG::forwardize_breakpoints error: failure, position " << pos << " is not inside node "
-                     << pb2json(*get_node(node_id)) << endl;
-                assert(false);
-            }
-            if (is_rev(pos)) {
-                fwd[node_id].insert(reverse(pos, node_length));
-            } else {
-                fwd[node_id].insert(pos);
-            }
-        }
-    }
-    return fwd;
-}
-
-// returns breakpoints on the forward strand of the nodes
-void VG::find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends) {
-    // We need to work out what offsets we will need to break each node at, if
-    // we want to add in all the new material and edges in this path.
-
-#ifdef debug
-    cerr << "Processing path..." << endl;
-#endif
-
-    for (size_t i = 0; i < path.mapping_size(); ++i) {
-        // For each Mapping in the path
-        const Mapping& m = path.mapping(i);
-
-        // What node are we on?
-        id_t node_id = m.position().node_id();
-
-        if(node_id == 0) {
-            // Skip Mappings that aren't actually to nodes.
-            continue;
-        }
-
-        // See where the next edit starts in the node. It is always included
-        // (even when the edit runs backward), unless the edit has 0 length in
-        // the reference.
-        pos_t edit_first_position = make_pos_t(m.position());
-
-#ifdef debug
-        cerr << "Processing mapping " << pb2json(m) << endl;
-#endif
-
-        for(size_t j = 0; j < m.edit_size(); ++j) {
-            // For each Edit in the mapping
-            const Edit& e = m.edit(j);
-
-            // We know where the mapping starts in its node. But where does it
-            // end (inclusive)? Note that if the edit has 0 reference length,
-            // this may not actually be included in the edit (and
-            // edit_first_position will be further along than
-            // edit_last_position).
-            pos_t edit_last_position = edit_first_position;
-            if (e.from_length()) {
-                get_offset(edit_last_position) += e.from_length();
-            }
-
-#ifdef debug
-            cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
-            cerr << pb2json(e) << endl;
-#endif
-
-            if (!edit_is_match(e) || (j == 0 && (i != 0 || break_ends))) {
-                // If this edit is not a perfect match, or if this is the first
-                // edit in this mapping and either we had a previous mapping we
-                // may need to connect to or we want to break at the path's
-                // start, we need to make sure we have a breakpoint at the start
-                // of this edit.
-
-#ifdef debug
-                cerr << "Need to break " << node_id << " at edit lower end " <<
-                    edit_first_position << endl;
-#endif
-
-                // We need to snip between edit_first_position and edit_first_position - direction.
-                // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
-                breakpoints[node_id].insert(edit_first_position);
-            }
-
-            if (!edit_is_match(e) || (j == m.edit_size() - 1 && (i != path.mapping_size() - 1 || break_ends))) {
-                // If this edit is not a perfect match, or if it is the last
-                // edit in a mapping and we have a subsequent mapping we might
-                // need to connect to or we want to break at the path ends, make
-                // sure we have a breakpoint at the end of this edit.
-
-#ifdef debug
-                cerr << "Need to break " << node_id << " at past edit upper end " <<
-                    edit_last_position << endl;
-#endif
-
-                // We also need to snip between edit_last_position and edit_last_position + direction.
-                breakpoints[node_id].insert(edit_last_position);
-            }
-
-            // TODO: for an insertion or substitution, note that we need a new
-            // node and two new edges.
-
-            // TODO: for a deletion, note that we need an edge. TODO: Catch
-            // and complain about some things we can't handle (like a path with
-            // a leading/trailing deletion)? Or just skip deletions when wiring.
-
-            // Use up the portion of the node taken by this mapping, so we know
-            // where the next mapping will start.
-            edit_first_position = edit_last_position;
-        }
-    }
-
-}
-
-map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints) {
-    // Set up the map we will fill in with the new node start positions in the
-    // old nodes.
-    map<pos_t, Node*> toReturn;
-
-    for(auto& kv : breakpoints) {
-        // Go through all the nodes we need to break up
-        auto original_node_id = kv.first;
-
-        // Save the original node length. We don't want to break here (or later)
-        // because that would be off the end.
-        id_t original_node_length = get_node(original_node_id)->sequence().size();
-
-        // We are going through the breakpoints left to right, so we need to
-        // keep the node pointer for the right part that still needs further
-        // dividing.
-        Node* right_part = get_node(original_node_id);
-        Node* left_part = nullptr;
-
-        pos_t last_bp = make_pos_t(original_node_id, false, 0);
-        // How far into the original node does our right part start?
-        id_t current_offset = 0;
-
-        for(auto breakpoint : kv.second) {
-            // For every point at which we need to make a new node, in ascending
-            // order (due to the way sets store ints)...
-
-            // ensure that we're on the forward strand (should be the case due to forwardize_breakpoints)
-            assert(!is_rev(breakpoint));
-
-            // This breakpoint already exists, because the node starts or ends here
-            if(offset(breakpoint) == 0
-               || offset(breakpoint) == original_node_length) {
-                continue;
-            }
-
-            // How far in do we need to break the remaining right part? And how
-            // many bases will be in this new left part?
-            id_t divide_offset = offset(breakpoint) - current_offset;
-
-
-#ifdef debug
-            cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" <<
-
-                original_node_length << endl;
-            cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" <<
-                right_part->sequence().size() << endl;
-            cerr << "divide offset is " << divide_offset << endl;
-#endif
-
-            if (offset(breakpoint) <= 0) { cerr << "breakpoint is " << breakpoint << endl; }
-            assert(offset(breakpoint) > 0);
-            if (offset(breakpoint) >= original_node_length) { cerr << "breakpoint is " << breakpoint << endl; }
-            assert(offset(breakpoint) < original_node_length);
-
-            // Make a new left part and right part. This updates all the
-            // existing perfect match paths in the graph.
-            divide_node(right_part, divide_offset, left_part, right_part);
-
-#ifdef debug
-
-            cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
-            cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
-#endif
-
-            // The left part is now done. We know it started at current_offset
-            // and ended before breakpoint, so record it by start position.
-
-            // record forward and reverse
-            toReturn[last_bp] = left_part;
-            toReturn[reverse(breakpoint, original_node_length)] = left_part;
-
-            // Record that more sequence has been consumed
-            current_offset += divide_offset;
-            last_bp = breakpoint;
-
-        }
-
-        // Now the right part is done too. It's going to be the part
-        // corresponding to the remainder of the original node.
-        toReturn[last_bp] = right_part;
-        toReturn[make_pos_t(original_node_id, true, 0)] = right_part;
-
-        // and record the start and end of the node
-        toReturn[make_pos_t(original_node_id, true, original_node_length)] = nullptr;
-        toReturn[make_pos_t(original_node_id, false, original_node_length)] = nullptr;
-
-    }
-
-    return toReturn;
-}
-
-Path VG::add_nodes_and_edges(const Path& path,
-                             const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
-                             map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes,
-                             size_t max_node_size) {
-
-    set<NodeSide> dangling;
-    return add_nodes_and_edges(path,
-        node_translation,
-        added_seqs,
-        added_nodes,
-        orig_node_sizes,
-        dangling,
-        max_node_size);  
-
-}
-
-Path VG::add_nodes_and_edges(const Path& path,
-                             const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
-                             map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes,
-                             set<NodeSide>& dangling,
-                             size_t max_node_size) {
-
-    // The basic algorithm is to traverse the path edit by edit, keeping track
-    // of a NodeSide for the last piece of sequence we were on. If we hit an
-    // edit that creates new sequence, we check if it has been added before If
-    // it has, we use it. If not, we create that new sequence as a node, and
-    // attach it to the dangling NodeSide(s), and leave its end dangling
-    // instead. If we hit an edit that corresponds to a match, we know that
-    // there's a breakpoint on each end (since it's bordered by a non-perfect-
-    // match or the end of a node), so we can attach its start to the dangling
-    // NodeSide(s) and leave its end dangling instead.
-
-    // We need node_translation to translate between node ID space, where the
-    // paths are articulated, and new node ID space, where the edges are being
-    // made.
-
-    // We need orig_node_sizes so we can remember the sizes of nodes that we
-    // modified, so we can interpret the paths. It only holds sizes for modified
-    // nodes.
-    
-    // This is where we will keep the version of the path articulated as
-    // actually embedded in the graph.
-    Path embedded;
-    embedded.set_name(path.name());
-
-    // We use this function to get the node that contains a position on an
-    // original node.
-    auto find_new_node = [&](pos_t old_pos) {
-        if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
-            // The node is unchanged
-            auto n = get_node(id(old_pos));
-            assert(n != nullptr);
-            return n;
-        }
-        // Otherwise, get the first new node starting after that position, and
-        // then look left.
-        auto found = node_translation.upper_bound(old_pos);
-        assert(found != node_translation.end());
-        if (id(found->first) != id(old_pos)
-            || is_rev(found->first) != is_rev(old_pos)) {
-            return (Node*)nullptr;
-        }
-        // Get the thing before that (last key <= the position we want
-        --found;
-        assert(found->second != nullptr);
-
-        // Return the node we found.
-        return found->second;
-    };
-
-    auto create_new_mappings = [&](pos_t p1, pos_t p2, bool is_rev) {
-        vector<Mapping> mappings;
-        vector<Node*> nodes;
-        for (pos_t p = p1; p <= p2; ++get_offset(p)) {
-            auto n = find_new_node(p);
-            assert(n != nullptr);
-            nodes.push_back(find_new_node(p));
-        }
-        auto np = nodes.begin();
-        while (np != nodes.end()) {
-            size_t c = 0;
-            auto n1 = np;
-            while (np != nodes.end() && *n1 == *np) {
-                ++c;
-                ++np; // we'll always increment once
-            }
-            assert(c);
-            // set the mapping position
-            Mapping m;
-            m.mutable_position()->set_node_id((*n1)->id());
-            m.mutable_position()->set_is_reverse(is_rev);
-            // and the edit that says we match
-            Edit* e = m.add_edit();
-            e->set_from_length(c);
-            e->set_to_length(c);
-            mappings.push_back(m);
-        }
-        return mappings;
-    };
-
-    for (size_t i = 0; i < path.mapping_size(); ++i) {
-        // For each Mapping in the path
-        const Mapping& m = path.mapping(i);
-
-        // What node are we on? In old node ID space.
-        id_t node_id = m.position().node_id();
-
-        // See where the next edit starts in the node. It is always included
-        // (even when the edit runs backward), unless the edit has 0 length in
-        // the reference.
-        pos_t edit_first_position = make_pos_t(m.position());
-
-        for(size_t j = 0; j < m.edit_size(); ++j) {
-            // For each Edit in the mapping
-            const Edit& e = m.edit(j);
-
-            // Work out where its end position on the original node is (inclusive)
-            // We don't use this on insertions, so 0-from-length edits don't matter.
-            pos_t edit_last_position = edit_first_position;
-            //get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
-            get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
-
-//#define debug_edit true
-#ifdef debug_edit
-            cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
-            cerr << pb2json(e) << endl;
-#endif
-
-            if(edit_is_insertion(e) || edit_is_sub(e)) {
-                // This edit introduces new sequence.
-#ifdef debug_edit
-                cerr << "Handling ins/sub relative to " << node_id << endl;
-#endif
-                // store the path representing this novel sequence in the translation table
-                auto prev_position = edit_first_position;
-                Path from_path;
-                auto prev_from_mapping = from_path.add_mapping();
-                *prev_from_mapping->mutable_position() = make_position(prev_position);
-                auto from_edit = prev_from_mapping->add_edit();
-                from_edit->set_sequence(e.sequence());
-                from_edit->set_to_length(e.to_length());
-                from_edit->set_from_length(e.from_length());
-                // find the position after the edit
-                // if the edit is not the last in a mapping, the position after is from_length of the edit after this
-                pos_t next_position;
-                if (j + 1 < m.edit_size()) {
-                    next_position = prev_position;
-                    get_offset(next_position) += e.from_length();
-                    auto next_from_mapping = from_path.add_mapping();
-                    *next_from_mapping->mutable_position() = make_position(next_position);
-                } else { // implicitly (j + 1 == m.edit_size())
-                    // if the edit is the last in a mapping, look at the next mapping position
-                    if (i + 1 < path.mapping_size()) {
-                        auto& next_mapping = path.mapping(i+1);
-                        auto next_from_mapping = from_path.add_mapping();
-                        *next_from_mapping->mutable_position() = next_mapping.position();
-                    } else {
-                        // if we are at the end of the path, then this insertion has no end, and we do nothing
-                    }
-                }
-                // TODO what about forward into reverse????
-                if (is_rev(prev_position)) {
-                    from_path = simplify(
-                        reverse_complement_path(from_path, [&](int64_t id) {
-                                auto l = orig_node_sizes.find(id);
-                                if (l == orig_node_sizes.end()) {
-                                    // The node has no entry, so it must not have been broken
-                                    return get_node(id)->sequence().size();
-                                } else {
-                                    return l->second;
-                                }
-                            }));
-                }
-
-                // Create the new nodes, reversing it if we are reversed
-                vector<Node*> new_nodes;
-                pos_t start_pos = make_pos_t(from_path.mapping(0).position());
-                // We put in the reverse of our sdequence if we are an insert on
-                // the revers of a node, to keep the graph pointing mostly the
-                // same direction.
-                auto fwd_seq = m.position().is_reverse() ?
-                    reverse_complement(e.sequence())
-                    : e.sequence();
-                auto novel_edit_key = make_pair(start_pos, fwd_seq);
-                auto added = added_seqs.find(novel_edit_key);
-                if (added != added_seqs.end()) {
-                    // if we have the node run already, don't make it again, just use the existing one
-                    new_nodes = added->second;
-#ifdef debug_edit
-                    cerr << "Re-using already added nodes: ";
-                    for (auto n : new_nodes) {
-                        cerr << n->id() << " ";
-                    }
-                    cerr << endl;
-#endif
-                } else {
-                    // Make a new run of nodes of up to max_node_size each
-                    
-                    // Make sure that we are trying to make a run of nodes of
-                    // the length we're supposed to be.
-                    assert(path_to_length(from_path) == fwd_seq.size());
-                    
-                    size_t cursor = 0;
-                    while (cursor < fwd_seq.size()) {
-                        // Until we used up all the sequence, make nodes
-                        Node* new_node = create_node(fwd_seq.substr(cursor, max_node_size));
-                        cursor += max_node_size;
-                        
-#ifdef debug_edit
-                        cerr << "Create new node " << pb2json(*new_node) << endl;
-#endif
-                        if (!new_nodes.empty()) {
-                            // Connect each to the previous node in the chain.
-                            Edge* e = create_edge(new_nodes.back(), new_node);
-#ifdef debug_edit
-                            cerr << "Create edge " << pb2json(*e) << endl;
-#endif
-                        }
-                        
-                        // Remember the new node
-                        new_nodes.push_back(new_node);
-                        
-                        // Chop the front of the from path off and associate it
-                        // with this node. TODO: this is n^2 in number of nodes
-                        // we add because we copy the whole path each time.
-                        Path front_path;
-                        
-                        if (path_to_length(from_path) > new_node->sequence().size()) {
-                            // There will still be path left, so we cut the path
-                            tie(front_path, from_path) = cut_path(from_path, new_node->sequence().size());
-                        } else {
-                            // We consume the rest of the path. Don't bother cutting it.
-                            swap(front_path, from_path);
-                        }
-                        
-                        // The front bit of the path belongs to this new node
-                        added_nodes[new_node] = front_path;
-                        
-                    }
-
-                    // reverse the order of the nodes if we did a rev-comp
-                    if (m.position().is_reverse()) {
-                        std::reverse(new_nodes.begin(), new_nodes.end());
-                    }
-
-                    // TODO: fwd_seq can't be empty or problems will be happen
-                    // because we'll have an empty vector of created nodes. I
-                    // think the edit won't be an insert or sub if it is,
-                    // though.
-
-                    // Remember that this run belongs to this edit
-                    added_seqs[novel_edit_key] = new_nodes;
-                    
-                }
-
-                for (auto* new_node : new_nodes) {
-                    // Add a mapping to each newly created node
-                    Mapping& nm = *embedded.add_mapping();
-                    nm.mutable_position()->set_node_id(new_node->id());
-                    nm.mutable_position()->set_is_reverse(m.position().is_reverse());
-
-                    // Don't set a rank; since we're going through the input
-                    // path in order, the auto-generated ranks will put our
-                    // newly created mappings in order.
-
-                    Edit* e = nm.add_edit();
-                    size_t l = new_node->sequence().size();
-                    e->set_from_length(l);
-                    e->set_to_length(l);
-                }
-
-                for (auto& dangler : dangling) {
-                    // This actually referrs to a node.
-                    
-                    // Attach what was dangling to the early-in-the-alignment side of the newly created run.
-                    auto to_attach = NodeSide(m.position().is_reverse() ? new_nodes.back()->id() : new_nodes.front()->id(),
-                        m.position().is_reverse());
-                    
-#ifdef debug_edit
-                    cerr << "Connecting " << dangler << " and " << to_attach << endl;
-#endif
-                    // Add an edge from the dangling NodeSide to the start of this new node
-                    assert(create_edge(dangler, to_attach));
-
-                }
-
-                // Dangle the late-in-the-alignment end of this run of new nodes
-                dangling.clear();
-                dangling.insert(NodeSide(m.position().is_reverse() ? new_nodes.front()->id() : new_nodes.back()->id(),
-                    !m.position().is_reverse()));
-
-                // save edit into translated path
-
-            } else if(edit_is_match(e)) {
-                // We're using existing sequence
-
-                // We know we have breakpoints on both sides, but we also might
-                // have additional breakpoints in the middle. So we need the
-                // left node, that contains the first base of the match, and the
-                // right node, that contains the last base of the match.
-                Node* left_node = find_new_node(edit_first_position);
-                Node* right_node = find_new_node(edit_last_position);
-
-                // TODO: we just assume the outer edges of these nodes are in
-                // the right places. They should be if we cut the breakpoints
-                // right.
-
-                // get the set of new nodes that we map to
-                // and use the lengths of each to create new mappings
-                // and append them to the path we are including
-                for (auto nm : create_new_mappings(edit_first_position,
-                                                   edit_last_position,
-                                                   m.position().is_reverse())) {
-
-                    *embedded.add_mapping() = nm;
-
-                    // Don't set a rank; since we're going through the input
-                    // path in order, the auto-generated ranks will put our
-                    // newly created mappings in order.
-                }
-
-#ifdef debug_edit
-                cerr << "Handling match relative to " << node_id << endl;
-#endif
-
-                for (auto& dangler : dangling) {
-#ifdef debug_edit
-                    cerr << "Connecting " << dangler << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
-#endif
-
-                    // Connect the left end of the left node we matched in the direction we matched it
-                    assert(create_edge(dangler, NodeSide(left_node->id(), m.position().is_reverse())));
-                }
-
-                // Dangle the right end of the right node in the direction we matched it.
-                if (right_node != nullptr) {
-                    dangling.clear();
-                    dangling.insert(NodeSide(right_node->id(), !m.position().is_reverse()));
-                }
-            } else {
-                // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
-#ifdef debug_edit
-                cerr << "Skipping other edit relative to " << node_id << endl;
-#endif
-            }
-
-            // Advance in the right direction along the original node for this edit.
-            // This way the next one will start at the right place.
-            get_offset(edit_first_position) += e.from_length();
-
-//#undef debug_edut
-        }
-
-    }
-    
-    // Actually return the embedded path.
-    return embedded;
-
 }
 
 void VG::node_starts_in_path(const list<NodeTraversal>& path,

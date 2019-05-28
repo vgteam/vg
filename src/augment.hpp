@@ -21,14 +21,21 @@ using namespace std;
 /// this method sorts the graph and rebuilds the path index, so it should
 /// not be called in a loop.
 ///
-/// If update_paths is true, the paths will be modified to reflect their
-/// embedding in the modified graph. If break_at_ends is true, nodes will be broken at
+/// If gam_out_stream is not null, the paths will be modified to reflect their
+/// embedding in the modified graph and written to the stream.
+/// if save_path_fn is not null, this function will be run on each modified path
+/// in order to add it back to the graph.
+/// If break_at_ends is true, nodes will be broken at
 /// the ends of paths that start/end woth perfect matches, so the paths can
 /// be added to the vg graph's paths object.
+/// If soft_clip is true, soft clips will be removed from the input paths
+/// before processing, and the dangling ends won't end up in the graph
 vector<Translation> augment(MutablePathMutableHandleGraph* graph,
-                            vector<Path>& paths_to_add,
-                            bool update_paths = false,
-                            bool break_at_ends = false);
+                            istream& gam_stream,
+                            ostream* gam_out_stream = nullptr,
+                            function<void(Path&)> save_path_fn = nullptr,
+                            bool break_at_ends = false,
+                            bool remove_soft_clips = false);
 
 /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
 /// them to the given map by node ID of sets of bases in the node that will need

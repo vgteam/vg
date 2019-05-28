@@ -2,6 +2,9 @@
 #include <vg/io/stream.hpp>
 
 #include "augment.hpp"
+#include "alignment.hpp"
+
+//#define debug
 
 namespace vg {
 
@@ -30,34 +33,36 @@ void cruft() {
 }
 */
 
+
 // The correct way to edit the graph
-vector<Translation> augment(MutablePathMutableHandleGraph* graph, vector<Path>& paths_to_add,
-                            bool update_paths, bool break_at_ends) {
+vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_stream,
+                            ostream* gam_out_stream, function<void(Path&)> save_path_fn,
+                            bool break_at_ends, bool remove_softclips) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
+    // First pass: find the breakpoints
+    vg::io::for_each(gam_stream, (function<void(Alignment&)>)[&](Alignment& aln) {
 #ifdef debug
-    for (auto& p : paths_to_add) {
-        cerr << pb2json(p) << endl;
-    }
+            cerr << pb2json(aln.path()) << endl;
 #endif
 
-    std::vector<Path> simplified_paths;
+            if (remove_softclips) {
+                softclip_trim(aln);
+            }
 
-    for(auto path : paths_to_add) {
-        // Simplify the path, just to eliminate adjacent match Edits in the same
-        // Mapping (because we don't have or want a breakpoint there)
-        simplified_paths.push_back(simplify(path));
-    }
+            // Simplify the path, just to eliminate adjacent match Edits in the same
+            // Mapping (because we don't have or want a breakpoint there)
+            Path simplified_path = simplify(aln.path());
 
-    for(auto path : simplified_paths) {
-        // Add in breakpoints from each path
-        find_breakpoints(path, breakpoints, break_at_ends);
-    }
+
+            // Add in breakpoints from each path
+            find_breakpoints(simplified_path, breakpoints, break_at_ends);
+
+        });
 
     // Invert the breakpoints that are on the reverse strand
     breakpoints = forwardize_breakpoints(graph, breakpoints);
-
 
     // get the node sizes, for use when making the translation
     map<id_t, size_t> orig_node_sizes;
@@ -75,25 +80,67 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, vector<Path>& 
     map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation
     map<id_t, Path> added_nodes;
-    for(auto& path : simplified_paths) {
-        // Now go through each new path again, by reference so we can overwrite.
+    // output gam buffer
+    vector<Alignment> gam_buffer;
+
+    // Second pass: add the nodes and edges
+    gam_stream.clear();
+    gam_stream.seekg(0, ios_base::beg);
+    vg::io::for_each(gam_stream, (function<void(Alignment&)>)[&](Alignment& aln) {
+            if (remove_softclips) {
+                softclip_trim(aln);
+            }
+
+            // Simplify the path, just to eliminate adjacent match Edits in the same
+            // Mapping (because we don't have or want a breakpoint there)
+            // Note: We're electing to re-simplify in a second pass to avoid storing all
+            // the input paths in memory
+            Path simplified_path = simplify(aln.path());
+
+            // Now go through each new path again, by reference so we can overwrite.
         
-        // Create new nodes/wire things up. Get the added version of the path.
-        Path added = add_nodes_and_edges(graph, path, node_translation, added_seqs, added_nodes, orig_node_sizes);
-                
-        if (update_paths) {
-            // Replace the simplified path in original graph space with one in new graph space.
-            path = added;
-        }
+            // Create new nodes/wire things up. Get the added version of the path.
+            Path added = add_nodes_and_edges(graph, simplified_path, node_translation, added_seqs,
+                                             added_nodes, orig_node_sizes);
+
+            // Copy over the name
+            *added.mutable_name() = aln.name();
+
+            if (save_path_fn) {
+                save_path_fn(added);
+            }
+
+            // something is off about this check.
+            // assuming the GAM path is sorted, let's double-check that its edges are here
+            for (size_t i = 1; i < added.mapping_size(); ++i) {
+                auto& m1 = added.mapping(i-1);
+                auto& m2 = added.mapping(i);
+                // we're no longer sorting our input paths, so we assume they are sorted
+                assert((m1.rank() == 0 && m2.rank() == 0) || (m1.rank() + 1 == m2.rank()));
+                //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                auto s1 = graph->get_handle(m1.position().node_id(), m1.position().is_reverse());
+                auto s2 = graph->get_handle(m2.position().node_id(), m2.position().is_reverse());
+                // check that we always have an edge between the two nodes in the correct direction
+                if (!graph->has_edge(s1, s2)) {
+                    // force these edges in
+                    graph->create_edge(s1, s2);
+                }
+            }
+
+            // optionally write out the modified path to GAM
+            if (gam_out_stream != nullptr) {
+                *aln.mutable_path() = added;
+                gam_buffer.push_back(aln);
+                vg::io::write_buffered(*gam_out_stream, gam_buffer, 100);
+            }
+        });
+    if (gam_out_stream != nullptr) {
+        // Flush the buffer
+        vg::io::write_buffered(*gam_out_stream, gam_buffer, 0);
     }
 
-    if (update_paths) {
-        // We replaced all the paths in simplifies_paths, so send those back out as the embedded versions.
-        std::swap(simplified_paths, paths_to_add);
-    }
-
-    // something is off about this check.
-    // with the paths sorted, let's double-check that the edges are here
+    // perform the same check as above, but on the paths that were already in the graph
+    // assuming the graph's paths are sorted, let's double-check that the edges are here
     graph->for_each_path_handle([&](path_handle_t path_handle) {
             step_handle_t prev_handle;
             int i = 0;
@@ -102,7 +149,9 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, vector<Path>& 
                     if (i > 0) {
                         if (!graph->has_edge(graph->get_handle_of_step(prev_handle), handle)) {
 #ifdef debug
-                            cerr << "edge missing! " << s1 << " " << s2 << endl;
+                            cerr << "edge missing! " << graph->get_id(graph->get_handle_of_step(prev_handle)) << ","
+                                 << graph->get_is_reverse(graph->get_handle_of_step(prev_handle)) << " -> "
+                                 << graph->get_id(handle) << "," << graph->get_is_reverse(handle) << endl;
 #endif
                             // force these edges in
                             graph->create_edge(graph->get_handle_of_step(prev_handle), handle);
@@ -284,8 +333,8 @@ map<pos_t, id_t> ensure_breakpoints(MutableHandleGraph* graph, const map<id_t, s
             cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" <<
 
                 original_node_length << endl;
-            cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" <<
-                right_part->sequence().size() << endl;
+            cerr << "Translates to " << graph->get_id(right_part) << " at " << divide_offset << "/" <<
+                graph->get_length(right_part) << endl;
             cerr << "divide offset is " << divide_offset << endl;
 #endif
 
