@@ -1,6 +1,6 @@
 #include "seed_clusterer.hpp"
 
-#define DEBUG 
+//#define DEBUG 
 
 namespace vg {
 
@@ -500,7 +500,8 @@ cerr << endl << "New cluster calculation:" << endl;
             }
 
 #ifdef DEBUG
-            cerr << "Going to get clusters for snarl number " << curr_snarl_i << " by clustering from its "
+            cerr << "Going to get clusters for snarl number " << curr_snarl_i 
+                << " headed by " << snarl_index.id_in_parent << " by clustering from its "
                 << curr_snarl_children[curr_snarl_i].size() << " children" << endl;
 #endif
 
@@ -527,106 +528,6 @@ cerr << endl << "New cluster calculation:" << endl;
             int64_t loop_dist_end = chain_index.loop_fd[start_rank + 1] - 1 ;
             int64_t loop_dist_start = chain_index.loop_rev[start_rank] - 1; 
 
-//TODO: Check this again to make sure none of the looping checks are redundant
-            if (loop_dist_start != -1 || loop_dist_end != -1) {
-                //If there is a loop in the chain, then it may
-                //be possible for two clusters on the same snarl to
-                //be combined
-#ifdef DEBUG
-cerr << "      Getting distances from loops in chain " << endl;
-#endif
-                vector<size_t> to_remove;
-                size_t combined_left = -1;
-                size_t combined_right = -1;
-                for (size_t c : snarl_clusters) {
-                    pair<int64_t, int64_t> dists = cluster_dists[c];
-                    //Find new distances to ends using loops
-                    int64_t new_left = dists.second == -1 || loop_dist_end == -1
-                          ? -1
-                          : dists.second + loop_dist_end + snarl_length 
-                                         - end_length;
-                    int64_t new_right=dists.first == -1 || loop_dist_start == -1
-                                        ? -1
-                                        : dists.first + loop_dist_start 
-                                               + snarl_length - start_length;
-                    child_dist_left = min_positive(new_left, child_dist_left);
-                    child_dist_right = min_positive(new_right, child_dist_right);
-
-                    //If this cluster was not combined with the another, 
-                    //Update its left and right distances with loop dists
-                    cluster_dists[c] = make_pair(
-                        min_positive(dists.first, new_left),
-                        min_positive(dists.second, new_right));
-#ifdef DEBUG
-cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].first << " " << cluster_dists[c].second << endl;
-#endif
-
-
-                    if (child_dist_left != -1 && loop_dist_start != -1 &&
-                        dists.first != -1 && 
-                        child_dist_left + dists.first 
-                              + loop_dist_start - start_length - 1 
-                              <= distance_limit) {  
-                        //If this cluster can be combined with another cluster
-                        //from the left
-
-                        if (combined_left == -1) {
-                            combined_left = c;
-                        } else {
-                            combined_left = union_find_clusters.find_group(
-                                                                 combined_left);
-                            pair<int64_t, int64_t>& old_dists =
-                                                   cluster_dists[combined_left];
-                            union_find_clusters.union_groups(combined_left, c);
-                            size_t combined_group = 
-                                              union_find_clusters.find_group(c);
-                            if (combined_group != combined_left) {
-                                to_remove.push_back(combined_left);
-                            }
-                            if (combined_group != c) {
-                                to_remove.push_back(c);
-                            }
-                            combined_left = combined_group;
-                            cluster_dists[combined_left] = make_pair(
-                                  min_positive(old_dists.first,dists.first),
-                                  min_positive(old_dists.second, dists.second));
-                        }
-                    }
-                    if (child_dist_right != -1 && loop_dist_end != -1 &&
-                        dists.second != -1 && 
-                        child_dist_right + dists.second + loop_dist_end 
-                                         - end_length - 1 <= distance_limit) {  
-                        //If this cluster can be combined with another cluster
-                        //from the right 
-
-                        if (combined_right == -1) {
-                            combined_right = c;
-                        } else {
-                            combined_right = union_find_clusters.find_group(
-                                                                combined_right);
-                            union_find_clusters.union_groups(combined_right, c);
-                            pair<int64_t, int64_t>& old_dists =
-                                                  cluster_dists[combined_right];
-                            size_t combined_group = 
-                                              union_find_clusters.find_group(c);
-                            if (combined_group != c) {
-                                to_remove.push_back(c);
-                            } 
-                            if (combined_group != combined_right)  {
-                                to_remove.push_back(combined_right);
-                            }
-                            combined_right = combined_group;
-                            cluster_dists[combined_right] = make_pair(
-                                  min_positive(old_dists.first, dists.first),
-                                  min_positive(old_dists.second, dists.second));
-                        }
-                    }
-
-                }
-                for (size_t c : to_remove) {
-                    snarl_clusters.erase(c);
-                }
-            }
  
 #ifdef DEBUG
             cerr << "  Snarl distance limits: " << child_dist_left << " " << child_dist_right << endl;
@@ -677,12 +578,136 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
             //New cluster- there will be at most one new cluster to add
             size_t combined_cluster = -1;
             int64_t combined_left = -1; int64_t combined_right = -1;
+
+            //Combined snarl clusters by taking chain loop left/right
+            size_t snarl_cluster_left = -1;
+            size_t snarl_cluster_right = -1;
+
             best_left = -1; best_right = -1;
             for (size_t j : snarl_clusters) {
                 /* For each of the clusters for the current snarl,
                  * find if it belongs to the new combined cluster*/ 
 
                 pair<int64_t, int64_t> snarl_dists = move(cluster_dists[j]);
+
+
+
+                if (loop_dist_start != -1) {
+                    //If there is a loop going out and back into the start of
+                    //the snarl, might combine this cluster with other snarl
+                    //clusters
+
+                    //Find new distance to the right side of the snarl
+                    int64_t new_right = 
+                              snarl_dists.first == -1 || loop_dist_start == -1
+                                        ? -1
+                                        : snarl_dists.first + loop_dist_start 
+                                               + snarl_length - start_length;
+                    snarl_dists.second = min_positive(new_right, 
+                                                      snarl_dists.second);
+                    child_dist_right =min_positive(child_dist_right, new_right);
+#ifdef DEBUG
+cerr << "Updating looping distance to right of snarl cluster" << j << ": " 
+     << new_right << endl;
+#endif
+                    
+                    
+                    if (child_dist_left != -1 && snarl_dists.first != -1 && 
+                        child_dist_left + snarl_dists.first 
+                              + loop_dist_start - start_length - 1 
+                              <= distance_limit) {  
+                        //If this cluster can be combined with another cluster
+                        //from the left
+
+#ifdef DEBUG
+cerr << "  Combining this cluster from the left " << endl;
+#endif
+                        if (snarl_cluster_left == -1) {
+                            snarl_cluster_left = j;
+                        } else {
+                            snarl_cluster_left = union_find_clusters.find_group(
+                                                         snarl_cluster_left);
+                            pair<int64_t, int64_t>& old_dists =
+                                              cluster_dists[snarl_cluster_left];
+                            union_find_clusters.union_groups(snarl_cluster_left, j);
+                            size_t combined_group = 
+                                              union_find_clusters.find_group(j);
+                            if (combined_group != snarl_cluster_left) {
+                                to_erase.push_back(snarl_cluster_left);
+                            }
+                            if (combined_group != j) {
+                                to_erase.push_back(j);
+                            }
+                            snarl_cluster_left = combined_group;
+                            /* TODO: Don't really need this since if the old dists
+                             * were small enough, they would have been combined
+                             * with the chain anyway
+                            cluster_dists[snarl_cluster_left] = make_pair(
+                                 min_positive(old_dists.first, snarl_dists.first),
+                                 min_positive(old_dists.second, snarl_dists.second));
+                            */
+                        }
+                    }
+                }
+
+                if (loop_dist_end != -1) {
+                    //If there is a loop to the right
+                    int64_t new_left = 
+                        snarl_dists.second == -1 || loop_dist_end == -1
+                          ? -1
+                          : snarl_dists.second + loop_dist_end + snarl_length 
+                                         - end_length;
+                    if (snarl_dists.first == -1 || (new_left != -1 &
+                                                   new_left < snarl_dists.first)){
+                        //If this is an improvement, update distances
+                        snarl_dists.first = new_left; 
+                        child_dist_left = min_positive(new_left, child_dist_left);
+                        chain_lim_right = old_right == -1 
+                                         ? child_dist_left-start_length 
+                                         : min(chain_lim_right,
+                                               child_dist_left - start_length);
+                        old_right = min_positive(old_right, child_dist_left);
+                    }
+
+#ifdef DEBUG
+cerr << "Updating looping distance to left of snarl cluster" << j << ": " 
+     << new_left << endl;
+#endif
+
+                    if (child_dist_right != -1 && snarl_dists.second != -1 && 
+                        child_dist_right + snarl_dists.second + loop_dist_end 
+                                         - end_length - 1 <= distance_limit) {  
+                        //If this cluster can be combined with another cluster
+                        //from the right 
+
+#ifdef DEBUG
+cerr << "  Combining this cluster from the right" << endl;
+#endif
+                        if (snarl_cluster_right == -1) {
+                            snarl_cluster_right = j;
+                        } else {
+                            snarl_cluster_right = union_find_clusters.find_group(
+                                                             snarl_cluster_right);
+                            union_find_clusters.union_groups(snarl_cluster_right, j);
+                            pair<int64_t, int64_t>& old_dists =
+                                               cluster_dists[snarl_cluster_right];
+                            size_t combined_group = 
+                                              union_find_clusters.find_group(j);
+                            if (combined_group != j) {
+                                to_erase.push_back(j);
+                            } 
+                            if (combined_group != snarl_cluster_right)  {
+                                to_erase.push_back(snarl_cluster_right);
+                            }
+                            snarl_cluster_right = combined_group;
+                            /*
+                            cluster_dists[snarl_cluster_right] = make_pair(
+                                  min_positive(old_dists.first, dists.first),
+                                  min_positive(old_dists.second, dists.second));
+                            */
+                        }
+                    }
+                }
 
                 if (old_left != -1 && snarl_dists.first != -1 &&
                     snarl_dists.first + snarl_lim_left-1 <= distance_limit) {
