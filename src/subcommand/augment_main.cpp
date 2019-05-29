@@ -289,7 +289,7 @@ int main_augment(int argc, char** argv) {
         cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;
         return 1;
     }
-    if (gam_in_file_name == "-" && !include_paths && !label_paths) {
+    if (gam_in_file_name == "-" && !include_paths && !label_paths && augmentation_mode == "direct") {
         cerr << "[vg augment] error: cannot stream input gam when not using -i option (as it requires 2 passes)" << endl;
         return 1;
     }
