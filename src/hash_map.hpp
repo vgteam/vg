@@ -7,6 +7,14 @@
 
 #include "wang_hash.hpp"
 
+// Use self-proclaimed fasteset hash table evah
+// https://github.com/skarupke/flat_hash_map
+#define USE_FLAT_HASH
+
+#ifdef USE_FLAT_HASH
+#include "flat_hash_map/unordered_map.hpp"
+#else
+
 // Comment out to use sparse_hash_map and sparse_hash_set instead of
 // dense_hash_map and dense_hash_set.
 //#define USE_DENSE_HASH
@@ -17,7 +25,7 @@
 #else
 #include <sparsepp/spp.h>
 #endif
-
+#endif
 
 // http://stackoverflow.com/questions/4870437/pairint-int-pair-as-key-of-unordered-map-issue#comment5439557_4870467
 // https://github.com/Revolutionary-Games/Thrive/blob/fd8ab943dd4ced59a8e7d1e4a7b725468b7c2557/src/util/pair_hash.h
@@ -124,6 +132,23 @@ struct wang_hash<std::pair<A, B>> {
 };
 
 
+#ifdef USE_FLAT_HASH
+// Replace all maps and sets with structures from flat_hash_map
+template<typename K, typename V>
+using hash_map = ska::unordered_map<K, V>;
+template<typename K, typename V>
+using pair_hash_map = ska::unordered_map<K, V>;
+template<typename K, typename V>
+using string_hash_map = ska::unordered_map<K, V>;
+template<typename K>
+using hash_set = ska::unordered_set<K>;
+template<typename K>
+using pair_hash_set = ska::unordered_set<K>;
+template<typename K>
+using string_hash_set = ska::unordered_set<K>;
+
+#else
+
 // Replacements for std::unordered_map.
 
 template<typename K, typename V>
@@ -185,7 +210,6 @@ public:
     }
 #endif
 };
-
 
 // Replacements for std::unordered_set.
 
@@ -249,7 +273,9 @@ public:
 #endif
 };
 
+#endif
 
 }   // namespace vg
 
 #endif
+

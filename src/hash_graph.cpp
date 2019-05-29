@@ -277,7 +277,7 @@ namespace vg {
     
     void HashGraph::optimize(bool allow_id_reassignment) {
         /// tighten up the memory allocated to the vectors in the data structure
-        for (pair<const id_t, node_t>& node_record : graph) {
+        for (pair<id_t, node_t>& node_record : graph) {
             node_record.second.sequence.shrink_to_fit();
             node_record.second.left_edges.shrink_to_fit();
             node_record.second.right_edges.shrink_to_fit();
@@ -285,9 +285,11 @@ namespace vg {
         }
         // reassign hash tables to the midpoint of their max and min load factors
         // TODO: is this a good way to choose load factor?
+#ifndef FLAT_HASH_MAP
         graph.rehash(graph.size() * 0.5 * (graph.min_load_factor() + graph.max_load_factor()));
         path_id.rehash(path_id.size() * 0.5 * (path_id.min_load_factor() + path_id.max_load_factor()));
         paths.rehash(paths.size() * 0.5 * (paths.min_load_factor() + paths.max_load_factor()));
+#endif
     }
     
     void HashGraph::apply_ordering(const vector<handle_t>& order, bool compact_ids) {
@@ -955,7 +957,7 @@ namespace vg {
         
         // we need to rebuild the occurrences of node mapping, which is not
         // part of the serialized format
-        for (pair<const int64_t, path_t>& path_record : paths) {
+        for (pair<int64_t, path_t>& path_record : paths) {
             path_t& path = path_record.second;
             bool first_iter = true;
             for (path_mapping_t* mapping = path.head;

@@ -2855,12 +2855,12 @@ void VG::clear_indexes_no_resize(void) {
 }
 
 void VG::resize_indexes(void) {
-    node_index.resize(graph.node_size());
-    node_by_id.resize(graph.node_size());
-    edge_by_sides.resize(graph.edge_size());
-    edge_index.resize(graph.edge_size());
-    edges_on_start.resize(graph.node_size());
-    edges_on_end.resize(graph.node_size());
+    node_index.reserve(graph.node_size());
+    node_by_id.reserve(graph.node_size());
+    edge_by_sides.reserve(graph.edge_size());
+    edge_index.reserve(graph.edge_size());
+    edges_on_start.reserve(graph.node_size());
+    edges_on_end.reserve(graph.node_size());
 }
 
 void VG::rebuild_indexes(void) {
@@ -4437,7 +4437,7 @@ Node* VG::get_node(id_t id) {
 
 // TODO: Is there an elegant way to have const and non-const versions of this?
 const Node* VG::get_node(id_t id) const {
-    hash_map<id_t, Node*>::iterator n = node_by_id.find(id);
+    hash_map<id_t, Node*>::const_iterator n = node_by_id.find(id);
     if (n != node_by_id.end()) {
         return n->second;
     } else {
@@ -5472,7 +5472,7 @@ bool VG::is_valid(bool check_nodes,
             }
         }
 
-        for (pair<const id_t, vector<pair<id_t, bool>>>& start_and_edges : edges_on_start) {
+        for (pair<id_t, vector<pair<id_t, bool>>>& start_and_edges : edges_on_start) {
             for (auto& edge_destination : start_and_edges.second) {
                 // We're on the start, so we go to the end if we aren't a reversing edge
                 Edge* e = get_edge(NodeSide::pair_from_start_edge(start_and_edges.first, edge_destination));
@@ -5515,7 +5515,7 @@ bool VG::is_valid(bool check_nodes,
             }
         }
 
-        for (pair<const id_t, vector<pair<id_t, bool>>>& end_and_edges : edges_on_end) {
+        for (pair<id_t, vector<pair<id_t, bool>>>& end_and_edges : edges_on_end) {
             for (auto& edge_destination : end_and_edges.second) {
                 Edge* e = get_edge(NodeSide::pair_from_end_edge(end_and_edges.first, edge_destination));
                 if (!e) {

@@ -29,7 +29,7 @@ include $(wildcard $(UNITTEST_OBJ_DIR)/*.d)
 # We don't ask for -fopenmp here because how we get it can depend on the compiler
 CXXFLAGS := -O3 -Werror=return-type -std=c++14 -ggdb -g -MMD -MP -msse4.2 $(CXXFLAGS)
 
-LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson)
+LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(SUBCOMMAND_SRC_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib $(shell pkg-config --cflags cairo jansson) -I$(INC_DIR)/flat_hash_map
 
 # Define libraries to link against. Make sure to always link statically against
 # htslib and libdeflate and Protobuf so that we can use position-dependent code
@@ -51,7 +51,7 @@ ifeq ($(shell uname -s),Darwin)
         # Use /usr/local/lib if present.
         LD_LIB_FLAGS += -L/usr/local/lib
     endif
-    
+
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/include as system-level (to avoid overriding our Protobuf) if present.
         # One might expect this to already be there but see https://github.com/vgteam/vg/issues/2133
@@ -82,7 +82,7 @@ ifeq ($(shell uname -s),Darwin)
     else
         CXXFLAGS += -fopenmp
     endif
-	
+
     # Note shared libraries are dylibs
     SHARED_SUFFIX = dylib
 
@@ -99,7 +99,7 @@ else
 
     # We get OpenMP the normal way, using whatever the compiler knows about
     CXXFLAGS += -fopenmp
-	
+
     # Note shared libraries are so files
     SHARED_SUFFIX = so
 endif
@@ -182,6 +182,7 @@ VOWPALWABBIT_DIR:=deps/vowpal_wabbit
 LIBDEFLATE_DIR:=deps/libdeflate
 LIBVGIO_DIR:=deps/libvgio
 LIBHANDLEGRAPH_DIR:=deps/libhandlegraph
+FLAT_HASH_MAP_DIR:=deps/flat_hash_map
 
 # Dependencies that go into libvg's archive
 # These go in libvg but come from dependencies
@@ -243,6 +244,7 @@ DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
+DEPS += $(INC_DIR)/flat_hash_map/unordered_map.hpp
 
 ifneq ($(shell uname -s),Darwin)
     DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -369,10 +371,10 @@ ifeq ($(shell uname -s),Darwin)
 	+mv $(LIB_DIR)/libdeflate.so $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
 	+install_name_tool -id $(CWD)/$(LIB_DIR)/libdeflate.$(SHARED_SUFFIX) $(LIB_DIR)/libdeflate.$(SHARED_SUFFIX)
 endif
-	
+
 $(LIB_DIR)/libdeflate.a: $(LIBDEFLATE_DIR)/*.h $(LIBDEFLATE_DIR)/lib/*.h $(LIBDEFLATE_DIR)/lib/*/*.h $(LIBDEFLATE_DIR)/lib/*.c $(LIBDEFLATE_DIR)/lib/*/*.c
 	+cd $(LIBDEFLATE_DIR) && $(MAKE) $(FILTER) && cp libdeflate.a $(CWD)/$(LIB_DIR) && cp libdeflate.h $(CWD)/$(INC_DIR)
-	
+
 # We build htslib after libdeflate so it can use libdeflate
 # We have to do a full build in order to install, to get the pkg-config file so libvgio can link against it.
 # We also have to have the shared libdeflate or we will get complaints that the static one is not position independent.
@@ -385,7 +387,7 @@ $(LIB_DIR)/libhts%a $(LIB_DIR)/pkgconfig/htslib%pc: $(LIB_DIR)/libdeflate.a $(LI
 # We tell the vcflib build to use our own htslib
 $(LIB_DIR)/libvcflib.a: $(LIB_DIR)/libhts.a $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.hpp $(VCFLIB_DIR)/intervaltree/*.cpp $(VCFLIB_DIR)/intervaltree/*.h $(VCFLIB_DIR)/tabixpp/*.cpp $(VCFLIB_DIR)/tabixpp/*.hpp
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) -lhts -lpthread -lm -lbz2 -llzma -lz -ldeflate" $(MAKE) libvcflib.a $(FILTER) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp intervaltree/*.h $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
-    
+
 $(VCFLIB_DIR)/bin/vcf2tsv: $(VCFLIB_DIR)/src/*.cpp $(VCFLIB_DIR)/src/*.h $(LIB_DIR)/libvcflib.a
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && HTS_LIB="$(CWD)/$(LIB_DIR)/libhts.a" HTS_INCLUDES="-I$(CWD)/$(INC_DIR)" HTS_LDFLAGS="-L$(CWD)/$(LIB_DIR) -lhts -lpthread -lm -lbz2 -llzma -lz -ldeflate" $(MAKE) vcf2tsv $(FILTER)
 
@@ -429,7 +431,7 @@ $(LIB_DIR)/libraptor2.a: $(RAPTOR_DIR)/src/*.c $(RAPTOR_DIR)/src/*.h
 
 $(LIB_DIR)/libstructures.a: $(STRUCTURES_DIR)/src/include/structures/*.hpp $(STRUCTURES_DIR)/src/*.cpp $(STRUCTURES_DIR)/Makefile 
 	+. ./source_me.sh && cd $(STRUCTURES_DIR) && $(MAKE) clean && $(MAKE) lib/libstructures.a $(FILTER) && cp lib/libstructures.a $(CWD)/$(LIB_DIR)/ && cp -r src/include/structures $(CWD)/$(INC_DIR)/
-    
+
 # To build libvw we need to point it at our Boost, but then configure decides
 # it needs to build vwdll, which depends on codecvt, which isn't actually
 # shipped in the GCC 4.9 STL. So we hack vwdll AKA libvw_c_wrapper out of the
@@ -460,9 +462,12 @@ $(INC_DIR)/sha1.hpp: $(SHA1_DIR)/sha1.hpp
 
 $(INC_DIR)/backward.hpp: $(BACKWARD_CPP_DIR)/backward.hpp
 	+cp $(BACKWARD_CPP_DIR)/backward.hpp $(CWD)/$(INC_DIR)/
-	
+
 $(INC_DIR)/dozeu/dozeu.h: $(DOZEU_DIR)/*.h
 	+mkdir -p $(CWD)/$(INC_DIR)/dozeu && cp $(DOZEU_DIR)/*.h $(CWD)/$(INC_DIR)/dozeu/
+
+$(INC_DIR)/flat_hash_map/unordered_map.hpp: $(FLAT_HASH_MAP_DIR)/*.hpp
+	+mkdir -p $(CWD)/$(INC_DIR)/flat_hash_map && cp $(FLAT_HASH_MAP_DIR)/*.hpp $(CWD)/$(INC_DIR)/flat_hash_map/
 
 $(LIB_DIR)/libebl.a: $(LIB_DIR)/libelf.a
 
@@ -514,7 +519,7 @@ endif
 	@echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags 2>/dev/null || echo git-error)\"" > $(INC_DIR)/vg_git_version.hpp.tmp
 	@diff $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp >/dev/null || cp $(INC_DIR)/vg_git_version.hpp.tmp $(INC_DIR)/vg_git_version.hpp
 	@rm -f $(INC_DIR)/vg_git_version.hpp.tmp
-	
+
 # Make sure the version file exists, if we weren't given one in our tarball
 .no-git:
 	@if [ ! -e $(INC_DIR)/vg_git_version.hpp ]; then \
@@ -522,7 +527,7 @@ endif
 	fi;
  
 $(INC_DIR)/vg_git_version.hpp: $(GIT_VERSION_FILE_DEPS)
-	
+
 # Build an environment version file with this phony target.
 # If it's not the same as the old one, replace the old one.
 # If it is the same, do nothing and don't rebuild dependent targets.

@@ -102,8 +102,8 @@ public:
     void clear();
 
     // XXXX these should be hash_map but it won't compile unless they're explicitly defined
-    typedef spp::sparse_hash_map<int64_t, NodePileup*, wang_hash<int64_t> > NodePileupHash;
-    typedef spp::sparse_hash_map<pair<NodeSide, NodeSide>, EdgePileup*, wang_hash<pair<NodeSide, NodeSide> > > EdgePileupHash;
+    typedef vg::hash_map<int64_t, NodePileup* > NodePileupHash;
+    typedef vg::hash_map<pair<NodeSide, NodeSide>, EdgePileup*> EdgePileupHash;
 
     VG* _graph;
     
