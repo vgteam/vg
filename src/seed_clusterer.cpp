@@ -73,7 +73,7 @@ cerr << endl << "New cluster calculation:" << endl;
             //snarl is a tuple of the rank of the snarl in the chain,
             //the index of the snarl in dist_index.snarl_indexes, and the
             //snarl's orientation in the chain
-            hash_map<size_t, vector<tuple<size_t, size_t, bool>>> chain_to_snarls; 
+            hash_map<size_t, vector<size_t>> chain_to_snarls; 
 
             for (auto& kv : curr_snarl_children){
                 //Go through each of the snarls at this level, cluster them,
@@ -98,11 +98,8 @@ cerr << endl << "New cluster calculation:" << endl;
 
                     size_t chain_assignment = dist_index.chain_assignments[
                            snarl_index.parent_id-dist_index.min_node_id]-1;
-                    size_t rank = dist_index.chain_ranks[
-                       snarl_index.id_in_parent-dist_index.min_node_id]-1;
 
-                    chain_to_snarls[chain_assignment].push_back( 
-                          make_tuple(rank, snarl_i, snarl_index.rev_in_parent));
+                    chain_to_snarls[chain_assignment].push_back( snarl_i);
                           
 #ifdef debug
                     cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
@@ -151,7 +148,7 @@ cerr << endl << "New cluster calculation:" << endl;
 #ifdef DEBUG
                 cerr << "At depth " << depth << " chain number " << chain_i << " with children " << endl;
                 for (auto it2 : kv.second) {
-                    cerr << "\t snarl number " << get<1>(it2) << endl;
+                    cerr << "\t snarl number " << it2 << endl;
                 }
 #endif
 
@@ -409,7 +406,7 @@ cerr << endl << "New cluster calculation:" << endl;
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters,
                        vector<pair<int64_t, int64_t>>& cluster_dists,
-                       vector<  tuple<size_t, size_t, bool>>& snarls_in_chain,
+                       vector< size_t>& snarls_in_chain,
                        hash_map<size_t, 
                                 vector<pair<child_node_t, child_cluster_t>>>& 
                                                             curr_snarl_children,
@@ -424,7 +421,9 @@ cerr << endl << "New cluster calculation:" << endl;
         //Sort vector of snarls by rank
         std::sort(snarls_in_chain.begin(), snarls_in_chain.end(), 
                      [&](const auto s, const auto t) -> bool {
-                          return std::get<0>(s) < std::get<0>(t); 
+                         size_t rank1 = dist_index.chain_ranks[dist_index.snarl_indexes[s].id_in_parent-dist_index.min_node_id]-1;
+                         size_t rank2 = dist_index.chain_ranks[dist_index.snarl_indexes[t].id_in_parent-dist_index.min_node_id]-1;
+                          return  rank1 < rank2; 
                       } );
   
         MinimumDistanceIndex::ChainIndex& chain_index = dist_index.chain_indexes[
@@ -444,15 +443,12 @@ cerr << endl << "New cluster calculation:" << endl;
         id_t end_node;
         size_t prev_snarl_i = std::numeric_limits<size_t>::max();
 
-        for (auto x : snarls_in_chain) {
+        for (size_t curr_snarl_i : snarls_in_chain) {
             /* For each child snarl in the chain, find the clusters of just the
              * snarl, and progressively build up clusters spanning up to that 
              * snarl
              * Snarls are in the order that they are traversed in the chain
              */
-            bool rev_in_chain = std::get<2>(x);
-            //TODO: Don't need rev here, could just get it from the snarl index
-            size_t curr_snarl_i = std::get<1>(x);
 
             //Skip duplicated snarls
             if (curr_snarl_i == prev_snarl_i) {
@@ -463,10 +459,12 @@ cerr << endl << "New cluster calculation:" << endl;
 
             MinimumDistanceIndex::SnarlIndex& snarl_index = 
                                          dist_index.snarl_indexes[curr_snarl_i];
+            bool rev_in_chain = snarl_index.rev_in_parent;
 
             //rank of the boundary node of the snarl that occurs first in
             //the chain
-            size_t start_rank = std::get<0>(x);
+            size_t start_rank =  dist_index.chain_ranks[
+                                snarl_index.id_in_parent-dist_index.min_node_id]-1;
 
             //Get the lengths of the start and end nodes of the snarl, relative
             //to the order of the chain
@@ -489,7 +487,6 @@ cerr << endl << "New cluster calculation:" << endl;
                 /* If the chain clusters don't reach this snarl,
                  * extend their dist_right to the beginning of this snarl
                  */
-                //TODO: I think offset will always be positive
                 int64_t offset = chain_index.chainDistance(
                          make_pair(last_rank, false), 
                          make_pair(start_rank, false), last_len, start_length);
@@ -527,7 +524,6 @@ cerr << endl << "New cluster calculation:" << endl;
 
              
             //Combine snarl clusters that can be reached by looping
-            //TODO: Make the secondary snarl rank indicate whether it is reversed or not
             int64_t loop_dist_end = chain_index.loop_fd[start_rank + 1] - 1 ;
             int64_t loop_dist_start = chain_index.loop_rev[start_rank] - 1; 
 

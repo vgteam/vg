@@ -7,7 +7,6 @@ using namespace std;
 namespace vg {
 
 //TODO: Compress things
-//TODO: Offset assignment/rank vectors by one to stop using inf
 /*TODO: Remove old distance index from vg index 
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
@@ -76,6 +75,13 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
            }
        }
     }
+
+    util::bit_compress(primary_snarl_assignments);
+    util::bit_compress(primary_snarl_ranks);
+    util::bit_compress(secondary_snarl_assignments);
+    util::bit_compress(secondary_snarl_ranks);
+    util::bit_compress(chain_assignments);
+    util::bit_compress(chain_ranks);
     #ifdef debugIndex
     //Every node should be assigned to a snarl
     auto check_assignments = [&](const handle_t& h)-> bool {
@@ -1025,6 +1031,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
             }           
           
         }
+        util::bit_compress(cd.prefix_sum);
+        util::bit_compress(cd.loop_fd);
+        util::bit_compress(cd.loop_rev);
     }
  
     //return length of entire chain
@@ -1180,6 +1189,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
                                      distToCommonAncestor(ancestor, pos2, true);
 
     pair<id_t, bool> parent = common_ancestor;
+    bool lowest_ancestor = true;
     while (parent.first != 0) {
         //snarl_tree_nodes 1 and 2 are children of parent snarl or chain 
         if (parent.second) {
@@ -1205,21 +1215,34 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
                                             snarl_index1.num_nodes * 2 - 1 : 0);
             int64_t end_len1 = snarl_index1.nodeLength(snarl_index1.rev_in_parent ?
                                             0 : snarl_index1.num_nodes * 2 - 1);
-            
-            SnarlIndex& snarl_index2 = snarl_indexes[primary_snarl_assignments[
-                               snarl_tree_node2.first - min_node_id]-1];
-            size_t start_rank2 = chain_ranks[
+            size_t start_rank2, end_rank2;
+            int64_t start_len2, end_len2;
+
+            if (lowest_ancestor) {
+                //If this is the lowest common ancestor, then there are two
+                //separate nodes that need to be found
+               
+               SnarlIndex& snarl_index2 = snarl_indexes[primary_snarl_assignments[
+                                  snarl_tree_node2.first - min_node_id]-1];
+               start_rank2 = chain_ranks[
                                        snarl_index2.id_in_parent-min_node_id]-1;
-            size_t end_rank2 = start_rank2+1; 
-            if (snarl_index2.rev_in_parent) {
-                int64_t temp = distL2;
-                distL2 = distR2;
-                distR2 = temp;
-            }
-            int64_t start_len2 = snarl_index2.nodeLength(snarl_index2.rev_in_parent ?
+               end_rank2 = start_rank2+1; 
+               if (snarl_index2.rev_in_parent) {
+                   int64_t temp = distL2;
+                   distL2 = distR2;
+                   distR2 = temp;
+               }
+               start_len2 = snarl_index2.nodeLength(snarl_index2.rev_in_parent ?
                                             snarl_index2.num_nodes * 2 - 1 : 0);
-            int64_t end_len2 = snarl_index2.nodeLength(snarl_index2.rev_in_parent ?
-                                            0 : snarl_index2.num_nodes * 2 - 1);
+               end_len2 = snarl_index2.nodeLength(snarl_index2.rev_in_parent ?
+                                               0 : snarl_index2.num_nodes * 2 - 1);
+            } else {
+                //Otherwise just copy the first one
+                start_rank2 = start_rank1;
+                end_rank2 = end_rank1;
+                start_len2 = start_len1;
+                end_len2 = end_len1;
+            }
 
             //Distance from left of s1 (reverse), left of s2 (forward)
             int64_t d1 = chain_index.chainDistance(
@@ -1295,42 +1318,44 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
                               make_pair(start_rank1, false),
                                           chain_end_len, start_len1);
 
-            dsl = dsl == -1 || distL1 == -1? -1 : distL1 + dsl; 
-            dsr =  dsr == -1 || distR1 == -1? -1 : distR1 + dsr; 
-            der = der == -1 || distR1 == -1? -1 : distR1 + der; 
-            del = del == -1 || distL1 == -1? -1 : distL1 + del; 
+            int64_t dsl1 = dsl == -1 || distL1 == -1? -1 : distL1 + dsl; 
+            int64_t dsr1 =  dsr == -1 || distR1 == -1? -1 : distR1 + dsr; 
+            int64_t der1 = der == -1 || distR1 == -1? -1 : distR1 + der; 
+            int64_t del1 = del == -1 || distL1 == -1? -1 : distL1 + del; 
  
-            distL1 = minPos({dsr, dsl});
-            distR1 = minPos({der, del}); 
+            distL1 = minPos({dsr1, dsl1});
+            distR1 = minPos({der1, del1}); 
 
-//TODO: This is redundant if the nodes are the same
+            if (lowest_ancestor) {
+                //If the two snarl tree nodes are different, need to find 
+                //distances to ends for the second one
 
-            dsl = chain_index.chainDistance(make_pair(0, false), 
-                             make_pair(start_rank2, false),
-                              chain_start_len, start_len2);
-            dsr = chain_index.chainDistance(make_pair(0, false),
-                              make_pair(end_rank2, true),
-                                chain_start_len, end_len2);
-            der = chain_index.chainDistance(make_pair(chain_end_rank, true), 
-                             make_pair(end_rank2, true),
-                             chain_end_len, end_len2);
-            del = chain_index.chainDistance(make_pair(chain_end_rank, true),
-                            make_pair(start_rank2, false),
-                            chain_end_len, start_len2);
+                dsl = chain_index.chainDistance(make_pair(0, false), 
+                                 make_pair(start_rank2, false),
+                                  chain_start_len, start_len2);
+                dsr = chain_index.chainDistance(make_pair(0, false),
+                                  make_pair(end_rank2, true),
+                                    chain_start_len, end_len2);
+                der = chain_index.chainDistance(make_pair(chain_end_rank, true), 
+                                 make_pair(end_rank2, true),
+                                 chain_end_len, end_len2);
+                del = chain_index.chainDistance(make_pair(chain_end_rank, true),
+                                make_pair(start_rank2, false),
+                                chain_end_len, start_len2);
 
-            dsl = dsl == -1 || distL2 == -1? -1 : distL2 + dsl; 
-            dsr = dsr == -1 || distR2 == -1? -1 : distR2 + dsr; 
-            der = der == -1 || distR2 == -1? -1 : distR2 + der; 
-            del = del == -1 || distL2 == -1? -1 : distL2 + del; 
+            }
 
-            distL2 = minPos({dsr, dsl});
-            distR2 = minPos({der, del});
+            int64_t dsl2 = dsl == -1 || distL2 == -1? -1 : distL2 + dsl; 
+            int64_t dsr2 = dsr == -1 || distR2 == -1? -1 : distR2 + dsr; 
+            int64_t der2 = der == -1 || distR2 == -1? -1 : distR2 + der; 
+            int64_t del2 = del == -1 || distL2 == -1? -1 : distL2 + del; 
 
+            distL2 = minPos({dsr2, dsl2});
+            distR2 = minPos({der2, del2});
 
             snarl_tree_node1 = make_pair(chain_index.id_in_parent,
                                          chain_index.rev_in_parent);
-            snarl_tree_node2 = make_pair(chain_index.id_in_parent,
-                                          chain_index.rev_in_parent);
+
 
 #        ifdef debugDistance
             cerr << "At ancestor chain " << chain_indexes[chain_assignments[
@@ -1366,17 +1391,23 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
                 rev_rank1 = rank1 % 2 == 0 ? rank1 + 1 : rank1 - 1;
             }
 
-            size_t rank2 = primary_snarl_assignments[snarl_tree_node2.first 
-                                         - min_node_id]-1 == parent_snarl_index
-                 ? primary_snarl_ranks[snarl_tree_node2.first - min_node_id]-1: 
-                  secondary_snarl_ranks[snarl_tree_node2.first - min_node_id]-1;
             size_t rev_rank2 ;
-            if (snarl_tree_node2.second) {
-                //If this node is reversed
-                rev_rank2 = rank2;
-                rank2 = rev_rank2 % 2 == 0 ?  rev_rank2 + 1 : rev_rank2 - 1;
+            size_t rank2;
+            if (lowest_ancestor) {
+                rank2 = primary_snarl_assignments[snarl_tree_node2.first 
+                                         - min_node_id]-1 == parent_snarl_index
+                     ? primary_snarl_ranks[snarl_tree_node2.first - min_node_id]-1: 
+                      secondary_snarl_ranks[snarl_tree_node2.first - min_node_id]-1;
+                if (snarl_tree_node2.second) {
+                    //If this node is reversed
+                    rev_rank2 = rank2;
+                    rank2 = rev_rank2 % 2 == 0 ?  rev_rank2 + 1 : rev_rank2 - 1;
+                } else {
+                    rev_rank2 = rank2 % 2 == 0 ?  rank2 + 1 : rank2 - 1;
+                }
             } else {
-                rev_rank2 = rank2 % 2 == 0 ?  rank2 + 1 : rank2 - 1;
+                rank2 = rank1;
+                rev_rank2 = rev_rank1;
             }
 
 
@@ -1407,8 +1438,6 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
 
             snarl_tree_node1 = make_pair(snarl_index.id_in_parent,
                                          snarl_index.rev_in_parent);
-            snarl_tree_node2 = make_pair(snarl_index.id_in_parent,
-                                          snarl_index.rev_in_parent);
 
 #        ifdef debugDistance
             cerr << "At ancestor snarl " << snarl_indexes[primary_snarl_assignments[
@@ -1424,6 +1453,7 @@ int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
             parent = make_pair(snarl_index.parent_id, snarl_index.in_chain);
 
         }
+        lowest_ancestor = false;
     }
 
     shortest_distance = shortest_distance == -1 ? -1 : shortest_distance - 1;
@@ -1737,7 +1767,6 @@ int64_t MinimumDistanceIndex::SnarlIndex::snarlLength() {
         return -1;
     } else {
         if (num_nodes == 1) {
-            //TODO: 
             return distances[0]-1;
         } else {
             int64_t node_len = nodeLength(num_nodes * 2 - 1) + nodeLength(0);

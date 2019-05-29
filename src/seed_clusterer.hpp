@@ -72,14 +72,15 @@ class SnarlSeedClusterer {
                              int64_t node_length); 
 
         //Cluster the seeds in a chain
-        //snarls_in_chain is an unordered vector of snarls and their ranks
+        //snarls_in_chain is an unordered vector of snarls where the snarl
+        //  is represented as its index into dist_index.snarl_indexes
         //curr_snarl_children maps each snarl to a vector of its children and 
         //clusters on the children
         child_cluster_t get_clusters_chain(
                              const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
-                             vector<tuple<size_t, size_t, bool>>& snarls_in_chain,
+                             vector<size_t>& snarls_in_chain,
                              hash_map<size_t, 
                                   vector<pair<child_node_t, child_cluster_t>>>&
                                                         curr_snarl_children,
