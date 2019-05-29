@@ -525,6 +525,9 @@ int main_index(int argc, char** argv) {
         build_xg = false;
         // We'll continue in the build_gcsa section
     }
+    if (build_min || build_dist) {
+        build_xg = false;
+    }
 
     // Build XG
     xg::XG* xg_index = new xg::XG();

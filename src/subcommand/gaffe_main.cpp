@@ -23,7 +23,7 @@
 #include "../gapless_extender.hpp"
 #include "../minimizer_mapper.hpp"
 
-//#define USE_CALLGRIND
+#define USE_CALLGRIND
 
 #ifdef USE_CALLGRIND
 #include <valgrind/callgrind.h>
@@ -329,14 +329,17 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
     }
-    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
+    MinimumDistanceIndex distance_index;
+    ifstream dist_in (distance_name);
+    distance_index.load(dist_in);
+    //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
 
     // Set up the mapper
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), snarl_manager.get(), distance_index.get());
+    MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), snarl_manager.get(), &distance_index);
 
 
     if (progress) {
