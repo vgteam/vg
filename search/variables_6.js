@@ -47,7 +47,6 @@ var searchData=
   ['fragment_5fscore',['fragment_score',['../structvg_1_1Alignment.html#a2a105371920e65f6764f8b723ae6648d',1,'vg::Alignment']]],
   ['fragment_5fsigma',['fragment_sigma',['../classvg_1_1FragmentLengthStatistics.html#aef6f205fdda8e179ef3355218c9c32c1',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5fsize',['fragment_size',['../classvg_1_1FragmentLengthStatistics.html#ad703c2e5fc7b03154ec6861a2be1e98b',1,'vg::FragmentLengthStatistics']]],
-  ['frequent',['frequent',['../structvg_1_1MinimizerIndex_1_1Header.html#a8f5bac4fc4675123efc5906d3d6ecd42',1,'vg::MinimizerIndex::Header']]],
   ['from',['from',['../structvg_1_1Edge.html#a3dfaeceda2846f9b2562d5e6acafd468',1,'vg::Edge::from()'],['../structvg_1_1Translation.html#af19bb0bf7b6d241f3e61f27b83199a1f',1,'vg::Translation::from()']]],
   ['from_5flength',['from_length',['../structvg_1_1Edit.html#ae9694807752cc5cd06519f498cfba06c',1,'vg::Edit']]],
   ['from_5fnode_5fid',['from_node_id',['../classvg_1_1BandedGlobalAligner_1_1AltTracebackStack_1_1Deflection.html#a2084bf098f9ffe829a0de4ca12ae0f3e',1,'vg::BandedGlobalAligner::AltTracebackStack::Deflection']]],

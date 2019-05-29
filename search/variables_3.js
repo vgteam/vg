@@ -8,7 +8,7 @@ var searchData=
   ['cached_5fgenotypes',['cached_genotypes',['../classvg_1_1WindowedVcfBuffer.html#a3ad6b744291240805d0a810a9399c1fc',1,'vg::WindowedVcfBuffer']]],
   ['call_5fother_5fby_5fcoverage',['call_other_by_coverage',['../classvg_1_1SupportCaller.html#a92c63051b322bb03bb9de210c6b63ee7',1,'vg::SupportCaller']]],
   ['cap',['cap',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a8590726a22d24450c181a3b8cdc9aef0',1,'vg::DistanceIndex::MaxDistanceIndex']]],
-  ['capacity',['capacity',['../structvg_1_1MinimizerIndex_1_1Header.html#a569f3338919b1a5d34a3545da1d54a3d',1,'vg::MinimizerIndex::Header']]],
+  ['capacity',['capacity',['../structvg_1_1MinimizerIndex_1_1Header.html#ad6b3a4cd21dbac161a452e7733faa894',1,'vg::MinimizerIndex::Header']]],
   ['category',['category',['../classvg_1_1subcommand_1_1Subcommand.html#a6042accceefeb06bb5c072932f4b7ac7',1,'vg::subcommand::Subcommand']]],
   ['chain_5fdeletions',['chain_deletions',['../classvg_1_1Constructor.html#a57a532cd2bab1d857bee058633ffa525',1,'vg::Constructor']]],
   ['chain_5fend',['chain_end',['../structvg_1_1ChainIterator.html#a84b0d882b4586bd543ec841c6b3dfdc9',1,'vg::ChainIterator']]],

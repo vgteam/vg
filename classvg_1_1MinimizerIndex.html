@@ -129,9 +129,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:af9b127e0789e5b748b2f4e942cbbb7a7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#af9b127e0789e5b748b2f4e942cbbb7a7">MinimizerIndex</a> ()</td></tr>
 <tr class="memdesc:af9b127e0789e5b748b2f4e942cbbb7a7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constructs an index with the default parameters.  <a href="#af9b127e0789e5b748b2f4e942cbbb7a7">More...</a><br/></td></tr>
 <tr class="separator:af9b127e0789e5b748b2f4e942cbbb7a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a90d7542a60162363c4174cf8e489d3d4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a90d7542a60162363c4174cf8e489d3d4">MinimizerIndex</a> (size_t kmer_length, size_t window_length, size_t max_occs_per_key=<a class="el" href="classvg_1_1MinimizerIndex.html#a225d5b533d49f225c3a9067a0d1b096c">MAX_OCCS</a>)</td></tr>
-<tr class="memdesc:a90d7542a60162363c4174cf8e489d3d4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constructs an index with the specified parameter values.  <a href="#a90d7542a60162363c4174cf8e489d3d4">More...</a><br/></td></tr>
-<tr class="separator:a90d7542a60162363c4174cf8e489d3d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae904b9d5c90cdb0366e13bad66e5cf93"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#ae904b9d5c90cdb0366e13bad66e5cf93">MinimizerIndex</a> (size_t kmer_length, size_t window_length)</td></tr>
+<tr class="memdesc:ae904b9d5c90cdb0366e13bad66e5cf93"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constructs an index with the specified parameter values.  <a href="#ae904b9d5c90cdb0366e13bad66e5cf93">More...</a><br/></td></tr>
+<tr class="separator:ae904b9d5c90cdb0366e13bad66e5cf93"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a740ee39e6553ae099d3c6f7603bd872c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a740ee39e6553ae099d3c6f7603bd872c">MinimizerIndex</a> (const <a class="el" href="classvg_1_1MinimizerIndex.html">MinimizerIndex</a> &amp;source)</td></tr>
 <tr class="memdesc:a740ee39e6553ae099d3c6f7603bd872c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Copy constructor.  <a href="#a740ee39e6553ae099d3c6f7603bd872c">More...</a><br/></td></tr>
 <tr class="separator:a740ee39e6553ae099d3c6f7603bd872c"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -200,9 +200,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a3473d5cadcf2434ec13c626e84cbb259"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a3473d5cadcf2434ec13c626e84cbb259">unique_keys</a> () const </td></tr>
 <tr class="memdesc:a3473d5cadcf2434ec13c626e84cbb259"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of minimizers with a single occurrence.  <a href="#a3473d5cadcf2434ec13c626e84cbb259">More...</a><br/></td></tr>
 <tr class="separator:a3473d5cadcf2434ec13c626e84cbb259"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02bbdd7bfc454e5d74db5adda6f0d4f1"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a02bbdd7bfc454e5d74db5adda6f0d4f1">frequent_keys</a> () const </td></tr>
-<tr class="memdesc:a02bbdd7bfc454e5d74db5adda6f0d4f1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of minimizers with too many occurrences.  <a href="#a02bbdd7bfc454e5d74db5adda6f0d4f1">More...</a><br/></td></tr>
-<tr class="separator:a02bbdd7bfc454e5d74db5adda6f0d4f1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-static-methods"></a>
 Static Public Member Functions</h2></td></tr>
@@ -230,8 +227,6 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:a044a3cf2e5a0bf7ac29e195ee6e97513"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a8a3e099d56a88f49dfd3ac653a698f14"><td class="memItemLeft" align="right" valign="top">static constexpr double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a8a3e099d56a88f49dfd3ac653a698f14">MAX_LOAD_FACTOR</a> = 0.77</td></tr>
 <tr class="separator:a8a3e099d56a88f49dfd3ac653a698f14"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a225d5b533d49f225c3a9067a0d1b096c"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a225d5b533d49f225c3a9067a0d1b096c">MAX_OCCS</a> = std::numeric_limits&lt;size_t&gt;::max()</td></tr>
-<tr class="separator:a225d5b533d49f225c3a9067a0d1b096c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afe025e90d3ce1d70dd2f3b36132f14d1"><td class="memItemLeft" align="right" valign="top">static constexpr <a class="el" href="classvg_1_1MinimizerIndex.html#a3be3d20ad774fa4ba89bc3c1335f0d17">key_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#afe025e90d3ce1d70dd2f3b36132f14d1">NO_KEY</a> = std::numeric_limits&lt;<a class="el" href="classvg_1_1MinimizerIndex.html#a3be3d20ad774fa4ba89bc3c1335f0d17">key_type</a>&gt;::max()</td></tr>
 <tr class="separator:afe025e90d3ce1d70dd2f3b36132f14d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a90fcf1a3ac91a1e4e30ce29f6d29eab6"><td class="memItemLeft" align="right" valign="top">static constexpr <a class="el" href="classvg_1_1MinimizerIndex.html#a551a6600cdb9eb86be5f39e5488e3c8f">code_type</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimizerIndex.html#a90fcf1a3ac91a1e4e30ce29f6d29eab6">NO_VALUE</a> = 0</td></tr>
@@ -286,10 +281,11 @@ Private Attributes</h2></td></tr>
 <tr class="separator:a6fb194d3538dc02b76aa1da6c4ccef23"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>A class that implements the minimizer index as a hash table mapping kmers to sets of pos_t. The hash table uses quadratic probing with power-of-two size. We encode kmers using 2 bits/character and take <a class="el" href="namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3">wang_hash_64()</a> of the encoding. A minimizer is the kmer with the smallest hash in a window of w consecutive kmers and their reverse complements. There is an option to specify an upper bound for the number of occurrences of each minimizer. If the actual number is higher, the occurrences will not be stored.</p>
+<div class="textblock"><p>A class that implements the minimizer index as a hash table mapping kmers to sets of pos_t. The hash table uses quadratic probing with power-of-two size. We encode kmers using 2 bits/character and take <a class="el" href="namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3">wang_hash_64()</a> of the encoding. A minimizer is the kmer with the smallest hash in a window of w consecutive kmers and their reverse complements.</p>
 <p><a class="el" href="classvg_1_1Index.html">Index</a> versions:</p>
 <p>1 The initial version.</p>
-<p>2 Minimizer selection is based on hashes instead of lexicographic order. A sequence and its reverse complement have the same minimizers, reducing index size by 50%. Not compatible with version 1. </p>
+<p>2 Minimizer selection is based on hashes instead of lexicographic order. A sequence and its reverse complement have the same minimizers, reducing index size by 50%. Not compatible with version 1.</p>
+<p>3 Construction-time hit cap is no longer used. Compatible with version 2. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
 <a class="anchor" id="aa29bcf5b604cec909b58f794a194ad66"></a>
 <div class="memitem">
@@ -357,7 +353,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a90d7542a60162363c4174cf8e489d3d4"></a>
+<a class="anchor" id="ae904b9d5c90cdb0366e13bad66e5cf93"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -371,13 +367,7 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>window_length</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>max_occs_per_key</em> = <code><a class="el" href="classvg_1_1MinimizerIndex.html#a225d5b533d49f225c3a9067a0d1b096c">MAX_OCCS</a></code>&#160;</td>
+          <td class="paramname"><em>window_length</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -628,7 +618,7 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns the occurrence count of the minimizer. If the occurrence limit has been exceeded, returns 0. Use <a class="el" href="classvg_1_1MinimizerIndex.html#a7d7841a604899b4ef911e68494606b58">minimizer()</a> or <a class="el" href="classvg_1_1MinimizerIndex.html#a39a26258077c455a778770f07aebc60b">minimizers()</a> to get the minimizer. </p>
+<p>Returns the occurrence count of the minimizer. Use <a class="el" href="classvg_1_1MinimizerIndex.html#a7d7841a604899b4ef911e68494606b58">minimizer()</a> or <a class="el" href="classvg_1_1MinimizerIndex.html#a39a26258077c455a778770f07aebc60b">minimizers()</a> to get the minimizer. </p>
 
 </div>
 </div>
@@ -745,7 +735,7 @@ Private Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Returns the sorted set of occurrences of the minimizer. If the occurrence limit has been exceeded, returns a vector containing an empty position. Use <a class="el" href="classvg_1_1MinimizerIndex.html#a7d7841a604899b4ef911e68494606b58">minimizer()</a> or <a class="el" href="classvg_1_1MinimizerIndex.html#a39a26258077c455a778770f07aebc60b">minimizers()</a> to get the minimizer. If the minimizer is in reverse orientation, use <a class="el" href="namespacevg.html#ae2f3762e2a8a852c7608d71f030e0345" title="Reverse a pos_t and get a pos_t at the same base, going the other direction. ">reverse_base_pos()</a> to reverse the reported occurrences. </p>
+<p>Returns the sorted set of occurrences of the minimizer. Use <a class="el" href="classvg_1_1MinimizerIndex.html#a7d7841a604899b4ef911e68494606b58">minimizer()</a> or <a class="el" href="classvg_1_1MinimizerIndex.html#a39a26258077c455a778770f07aebc60b">minimizers()</a> to get the minimizer. If the minimizer is in reverse orientation, use <a class="el" href="namespacevg.html#ae2f3762e2a8a852c7608d71f030e0345" title="Reverse a pos_t and get a pos_t at the same base, going the other direction. ">reverse_base_pos()</a> to reverse the reported occurrences. </p>
 
 </div>
 </div>
@@ -780,31 +770,6 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a02bbdd7bfc454e5d74db5adda6f0d4f1"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::MinimizerIndex::frequent_keys </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Number of minimizers with too many occurrences. </p>
 
 </div>
 </div>
@@ -1522,26 +1487,6 @@ Private Attributes</h2></td></tr>
       <table class="memname">
         <tr>
           <td class="memname">constexpr double vg::MinimizerIndex::MAX_LOAD_FACTOR = 0.77</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a225d5b533d49f225c3a9067a0d1b096c"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">constexpr size_t vg::MinimizerIndex::MAX_OCCS = std::numeric_limits&lt;size_t&gt;::max()</td>
         </tr>
       </table>
   </td>

@@ -14,7 +14,7 @@ var searchData=
   ['read_5fpaired',['read_paired',['../structvg_1_1Alignment.html#a2bfa3fffb5f4ea6ab3e98a6340ad16bb',1,'vg::Alignment']]],
   ['reader',['reader',['../classvg_1_1WindowedVcfBuffer.html#a064a56b55dbb562f1b52034a54ed3583',1,'vg::WindowedVcfBuffer']]],
   ['reads_5fby_5fname',['reads_by_name',['../classvg_1_1PathRestrictedTraversalFinder.html#ac08d8f72efc63adb1bf169d9ed7c107e',1,'vg::PathRestrictedTraversalFinder']]],
-  ['real_5fnodes',['real_nodes',['../classvg_1_1GBWTGraph.html#acc02e096acbe478a0ff1626da4706b75',1,'vg::GBWTGraph']]],
+  ['real_5fnodes',['real_nodes',['../classvg_1_1GBWTGraph.html#a3191304b77e2fb3a6bc43222b9870e62',1,'vg::GBWTGraph']]],
   ['realign_5findels',['realign_indels',['../classvg_1_1Genotyper.html#a79ac39be882405a426afaeeef65c9660',1,'vg::Genotyper']]],
   ['recall_5fins_5ffasta_5ffilename',['recall_ins_fasta_filename',['../classvg_1_1SupportCaller.html#add419898b3f716efbe495ca75fa14fd4',1,'vg::SupportCaller']]],
   ['recall_5fref_5ffasta_5ffilename',['recall_ref_fasta_filename',['../classvg_1_1SupportCaller.html#aaf461014ec4fe763c6f65dda3523d7bb',1,'vg::SupportCaller']]],

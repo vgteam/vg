@@ -145,7 +145,6 @@ var searchData=
   ['fragment_5fmodel_5fstr',['fragment_model_str',['../classvg_1_1FragmentLengthStatistics.html#acdcb4761860132d14be1bbe2da236a69',1,'vg::FragmentLengthStatistics']]],
   ['fragment_5forientation',['fragment_orientation',['../classvg_1_1FragmentLengthStatistics.html#aa486f0551d5848bfaaa304cc1c93d636',1,'vg::FragmentLengthStatistics']]],
   ['fragmentlengthdistribution',['FragmentLengthDistribution',['../classvg_1_1FragmentLengthDistribution.html#a8788ddb09653e64eb868cbc942df95c6',1,'vg::FragmentLengthDistribution::FragmentLengthDistribution(size_t maximum_sample_size, size_t reestimation_frequency, double robust_estimation_fraction)'],['../classvg_1_1FragmentLengthDistribution.html#a8551fd1f0ad1270145483715f35c7b6b',1,'vg::FragmentLengthDistribution::FragmentLengthDistribution(void)']]],
-  ['frequent_5fkeys',['frequent_keys',['../classvg_1_1MinimizerIndex.html#a02bbdd7bfc454e5d74db5adda6f0d4f1',1,'vg::MinimizerIndex']]],
   ['from_5fbacking',['from_backing',['../classvg_1_1ExtraNodeGraph.html#afdd13768638d0bd8f8091cd640865a97',1,'vg::ExtraNodeGraph::from_backing()'],['../classvg_1_1ReverseGraph.html#a81ddb0da459164e18aaa89c4163b292c',1,'vg::ReverseGraph::from_backing()'],['../classvg_1_1SourceSinkOverlay.html#ae5d76a4c9c7af0dc97e0dc45814c34ea',1,'vg::SourceSinkOverlay::from_backing()']]],
   ['from_5fbig_5fendian',['from_big_endian',['../structvg_1_1endianness.html#a473244129a68f42dcc05119ffe1132c5',1,'vg::endianness']]],
   ['from_5fcallback',['from_callback',['../classxg_1_1XG.html#a5e53bd7c308b8654d688a45a94f5f550',1,'xg::XG']]],

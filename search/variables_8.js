@@ -15,6 +15,7 @@ var searchData=
   ['haplotype_5fcount',['haplotype_count',['../classxg_1_1XG.html#a4783c261b05500728699e98dc8a254f2',1,'xg::XG']]],
   ['haplotype_5fnumber',['haplotype_number',['../classvg_1_1PhasedGenome_1_1iterator.html#a3d0bbf671bf2801e44d23fea4da0e397',1,'vg::PhasedGenome::iterator']]],
   ['haplotypes',['haplotypes',['../classvg_1_1SnarlState.html#a98f04166481311709d9a8d3b05b0245e',1,'vg::SnarlState::haplotypes()'],['../classvg_1_1PhasedGenome.html#aa7b2bebc28cc37da09216fca8361c75c',1,'vg::PhasedGenome::haplotypes()']]],
+  ['hard_5fhit_5fcap',['hard_hit_cap',['../classvg_1_1MinimizerMapper.html#aaf577b72776f431ec4dc5faac505322e',1,'vg::MinimizerMapper']]],
   ['has_5fbuffer',['has_buffer',['../classvg_1_1VcfBuffer.html#a13f0fa2e0b50cd133c117bd1f34715c3',1,'vg::VcfBuffer']]],
   ['has_5fcontent',['has_content',['../structvg_1_1BitStringTree_1_1TreeNode.html#ac222ba76d226ad0f457be10e8c8a8b30',1,'vg::BitStringTree::TreeNode']]],
   ['has_5fcorrect',['has_correct',['../structvg_1_1Funnel_1_1Stage.html#a45fd7a100db1724ffaf357097d0edd2d',1,'vg::Funnel::Stage']]],

@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['k',['k',['../structvg_1_1MinimizerIndex_1_1Header.html#a0d989692b6f8feeff8b563b0aa862ff1',1,'vg::MinimizerIndex::Header::k()'],['../classvg_1_1MinimizerIndex.html#a6e2d5428620ce74ae46bb7068ff1e3c5',1,'vg::MinimizerIndex::k()']]],
+  ['k',['k',['../structvg_1_1MinimizerIndex_1_1Header.html#a75d8ad6175448db54021450b5a94447e',1,'vg::MinimizerIndex::Header::k()'],['../classvg_1_1MinimizerIndex.html#a6e2d5428620ce74ae46bb7068ff1e3c5',1,'vg::MinimizerIndex::k()']]],
   ['keep',['keep',['../structvg_1_1ReadFilter_1_1Counts.html#af0ef5d49dab2bafc5fd225b4dfa62a44',1,'vg::ReadFilter::Counts']]],
   ['keep_5fmultinode_5fstrongly_5fconnected_5fcomponents',['keep_multinode_strongly_connected_components',['../classvg_1_1VG.html#a049393f32addf4071a14de2e874e94ac',1,'vg::VG']]],
   ['keep_5fpath',['keep_path',['../classvg_1_1VG.html#a65cc16f52f478a25e84c6f1fc2805915',1,'vg::VG']]],
@@ -26,7 +26,7 @@ var searchData=
   ['key_5fprefix_5ffor_5ftraversal',['key_prefix_for_traversal',['../classvg_1_1Index.html#adadacac4e1843a9f2515e2380618f11c',1,'vg::Index']]],
   ['key_5ftype',['key_type',['../structvg_1_1mi_1_1CircularBuffer.html#a87e2a92650676b61cff2144e231203d3',1,'vg::mi::CircularBuffer::key_type()'],['../classvg_1_1MinimizerIndex.html#a3be3d20ad774fa4ba89bc3c1335f0d17',1,'vg::MinimizerIndex::key_type()']]],
   ['keynotfoundexception',['keyNotFoundException',['../classvg_1_1keyNotFoundException.html',1,'vg']]],
-  ['keys',['keys',['../structvg_1_1MinimizerIndex_1_1Header.html#a8ba1c5109011f79accbd914ba531bfcb',1,'vg::MinimizerIndex::Header']]],
+  ['keys',['keys',['../structvg_1_1MinimizerIndex_1_1Header.html#adc74a1a716ba0393580d0d0cffebc9cc',1,'vg::MinimizerIndex::Header']]],
   ['kill',['kill',['../classvg_1_1Funnel.html#a5185e210a61afb63253baae3a1e30958',1,'vg::Funnel']]],
   ['kill_5fall',['kill_all',['../classvg_1_1Funnel.html#aa50640d642e54281c8861a2b42e25535',1,'vg::Funnel']]],
   ['kmer',['kmer',['../structvg_1_1KmerPosition.html#a79c4fa6766d55a1fea8fdc00adab02b3',1,'vg::KmerPosition']]],

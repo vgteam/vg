@@ -92,7 +92,6 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pub-static-attribs">Static Public Attributes</a> &#124;
-<a href="#pri-static-methods">Static Private Member Functions</a> &#124;
 <a href="classvg_1_1GaplessExtender-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::GaplessExtender Class Reference</div>  </div>
@@ -135,13 +134,6 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:aaa77a2fc74630664d12527818826e28b"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#aaa77a2fc74630664d12527818826e28b">MAX_MISMATCHES</a> = 4</td></tr>
 <tr class="memdesc:aaa77a2fc74630664d12527818826e28b"><td class="mdescLeft">&#160;</td><td class="mdescRight">The default value for the maximum number of mismatches.  <a href="#aaa77a2fc74630664d12527818826e28b">More...</a><br/></td></tr>
 <tr class="separator:aaa77a2fc74630664d12527818826e28b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-methods"></a>
-Static Private Member Functions</h2></td></tr>
-<tr class="memitem:acc5406ca2347afdc0429e051f43297c3"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#acc5406ca2347afdc0429e051f43297c3">head_offset</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
-<tr class="separator:acc5406ca2347afdc0429e051f43297c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a1524a3bb602ed6997e7fc5d2a51c4563"><td class="memItemLeft" align="right" valign="top">static size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1GaplessExtender.html#a1524a3bb602ed6997e7fc5d2a51c4563">tail_offset</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
-<tr class="separator:a1524a3bb602ed6997e7fc5d2a51c4563"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>A class that supports haplotype-consistent seed extension using <a class="el" href="classvg_1_1GBWTGraph.html">GBWTGraph</a>. Each seed is a pair of matching read/graph positions and each extension is a gapless alignment of an interval of the read to a haplotype. A cluster is a vector of distinct seeds. The cluster may initially be in an arbitrary order, but it will be sorted during the extension. All seeds in a cluster should correspond to the same alignment or positions near it. </p>
@@ -247,7 +239,7 @@ Static Private Member Functions</h2></td></tr>
 <ol type="1">
 <li>Call <a class="el" href="classvg_1_1GaplessExtender.html#ace719b7faefe1fd68a8f97ca7379ff31">extend_seeds()</a>. If there is a full-length alignment, return the result.</li>
 <li>Call <a class="el" href="classvg_1_1GaplessExtender.html#a2af378a5fe5d50eb7908ddb9004872d2">maximal_extensions()</a>.</li>
-<li>Call <a class="el" href="classvg_1_1GaplessExtender.html#ada32e562f7675ae38093a20d93ba1742">extend_flanks()</a> with max_mismatches / 2 mismatches. </li>
+<li>Call <a class="el" href="classvg_1_1GaplessExtender.html#ada32e562f7675ae38093a20d93ba1742">extend_flanks()</a> with max_mismatches / 2 mismatches. The extensions are sorted by (core_interval.first, core_interval.second). </li>
 </ol>
 
 </div>
@@ -324,30 +316,6 @@ Static Private Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="acc5406ca2347afdc0429e051f43297c3"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::GaplessExtender::head_offset </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
 <a class="anchor" id="a2af378a5fe5d50eb7908ddb9004872d2"></a>
 <div class="memitem">
 <div class="memproto">
@@ -378,30 +346,6 @@ Static Private Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Find the maximal unambiguous extension for each seed. Returns the set of distinct extensions. A maximal unambiguous extension ends when further extensions either contain mismatches or branch with the same character. </p>
-
-</div>
-</div>
-<a class="anchor" id="a1524a3bb602ed6997e7fc5d2a51c4563"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::GaplessExtender::tail_offset </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;&#160;</td>
-          <td class="paramname"><em>path</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
 
 </div>
 </div>

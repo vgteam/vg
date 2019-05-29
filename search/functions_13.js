@@ -181,6 +181,7 @@ var searchData=
   ['start_5fdegree',['start_degree',['../classvg_1_1VG.html#a1ff00edd627e3445eee7f43927bb1518',1,'vg::VG']]],
   ['start_5fvcf',['start_vcf',['../classvg_1_1Genotyper.html#a8a5aed6de86a488fe78a223d5e4d6bd6',1,'vg::Genotyper']]],
   ['startfile',['StartFile',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#aaf788a0a0553f9cc0c531fecb941f228',1,'vg::io::BlockedGzipOutputStream']]],
+  ['starting_5fposition',['starting_position',['../structvg_1_1GaplessExtension.html#addc8bf29dc4ffcf3b055f4fbed2c5e5c',1,'vg::GaplessExtension']]],
   ['starts_5fwith',['starts_with',['../classvg_1_1GBWTGraph.html#a6d87f6b0341ca1fa8c52b117eee932e5',1,'vg::GBWTGraph']]],
   ['stddev',['stddev',['../classvg_1_1normal__distribution.html#a2856b4095a97bea15d77ed272b38ccda',1,'vg::normal_distribution']]],
   ['stdev',['stdev',['../classvg_1_1FragmentLengthDistribution.html#a433fb1e2e29e195904a3c9cda309eccf',1,'vg::FragmentLengthDistribution::stdev()'],['../namespacevg.html#a0bdb2cdf1d9318f4bce86132244a874d',1,'vg::stdev(const std::vector&lt; double &gt; &amp;v)'],['../namespacevg.html#a11df8bd14dab3c0cfb7ecfa377a362f5',1,'vg::stdev(const T &amp;v)']]],

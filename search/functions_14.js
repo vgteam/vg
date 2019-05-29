@@ -2,7 +2,8 @@ var searchData=
 [
   ['tag_5fcorrect',['tag_correct',['../classvg_1_1Funnel.html#a4e2ab6878393d0d9aaee56127844b06b',1,'vg::Funnel']]],
   ['tail_5fnodes',['tail_nodes',['../classvg_1_1VG.html#a25bd74b77e139691555c8d48ecf67d9f',1,'vg::VG::tail_nodes(void)'],['../classvg_1_1VG.html#a47fbc525ed5e9f2a7b00c333f03fe6c8',1,'vg::VG::tail_nodes(vector&lt; Node * &gt; &amp;nodes)']]],
-  ['tail_5foffset',['tail_offset',['../classvg_1_1GaplessExtender.html#a1524a3bb602ed6997e7fc5d2a51c4563',1,'vg::GaplessExtender']]],
+  ['tail_5foffset',['tail_offset',['../structvg_1_1GaplessExtension.html#a0c955571963013098af600632d4b342c',1,'vg::GaplessExtension']]],
+  ['tail_5fposition',['tail_position',['../structvg_1_1GaplessExtension.html#a7d3bface8359b6b9a22e85ffe672bdca',1,'vg::GaplessExtension']]],
   ['take',['take',['../classvg_1_1io_1_1MessageIterator.html#ab97d50a333e4f27419f0d661e8669774',1,'vg::io::MessageIterator::take()'],['../classvg_1_1io_1_1ProtobufIterator.html#a32bfe2fea01e8bae7759dff71eb64db8',1,'vg::io::ProtobufIterator::take()']]],
   ['target_5falignment',['target_alignment',['../classxg_1_1XG.html#a87dfe8567803bebf9409ab3c2aaea36f',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse) const '],['../classxg_1_1XG.html#a58bf34023594fe938008df643154ff39',1,'xg::XG::target_alignment(const string &amp;name, size_t pos1, size_t pos2, const string &amp;feature, bool is_reverse, Mapping &amp;cigar_mapping) const ']]],
   ['targetvaluesearch',['TargetValueSearch',['../classvg_1_1TargetValueSearch.html#a7b5ec9882ca34d7883ced17ef219b1b4',1,'vg::TargetValueSearch::TargetValueSearch()=default'],['../classvg_1_1TargetValueSearch.html#a66c7161857ea38dab47c4da883435ac4',1,'vg::TargetValueSearch::TargetValueSearch(const HandleGraph &amp;handle_graph, DistanceHeuristic *upper_bound_heuristic, DistanceHeuristic *lower_bound_heuristic)']]],
@@ -31,7 +32,7 @@ var searchData=
   ['to_5fmultipath_5falignment',['to_multipath_alignment',['../namespacevg.html#a2d4b02bdea78f086b0e207563d7de800',1,'vg']]],
   ['to_5fnode_5ftraversal',['to_node_traversal',['../namespacevg.html#a5a2e772d69c9e45cbc1c1d1a9e6df842',1,'vg::to_node_traversal(const Visit &amp;visit, const VG &amp;graph)'],['../namespacevg.html#a2c04918053577c402e4f2cab61abd754',1,'vg::to_node_traversal(const Visit &amp;visit, VG &amp;graph)']]],
   ['to_5fnumber',['to_number',['../classvg_1_1BitString.html#a07cb174f5467485f888de26cd8b4bb6e',1,'vg::BitString']]],
-  ['to_5fpath',['to_path',['../classvg_1_1MinimizerMapper.html#ae1565adcd1bdf28aca55134d7482b1af',1,'vg::MinimizerMapper']]],
+  ['to_5fpath',['to_path',['../structvg_1_1GaplessExtension.html#a3b28c2afe0e272222e3a1ab4df75ddfc',1,'vg::GaplessExtension::to_path()'],['../classvg_1_1MinimizerMapper.html#ae1565adcd1bdf28aca55134d7482b1af',1,'vg::MinimizerMapper::to_path()']]],
   ['to_5frev_5fnode_5ftraversal',['to_rev_node_traversal',['../namespacevg.html#a0b4a5c32294bf49aa7f0a6d180cc2832',1,'vg::to_rev_node_traversal(const Visit &amp;visit, const VG &amp;graph)'],['../namespacevg.html#ae64d7810e64af7119f1b1b3a2d08d797',1,'vg::to_rev_node_traversal(const Visit &amp;visit, VG &amp;graph)']]],
   ['to_5frev_5fvisit',['to_rev_visit',['../namespacevg.html#a7164ae8636d1ca7783d6202c8ce316ca',1,'vg']]],
   ['to_5fright_5fside',['to_right_side',['../namespacevg.html#a74fab09b3ae1d9f799742a31b5206a35',1,'vg']]],
