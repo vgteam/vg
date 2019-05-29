@@ -786,6 +786,8 @@ Functions</h2></td></tr>
 <tr class="separator:a90f2af92a34fdf5fb4ddfee8f8880b48"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a05d6d0388148a996d9423524fa4bcc91"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a05d6d0388148a996d9423524fa4bcc91">softclip_end</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
 <tr class="separator:a05d6d0388148a996d9423524fa4bcc91"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a947760b26fa8669d55f2f420174a578c"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a947760b26fa8669d55f2f420174a578c">softclip_trim</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
+<tr class="separator:a947760b26fa8669d55f2f420174a578c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acffe466a3ca83097eceac30a09b9a010"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#acffe466a3ca83097eceac30a09b9a010">query_overlap</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2)</td></tr>
 <tr class="separator:acffe466a3ca83097eceac30a09b9a010"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2610da8a8fbe723e13519d79ac2d0afe"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a2610da8a8fbe723e13519d79ac2d0afe">edit_count</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment)</td></tr>
@@ -900,6 +902,23 @@ Functions</h2></td></tr>
 <tr class="memitem:aca53457219a2ced000f439df5bd0d71f"><td class="memTemplParams" colspan="2">template&lt;typename Container &gt; </td></tr>
 <tr class="memitem:aca53457219a2ced000f439df5bd0d71f"><td class="memTemplItemLeft" align="right" valign="top">google::protobuf::Value&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aca53457219a2ced000f439df5bd0d71f">value_cast</a> (const Container &amp;wrap)</td></tr>
 <tr class="separator:aca53457219a2ced000f439df5bd0d71f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a51e607befe52384715eae27de8cafb59"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a51e607befe52384715eae27de8cafb59">augment</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, istream &amp;gam_stream, ostream *gam_out_stream, function&lt; void(<a class="el" href="structvg_1_1Path.html">Path</a> &amp;)&gt; save_path_fn, bool break_at_ends, bool remove_softclips)</td></tr>
+<tr class="separator:a51e607befe52384715eae27de8cafb59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24e2a2fd382d2e28a13b8bf96a01cf7c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24e2a2fd382d2e28a13b8bf96a01cf7c">find_breakpoints</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;breakpoints, bool break_ends)</td></tr>
+<tr class="separator:a24e2a2fd382d2e28a13b8bf96a01cf7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e9c975d7bec4a22a46b72736915ceb1"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e9c975d7bec4a22a46b72736915ceb1">forwardize_breakpoints</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;breakpoints)</td></tr>
+<tr class="memdesc:a9e9c975d7bec4a22a46b72736915ceb1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flips the breakpoints onto the forward strand.  <a href="#a9e9c975d7bec4a22a46b72736915ceb1">More...</a><br/></td></tr>
+<tr class="separator:a9e9c975d7bec4a22a46b72736915ceb1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a35bec7a1758e5eb88a359da78174d8d9"><td class="memItemLeft" align="right" valign="top">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a35bec7a1758e5eb88a359da78174d8d9">ensure_breakpoints</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;breakpoints)</td></tr>
+<tr class="separator:a35bec7a1758e5eb88a359da78174d8d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3aa7eee80c4c79f0f863d10687714c74"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a3aa7eee80c4c79f0f863d10687714c74">add_nodes_and_edges</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;node_translation, unordered_map&lt; pair&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, string &gt;, vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&gt; &amp;added_seqs, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;added_nodes, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt; &amp;orig_node_sizes, size_t max_node_size=1024)</td></tr>
+<tr class="memdesc:a3aa7eee80c4c79f0f863d10687714c74"><td class="mdescLeft">&#160;</td><td class="mdescRight">This version doesn't require a set of dangling sides to populate.  <a href="#a3aa7eee80c4c79f0f863d10687714c74">More...</a><br/></td></tr>
+<tr class="separator:a3aa7eee80c4c79f0f863d10687714c74"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b080c96a3681c4bd64f38eb05acd31b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Path.html">Path</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a4b080c96a3681c4bd64f38eb05acd31b">add_nodes_and_edges</a> (<a class="el" href="classhandlegraph_1_1MutableHandleGraph.html">MutableHandleGraph</a> *graph, const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, const map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;node_translation, unordered_map&lt; pair&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, string &gt;, vector&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt;&gt; &amp;added_seqs, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;added_nodes, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt; &amp;orig_node_sizes, set&lt; <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &gt; &amp;dangling, size_t max_node_size)</td></tr>
+<tr class="separator:a4b080c96a3681c4bd64f38eb05acd31b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a028aa842a68b6993a37a82c7645e0633"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a028aa842a68b6993a37a82c7645e0633">make_translation</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; &amp;node_translation, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;added_nodes, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, size_t &gt; &amp;orig_node_sizes)</td></tr>
+<tr class="memdesc:a028aa842a68b6993a37a82c7645e0633"><td class="mdescLeft">&#160;</td><td class="mdescRight">Produce a graph <a class="el" href="structvg_1_1Translation.html">Translation</a> object from information about the editing process.  <a href="#a028aa842a68b6993a37a82c7645e0633">More...</a><br/></td></tr>
+<tr class="separator:a028aa842a68b6993a37a82c7645e0633"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a7cc9c4d4d792e1e7f38c2c6009207706"><td class="memItemLeft" align="right" valign="top">ostream &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a7cc9c4d4d792e1e7f38c2c6009207706">operator&lt;&lt;</a> (ostream &amp;out, const <a class="el" href="structvg_1_1BenchmarkResult.html">BenchmarkResult</a> &amp;result)</td></tr>
 <tr class="separator:a7cc9c4d4d792e1e7f38c2c6009207706"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a71046fb34dc43f0a3e102e1394ce8697"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a71046fb34dc43f0a3e102e1394ce8697">benchmark_control</a> ()</td></tr>
@@ -2331,6 +2350,129 @@ Variables</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a3aa7eee80c4c79f0f863d10687714c74"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::add_nodes_and_edges </td>
+          <td>(</td>
+          <td class="paramtype">MutableHandleGraph *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Path &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const map&lt; pos_t, id_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_translation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; pair&lt; pos_t, string &gt;, vector&lt; id_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>added_seqs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; id_t, Path &gt; &amp;&#160;</td>
+          <td class="paramname"><em>added_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; id_t, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>orig_node_sizes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_node_size</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>This version doesn't require a set of dangling sides to populate. </p>
+
+</div>
+</div>
+<a class="anchor" id="a4b080c96a3681c4bd64f38eb05acd31b"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structvg_1_1Path.html">Path</a> vg::add_nodes_and_edges </td>
+          <td>(</td>
+          <td class="paramtype">MutableHandleGraph *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const Path &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const map&lt; pos_t, id_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_translation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; pair&lt; pos_t, string &gt;, vector&lt; id_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>added_seqs</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; id_t, Path &gt; &amp;&#160;</td>
+          <td class="paramname"><em>added_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; id_t, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>orig_node_sizes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">set&lt; NodeSide &gt; &amp;&#160;</td>
+          <td class="paramname"><em>dangling</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_node_size</em> = <code>1024</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Given a path on nodes that may or may not exist, and a map from start position in the old graph to a node in the current graph, add all the new sequence and edges required by the path. The given path must not contain adjacent perfect match edits in the same mapping, or any deletions on the start or end of mappings (the removal of which can be accomplished with the <a class="el" href="namespacevg.html#a486054f13a4dc43e37c0f0131f6a51ad">Path::simplify()</a> function).</p>
+<p>Outputs (and caches for subsequent calls) novel node runs in added_seqs, and <a class="el" href="classvg_1_1Paths.html">Paths</a> describing where novel nodes translate back to in the original graph in added_nodes. Also needs a map of the original sizes of nodes deleted from the original graph, for reverse complementing. If dangling is nonempty, left edges of nodes created for initial inserts will connect to the specified sides. At the end, dangling is populated with the side corresponding to the last edit in the path.</p>
+<p>Returns a fully embedded version of the path, after all node insertions, divisions, and translations. </p>
+
+</div>
+</div>
 <a class="anchor" id="afe2d6096dfe672a486e44df018c713c2"></a>
 <div class="memitem">
 <div class="memproto">
@@ -3238,6 +3380,58 @@ template&lt;typename Iter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a51e607befe52384715eae27de8cafb59"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; vg::augment </td>
+          <td>(</td>
+          <td class="paramtype">MutablePathMutableHandleGraph *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">istream &amp;&#160;</td>
+          <td class="paramname"><em>gam_stream</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">ostream *&#160;</td>
+          <td class="paramname"><em>gam_out_stream</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">function&lt; void(Path &amp;)&gt;&#160;</td>
+          <td class="paramname"><em>save_path_fn</em> = <code>nullptr</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>break_at_ends</em> = <code>false</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>remove_soft_clips</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Edit the graph to include all the sequence and edges added by the given paths. Can handle paths that visit nodes in any orientation. Returns a vector of Translations, one per node existing after the edit, describing how each new or conserved node is embedded in the old graph. Note that this method sorts the graph and rebuilds the path index, so it should not be called in a loop.</p>
+<p>If gam_out_stream is not null, the paths will be modified to reflect their embedding in the modified graph and written to the stream. if save_path_fn is not null, this function will be run on each modified path in order to add it back to the graph. If break_at_ends is true, nodes will be broken at the ends of paths that start/end woth perfect matches, so the paths can be added to the vg graph's paths object. If soft_clip is true, soft clips will be removed from the input paths before processing, and the dangling ends won't end up in the graph </p>
 
 </div>
 </div>
@@ -5126,6 +5320,34 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a class="anchor" id="a35bec7a1758e5eb88a359da78174d8d9"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">map&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a>, <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a> &gt; vg::ensure_breakpoints </td>
+          <td>(</td>
+          <td class="paramtype">MutableHandleGraph *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; id_t, set&lt; pos_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>breakpoints</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Take a map from node ID to a set of offsets at which new nodes should start (which may include 0 and 1-past-the-end, which should be ignored), break the specified nodes at those positions. Returns a map from old node start position to new node pointer in the graph. Note that the caller will have to crear and rebuild path rank data.</p>
+<p>Returns a map from old node start position to new node. This map contains some entries pointing to null, for positions past the ends of original nodes. It also maps from positions on either strand of the old node to the same new node pointer; the new node's forward strand is always the same as the old node's forward strand. </p>
+
+</div>
+</div>
 <a class="anchor" id="ac3165438256db24864e88601839197df"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5564,6 +5786,40 @@ template&lt;class RandomIt &gt; </div>
 
 </div>
 </div>
+<a class="anchor" id="a24e2a2fd382d2e28a13b8bf96a01cf7c"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::find_breakpoints </td>
+          <td>(</td>
+          <td class="paramtype">const Path &amp;&#160;</td>
+          <td class="paramname"><em>path</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">unordered_map&lt; id_t, set&lt; pos_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>breakpoints</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>break_ends</em> = <code>true</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Find all the points at which a <a class="el" href="structvg_1_1Path.html">Path</a> enters or leaves nodes in the graph. Adds them to the given map by node ID of sets of bases in the node that will need to become the starts of new nodes.</p>
+<p>If break_ends is true, emits breakpoints at the ends of the path, even if it starts/ends with perfect matches. </p>
+
+</div>
+</div>
 <a class="anchor" id="a9e892bf26f768618a2b8c2abea6a6a60"></a>
 <div class="memitem">
 <div class="memproto">
@@ -5819,6 +6075,34 @@ template&lt;class RandomIt &gt; </div>
 </div><div class="memdoc">
 
 <p>Iterate over all windows in the graph, running lambda on each. </p>
+
+</div>
+</div>
+<a class="anchor" id="a9e9c975d7bec4a22a46b72736915ceb1"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &gt; vg::forwardize_breakpoints </td>
+          <td>(</td>
+          <td class="paramtype">const HandleGraph *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; id_t, set&lt; pos_t &gt;&gt; &amp;&#160;</td>
+          <td class="paramname"><em>breakpoints</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Flips the breakpoints onto the forward strand. </p>
 
 </div>
 </div>
@@ -8202,6 +8486,46 @@ template&lt;typename Collection &gt; </div>
       </table>
 </div><div class="memdoc">
 <p>TBD Create a <a class="el" href="structvg_1_1Support.html" title="Aggregates information about the reads supporting an allele. ">Support</a> for the given forward and reverse coverage and quality. </p>
+
+</div>
+</div>
+<a class="anchor" id="a028aa842a68b6993a37a82c7645e0633"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; vg::make_translation </td>
+          <td>(</td>
+          <td class="paramtype">const HandleGraph *&#160;</td>
+          <td class="paramname"><em>graph</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const map&lt; pos_t, id_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>node_translation</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; id_t, Path &gt; &amp;&#160;</td>
+          <td class="paramname"><em>added_nodes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const unordered_map&lt; id_t, size_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>orig_node_sizes</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Produce a graph <a class="el" href="structvg_1_1Translation.html">Translation</a> object from information about the editing process. </p>
 
 </div>
 </div>
@@ -13519,6 +13843,22 @@ template&lt;typename T &gt; </div>
           <td class="memname">int vg::softclip_start </td>
           <td>(</td>
           <td class="paramtype">const Alignment &amp;&#160;</td>
+          <td class="paramname"><em>alignment</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a947760b26fa8669d55f2f420174a578c"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::softclip_trim </td>
+          <td>(</td>
+          <td class="paramtype">Alignment &amp;&#160;</td>
           <td class="paramname"><em>alignment</em></td><td>)</td>
           <td></td>
         </tr>

@@ -77,7 +77,7 @@ var searchData=
   ['make_5fside',['make_side',['../namespacexg.html#a1c1852eb1d8c6dbad46b95d0755420ac',1,'xg']]],
   ['make_5fsubset_5fgraph',['make_subset_graph',['../classvg_1_1Genotyper.html#ab11a87f5f21d3a7122ec85f6d853f336',1,'vg::Genotyper']]],
   ['make_5fsupport',['make_support',['../namespacevg.html#a1c0ae5cc687e77bb7cee28e975a005b3',1,'vg']]],
-  ['make_5ftranslation',['make_translation',['../classvg_1_1VG.html#a12bbb607ad1e55d73f61bbe002ee2511',1,'vg::VG']]],
+  ['make_5ftranslation',['make_translation',['../namespacevg.html#a028aa842a68b6993a37a82c7645e0633',1,'vg']]],
   ['make_5ftrav',['make_trav',['../namespacexg.html#a40ac382740a65d915b2486b331e69c1f',1,'xg']]],
   ['make_5fvariant_5fid',['make_variant_id',['../namespacevg.html#aa74ef603900cf05ce35dbab813d21deb',1,'vg']]],
   ['manage',['manage',['../classvg_1_1SnarlManager.html#a77a061a13a6836b3eafa13db4df1c377',1,'vg::SnarlManager']]],

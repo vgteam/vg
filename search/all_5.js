@@ -45,7 +45,7 @@ var searchData=
   ['edges_5fto',['edges_to',['../classvg_1_1MEMClusterer_1_1HitNode.html#a9c63a5662cc86132572113bbcebb05a8',1,'vg::MEMClusterer::HitNode::edges_to()'],['../classvg_1_1VG.html#a3789cf6561f2d3da5ef85f23b5c6454f',1,'vg::VG::edges_to()'],['../classxg_1_1XG.html#a82b0a40f1a671a20a04991eaa5e04d14',1,'xg::XG::edges_to()']]],
   ['edgesuphash',['EdgeSupHash',['../classvg_1_1PileupAugmenter.html#a13a79d5d1f995d332a3c8d36086f90fe',1,'vg::PileupAugmenter']]],
   ['edit',['Edit',['../structvg_1_1Edit.html',1,'vg']]],
-  ['edit',['edit',['../structvg_1_1Mapping.html#a657c55428cdcb049036edde19e0dbc2c',1,'vg::Mapping::edit()'],['../classvg_1_1VG.html#a4355473c385843b7652d49601dd630d2',1,'vg::VG::edit()']]],
+  ['edit',['edit',['../structvg_1_1Mapping.html#a657c55428cdcb049036edde19e0dbc2c',1,'vg::Mapping::edit()'],['../classvg_1_1VG.html#a4355473c385843b7652d49601dd630d2',1,'vg::VG::edit(vector&lt; Path &gt; &amp;paths_to_add, bool save_paths=false, bool update_paths=false, bool break_at_ends=false)'],['../classvg_1_1VG.html#a10b105a288f68623bde732532870219b',1,'vg::VG::edit(istream &amp;paths_to_add, bool save_paths=false, ostream *out_path_stream=nullptr, bool break_at_ends=false, bool remove_softclips=false)']]],
   ['edit_2ecpp',['edit.cpp',['../edit_8cpp.html',1,'']]],
   ['edit_2ehpp',['edit.hpp',['../edit_8hpp.html',1,'']]],
   ['edit_5fcount',['edit_count',['../classvg_1_1Packer.html#a9b05681219f9fc45a6f65b5e59c8224e',1,'vg::Packer::edit_count()'],['../namespacevg.html#a2610da8a8fbe723e13519d79ac2d0afe',1,'vg::edit_count()']]],
@@ -100,7 +100,7 @@ var searchData=
   ['endianness_2ehpp',['endianness.hpp',['../endianness_8hpp.html',1,'']]],
   ['endpoints',['endpoints',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a2b1f1d67a76ef6de89f8f30bd794f603',1,'vg::GraphSynchronizer::Lock']]],
   ['ends_5fwith',['ends_with',['../classvg_1_1GBWTGraph.html#acaf67171f50ab75c37c3d7b7d109ada4',1,'vg::GBWTGraph']]],
-  ['ensure_5fbreakpoints',['ensure_breakpoints',['../classvg_1_1VG.html#a5cd6b4acbb2607a2decc9aa0f8891057',1,'vg::VG']]],
+  ['ensure_5fbreakpoints',['ensure_breakpoints',['../namespacevg.html#a35bec7a1758e5eb88a359da78174d8d9',1,'vg']]],
   ['ensure_5fedit_5ftmpfiles_5fopen',['ensure_edit_tmpfiles_open',['../classvg_1_1Packer.html#a3120b075177c3ca1916d20557b175733',1,'vg::Packer']]],
   ['entries',['entries',['../structhaplo_1_1haplo__DP__column.html#aa46ab429b8d5eba3919e2c1cbf2e9a4e',1,'haplo::haplo_DP_column']]],
   ['entropy',['entropy',['../namespacevg.html#ac3165438256db24864e88601839197df',1,'vg::entropy(const string &amp;st)'],['../namespacevg.html#a77c1cb6069f865239d0365b55649bc8a',1,'vg::entropy(const char *st, size_t len)']]],
@@ -130,8 +130,8 @@ var searchData=
   ['excluded_5frefpos_5fcontigs',['excluded_refpos_contigs',['../classvg_1_1ReadFilter.html#a3b80df71a29a718b34af1becfe821026',1,'vg::ReadFilter']]],
   ['execute',['execute',['../structvg_1_1GenomeStateCommand.html#a6ab4d8d0b53557324a094eba903ac74e',1,'vg::GenomeStateCommand::execute()'],['../structvg_1_1InsertHaplotypeCommand.html#a115cc9a82092ea859cb7b9423a4c974b',1,'vg::InsertHaplotypeCommand::execute()'],['../structvg_1_1DeleteHaplotypeCommand.html#a24585fc106022311a4144db6eb85598e',1,'vg::DeleteHaplotypeCommand::execute()'],['../structvg_1_1SwapHaplotypesCommand.html#a5ecc45cfa34924a9c7e5363f314847f4',1,'vg::SwapHaplotypesCommand::execute()'],['../structvg_1_1AppendHaplotypeCommand.html#a36b5fe09e769c801df32dc47b82e2b43',1,'vg::AppendHaplotypeCommand::execute()'],['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#a1976d0ce0486dd2197699b30dcc3ec0f',1,'vg::ReplaceSnarlHaplotypeCommand::execute()'],['../structvg_1_1ReplaceLocalHaplotypeCommand.html#a3d3d18c2438841dd02f1c812840b6872',1,'vg::ReplaceLocalHaplotypeCommand::execute()'],['../classvg_1_1GenomeState.html#a4150ec08000ac81447d631bcc5801543',1,'vg::GenomeState::execute()']]],
   ['exhaustive',['Exhaustive',['../classvg_1_1Genotyper.html#a6e4dce6cd9cc24ab6857ceeaed6db3b4a03b965f4f4d03d6869811e0dedbfb0dd',1,'vg::Genotyper']]],
-  ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html#abe59f2401d060f33700de6132238bd6c',1,'vg::ExhaustiveTraversalFinder']]],
   ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html',1,'vg']]],
+  ['exhaustivetraversalfinder',['ExhaustiveTraversalFinder',['../classvg_1_1ExhaustiveTraversalFinder.html#abe59f2401d060f33700de6132238bd6c',1,'vg::ExhaustiveTraversalFinder']]],
   ['exon_5fnodes',['exon_nodes',['../structvg_1_1Transcript.html#ad02a672767380c99c4890b0f8158e56e',1,'vg::Transcript']]],
   ['exon_5fnodes_5ft',['exon_nodes_t',['../namespacevg.html#a8ae488d495e344881cbcf599ebdd2355',1,'vg']]],
   ['exons',['exons',['../structvg_1_1Transcript.html#ad2b25d65d35571935300b296eac6bf2c',1,'vg::Transcript']]],
@@ -174,6 +174,6 @@ var searchData=
   ['extract_5fthread',['extract_thread',['../classxg_1_1XG.html#a61f518618186527617990b183f32ff27',1,'xg::XG::extract_thread(const string &amp;name) const '],['../classxg_1_1XG.html#ad174fb619cc38486295cb6d9f595228a',1,'xg::XG::extract_thread(xg::XG::ThreadMapping node, int64_t offset, int64_t max_length)']]],
   ['extract_5fthreads',['extract_threads',['../classxg_1_1XG.html#afdf461a257c0e9844f0d166d5d421c12',1,'xg::XG']]],
   ['extract_5fthreads_5fmatching',['extract_threads_matching',['../classxg_1_1XG.html#a3c7518d4ef374348445492d15215a221',1,'xg::XG']]],
-  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]],
-  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph']]]
+  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph']]],
+  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]
 ];

@@ -10,5 +10,7 @@ var searchData=
   ['alignment_5femitter_2ehpp',['alignment_emitter.hpp',['../alignment__emitter_8hpp.html',1,'']]],
   ['annotate_5fmain_2ecpp',['annotate_main.cpp',['../annotate__main_8cpp.html',1,'']]],
   ['annotation_2ehpp',['annotation.hpp',['../annotation_8hpp.html',1,'']]],
+  ['augment_2ecpp',['augment.cpp',['../augment_8cpp.html',1,'']]],
+  ['augment_2ehpp',['augment.hpp',['../augment_8hpp.html',1,'']]],
   ['augment_5fmain_2ecpp',['augment_main.cpp',['../augment__main_8cpp.html',1,'']]]
 ];
