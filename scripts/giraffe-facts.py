@@ -80,6 +80,7 @@ FACTS = ["Giraffes are the tallest living terrestrial animal.",
          "Toys R' Us has used Geoffrey the Giraffe as its mascot since 1965, although earlier advertisements in the 1950's used another giraffe: Dr. G. Raffe.",
          "Giraffe hooves are 1 foot in diameter.",
          "About 50% of giraffe calves die in their first year, mostly due to predation.",
+         "Kirahvi sanoo öri öri öri öri öri öri.",
          "The giraffe's average walking speed is 10 miles per hour.",
          "The giraffe's tongue is colored dark blue.",
          "Some of giraffes' vocalizations are too low to be heard by human ears.",
@@ -166,6 +167,9 @@ def make_stats(read, stages=STAGES):
         stage_dict['correct_stop'] = 0
         if annot.get('last_correct_stage', None) == stage:
             # Unless one does
+            stage_dict['correct_stop'] += 1
+        elif stage == 'minimizer' and annot.get('last_correct_stage', None) == 'none':
+            # Reads that do not have correct seeds end at the minimizer stage
             stage_dict['correct_stop'] += 1
         
         # Set up substage times

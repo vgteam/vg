@@ -37,8 +37,8 @@ is $(vg align -js GGCTATGTCTGAACTAGGAGGGTAGAAAGAATATTCATTTTGGTTGCCACAAACCATCGAAA
 
 vg construct -m 1000 -r tiny/tiny.fa >t.vg
 seq=CAAATAAGGCTTGGAAATGTTCTGGAGTTCTATTATATTCCAACTCTCTT
-vg align -s $seq t.vg | vg mod -i - t.vg >t2.vg
-is $(vg align -s $seq -Q query t2.vg | vg mod -i - -P t2.vg | vg view - | grep "query" | cut -f 3 | grep -o "[0-9]\+" | wc -l) 4 "align can use query names and outputs GAM"
+vg align -s $seq t.vg | vg augment t.vg - -i  >t2.vg
+is $(vg align -s $seq -Q query t2.vg | vg augment t2.vg - -i -B | vg view - | grep "query" | cut -f 3 | grep -o "[0-9]\+" | wc -l) 4 "align can use query names and outputs GAM"
 rm t.vg t2.vg
 
 

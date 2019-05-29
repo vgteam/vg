@@ -90,6 +90,12 @@ gbwt::GBWT build_gbwt_index(bool additional_paths) {
     return get_gbwt(gbwt_threads);
 }
 
+void same_position(const Position& pos, const Position& correct) {
+    REQUIRE(pos.node_id() == correct.node_id());
+    REQUIRE(pos.is_reverse() == correct.is_reverse());
+    REQUIRE(pos.offset() == correct.offset());
+}
+
 void alignment_matches(const Path& path, const std::vector<std::pair<pos_t, std::string>>& alignment) {
     REQUIRE(path.mapping_size() == alignment.size());
     for (size_t i = 0; i < path.mapping_size(); i++) {
@@ -120,6 +126,97 @@ void flanks_match(GaplessExtension& extension, std::pair<size_t, size_t> core_ra
 }
 
 } // anonymous namespace
+
+//------------------------------------------------------------------------------
+
+TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
+
+    // Build an XG index.
+    Graph graph;
+    json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
+    xg::XG xg_index(graph);
+
+    // Build a GBWT with three threads including a duplicate.
+    gbwt::GBWT gbwt_index = build_gbwt_index(false);
+
+    // Build a GBWT-backed graph.
+    GBWTGraph gbwt_graph(gbwt_index, xg_index);
+
+    SECTION("starts and ends at node boundaries") {
+        GaplessExtension extension {
+            {
+                gbwt_graph.get_handle(1, false),
+                gbwt_graph.get_handle(4, false)
+            },
+            0,
+            gbwt::BidirectionalState(),
+            { 0, 4 },
+            false,
+            { 0, 4 },
+            { }
+        };
+        Position correct_start = make_position(1, false, 0);
+        Position correct_tail = make_position(4, false, 3);
+        same_position(extension.starting_position(gbwt_graph), correct_start);
+        same_position(extension.tail_position(gbwt_graph), correct_tail);
+    }
+
+    SECTION("starts in the middle") {
+        GaplessExtension extension {
+            {
+                gbwt_graph.get_handle(4, false),
+                gbwt_graph.get_handle(5, false)
+            },
+            1,
+            gbwt::BidirectionalState(),
+            { 0, 3 },
+            false,
+            { 0, 3 },
+            { }
+        };
+        Position correct_start = make_position(4, false, 1);
+        Position correct_tail = make_position(5, false, 1);
+        same_position(extension.starting_position(gbwt_graph), correct_start);
+        same_position(extension.tail_position(gbwt_graph), correct_tail);
+    }
+
+    SECTION("ends in the middle") {
+        GaplessExtension extension {
+            {
+                gbwt_graph.get_handle(1, false),
+                gbwt_graph.get_handle(4, false)
+            },
+            0,
+            gbwt::BidirectionalState(),
+            { 0, 3 },
+            false,
+            { 0, 3 },
+            { }
+        };
+        Position correct_start = make_position(1, false, 0);
+        Position correct_tail = make_position(4, false, 2);
+        same_position(extension.starting_position(gbwt_graph), correct_start);
+        same_position(extension.tail_position(gbwt_graph), correct_tail);
+    }
+
+    SECTION("starts and ends in the middle") {
+        GaplessExtension extension {
+            {
+                gbwt_graph.get_handle(4, false)
+            },
+            1,
+            gbwt::BidirectionalState(),
+            { 0, 1 },
+            false,
+            { 0, 1 },
+            { }
+        };
+        Position correct_start = make_position(4, false, 1);
+        Position correct_tail = make_position(4, false, 2);
+        same_position(extension.starting_position(gbwt_graph), correct_start);
+        same_position(extension.tail_position(gbwt_graph), correct_tail);
+    }
+}
 
 //------------------------------------------------------------------------------
 
@@ -157,7 +254,7 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         REQUIRE(!result.empty());
         REQUIRE(result.full());
         REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.path, correct_alignment);
+        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
     }
 
     SECTION("read matches with errors") {
@@ -178,7 +275,7 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         REQUIRE(!result.empty());
         REQUIRE(result.full());
         REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.path, correct_alignment);
+        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
     }
 
     SECTION("false seeds do not matter") {
@@ -200,7 +297,7 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         REQUIRE(!result.empty());
         REQUIRE(result.full());
         REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.path, correct_alignment);
+        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
     }
 
     SECTION("read matches reverse complement and ends within a node") {
@@ -220,7 +317,7 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
         REQUIRE(!result.empty());
         REQUIRE(result.full());
         REQUIRE(result.mismatches() <= error_bound);
-        alignment_matches(result.path, correct_alignment);
+        alignment_matches(result.to_path(gbwt_graph, read), correct_alignment);
     }
 
     SECTION("a non-matching read cannot be extended") {
@@ -278,7 +375,7 @@ TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_ext
             REQUIRE(!(result[i].empty()));
             REQUIRE(!(result[i].full()));
             REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].path, correct_extensions[i]);
+            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
         }
     }
 
@@ -315,7 +412,7 @@ TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_ext
             REQUIRE(!(result[i].empty()));
             REQUIRE(!(result[i].full()));
             REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].path, correct_extensions[i]);
+            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
         }
     }
 
@@ -359,7 +456,7 @@ TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_ext
             REQUIRE(!(result[i].empty()));
             REQUIRE(!(result[i].full()));
             REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].path, correct_extensions[i]);
+            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
         }
     }
 
@@ -388,7 +485,7 @@ TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_ext
             REQUIRE(!(result[i].empty()));
             REQUIRE(result[i].full());
             REQUIRE(result[i].core_interval.first == correct_offsets[i]);
-            alignment_matches(result[i].path, correct_extensions[i]);
+            alignment_matches(result[i].to_path(gbwt_graph, read), correct_extensions[i]);
         }
     }
 }
@@ -410,21 +507,21 @@ TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]
 
     // And finally wrap it in a GaplessExtender.
     GaplessExtender extender(gbwt_graph);
-    /*
+
     SECTION("cannot extend at border") {
-        std::string read = "AGGxCAT";
+        std::string read = "AGGxxCAT";
         std::vector<std::pair<size_t, pos_t>> cluster {
             { 2, make_pos_t(4, false, 0) },
-            { 4, make_pos_t(7, false, 0) }
+            { 5, make_pos_t(7, false, 0) }
         };
         size_t error_bound = 1;
         std::vector<std::pair<size_t, size_t>> core_ranges {
             { static_cast<size_t>(1), static_cast<size_t>(3) },
-            { static_cast<size_t>(4), static_cast<size_t>(6) }
+            { static_cast<size_t>(5), static_cast<size_t>(7) }
         };
         std::vector<std::pair<size_t, size_t>> flanked_ranges {
             { static_cast<size_t>(1), static_cast<size_t>(3) },
-            { static_cast<size_t>(4), static_cast<size_t>(6) }
+            { static_cast<size_t>(5), static_cast<size_t>(7) }
         };
         std::vector<std::vector<size_t>> mismatches {
             { },
@@ -438,7 +535,7 @@ TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]
             REQUIRE(!(result[i].full()));
             flanks_match(result[i], core_ranges[i], flanked_ranges[i], mismatches[i]);
         }
-    }*/
+    }
 
     SECTION("extend past ambiguous positions") {
         std::string read = "GACAxTGTC";

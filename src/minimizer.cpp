@@ -14,7 +14,6 @@ constexpr size_t MinimizerIndex::WINDOW_LENGTH;
 constexpr size_t MinimizerIndex::KMER_MAX_LENGTH;
 constexpr size_t MinimizerIndex::INITIAL_CAPACITY;
 constexpr double MinimizerIndex::MAX_LOAD_FACTOR;
-constexpr size_t MinimizerIndex::MAX_OCCS;
 constexpr MinimizerIndex::key_type MinimizerIndex::NO_KEY;
 constexpr MinimizerIndex::code_type MinimizerIndex::NO_VALUE;
 
@@ -99,18 +98,18 @@ MinimizerIndex::Header::Header() :
     flags(0),
     k(KMER_LENGTH), w(WINDOW_LENGTH),
     keys(0), capacity(INITIAL_CAPACITY), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
-    values(0), max_occs(MAX_OCCS),
-    unique(0), frequent(0)
+    values(0), unused1(0),
+    unique(0), unused2(0)
 {
 }
 
-MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key) :
+MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length) :
     tag(TAG), version(VERSION),
     flags(0),
     k(kmer_length), w(window_length),
     keys(0), capacity(INITIAL_CAPACITY), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
-    values(0), max_occs(max_occs_per_key),
-    unique(0), frequent(0)
+    values(0), unused1(0),
+    unique(0), unused2(0)
 {
     this->sanitize();
 }
@@ -129,11 +128,6 @@ void MinimizerIndex::Header::sanitize() {
         std::cerr << "warning: [MinimizerIndex] Adjusting w from " << this->w << " to " << 1 << std::endl;
         this->w = 1;
     }
-
-    if (this->max_occs == 0) {
-        std::cerr << "warning: [MinimizerIndex] Adjusting max_occs from " << this->max_occs << " to " << 1 << std::endl;
-        this->max_occs = 1;
-    }
 }
 
 bool MinimizerIndex::Header::check() const {
@@ -145,8 +139,8 @@ bool MinimizerIndex::Header::operator==(const Header& another) const {
             this->flags == another.flags &&
             this->k == another.k && this->w == another.w &&
             this->keys == another.keys && this->capacity == another.capacity && this->max_keys == another.max_keys &&
-            this->values == another.values && this->max_occs == another.max_occs &&
-            this->unique == another.unique && this->frequent == another.frequent);
+            this->values == another.values && this->unused1 == another.unused1 &&
+            this->unique == another.unique && this->unused2 == another.unused2);
 }
 
 //------------------------------------------------------------------------------
@@ -158,8 +152,8 @@ MinimizerIndex::MinimizerIndex() :
 {
 }
 
-MinimizerIndex::MinimizerIndex(size_t kmer_length, size_t window_length,  size_t max_occs_per_key) :
-    header(kmer_length, window_length, max_occs_per_key),
+MinimizerIndex::MinimizerIndex(size_t kmer_length, size_t window_length) :
+    header(kmer_length, window_length),
     hash_table(this->header.capacity, empty_cell()),
     is_pointer(this->header.capacity, false)
 {
@@ -675,6 +669,7 @@ std::vector<pos_t> MinimizerIndex::find(const minimizer_type& minimizer) const {
     cell_type cell = this->hash_table[offset];
     if (cell.first == minimizer.key) {
         if (this->is_pointer[offset]) {
+            result.reserve(cell.second.pointer->size());
             for (code_type pos : *(cell.second.pointer)) {
                 result.emplace_back(decode(pos));
             }
@@ -692,17 +687,8 @@ size_t MinimizerIndex::count(const minimizer_type& minimizer) const {
     }
 
     size_t offset = this->find_offset(minimizer.key, minimizer.hash);
-    cell_type cell = this->hash_table[offset];
-    if (cell.first == minimizer.key) {
-        if (this->is_pointer[offset]) {
-            return cell.second.pointer->size();
-        } else {
-            if (cell.second.value == NO_VALUE) {
-                return 0;
-            } else {
-                return 1;
-            }
-        }
+    if (this->hash_table[offset].first == minimizer.key) {
+        return (this->is_pointer[offset] ? this->hash_table[offset].second.pointer->size() : 1);
     }
 
     return 0;
@@ -743,41 +729,24 @@ void MinimizerIndex::append(key_type key, code_type pos, size_t offset) {
 
     if (this->is_pointer[offset]) {
         std::vector<code_type>* occs = this->hash_table[offset].second.pointer;
-        if (occs->size() + 1 > this->header.max_occs) {
-            this->header.values -= occs->size();
-            this->header.frequent++;
-            this->clear(offset);
-        } else {
-            occs->push_back(pos);
-            size_t offset = occs->size() - 1;
-            while(offset > 0 && occs->at(offset - 1) > occs->at(offset)) {
-                std::swap(occs->at(offset - 1), occs->at(offset));
-                offset--;
-            }
-            this->header.values++;
+        occs->push_back(pos);
+        size_t offset = occs->size() - 1;
+        while(offset > 0 && occs->at(offset - 1) > occs->at(offset)) {
+            std::swap(occs->at(offset - 1), occs->at(offset));
+            offset--;
         }
     } else {
-        if (this->hash_table[offset].second.value == NO_VALUE) {
-            return;
+        std::vector<code_type>* occs = new std::vector<code_type>(2);
+        occs->at(0) = this->hash_table[offset].second.value;
+        occs->at(1) = pos;
+        if (occs->at(0) > occs->at(1)) {
+            std::swap(occs->at(0), occs->at(1));
         }
-        if (this->header.max_occs < 2) {
-            this->hash_table[offset].second.value = NO_VALUE;
-            this->header.values--;
-            this->header.unique--;
-            this->header.frequent++;
-        } else {
-            std::vector<code_type>* occs = new std::vector<code_type>(2);
-            occs->at(0) = this->hash_table[offset].second.value;
-            occs->at(1) = pos;
-            if (occs->at(0) > occs->at(1)) {
-                std::swap(occs->at(0), occs->at(1));
-            }
-            this->hash_table[offset].second.pointer = occs;
-            this->is_pointer[offset] = true;
-            this->header.values++;
-            this->header.unique--;
-        }
+        this->hash_table[offset].second.pointer = occs;
+        this->is_pointer[offset] = true;
+        this->header.unique--;
     }
+    this->header.values++;
 }
 
 bool MinimizerIndex::contains(size_t offset, code_type pos) const {
