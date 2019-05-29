@@ -16,12 +16,13 @@ class SnarlSeedClusterer {
 
         //Given a vector of seeds (pos_t) and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
-        //between them is less than the distance limit are in the same
+        //between them (including both of the positions) is less than
+        // the distance limit are in the same
         //cluster
         //Returns a vector of clusters. The cluster is a vector of
         //indices into seeds
         vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
-               size_t distance_limit);
+               int64_t distance_limit);
     private:
         MinimumDistanceIndex& dist_index;
 
@@ -68,7 +69,7 @@ class SnarlSeedClusterer {
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
                              vector<size_t>& seed_indices,
-                             size_t distance_limit, id_t root,
+                             int64_t distance_limit, id_t root,
                              int64_t node_length); 
 
         //Cluster the seeds in a chain
@@ -85,7 +86,7 @@ class SnarlSeedClusterer {
                                   vector<pair<child_node_t, child_cluster_t>>>&
                                                         curr_snarl_children,
                              hash_map<id_t, vector<size_t>>& node_to_seeds,
-                             size_t distance_limit,  size_t chain_index_i);
+                             int64_t distance_limit,  size_t chain_index_i);
 
         //Cluster the seeds in a snarl 
         //child_nodes is a vector of the children of root and their clusters
@@ -96,7 +97,7 @@ class SnarlSeedClusterer {
                              vector<pair<child_node_t, child_cluster_t>>&  
                                                               child_nodes,
                              hash_map<id_t, vector<size_t>>& node_to_seeds,
-                             size_t distance_limit, 
+                             int64_t distance_limit, 
                              size_t snarl_index_i, bool rev) ;
 
 };
