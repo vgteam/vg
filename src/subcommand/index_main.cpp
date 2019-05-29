@@ -1276,7 +1276,8 @@ int main_index(int argc, char** argv) {
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di (xg.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                vg::io::VPKG::save(di, dist_name);
+                ofstream ostream (min_name);
+                di.serialize(ostream);
 
             } else {
                 ifstream vg_stream(file_names.at(0));
