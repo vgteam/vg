@@ -84,14 +84,14 @@ namespace unittest {
  
             vector<id_t> seed_nodes( {2, 3, 4, 7, 8, 10, 11});
             //Clusters should be {2, 3, 4}, {7, 8, 10, 11}
-            //Distance from pos on 4 to pos on 7 is 9, including positions
+            //Distance from pos on 4 to pos on 7 is 8, including one position
             vector<pos_t> seeds;
             for (id_t n : seed_nodes) {
                 seeds.push_back(make_pos_t(n, false, 0));
             }
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 9); 
+                                         seeds, 7); 
             vector<hash_set<size_t>> cluster_sets;
             for (vector<size_t> v : clusters) {
                 hash_set<size_t> h;
@@ -296,7 +296,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(8, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                         seeds, 4); 
+                                         seeds, 3); 
             REQUIRE( clusters.size() == 2);
             vector<hash_set<size_t>> cluster_sets;
             for (vector<size_t> v : clusters) {
@@ -322,17 +322,16 @@ namespace unittest {
                        cluster_sets[0].count(5) == 1 &&
                        cluster_sets[0].count(6) == 1  )));
         }
-        SECTION( "Five clusters" ) {
+        SECTION( "Four clusters" ) {
             vector<pos_t> seeds;
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(5, false, 0));
+            seeds.push_back(make_pos_t(16, false, 0));
             //New cluster
-            seeds.push_back(make_pos_t(5, false, 10));
+            seeds.push_back(make_pos_t(5, false, 8));
             //New cluster
             seeds.push_back(make_pos_t(6, false, 0));
             seeds.push_back(make_pos_t(8, false, 0));
-            //New cluster
-            seeds.push_back(make_pos_t(16, false, 0));
             //New cluster
             seeds.push_back(make_pos_t(13, false, 1));
             seeds.push_back(make_pos_t(14, false, 0));
@@ -340,7 +339,7 @@ namespace unittest {
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
                                          seeds, 3);
-            REQUIRE( clusters.size() == 5);
+            REQUIRE( clusters.size() == 4);
         }
         SECTION( "Same node, same cluster" ) {
             vector<pos_t> seeds;
@@ -544,7 +543,7 @@ namespace unittest {
             seeds.push_back(make_pos_t(7, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 5); 
+                                        seeds, 6); 
             REQUIRE( clusters.size() == 1);
 
         }
@@ -639,7 +638,7 @@ namespace unittest {
         for (int i = 0; i < 0; i++) {
             // For each random graph
             VG graph;
-            random_graph(1000, 20, 15, &graph);
+            random_graph(1000, 20, 20, &graph);
 
 
             CactusSnarlFinder bubble_finder(graph);
@@ -696,7 +695,7 @@ namespace unittest {
                         size_t len1 = graph.get_length(graph.get_handle(get_id(pos1), false));
                         pos_t rev1 = make_pos_t(get_id(pos1), 
                                             !is_rev(pos1),
-                                            len1 - get_offset(pos1)); 
+                                            len1 - get_offset(pos1)-1); 
 
                         for (size_t b = 0 ; b < clusters.size() ; b++) {
                             if (b != a) {
@@ -709,7 +708,7 @@ namespace unittest {
                                     size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
                                     pos_t rev2 = make_pos_t(get_id(pos2), 
                                                      !is_rev(pos2),
-                                                     len2 - get_offset(pos2)); 
+                                                     len2 - get_offset(pos2)-1); 
 
                                     int64_t dist1 = dist_index.minDistance(pos1, pos2);
                                     int64_t dist2 = dist_index.minDistance(pos1, rev2);
@@ -717,7 +716,7 @@ namespace unittest {
                                     int64_t dist4 = dist_index.minDistance(rev1, rev2);
                                     int64_t dist = MinimumDistanceIndex::minPos({dist1, 
                                                        dist2, dist3, dist4});
-                                    if ( dist != -1 && dist < lim-2) {
+                                    if ( dist != -1 && dist <= lim) {
                                         dist_index.printSelf();
                                         graph.serialize_to_file("testGraph");
                                         cerr << "These should have been in the same cluster: " ;
@@ -735,14 +734,14 @@ namespace unittest {
                             size_t len2 = graph.get_length(graph.get_handle(get_id(pos2), false));
                             pos_t rev2 = make_pos_t(get_id(pos2), 
                                                  !is_rev(pos2),
-                                                 len2 - get_offset(pos2)); 
+                                                 len2 - get_offset(pos2)-1); 
                             int64_t dist1 = dist_index.minDistance(pos1, pos2);
                             int64_t dist2 = dist_index.minDistance(pos1, rev2);
                             int64_t dist3 = dist_index.minDistance(rev1, pos2);
                             int64_t dist4 = dist_index.minDistance(rev1, rev2);
                             int64_t dist = MinimumDistanceIndex::minPos({dist1, 
                                                dist2, dist3, dist4});
-                            if ( dist != -1 && dist < lim+2) {
+                            if ( dist != -1 && dist <= lim) {
                                 new_clusters.union_groups(i1, i2);
                             }
 

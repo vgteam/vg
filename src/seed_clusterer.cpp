@@ -9,7 +9,7 @@ namespace vg {
     };
         
     vector<vector<size_t>> SnarlSeedClusterer::cluster_seeds ( 
-                  vector<pos_t> seeds, size_t distance_limit ){
+                  vector<pos_t> seeds, int64_t distance_limit ){
         /* Given a vector of seeds and a limit, find a clustering of seeds where
          * seeds that are closer than the limit cluster together. 
          * Returns a vector of cluster assignments 
@@ -259,7 +259,7 @@ cerr << endl << "New cluster calculation:" << endl;
                        structures::UnionFind& union_find_clusters, 
                        vector< pair<int64_t, int64_t>>& cluster_dists,
                        vector<size_t>& seed_indices,
-                       size_t distance_limit, 
+                       int64_t distance_limit, 
                        id_t root, int64_t node_length) {
 #ifdef DEBUG 
         cerr << "Finding clusters on node " << root << " which has length " <<
@@ -357,7 +357,7 @@ cerr << endl << "New cluster calculation:" << endl;
             size_t i_group = s.first;
             int64_t offset = s.second;
 
-            if (abs(offset - last_offset) < distance_limit) {
+            if (abs(offset - last_offset) <= distance_limit) {
                 //If this seed is in the same cluster as the previous one,
                 //union them
 
@@ -411,7 +411,7 @@ cerr << endl << "New cluster calculation:" << endl;
                                 vector<pair<child_node_t, child_cluster_t>>>& 
                                                             curr_snarl_children,
                        hash_map<id_t, vector<size_t>>& node_to_seeds,
-                       size_t distance_limit,  size_t chain_index_i) {
+                       int64_t distance_limit,  size_t chain_index_i) {
         /*
          * Find all the clusters in the given chain, given clusters inside its 
          * child snarls.
@@ -561,8 +561,8 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                     if (child_dist_left != -1 && loop_dist_start != -1 &&
                         dists.first != -1 && 
                         child_dist_left + dists.first 
-                              + loop_dist_start - start_length 
-                              < distance_limit) {  
+                              + loop_dist_start - start_length - 1 
+                              <= distance_limit) {  
                         //If this cluster can be combined with another cluster
                         //from the left
 
@@ -591,7 +591,7 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                     if (child_dist_right != -1 && loop_dist_end != -1 &&
                         dists.second != -1 && 
                         child_dist_right + dists.second + loop_dist_end 
-                                         - end_length < distance_limit) {  
+                                         - end_length - 1 <= distance_limit) {  
                         //If this cluster can be combined with another cluster
                         //from the right 
 
@@ -665,8 +665,8 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
             //than the distance limit, then they are in the same cluster
             int64_t chain_lim_right = child_dist_left - start_length;
             int64_t snarl_lim_left = best_right - start_length;
-            int64_t old_left = child_dist_left;
-            int64_t old_right = best_right;
+            int64_t old_right = child_dist_left;//Need this in case it becomes -1
+            int64_t old_left = best_right;
 
             vector<size_t> to_add;//new cluster group ids 
             vector<size_t> to_erase; //old cluster group ids
@@ -680,8 +680,8 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
 
                 pair<int64_t, int64_t> snarl_dists = move(cluster_dists[j]);
 
-                if (old_right != -1 && snarl_dists.first != -1 &&
-                    snarl_dists.first + snarl_lim_left < distance_limit) {
+                if (old_left != -1 && snarl_dists.first != -1 &&
+                    snarl_dists.first + snarl_lim_left-1 <= distance_limit) {
                     //If this snarl cluster is in the combined cluster
                     if (combined_cluster == -1) {
                         combined_cluster = j;
@@ -715,8 +715,8 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                 //For each old chain cluster
                 pair<int64_t, int64_t>& chain_dists = cluster_dists[i];
 
-                if (old_left != -1 && chain_dists.second != -1 && 
-                    chain_dists.second + chain_lim_right < distance_limit){
+                if (old_right != -1 && chain_dists.second != -1 && 
+                    chain_dists.second + chain_lim_right-1 <= distance_limit){
                     //If this chain cluster is in the combined cluster
                     if (combined_cluster == -1) {
                         combined_cluster = i;
@@ -740,8 +740,8 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                     //If this chain cluster is on its own, extend its right 
                     //distance to the end of the current snarl
                     chain_dists.second += dist_to_end;
-                    if (chain_dists.first > distance_limit &&
-                        chain_dists.second - end_length > distance_limit) {
+                    if (chain_dists.first - 2 >= distance_limit &&
+                        chain_dists.second - end_length-2 >= distance_limit) {
                         //If the distance from the seeds in this cluster to
                         //either end of the chain is greater than the distance
                         //limit, then it cannot cluster with anything else
@@ -810,7 +810,7 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
             //If the chain loops, then the clusters might be connected by 
             //looping around the chain
             //
-            int64_t first_length = chain_index.prefix_sum[0];
+            int64_t first_length = chain_index.prefix_sum[0]-1;
             vector<size_t> to_erase; //old cluster group ids
             //New cluster- there will be at most one new cluster to add
             size_t combined_cluster = -1;
@@ -820,11 +820,11 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                 pair<int64_t, int64_t>& chain_dists = cluster_dists[i];
 
                 if ((chain_dists.second != -1 && best_left != -1 &&
-                     chain_dists.second + best_left - first_length 
-                                                          < distance_limit) ||
+                     chain_dists.second + best_left - first_length - 1 
+                                                          <= distance_limit) ||
                    (chain_dists.first != -1 && best_right != -1 && 
-                      chain_dists.first + best_right - first_length 
-                                                          < distance_limit)){
+                      chain_dists.first + best_right - first_length - 1 
+                                                          <= distance_limit)){
                     //If this chain cluster is in the combined cluster
                     if (combined_cluster == -1) {
                         combined_cluster = i;
@@ -894,7 +894,7 @@ cerr << "    Distances to ends of snarl including loops: " << cluster_dists[c].f
                        vector<pair<int64_t, int64_t>>& cluster_dists,
                        vector<pair<child_node_t, child_cluster_t>>& child_nodes,
                        hash_map<id_t, vector<size_t>>& node_to_seeds,
-                       size_t distance_limit, 
+                       int64_t distance_limit, 
                        size_t snarl_index_i, bool rev) {
         /*Get the clusters on this snarl. child_nodes stores each of the
          * nodes of the net graph that contain seeds and their clusters
@@ -1157,9 +1157,9 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
 
                 if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1
                    && MinimumDistanceIndex::minPos({dist_l_l, dist_l_r, 
-                                           dist_r_l, dist_r_r}) < distance_limit
-                   && min_positive(child_dist_left, child_dist_right) 
-                                                             < distance_limit) {
+                                           dist_r_l, dist_r_r})-2 <= distance_limit
+                   && min_positive(child_dist_left, child_dist_right)-2 
+                                                             <= distance_limit) {
                     //If the two nodes are reachable
                     for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
                         //for each cluster of child node i
@@ -1177,28 +1177,28 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         if (dist_l_l != -1 && dists_c.first != -1 
                                  && dist_bounds_j.first != -1  
                                  && dist_l_l + dists_c.first 
-                                      + dist_bounds_j.first < distance_limit) {
+                                   + dist_bounds_j.first-1 <= distance_limit) {
                             //If cluster c can be combined with clusters in j 
                             //from the left of both of them
                             combine_clusters(c_group, group_l_l, new_dists);
                         }
                         if (dist_l_r != -1 && dists_c.first != -1 
                             && dist_bounds_j.second != -1 
-                            && dist_l_r + dists_c.first + dist_bounds_j.second 
-                                                             < distance_limit) {
+                            && dist_l_r + dists_c.first + dist_bounds_j.second-1
+                                                            <= distance_limit) {
                             combine_clusters(c_group, group_l_r, new_dists);
 
                         }
                         if (dist_r_l != -1 && dists_c.second != -1 
                             && dist_bounds_j.first != -1 
-                            && dist_r_l + dists_c.second + dist_bounds_j.first 
-                                                             < distance_limit) {
+                            && dist_r_l + dists_c.second + dist_bounds_j.first-1
+                                                           <= distance_limit) {
                             combine_clusters(c_group, group_r_l, new_dists);
                         }
                         if (dist_r_r != -1 && dists_c.second != -1 
                             && dist_bounds_j.second != -1 
-                            && dist_r_r + dists_c.second + dist_bounds_j.second 
-                                                             < distance_limit) {
+                           && dist_r_r + dists_c.second + dist_bounds_j.second-1
+                                                            <= distance_limit) {
                             combine_clusters(c_group, group_r_r, new_dists);
                         }
 
@@ -1220,30 +1220,30 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                     
 
                         if (dist_l_l != -1 && child_dist_left != -1 
-                             && dist_bounds_k.first != -1 
-                             && dist_l_l + child_dist_left + dist_bounds_k.first
-                                                             < distance_limit){
+                           && dist_bounds_k.first != -1 
+                           && dist_l_l + child_dist_left + dist_bounds_k.first-1
+                                                             <= distance_limit){
 
                             combine_clusters(k_group, group_l_l, dists_k);
                         }
                         if (dist_l_r != -1 && child_dist_left != -1 
                              && dist_bounds_k.second != -1  
-                            && dist_l_r + child_dist_left + dist_bounds_k.second
-                                                            < distance_limit ) {
+                          && dist_l_r + child_dist_left + dist_bounds_k.second-1
+                                                          <= distance_limit ) {
 
                             combine_clusters(k_group, group_l_r, dists_k);
                         }
                         if (dist_r_l != -1 && child_dist_right != -1 
                             && dist_bounds_k.first != -1  
-                            && dist_r_l + child_dist_right + dist_bounds_k.first
-                                                             < distance_limit) {
+                          && dist_r_l + child_dist_right + dist_bounds_k.first-1
+                                                           <= distance_limit) {
 
                             combine_clusters(k_group, group_r_l, dists_k);
                         }
                         if (dist_r_r != -1 && child_dist_right != -1 
                            && dist_bounds_k.second != -1
-                           && dist_r_r + child_dist_right + dist_bounds_k.second
-                                                             < distance_limit) {
+                         && dist_r_r + child_dist_right + dist_bounds_k.second-1
+                                                           <= distance_limit) {
 
                             combine_clusters(k_group, group_r_r, dists_k);
                         }

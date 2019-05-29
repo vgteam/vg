@@ -6,7 +6,6 @@
 using namespace std;
 namespace vg {
 
-//TODO: Compress things
 /*TODO: Remove old distance index from vg index 
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
