@@ -285,7 +285,7 @@ namespace vg {
         }
         // reassign hash tables to the midpoint of their max and min load factors
         // TODO: is this a good way to choose load factor?
-#ifndef FLAT_HASH_MAP
+#ifndef USE_FLAT_HASH
         graph.rehash(graph.size() * 0.5 * (graph.min_load_factor() + graph.max_load_factor()));
         path_id.rehash(path_id.size() * 0.5 * (path_id.min_load_factor() + path_id.max_load_factor()));
         paths.rehash(paths.size() * 0.5 * (paths.min_load_factor() + paths.max_load_factor()));
