@@ -133,6 +133,7 @@ namespace unittest {
         Node* n8 = graph.create_node("G");
         Node* n9 = graph.create_node("AA");
         Node* n10 = graph.create_node("G");
+        Node* n11 = graph.create_node("GGGGGGGGGG");//10
 
         Edge* e1 = graph.create_edge(n1, n2);
         Edge* e2 = graph.create_edge(n1, n10);
@@ -141,13 +142,14 @@ namespace unittest {
         Edge* e5 = graph.create_edge(n3, n5);
         Edge* e6 = graph.create_edge(n4, n5);
         Edge* e7 = graph.create_edge(n5, n6);
-        Edge* e8 = graph.create_edge(n5, n7);
-        Edge* e9 = graph.create_edge(n6, n7);
-        Edge* e10 = graph.create_edge(n7, n7, false, true);
-        Edge* e11 = graph.create_edge(n7, n8);
-        Edge* e12 = graph.create_edge(n7, n9);
-        Edge* e13 = graph.create_edge(n8, n9);
-        Edge* e14 = graph.create_edge(n9, n10);
+        Edge* e8 = graph.create_edge(n5, n11);
+        Edge* e9 = graph.create_edge(n11, n7);
+        Edge* e10 = graph.create_edge(n6, n7);
+        Edge* e11 = graph.create_edge(n8, n8, false, true);
+        Edge* e12 = graph.create_edge(n7, n8);
+        Edge* e13 = graph.create_edge(n7, n9);
+        Edge* e14 = graph.create_edge(n8, n9);
+        Edge* e15 = graph.create_edge(n9, n10);
 
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls();
@@ -155,13 +157,22 @@ namespace unittest {
 
         SnarlSeedClusterer clusterer(dist_index);
 
-        SECTION( "One cluster" ) {
+        SECTION( "Same snarl" ) {
             vector<pos_t> seeds;
             seeds.push_back(make_pos_t(3, false, 0));
             seeds.push_back(make_pos_t(4, false, 0));
 
             vector<vector<size_t>> clusters = clusterer.cluster_seeds(
-                                        seeds, 10); 
+                                        seeds, 13); 
+            REQUIRE( clusters.size() == 1);
+        }
+        SECTION( "Different snarl" ) {
+            vector<pos_t> seeds;
+            seeds.push_back(make_pos_t(3, false, 0));
+            seeds.push_back(make_pos_t(11, false, 9));
+
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(
+                                        seeds, 8);
             REQUIRE( clusters.size() == 1);
         }
     }//end test case
@@ -638,7 +649,7 @@ namespace unittest {
         for (int i = 0; i < 0; i++) {
             // For each random graph
             VG graph;
-            random_graph(1000, 20, 20, &graph);
+            random_graph(1000, 20, 100, &graph);
 
 
             CactusSnarlFinder bubble_finder(graph);
@@ -658,7 +669,7 @@ namespace unittest {
             for (size_t k = 0; k < 100 ; k++) {
                 vector<pos_t> seeds;
                 int64_t lim = 20;// Distance between clusters
-                for (int j = 0; j < 15; j++) {
+                for (int j = 0; j < 20; j++) {
                     //Check clusters of 15 random positions 
                     const Snarl* snarl1 = allSnarls[randSnarlIndex(generator)];
 

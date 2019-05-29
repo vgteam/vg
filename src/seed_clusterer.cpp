@@ -1,6 +1,6 @@
 #include "seed_clusterer.hpp"
 
-//#define DEBUG 
+#define DEBUG 
 
 namespace vg {
 
@@ -527,6 +527,7 @@ cerr << endl << "New cluster calculation:" << endl;
             int64_t loop_dist_end = chain_index.loop_fd[start_rank + 1] - 1 ;
             int64_t loop_dist_start = chain_index.loop_rev[start_rank] - 1; 
 
+//TODO: Check this again to make sure none of the looping checks are redundant
             if (loop_dist_start != -1 || loop_dist_end != -1) {
                 //If there is a loop in the chain, then it may
                 //be possible for two clusters on the same snarl to
@@ -548,6 +549,9 @@ cerr << "      Getting distances from loops in chain " << endl;
                                         ? -1
                                         : dists.first + loop_dist_start 
                                                + snarl_length - start_length;
+                    child_dist_left = min_positive(new_left, child_dist_left);
+                    child_dist_right = min_positive(new_right, child_dist_right);
+
                     //If this cluster was not combined with the another, 
                     //Update its left and right distances with loop dists
                     cluster_dists[c] = make_pair(
