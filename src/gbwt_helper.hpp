@@ -79,7 +79,7 @@ public:
     const gbwt::GBWT&   index;
     std::vector<char>   sequences;
     sdsl::int_vector<0> offsets;
-    std::vector<bool>   real_nodes;
+    sdsl::bit_vector    real_nodes;
     size_t              total_nodes;
 
     constexpr static size_t CHUNK_SIZE = 1024; // For parallel for_each_handle().
@@ -110,6 +110,15 @@ public:
     /// Get the sequence of a node, presented in the handle's local forward
     /// orientation.
     virtual std::string get_sequence(const handle_t& handle) const;
+
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    virtual char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual std::string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
 
     /// Return the number of nodes in the graph.
     virtual size_t get_node_count() const;

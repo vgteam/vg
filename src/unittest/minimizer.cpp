@@ -174,11 +174,10 @@ TEST_CASE("Minimizer extraction works correctly", "[minimizer_index][indexing]")
 }
 
 void check_minimizer_index(const MinimizerIndex& index, const std::map<size_t, std::set<pos_t>>& correct_values,
-                           size_t keys, size_t values, size_t unique, size_t frequent) {
+                           size_t keys, size_t values, size_t unique) {
     REQUIRE(index.size() == keys);
     REQUIRE(index.values() == values);
     REQUIRE(index.unique_keys() == unique);
-    REQUIRE(index.frequent_keys() == frequent);
 
     for (auto iter = correct_values.begin(); iter != correct_values.end(); ++iter) {
         std::vector<pos_t> result = index.find(get_minimizer(iter->first));
@@ -193,7 +192,7 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
 
     SECTION("unique keys") {
         MinimizerIndex index;
-        size_t keys = 0, values = 0, unique = 0, frequent = 0;
+        size_t keys = 0, values = 0, unique = 0;
         std::map<size_t, std::set<pos_t>> correct_values;
 
         for (size_t i = 1; i <= TOTAL_KEYS; i++) {
@@ -202,7 +201,7 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
             correct_values[i].insert(pos);
             keys++; values++; unique++;
         }
-        check_minimizer_index(index, correct_values, keys, values, unique, frequent);
+        check_minimizer_index(index, correct_values, keys, values, unique);
     }
 
     SECTION("missing keys") {
@@ -227,7 +226,7 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
 
     SECTION("multiple occurrences") {
         MinimizerIndex index;
-        size_t keys = 0, values = 0, unique = 0, frequent = 0;
+        size_t keys = 0, values = 0, unique = 0;
         std::map<size_t, std::set<pos_t>> correct_values;
 
         for (size_t i = 1; i <= TOTAL_KEYS; i++) {
@@ -248,12 +247,12 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
             correct_values[i].insert(pos);
             values++;
         }
-        check_minimizer_index(index, correct_values, keys, values, unique, frequent);
+        check_minimizer_index(index, correct_values, keys, values, unique);
     }
 
     SECTION("duplicate values") {
         MinimizerIndex index;
-        size_t keys = 0, values = 0, unique = 0, frequent = 0;
+        size_t keys = 0, values = 0, unique = 0;
         std::map<size_t, std::set<pos_t>> correct_values;
 
         for (size_t i = 1; i <= TOTAL_KEYS; i++) {
@@ -272,12 +271,12 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
             pos_t pos = make_pos_t(i + 1, i & 1, (i + 1) & MinimizerIndex::OFF_MASK);
             index.insert(get_minimizer(i), pos);
         }
-        check_minimizer_index(index, correct_values, keys, values, unique, frequent);
+        check_minimizer_index(index, correct_values, keys, values, unique);
     }
 
     SECTION("rehashing") {
         MinimizerIndex index;
-        size_t keys = 0, values = 0, unique = 0, frequent = 0;
+        size_t keys = 0, values = 0, unique = 0;
         std::map<size_t, std::set<pos_t>> correct_values;
         size_t threshold = index.max_keys();
 
@@ -298,112 +297,7 @@ TEST_CASE("Index contains the correct kmers", "[minimizer_index][indexing]") {
         }
         REQUIRE(index.max_keys() > threshold);
 
-        check_minimizer_index(index, correct_values, keys, values, unique, frequent);
-    }
-}
-
-void check_empty_values(const MinimizerIndex& index, size_t keys, size_t step) {
-    for (size_t i = 1; i < keys; i += step) {
-        std::vector<pos_t> result = index.find(get_minimizer(i));
-        bool empty_value = (result.size() == 1 && is_empty(result.front()));
-        REQUIRE(empty_value);
-    }
-}
-
-TEST_CASE("Setting max_values works", "[minimizer_index][indexing]") {
-    constexpr size_t TOTAL_KEYS = 16;
-
-    SECTION("max_values = 1") {
-        MinimizerIndex index(MinimizerIndex::KMER_LENGTH, MinimizerIndex::WINDOW_LENGTH, 1);
-        size_t keys = 0, values = 0, unique = 0, frequent = 0;
-        std::map<size_t, std::set<pos_t>> correct_values;
-
-        for (size_t i = 1; i <= TOTAL_KEYS; i++) {
-            pos_t pos = make_pos_t(i, i & 1, i & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].insert(pos);
-            keys++; values++; unique++;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 2) {
-            pos_t pos = make_pos_t(i + 1, i & 1, (i + 1) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].clear();
-            values--; unique--; frequent++;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 4) {
-            pos_t pos = make_pos_t(i + 2, i & 1, (i + 2) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 8) {
-            pos_t pos = make_pos_t(i + 3, i & 1, (i + 3) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-        }
-        check_minimizer_index(index, correct_values, keys, values, unique, frequent);
-        check_empty_values(index, TOTAL_KEYS, 2);
-    }
-
-    SECTION("max_values = 2") {
-        MinimizerIndex index(MinimizerIndex::KMER_LENGTH, MinimizerIndex::WINDOW_LENGTH, 2);
-        size_t keys = 0, values = 0, unique = 0, frequent = 0;
-        std::map<size_t, std::set<pos_t>> correct_values;
-
-        for (size_t i = 1; i <= TOTAL_KEYS; i++) {
-            pos_t pos = make_pos_t(i, i & 1, i & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].insert(pos);
-            keys++; values++; unique++;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 2) {
-            pos_t pos = make_pos_t(i + 1, i & 1, (i + 1) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].insert(pos);
-            values++; unique--;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 4) {
-            pos_t pos = make_pos_t(i + 2, i & 1, (i + 2) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].clear();
-            values -= 2; frequent++;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 8) {
-            pos_t pos = make_pos_t(i + 3, i & 1, (i + 3) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-        }
-        check_minimizer_index(index, correct_values, keys, values, unique, frequent);
-        check_empty_values(index, TOTAL_KEYS, 4);
-    }
-
-    SECTION("max_values = 3") {
-        MinimizerIndex index(MinimizerIndex::KMER_LENGTH, MinimizerIndex::WINDOW_LENGTH, 3);
-        size_t keys = 0, values = 0, unique = 0, frequent = 0;
-        std::map<size_t, std::set<pos_t>> correct_values;
-
-        for (size_t i = 1; i <= TOTAL_KEYS; i++) {
-            pos_t pos = make_pos_t(i, i & 1, i & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].insert(pos);
-            keys++; values++; unique++;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 2) {
-            pos_t pos = make_pos_t(i + 1, i & 1, (i + 1) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].insert(pos);
-            values++; unique--;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 4) {
-            pos_t pos = make_pos_t(i + 2, i & 1, (i + 2) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].insert(pos);
-            values++;
-        }
-        for (size_t i = 1; i <= TOTAL_KEYS; i += 8) {
-            pos_t pos = make_pos_t(i + 3, i & 1, (i + 3) & MinimizerIndex::OFF_MASK);
-            index.insert(get_minimizer(i), pos);
-            correct_values[i].clear();
-            values -= 3; frequent++;
-        }
-        check_minimizer_index(index, correct_values, keys, values, unique, frequent);
-        check_empty_values(index, TOTAL_KEYS, 8);
+        check_minimizer_index(index, correct_values, keys, values, unique);
     }
 }
 
