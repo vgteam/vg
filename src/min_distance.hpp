@@ -279,15 +279,15 @@ class MinimumDistanceIndex {
     //For each node, stores 1 if the node is in a secondary snarl and 0
     //otherwise. Use rank to find which index into secondary_snarls
     //a node's secondary snarl is at
-//    sdsl::bit_vector has_secondary_snarl_bv;
-//    sdsl::rank_support_v<1> has_secondary_snarl;
+    sdsl::bit_vector has_secondary_snarl_bv;
+    sdsl::rank_support_v<1> has_secondary_snarl;
 
     //For each node, store the index and rank for the chain that the node
     //belongs to, if any
     sdsl::int_vector<> chain_assignments;
     sdsl::int_vector<> chain_ranks;
-//    sdsl::bit_vector has_chain_bv;
-//    sdsl::rank_support_v<1> has_chain;
+    sdsl::bit_vector has_chain_bv;
+    sdsl::rank_support_v<1> has_chain;
 
     /*Index to find the snarl containing a node
       The start node id of the snarl containing each node - negative if 
@@ -323,6 +323,17 @@ class MinimumDistanceIndex {
     */
     tuple<int64_t, int64_t, pair<id_t, bool>> distToCommonAncestor(
                 pair<size_t, bool> common_ancestor, pos_t& pos, bool rev); 
+
+
+    //Get the index into chain_indexes/rank in chain of node i
+    size_t getPrimaryAssignment(id_t i);
+    size_t getPrimaryRank(id_t i);
+
+    size_t getChainAssignment(id_t i);
+    size_t getChainRank(id_t i);
+
+    size_t getSecondaryAssignment(id_t i);
+    size_t getSecondaryRank(id_t i);
 
 
     friend class SnarlIndex;

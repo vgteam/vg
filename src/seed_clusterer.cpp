@@ -96,8 +96,8 @@ cerr << endl << "New cluster calculation:" << endl;
                     //If this snarl is in a chain, add it to chains
                     //but don't cluster yet
 
-                    size_t chain_assignment = dist_index.chain_assignments[
-                           snarl_index.parent_id-dist_index.min_node_id]-1;
+                    size_t chain_assignment = dist_index.getChainAssignment(
+                                                        snarl_index.parent_id);
 
                     chain_to_snarls[chain_assignment].push_back( snarl_i);
                           
@@ -115,8 +115,8 @@ cerr << endl << "New cluster calculation:" << endl;
                         assert(snarl_index.parent_id >= dist_index.min_node_id);
                         assert(snarl_index.parent_id <= dist_index.max_node_id);
                         size_t parent_snarl_i = 
-                               dist_index.primary_snarl_assignments[
-                                  snarl_index.parent_id-dist_index.min_node_id] - 1;
+                               dist_index.getPrimaryAssignment(
+                                                    snarl_index.parent_id);
                         parent_snarl_children[parent_snarl_i].push_back(
                             make_pair(make_pair(snarl_i, SNARL), 
                                   get_clusters_snarl(seeds, union_find_clusters,
@@ -166,8 +166,7 @@ cerr << endl << "New cluster calculation:" << endl;
                     assert(parent_id >= dist_index.min_node_id);
                     assert(parent_id <= dist_index.max_node_id);
                     // Map it to the snarl number that should be represented by it (and thus also contain the chain)
-                    size_t parent_snarl_i = dist_index.primary_snarl_assignments[
-                                parent_id-dist_index.min_node_id]-1;
+                    size_t parent_snarl_i =dist_index.getPrimaryAssignment(parent_id);
                     
                     // Register clusters as relevant for that parent snarl.
                     parent_snarl_children[parent_snarl_i].emplace_back(make_pair(chain_i, CHAIN), std::move(chain_clusters));
@@ -224,8 +223,7 @@ cerr << endl << "New cluster calculation:" << endl;
             pos_t pos = seeds[i];
             id_t id = get_id(pos);
 
-            size_t snarl_i = dist_index.primary_snarl_assignments[
-                                          id - dist_index.min_node_id]-1;
+            size_t snarl_i = dist_index.getPrimaryAssignment(id);
 
             MinimumDistanceIndex::SnarlIndex* snarl_index =
                                              &dist_index.snarl_indexes[snarl_i];
@@ -239,8 +237,7 @@ cerr << endl << "New cluster calculation:" << endl;
                 //Map node to seed
                 node_to_seeds.emplace(id, vector<size_t>({i}));
                 int64_t node_length = snarl_index->nodeLength(
-                         dist_index.primary_snarl_ranks[
-                                           id - dist_index.min_node_id]-1);
+                                                dist_index.getPrimaryRank(id));
 
                 //Map snarl to node
                 if (snarl_to_nodes.size() < depth+1) {
@@ -421,8 +418,8 @@ cerr << endl << "New cluster calculation:" << endl;
         //Sort vector of snarls by rank
         std::sort(snarls_in_chain.begin(), snarls_in_chain.end(), 
                      [&](const auto s, const auto t) -> bool {
-                         size_t rank1 = dist_index.chain_ranks[dist_index.snarl_indexes[s].id_in_parent-dist_index.min_node_id]-1;
-                         size_t rank2 = dist_index.chain_ranks[dist_index.snarl_indexes[t].id_in_parent-dist_index.min_node_id]-1;
+                         size_t rank1 = dist_index.getChainRank(dist_index.snarl_indexes[s].id_in_parent);
+                         size_t rank2 = dist_index.getChainRank(dist_index.snarl_indexes[t].id_in_parent);
                           return  rank1 < rank2; 
                       } );
   
@@ -463,8 +460,7 @@ cerr << endl << "New cluster calculation:" << endl;
 
             //rank of the boundary node of the snarl that occurs first in
             //the chain
-            size_t start_rank =  dist_index.chain_ranks[
-                                snarl_index.id_in_parent-dist_index.min_node_id]-1;
+            size_t start_rank =  dist_index.getChainRank(snarl_index.id_in_parent);
 
             //Get the lengths of the start and end nodes of the snarl, relative
             //to the order of the chain
@@ -1010,16 +1006,14 @@ cerr << "  Combining this cluster from the right" << endl;
             //If this node is a snarl/chain, then this snarl will be the
             //secondary snarl
             size_t node_rank = child.second == NODE 
-                    ? dist_index.primary_snarl_ranks[
-                                  child_node_id - dist_index.min_node_id]-1
-                    : dist_index.secondary_snarl_ranks[
-                                 child_node_id - dist_index.min_node_id]-1;
+                    ? dist_index.getPrimaryRank(child_node_id)
+                    : dist_index.getSecondaryRank(child_node_id);
             size_t rev_rank = node_rank % 2 == 0
                            ? node_rank + 1 : node_rank - 1;
             if ((child.second == SNARL && dist_index.snarl_indexes[
-                          dist_index.primary_snarl_assignments[child_node_id-dist_index.min_node_id]-1].rev_in_parent) || 
+                        dist_index.getPrimaryAssignment(child_node_id)].rev_in_parent) || 
                  (child.second == CHAIN && dist_index.chain_indexes[
-                     dist_index.chain_assignments[child_node_id-dist_index.min_node_id]-1].rev_in_parent)) {
+                     dist_index.getChainAssignment(child_node_id)].rev_in_parent)) {
                 //If this node (child snarl/chain) is reversed in the snarl
                 //TODO: Make the secondary snarl rank indicate whether it is reversed or not
                 size_t temp = node_rank;
@@ -1142,17 +1136,15 @@ cerr << "\tcluster: " << c_i << "dists to ends in snarl" << snarl_index.id_in_pa
 
                 //Rank of this node in the snarl
                 size_t other_rank = other_node.second == NODE ? 
-                       dist_index.primary_snarl_ranks[
-                          other_node_id - dist_index.min_node_id]-1
-                    : dist_index.secondary_snarl_ranks[
-                           other_node_id - dist_index.min_node_id]-1;
+                       dist_index.getPrimaryRank(other_node_id)
+                    : dist_index.getSecondaryRank(other_node_id);
                 size_t other_rev = other_rank % 2 == 0
                                     ? other_rank + 1 : other_rank - 1;
 
             if ((other_node.second == SNARL && dist_index.snarl_indexes[
-                          dist_index.primary_snarl_assignments[other_node_id-dist_index.min_node_id]-1].rev_in_parent) || 
+                          dist_index.getPrimaryAssignment(other_node_id)].rev_in_parent) || 
                  (other_node.second == CHAIN && dist_index.chain_indexes[
-                     dist_index.chain_assignments[other_node_id-dist_index.min_node_id]-1].rev_in_parent)) {
+                     dist_index.getChainAssignment(other_node_id)].rev_in_parent)) {
                 //If this node (child snarl/chain) is reversed in the snarl
                 //TODO: Make the secondary snarl rank indicate whether it is reversed or not
                 size_t temp = other_rank;
