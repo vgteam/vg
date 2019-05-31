@@ -138,6 +138,7 @@ var searchData=
   ['help_5fcompare',['help_compare',['../compare__main_8cpp.html#a6cc84323b4922371fc8e6f2a5d483b92',1,'compare_main.cpp']]],
   ['help_5fconcat',['help_concat',['../concat__main_8cpp.html#a795aaef3bab6d86036c1362ba5b76ac0',1,'concat_main.cpp']]],
   ['help_5fconstruct',['help_construct',['../construct__main_8cpp.html#a0c8b1d02948ee021399fef93344a9def',1,'construct_main.cpp']]],
+  ['help_5fconvert',['help_convert',['../convert__main_8cpp.html#a61c2208fb6645c58f794c57e1851a194',1,'convert_main.cpp']]],
   ['help_5fcrash',['help_crash',['../crash__main_8cpp.html#a961f90696a458878f70d786d5f3307f3',1,'crash_main.cpp']]],
   ['help_5fdeconstruct',['help_deconstruct',['../deconstruct__main_8cpp.html#a32554f3b30e86c414a7c6940beb660e3',1,'deconstruct_main.cpp']]],
   ['help_5fdotplot',['help_dotplot',['../dotplot__main_8cpp.html#a628ebfce6d823f9dca7722f0721a5a3b',1,'dotplot_main.cpp']]],
@@ -199,8 +200,8 @@ var searchData=
   ['hit_5ft',['hit_t',['../classvg_1_1MEMClusterer.html#a679c48e684ac52020fb363aa946037c7',1,'vg::MEMClusterer']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html#adfc12ed7c93d550e05882555d0004235',1,'vg::MEMClusterer::HitEdge::HitEdge(size_t to_idx, int32_t weight, int64_t distance)'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a16766cbf34e0ec89d8bbdcd7f9d42988',1,'vg::MEMClusterer::HitEdge::HitEdge()=default']]],
   ['hitedge',['HitEdge',['../classvg_1_1MEMClusterer_1_1HitEdge.html',1,'vg::MEMClusterer']]],
-  ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html#af8b973948228e8cb287a166af90dcd96',1,'vg::MEMClusterer::HitGraph']]],
+  ['hitgraph',['HitGraph',['../classvg_1_1MEMClusterer_1_1HitGraph.html',1,'vg::MEMClusterer']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html',1,'vg::MEMClusterer']]],
   ['hitnode',['HitNode',['../classvg_1_1MEMClusterer_1_1HitNode.html#a3156b62ac2208fdac8d0b12475011472',1,'vg::MEMClusterer::HitNode::HitNode(const MaximalExactMatch &amp;mem, pos_t start_pos, int32_t score)'],['../classvg_1_1MEMClusterer_1_1HitNode.html#aaeb6e6e2bb1c2ce2cda76adce19a40d6',1,'vg::MEMClusterer::HitNode::HitNode()=default']]],
   ['homogenize',['homogenize',['../classvg_1_1Homogenizer.html#a1df2da16c434fef638829fe2baa4da2d',1,'vg::Homogenizer::homogenize(vg::VG *graph, xg::XG *xindex, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, Paths p, int kmer_size)'],['../classvg_1_1Homogenizer.html#a48e7976d81f13bafc6301ff94ca9b8a5',1,'vg::Homogenizer::homogenize(vg::VG *graph, xg::XG *xindex, gcsa::GCSA *gcsa_index, gcsa::LCPArray *lcp_index, vg::Index reads_index)']]],
@@ -212,6 +213,6 @@ var searchData=
   ['hts_5ffor_5feach',['hts_for_each',['../namespacevg.html#ad78ddf79cde91ee5ee05cf6d74dbec39',1,'vg::hts_for_each(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda, xg::XG *xgindex)'],['../namespacevg.html#ad7abb14966c1c20cff85c5744a47de0e',1,'vg::hts_for_each(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda)']]],
   ['hts_5ffor_5feach_5fparallel',['hts_for_each_parallel',['../namespacevg.html#a5ffaa04b09a709602834dbf5a4e8509b',1,'vg::hts_for_each_parallel(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda, xg::XG *xgindex)'],['../namespacevg.html#a59c6c494c2e7663fb14e40c978b4f9e5',1,'vg::hts_for_each_parallel(string &amp;filename, function&lt; void(Alignment &amp;)&gt; lambda)']]],
   ['hts_5fstring_5fheader',['hts_string_header',['../namespacevg.html#a03de4dcf9bfbc8ef1735076da3b922cc',1,'vg']]],
-  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html',1,'vg']]],
-  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html#a15e163926b485559f53d765f440844f0',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length)'],['../classvg_1_1HTSAlignmentEmitter.html#a0c76946bf064ecac88e21a2467ea2410',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const HTSAlignmentEmitter &amp;other)=delete'],['../classvg_1_1HTSAlignmentEmitter.html#a780156f43d54cf16906948ad8286c20f',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(HTSAlignmentEmitter &amp;&amp;other)=delete']]]
+  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html#a15e163926b485559f53d765f440844f0',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length)'],['../classvg_1_1HTSAlignmentEmitter.html#a0c76946bf064ecac88e21a2467ea2410',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(const HTSAlignmentEmitter &amp;other)=delete'],['../classvg_1_1HTSAlignmentEmitter.html#a780156f43d54cf16906948ad8286c20f',1,'vg::HTSAlignmentEmitter::HTSAlignmentEmitter(HTSAlignmentEmitter &amp;&amp;other)=delete']]],
+  ['htsalignmentemitter',['HTSAlignmentEmitter',['../classvg_1_1HTSAlignmentEmitter.html',1,'vg']]]
 ];

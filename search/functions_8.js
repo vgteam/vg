@@ -58,6 +58,7 @@ var searchData=
   ['help_5fcompare',['help_compare',['../compare__main_8cpp.html#a6cc84323b4922371fc8e6f2a5d483b92',1,'compare_main.cpp']]],
   ['help_5fconcat',['help_concat',['../concat__main_8cpp.html#a795aaef3bab6d86036c1362ba5b76ac0',1,'concat_main.cpp']]],
   ['help_5fconstruct',['help_construct',['../construct__main_8cpp.html#a0c8b1d02948ee021399fef93344a9def',1,'construct_main.cpp']]],
+  ['help_5fconvert',['help_convert',['../convert__main_8cpp.html#a61c2208fb6645c58f794c57e1851a194',1,'convert_main.cpp']]],
   ['help_5fcrash',['help_crash',['../crash__main_8cpp.html#a961f90696a458878f70d786d5f3307f3',1,'crash_main.cpp']]],
   ['help_5fdeconstruct',['help_deconstruct',['../deconstruct__main_8cpp.html#a32554f3b30e86c414a7c6940beb660e3',1,'deconstruct_main.cpp']]],
   ['help_5fdotplot',['help_dotplot',['../dotplot__main_8cpp.html#a628ebfce6d823f9dca7722f0721a5a3b',1,'dotplot_main.cpp']]],

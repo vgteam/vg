@@ -245,6 +245,7 @@ var searchData=
   ['convert_5fhandle_2ecpp',['convert_handle.cpp',['../convert__handle_8cpp.html',1,'']]],
   ['convert_5fhandle_2ehpp',['convert_handle.hpp',['../convert__handle_8hpp.html',1,'']]],
   ['convert_5fhandle_5fgraph',['convert_handle_graph',['../namespacevg.html#a516af361cd83414f278eeea202f155ac',1,'vg']]],
+  ['convert_5fmain_2ecpp',['convert_main.cpp',['../convert__main_8cpp.html',1,'']]],
   ['convert_5fpath_5fhandle_5fgraph',['convert_path_handle_graph',['../namespacevg.html#aa6c0fbf6d65818a2bd2092fec9df48fc',1,'vg']]],
   ['convert_5fto_5fvcf',['convert_to_vcf',['../classvg_1_1SupportCaller.html#a363b181f0b11a99ca083c84ad3e3e20f',1,'vg::SupportCaller']]],
   ['copy',['copy',['../classvg_1_1MinimizerIndex.html#a8bbdade3a89d723436f0b92945cf2a07',1,'vg::MinimizerIndex']]],
