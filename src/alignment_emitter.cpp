@@ -135,7 +135,8 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
     const map<string, int64_t>& path_length, size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
-    path_length(path_length), sam_files(), atomic_header(nullptr),
+    format(format), path_length(path_length),
+    sam_files(max_threads, nullptr), atomic_header(nullptr),
     sam_header(), header_mutex(), hts_mode() {
     
     if (out_file.get() != nullptr && !*out_file) {
@@ -166,25 +167,10 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
         tmp[0] = compress_level + '0'; tmp[1] = '\0';
         strcat(out_mode, tmp);
     }
-    // Save to a C++ string
+    // Save to a C++ string that we will use later.
     hts_mode = out_mode;
    
-    sam_files.reserve(max_threads);
-    for (size_t i = 0; i < max_threads; i++) {
-        // For each thread, open an HTS file to write to over its stream.
-        // We rely on sam_open just being a macro for hts_open, and use
-        // hts_hopen instead to redirect output to a C++ stream.
-        //
-        // hts_hopen demands a filename, but appears to just store it, and
-        // doesn't document how required it it.
-        sam_files.push_back(hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(i)), "-", hts_mode.c_str()));
-        
-         if (sam_files.back() == nullptr) {
-            // We couldn't open the output file.
-            cerr << "[vg::HTSAlignmentEmitter] failed to open internal stream for writing " << format << " output" << endl;
-            exit(1);
-        }
-    }
+    // Each thread will lazily open its samFile*, once it has a header ready
 }
 
 HTSAlignmentEmitter::~HTSAlignmentEmitter() {
@@ -196,8 +182,11 @@ HTSAlignmentEmitter::~HTSAlignmentEmitter() {
     }
     
     for (auto& sam_file : sam_files) {
-        // Close out all the SAM files before the multiplexer destructs
-        sam_close(sam_file);
+        if (sam_file != nullptr) {
+            // Close out all the open samFile*s and flush their data before the
+            // multiplexer destructs
+            sam_close(sam_file);
+        }
     }
 }
 
@@ -230,23 +219,16 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thr
         // Make the header
         header = hts_string_header(sam_header, path_length, rg_sample);
         
-        // Write the header to the file for our thread.
-        // TODO: We rely on this write flushing the backing hfile to get out of having to close and reopen.
-        if (sam_hdr_write(sam_files[thread_number], header) != 0) {
-            cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
-            exit(1);
-        }
+        // Initialize the SAM file for this thread and actually keep the header
+        // we write, since we are the first thread.
+        initialize_sam_file(header, thread_number, true);
         
-        // We assume the header write flushed.
-        
-        // TODO: if/in case we are doing CRAM, we may need to show the header to the HTS files we didn't write it with.
-        
-        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
-        multiplexer.register_barrier(thread_number);
-       
         // Save back to the atomic only after the header has been written and
         // it is safe for other threads to use it.
         atomic_header.store(header);
+    } else if (sam_files[thread_number] == nullptr) {
+        // The header has been created and written, but hasn't been used to initialize our samFile* yet.
+        initialize_sam_file(header, thread_number);
     }
     
     return header;
@@ -342,18 +324,53 @@ void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& recor
     }
     
     for (auto& b : records) {
-        // After unlocking the file, deallocate all the records
+        // Deallocate all the records
         bam_destroy1(b);
     }
     
     if (multiplexer.want_breakpoint(thread_number)) {
         // We have written enough that we ought to give the multiplexer a chance to multiplex soon.
         // There's no way to do this without closing and re-opening the HTS file.
+        // So just tear down and reamke the samFile* for this thread.
+        initialize_sam_file(header, thread_number);
+    }
+}
+
+void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
+    if (sam_files[thread_number] != nullptr) {
+        // A samFile* has been created already. Clear it out.
         sam_close(sam_files[thread_number]);
         multiplexer.register_breakpoint(thread_number);
-        sam_files[thread_number] = hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number)), "-", hts_mode.c_str());
-        // TODO: CRAM output might not be happy if no header is shown to the writer.
     }
+    
+    // Create a new samFile* for this thread
+    // hts_mode was filled in when the header was.
+    // hts_hopen demands a filename, but appears to just store it, and
+    // doesn't document how required it it.
+    sam_files[thread_number] = hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number)), "-", hts_mode.c_str());
+    
+    if (sam_files[thread_number] == nullptr) {
+        // We couldn't open the output samFile*
+        cerr << "[vg::HTSAlignmentEmitter] failed to open internal stream for writing " << format << " output" << endl;
+        exit(1);
+    }
+    
+    // Write the header again, which is the only way to re-initialize htslib's internals.
+    // Remember that sam_hdr_write flushes.
+    if (sam_hdr_write(sam_files[thread_number], header) != 0) {
+        cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
+        exit(1);
+    }
+    
+    if (keep_header) {
+        // We are the first thread to write a header, so we actually want it.
+        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
+        multiplexer.register_barrier(thread_number);
+    } else {
+        // Discard the header so it won't be in the resulting file again
+        multiplexer.discard_to_breakpoint(thread_number);
+    }
+
 }
 
 void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {

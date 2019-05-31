@@ -185,15 +185,20 @@ private:
 
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
-    
     /// This holds a StreamMultiplexer on the output stream, for sharing it
     /// between threads.
     vg::io::StreamMultiplexer multiplexer;
     
+    /// This holds our format name, for later error messages.
+    string format;
+    
     /// Store the path length map until the header can be made.
     map<string, int64_t> path_length;
     
-    /// We make one samFile* per thread, on each thread's output stream form the multiplexer.
+    /// We make one samFile* per thread, on each thread's output stream form
+    /// the multiplexer. As soon as we create them, we show them the header, so
+    /// they are initialized properly. If they have not yet been filled in
+    /// (because the header is not ready yet), they are null.
     vector<samFile*> sam_files;
     
     /// We need a header
@@ -219,11 +224,24 @@ private:
     /// file. Header must have been written already.
     void save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number);
     
-    /// Make sure that the HTS header has been written.
-    /// If it has not been written, blocks until it has been written.
-    /// If we end up being the thread to write it, sniff header information from the given alignment.
-    /// Returns the header pointer, so we don't have to do another atomic read later.
+    /// Make sure that the HTS header has been written, and the samFile* in
+    /// sam_files has been created for the given thread.
+    ///
+    /// If the header has not been written, blocks until it has been written.
+    ///
+    /// If we end up being the thread to write it, sniff header information
+    /// from the given alignment.
+    ///
+    /// Returns the header pointer, so we don't have to do another atomic read
+    /// later.
     bam_hdr_t* ensure_header(const Alignment& sniff, size_t thread_number);
+    
+    /// Given a header and a thread number, make sure the samFile* for that
+    /// thread is initialized and ready to have alignments written to it. If
+    /// true, actually writes the given header into the output file created by
+    /// the multiplexer. If the samFile* was already initialized, flushes it
+    /// out and makes a breakpoint.
+    void initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header = false);
     
 };
 
