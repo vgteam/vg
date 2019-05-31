@@ -23,9 +23,9 @@ namespace vg {
 using namespace std;
 
 MinimizerMapper::MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
-    SnarlManager* snarl_manager, MinimumDistanceIndex* distance_index) :
+     MinimumDistanceIndex* distance_index) :
     xg_index(xg_index), gbwt_index(gbwt_index), minimizer_index(minimizer_index),
-    snarl_manager(snarl_manager), distance_index(distance_index), gbwt_graph(*gbwt_index, *xg_index),
+    distance_index(distance_index), gbwt_graph(*gbwt_index, *xg_index),
     extender(gbwt_graph), clusterer(*distance_index) {
     
     // Nothing to do!

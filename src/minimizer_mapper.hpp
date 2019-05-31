@@ -28,7 +28,7 @@ public:
      * Construct a new MinimizerMapper using the given indexes.
      */
     MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
-        SnarlManager* snarl_manager, MinimumDistanceIndex* distance_index);
+         MinimumDistanceIndex* distance_index);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -68,7 +68,6 @@ protected:
     const xg::XG* xg_index;
     const gbwt::GBWT* gbwt_index;
     const MinimizerIndex* minimizer_index;
-    SnarlManager* snarl_manager;
     MinimumDistanceIndex* distance_index;
 
     /// We have a GBWTGraph over the GBWT and the XG
