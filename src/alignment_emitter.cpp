@@ -201,32 +201,36 @@ bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thr
         // Load into the enclosing scope header. Don't shadow, because the
         // enclosing scope variable is what will get returned.
         header = atomic_header.load();
-        if (header != nullptr) {
-            // Someone else beat us to creating the header.
-            // Header is ready.
+        if (header == nullptr) {
+            // It is our turn to make the header.
+        
+            // Sniff out the read group and sample, and map from RG to sample
+            map<string, string> rg_sample;
+            if (!sniff.sample_name().empty() && !sniff.read_group().empty()) {
+                // We have a sample and a read group
+                rg_sample[sniff.read_group()] = sniff.sample_name();
+            }
+            
+            // Make the header
+            header = hts_string_header(sam_header, path_length, rg_sample);
+            
+            // Initialize the SAM file for this thread and actually keep the header
+            // we write, since we are the first thread.
+            initialize_sam_file(header, thread_number, true);
+            
+            // Save back to the atomic only after the header has been written and
+            // it is safe for other threads to use it.
+            atomic_header.store(header);
+            
+            // We made the header and the SAM file.
             return header;
         }
-        
-        // Otherwise it is our turn to make the header.
-        
-        // Sniff out the read group and sample, and map from RG to sample
-        map<string, string> rg_sample;
-        if (!sniff.sample_name().empty() && !sniff.read_group().empty()) {
-            // We have a sample and a read group
-            rg_sample[sniff.read_group()] = sniff.sample_name();
-        }
-        
-        // Make the header
-        header = hts_string_header(sam_header, path_length, rg_sample);
-        
-        // Initialize the SAM file for this thread and actually keep the header
-        // we write, since we are the first thread.
-        initialize_sam_file(header, thread_number, true);
-        
-        // Save back to the atomic only after the header has been written and
-        // it is safe for other threads to use it.
-        atomic_header.store(header);
-    } else if (sam_files[thread_number] == nullptr) {
+    }
+    
+    // Otherwise, someone else beat us to creating the header.
+    // Header is ready. We just need to create the samFile* for this thread with it if it doesn't exist.
+    
+    if (sam_files[thread_number] == nullptr) {
         // The header has been created and written, but hasn't been used to initialize our samFile* yet.
         initialize_sam_file(header, thread_number);
     }
@@ -312,7 +316,9 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, int64
 }
 
 void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
-    
+    // We need a header and an extant samFile*
+    assert(header != nullptr);
+    assert(sam_files[thread_number] != nullptr);
     
     for (auto& b : records) {
         // Emit each record
@@ -385,6 +391,7 @@ void HTSAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
     // Make sure header exists
     bam_hdr_t* header = ensure_header(aln_batch.front(), thread_number);
     assert(header != nullptr);
+    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(aln_batch.size());
@@ -422,6 +429,7 @@ void HTSAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_b
     assert(sniff != nullptr);
     bam_hdr_t* header = ensure_header(*sniff, thread_number);
     assert(header != nullptr);
+    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(count);
@@ -457,6 +465,7 @@ void HTSAlignmentEmitter::emit_pairs(vector<Alignment>&& aln1_batch,
     // Make sure header exists
     bam_hdr_t* header = ensure_header(aln1_batch.front(), thread_number);
     assert(header != nullptr);
+    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(aln1_batch.size() * 2);
@@ -506,6 +515,7 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     assert(sniff != nullptr);
     bam_hdr_t* header = ensure_header(*sniff, thread_number);
     assert(header != nullptr);
+    assert(sam_files[thread_number] != nullptr);
     
     vector<bam1_t*> records;
     records.reserve(count);
