@@ -119,11 +119,11 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a4f6f964e3fbb4291f22d8aa485521654"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a600648c2aeb95c01700797ab15c3cc5e"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a600648c2aeb95c01700797ab15c3cc5e">operator!=</a> (const <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">ProtobufIterator</a>&lt; T &gt; &amp;other) const </td></tr>
 <tr class="separator:a600648c2aeb95c01700797ab15c3cc5e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a50d4989ecb1a82e71f124af7b6f60e33"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a50d4989ecb1a82e71f124af7b6f60e33">has_next</a> () const </td></tr>
-<tr class="memdesc:a50d4989ecb1a82e71f124af7b6f60e33"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if dereferencing the iterator will produce a valid value, and false otherwise.  <a href="#a50d4989ecb1a82e71f124af7b6f60e33">More...</a><br/></td></tr>
-<tr class="separator:a50d4989ecb1a82e71f124af7b6f60e33"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4988343ced669161d79f7eb4c2c91479"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a4988343ced669161d79f7eb4c2c91479">get_next</a> ()</td></tr>
-<tr class="separator:a4988343ced669161d79f7eb4c2c91479"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad63f73b99b119c21c64e740601f40027"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#ad63f73b99b119c21c64e740601f40027">has_current</a> () const </td></tr>
+<tr class="memdesc:ad63f73b99b119c21c64e740601f40027"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if dereferencing the iterator will produce a valid value, and false otherwise.  <a href="#ad63f73b99b119c21c64e740601f40027">More...</a><br/></td></tr>
+<tr class="separator:ad63f73b99b119c21c64e740601f40027"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a300d8f5292f866bd4709c14615cdf9e0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a300d8f5292f866bd4709c14615cdf9e0">advance</a> ()</td></tr>
+<tr class="separator:a300d8f5292f866bd4709c14615cdf9e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a32bfe2fea01e8bae7759dff71eb64db8"><td class="memItemLeft" align="right" valign="top">T&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#a32bfe2fea01e8bae7759dff71eb64db8">take</a> ()</td></tr>
 <tr class="memdesc:a32bfe2fea01e8bae7759dff71eb64db8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Take the current item, which must exist, and advance the iterator to the next one.  <a href="#a32bfe2fea01e8bae7759dff71eb64db8">More...</a><br/></td></tr>
 <tr class="separator:a32bfe2fea01e8bae7759dff71eb64db8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -142,7 +142,6 @@ Static Public Member Functions</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
 <tr class="memitem:aec100b14b027d294e2a0aaaaad3b4abd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufIterator.html#aec100b14b027d294e2a0aaaaad3b4abd">fill_value</a> ()</td></tr>
-<tr class="memdesc:aec100b14b027d294e2a0aaaaad3b4abd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Fill in value, if message_it has a value of an appropriate tag.  <a href="#aec100b14b027d294e2a0aaaaad3b4abd">More...</a><br/></td></tr>
 <tr class="separator:aec100b14b027d294e2a0aaaaad3b4abd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
@@ -208,6 +207,24 @@ template&lt;typename T &gt; </div>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a class="anchor" id="a300d8f5292f866bd4709c14615cdf9e0"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">auto <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt; T &gt;::advance </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Advance the iterator to the next message, or the end if this was the last message. Basically the same as ++. </p>
+
+</div>
+</div>
 <a class="anchor" id="aec100b14b027d294e2a0aaaaad3b4abd"></a>
 <div class="memitem">
 <div class="memproto">
@@ -230,37 +247,18 @@ template&lt;typename T &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Fill in value, if message_it has a value of an appropriate tag. </p>
+<p>Fill in value, if message_it has a value of an appropriate tag. Scans through tag-only groups. </p>
 
 </div>
 </div>
-<a class="anchor" id="a4988343ced669161d79f7eb4c2c91479"></a>
+<a class="anchor" id="ad63f73b99b119c21c64e740601f40027"></a>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
 template&lt;typename T &gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">auto <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt; T &gt;::get_next </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<p>Advance the iterator to the next message, or the end if this was the last message. Basically the same as ++. </p>
-
-</div>
-</div>
-<a class="anchor" id="a50d4989ecb1a82e71f124af7b6f60e33"></a>
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">auto <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt; T &gt;::has_next </td>
+          <td class="memname">auto <a class="el" href="classvg_1_1io_1_1ProtobufIterator.html">vg::io::ProtobufIterator</a>&lt; T &gt;::has_current </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
@@ -408,7 +406,7 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Seek to the given virtual offset and start reading the group that is there. The next value produced will be the first value in that group. If already at the start of the group at the given virtual offset, does nothing. Return false if seeking is unsupported or the seek fails. </p>
+<p>Seek to the given virtual offset and start reading the group that is there. The next value produced will be the first value in that group (or in the next group that actually has values). If already at the start of the group at the given virtual offset, does nothing. Return false if seeking is unsupported or the seek fails. </p>
 
 </div>
 </div>

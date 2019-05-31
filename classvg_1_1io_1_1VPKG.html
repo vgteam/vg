@@ -153,6 +153,18 @@ Static Private Member Functions</h2></td></tr>
 <tr class="memitem:af08bb9c650bfbbf15521ca1a215d0939"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
 <tr class="memitem:af08bb9c650bfbbf15521ca1a215d0939"><td class="memTemplItemLeft" align="right" valign="top">static string&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#af08bb9c650bfbbf15521ca1a215d0939">describe</a> ()</td></tr>
 <tr class="separator:af08bb9c650bfbbf15521ca1a215d0939"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2e0142d06cb046ec1173a371f6e91a11"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a2e0142d06cb046ec1173a371f6e91a11"><td class="memTemplItemLeft" align="right" valign="top">static std::enable_if<br class="typebreak"/>
+&lt; std::is_default_constructible<br class="typebreak"/>
+&lt; T &gt;::value, unique_ptr&lt; T &gt;<br class="typebreak"/>
+ &gt;::type&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a2e0142d06cb046ec1173a371f6e91a11">make_default_or_null</a> ()</td></tr>
+<tr class="separator:a2e0142d06cb046ec1173a371f6e91a11"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memTemplItemLeft" align="right" valign="top">static std::enable_if<br class="typebreak"/>
+&lt;!std::is_default_constructible<br class="typebreak"/>
+&lt; T &gt;::value, unique_ptr&lt; T &gt;<br class="typebreak"/>
+ &gt;::type&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1VPKG.html#a843dc5afd6bef8eab9a11e5c6291fd54">make_default_or_null</a> ()</td></tr>
+<tr class="separator:a843dc5afd6bef8eab9a11e5c6291fd54"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Interface for reading/writing type-tagged files.</p>
@@ -392,6 +404,60 @@ template&lt;typename Wanted &gt; </div>
 </table>
 </div><div class="memdoc">
 <p>Load an object of the given type from a file by name. The stream may be <a class="el" href="classvg_1_1io_1_1VPKG.html">VPKG</a> with the appropriate tag, or a bare non-VPKG stream understood by the loader. Tagged messages that can't be used to load the thing we are looking for are skipped. Ends the program with an error if the object could not be found in the file. Supports "-" for standard input. </p>
+
+</div>
+</div>
+<a class="anchor" id="a2e0142d06cb046ec1173a371f6e91a11"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static std::enable_if&lt;std::is_default_constructible&lt;T&gt;::value, unique_ptr&lt;T&gt; &gt;::type vg::io::VPKG::make_default_or_null </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return a new default-constructed instance of the given type, or a null pointer if it is not default constructible.</p>
+<p>This version matches default-consttructable types. </p>
+
+</div>
+</div>
+<a class="anchor" id="a843dc5afd6bef8eab9a11e5c6291fd54"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">static std::enable_if&lt;!std::is_default_constructible&lt;T&gt;::value, unique_ptr&lt;T&gt; &gt;::type vg::io::VPKG::make_default_or_null </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Return a new default-constructed instance of the given type, or a null pointer if it is not default constructible.</p>
+<p>This version matches non-default-consttructable types. </p>
 
 </div>
 </div>

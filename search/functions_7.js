@@ -127,7 +127,6 @@ var searchData=
   ['get_5fnearest_5fnode_5fnext_5fpath_5fmember',['get_nearest_node_next_path_member',['../classvg_1_1Index.html#ad6fe3ce75d2eb3b3299a566b1d1235df',1,'vg::Index']]],
   ['get_5fnearest_5fnode_5fprev_5fpath_5fmember',['get_nearest_node_prev_path_member',['../classvg_1_1Index.html#ad1b2bf966dd450e950a6ab188a8797a0',1,'vg::Index']]],
   ['get_5fnet_5fgraph',['get_net_graph',['../classvg_1_1GenomeState.html#ad07741efc2a949dd69aee266dbb4500b',1,'vg::GenomeState']]],
-  ['get_5fnext',['get_next',['../classvg_1_1io_1_1MessageIterator.html#a41f3bd8b9f68015316265c3b1c465ec1',1,'vg::io::MessageIterator::get_next()'],['../classvg_1_1io_1_1ProtobufIterator.html#a4988343ced669161d79f7eb4c2c91479',1,'vg::io::ProtobufIterator::get_next()'],['../namespacevg.html#abfc34cf3b7510e6daa3d403e111f4c27',1,'vg::get_next()']]],
   ['get_5fnext_5falignment_5ffrom_5ffastq',['get_next_alignment_from_fastq',['../namespacevg.html#a4f91415350a5b07bb4b4f90dd531658d',1,'vg']]],
   ['get_5fnext_5falignment_5fpair_5ffrom_5ffastqs',['get_next_alignment_pair_from_fastqs',['../namespacevg.html#a6e9fd0ae285f5f9dd8605c9f5343e071',1,'vg']]],
   ['get_5fnext_5fedge_5findex',['get_next_edge_index',['../classvg_1_1PackedGraph.html#ae66741cf53286444b967af6a1b91815e',1,'vg::PackedGraph']]],

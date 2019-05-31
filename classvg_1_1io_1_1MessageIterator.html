@@ -104,8 +104,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-types"></a>
 Public Types</h2></td></tr>
-<tr class="memitem:ac497981c90415f6cc9195e74111ced27"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac497981c90415f6cc9195e74111ced27">TaggedMessage</a> = pair&lt; string, string &gt;</td></tr>
-<tr class="separator:ac497981c90415f6cc9195e74111ced27"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1e86fc0b955189290815ea5234a39ebe"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1e86fc0b955189290815ea5234a39ebe">TaggedMessage</a> = pair&lt; string, unique_ptr&lt; string &gt;&gt;</td></tr>
+<tr class="separator:a1e86fc0b955189290815ea5234a39ebe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
@@ -118,9 +118,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a46b16972d489742f42922fd9cb9b85af"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a46b16972d489742f42922fd9cb9b85af">MessageIterator</a> ()=default</td></tr>
 <tr class="memdesc:a46b16972d489742f42922fd9cb9b85af"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor for an end iterator.  <a href="#a46b16972d489742f42922fd9cb9b85af">More...</a><br/></td></tr>
 <tr class="separator:a46b16972d489742f42922fd9cb9b85af"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af9bd6f7d8acd6b65d86ace13aae12a49"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac497981c90415f6cc9195e74111ced27">TaggedMessage</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#af9bd6f7d8acd6b65d86ace13aae12a49">operator*</a> ()</td></tr>
+<tr class="memitem:af9bd6f7d8acd6b65d86ace13aae12a49"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1e86fc0b955189290815ea5234a39ebe">TaggedMessage</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#af9bd6f7d8acd6b65d86ace13aae12a49">operator*</a> ()</td></tr>
 <tr class="separator:af9bd6f7d8acd6b65d86ace13aae12a49"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aede4a9c1477c0356b4d021c1aa42a470"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac497981c90415f6cc9195e74111ced27">TaggedMessage</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#aede4a9c1477c0356b4d021c1aa42a470">operator*</a> () const </td></tr>
+<tr class="memitem:aede4a9c1477c0356b4d021c1aa42a470"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1e86fc0b955189290815ea5234a39ebe">TaggedMessage</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#aede4a9c1477c0356b4d021c1aa42a470">operator*</a> () const </td></tr>
 <tr class="separator:aede4a9c1477c0356b4d021c1aa42a470"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a89872d57d9e7d9e49f38b6700e40c99d"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a89872d57d9e7d9e49f38b6700e40c99d">operator++</a> ()</td></tr>
 <tr class="memdesc:a89872d57d9e7d9e49f38b6700e40c99d"><td class="mdescLeft">&#160;</td><td class="mdescRight">In-place pre-increment to advance the iterator.  <a href="#a89872d57d9e7d9e49f38b6700e40c99d">More...</a><br/></td></tr>
@@ -129,12 +129,12 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a3b3e2283b8d98c77bf1413de14cd501c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afb076c65aca733bf26490ac8b1a490a1"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#afb076c65aca733bf26490ac8b1a490a1">operator!=</a> (const <a class="el" href="classvg_1_1io_1_1MessageIterator.html">MessageIterator</a> &amp;other) const </td></tr>
 <tr class="separator:afb076c65aca733bf26490ac8b1a490a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6b422ec97b65e365bf718fa914cb821d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a6b422ec97b65e365bf718fa914cb821d">has_next</a> () const </td></tr>
-<tr class="memdesc:a6b422ec97b65e365bf718fa914cb821d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if dereferencing the iterator will produce a valid value, and false otherwise.  <a href="#a6b422ec97b65e365bf718fa914cb821d">More...</a><br/></td></tr>
-<tr class="separator:a6b422ec97b65e365bf718fa914cb821d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a41f3bd8b9f68015316265c3b1c465ec1"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a41f3bd8b9f68015316265c3b1c465ec1">get_next</a> ()</td></tr>
-<tr class="separator:a41f3bd8b9f68015316265c3b1c465ec1"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab97d50a333e4f27419f0d661e8669774"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac497981c90415f6cc9195e74111ced27">TaggedMessage</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ab97d50a333e4f27419f0d661e8669774">take</a> ()</td></tr>
+<tr class="memitem:a8a0d2c8bf2efe7259fed5b9040a92112"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a8a0d2c8bf2efe7259fed5b9040a92112">has_current</a> () const </td></tr>
+<tr class="memdesc:a8a0d2c8bf2efe7259fed5b9040a92112"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return true if dereferencing the iterator will produce a valid value, and false otherwise.  <a href="#a8a0d2c8bf2efe7259fed5b9040a92112">More...</a><br/></td></tr>
+<tr class="separator:a8a0d2c8bf2efe7259fed5b9040a92112"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab4ccacd8648e7517083bfccc4676ba9a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ab4ccacd8648e7517083bfccc4676ba9a">advance</a> ()</td></tr>
+<tr class="separator:ab4ccacd8648e7517083bfccc4676ba9a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab97d50a333e4f27419f0d661e8669774"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1e86fc0b955189290815ea5234a39ebe">TaggedMessage</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ab97d50a333e4f27419f0d661e8669774">take</a> ()</td></tr>
 <tr class="memdesc:ab97d50a333e4f27419f0d661e8669774"><td class="mdescLeft">&#160;</td><td class="mdescRight">Take the current item, which must exist, and advance the iterator to the next one.  <a href="#ab97d50a333e4f27419f0d661e8669774">More...</a><br/></td></tr>
 <tr class="separator:ab97d50a333e4f27419f0d661e8669774"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a93357bb3b11b5a1cbb6d09bd712e7991"><td class="memItemLeft" align="right" valign="top">int64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a93357bb3b11b5a1cbb6d09bd712e7991">tell_group</a> () const </td></tr>
@@ -164,7 +164,7 @@ Private Member Functions</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a698864a67e1e721c06a97875f6cbcbde"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac497981c90415f6cc9195e74111ced27">TaggedMessage</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde">value</a></td></tr>
+<tr class="memitem:a698864a67e1e721c06a97875f6cbcbde"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1e86fc0b955189290815ea5234a39ebe">TaggedMessage</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a698864a67e1e721c06a97875f6cbcbde">value</a></td></tr>
 <tr class="separator:a698864a67e1e721c06a97875f6cbcbde"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:affc663d4448fe1b213d1c2e9ec64b3bb"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#affc663d4448fe1b213d1c2e9ec64b3bb">previous_tag</a></td></tr>
 <tr class="separator:affc663d4448fe1b213d1c2e9ec64b3bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -185,16 +185,16 @@ Private Attributes</h2></td></tr>
 <div class="textblock"><p>Iterator over messages in VG-format files. Yields pairs of string tag and message data. Also supports seeking and telling at the group level in bgzip files. Cannot be copied, but can be moved.</p>
 <p>TODO: Right now we always copy all messages into an internal buffer. We should only do that if the message contents are actually accessed, with some kind of lazy fake string that evaluates on string conversion. Then we could more efficiently skip stuff with the wrong tag. </p>
 </div><h2 class="groupheader">Member Typedef Documentation</h2>
-<a class="anchor" id="ac497981c90415f6cc9195e74111ced27"></a>
+<a class="anchor" id="a1e86fc0b955189290815ea5234a39ebe"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">using <a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac497981c90415f6cc9195e74111ced27">vg::io::MessageIterator::TaggedMessage</a> =  pair&lt;string, string&gt;</td>
+          <td class="memname">using <a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1e86fc0b955189290815ea5234a39ebe">vg::io::MessageIterator::TaggedMessage</a> =  pair&lt;string, unique_ptr&lt;string&gt;&gt;</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Represents a pair of a tag value and some message data. If there is no valid tag for a group, as given in the <a class="el" href="classvg_1_1io_1_1Registry.html">Registry</a>, the tag will be "". </p>
+<p>Represents a pair of a tag value and some message data. If there is no valid tag for a group, as given in the <a class="el" href="classvg_1_1io_1_1Registry.html">Registry</a>, the tag will be "". If there is a tag but no messages in its group, the data pointer will be null. </p>
 
 </div>
 </div>
@@ -261,12 +261,12 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="a41f3bd8b9f68015316265c3b1c465ec1"></a>
+<a class="anchor" id="ab4ccacd8648e7517083bfccc4676ba9a"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">auto vg::io::MessageIterator::get_next </td>
+          <td class="memname">auto vg::io::MessageIterator::advance </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -303,12 +303,12 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a6b422ec97b65e365bf718fa914cb821d"></a>
+<a class="anchor" id="a8a0d2c8bf2efe7259fed5b9040a92112"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">auto vg::io::MessageIterator::has_next </td>
+          <td class="memname">auto vg::io::MessageIterator::has_current </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
@@ -637,7 +637,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#ac497981c90415f6cc9195e74111ced27">TaggedMessage</a> vg::io::MessageIterator::value</td>
+          <td class="memname"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a1e86fc0b955189290815ea5234a39ebe">TaggedMessage</a> vg::io::MessageIterator::value</td>
         </tr>
       </table>
   </td>

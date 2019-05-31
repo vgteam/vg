@@ -1565,8 +1565,8 @@ int64_t, int32_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a clas
 <tr class="separator:aefacc656d2c444dfd6e0e445218265cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0627b5d536b881a355d8b419b6f329c6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1ChainIterator.html">ChainIterator</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a0627b5d536b881a355d8b419b6f329c6">chain_end_from</a> (const <a class="el" href="namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d">Chain</a> &amp;chain, const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *start_snarl, bool snarl_orientation)</td></tr>
 <tr class="separator:a0627b5d536b881a355d8b419b6f329c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abfc34cf3b7510e6daa3d403e111f4c27"><td class="memItemLeft" align="right" valign="top">iter&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abfc34cf3b7510e6daa3d403e111f4c27">get_next</a> ())</td></tr>
-<tr class="separator:abfc34cf3b7510e6daa3d403e111f4c27"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a05383444ed1428d5966f71fe8dd9c0a4"><td class="memItemLeft" align="right" valign="top">iter&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a05383444ed1428d5966f71fe8dd9c0a4">advance</a> ())</td></tr>
+<tr class="separator:a05383444ed1428d5966f71fe8dd9c0a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a87b890a4bc73725bbea08984d7510df4"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a87b890a4bc73725bbea08984d7510df4">operator==</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;a, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;b)</td></tr>
 <tr class="separator:a87b890a4bc73725bbea08984d7510df4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abb6063b76b70947010198b46c053b578"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abb6063b76b70947010198b46c053b578">operator!=</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;a, const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;b)</td></tr>
@@ -1926,9 +1926,9 @@ Variables</h2></td></tr>
 <tr class="separator:afe7fae89b379b5411189ac0ac74b2dd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abd1798abb6fcee86ab5b0539fb764eb2">fullTrace</a> = false</td></tr>
 <tr class="separator:abd1798abb6fcee86ab5b0539fb764eb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a632e52e19127579980cfd54dfddeb811"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">SnarlManager::SnarlManager</a>(istream <br class="typebreak"/>
-&amp;in) iter&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a632e52e19127579980cfd54dfddeb811">has_next</a> ()</td></tr>
-<tr class="separator:a632e52e19127579980cfd54dfddeb811"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a24702bcc8c19c51268810428b0be6d5c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">SnarlManager::SnarlManager</a>(istream <br class="typebreak"/>
+&amp;in) iter&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24702bcc8c19c51268810428b0be6d5c">has_current</a> ()</td></tr>
+<tr class="separator:a24702bcc8c19c51268810428b0be6d5c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a class="anchor" id="a4ab10687f0a0cca11ecfd062d9bb0a07"></a>
@@ -2573,6 +2573,21 @@ Variables</h2></td></tr>
           <td></td>
           <td>)</td>
           <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a05383444ed1428d5966f71fe8dd9c0a4"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">iter vg::advance </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -6717,21 +6732,6 @@ template&lt;typename AnnotationType , typename Annotated &gt; </div>
 </div><div class="memdoc">
 
 <p>Get the max virtual memory size ever, in kb, or 0 if unsupported. </p>
-
-</div>
-</div>
-<a class="anchor" id="abfc34cf3b7510e6daa3d403e111f4c27"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">iter vg::get_next </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
 
 </div>
 </div>
@@ -17215,12 +17215,12 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a632e52e19127579980cfd54dfddeb811"></a>
+<a class="anchor" id="a24702bcc8c19c51268810428b0be6d5c"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">SnarlManager::SnarlManager</a> (istream&amp; in) iter vg::has_next()</td>
+          <td class="memname"><a class="el" href="classvg_1_1SnarlManager.html#a1037a2341484dc7b54a68cd7207d34b8">SnarlManager::SnarlManager</a> (istream&amp; in) iter vg::has_current()</td>
         </tr>
       </table>
 </div><div class="memdoc">

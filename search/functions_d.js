@@ -62,6 +62,7 @@ var searchData=
   ['make_5fbands',['make_bands',['../classvg_1_1Mapper.html#aafecbaf352024b2847928860fe6c1168',1,'vg::Mapper']]],
   ['make_5fcircular',['make_circular',['../classvg_1_1Paths.html#a1e8760e2c86dd64141c2d0df35926430',1,'vg::Paths']]],
   ['make_5fcompact',['make_compact',['../classvg_1_1Packer.html#a66e266fca00d4e74b7bda1ddbcf384e3',1,'vg::Packer']]],
+  ['make_5fdefault_5for_5fnull',['make_default_or_null',['../classvg_1_1io_1_1VPKG.html#a2e0142d06cb046ec1173a371f6e91a11',1,'vg::io::VPKG::make_default_or_null()'],['../classvg_1_1io_1_1VPKG.html#a843dc5afd6bef8eab9a11e5c6291fd54',1,'vg::io::VPKG::make_default_or_null()']]],
   ['make_5fdelete',['make_delete',['../classvg_1_1Pileups.html#ab2917632822b6bce5084fc3bfc24965e',1,'vg::Pileups::make_delete(string &amp;seq, bool is_reverse, const pair&lt; const Mapping *, int64_t &gt; &amp;last_match, const Mapping &amp;mapping, int64_t node_offset)'],['../classvg_1_1Pileups.html#a3c6639579bc521c6ef81e33e20dfbb30',1,'vg::Pileups::make_delete(string &amp;seq, bool is_reverse, int64_t from_id, int64_t from_offset, bool from_start, int64_t to_id, int64_t to_offset, bool to_end)']]],
   ['make_5fdynamic',['make_dynamic',['../classvg_1_1Packer.html#ac3ab6cab2e0cf0ae4e65663db73184e8',1,'vg::Packer']]],
   ['make_5fedge',['make_edge',['../classvg_1_1PhaseUnfolder.html#a3e1fd06e6b6140b41c42f4c7beae4eb9',1,'vg::PhaseUnfolder::make_edge()'],['../namespacexg.html#acbd59d40c1bbe34544c698c49d9f72b8',1,'xg::make_edge()']]],
