@@ -806,7 +806,7 @@ vector<Translation> make_translation(const HandleGraph* graph,
                   }
               });
     // append the reverse complement of the translation
-    vector<Translation> reverse_translation;
+    translation.reserve(translation.size() * 2);
     auto get_curr_node_length = [&](id_t id) {
         return graph->get_length(graph->get_handle(id));
     };
@@ -819,12 +819,11 @@ vector<Translation> make_translation(const HandleGraph* graph,
         return f->second;
     };
     for (auto& trans : translation) {
-        reverse_translation.emplace_back();
-        auto& rev_trans = reverse_translation.back();
+        translation.emplace_back();
+        auto& rev_trans = translation.back();
         *rev_trans.mutable_to() = simplify(reverse_complement_path(trans.to(), get_curr_node_length));
         *rev_trans.mutable_from() = simplify(reverse_complement_path(trans.from(), get_orig_node_length));
     }
-    translation.insert(translation.end(), reverse_translation.begin(), reverse_translation.end());
     return translation;
 }
 
