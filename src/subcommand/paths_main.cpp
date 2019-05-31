@@ -316,11 +316,19 @@ int main_paths(int argc, char** argv) {
         };
         
         if (list_names) {
-          graph->paths.for_each([&list_lengths, &check_prefix](const Path& path) {
+            graph->paths.for_each([&list_lengths, &check_prefix, &graph](const Path& path) {
                   if (check_prefix(path.name())) {
                       cout << path.name();
                       if (list_lengths) {
-                          cout << "\t" << path_to_length(path);
+                          size_t path_length = 0;
+                          for (const auto& m : path.mapping()) {
+                              if (m.edit_size() > 0) {
+                                  path_length += mapping_to_length(m);
+                              } else {
+                                  path_length += graph->get_length(graph->get_handle(m.position().node_id()));
+                              }
+                          }
+                          cout << "\t" << path_length;
                       }
                       cout << endl;
                   }
