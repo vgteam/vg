@@ -716,7 +716,7 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
         vector<Alignment> all;
         all.reserve(count);
         for (size_t i = 0; i < alns1_batch.size(); i++) {
-            for (size_t j = 0; i < alns1_batch[i].size(); j++) {
+            for (size_t j = 0; j < alns1_batch[i].size(); j++) {
                 all.emplace_back(std::move(alns1_batch[i][j]));
                 all.emplace_back(std::move(alns2_batch[i][j]));
             }
@@ -735,7 +735,7 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
         stringstream data;
         for (size_t i = 0; i < alns1_batch.size(); i++) {
             assert(alns1_batch[i].size() == alns1_batch[i].size());
-            for (size_t j = 0; i < alns1_batch[i].size(); j++) {
+            for (size_t j = 0; j < alns1_batch[i].size(); j++) {
                 multiplexer.get_thread_stream(thread_number) << pb2json(alns1_batch[i][j]) << endl
                     << pb2json(alns2_batch[i][j]) << endl;
             }
