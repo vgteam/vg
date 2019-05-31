@@ -521,8 +521,6 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     save_records(header, records, thread_number);
 }
 
-#define debug
-
 VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& format, size_t max_threads):
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads) {
@@ -531,7 +529,12 @@ VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& for
     assert(format == "GAM" || format == "JSON");
     
 #ifdef debug
-    cerr << "Creating VGAlignmentEmitter for " << format << " format" << endl;
+    cerr << "Creating VGAlignmentEmitter for " << format << " format to output file " << filename << " @ " << out_file.get() << endl;
+    if (out_file.get() != nullptr) {
+        cerr << "Output stream is at " << out_file->tellp() << endl;
+    } else {
+        cerr << "Output stream is at " << cout.tellp() << endl;
+    }
 #endif
     
     if (filename != "-") {
@@ -556,6 +559,15 @@ VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& for
 }
 
 VGAlignmentEmitter::~VGAlignmentEmitter() {
+#ifdef debug
+    cerr << "Destroying VGAlignmentEmitter" << endl;
+    if (out_file.get() != nullptr) {
+        cerr << "Output stream is at " << out_file->tellp() << endl;
+    } else {
+        cerr << "Output stream is at " << cout.tellp() << endl;
+    }
+#endif
+
     if (!proto.empty()) {
         for (auto& emitter : proto) {
             // Flush each ProtobufEmitter
@@ -564,8 +576,6 @@ VGAlignmentEmitter::~VGAlignmentEmitter() {
             emitter.reset();
         }
     }
-    
-    // Don't flush the backing file. Let the StreamMultiplexer destroy itself first.
     
 #ifdef debug
     cerr << "Destroyed VGAlignmentEmitter" << endl;
@@ -735,7 +745,5 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
         multiplexer.register_breakpoint(thread_number);
     }
 }
-
-#undef debug
 
 }
