@@ -521,12 +521,18 @@ void HTSAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_ba
     save_records(header, records, thread_number);
 }
 
+#define debug
+
 VGAlignmentEmitter::VGAlignmentEmitter(const string& filename, const string& format, size_t max_threads):
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads) {
     
     // We only support GAM and JSON formats
     assert(format == "GAM" || format == "JSON");
+    
+#ifdef debug
+    cerr << "Creating VGAlignmentEmitter for " << format << " format" << endl;
+#endif
     
     if (filename != "-") {
         // Check the file
@@ -560,6 +566,10 @@ VGAlignmentEmitter::~VGAlignmentEmitter() {
     }
     
     // Don't flush the backing file. Let the StreamMultiplexer destroy itself first.
+    
+#ifdef debug
+    cerr << "Destroyed VGAlignmentEmitter" << endl;
+#endif
 }
 
 void VGAlignmentEmitter::emit_singles(vector<Alignment>&& aln_batch) {
@@ -622,6 +632,9 @@ void VGAlignmentEmitter::emit_mapped_singles(vector<vector<Alignment>>&& alns_ba
         }
         // No need to flush, we can always register a breakpoint.
         multiplexer.register_breakpoint(thread_number);
+#ifdef debug
+        cerr << "Sent " << alns_batch.size() << " batches from thread " << thread_number << " followed by a breakpoint" << endl;
+#endif
     }
 }
 
@@ -722,5 +735,7 @@ void VGAlignmentEmitter::emit_mapped_pairs(vector<vector<Alignment>>&& alns1_bat
         multiplexer.register_breakpoint(thread_number);
     }
 }
+
+#undef debug
 
 }
