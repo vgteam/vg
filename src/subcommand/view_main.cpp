@@ -449,10 +449,10 @@ int main_view(int argc, char** argv) {
         get_input_file(file_name, [&](istream& in) {
             // Iterate over the input as tagged messages.
             vg::io::MessageIterator it(in);
-            while(it.has_next()) {
-                if ((*it).first == extract_tag) {
+            while(it.has_current()) {
+                if ((*it).first == extract_tag && (*it).second.get() != nullptr) {
                     // We match the tag, so dump this message.
-                    cout << (*it).second;
+                    cout << *((*it).second.get());
                 }
                 ++it;
             }

@@ -746,7 +746,7 @@ auto StreamIndex<Message>::find(cursor_t& cursor, const vector<pair<id_t, id_t>>
             // currently looking up.
             int64_t group_vo = cursor.tell_group();
             id_t group_min_id = numeric_limits<id_t>::max();
-            while (cursor.has_next() && cursor.tell_group() < past_end_vo) {
+            while (cursor.has_current() && cursor.tell_group() < past_end_vo) {
                 // Read each message until we find a group that starts out of range
                 
                 // Which group is this message in?
@@ -836,7 +836,7 @@ auto StreamIndex<Message>::find(cursor_t& cursor, const vector<pair<id_t, id_t>>
                 }
                 
                 // Look for the next message
-                cursor.get_next();
+                cursor.advance();
                 
             }
            
@@ -880,7 +880,7 @@ auto StreamIndex<Message>::index(cursor_t& cursor) -> void {
     // We need to have seek support
     assert(group_vo != -1);
     
-    while (cursor.has_next()) {
+    while (cursor.has_current()) {
         // For each message
         
         // Work out what group it is in
