@@ -393,7 +393,11 @@ int main_augment(int argc, char** argv) {
                     reads.push_back(aln);
                     *reads.back().mutable_path() = Path();
                 });
-            translation = graph->edit(read_paths, include_paths, !gam_out_file_name.empty(), false);
+            graph->edit(read_paths,
+                        !translation_file_name.empty() ? &translation : nullptr,
+                        include_paths,
+                        !gam_out_file_name.empty(),
+                        false);
             if (!gam_out_file_name.empty()) {
                 ofstream gam_out_file(gam_out_file_name);
                 vector<Alignment> gam_buffer;
@@ -418,9 +422,11 @@ int main_augment(int argc, char** argv) {
             if (!gam_out_file_name.empty()) {
                 gam_out_file.open(gam_out_file_name);
             }
-            translation = graph->edit(gam_in_file, include_paths,
-                                      !gam_out_file_name.empty() ? &gam_out_file : nullptr,
-                                      false, !include_softclips);
+            graph->edit(gam_in_file,
+                        !translation_file_name.empty() ? &translation : nullptr,
+                        include_paths,
+                        !gam_out_file_name.empty() ? &gam_out_file : nullptr,
+                        false, !include_softclips);
         }
         
         // Write the augmented graph
@@ -550,7 +556,8 @@ int main_augment(int argc, char** argv) {
         }
         // execute the edits and produce the translation if requested.
         // Make sure to break at node ends, but don't add any paths because they're just loci alleles and not real paths.
-        auto translation = graph->edit(paths, false, false, true);
+        vector<Translation> translation;
+        graph->edit(paths, &translation, false, false, true);
         if (!translation_file_name.empty()) {
             ofstream out(translation_file_name);
             vg::io::write_buffered(out, translation, 0);

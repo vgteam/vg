@@ -66,7 +66,7 @@ void genotype_svs(VG* graph,
     vg::io::for_each_interleaved_pair_parallel(gamstream, readfunc);
     vector<Translation> transls;
     if (refpath != ""){
-        transls = graph->edit(direct_ins); // TODO could maybe use edit_fast??
+        graph->edit(direct_ins, &transls); // TODO could maybe use edit_fast??
                
         Deconstructor decon;
         decon.deconstruct(refpath, graph);

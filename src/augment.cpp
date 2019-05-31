@@ -11,9 +11,13 @@ namespace vg {
 using namespace std;
 
 // The correct way to edit the graph
-vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_stream,
-                            ostream* gam_out_stream, function<void(Path&)> save_path_fn,
-                            bool break_at_ends, bool remove_softclips) {
+void augment(MutablePathMutableHandleGraph* graph,
+             istream& gam_stream,
+             vector<Translation>* out_translations,
+             ostream* gam_out_stream,
+             function<void(Path&)> save_path_fn,
+             bool break_at_ends,
+             bool remove_softclips) {
     // Collect the breakpoints
     unordered_map<id_t, set<pos_t>> breakpoints;
 
@@ -140,7 +144,9 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_s
         });
 
     // make the translation
-    return make_translation(graph, node_translation, added_nodes, orig_node_sizes);
+    if (out_translations != nullptr) {
+        *out_translations = make_translation(graph, node_translation, added_nodes, orig_node_sizes);
+    }
 }
 
 
