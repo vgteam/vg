@@ -1406,7 +1406,7 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
             uint64_t cap = 50;
-            TestMinDistanceIndex di (&graph, &snarl_manager);
+            MinimumDistanceIndex di (&graph, &snarl_manager);
             #ifdef print        
                 di.printSelf();
 
@@ -1554,9 +1554,8 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
         
 */
 
-/*
     TEST_CASE("Serialize distance index", "[dist][serial]") {
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 0; i++) {
 
             VG graph;
             random_graph(1000, 20, 100, &graph);
@@ -1564,7 +1563,7 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
-            TestMinDistanceIndex di (&graph, &snarl_manager, 50);
+            MinimumDistanceIndex di (&graph, &snarl_manager);
   
             filebuf buf;
             ofstream out("distanceIndex");
@@ -1576,14 +1575,13 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
 
             buf.open("distanceIndex", ios::in);
             istream in(&buf);
-            TestMinDistanceIndex sdi (&graph, &snarl_manager, in);
+            MinimumDistanceIndex sdi (in);
             buf.close();
             #ifdef print        
                 di.printSelf();
                 sdi.printSelf();
 
             #endif
-            REQUIRE (sdi.maxIndex.minDistances.size() != 0);
  
             vector<const Snarl*> allSnarls;
             auto addSnarl = [&] (const Snarl* s) {
@@ -1634,11 +1632,8 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
                     //If the nodes aren't child snarls
 
                     int64_t myDist = di.minDistance(pos1, pos2);
-                    int64_t serialDist = sdi.minDistance(snarl1, snarl2,pos1, pos2);
+                    int64_t serialDist = sdi.minDistance(pos1, pos2);
 
-                    int64_t maxDist = di.maxDistance(pos1, pos2);
-                    int64_t serialMaxDist = sdi.maxDistance(pos1, pos2);
-                    REQUIRE(maxDist == serialMaxDist);
                     bool passed = myDist == serialDist;
 
                     if (!passed) { 
@@ -1664,6 +1659,7 @@ class TestMinDistanceIndex : public MinimumDistanceIndex {
              
         }
     } //end test case
+    /*
     TEST_CASE("Serialize only minimum distance index", "[dist][serial]") {
         for (int i = 0; i < 100; i++) {
 

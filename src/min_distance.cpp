@@ -167,6 +167,8 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     util::bit_compress(secondary_snarl_ranks);
     util::bit_compress(chain_assignments);
     util::bit_compress(chain_ranks);
+    util::bit_compress(has_chain_bv);
+    util::bit_compress(has_secondary_snarl_bv);
 };
 
 MinimumDistanceIndex::MinimumDistanceIndex () {
