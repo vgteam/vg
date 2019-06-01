@@ -23,8 +23,6 @@ namespace vg {
  * We encode kmers using 2 bits/character and take wang_hash_64() of the encoding. A minimizer
  * is the kmer with the smallest hash in a window of w consecutive kmers and their reverse
  * complements.
- * There is an option to specify an upper bound for the number of occurrences of each
- * minimizer. If the actual number is higher, the occurrences will not be stored.
  *
  * Index versions:
  *
@@ -33,6 +31,8 @@ namespace vg {
  *   2  Minimizer selection is based on hashes instead of lexicographic order. A sequence and
  *      its reverse complement have the same minimizers, reducing index size by 50%. Not
  *      compatible with version 1.
+ *
+ *   3  Construction-time hit cap is no longer used. Compatible with version 2.
  */
 class MinimizerIndex {
 public:
@@ -47,7 +47,6 @@ public:
     constexpr static size_t    KMER_MAX_LENGTH  = 31;
     constexpr static size_t    INITIAL_CAPACITY = 1024;
     constexpr static double    MAX_LOAD_FACTOR  = 0.77;
-    constexpr static size_t    MAX_OCCS         = std::numeric_limits<size_t>::max();
     constexpr static key_type  NO_KEY           = std::numeric_limits<key_type>::max();
     constexpr static code_type NO_VALUE         = 0;
 
@@ -84,17 +83,19 @@ public:
     struct Header {
         std::uint32_t tag, version;
         std::uint64_t flags;
-        size_t        k, w;
-        size_t        keys, capacity, max_keys;
-        size_t        values, max_occs;
-        size_t        unique, frequent;
+        std::uint64_t k, w;
+        std::uint64_t keys, capacity, max_keys;
+        std::uint64_t values;
+        std::uint64_t unused1; // This used to be max_occs.
+        std::uint64_t unique;
+        std::uint64_t unused2; // This used to be frequent.
 
         constexpr static std::uint32_t TAG = 0x31513151;
-        constexpr static std::uint32_t VERSION = 2;
+        constexpr static std::uint32_t VERSION = 3;
         constexpr static std::uint32_t MIN_VERSION = 2;
 
         Header();
-        Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key);
+        Header(size_t kmer_length, size_t window_length);
         void sanitize();
         bool check() const;
 
@@ -108,7 +109,7 @@ public:
     MinimizerIndex();
 
     /// Constructs an index with the specified parameter values.
-    MinimizerIndex(size_t kmer_length, size_t window_length, size_t max_occs_per_key = MAX_OCCS);
+    MinimizerIndex(size_t kmer_length, size_t window_length);
 
     /// Copy constructor.
     MinimizerIndex(const MinimizerIndex& source);
@@ -167,15 +168,13 @@ public:
     /// starting from the position should have the minimizer as its prefix.
     void insert(const minimizer_type& minimizer, const pos_t& pos);
 
-    /// Returns the sorted set of occurrences of the minimizer. If the occurrence limit
-    /// has been exceeded, returns a vector containing an empty position.
+    /// Returns the sorted set of occurrences of the minimizer.
     /// Use minimizer() or minimizers() to get the minimizer.
     /// If the minimizer is in reverse orientation, use reverse_base_pos() to reverse
     /// the reported occurrences.
     std::vector<pos_t> find(const minimizer_type& minimizer) const;
 
-    /// Returns the occurrence count of the minimizer. If the occurrence limit has been
-    /// exceeded, returns 0.
+    /// Returns the occurrence count of the minimizer.
     /// Use minimizer() or minimizers() to get the minimizer.
     size_t count(const minimizer_type& minimizer) const;
 
@@ -207,9 +206,6 @@ public:
 
     /// Number of minimizers with a single occurrence.
     size_t unique_keys() const { return this->header.unique; }
-
-    /// Number of minimizers with too many occurrences.
-    size_t frequent_keys() const { return this->header.frequent; }
 
 //------------------------------------------------------------------------------
 

@@ -14,6 +14,86 @@ constexpr size_t GaplessExtender::MAX_MISMATCHES;
 
 //------------------------------------------------------------------------------
 
+Position GaplessExtension::starting_position(const GBWTGraph& graph) const {
+    Position position;
+    if (this->empty()) {
+        return position;
+    }
+
+    position.set_node_id(graph.get_id(this->path.front()));
+    position.set_is_reverse(graph.get_is_reverse(this->path.front()));
+    position.set_offset(this->offset);
+
+    return position;
+}
+
+Position GaplessExtension::tail_position(const GBWTGraph& graph) const {
+    Position position;
+    if (this->empty()) {
+        return position;
+    }
+
+    position.set_node_id(graph.get_id(this->path.back()));
+    position.set_is_reverse(graph.get_is_reverse(this->path.back()));
+    position.set_offset(this->tail_offset(graph));
+
+    return position;
+}
+
+size_t GaplessExtension::tail_offset(const GBWTGraph& graph) const {
+    size_t result = this->offset + this->core_length();
+    for (size_t i = 0; i + 1 < this->path.size(); i++) {
+        result -= graph.get_length(this->path[i]);
+    }
+    return result;
+}
+
+Path GaplessExtension::to_path(const GBWTGraph& graph, const std::string& sequence) const {
+
+    Path result;
+
+    // Skip mismatches before the core interval.
+    auto mismatch = this->mismatch_positions.begin();
+    size_t sequence_offset = this->core_interval.first; // Start of the unmapped part in the sequence.
+    while (mismatch != this->mismatch_positions.end() && *mismatch < sequence_offset) {
+        ++mismatch;
+    }
+
+    size_t node_offset = this->offset; // Start of the alignment in the current node.
+    for (size_t i = 0; i < this->path.size(); i++) {
+        size_t limit = std::min(sequence_offset + graph.get_length(this->path[i]) - node_offset, this->core_interval.second);
+        Mapping& mapping = *(result.add_mapping());
+        mapping.mutable_position()->set_node_id(graph.get_id(this->path[i]));
+        mapping.mutable_position()->set_offset(node_offset);
+        mapping.mutable_position()->set_is_reverse(graph.get_is_reverse(this->path[i]));
+        while (mismatch != this->mismatch_positions.end() && *mismatch < limit) {
+            if (sequence_offset < *mismatch) {
+                Edit& exact_match = *(mapping.add_edit());
+                exact_match.set_from_length(*mismatch - sequence_offset);
+                exact_match.set_to_length(*mismatch - sequence_offset);
+            }
+            Edit& edit = *(mapping.add_edit());
+            edit.set_from_length(1);
+            edit.set_to_length(1);
+            edit.set_sequence(std::string(1, sequence[*mismatch]));
+            sequence_offset = *mismatch + 1;
+            ++mismatch;
+        }
+        if (sequence_offset < limit) {
+            Edit& exact_match = *(mapping.add_edit());
+            exact_match.set_from_length(limit - sequence_offset);
+            exact_match.set_to_length(limit - sequence_offset);
+            sequence_offset = limit;
+        }
+        mapping.set_rank(i + 1);
+        node_offset = 0;
+    }
+
+    return result;
+}
+
+//------------------------------------------------------------------------------
+
 GaplessExtender::GaplessExtender() :
     graph(nullptr)
 {
@@ -108,55 +188,22 @@ void match_backward(const std::string& seq, std::pair<const char*, size_t> targe
 }
 
 // Convert the GaplessMatch to GaplessExtension.
-GaplessExtension match_to_extension(GaplessMatch& match, const GBWTGraph& graph, const std::string& sequence) {
+GaplessExtension match_to_extension(GaplessMatch& match, const std::string& sequence) {
 
     GaplessExtension result {
-        Path(),
+        { },
+        match.offset,
         match.state,
         { match.start, match.limit },
         (match.start == 0 && match.limit == sequence.length()),
         { match.start, match.limit },
         { }
     };
-    if (result.empty()) {
-        return result;
-    }
 
-    // Build the path.
+    result.path.swap(match.path);
     std::sort(match.mismatches.begin(), match.mismatches.end());
-    size_t sequence_offset = 0; // Start of the unmapped part in the sequence.
-    size_t mismatch_offset = 0; // In match.mismatches.
-    size_t node_offset = match.offset; // Start of the alignment in the current node.
-    for (size_t i = 0; i < match.path.size(); i++) {
-        size_t limit = std::min(sequence_offset + graph.get_length(match.path[i]) - node_offset, match.limit);
-        Mapping& mapping = *(result.path.add_mapping());
-        mapping.mutable_position()->set_node_id(graph.get_id(match.path[i]));
-        mapping.mutable_position()->set_offset(node_offset);
-        mapping.mutable_position()->set_is_reverse(graph.get_is_reverse(match.path[i]));
-        while (mismatch_offset < match.mismatches.size() && match.mismatches[mismatch_offset] < limit) {
-            if (sequence_offset < match.mismatches[mismatch_offset]) {
-                Edit& exact_match = *(mapping.add_edit());
-                exact_match.set_from_length(match.mismatches[mismatch_offset] - sequence_offset);
-                exact_match.set_to_length(match.mismatches[mismatch_offset] - sequence_offset);
-            }
-            Edit& mismatch = *(mapping.add_edit());
-            mismatch.set_from_length(1);
-            mismatch.set_to_length(1);
-            mismatch.set_sequence(std::string(1, sequence[match.mismatches[mismatch_offset]]));
-            sequence_offset = match.mismatches[mismatch_offset] + 1;
-            mismatch_offset++;
-        }
-        if (sequence_offset < limit) {
-            Edit& exact_match = *(mapping.add_edit());
-            exact_match.set_from_length(limit - sequence_offset);
-            exact_match.set_to_length(limit - sequence_offset);
-            sequence_offset = limit;
-        }
-        mapping.set_rank(i + 1);
-        node_offset = 0;
-    }
-
     result.mismatch_positions.swap(match.mismatches);
+
     return result;
 }
 
@@ -170,7 +217,7 @@ GaplessExtension GaplessExtender::extend_seeds(cluster_type& cluster, const std:
         { }
     };
     if (this->graph == nullptr) {
-        return match_to_extension(best_match, *(this->graph), sequence);
+        return match_to_extension(best_match, sequence);
     }
 
     // Process the seeds in sorted order.
@@ -218,7 +265,7 @@ GaplessExtension GaplessExtender::extend_seeds(cluster_type& cluster, const std:
                 forward.push(match);
             }
             if (best_match.score == 0) {
-                return match_to_extension(best_match, *(this->graph), sequence);
+                return match_to_extension(best_match, sequence);
             }
         }
 
@@ -260,7 +307,7 @@ GaplessExtension GaplessExtender::extend_seeds(cluster_type& cluster, const std:
                 return true;
             });
             if (best_match.score == 0) {
-                return match_to_extension(best_match, *(this->graph), sequence);
+                return match_to_extension(best_match, sequence);
             }
         }
 
@@ -298,12 +345,12 @@ GaplessExtension GaplessExtender::extend_seeds(cluster_type& cluster, const std:
                 return true;
             });
             if (best_match.score == 0) {
-                return match_to_extension(best_match, *(this->graph), sequence);
+                return match_to_extension(best_match, sequence);
             }
         }
     }
 
-    return match_to_extension(best_match, *(this->graph), sequence);
+    return match_to_extension(best_match, sequence);
 }
 
 //------------------------------------------------------------------------------
@@ -365,35 +412,17 @@ void match_backward(const std::string& seq, std::pair<const char*, size_t> targe
 }
 
 // Convert UnambiguousMatch to GaplessExtension.
-GaplessExtension unambiguous_match_to_extension(const UnambiguousMatch& match, const GBWTGraph& graph, const std::string& sequence) {
+GaplessExtension unambiguous_match_to_extension(const UnambiguousMatch& match, const std::string& sequence) {
 
     GaplessExtension result {
-        Path(),
+        match.path, // We have to copy the path, because we get a const reference from an std::set iterator.
+        match.node_start,
         match.state,
         { match.seq_start, match.seq_limit },
         (match.seq_start == 0 && match.seq_limit == sequence.length()),
         { match.seq_start, match.seq_limit },
         { }
     };
-    if (result.empty()) {
-        return result;
-    }
-
-    for (size_t i = 0; i < match.path.size(); i++) {
-        size_t start = (i == 0 ? match.node_start : 0);
-        size_t limit = (i + 1 == match.path.size() ? match.node_limit : graph.get_length(match.path[i]));
-
-        Mapping& mapping = *(result.path.add_mapping());
-        mapping.mutable_position()->set_node_id(graph.get_id(match.path[i]));
-        mapping.mutable_position()->set_offset(start);
-        mapping.mutable_position()->set_is_reverse(graph.get_is_reverse(match.path[i]));
-
-        Edit& exact_match = *(mapping.add_edit());
-        exact_match.set_from_length(limit - start);
-        exact_match.set_to_length(limit - start);
-
-        mapping.set_rank(i + 1);
-    }
 
     return result;
 }
@@ -516,7 +545,7 @@ std::vector<GaplessExtension> GaplessExtender::maximal_extensions(cluster_type& 
     std::vector<GaplessExtension> result;
     result.reserve(matches.size());
     for(const UnambiguousMatch& match : matches) {
-        result.emplace_back(unambiguous_match_to_extension(match, *(this->graph), sequence));
+        result.emplace_back(unambiguous_match_to_extension(match, sequence));
     }
     return result;
 }
@@ -623,7 +652,7 @@ void GaplessExtender::extend_flanks(std::vector<GaplessExtension>& extensions, c
             extension.state,
             extension.core_interval.first, extension.core_interval.second,
             extension.core_interval.first, extension.core_interval.second,
-            head_offset(extension.path), tail_offset(extension.path),
+            extension.offset, extension.tail_offset(*(this->graph)),
             { }, { }
         };
 
@@ -739,18 +768,6 @@ void GaplessExtender::extend_flanks(std::vector<GaplessExtension>& extensions, c
                                             best_match.tail_mismatches.begin(),
                                             best_match.tail_mismatches.end());
     }
-}
-
-//------------------------------------------------------------------------------
-
-size_t GaplessExtender::head_offset(const Path& path) {
-    return path.mapping(0).position().offset();
-}
-
-
-size_t GaplessExtender::tail_offset(const Path& path) {
-    const Mapping& mapping = path.mapping(path.mapping_size() - 1);
-    return mapping.position().offset() + mapping.edit(0).to_length();
 }
 
 //------------------------------------------------------------------------------
