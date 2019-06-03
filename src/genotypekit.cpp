@@ -228,7 +228,8 @@ void AugmentedGraph::augment_from_alignment_edits(vector<Alignment>& alignments,
     
         // Run them through vg::edit() to modify the graph, but don't embed them
         // as paths. Update the paths in place, and save the translations.
-        vector<Translation> augmentation_translations = graph.edit(paths, false, true, false);
+        vector<Translation> augmentation_translations;
+        graph.edit(paths, &augmentation_translations, false, true, false);
         
         for (size_t i = 0; i < paths.size(); i++) {
             // Copy all the modified paths back.

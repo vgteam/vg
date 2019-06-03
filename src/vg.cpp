@@ -5112,7 +5112,11 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 }
 
 // The correct way to edit the graph
-vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool update_paths, bool break_at_ends) {
+void VG::edit(vector<Path>& paths_to_add,
+              vector<Translation>* out_translations,
+              bool save_paths,
+              bool update_paths,
+              bool break_at_ends) {
 
     // Collect the breakpoints
     unordered_map<id_t, set<pos_t>> breakpoints;
@@ -5209,13 +5213,17 @@ vector<Translation> VG::edit(vector<Path>& paths_to_add, bool save_paths, bool u
     sort();
 
     // make the translation
-    return make_translation(this, node_translation, added_nodes, orig_node_sizes);
+    if (out_translations != nullptr) {
+        *out_translations = make_translation(this, node_translation, added_nodes, orig_node_sizes);
+    }
 }
 
 // Streaming edit will use much less memory than the older version (above), at the cost of needing to
 // do multiple passes over the input paths. 
-vector<Translation> VG::edit(istream& paths_to_add, bool save_paths, ostream* out_gam_stream,
-                             bool break_at_ends, bool remove_softclips) {
+void VG::edit(istream& paths_to_add,
+              vector<Translation>* out_translations,
+              bool save_paths, ostream* out_gam_stream,
+              bool break_at_ends, bool remove_softclips) {
 
     // If we are going to actually add the paths to the graph, we need to break at path ends
     break_at_ends |= save_paths;
@@ -5231,8 +5239,8 @@ vector<Translation> VG::edit(istream& paths_to_add, bool save_paths, ostream* ou
     paths.compact_ranks();
     
     // Augment the graph with the paths, modifying paths in place if update true
-    vector<Translation> translations = augment(this, paths_to_add, out_gam_stream, save_fn,
-                                               break_at_ends, remove_softclips);
+    augment(this, paths_to_add, out_translations, out_gam_stream, save_fn,
+            break_at_ends, remove_softclips);
         
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     // Todo: can we just do this once?
@@ -5240,8 +5248,6 @@ vector<Translation> VG::edit(istream& paths_to_add, bool save_paths, ostream* ou
 
     // execute a semi partial order sort on the nodes
     sort();
-
-    return translations;
 }
     
 // The not quite as robust (TODO: how?) but actually efficient way to edit the graph.

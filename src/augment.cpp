@@ -11,9 +11,13 @@ namespace vg {
 using namespace std;
 
 // The correct way to edit the graph
-vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_stream,
-                            ostream* gam_out_stream, function<void(Path&)> save_path_fn,
-                            bool break_at_ends, bool remove_softclips) {
+void augment(MutablePathMutableHandleGraph* graph,
+             istream& gam_stream,
+             vector<Translation>* out_translations,
+             ostream* gam_out_stream,
+             function<void(Path&)> save_path_fn,
+             bool break_at_ends,
+             bool remove_softclips) {
     // Collect the breakpoints
     unordered_map<id_t, set<pos_t>> breakpoints;
 
@@ -140,7 +144,9 @@ vector<Translation> augment(MutablePathMutableHandleGraph* graph, istream& gam_s
         });
 
     // make the translation
-    return make_translation(graph, node_translation, added_nodes, orig_node_sizes);
+    if (out_translations != nullptr) {
+        *out_translations = make_translation(graph, node_translation, added_nodes, orig_node_sizes);
+    }
 }
 
 
@@ -806,7 +812,7 @@ vector<Translation> make_translation(const HandleGraph* graph,
                   }
               });
     // append the reverse complement of the translation
-    vector<Translation> reverse_translation;
+    translation.reserve(translation.size() * 2);
     auto get_curr_node_length = [&](id_t id) {
         return graph->get_length(graph->get_handle(id));
     };
@@ -819,12 +825,11 @@ vector<Translation> make_translation(const HandleGraph* graph,
         return f->second;
     };
     for (auto& trans : translation) {
-        reverse_translation.emplace_back();
-        auto& rev_trans = reverse_translation.back();
+        translation.emplace_back();
+        auto& rev_trans = translation.back();
         *rev_trans.mutable_to() = simplify(reverse_complement_path(trans.to(), get_curr_node_length));
         *rev_trans.mutable_from() = simplify(reverse_complement_path(trans.from(), get_orig_node_length));
     }
-    translation.insert(translation.end(), reverse_translation.begin(), reverse_translation.end());
     return translation;
 }
 

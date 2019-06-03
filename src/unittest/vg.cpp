@@ -1682,7 +1682,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     vector<Path> paths{path};
        
     SECTION("edit() can add the path without modifying it") {
-        graph.edit(paths, false, false, false);
+        graph.edit(paths, nullptr, false, false, false);
         
         REQUIRE(pb2json(paths.front()) == pb2json(path));
         
@@ -1692,7 +1692,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     }
     
     SECTION("edit() can add the path with modification only") {
-        graph.edit(paths, false, true, false);
+        graph.edit(paths, nullptr, false, true, false);
         
         for (const auto& mapping : paths.front().mapping()) {
             // Make sure all the mappings are perfect matches
@@ -1705,7 +1705,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     }
     
     SECTION("edit() can add the path with end breaking only") {
-        graph.edit(paths, false, false, true);
+        graph.edit(paths, nullptr, false, false, true);
         
         REQUIRE(pb2json(paths.front()) == pb2json(path));
         
