@@ -10,8 +10,9 @@ namespace vg {
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
  */
-MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph, 
-                             const SnarlManager* snarl_manager) {
+MinimumDistanceIndex::MinimumDistanceIndex(HandleGraph* graph, 
+                             const SnarlManager* snarl_manager,
+                             int64_t cap) {
     /*Constructor for the distance index given a VG and snarl manager
     */
     
@@ -76,7 +77,6 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     //Every node should be assigned to a snarl
     auto check_assignments = [&](const handle_t& h)-> bool {
         id_t id = graph->get_id(h); 
-            cerr << id << endl;
         assert( primary_snarl_assignments[id - min_node_id] != 0);
         assert( primary_snarl_ranks[id - min_node_id] != 0);
 
@@ -169,6 +169,30 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     util::bit_compress(chain_ranks);
     util::bit_compress(has_chain_bv);
     util::bit_compress(has_secondary_snarl_bv);
+
+
+    if (cap > 0) {
+        include_maximum = true;
+        max_index.calculateMaxIndex(graph, cap);
+    } else {
+        include_maximum = false;
+    }
+
+    #ifdef debugIndex
+    if (include_maximum) {
+        //Every node should have a min and max dist to source 
+        auto check_max = [&](const handle_t& h)-> bool {
+            id_t id = graph->get_id(h); 
+                cerr << id << endl;
+            assert(max_index.max_distances[id-min_node_id] > 0);
+            assert(max_index.min_distances[id-min_node_id] > 0);
+            assert (max_index.max_distances[id-min_node_id] >= 
+                    max_index.min_distances[id-min_node_id]);
+            return true;
+        };
+        graph->for_each_handle(check_max);
+    }
+    #endif
 };
 
 MinimumDistanceIndex::MinimumDistanceIndex () {
@@ -211,6 +235,14 @@ void MinimumDistanceIndex::load(istream& in){
 
     sdsl::read_member(min_node_id, in );
     sdsl::read_member(max_node_id, in );
+
+    sdsl::read_member(include_maximum, in );
+
+    if (include_maximum) {
+        max_index.load(in);
+    }
+
+
 };
 
 void MinimumDistanceIndex::serialize(ostream& out) const {
@@ -240,6 +272,10 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     sdsl::write_member(min_node_id, out);
     sdsl::write_member(max_node_id, out);
 
+    sdsl::write_member(include_maximum, out);
+    if (include_maximum) {
+        max_index.serialize(out);
+    }
 
 };
 
@@ -247,7 +283,7 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
 
 
 
-int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
+int64_t MinimumDistanceIndex::calculateMinIndex(HandleGraph* graph,
                                     const SnarlManager* snarl_manager,
                                     const Chain* chain, size_t parent_id,
                                     bool rev_in_parent, bool trivial_chain, 
@@ -1099,6 +1135,27 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
 
 //////////////////    Distance Calculations
+//
+
+int64_t MinimumDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
+    if (!include_maximum) {
+        return -1;
+    } else {
+        id_t id1 = get_id(pos1);
+        id_t id2 = get_id(pos2);
+        int64_t len1 = snarl_indexes[getPrimaryAssignment(id1)].nodeLength(
+                                                         getPrimaryRank(id1));
+        int64_t len2 = snarl_indexes[getPrimaryAssignment(id2)].nodeLength(
+                                                         getPrimaryRank(id2));
+
+        len1 = max(get_offset(pos1)+1, len1-get_offset(pos1));
+        len2 = max(get_offset(pos2)+1, len2-get_offset(pos2));
+
+        return len1 + len2 + max_index.maxDistance(id1-min_node_id,
+                                                   id2-min_node_id);
+
+    }
+}
 
 int64_t MinimumDistanceIndex::minDistance(pos_t pos1, pos_t pos2) {
     /*Minimum distance between positions not including the position itself*/
@@ -1697,17 +1754,18 @@ void MinimumDistanceIndex::printSelf() {
              cerr << snarl_indexes[primary_snarl_assignments[i]-1].id_in_parent 
                   << "\t" << primary_snarl_ranks[i]-1 << "\t";
 
-            if (secondary_snarl_assignments[i] == 0) {
+            if (has_secondary_snarl_bv[i] == 0) {
                 cerr << "/\t/\t";
             } else {
-                cerr << snarl_indexes[secondary_snarl_assignments[i]-1].id_in_parent 
-                     << "\t" << secondary_snarl_ranks[i]-1 << "\t";
+                cerr << snarl_indexes[secondary_snarl_assignments[
+                                     has_secondary_snarl.rank(i)]-1].id_in_parent 
+                     << "\t" << secondary_snarl_ranks[has_secondary_snarl.rank(i)]-1 << "\t";
             }
-            if (chain_assignments[has_chain.rank(i)] == 0) {
+            if (has_chain_bv[i] == 0) {
                 cerr << "/\t/\t";
             } else {
-                cerr << chain_indexes[getChainAssignment(i)].id_in_parent 
-                     << "\t" << chain_ranks[i]-1 << "\t";
+                cerr << chain_indexes[chain_assignments[has_chain.rank(i)]-1].id_in_parent 
+                     << "\t" << chain_ranks[has_chain.rank(i)]-1 << "\t";
             }
             cerr << endl;
         }
@@ -2113,8 +2171,130 @@ void MinimumDistanceIndex::ChainIndex::printSelf() {
 }
 
 
+///////////////////  Maximum Distance Index 
+
+MinimumDistanceIndex::MaxDistanceIndex::MaxDistanceIndex() {
+}
 
 
+void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(HandleGraph* graph, int64_t cap) {
+
+    id_t max_node_id = graph->max_node_id();
+    id_t min_node_id = graph->min_node_id();
+    min_distances.resize(max_node_id - min_node_id + 1);
+    max_distances.resize(max_node_id - min_node_id + 1);
+
+    sdsl::util::set_to_value(min_distances, 
+                             std::numeric_limits<int64_t>::max());
+    sdsl::util::set_to_value(max_distances, 0);
+
+
+    bool is_single_stranded = algorithms::is_single_stranded(graph);
+    unordered_map<id_t, pair<id_t, bool>> split_to_id;
+    
+    VG split;
+    if (!is_single_stranded) {
+        //Make the graph single stranded - each node is traversed in the forward
+        //direction
+#ifdef debugIndex
+cerr << "Making graph single stranded " << endl;
+#endif
+        split_to_id = algorithms::split_strands(graph, &split);
+        graph = &split;
+    }
+
+
+    unordered_map<id_t, id_t> acyclic_to_id;
+    bool is_acyclic = algorithms::is_directed_acyclic(graph);
+
+//TODO: Made graph not const to do this-might be bad???
+    //If the graph has directed cycles, dagify it
+    HashGraph dag; 
+    if (!is_acyclic) {
+#ifdef debugIndex
+cerr << "Making graph acyclic" << endl;
+#endif
+        acyclic_to_id = algorithms::dagify(graph, &dag, cap);
+        graph = &dag;
+    }
+
+#ifdef debugIndex
+    assert(algorithms::is_single_stranded(graph));
+    assert(algorithms::is_directed_acyclic(graph));
+#endif
+
+    //In DAGified graph, go through graph in topological order and get the 
+    //minimum and maximum distances to tips 
+
+    vector<handle_t> order = algorithms::topological_order(graph);
+
+    for (handle_t curr_handle : order) {
+
+        //Get the correct id in the original graph
+        id_t curr_id = graph->get_id(curr_handle);
+        if (!is_acyclic) {
+            curr_id = acyclic_to_id[curr_id];
+        }
+        if (!is_single_stranded) {
+            curr_id = split_to_id[curr_id].first;
+        }
+
+        //Get the previous values for this node
+        int64_t curr_min = min_distances[curr_id-min_node_id];
+        curr_min = curr_min == 0 ? std::numeric_limits<int64_t>::max() 
+                                 : curr_min; 
+                              
+        int64_t curr_max = max_distances[curr_id-min_node_id];
+
+        //True if this has no incoming nodes 
+        bool is_source = true;
+
+        auto check_prev = [&](const handle_t& h)-> bool {
+            is_source = false;
+            id_t prev_id = graph->get_id(h);
+            if (!is_acyclic) {
+                prev_id = acyclic_to_id[prev_id];
+            }
+            if (!is_single_stranded) {
+                prev_id = split_to_id[prev_id].first;
+            }
+            int64_t node_len = graph->get_length(h);
+            int64_t prev_min = min_distances[prev_id-min_node_id]+node_len;
+            int64_t prev_max = max_distances[prev_id-min_node_id]+node_len;
+            curr_min = min(curr_min, prev_min);
+            curr_max = max(curr_max, prev_max);
+
+
+             return true;
+        };
+        graph->follow_edges(curr_handle, true, check_prev);
+        if (is_source) {
+            //If this is a source node, distance is 1 (increment everything by
+            //1 so that 0 represents an empty node
+            curr_min = 1; 
+            curr_max = 1;
+        }
+        min_distances[curr_id-min_node_id] = curr_min; 
+        max_distances[curr_id-min_node_id] = curr_max;
+        
+    }
+
+}
+
+int64_t MinimumDistanceIndex::MaxDistanceIndex::maxDistance(id_t id1, id_t id2) {
+    return max((int64_t)max_distances[id2] - (int64_t)min_distances[id1],
+               (int64_t)max_distances[id1] - (int64_t)min_distances[id2]); 
+}
+
+void MinimumDistanceIndex::MaxDistanceIndex::serialize(ostream& out) const {
+    min_distances.serialize(out);
+    max_distances.serialize(out);
+}
+
+void MinimumDistanceIndex::MaxDistanceIndex::load(istream& in) {
+    min_distances.load(in);
+    max_distances.load(in);
+}
 void MinimumDistanceIndex::printSnarlStats() {
     //Print out stats bout the snarl
    

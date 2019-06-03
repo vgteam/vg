@@ -3,6 +3,13 @@
 
 #include "snarls.hpp"
 #include "hash_map.hpp"
+#include "hash_graph.hpp"
+#include "algorithms/dagify.hpp"
+#include "algorithms/split_strands.hpp"
+#include "algorithms/topological_sort.hpp"
+#include "algorithms/is_acyclic.hpp"
+#include "algorithms/is_single_stranded.hpp"
+
 using namespace sdsl;
 namespace vg { 
 
@@ -19,8 +26,10 @@ class MinimumDistanceIndex {
     public: 
     //Constructor 
     //Cap is the distance up to which the maximum distance will give a reliable bound - if there is a path with length greater than cap, then cap may be returned
-    //If include_maximum is false, don't build the maximum distance index
-    MinimumDistanceIndex (const HandleGraph* graph, const SnarlManager* snarlManager);
+    //If the cap is set to 0 (default), then the maximum distance index is not
+    //included
+    MinimumDistanceIndex (HandleGraph* graph, const SnarlManager* snarl_manager,
+                            int64_t cap = 0);
 
     
     //Constructor to load index from serialization
@@ -32,15 +41,20 @@ class MinimumDistanceIndex {
     //Serialize object into out
     void serialize(ostream& out) const;
 
-    //Load serialized object from in. Does not rely on the internal graph or snarl manager pointers.
+    //Load serialized object from in. Does not rely on the internal graph or 
+    //snarl manager pointers.
     void load(istream& in);
     
-    /*Get the minimum distance between two positions
-     * Distance includes only one of the positions. The distance from a 
-     * position to itself would be 1
-     *If there is no path between the two positions then the distance is -1
-     */
+    //Get the minimum distance between two positions
+    // Distance includes only one of the positions. The distance from a 
+    // position to itself would be 1
+    //If there is no path between the two positions then the distance is -1
+    
     int64_t minDistance( pos_t pos1, pos_t pos2);
+
+    //Get a maximum distance bound between the positions, ignoring direction
+    //Returns a positive value even if the two nodes are unreachable
+    int64_t maxDistance(pos_t pos1, pos_t pos2);
 
     //Helper function to find the minimum value that is not -1
     static int64_t minPos(vector<int64_t> vals);
@@ -244,6 +258,38 @@ class MinimumDistanceIndex {
         friend class TestMinDistanceIndex;
     }; 
 
+
+    ///Class used to find the maximum distance between two positions in the 
+    //graph
+    //Disregards direction
+    class MaxDistanceIndex{
+
+        public:
+
+            MaxDistanceIndex();
+
+            void serialize(ostream& out) const;
+            void load(istream& in);
+
+            //Get the maximum distance between two nodes
+            int64_t maxDistance(id_t id1, id_t id2);
+            
+
+        private:
+            //For each node in the graph, store the minimum and maximum
+            //distances from a tip to the node
+            sdsl::int_vector<> min_distances;
+            sdsl::int_vector<> max_distances;
+
+            void calculateMaxIndex(HandleGraph* graph, int64_t cap); 
+
+
+            
+
+
+        friend class MinimumDistanceIndex;
+    };
+
     ///////// Data members of overall distance index
 
 
@@ -297,6 +343,12 @@ class MinimumDistanceIndex {
     id_t max_node_id; //maximum node id of the graph
 
 
+    //True if we are including the maximum distance index
+    bool include_maximum;
+    //Index for maximum distances
+    MaxDistanceIndex max_index;
+
+
 
     ////// Private helper functions
  
@@ -306,7 +358,7 @@ class MinimumDistanceIndex {
 
     //Helper function for constructor - populate the minimum distance index
     //Given the top level snarls
-    int64_t calculateMinIndex(const HandleGraph* graph, 
+    int64_t calculateMinIndex(HandleGraph* graph, 
                       const SnarlManager* snarl_manager, const Chain* chain, 
                        size_t parent_id, bool rev_in_parent, 
                        bool trivial_chain, size_t depth); 
