@@ -8,6 +8,7 @@
 #include "alignment.hpp"
 #include "json2pb.h"
 #include <vg/io/hfile_cppstream.hpp>
+#include <vg/io/stream.hpp>
 
 #include <sstream>
 
@@ -131,13 +132,21 @@ void TSVAlignmentEmitter::emit(Alignment&& aln) {
         << aln.score() << "\n";
 }
 
+// Give the footer length for rewriting BGZF EOF markers.
+const size_t HTSAlignmentEmitter::BGZF_FOOTER_LENGTH = 28;
+
 HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& format,
     const map<string, int64_t>& path_length, size_t max_threads) :
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
     format(format), path_length(path_length),
     backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
-    atomic_header(nullptr), sam_header(), header_mutex(), hts_mode() {
+    atomic_header(nullptr), sam_header(), header_mutex(), output_is_bgzf(format != "SAM"),
+    hts_mode() {
+    
+    // We can't work with no streams to multiplex, because we need to be able
+    // to write BGZF EOF blocks throught he multiplexer at destruction.
+    assert(max_threads > 0);
     
     if (out_file.get() != nullptr && !*out_file) {
         // Make sure we opened a file if we aren't writing to standard output
@@ -181,13 +190,31 @@ HTSAlignmentEmitter::~HTSAlignmentEmitter() {
         bam_hdr_destroy(atomic_header.load());
     }
     
-    for (auto& sam_file : sam_files) {
+    for (size_t thread_number = 0; thread_number < sam_files.size(); thread_number++) {
+        // For each thread, find its samFile*
+        auto& sam_file = sam_files.at(thread_number);
+    
         if (sam_file != nullptr) {
             // Close out all the open samFile*s and flush their data before the
             // multiplexer destructs
             sam_close(sam_file);
+            
+            if (output_is_bgzf) {
+                // Discard all the BGZF EOF marker blocks
+                multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
+                
+                // Put a barrier so subsequent writes come later.
+                multiplexer.register_barrier(thread_number);
+            }
         }
     }
+    
+    if (output_is_bgzf) {
+        // Now put one BGZF EOF marker in thread 0's stream.
+        // It will be the last thing, after all the barriers, and close the file.
+        vg::io::finish(multiplexer.get_thread_stream(0));
+    }
+    
 }
 
 bam_hdr_t* HTSAlignmentEmitter::ensure_header(const Alignment& sniff, size_t thread_number) {
@@ -347,6 +374,14 @@ void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_n
         // A samFile* has been created already. Clear it out.
         // Closing the samFile* flushes and destroys the BGZF and hFILE* backing it.
         sam_close(sam_files[thread_number]);
+        
+        // Now we know there's a closing empty BGZF block that htslib puts to
+        // mark EOF. We don't want that in the middle of our stream because it
+        // is weird and we aren't actually at EOF.
+        // We know how long it is, so we will trim it off.
+        multiplexer.discard_bytes(thread_number, BGZF_FOOTER_LENGTH);
+        
+        // Now place a breakpoint right where we were before that empty block.
         multiplexer.register_breakpoint(thread_number);
     }
     

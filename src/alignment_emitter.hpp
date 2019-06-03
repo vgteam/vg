@@ -183,6 +183,9 @@ public:
     
 private:
 
+    /// We hack about with htslib's BGZF EOF footers, so we need to know how long they are.
+    static const size_t BGZF_FOOTER_LENGTH;
+
     /// If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.
     unique_ptr<ofstream> out_file;
     /// This holds a StreamMultiplexer on the output stream, for sharing it
@@ -219,7 +222,11 @@ private:
     /// If the header isn't present when we want to write, we need a mutex to control creating it.
     mutex header_mutex;
     
-    // Remember the HTSlib mode string we need to open our files.
+    /// Remember if we are outputting BGZF-compressed data or not.
+    /// If we are, we trim off spurious EOF markers and append our own.
+    bool output_is_bgzf;
+    
+    /// Remember the HTSlib mode string we need to open our files.
     string hts_mode;
     
     /// Convert an unpaired alignment to HTS format.
