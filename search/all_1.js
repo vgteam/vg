@@ -226,7 +226,7 @@ var searchData=
   ['attempt_5funpaired_5fmultipath_5fmap_5fof_5fpair',['attempt_unpaired_multipath_map_of_pair',['../classvg_1_1MultipathMapper.html#a6e6fb4cb7896a6de840b2af5b70a4fed',1,'vg::MultipathMapper']]],
   ['attributes',['attributes',['../structvg_1_1GFFRecord.html#af888958f0541209b1e6c0f50285d0d92',1,'vg::GFFRecord']]],
   ['aug',['aug',['../classvg_1_1SupportRestrictedTraversalFinder.html#a567e6115385fa235eb1a761c9051dca0',1,'vg::SupportRestrictedTraversalFinder::aug()'],['../classvg_1_1ReadRestrictedTraversalFinder.html#ae15a9cd1b2a92b7375784b7c0be3d9c4',1,'vg::ReadRestrictedTraversalFinder::aug()']]],
-  ['augment',['augment',['../namespacevg.html#a51e607befe52384715eae27de8cafb59',1,'vg']]],
+  ['augment',['augment',['../namespacevg.html#afcc98bfdc055f4e9d3acd91304b66d2e',1,'vg']]],
   ['augment_2ecpp',['augment.cpp',['../augment_8cpp.html',1,'']]],
   ['augment_2ehpp',['augment.hpp',['../augment_8hpp.html',1,'']]],
   ['augment_5ffrom_5falignment_5fedits',['augment_from_alignment_edits',['../structvg_1_1AugmentedGraph.html#a56ecda832a62dd3a22424bb8720a4601',1,'vg::AugmentedGraph']]],

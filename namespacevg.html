@@ -902,8 +902,8 @@ Functions</h2></td></tr>
 <tr class="memitem:aca53457219a2ced000f439df5bd0d71f"><td class="memTemplParams" colspan="2">template&lt;typename Container &gt; </td></tr>
 <tr class="memitem:aca53457219a2ced000f439df5bd0d71f"><td class="memTemplItemLeft" align="right" valign="top">google::protobuf::Value&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#aca53457219a2ced000f439df5bd0d71f">value_cast</a> (const Container &amp;wrap)</td></tr>
 <tr class="separator:aca53457219a2ced000f439df5bd0d71f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a51e607befe52384715eae27de8cafb59"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a51e607befe52384715eae27de8cafb59">augment</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, istream &amp;gam_stream, ostream *gam_out_stream, function&lt; void(<a class="el" href="structvg_1_1Path.html">Path</a> &amp;)&gt; save_path_fn, bool break_at_ends, bool remove_softclips)</td></tr>
-<tr class="separator:a51e607befe52384715eae27de8cafb59"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afcc98bfdc055f4e9d3acd91304b66d2e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#afcc98bfdc055f4e9d3acd91304b66d2e">augment</a> (<a class="el" href="classhandlegraph_1_1MutablePathMutableHandleGraph.html">MutablePathMutableHandleGraph</a> *graph, istream &amp;gam_stream, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations, ostream *gam_out_stream, function&lt; void(<a class="el" href="structvg_1_1Path.html">Path</a> &amp;)&gt; save_path_fn, bool break_at_ends, bool remove_softclips)</td></tr>
+<tr class="separator:afcc98bfdc055f4e9d3acd91304b66d2e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a24e2a2fd382d2e28a13b8bf96a01cf7c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a24e2a2fd382d2e28a13b8bf96a01cf7c">find_breakpoints</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;breakpoints, bool break_ends)</td></tr>
 <tr class="separator:a24e2a2fd382d2e28a13b8bf96a01cf7c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9e9c975d7bec4a22a46b72736915ceb1"><td class="memItemLeft" align="right" valign="top">unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a9e9c975d7bec4a22a46b72736915ceb1">forwardize_breakpoints</a> (const <a class="el" href="classhandlegraph_1_1HandleGraph.html">HandleGraph</a> *graph, const unordered_map&lt; <a class="el" href="namespacevg.html#afaa15fd8bdfd688d48561e1b12aee821">id_t</a>, set&lt; <a class="el" href="namespacevg.html#a54512eefe4b0e14cb3b0057c23350240">pos_t</a> &gt;&gt; &amp;breakpoints)</td></tr>
@@ -3398,12 +3398,12 @@ template&lt;typename Iter &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="a51e607befe52384715eae27de8cafb59"></a>
+<a class="anchor" id="afcc98bfdc055f4e9d3acd91304b66d2e"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; vg::augment </td>
+          <td class="memname">void vg::augment </td>
           <td>(</td>
           <td class="paramtype">MutablePathMutableHandleGraph *&#160;</td>
           <td class="paramname"><em>graph</em>, </td>
@@ -3413,6 +3413,12 @@ template&lt;typename Iter &gt; </div>
           <td></td>
           <td class="paramtype">istream &amp;&#160;</td>
           <td class="paramname"><em>gam_stream</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; Translation &gt; *&#160;</td>
+          <td class="paramname"><em>out_translation</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -3445,8 +3451,8 @@ template&lt;typename Iter &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Edit the graph to include all the sequence and edges added by the given paths. Can handle paths that visit nodes in any orientation. Returns a vector of Translations, one per node existing after the edit, describing how each new or conserved node is embedded in the old graph. Note that this method sorts the graph and rebuilds the path index, so it should not be called in a loop.</p>
-<p>If gam_out_stream is not null, the paths will be modified to reflect their embedding in the modified graph and written to the stream. if save_path_fn is not null, this function will be run on each modified path in order to add it back to the graph. If break_at_ends is true, nodes will be broken at the ends of paths that start/end woth perfect matches, so the paths can be added to the vg graph's paths object. If soft_clip is true, soft clips will be removed from the input paths before processing, and the dangling ends won't end up in the graph </p>
+<p>Edit the graph to include all the sequence and edges added by the given paths. Can handle paths that visit nodes in any orientation. Note that this method sorts the graph and rebuilds the path index, so it should not be called in a loop.</p>
+<p>If gam_out_stream is not null, the paths will be modified to reflect their embedding in the modified graph and written to the stream. If out_translation is not null, a list of translations, one per node existing after the edit, describing how each new or conserved node is embedded in the old graph. if save_path_fn is not null, this function will be run on each modified path in order to add it back to the graph. If break_at_ends is true, nodes will be broken at the ends of paths that start/end woth perfect matches, so the paths can be added to the vg graph's paths object. If soft_clip is true, soft clips will be removed from the input paths before processing, and the dangling ends won't end up in the graph </p>
 
 </div>
 </div>

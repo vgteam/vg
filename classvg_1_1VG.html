@@ -485,10 +485,10 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a66e4dac76edcf0218f9749352c19acae"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a66e4dac76edcf0218f9749352c19acae">include</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path)</td></tr>
 <tr class="memdesc:a66e4dac76edcf0218f9749352c19acae"><td class="mdescLeft">&#160;</td><td class="mdescRight">Edit the graph to include the path.  <a href="#a66e4dac76edcf0218f9749352c19acae">More...</a><br/></td></tr>
 <tr class="separator:a66e4dac76edcf0218f9749352c19acae"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4355473c385843b7652d49601dd630d2"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a4355473c385843b7652d49601dd630d2">edit</a> (vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;paths_to_add, bool save_paths=false, bool update_paths=false, bool break_at_ends=false)</td></tr>
-<tr class="separator:a4355473c385843b7652d49601dd630d2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a10b105a288f68623bde732532870219b"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a10b105a288f68623bde732532870219b">edit</a> (istream &amp;paths_to_add, bool save_paths=false, ostream *out_path_stream=nullptr, bool break_at_ends=false, bool remove_softclips=false)</td></tr>
-<tr class="separator:a10b105a288f68623bde732532870219b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5962aa939727f27cb7c62b2ce2706fe9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5962aa939727f27cb7c62b2ce2706fe9">edit</a> (vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;paths_to_add, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations=nullptr, bool save_paths=false, bool update_paths=false, bool break_at_ends=false)</td></tr>
+<tr class="separator:a5962aa939727f27cb7c62b2ce2706fe9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7818ca048287143e2b0e79136e453845"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a7818ca048287143e2b0e79136e453845">edit</a> (istream &amp;paths_to_add, vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *out_translations=nullptr, bool save_paths=false, ostream *out_path_stream=nullptr, bool break_at_ends=false, bool remove_softclips=false)</td></tr>
+<tr class="separator:a7818ca048287143e2b0e79136e453845"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a78f70eb7eddb0245be7cdfc048616638"><td class="memItemLeft" align="right" valign="top">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a78f70eb7eddb0245be7cdfc048616638">edit_fast</a> (const <a class="el" href="structvg_1_1Path.html">Path</a> &amp;path, set&lt; <a class="el" href="classvg_1_1NodeSide.html">NodeSide</a> &gt; &amp;dangling, size_t max_node_size=1024)</td></tr>
 <tr class="separator:a78f70eb7eddb0245be7cdfc048616638"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad3e265ee441758d81fdb7c038e2fa8cc"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#ad3e265ee441758d81fdb7c038e2fa8cc">add_node</a> (const <a class="el" href="structvg_1_1Node.html">Node</a> &amp;node)</td></tr>
@@ -4426,15 +4426,21 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
 
 </div>
 </div>
-<a class="anchor" id="a4355473c385843b7652d49601dd630d2"></a>
+<a class="anchor" id="a5962aa939727f27cb7c62b2ce2706fe9"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; vg::VG::edit </td>
+          <td class="memname">void vg::VG::edit </td>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Path.html">Path</a> &gt; &amp;&#160;</td>
           <td class="paramname"><em>paths_to_add</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *&#160;</td>
+          <td class="paramname"><em>out_translations</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -4461,20 +4467,26 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Edit the graph to include all the sequence and edges added by the given paths. Can handle paths that visit nodes in any orientation. Returns a vector of Translations, one per node existing after the edit, describing how each new or conserved node is embedded in the old graph. Note that this method sorts the graph and rebuilds the path index, so it should not be called in a loop.</p>
+<p>Edit the graph to include all the sequence and edges added by the given paths. Can handle paths that visit nodes in any orientation. If out_translations is given, a vector of Translations will be written to it, one per node existing after the edit, describing how each new or conserved node is embedded in the old graph. Note that this method sorts the graph and rebuilds the path index, so it should not be called in a loop.</p>
 <p>If update_paths is true, the paths will be modified to reflect their embedding in the modified graph. If save_paths is true, the paths as embedded in the graph will be added to the graph's set of paths. If break_at_ends is true (or save_paths is true), nodes will be broken at the ends of paths that start/end woth perfect matches, so the paths can be added to the vg graph's paths object. </p>
 
 </div>
 </div>
-<a class="anchor" id="a10b105a288f68623bde732532870219b"></a>
+<a class="anchor" id="a7818ca048287143e2b0e79136e453845"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; vg::VG::edit </td>
+          <td class="memname">void vg::VG::edit </td>
           <td>(</td>
           <td class="paramtype">istream &amp;&#160;</td>
           <td class="paramname"><em>paths_to_add</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Translation.html">Translation</a> &gt; *&#160;</td>
+          <td class="paramname"><em>out_translations</em> = <code>nullptr</code>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
