@@ -316,22 +316,27 @@ void HTSAlignmentEmitter::convert_paired(Alignment& aln1, Alignment& aln2, int64
 }
 
 void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& records, size_t thread_number) {
-    // We need a header and an extant samFile*
-    assert(header != nullptr);
-    assert(sam_files[thread_number] != nullptr);
+    #pragma omp critical
+    {
     
-    for (auto& b : records) {
-        // Emit each record
+        // We need a header and an extant samFile*
+        assert(header != nullptr);
+        assert(sam_files[thread_number] != nullptr);
         
-        if (sam_write1(sam_files[thread_number], header, b) == 0) {
-            cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
-            exit(1);
+        for (auto& b : records) {
+            // Emit each record
+            
+            if (sam_write1(sam_files[thread_number], header, b) == 0) {
+                cerr << "[vg::HTSAlignmentEmitter] error: writing to output file failed" << endl;
+                exit(1);
+            }
         }
-    }
-    
-    for (auto& b : records) {
-        // Deallocate all the records
-        bam_destroy1(b);
+        
+        for (auto& b : records) {
+            // Deallocate all the records
+            bam_destroy1(b);
+        }
+        
     }
     
     if (multiplexer.want_breakpoint(thread_number)) {
@@ -343,38 +348,51 @@ void HTSAlignmentEmitter::save_records(bam_hdr_t* header, vector<bam1_t*>& recor
 }
 
 void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_number, bool keep_header) {
-    if (sam_files[thread_number] != nullptr) {
-        // A samFile* has been created already. Clear it out.
-        sam_close(sam_files[thread_number]);
-        multiplexer.register_breakpoint(thread_number);
-    }
-    
-    // Create a new samFile* for this thread
-    // hts_mode was filled in when the header was.
-    // hts_hopen demands a filename, but appears to just store it, and
-    // doesn't document how required it it.
-    sam_files[thread_number] = hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number)), "-", hts_mode.c_str());
-    
-    if (sam_files[thread_number] == nullptr) {
-        // We couldn't open the output samFile*
-        cerr << "[vg::HTSAlignmentEmitter] failed to open internal stream for writing " << format << " output" << endl;
-        exit(1);
-    }
-    
-    // Write the header again, which is the only way to re-initialize htslib's internals.
-    // Remember that sam_hdr_write flushes.
-    if (sam_hdr_write(sam_files[thread_number], header) != 0) {
-        cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
-        exit(1);
-    }
-    
-    if (keep_header) {
-        // We are the first thread to write a header, so we actually want it.
-        // Place a barrier which is also a breakpoint, so all subsequent writes come later.
+    #pragma omp critical
+    {
+
+        if (sam_files[thread_number] != nullptr) {
+            // A samFile* has been created already. Clear it out.
+            sam_close(sam_files[thread_number]);
+            multiplexer.register_breakpoint(thread_number);
+        }
+        
+        multiplexer.get_thread_stream(thread_number) << "!!!start" + to_string(thread_number) + "!!!";
         multiplexer.register_barrier(thread_number);
-    } else {
-        // Discard the header so it won't be in the resulting file again
-        multiplexer.discard_to_breakpoint(thread_number);
+        
+        // Create a new samFile* for this thread
+        // hts_mode was filled in when the header was.
+        // hts_hopen demands a filename, but appears to just store it, and
+        // doesn't document how required it it.
+        sam_files[thread_number] = hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number)), "-", hts_mode.c_str());
+        
+        if (sam_files[thread_number] == nullptr) {
+            // We couldn't open the output samFile*
+            cerr << "[vg::HTSAlignmentEmitter] failed to open internal stream for writing " << format << " output" << endl;
+            exit(1);
+        }
+        
+        // Write the header again, which is the only way to re-initialize htslib's internals.
+        // Remember that sam_hdr_write flushes.
+        if (sam_hdr_write(sam_files[thread_number], header) != 0) {
+            cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
+            exit(1);
+        }
+        
+        if (keep_header) {
+            // We are the first thread to write a header, so we actually want it.
+            // Place a barrier which is also a breakpoint, so all subsequent writes come later.
+            
+            multiplexer.get_thread_stream(thread_number) << "!!!kept" + to_string(thread_number) + "!!!";
+            
+            multiplexer.register_barrier(thread_number);
+        } else {
+            // Discard the header so it won't be in the resulting file again
+            multiplexer.discard_to_breakpoint(thread_number);
+            
+            multiplexer.get_thread_stream(thread_number) << "!!!discarded" + to_string(thread_number) + "!!!";
+            multiplexer.register_barrier(thread_number);
+        }
     }
 
 }
