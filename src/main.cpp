@@ -62,9 +62,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    // set a higher value for tcmalloc warnings
-    setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);
-
     if (argc == 1) {
         vg_help(argv);
         return 1;
