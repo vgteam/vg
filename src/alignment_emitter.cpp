@@ -136,8 +136,8 @@ HTSAlignmentEmitter::HTSAlignmentEmitter(const string& filename, const string& f
     out_file(filename == "-" ? nullptr : new ofstream(filename)),
     multiplexer(out_file.get() != nullptr ? *out_file : cout, max_threads),
     format(format), path_length(path_length),
-    sam_files(max_threads, nullptr), atomic_header(nullptr),
-    sam_header(), header_mutex(), hts_mode() {
+    backing_files(max_threads, nullptr), sam_files(max_threads, nullptr),
+    atomic_header(nullptr), sam_header(), header_mutex(), hts_mode() {
     
     if (out_file.get() != nullptr && !*out_file) {
         // Make sure we opened a file if we aren't writing to standard output
@@ -353,6 +353,7 @@ void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_n
 
         if (sam_files[thread_number] != nullptr) {
             // A samFile* has been created already. Clear it out.
+            // Closing the samFile* flushes and destroys the BGZF and hFILE* backing it.
             sam_close(sam_files[thread_number]);
             multiplexer.register_breakpoint(thread_number);
         }
@@ -364,7 +365,8 @@ void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_n
         // hts_mode was filled in when the header was.
         // hts_hopen demands a filename, but appears to just store it, and
         // doesn't document how required it it.
-        sam_files[thread_number] = hts_hopen(vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number)), "-", hts_mode.c_str());
+        backing_files[thread_number] = vg::io::hfile_wrap(multiplexer.get_thread_stream(thread_number));
+        sam_files[thread_number] = hts_hopen(backing_files[thread_number], "-", hts_mode.c_str());
         
         if (sam_files[thread_number] == nullptr) {
             // We couldn't open the output samFile*
@@ -373,9 +375,15 @@ void HTSAlignmentEmitter::initialize_sam_file(bam_hdr_t* header, size_t thread_n
         }
         
         // Write the header again, which is the only way to re-initialize htslib's internals.
-        // Remember that sam_hdr_write flushes.
+        // Remember that sam_hdr_write flushes the BGZF to the hFILE*, but does not flush the hFILE*.
         if (sam_hdr_write(sam_files[thread_number], header) != 0) {
             cerr << "[vg::HTSAlignmentEmitter] error: failed to write the SAM header" << endl;
+            exit(1);
+        }
+        
+        // Now flush it out of the hFILE* buffer into the backing C++ stream
+        if (hflush(backing_files[thread_number]) != 0) {
+            cerr << "[vg::HTSAlignmentEmitter] error: failed to flush the SAM header" << endl;
             exit(1);
         }
         

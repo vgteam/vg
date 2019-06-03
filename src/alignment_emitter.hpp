@@ -195,6 +195,15 @@ private:
     /// Store the path length map until the header can be made.
     map<string, int64_t> path_length;
     
+    /// To back our samFile*s, we need the hFILE* objects wrapping our C++
+    /// streams. We need to manually flush these after HTS headers are written,
+    /// since bgzf_flush, which samtools calls, closes a BGZF block and sends
+    /// the data to the hFILE* but does not actually flush the hFILE*.
+    /// These will be pointers to the hFILE* for each thread's samFile*. We may
+    /// only use them while the samFile* they belong to is still open; closing
+    /// the samFile* will free the hFILE* but not null it out of this vector.
+    vector<hFILE*> backing_files;
+    
     /// We make one samFile* per thread, on each thread's output stream form
     /// the multiplexer. As soon as we create them, we show them the header, so
     /// they are initialized properly. If they have not yet been filled in
