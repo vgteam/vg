@@ -645,10 +645,11 @@ public:
     void include(const Path& path);
 
     /// %Edit the graph to include all the sequence and edges added by the given
-    /// paths. Can handle paths that visit nodes in any orientation. Returns a
-    /// vector of Translations, one per node existing after the edit, describing
-    /// how each new or conserved node is embedded in the old graph. Note that
-    /// this method sorts the graph and rebuilds the path index, so it should
+    /// paths. Can handle paths that visit nodes in any orientation.
+    /// If out_translations is given, a vector of Translations will be written to it,
+    /// one per node existing after the edit, describing
+    /// how each new or conserved node is embedded in the old graph.
+    /// Note that this method sorts the graph and rebuilds the path index, so it should
     /// not be called in a loop.
     ///
     /// If update_paths is true, the paths will be modified to reflect their
@@ -657,8 +658,23 @@ public:
     /// break_at_ends is true (or save_paths is true), nodes will be broken at
     /// the ends of paths that start/end woth perfect matches, so the paths can
     /// be added to the vg graph's paths object.
-    vector<Translation> edit(vector<Path>& paths_to_add, bool save_paths = false,
-        bool update_paths = false, bool break_at_ends = false);
+    void edit(vector<Path>& paths_to_add,
+              vector<Translation>* out_translations = nullptr,
+              bool save_paths = false,
+              bool update_paths = false,
+              bool break_at_ends = false);
+
+    /// Streaming version of above.  Instead of reading a list of paths into memory
+    /// all at once, a stream is used to go one-by-one.  Instead of an option to
+    /// updtate the in-memory list, an optional output stream is used
+    ///
+    /// todo: duplicate less code between the two versions. 
+    void edit(istream& paths_to_add,
+              vector<Translation>* out_translations = nullptr,
+              bool save_paths = false,
+              ostream* out_path_stream = nullptr,
+              bool break_at_ends = false,
+              bool remove_softclips = false);
     
     /// %Edit the graph to include all the sequences and edges added by the
     /// given path. Returns a vector of Translations, one per original-node
@@ -674,67 +690,6 @@ public:
     /// before/after the node by the caller, as this function doesn't handle
     /// that.
     vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size = 1024);
-
-    /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
-    /// them to the given map by node ID of sets of bases in the node that will need
-    /// to become the starts of new nodes.
-    ///
-    /// If break_ends is true, emits breakpoints at the ends of the path, even
-    /// if it starts/ends with perfect matches.
-    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends = true);
-    /// Take a map from node ID to a set of offsets at which new nodes should
-    /// start (which may include 0 and 1-past-the-end, which should be ignored),
-    /// break the specified nodes at those positions. Returns a map from old
-    /// node start position to new node pointer in the graph. Note that the
-    /// caller will have to crear and rebuild path rank data.
-    ///
-    /// Returns a map from old node start position to new node. This map
-    /// contains some entries pointing to null, for positions past the ends of
-    /// original nodes. It also maps from positions on either strand of the old
-    /// node to the same new node pointer; the new node's forward strand is
-    /// always the same as the old node's forward strand.
-    map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
-
-    /// Flips the breakpoints onto the forward strand.
-    map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
-
-    /// Given a path on nodes that may or may not exist, and a map from start
-    /// position in the old graph to a node in the current graph, add all the
-    /// new sequence and edges required by the path. The given path must not
-    /// contain adjacent perfect match edits in the same mapping, or any
-    /// deletions on the start or end of mappings (the removal of which can be
-    /// accomplished with the Path::simplify() function).
-    ///
-    /// Outputs (and caches for subsequent calls) novel node runs in added_seqs,
-    /// and Paths describing where novel nodes translate back to in the original
-    /// graph in added_nodes. Also needs a map of the original sizes of nodes
-    /// deleted from the original graph, for reverse complementing. If dangling
-    /// is nonempty, left edges of nodes created for initial inserts will
-    /// connect to the specified sides. At the end, dangling is populated with
-    /// the side corresponding to the last edit in the path.
-    ///
-    /// Returns a fully embedded version of the path, after all node insertions,
-    /// divisions, and translations.
-    Path add_nodes_and_edges(const Path& path,
-                             const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
-                             map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes,
-                             set<NodeSide>& dangling,
-                             size_t max_node_size = 1024);
-    
-    /// This version doesn't require a set of dangling sides to populate                         
-    Path add_nodes_and_edges(const Path& path,
-                             const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
-                             map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes,
-                             size_t max_node_size = 1024);
-
-    /// Produce a graph Translation object from information about the editing process.
-    vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,
-                                         const map<Node*, Path>& added_nodes,
-                                         const map<id_t, size_t>& orig_node_sizes);
 
     /// Add in the given node, by value.
     void add_node(const Node& node);

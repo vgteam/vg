@@ -1400,6 +1400,21 @@ int softclip_end(const Alignment& alignment) {
     return 0;
 }
 
+int softclip_trim(Alignment& alignment) {
+    // Trim the softclips off of every read
+    // Work out were to cut
+    int cut_start = softclip_start(alignment);
+    int cut_end = softclip_end(alignment);
+    // Cut the sequence and quality
+    alignment.set_sequence(alignment.sequence().substr(cut_start, alignment.sequence().size() - cut_start - cut_end));
+    if (alignment.quality().size() != 0) {
+        alignment.set_quality(alignment.quality().substr(cut_start, alignment.quality().size() - cut_start - cut_end));
+    }
+    // Trim the path
+    *alignment.mutable_path() = trim_hanging_ends(alignment.path());
+    return cut_start + cut_end;
+}
+
 int query_overlap(const Alignment& aln1, const Alignment& aln2) {
     if (!alignment_to_length(aln1) || !alignment_to_length(aln2)
         || !aln1.path().mapping_size() || !aln2.path().mapping_size()

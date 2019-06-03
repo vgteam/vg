@@ -752,7 +752,7 @@ void Transcriptome::add_junctions_to_graph() {
 
     // Edit graph with transcript paths and update path traversals
     // to match the augmented graph. 
-    graph->edit(_transcriptome, false, true, true);
+    graph->edit(_transcriptome, nullptr, false, true, true);
 }
 
 void Transcriptome::remove_non_transcribed(const bool keep_reference) {

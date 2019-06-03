@@ -16,7 +16,7 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_xg() {
-    Registry::register_bare_loader_saver<xg::XG>("XG", [](istream& input) -> void* {
+    Registry::register_bare_loader_saver<xg::XG, PathHandleGraph, HandleGraph>("XG", [](istream& input) -> void* {
         // Allocate an XG
         xg::XG* index = new xg::XG();
         
