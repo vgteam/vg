@@ -147,6 +147,9 @@ void augment(MutablePathMutableHandleGraph* graph,
     if (out_translations != nullptr) {
         *out_translations = make_translation(graph, node_translation, added_nodes, orig_node_sizes);
     }
+
+    // optimize the graph.  VG will use this to rebuild its in-memory path index which is important. 
+    graph->optimize();
 }
 
 

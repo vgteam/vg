@@ -727,7 +727,11 @@ vector<handle_t> VG::divide_handle(const handle_t& handle, const vector<size_t>&
 }
 
 void VG::optimize(bool allow_id_reassignment) {
-    // no-op for now, but should we implement something?
+    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+    paths.compact_ranks();
+
+    // execute a semi partial order sort on the nodes
+    sort();
 }
     
 
@@ -5242,12 +5246,6 @@ void VG::edit(istream& paths_to_add,
     augment(this, paths_to_add, out_translations, out_gam_stream, save_fn,
             break_at_ends, remove_softclips);
         
-    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
-    // Todo: can we just do this once?
-    paths.compact_ranks();
-
-    // execute a semi partial order sort on the nodes
-    sort();
 }
     
 // The not quite as robust (TODO: how?) but actually efficient way to edit the graph.
