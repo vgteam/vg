@@ -856,42 +856,77 @@ int64_t MinimumDistanceIndex::calculateMinIndex(HandleGraph* graph,
         if (!trivial_chain) {
             // Add to prefix sum the distance to the beginning and end of the 
             // last node in the current snarl
+            SnarlIndex& sd = snarl_indexes[snarl_assignment];
 
-            int64_t dist;
-            if (snarl_rev_in_chain) {
-                //If traversing snarl backwards 
-                size_t num_nodes = snarl_indexes[snarl_assignment].num_nodes;
-                dist = snarl_indexes[snarl_assignment].snarlDistance(
-                                                      num_nodes * 2 - 1, 1) 
-                        + snarl_indexes[snarl_assignment].nodeLength(
-                                                       num_nodes * 2 - 1);
-
-                 
-                chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank+1] = 
+            size_t num_nodes = snarl_indexes[snarl_assignment].num_nodes;
+            int64_t dist = snarl_rev_in_chain
+                ? sd.snarlDistance(num_nodes * 2 - 1, 1) 
+                                      + sd.nodeLength(num_nodes * 2 - 1)
+                : sd.snarlDistance( 0, num_nodes * 2 - 2) + sd.nodeLength(0);
+            #ifdef debugIndex
+                cerr << "Prefix sum before snarl: " 
+                << chain_indexes[curr_chain_assignment].prefix_sum[
+                                                curr_chain_rank + 1] << endl;
+            #endif
+            chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank+1] =
                                curr_chain_rank == 0 ? dist + 1:
                                 chain_indexes[curr_chain_assignment].prefix_sum[
                                                         curr_chain_rank]+dist;
 
-                #ifdef debugIndex
-                    cerr << "Prefix sum before snarl reverse start: " 
-                         <<  chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank + 1]<< endl;
-                #endif
-            
-            } else { 
-                size_t num_nodes = snarl_indexes[snarl_assignment].num_nodes;
-                dist = snarl_indexes[snarl_assignment].snarlDistance(
-                         0, num_nodes * 2 - 2)
-                      + snarl_indexes[snarl_assignment].nodeLength(0);
 
-                chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank+1] = 
-                          curr_chain_rank == 0 ? dist + 1:
-                                chain_indexes[curr_chain_assignment].prefix_sum[
-                                                        curr_chain_rank]+dist;
-                #ifdef debugIndex
-                    cerr << "Prefix sum before snarl end: " 
-                    << chain_indexes[curr_chain_assignment].prefix_sum[
-                                                    curr_chain_rank + 1] << endl;
-                #endif
+            //Add the reverse loop distance
+            if ( curr_chain_rank == 0) {
+               //If this is the first snarl in the chain, get the loop distance
+               //of the first node
+               int64_t first_rev_dist;
+               if (snarl_rev_in_chain){ 
+                    first_rev_dist = sd.snarlDistance( sd.num_nodes * 2 - 2,
+                                                       sd.num_nodes * 2 - 1);
+                    first_rev_dist = first_rev_dist == -1 ? -1 :
+                          first_rev_dist + sd.nodeLength(sd.num_nodes * 2 - 2);
+                } else {
+                    first_rev_dist = sd.snarlDistance( 1, 0);
+                    first_rev_dist = first_rev_dist == -1 ? -1 :
+                                     first_rev_dist + sd.nodeLength(0);
+                }
+                chain_indexes[curr_chain_assignment].loop_rev[0] = first_rev_dist + 1;
+            }
+
+            int64_t rev_loop_dist;
+            if ( snarl_rev_in_chain ) {
+    
+                rev_loop_dist = sd.snarlDistance(0, 1);
+                rev_loop_dist = rev_loop_dist == -1 ? -1 : 
+                                     rev_loop_dist + sd.nodeLength(0);
+            } else {
+                rev_loop_dist = sd.snarlDistance(sd.num_nodes * 2 - 1,
+                                                 sd.num_nodes * 2 - 2);
+                rev_loop_dist = rev_loop_dist == -1 ? -1 : 
+                            rev_loop_dist + sd.nodeLength(sd.num_nodes * 2 - 2);
+            }
+     
+    
+            //Loop distance of the previous node
+            int64_t last_loop = chain_indexes[curr_chain_assignment].loop_rev[
+                                            curr_chain_rank] - 1;
+            if (last_loop == -1) {
+    
+                chain_indexes[curr_chain_assignment].loop_rev[curr_chain_rank+1]
+                            = rev_loop_dist + 1;
+    
+            } else {
+    
+                //Push the minimum of the loop distance of the current snarl and
+                //the loop distance of the previous snarl + dist to and from loop 
+                int64_t dist_to_end = sd.snarlDistance(0, sd.num_nodes * 2 - 2);
+                dist_to_end = dist_to_end == -1 ? -1 
+                            : dist_to_end + dist_to_end + sd.nodeLength(0) 
+                                    + sd.nodeLength(sd.num_nodes * 2 - 1);
+
+
+                int64_t loop_distance = minPos({rev_loop_dist, 
+                                                last_loop + dist_to_end});
+               chain_indexes[curr_chain_assignment].loop_rev[curr_chain_rank+1] = loop_distance + 1;
             }
         }
         
@@ -911,101 +946,42 @@ int64_t MinimumDistanceIndex::calculateMinIndex(HandleGraph* graph,
         cd.prefix_sum[cd.prefix_sum.size() - 1] = 
                cd.prefix_sum[cd.prefix_sum.size() - 2] + graph->get_length(last_node);
     
-        //Add reverse loop distances
-        size_t curr_chain_rank = 0;
-        for (ChainIterator c = chain_begin(*chain); c != c_end; ++c) {
-            //Loop through the chain forward 
-            const Snarl* snarl = c->first; 
-            bool snarl_rev_in_chain = c->second;
-            id_t snarl_start_id = snarl->start().node_id();
-            id_t snarl_end_id = snarl->end().node_id();
-
-            //Snarl is the primary snarl of the first node in the chain
-            auto& sd = snarl_rev_in_chain ? 
-              snarl_indexes[primary_snarl_assignments[snarl_end_id-min_node_id]-1] :
-              snarl_indexes[primary_snarl_assignments[snarl_start_id-min_node_id]-1];
-            NetGraph ng (snarl->start(), snarl->end(),
-                         snarl_manager->chains_of(snarl), graph);
-            //Add reverse loop distances- from start node rev to start node fd
+        if (get_start_of(*chain).node_id() == get_end_of(*chain).node_id()) {
+            //If the chain loops, then the reverse loop distances might include
+            //looping through the chain
+            size_t curr_chain_rank = 0;
+            for (ChainIterator c = chain_begin(*chain); c != c_end; ++c) {
+                //Loop through the chain forward 
+                const Snarl* snarl = c->first; 
+                bool snarl_rev_in_chain = c->second;
     
-            if ( c == chain_begin(*chain)) {
-               //If this is the first snarl in the chain 
-               int64_t first_rev_dist;
-               if (snarl_rev_in_chain){ 
-                    first_rev_dist = sd.snarlDistance( sd.num_nodes * 2 - 2,
-                                                       sd.num_nodes * 2 - 1);
-                    first_rev_dist = first_rev_dist == -1 ? -1 :
-                          first_rev_dist + sd.nodeLength(sd.num_nodes * 2 - 2);
+                //Snarl is the primary snarl of the first node in the chain
+                auto& sd = snarl_rev_in_chain ? 
+                  snarl_indexes[getPrimaryAssignment(snarl->start().node_id())] :
+                  snarl_indexes[getPrimaryAssignment(snarl->end().node_id())];
+                int64_t new_loop;
+                if (curr_chain_rank == 0) {
+                    new_loop = cd.loop_rev[cd.loop_rev.size() - 1] - 1;
                 } else {
-                    first_rev_dist = sd.snarlDistance( 1, 0);
-                    first_rev_dist = first_rev_dist == -1 ? -1 :
-                                     first_rev_dist + sd.nodeLength(0);
+                    int64_t prev_loop = cd.loop_rev[curr_chain_rank - 1] - 1;
+                    int64_t dist_to_end = sd.snarlDistance(0, sd.num_nodes * 2 - 2);
+                    dist_to_end = dist_to_end == -1 ? -1 
+                                : dist_to_end + dist_to_end + sd.nodeLength(0) 
+                                        + sd.nodeLength(sd.num_nodes * 2 - 1);
+    
+                    new_loop = prev_loop  == -1 ? -1 : prev_loop + dist_to_end;
                 }
-    
-    
-                if (get_start_of(*chain).node_id() == 
-                                                 get_end_of(*chain).node_id()) {
-                    //If the chain loops, might need distance from last snarl
-                        
-                    auto& sd_last = snarl_rev_in_chain ? 
-                                 snarl_indexes[secondary_snarl_assignments[
-                                                  snarl_end_id-min_node_id]-1] :
-                                 snarl_indexes[secondary_snarl_assignments[
-                                                 snarl_start_id-min_node_id]-1];
-    
-                    if (sd_last.rev_in_parent) {
-                        int64_t new_dist = sd_last.snarlDistance(0, 1);
-                        new_dist = new_dist == -1 ? -1 : 
-                                     new_dist + sd_last.nodeLength(0);
-                        first_rev_dist = minPos({first_rev_dist, new_dist });
-                    } else { 
-                        int64_t new_dist = 
-                               sd_last.snarlDistance(sd_last.num_nodes * 2 -1,
-                                                     sd_last.num_nodes * 2 - 2);
-                        new_dist = new_dist == -1 ? -1 :
-                                 new_dist + sd_last.nodeLength(sd_last.num_nodes * 2 - 2);
-                        first_rev_dist = minPos({first_rev_dist, new_dist });
-                    }
+
+                if (cd.loop_rev[curr_chain_rank] == 0 ||
+                     new_loop < cd.loop_rev[curr_chain_rank]) {
+                    cd.loop_rev[curr_chain_rank] = new_loop + 1;
+                } else {
+                    //If this isn't an improvement, subsequent entries will not
+                    //be improved either
+                    break;
                 }
-                cd.loop_rev[0] = first_rev_dist + 1;
-            }
-            int64_t rev_loop_dist;
-    
-            if ( snarl_rev_in_chain ) {
-    
-                rev_loop_dist = sd.snarlDistance(0, 1);
-                rev_loop_dist = rev_loop_dist == -1 ? -1 : 
-                                     rev_loop_dist + sd.nodeLength(0);
-            } else {
-                rev_loop_dist = sd.snarlDistance(sd.num_nodes * 2 - 1,
-                                                 sd.num_nodes * 2 - 2);
-                rev_loop_dist = rev_loop_dist == -1 ? -1 : 
-                            rev_loop_dist + sd.nodeLength(sd.num_nodes * 2 - 2);
-            }
-     
-    
-            int64_t last_loop = cd.loop_rev[curr_chain_rank] - 1;
-            curr_chain_rank++;
-    
-            if (last_loop == -1) {
-    
-                cd.loop_rev[curr_chain_rank] = rev_loop_dist + 1;
-    
-            } else {
-    
-                //Push the minimum of the loop distance of the current snarl and
-                //the loop distance of the previous snarl + dist to and from loop 
-                int64_t dist_end_start = sd.snarlDistance(sd.num_nodes * 2 - 1, 1);
-                dist_end_start = dist_end_start == -1 ? -1 :
-                           dist_end_start + sd.nodeLength(sd.num_nodes * 2 - 1);
+                curr_chain_rank ++;
 
-                int64_t dist_start_end = sd.snarlDistance(0, sd.num_nodes * 2 - 2);
-                dist_start_end = dist_start_end == -1 ? -1 :
-                           dist_start_end + sd.nodeLength(0);
-
-                int64_t loop_distance = minPos({rev_loop_dist, last_loop +  
-                     dist_end_start  + dist_start_end});
-                cd.loop_rev[curr_chain_rank] = loop_distance + 1;
             }
         }
         //Add forward loop distances 
@@ -2036,11 +2012,11 @@ int64_t MinimumDistanceIndex::ChainIndex::loopDistance(
 
     if (start.first == 0 ) {
         return chainDistance(make_pair(prefix_sum.size() - 2, start.second), 
-                             end, prefix_sum[prefix_sum.size() - 1]-1,
+                             end, start_len,
                              end_len, true);
     } else if (end.first == 0) {
         return chainDistance(start,make_pair(prefix_sum.size() - 2, end.second),
-                     start_len, prefix_sum[prefix_sum.size() - 1]-1, true);
+                     start_len, end_len, true);
 
     } else if (start.first < end.first && start.second) {
 
