@@ -2185,16 +2185,6 @@ size_t XG::edge_graph_idx(const Edge& edge_in) const {
     return 0;
 }
 
-Edge XG::graph_idx_to_edge(size_t idx) const {
-    // find the start of our node in the g_iv vector
-    int64_t from_idx = g_bv_select(g_bv_rank(idx));    
-    // from our idx in the g_iv, we can get our edge:
-    int64_t to_edge_offset = g_iv[idx + G_EDGE_OFFSET_OFFSET];
-    int type = g_iv[idx + G_EDGE_TYPE_OFFSET];
-    // turn our g_iv indices and edge type back into an edge
-    return edge_from_encoding(from_idx, from_idx + to_edge_offset, type);
-}
-
 Edge XG::canonicalize(const Edge& edge) const {
     // An edge is canonical if it is not doubly reversing and, if it is singly
     // reversing, the lower side comes first.

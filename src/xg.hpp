@@ -162,8 +162,6 @@ public:
     // these provide a way to get an index for each node and edge in the g_iv structure and are used by gPBWT
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
-    // go back from the g_iv index (as obtained from edge_graph_idx) to an edge
-    Edge graph_idx_to_edge(size_t idx) const;
 
     size_t get_g_iv_size() const;
 
