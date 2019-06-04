@@ -162,9 +162,8 @@ public:
     // these provide a way to get an index for each node and edge in the g_iv structure and are used by gPBWT
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
-
-    int64_t get_min_id() const { return min_id; }
-    int64_t get_max_id() const { return max_id; }
+    // go back from the g_iv index (as obtained from edge_graph_idx) to an edge
+    Edge graph_idx_to_edge(size_t idx) const;
 
     size_t get_g_iv_size() const;
 
@@ -714,7 +713,7 @@ private:
     /// edges_to := { edge_to, ... }
     /// edges_from := { edge_from, ... }
     /// edge_to := { offset_to_previous_node, edge_type }
-    /// edge_to := { offset_to_next_node, edge_type }
+    /// edge_from := { offset_to_next_node, edge_type }
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;

@@ -482,8 +482,7 @@ void XG::serialize(ostream& out) const {
 }
 
 size_t XG::get_g_iv_size() const {
-   return this->node_count * this->G_NODE_HEADER_LENGTH +
-                       this->edge_count * 2 * this->G_EDGE_LENGTH;
+    return g_iv.size();
 }
 
 size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std::string name) const {
@@ -2184,6 +2183,16 @@ size_t XG::edge_graph_idx(const Edge& edge_in) const {
     }
     assert(false);
     return 0;
+}
+
+Edge XG::graph_idx_to_edge(size_t idx) const {
+    // find the start of our node in the g_iv vector
+    int64_t from_idx = g_bv_select(g_bv_rank(idx));    
+    // from our idx in the g_iv, we can get our edge:
+    int64_t to_edge_offset = g_iv[idx + G_EDGE_OFFSET_OFFSET];
+    int type = g_iv[idx + G_EDGE_TYPE_OFFSET];
+    // turn our g_iv indices and edge type back into an edge
+    return edge_from_encoding(from_idx, from_idx + to_edge_offset, type);
 }
 
 Edge XG::canonicalize(const Edge& edge) const {
