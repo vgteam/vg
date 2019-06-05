@@ -728,7 +728,7 @@ int main_map(int argc, char** argv) {
     }
 
     // Set up output to an emitter that will handle serialization
-    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length);
+    unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", output_format, path_length, thread_count);
 
     // TODO: Refactor the surjection code out of surject_main and into somewhere where we can just use it here!
 
