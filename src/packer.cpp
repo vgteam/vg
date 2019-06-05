@@ -3,9 +3,12 @@
 
 namespace vg {
 
-Packer::Packer(void) : xgidx(nullptr) { }
+const int Packer::maximum_quality = 60;
+const int Packer::lru_cache_size = 50;
 
-Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
+Packer::Packer(void) : xgidx(nullptr), quality_cache(nullptr) { }
+
+Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz), quality_cache(nullptr) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
     edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
@@ -14,6 +17,7 @@ Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
 Packer::~Packer(void) {
     close_edit_tmpfiles();
     remove_edit_tmpfiles();
+    delete quality_cache;
 }
 
 void Packer::load_from_file(const string& file_name) {
@@ -235,13 +239,21 @@ void Packer::remove_edit_tmpfiles(void) {
     }
 }
 
-void Packer::add(const Alignment& aln, bool record_edits) {
+void Packer::add(const Alignment& aln, bool record_edits, bool qual_adjust) {
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
-    Mapping prev_mapping; 
+    Mapping prev_mapping;
+    int prev_bq_total = 0;
+    int prev_bq_count = 0;
+    size_t position_in_read = 0;
+    if (qual_adjust && quality_cache == nullptr) {
+        quality_cache = new LRUCache<pair<int, int>, int>(lru_cache_size);
+    }
     for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
         auto& mapping = aln.path().mapping(mi);
+        int mapping_quality = aln.mapping_quality();
+        bool has_base_quality = !aln.quality().empty();
         if (!mapping.has_position()) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
@@ -253,31 +265,40 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             continue;
         }
         size_t i = position_in_basis(mapping.position());
+        // keep track of average base quality in the mapping
+        int bq_total = 0;
+        int bq_count = 0;
         for (auto& edit : mapping.edit()) {
             if (edit_is_match(edit)) {
 #ifdef debug
                 cerr << "Recording a match" << endl;
 #endif
-                if (mapping.position().is_reverse()) {
-                    for (size_t j = 0; j < edit.from_length(); ++j) {
-                        coverage_dynamic.increment(i-j);
+                int direction = mapping.position().is_reverse() ? -1 : 1;
+                for (size_t j = 0; j < edit.from_length(); ++j, ++position_in_read) {
+                    int64_t coverage_idx = i + direction * j;
+                    if (!qual_adjust) {
+                        coverage_dynamic.increment(coverage_idx);
+                    } else {
+                        int base_quality = compute_quality(aln, position_in_read);
+                        coverage_dynamic.increment(coverage_idx, base_quality);
+                        bq_total += base_quality;
+                        ++bq_count;
                     }
-                } else {
-                    for (size_t j = 0; j < edit.from_length(); ++j) {
-                        coverage_dynamic.increment(i+j);
-                    }
-                }
+                }         
             } else if (record_edits) {
                 // we represent things on the forward strand
                 string pos_repr = pos_key(i);
                 string edit_repr = edit_value(edit, mapping.position().is_reverse());
                 size_t bin = bin_for_position(i);
                 *tmpfstreams[bin] << pos_repr << edit_repr;
-            }
+            } 
             if (mapping.position().is_reverse()) {
                 i -= edit.from_length();
             } else {
                 i += edit.from_length();
+            }
+            if (!edit_is_match(edit)) {
+                position_in_read += edit.from_length();
             }
         }
 
@@ -291,7 +312,20 @@ void Packer::add(const Alignment& aln, bool record_edits) {
             e.set_to_end(mapping.position().is_reverse());
             size_t edge_idx = xgidx->edge_graph_idx(e);
             if (edge_idx != 0) {
-                edge_coverage_dynamic.increment(edge_idx);
+                if (!qual_adjust) {
+                    edge_coverage_dynamic.increment(edge_idx);
+                } else {
+                    // heuristic:  for an edge, we average out the base qualities from the matches in its two flanking mappings
+                    int avg_base_quality = -1;
+                    if (!aln.quality().empty()) {
+                        if (bq_count + prev_bq_count == 0) {
+                            avg_base_quality = 0;
+                        } else {
+                            avg_base_quality = (float)(bq_total + prev_bq_total) / (bq_count + prev_bq_count);
+                        }
+                    }
+                    edge_coverage_dynamic.increment(edge_idx, combine_qualities(aln.mapping_quality(), avg_base_quality));
+                }
             }
         }            
 
@@ -523,4 +557,41 @@ size_t Packer::coverage_size(void) {
     return coverage_civ.size();
 }
 
+int Packer::compute_quality(const Alignment& aln, size_t position_in_read) const {
+    int map_quality = (int)aln.mapping_quality();
+    int base_quality = -1;
+    if (!aln.quality().empty()) {
+        base_quality = (int)aln.quality()[position_in_read];
+    }
+    return combine_qualities(map_quality, base_quality);
+}
+
+int Packer::combine_qualities(int map_quality, int base_quality) const {
+    if (base_quality < 0) {
+        // no base quality in read: just return the mapping quality
+        return map_quality;
+    } else {
+        if (base_quality == 0 || map_quality == 0) {
+            return 0;
+        }
+
+        // look up the mapping and base quality in the cache to avoid recomputing
+        pair<int, bool> cached = quality_cache->retrieve(make_pair(map_quality, base_quality));
+        if (cached.second == true) {
+            return cached.first;
+        } else {
+            // assume independence: P[Correct] = P[Correct Base] * P[Correct Map]
+            // --> P[Error] = 1 - (1 - P[Base Error]) * (1 - P[Map Error])
+            double p_err = logprob_invert(logprob_invert(phred_to_logprob(base_quality)) +
+                                          logprob_invert(phred_to_logprob(map_quality)));
+            // clamp our quality to 60
+            int qual = min((int)logprob_to_phred(p_err), maximum_quality);
+            // update the cache
+            quality_cache->put(make_pair(map_quality, base_quality), qual);
+            return qual;
+        }
+    }
+}
+
+    
 }

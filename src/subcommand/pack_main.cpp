@@ -24,6 +24,7 @@ void help_pack(char** argv) {
          << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
          << "    -n, --node ID          write table for only specified node(s)" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
+         << "    -q, --qual-adjust      scale coverage by phred quality (combined from mapq and base quality)" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -40,6 +41,7 @@ int main_pack(int argc, char** argv) {
     size_t bin_size = 0;
     vector<vg::id_t> node_ids;
     string node_list_file;
+    bool qual_adjust = false;
 
     if (argc == 2) {
         help_pack(argv);
@@ -63,11 +65,13 @@ int main_pack(int argc, char** argv) {
             {"node", required_argument, 0, 'n'},
             {"node-list", required_argument, 0, 'N'},
             {"bin-size", required_argument, 0, 'b'},
+            {"qual-adjust", no_argument, 0, 'q'},
+            
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:q",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -113,6 +117,9 @@ int main_pack(int argc, char** argv) {
             break;
         case 'N':
             node_list_file = optarg;
+            break;
+        case 'q':
+            qual_adjust = true;
             break;
 
         default:
@@ -165,8 +172,8 @@ int main_pack(int argc, char** argv) {
                 packers.push_back(new Packer(xgidx.get(), bin_size));
             }
         }
-        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
-            packers[omp_get_thread_num()]->add(aln, record_edits);
+        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers,&qual_adjust](Alignment& aln) {
+            packers[omp_get_thread_num()]->add(aln, record_edits, qual_adjust);
         };
         if (gam_in == "-") {
             vg::io::for_each_parallel(std::cin, lambda);
