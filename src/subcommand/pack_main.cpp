@@ -19,6 +19,7 @@ void help_pack(char** argv) {
          << "    -i, --packs-in FILE    begin by summing coverage packs from each provided FILE" << endl
          << "    -g, --gam FILE         read alignments from this file (could be '-' for stdin)" << endl
          << "    -d, --as-table         write table on stdout representing packs" << endl
+         << "    -D, --as-edge-table    write table on stdout representing edge coverage" << endl
          << "    -e, --with-edits       record and write edits rather than only recording graph-matching coverage" << endl
          << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
          << "    -n, --node ID          write table for only specified node(s)" << endl
@@ -33,6 +34,7 @@ int main_pack(int argc, char** argv) {
     string packs_out;
     string gam_in;
     bool write_table = false;
+    bool write_edge_table = false;
     int thread_count = 1;
     bool record_edits = false;
     size_t bin_size = 0;
@@ -55,6 +57,7 @@ int main_pack(int argc, char** argv) {
             {"count-in", required_argument, 0, 'i'},
             {"gam", required_argument, 0, 'g'},
             {"as-table", no_argument, 0, 'd'},
+            {"as-edge-table", no_argument, 0, 'D'},
             {"threads", required_argument, 0, 't'},
             {"with-edits", no_argument, 0, 'e'},
             {"node", required_argument, 0, 'n'},
@@ -64,7 +67,7 @@ int main_pack(int argc, char** argv) {
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dt:eb:n:N:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -92,6 +95,9 @@ int main_pack(int argc, char** argv) {
             break;
         case 'd':
             write_table = true;
+            break;
+        case 'D':
+            write_edge_table = true;
             break;
         case 'e':
             record_edits = true;
@@ -183,9 +189,14 @@ int main_pack(int argc, char** argv) {
     if (!packs_out.empty()) {
         packer.save_to_file(packs_out);
     }
-    if (write_table) {
+    if (write_table || write_edge_table) {
         packer.make_compact();
-        packer.as_table(cout, record_edits, node_ids);
+        if (write_table) {
+            packer.as_table(cout, record_edits, node_ids);
+        }
+        if (write_edge_table) {
+            packer.as_edge_table(cout, node_ids);
+        }
     }
 
     return 0;
