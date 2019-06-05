@@ -31,6 +31,7 @@ cerr << endl << "New cluster calculation:" << endl;
         //nodes belonging to the snarl
         vector<hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>>> 
                                                                  snarl_to_nodes;
+        snarl_to_nodes.resize(dist_index.tree_depth+1);
         //TODO: reserve up to the depth of the snarl tree- also need to find the max depth of the snarl tree in the distance index 
 
         //Populate node_to_seed and snarl_to_nodes
@@ -239,10 +240,10 @@ cerr << endl << "New cluster calculation:" << endl;
                 int64_t node_length = snarl_index->nodeLength(
                                                 dist_index.getPrimaryRank(id));
 
-                //Map snarl to node
-                if (snarl_to_nodes.size() < depth+1) {
-                    snarl_to_nodes.resize(depth+1); 
-                }
+//                //Map snarl to node
+//                if (snarl_to_nodes.size() < depth+1) {
+//                    snarl_to_nodes.resize(depth+1); 
+//                }
                 child_cluster_t empty;
                 snarl_to_nodes[depth][snarl_i].emplace_back(
                                   make_pair(id, NODE), empty);

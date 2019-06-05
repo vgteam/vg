@@ -43,6 +43,8 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
     has_chain_bv.resize(max_node_id - min_node_id + 1);
     sdsl::util::set_to_value(has_chain_bv, 0);
 
+    tree_depth = 0;
+
 
     #ifdef debugIndex
         cerr << endl << "Creating distance index"<< endl;
@@ -75,6 +77,9 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
 
     #ifdef debugIndex
     //Every node should be assigned to a snarl
+    for (SnarlIndex& si : snarl_indexes) {
+        assert (tree_depth >=
+    }
     auto check_assignments = [&](const handle_t& h)-> bool {
         id_t id = graph->get_id(h); 
         assert( primary_snarl_assignments[id - min_node_id] != 0);
@@ -236,6 +241,8 @@ void MinimumDistanceIndex::load(istream& in){
     sdsl::read_member(min_node_id, in );
     sdsl::read_member(max_node_id, in );
 
+    sdsl::read_member(tree_depth, in );
+
     sdsl::read_member(include_maximum, in );
 
     if (include_maximum) {
@@ -272,6 +279,8 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     sdsl::write_member(min_node_id, out);
     sdsl::write_member(max_node_id, out);
 
+    sdsl::write_member(tree_depth, out);
+
     sdsl::write_member(include_maximum, out);
     if (include_maximum) {
         max_index.serialize(out);
@@ -302,6 +311,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
         else {cerr << "chain at ";}
         cerr << get_start_of(*chain) << endl;
     #endif
+    tree_depth = max(depth, tree_depth);
+
     auto cmp = [] (pair<pair<id_t, bool>,int64_t> x,
                                            pair<pair<id_t, bool>,int64_t> y) {
         //Comparison function for the priority of a pair of handle, distance
@@ -2167,12 +2178,10 @@ void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(const HandleGraph
 
     unordered_map<id_t, pair<id_t, bool>> split_to_id;
     
-    HashGraph split;
+    //TODO: Unecessary???
     //Make the graph single stranded - each node is traversed in the forward
     //direction
-#ifdef debugIndex
-cerr << "Making graph single stranded " << endl;
-#endif
+    HashGraph split;
     split_to_id = algorithms::split_strands(graph, &split);
     graph = &split;
 

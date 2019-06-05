@@ -300,7 +300,8 @@ class MinimumDistanceIndex {
     //vector of all chain indexes
     vector< ChainIndex> chain_indexes;
 
-    //Each of these int vectors is offset by 1: 0 is stored as 1, etc.
+
+    //Each of the ints in these vectors are offset by 1: 0 is stored as 1, etc.
     //This is so that we can store -1 as 0 instead of int max
 
     //Vector of length max node id - min node id
@@ -317,8 +318,8 @@ class MinimumDistanceIndex {
     //Similar to primary snarls, stores snarl and index of secondary snarl
     //each node belongs to, if any.
     //Secondary snarl can be a node that represents a snarl/chain in the
-    //netgraph of the parent snarl or a snarl that shares a boundary node
-    //with the primary snarl in a chain. The primary snarl will always
+    //netgraph of the parent snarl or a node that participates in multiple
+    //snarls in a chain. The primary snarl will always
     //be the snarl that occurs first in the chain
     sdsl::int_vector<> secondary_snarl_assignments;
     sdsl::int_vector<> secondary_snarl_ranks;
@@ -336,12 +337,12 @@ class MinimumDistanceIndex {
     sdsl::bit_vector has_chain_bv;
     sdsl::rank_support_v<1> has_chain;
 
-    /*Index to find the snarl containing a node
-      The start node id of the snarl containing each node - negative if 
-      the start node is reverse
-    */
     id_t min_node_id; //minimum node id of the graph
     id_t max_node_id; //maximum node id of the graph
+
+
+    //The depth of the snarl tree, starting from 0
+    size_t tree_depth;
 
 
     //True if we are including the maximum distance index
