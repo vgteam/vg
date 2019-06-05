@@ -7,6 +7,7 @@ Packer::Packer(void) : xgidx(nullptr) { }
 
 Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
+    edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
 }
 
@@ -29,6 +30,7 @@ void Packer::load(istream& in) {
     sdsl::read_member(bin_size, in);
     sdsl::read_member(n_bins, in);
     coverage_civ.load(in);
+    edge_coverage_civ.load(in);
     edit_csas.resize(n_bins);
     for (size_t i = 0; i < n_bins; ++i) {
         edit_csas[i].load(in);
@@ -124,6 +126,9 @@ void Packer::collect_coverage(const Packer& c) {
     for (size_t i = 0; i < c.graph_length(); ++i) {
         coverage_dynamic.increment(i, c.coverage_at_position(i));
     }
+    for (size_t i = 0; i < c.edge_vector_size(); ++i){
+        edge_coverage_dynamic.increment(i, c.edge_coverage(i));
+    }
 }
 
 size_t Packer::serialize(std::ostream& out,
@@ -135,6 +140,7 @@ size_t Packer::serialize(std::ostream& out,
     written += sdsl::write_member(bin_size, out, child, "bin_size_" + name);
     written += sdsl::write_member(edit_csas.size(), out, child, "n_bins_" + name);
     written += coverage_civ.serialize(out, child, "graph_coverage_" + name);
+    written += edge_coverage_civ.serialize(out, child, "edge_coverate_" +name);
     for (auto& edit_csa : edit_csas) {
         written += edit_csa.serialize(out, child, "edit_csa_" + name);
     }
@@ -143,7 +149,7 @@ size_t Packer::serialize(std::ostream& out,
 }
 
 void Packer::make_compact(void) {
-    // pack the dynamic countarry and edit coverage into the compact data structure
+    // pack the dynamic countarray and edit coverage into the compact data structure
     if (is_compacted) {
 #ifdef debug
         cerr << "Packer is already compact" << endl;
@@ -163,6 +169,12 @@ void Packer::make_compact(void) {
     for (size_t i = 0; i < coverage_dynamic.size(); ++i) {
         coverage_iv[i] = coverage_dynamic[i];
     }
+    int_vector<> edge_coverage_iv;
+    util::assign(edge_coverage_iv, int_vector<>(edge_coverage_dynamic.size()));
+    for (size_t i = 0; i < edge_coverage_dynamic.size(); ++i) {
+        edge_coverage_iv[i] = edge_coverage_dynamic[i];
+    }
+    util::assign(edge_coverage_civ, edge_coverage_iv);
     edit_csas.resize(edit_tmpfile_names.size());
     util::assign(coverage_civ, coverage_iv);
     construct_config::byte_algo_sa = SE_SAIS;
@@ -227,7 +239,9 @@ void Packer::add(const Alignment& aln, bool record_edits) {
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits
-    for (auto& mapping : aln.path().mapping()) {
+    Mapping prev_mapping; 
+    for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
+        auto& mapping = aln.path().mapping(mi);
         if (!mapping.has_position()) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
@@ -266,6 +280,22 @@ void Packer::add(const Alignment& aln, bool record_edits) {
                 i += edit.from_length();
             }
         }
+
+        if (mi > 0 && prev_mapping.position().node_id() != mapping.position().node_id()) {
+            // Note: we are effectively ignoring edits here.  So an edge is covered even
+            // if there's a sub or indel at either of its ends in the path.  
+            Edge e;
+            e.set_from(prev_mapping.position().node_id());
+            e.set_from_start(prev_mapping.position().is_reverse());
+            e.set_to(mapping.position().node_id());
+            e.set_to_end(mapping.position().is_reverse());
+            size_t edge_idx = xgidx->edge_graph_idx(e);
+            if (edge_idx != 0) {
+                edge_coverage_dynamic.increment(edge_idx);
+            }
+        }            
+
+        prev_mapping = mapping;
     }
 }
 
@@ -344,11 +374,43 @@ size_t Packer::graph_length(void) const {
     }
 }
 
+size_t Packer::edge_count(void) const{
+    return xgidx->edge_count;
+}
+
+size_t Packer::edge_vector_size(void) const{
+    if (is_compacted){
+        return edge_coverage_civ.size();
+    }
+    else{
+        return edge_coverage_dynamic.size();
+    }
+}
+
 size_t Packer::coverage_at_position(size_t i) const {
     if (is_compacted) {
         return coverage_civ[i];
     } else {
         return coverage_dynamic[i];
+    }
+}
+
+size_t Packer::edge_coverage(size_t i) const {
+    if (is_compacted){
+        return edge_coverage_civ[i];
+    }
+    else{
+        return edge_coverage_dynamic[i];
+    }
+}
+
+size_t Packer::edge_coverage(Edge& e) const {
+    size_t pos = xgidx->edge_graph_idx(e);
+    if (is_compacted){
+        return edge_coverage_civ[pos];
+    }
+    else{
+        return edge_coverage_dynamic[pos];
     }
 }
 
@@ -412,6 +474,40 @@ ostream& Packer::as_table(ostream& out, bool show_edits, vector<vg::id_t> node_i
     }
     return out;
 }
+
+ostream& Packer::as_edge_table(ostream& out, vector<vg::id_t> node_ids) {
+#ifdef debug
+    cerr << "Packer edge table of " << edge_coverage_civ.size() << " rows:" << 
+        l;
+#endif
+
+    out << "from.id" << "\t"
+        << "from.start" << "\t"
+        << "to.id" << "\t"
+        << "to.end" << "\t"
+        << "coverage" << endl;
+    xgidx->for_each_edge([&](const edge_t& handle_edge) {
+            Edge edge;
+            edge.set_from(xgidx->get_id(handle_edge.first));
+            edge.set_from_start(xgidx->get_is_reverse(handle_edge.first));
+            edge.set_to(xgidx->get_id(handle_edge.second));
+            edge.set_to_end(xgidx->get_is_reverse(handle_edge.second));
+            
+            if (edge.from() <= edge.to() && (node_ids.empty() ||
+                    find(node_ids.begin(), node_ids.end(), edge.from()) != node_ids.end() ||
+                    find(node_ids.begin(), node_ids.end(), edge.to()) != node_ids.end())) {
+                out << edge.from() << "\t"
+                    << edge.from_start() << "\t"
+                    << edge.to() << "\t"
+                    << edge.to_end() << "\t"
+                    << edge_coverage_civ[xgidx->edge_graph_idx(edge)]
+                    << endl;
+            }
+            return true;
+        });
+    return out;
+}
+    
 
 ostream& Packer::show_structure(ostream& out) {
     out << coverage_civ << endl; // graph coverage (compacted coverage_dynamic)

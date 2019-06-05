@@ -268,7 +268,7 @@ void StreamSorter<Message>::stream_sort(istream& stream_in, ostream& stream_out,
             {
                 // Each thread fights for the file and the winner takes some data
                 size_t buffered_message_bytes = 0;
-                while (input_cursor.has_next() && buffered_message_bytes < max_buf_size) {
+                while (input_cursor.has_current() && buffered_message_bytes < max_buf_size) {
                     // Until we run out of input messages or space, buffer each, recording its size.
                     thread_buffer.emplace_back(std::move(input_cursor.take()));
                     buffered_message_bytes += thread_buffer.back().ByteSizeLong();
@@ -386,8 +386,8 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
     // We work with pointers to cursors because we don't want to be copying the actual cursors around the heap.
     // We also *reverse* the order, because priority queues put the "greatest" element first
     auto cursor_order = [&](cursor_t*& a, cursor_t*& b) {
-        if (b->has_next()) {
-            if(!a->has_next()) {
+        if (b->has_current()) {
+            if(!a->has_current()) {
                 // Cursors that aren't empty come first
                 return true;
             }
@@ -402,7 +402,7 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
         cursor_queue.push(&cursor);
     }
     
-    while(!cursor_queue.empty() && cursor_queue.top()->has_next()) {
+    while(!cursor_queue.empty() && cursor_queue.top()->has_current()) {
         // Until we have run out of data in all the temp files
         
         // Pop off the winning cursor
@@ -413,7 +413,7 @@ void StreamSorter<Message>::streaming_merge(list<cursor_t>& cursors, emitter_t& 
         emitter.write(std::move(winner->take()));
         
         // Put it back in the heap if it is not depleted
-        if (winner->has_next()) {
+        if (winner->has_current()) {
             cursor_queue.push(winner);
         }
         // TODO: Maybe keep it off the heap for the next loop somehow if it still wins

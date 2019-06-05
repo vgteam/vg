@@ -736,7 +736,7 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             // Modify graph and embed paths
-            graph->edit(paths, true);
+            graph->edit(paths, nullptr, true);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
             if (normalize) graph->normalize(10, debug);

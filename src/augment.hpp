@@ -15,14 +15,15 @@ namespace vg {
 using namespace std;
 
 /// %Edit the graph to include all the sequence and edges added by the given
-/// paths. Can handle paths that visit nodes in any orientation. Returns a
-/// vector of Translations, one per node existing after the edit, describing
-/// how each new or conserved node is embedded in the old graph. Note that
+/// paths. Can handle paths that visit nodes in any orientation. Note that
 /// this method sorts the graph and rebuilds the path index, so it should
 /// not be called in a loop.
 ///
 /// If gam_out_stream is not null, the paths will be modified to reflect their
 /// embedding in the modified graph and written to the stream.
+/// If out_translation is not null, a list of translations, one per node existing
+/// after the edit, describing
+/// how each new or conserved node is embedded in the old graph. 
 /// if save_path_fn is not null, this function will be run on each modified path
 /// in order to add it back to the graph.
 /// If break_at_ends is true, nodes will be broken at
@@ -30,12 +31,13 @@ using namespace std;
 /// be added to the vg graph's paths object.
 /// If soft_clip is true, soft clips will be removed from the input paths
 /// before processing, and the dangling ends won't end up in the graph
-vector<Translation> augment(MutablePathMutableHandleGraph* graph,
-                            istream& gam_stream,
-                            ostream* gam_out_stream = nullptr,
-                            function<void(Path&)> save_path_fn = nullptr,
-                            bool break_at_ends = false,
-                            bool remove_soft_clips = false);
+void augment(MutablePathMutableHandleGraph* graph,
+             istream& gam_stream,
+             vector<Translation>* out_translation = nullptr,
+             ostream* gam_out_stream = nullptr,
+             function<void(Path&)> save_path_fn = nullptr,
+             bool break_at_ends = false,
+             bool remove_soft_clips = false);
 
 /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
 /// them to the given map by node ID of sets of bases in the node that will need

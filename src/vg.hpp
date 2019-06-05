@@ -645,10 +645,11 @@ public:
     void include(const Path& path);
 
     /// %Edit the graph to include all the sequence and edges added by the given
-    /// paths. Can handle paths that visit nodes in any orientation. Returns a
-    /// vector of Translations, one per node existing after the edit, describing
-    /// how each new or conserved node is embedded in the old graph. Note that
-    /// this method sorts the graph and rebuilds the path index, so it should
+    /// paths. Can handle paths that visit nodes in any orientation.
+    /// If out_translations is given, a vector of Translations will be written to it,
+    /// one per node existing after the edit, describing
+    /// how each new or conserved node is embedded in the old graph.
+    /// Note that this method sorts the graph and rebuilds the path index, so it should
     /// not be called in a loop.
     ///
     /// If update_paths is true, the paths will be modified to reflect their
@@ -657,17 +658,23 @@ public:
     /// break_at_ends is true (or save_paths is true), nodes will be broken at
     /// the ends of paths that start/end woth perfect matches, so the paths can
     /// be added to the vg graph's paths object.
-    vector<Translation> edit(vector<Path>& paths_to_add, bool save_paths = false,
-                             bool update_paths = false, bool break_at_ends = false);
+    void edit(vector<Path>& paths_to_add,
+              vector<Translation>* out_translations = nullptr,
+              bool save_paths = false,
+              bool update_paths = false,
+              bool break_at_ends = false);
 
     /// Streaming version of above.  Instead of reading a list of paths into memory
     /// all at once, a stream is used to go one-by-one.  Instead of an option to
     /// updtate the in-memory list, an optional output stream is used
     ///
     /// todo: duplicate less code between the two versions. 
-    vector<Translation> edit(istream& paths_to_add, bool save_paths = false,
-                             ostream* out_path_stream = nullptr, bool break_at_ends = false,
-                             bool remove_softclips = false);
+    void edit(istream& paths_to_add,
+              vector<Translation>* out_translations = nullptr,
+              bool save_paths = false,
+              ostream* out_path_stream = nullptr,
+              bool break_at_ends = false,
+              bool remove_softclips = false);
     
     /// %Edit the graph to include all the sequences and edges added by the
     /// given path. Returns a vector of Translations, one per original-node
