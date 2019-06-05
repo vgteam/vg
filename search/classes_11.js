@@ -28,6 +28,7 @@ var searchData=
   ['streamindex',['StreamIndex',['../classvg_1_1StreamIndex.html',1,'vg']]],
   ['streamindex_3c_20vg_3a_3agraph_20_3e',['StreamIndex&lt; vg::Graph &gt;',['../classvg_1_1StreamIndex.html',1,'vg']]],
   ['streamindexbase',['StreamIndexBase',['../classvg_1_1StreamIndexBase.html',1,'vg']]],
+  ['streammultiplexer',['StreamMultiplexer',['../classvg_1_1io_1_1StreamMultiplexer.html',1,'vg::io']]],
   ['streamsorter',['StreamSorter',['../classvg_1_1StreamSorter.html',1,'vg']]],
   ['string_5fhash_5fmap',['string_hash_map',['../classvg_1_1string__hash__map.html',1,'vg']]],
   ['string_5fhash_5fmap_3c_20string_2c_20int64_5ft_20_3e',['string_hash_map&lt; string, int64_t &gt;',['../classvg_1_1string__hash__map.html',1,'vg']]],

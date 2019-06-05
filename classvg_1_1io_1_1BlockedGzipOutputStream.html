@@ -142,11 +142,13 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:aaf788a0a0553f9cc0c531fecb941f228"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa6cf204591880e126bacc2d01799f3e6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#aa6cf204591880e126bacc2d01799f3e6">EndFile</a> ()</td></tr>
 <tr class="separator:aa6cf204591880e126bacc2d01799f3e6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9e2d51e5f860d576390722d3f80e6417"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#a9e2d51e5f860d576390722d3f80e6417">Flush</a> ()</td></tr>
+<tr class="separator:a9e2d51e5f860d576390722d3f80e6417"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a73ff85434454c739ab5c0bfdbe681a08"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#a73ff85434454c739ab5c0bfdbe681a08">flush</a> ()</td></tr>
-<tr class="separator:a73ff85434454c739ab5c0bfdbe681a08"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad9f92e40584b24a5f1ff20750826bfe7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#ad9f92e40584b24a5f1ff20750826bfe7">flush_self</a> ()</td></tr>
+<tr class="separator:ad9f92e40584b24a5f1ff20750826bfe7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ac677874552857f22f89ee9571eb183db"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#ac677874552857f22f89ee9571eb183db">force_close</a> ()</td></tr>
 <tr class="separator:ac677874552857f22f89ee9571eb183db"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -155,6 +157,8 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:a726e457d2e98e4ca6ffa742a4378949f"><td class="memItemLeft" align="right" valign="top">BGZF *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#a726e457d2e98e4ca6ffa742a4378949f">handle</a></td></tr>
 <tr class="memdesc:a726e457d2e98e4ca6ffa742a4378949f"><td class="mdescLeft">&#160;</td><td class="mdescRight">The open BGZF handle being written to.  <a href="#a726e457d2e98e4ca6ffa742a4378949f">More...</a><br/></td></tr>
 <tr class="separator:a726e457d2e98e4ca6ffa742a4378949f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a14d9a1a0917016a7af46f2960608d302"><td class="memItemLeft" align="right" valign="top">hFILE *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#a14d9a1a0917016a7af46f2960608d302">wrapped_ostream</a></td></tr>
+<tr class="separator:a14d9a1a0917016a7af46f2960608d302"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aab5cfa13ff5e0449e105a0d9117aa38f"><td class="memItemLeft" align="right" valign="top">std::vector&lt; char &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#aab5cfa13ff5e0449e105a0d9117aa38f">buffer</a></td></tr>
 <tr class="memdesc:aab5cfa13ff5e0449e105a0d9117aa38f"><td class="mdescLeft">&#160;</td><td class="mdescRight">This vector will own the memory we use as our void* buffer.  <a href="#aab5cfa13ff5e0449e105a0d9117aa38f">More...</a><br/></td></tr>
 <tr class="separator:aab5cfa13ff5e0449e105a0d9117aa38f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -187,7 +191,7 @@ Protected Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Make a new stream outputting to the given open BGZF file handle. The stream will own the BGZF file and close it when destructed. </p>
+<p>Make a new stream outputting to the given open BGZF file handle. The stream will own the BGZF file and close it when destructed. Note that with this constructor we have no access to the backing hFILE*, so <a class="el" href="classvg_1_1io_1_1BlockedGzipOutputStream.html#a9e2d51e5f860d576390722d3f80e6417">Flush()</a> will not be able to flush it. </p>
 
 </div>
 </div>
@@ -381,7 +385,23 @@ Protected Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a73ff85434454c739ab5c0bfdbe681a08"></a>
+<a class="anchor" id="a9e2d51e5f860d576390722d3f80e6417"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::BlockedGzipOutputStream::Flush </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Throws on failure. On success, the object used to construct this stream (i.e. the backing BGZF or ostream) will have all data previously written to this stream in its buffers. Flushes backing BGZFs but not backing ostreams. Flushes any intermediate streams we created. </p>
+
+</div>
+</div>
+<a class="anchor" id="ad9f92e40584b24a5f1ff20750826bfe7"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -389,7 +409,7 @@ Protected Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::io::BlockedGzipOutputStream::flush </td>
+          <td class="memname">void vg::io::BlockedGzipOutputStream::flush_self </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -401,7 +421,7 @@ Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Actually dump the buffer data to the BGZF, if needed. Sadly, we can't really be zero-copy because the BGZF library isn't. Throws on failure. </p>
+<p>Actually dump the buffer data to the BGZF, if needed. Sadly, we can't really be zero-copy because the BGZF library isn't. Does <em>NOT</em> make the BGZF flush and finish its block. </p>
 
 </div>
 </div>
@@ -725,6 +745,27 @@ Protected Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Flag for whether our backing stream is tellable. </p>
+
+</div>
+</div>
+<a class="anchor" id="a14d9a1a0917016a7af46f2960608d302"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">hFILE* vg::io::BlockedGzipOutputStream::wrapped_ostream</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>The hFILE* created to connect the BGZF to the ostream, if we are based on an ostream. Really owned by the BGZF, we just need to be able to flush it since the BGZF's flush doesn't do that. </p>
 
 </div>
 </div>

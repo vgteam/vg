@@ -78,6 +78,7 @@ var searchData=
   ['init_5fmapping_5fquality',['init_mapping_quality',['../classvg_1_1GSSWAligner.html#aa940804996a9028d35d110475701c3dd',1,'vg::GSSWAligner::init_mapping_quality()'],['../classvg_1_1QualAdjAligner.html#a0bae95094ac53c096eaf4ab381762d39',1,'vg::QualAdjAligner::init_mapping_quality()']]],
   ['initial_5fcapacity',['INITIAL_CAPACITY',['../classvg_1_1MinimizerIndex.html#a044a3cf2e5a0bf7ac29e195ee6e97513',1,'vg::MinimizerIndex']]],
   ['initial_5fposition',['initial_position',['../namespacevg.html#acd31d3a8dc67801f147d0ba1b0059c3f',1,'vg']]],
+  ['initialize_5fsam_5ffile',['initialize_sam_file',['../classvg_1_1HTSAlignmentEmitter.html#a13ea72ef0fd7badeb2ae3e951acc8c43',1,'vg::HTSAlignmentEmitter']]],
   ['inject_5fmain_2ecpp',['inject_main.cpp',['../inject__main_8cpp.html',1,'']]],
   ['inner_5fvalue',['inner_value',['../structhaplo_1_1haplo__DP__rectangle.html#a68817623682eb451f4a5a42a8ae8ef8a',1,'haplo::haplo_DP_rectangle']]],
   ['input',['input',['../structvg_1_1io_1_1hFILE__cppstream.html#a301bcdddd00f4d40033b4ca94691f9a6',1,'vg::io::hFILE_cppstream']]],
@@ -184,8 +185,8 @@ var searchData=
   ['items',['items',['../structvg_1_1Funnel_1_1Stage.html#a787bab13fd8bd1bccb1ac8e7821688c6',1,'vg::Funnel::Stage']]],
   ['iteratee',['iteratee',['../classvg_1_1ShuffledPairs_1_1iterator.html#a09d41523db4b9b9c6cebb02ecf7bfa3c',1,'vg::ShuffledPairs::iterator']]],
   ['iteratee_2ehpp',['iteratee.hpp',['../iteratee_8hpp.html',1,'']]],
+  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]],
   ['iterator',['iterator',['../structvg_1_1PathIndex.html#a0a0f36c0f57cc92dfb70f05eb4e5c482',1,'vg::PathIndex::iterator()'],['../classvg_1_1ShuffledPairs_1_1iterator.html#ade5cfb8f4e824c4d02c51df5ca396096',1,'vg::ShuffledPairs::iterator::iterator(const iterator &amp;other)=default'],['../classvg_1_1ShuffledPairs_1_1iterator.html#a3b52dd39c46e409ef1bfd67ab8ee76e4',1,'vg::ShuffledPairs::iterator::iterator(const ShuffledPairs &amp;iteratee, size_t start_at)'],['../classvg_1_1PhasedGenome_1_1iterator.html#a0f330d79400d74c3da0c81e4af73d441',1,'vg::PhasedGenome::iterator::iterator(size_t rank, int haplotype_number, HaplotypeNode *haplo_node)'],['../classvg_1_1PhasedGenome_1_1iterator.html#ac8ddc9db361c6f07887fdc36b5484bcf',1,'vg::PhasedGenome::iterator::iterator()'],['../classvg_1_1PhasedGenome_1_1iterator.html#a03bdcb94d8ed8b6e895ff003412185e4',1,'vg::PhasedGenome::iterator::iterator(const iterator &amp;other)'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#ac02b7134a97591fcd4a821093a0a4ab4',1,'handlegraph::PathForEachSocket::iterator::iterator(const iterator &amp;other)=default'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#aed3d6dd2502cf236a6a55ed29e8c41dc',1,'handlegraph::PathForEachSocket::iterator::iterator()=delete'],['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html#af854ca3bd6cdbcfc8af01f7879f85106',1,'handlegraph::PathForEachSocket::iterator::iterator(const step_handle_t &amp;step, bool force_unequal, const PathHandleGraph *graph)']]],
-  ['iterator',['iterator',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html',1,'handlegraph::PathForEachSocket']]],
   ['iterator',['iterator',['../classvg_1_1PhasedGenome_1_1iterator.html',1,'vg::PhasedGenome']]],
-  ['iterator',['iterator',['../classvg_1_1ShuffledPairs_1_1iterator.html',1,'vg::ShuffledPairs']]]
+  ['iterator',['iterator',['../classhandlegraph_1_1PathForEachSocket_1_1iterator.html',1,'handlegraph::PathForEachSocket']]]
 ];

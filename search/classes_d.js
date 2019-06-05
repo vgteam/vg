@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['ompthreadbufferedalignmentemitter',['OMPThreadBufferedAlignmentEmitter',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html',1,'vg']]],
   ['option',['Option',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20bool_20_3e',['Option&lt; bool &gt;',['../classvg_1_1Option.html',1,'vg']]],
   ['option_3c_20double_20_3e',['Option&lt; double &gt;',['../classvg_1_1Option.html',1,'vg']]],

@@ -94,18 +94,21 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &lt;mutex&gt;</code><br/>
+<code>#include &lt;thread&gt;</code><br/>
 <code>#include &lt;vector&gt;</code><br/>
+<code>#include &lt;deque&gt;</code><br/>
 <code>#include &lt;htslib/hfile.h&gt;</code><br/>
 <code>#include &lt;htslib/hts.h&gt;</code><br/>
 <code>#include &lt;htslib/sam.h&gt;</code><br/>
 <code>#include &lt;vg/vg.pb.h&gt;</code><br/>
 <code>#include &lt;<a class="el" href="protobuf__emitter_8hpp.html">vg/io/protobuf_emitter.hpp</a>&gt;</code><br/>
+<code>#include &lt;<a class="el" href="stream__multiplexer_8hpp.html">vg/io/stream_multiplexer.hpp</a>&gt;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html">vg::AlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html">vg::OMPThreadBufferedAlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullAlignmentEmitter.html">vg::NullAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TSVAlignmentEmitter.html">vg::TSVAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -121,8 +124,8 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:abce18f0b74126aa8a1d160569bff8dab"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abce18f0b74126aa8a1d160569bff8dab">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length)</td></tr>
-<tr class="separator:abce18f0b74126aa8a1d160569bff8dab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a729d7060ecbe929f2229008ff520ba9c"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; AlignmentEmitter &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a729d7060ecbe929f2229008ff520ba9c">vg::get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads)</td></tr>
+<tr class="separator:a729d7060ecbe929f2229008ff520ba9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Defines a system for emitting alignments and groups of alignments in multiple formats. </p>

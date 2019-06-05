@@ -102,32 +102,43 @@ Inheritance diagram for vg::AlignmentEmitter:</div>
  <div class="center">
   <img src="classvg_1_1AlignmentEmitter.png" usemap="#vg::AlignmentEmitter_map" alt=""/>
   <map id="vg::AlignmentEmitter_map" name="vg::AlignmentEmitter_map">
-<area href="classvg_1_1HTSAlignmentEmitter.html" alt="vg::HTSAlignmentEmitter" shape="rect" coords="0,56,243,80"/>
-<area href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html" alt="vg::OMPThreadBufferedAlignmentEmitter" shape="rect" coords="253,56,496,80"/>
-<area href="classvg_1_1TSVAlignmentEmitter.html" alt="vg::TSVAlignmentEmitter" shape="rect" coords="506,56,749,80"/>
-<area href="classvg_1_1VGAlignmentEmitter.html" alt="vg::VGAlignmentEmitter" shape="rect" coords="759,56,1002,80"/>
+<area href="classvg_1_1HTSAlignmentEmitter.html" alt="vg::HTSAlignmentEmitter" shape="rect" coords="0,56,149,80"/>
+<area href="classvg_1_1NullAlignmentEmitter.html" alt="vg::NullAlignmentEmitter" shape="rect" coords="159,56,308,80"/>
+<area href="classvg_1_1TSVAlignmentEmitter.html" alt="vg::TSVAlignmentEmitter" shape="rect" coords="318,56,467,80"/>
+<area href="classvg_1_1VGAlignmentEmitter.html" alt="vg::VGAlignmentEmitter" shape="rect" coords="477,56,626,80"/>
 </map>
  </div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ada7bf6b6b1b80aee15911b449efe2839"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#ada7bf6b6b1b80aee15911b449efe2839">emit_single</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln)=0</td></tr>
-<tr class="memdesc:ada7bf6b6b1b80aee15911b449efe2839"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.  <a href="#ada7bf6b6b1b80aee15911b449efe2839">More...</a><br/></td></tr>
-<tr class="separator:ada7bf6b6b1b80aee15911b449efe2839"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6817d8359600e8183b9726bd757dfd78"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a6817d8359600e8183b9726bd757dfd78">emit_mapped_single</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns)=0</td></tr>
-<tr class="memdesc:a6817d8359600e8183b9726bd757dfd78"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with secondaries. All secondaries must have is_secondary set already.  <a href="#a6817d8359600e8183b9726bd757dfd78">More...</a><br/></td></tr>
-<tr class="separator:a6817d8359600e8183b9726bd757dfd78"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aba3b63d7b4e307f0fb57dba2381b8559"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#aba3b63d7b4e307f0fb57dba2381b8559">emit_pair</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln2, int64_t tlen_limit=0)=0</td></tr>
-<tr class="separator:aba3b63d7b4e307f0fb57dba2381b8559"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0578f41da119d052bf0c630b777cb4c1"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a0578f41da119d052bf0c630b777cb4c1">emit_mapped_pair</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns1, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns2, int64_t tlen_limit=0)=0</td></tr>
-<tr class="separator:a0578f41da119d052bf0c630b777cb4c1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a87d90a456f1109f73f7d33ba6c9357da"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a87d90a456f1109f73f7d33ba6c9357da">emit_singles</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln_batch)=0</td></tr>
+<tr class="memdesc:a87d90a456f1109f73f7d33ba6c9357da"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a batch of Alignments.  <a href="#a87d90a456f1109f73f7d33ba6c9357da">More...</a><br/></td></tr>
+<tr class="separator:a87d90a456f1109f73f7d33ba6c9357da"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a40cbf4b0b000144d57a417239063344f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a40cbf4b0b000144d57a417239063344f">emit_mapped_singles</a> (vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns_batch)=0</td></tr>
+<tr class="memdesc:a40cbf4b0b000144d57a417239063344f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit batch of Alignments with secondaries. All secondaries must have is_secondary set already.  <a href="#a40cbf4b0b000144d57a417239063344f">More...</a><br/></td></tr>
+<tr class="separator:a40cbf4b0b000144d57a417239063344f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af648a0099359ac97d0263f7d3523ed6f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#af648a0099359ac97d0263f7d3523ed6f">emit_pairs</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln1_batch, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln2_batch, vector&lt; int64_t &gt; &amp;&amp;tlen_limit_batch)=0</td></tr>
+<tr class="separator:af648a0099359ac97d0263f7d3523ed6f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a52a8bfc2c12bd40099d41ceaef72c38e"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a52a8bfc2c12bd40099d41ceaef72c38e">emit_mapped_pairs</a> (vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns1_batch, vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns2_batch, vector&lt; int64_t &gt; &amp;&amp;tlen_limit_batch)=0</td></tr>
+<tr class="separator:a52a8bfc2c12bd40099d41ceaef72c38e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a44025f3da403a4c4b564a3b17bdf7067"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a44025f3da403a4c4b564a3b17bdf7067">emit_single</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln)</td></tr>
+<tr class="memdesc:a44025f3da403a4c4b564a3b17bdf7067"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.  <a href="#a44025f3da403a4c4b564a3b17bdf7067">More...</a><br/></td></tr>
+<tr class="separator:a44025f3da403a4c4b564a3b17bdf7067"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaea5bab4d9a90997887df5b4367a9af1"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#aaea5bab4d9a90997887df5b4367a9af1">emit_mapped_single</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns)</td></tr>
+<tr class="memdesc:aaea5bab4d9a90997887df5b4367a9af1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with secondaries. All secondaries must have is_secondary set already.  <a href="#aaea5bab4d9a90997887df5b4367a9af1">More...</a><br/></td></tr>
+<tr class="separator:aaea5bab4d9a90997887df5b4367a9af1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa1762a8e901220b2de883da2163be4d6"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#aa1762a8e901220b2de883da2163be4d6">emit_pair</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln2, int64_t tlen_limit=0)</td></tr>
+<tr class="separator:aa1762a8e901220b2de883da2163be4d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace1ae6b6682ee81431caf8d98243d258"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#ace1ae6b6682ee81431caf8d98243d258">emit_mapped_pair</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns1, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns2, int64_t tlen_limit=0)</td></tr>
+<tr class="separator:ace1ae6b6682ee81431caf8d98243d258"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1d2ce6eb484199beeedf9aa2c4552a25"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a1d2ce6eb484199beeedf9aa2c4552a25">~AlignmentEmitter</a> ()=default</td></tr>
 <tr class="memdesc:a1d2ce6eb484199beeedf9aa2c4552a25"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allow destruction through base class pointer.  <a href="#a1d2ce6eb484199beeedf9aa2c4552a25">More...</a><br/></td></tr>
 <tr class="separator:a1d2ce6eb484199beeedf9aa2c4552a25"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Base class for a sink that takes alignments, possibly with pairing/secondary relationships, and writes them out somewhere.</p>
-<p>All implementations must be thread safe. </p>
+<p>All implementations must be thread safe.</p>
+<p>All implementations assume OMP threading. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a class="anchor" id="a1d2ce6eb484199beeedf9aa2c4552a25"></a>
 <div class="memitem">
@@ -155,7 +166,7 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="a0578f41da119d052bf0c630b777cb4c1"></a>
+<a class="anchor" id="ace1ae6b6682ee81431caf8d98243d258"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -163,7 +174,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void vg::AlignmentEmitter::emit_mapped_pair </td>
+          <td class="memname">void vg::AlignmentEmitter::emit_mapped_pair </td>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
           <td class="paramname"><em>alns1</em>, </td>
@@ -188,17 +199,16 @@ Public Member Functions</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already. The tlen_limit, if specified, is the maximum pairing distance to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
-
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#af76e9fb5714fb2709576a9a9ecaa7aaa">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a96a7ab2056f36be5fe0fb374e77be2be">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a3153750493cf000adbfbad7c2db4cc7b">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html#ae955c83bbac412040f97c481bc220e8e">vg::OMPThreadBufferedAlignmentEmitter</a>.</p>
+<p>Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already. The tlen_limit, if specified, is the maximum pairing distance to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.</p>
+<p>Both ends of the pair must have the same number of mappings. </p>
 
 </div>
 </div>
-<a class="anchor" id="a6817d8359600e8183b9726bd757dfd78"></a>
+<a class="anchor" id="a52a8bfc2c12bd40099d41ceaef72c38e"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -206,10 +216,80 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void vg::AlignmentEmitter::emit_mapped_single </td>
+          <td class="memname">virtual void vg::AlignmentEmitter::emit_mapped_pairs </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>alns1_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>alns2_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; int64_t &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>tlen_limit_batch</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Emit the mappings of a batch of pairs of Alignments. All secondaries must have is_secondary set already. The tlen_limit_batch, if specified, is the maximum pairing distance for each pair to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.</p>
+<p>Both ends of each pair must have the same number of mappings. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a4faf803f53e5788d682cb1b91bce4d99">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a144167b8b9b973a113beb3950d8f64e7">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a599220d5ec3b22ad3c1a624e334d274a">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#aba63b0073cab9fbac25999b25d1935c2">vg::NullAlignmentEmitter</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="aaea5bab4d9a90997887df5b4367a9af1"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::AlignmentEmitter::emit_mapped_single </td>
           <td>(</td>
           <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
           <td class="paramname"><em>alns</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with secondaries. All secondaries must have is_secondary set already. </p>
+
+</div>
+</div>
+<a class="anchor" id="a40cbf4b0b000144d57a417239063344f"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void vg::AlignmentEmitter::emit_mapped_singles </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>alns_batch</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -220,13 +300,13 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with secondaries. All secondaries must have is_secondary set already. </p>
+<p>Emit batch of Alignments with secondaries. All secondaries must have is_secondary set already. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#acae4ff4236832525272f6f656d877dc5">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a9fae31c5db874d236e408e75f46d1fe3">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a2840b9cc9d37d9ca775cf1a2a223a982">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html#a8028b10e58a00ad76294265074285004">vg::OMPThreadBufferedAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#ad3857954f00326a23faed1011a266e7d">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a3137223a14396af5a6284830c716b943">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#af58bfa40619cff01249cff4c57baa6e9">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#a49584d1e4e0e1ffbee1ec109cc6f94f0">vg::NullAlignmentEmitter</a>.</p>
 
 </div>
 </div>
-<a class="anchor" id="aba3b63d7b4e307f0fb57dba2381b8559"></a>
+<a class="anchor" id="aa1762a8e901220b2de883da2163be4d6"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -234,7 +314,7 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void vg::AlignmentEmitter::emit_pair </td>
+          <td class="memname">void vg::AlignmentEmitter::emit_pair </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
           <td class="paramname"><em>aln1</em>, </td>
@@ -259,17 +339,15 @@ Public Member Functions</h2></td></tr>
       </table>
   </td>
   <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">
 <p>Emit a pair of Alignments. The tlen_limit, if specified, is the maximum pairing distance to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a247b982efeb9095afd9237357978690b">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a690d28f31994fb18398e2d570017e04d">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a6cf8cb8e32656537d4496704a13c0e55">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html#a6d8f40061e4563d3ba439e81a9a99856">vg::OMPThreadBufferedAlignmentEmitter</a>.</p>
-
 </div>
 </div>
-<a class="anchor" id="ada7bf6b6b1b80aee15911b449efe2839"></a>
+<a class="anchor" id="af648a0099359ac97d0263f7d3523ed6f"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -277,10 +355,79 @@ Public Member Functions</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void vg::AlignmentEmitter::emit_single </td>
+          <td class="memname">virtual void vg::AlignmentEmitter::emit_pairs </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>aln1_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>aln2_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; int64_t &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>tlen_limit_batch</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">pure virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Emit a batch of pairs of Alignments. The tlen_limit_batch, if specified, is the maximum pairing distance for ewch pair to flag properly paired, if the output format cares about such things. TODO: Move to a properly paired annotation that runs with the <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
+
+<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a4022d4261860697af7236a529024d564">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a6c2dbcf61c25fe6646b6753d51b73771">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a6647666cf5719cf269e3dd8be5f9ae84">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#ab4fc6642d027e4f086cfd8eaf49e2845">vg::NullAlignmentEmitter</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a44025f3da403a4c4b564a3b17bdf7067"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::AlignmentEmitter::emit_single </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
           <td class="paramname"><em>aln</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
+
+</div>
+</div>
+<a class="anchor" id="a87d90a456f1109f73f7d33ba6c9357da"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void vg::AlignmentEmitter::emit_singles </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>aln_batch</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -291,14 +438,15 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
+<p>Emit a batch of Alignments. </p>
 
-<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a270ffa45021239f402b02a69d453553d">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a9012735b43daf41c517d89de9fa0599f">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a0ff396f85d8b158c97cd4d7e772849de">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html#ad90d1cd171e53e4e4fdf98a66036548d">vg::OMPThreadBufferedAlignmentEmitter</a>.</p>
+<p>Implemented in <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a6e1ecbff3f9527630e05ad11021dce6c">vg::VGAlignmentEmitter</a>, <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90e671da1b62eebf423f95c01a865fdd">vg::HTSAlignmentEmitter</a>, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a6e88ca0809236dfe5f437490b9da45fd">vg::TSVAlignmentEmitter</a>, and <a class="el" href="classvg_1_1NullAlignmentEmitter.html#a54b3d0a1ba2a33646ad4f1a35366ee90">vg::NullAlignmentEmitter</a>.</p>
 
 </div>
 </div>
-<hr/>The documentation for this class was generated from the following file:<ul>
+<hr/>The documentation for this class was generated from the following files:<ul>
 <li>src/<a class="el" href="alignment__emitter_8hpp.html">alignment_emitter.hpp</a></li>
+<li>src/<a class="el" href="alignment__emitter_8cpp.html">alignment_emitter.cpp</a></li>
 </ul>
 </div><!-- contents -->
 <!-- HTML footer for doxygen 1.8.9.1-->

@@ -132,6 +132,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a5b5f11b2f9b08a870fc68a980c91f1e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1f37b89141a12819675b1d2a9dccdb10"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#a1f37b89141a12819675b1d2a9dccdb10">emit_group</a> ()</td></tr>
 <tr class="separator:a1f37b89141a12819675b1d2a9dccdb10"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa1a5812e1ef02893eca24e2c74870e41"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageEmitter.html#aa1a5812e1ef02893eca24e2c74870e41">flush</a> ()</td></tr>
+<tr class="separator:aa1a5812e1ef02893eca24e2c74870e41"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -289,6 +291,22 @@ Private Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>Actually write out everything in the buffer. Doesn't actually flush the underlying streams to disk. Assumes that no more than one group's worth of messages are in the buffer. </p>
+
+</div>
+</div>
+<a class="anchor" id="aa1a5812e1ef02893eca24e2c74870e41"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::io::MessageEmitter::flush </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write out anything in the buffer, and flush the backing streams. After this has been called, a full BGZF block will be in the backing stream (passed to the constructor), but the backing stream won't necessarily be flushed. </p>
 
 </div>
 </div>

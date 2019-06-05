@@ -91,6 +91,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#pub-methods">Public Member Functions</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
+<a href="#pri-static-attribs">Static Private Attributes</a> &#124;
 <a href="classvg_1_1HTSAlignmentEmitter-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::HTSAlignmentEmitter Class Reference</div>  </div>
@@ -110,8 +111,8 @@ Inheritance diagram for vg::HTSAlignmentEmitter:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a15e163926b485559f53d765f440844f0"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a15e163926b485559f53d765f440844f0">HTSAlignmentEmitter</a> (const string &amp;filename, const string &amp;<a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761">format</a>, const map&lt; string, int64_t &gt; &amp;<a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a120f7a095425d81db9fa4c3574f0bee5">path_length</a>)</td></tr>
-<tr class="separator:a15e163926b485559f53d765f440844f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5d299e0ff9007ffe22286c886d1ec669"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a5d299e0ff9007ffe22286c886d1ec669">HTSAlignmentEmitter</a> (const string &amp;filename, const string &amp;<a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761">format</a>, const map&lt; string, int64_t &gt; &amp;<a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a120f7a095425d81db9fa4c3574f0bee5">path_length</a>, size_t max_threads)</td></tr>
+<tr class="separator:a5d299e0ff9007ffe22286c886d1ec669"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae0ce2a704ac1be71879e4277d405c330"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#ae0ce2a704ac1be71879e4277d405c330">~HTSAlignmentEmitter</a> ()</td></tr>
 <tr class="memdesc:ae0ce2a704ac1be71879e4277d405c330"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tear down an <a class="el" href="classvg_1_1HTSAlignmentEmitter.html">HTSAlignmentEmitter</a> and destroy HTSlib structures.  <a href="#ae0ce2a704ac1be71879e4277d405c330">More...</a><br/></td></tr>
 <tr class="separator:ae0ce2a704ac1be71879e4277d405c330"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -123,57 +124,85 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a780156f43d54cf16906948ad8286c20f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a19eafc506789bd80e235ebc63e2bbe7f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html">HTSAlignmentEmitter</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a19eafc506789bd80e235ebc63e2bbe7f">operator=</a> (<a class="el" href="classvg_1_1HTSAlignmentEmitter.html">HTSAlignmentEmitter</a> &amp;&amp;other)=delete</td></tr>
 <tr class="separator:a19eafc506789bd80e235ebc63e2bbe7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9012735b43daf41c517d89de9fa0599f"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a9012735b43daf41c517d89de9fa0599f">emit_single</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln)</td></tr>
-<tr class="memdesc:a9012735b43daf41c517d89de9fa0599f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.  <a href="#a9012735b43daf41c517d89de9fa0599f">More...</a><br/></td></tr>
-<tr class="separator:a9012735b43daf41c517d89de9fa0599f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a9fae31c5db874d236e408e75f46d1fe3"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a9fae31c5db874d236e408e75f46d1fe3">emit_mapped_single</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns)</td></tr>
-<tr class="memdesc:a9fae31c5db874d236e408e75f46d1fe3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with secondaries. All secondaries must have is_secondary set already.  <a href="#a9fae31c5db874d236e408e75f46d1fe3">More...</a><br/></td></tr>
-<tr class="separator:a9fae31c5db874d236e408e75f46d1fe3"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a690d28f31994fb18398e2d570017e04d"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a690d28f31994fb18398e2d570017e04d">emit_pair</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln2, int64_t tlen_limit=0)</td></tr>
-<tr class="memdesc:a690d28f31994fb18398e2d570017e04d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a pair of Alignments.  <a href="#a690d28f31994fb18398e2d570017e04d">More...</a><br/></td></tr>
-<tr class="separator:a690d28f31994fb18398e2d570017e04d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a96a7ab2056f36be5fe0fb374e77be2be"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a96a7ab2056f36be5fe0fb374e77be2be">emit_mapped_pair</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns1, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns2, int64_t tlen_limit=0)</td></tr>
-<tr class="memdesc:a96a7ab2056f36be5fe0fb374e77be2be"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already.  <a href="#a96a7ab2056f36be5fe0fb374e77be2be">More...</a><br/></td></tr>
-<tr class="separator:a96a7ab2056f36be5fe0fb374e77be2be"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90e671da1b62eebf423f95c01a865fdd"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90e671da1b62eebf423f95c01a865fdd">emit_singles</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln_batch)</td></tr>
+<tr class="memdesc:a90e671da1b62eebf423f95c01a865fdd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a batch of Alignments.  <a href="#a90e671da1b62eebf423f95c01a865fdd">More...</a><br/></td></tr>
+<tr class="separator:a90e671da1b62eebf423f95c01a865fdd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3137223a14396af5a6284830c716b943"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a3137223a14396af5a6284830c716b943">emit_mapped_singles</a> (vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns_batch)</td></tr>
+<tr class="separator:a3137223a14396af5a6284830c716b943"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6c2dbcf61c25fe6646b6753d51b73771"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a6c2dbcf61c25fe6646b6753d51b73771">emit_pairs</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln1_batch, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;aln2_batch, vector&lt; int64_t &gt; &amp;&amp;tlen_limit_batch)</td></tr>
+<tr class="memdesc:a6c2dbcf61c25fe6646b6753d51b73771"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a batch of pairs of Alignments.  <a href="#a6c2dbcf61c25fe6646b6753d51b73771">More...</a><br/></td></tr>
+<tr class="separator:a6c2dbcf61c25fe6646b6753d51b73771"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a144167b8b9b973a113beb3950d8f64e7"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a144167b8b9b973a113beb3950d8f64e7">emit_mapped_pairs</a> (vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns1_batch, vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;alns2_batch, vector&lt; int64_t &gt; &amp;&amp;tlen_limit_batch)</td></tr>
+<tr class="separator:a144167b8b9b973a113beb3950d8f64e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classvg_1_1AlignmentEmitter"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classvg_1_1AlignmentEmitter')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classvg_1_1AlignmentEmitter.html">vg::AlignmentEmitter</a></td></tr>
+<tr class="memitem:a44025f3da403a4c4b564a3b17bdf7067 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a44025f3da403a4c4b564a3b17bdf7067">emit_single</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln)</td></tr>
+<tr class="memdesc:a44025f3da403a4c4b564a3b17bdf7067 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>.  <a href="#a44025f3da403a4c4b564a3b17bdf7067">More...</a><br/></td></tr>
+<tr class="separator:a44025f3da403a4c4b564a3b17bdf7067 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aaea5bab4d9a90997887df5b4367a9af1 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#aaea5bab4d9a90997887df5b4367a9af1">emit_mapped_single</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns)</td></tr>
+<tr class="memdesc:aaea5bab4d9a90997887df5b4367a9af1 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with secondaries. All secondaries must have is_secondary set already.  <a href="#aaea5bab4d9a90997887df5b4367a9af1">More...</a><br/></td></tr>
+<tr class="separator:aaea5bab4d9a90997887df5b4367a9af1 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa1762a8e901220b2de883da2163be4d6 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#aa1762a8e901220b2de883da2163be4d6">emit_pair</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln2, int64_t tlen_limit=0)</td></tr>
+<tr class="separator:aa1762a8e901220b2de883da2163be4d6 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ace1ae6b6682ee81431caf8d98243d258 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#ace1ae6b6682ee81431caf8d98243d258">emit_mapped_pair</a> (vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns1, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;alns2, int64_t tlen_limit=0)</td></tr>
+<tr class="separator:ace1ae6b6682ee81431caf8d98243d258 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1d2ce6eb484199beeedf9aa2c4552a25 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memItemLeft" align="right" valign="top">virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html#a1d2ce6eb484199beeedf9aa2c4552a25">~AlignmentEmitter</a> ()=default</td></tr>
 <tr class="memdesc:a1d2ce6eb484199beeedf9aa2c4552a25 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="mdescLeft">&#160;</td><td class="mdescRight">Allow destruction through base class pointer.  <a href="#a1d2ce6eb484199beeedf9aa2c4552a25">More...</a><br/></td></tr>
 <tr class="separator:a1d2ce6eb484199beeedf9aa2c4552a25 inherit pub_methods_classvg_1_1AlignmentEmitter"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
-<tr class="memitem:abb1c4f194a1632bedc982dbb32e73650"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#abb1c4f194a1632bedc982dbb32e73650">emit_single_internal</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln, const lock_guard&lt; mutex &gt; &amp;lock)</td></tr>
-<tr class="memdesc:abb1c4f194a1632bedc982dbb32e73650"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a single alignment, with a lock already held.  <a href="#abb1c4f194a1632bedc982dbb32e73650">More...</a><br/></td></tr>
-<tr class="separator:abb1c4f194a1632bedc982dbb32e73650"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a82010d9ea748c129658e0728b01dffc2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a82010d9ea748c129658e0728b01dffc2">emit_pair_internal</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;aln2, int64_t tlen_limit, const lock_guard&lt; mutex &gt; &amp;lock)</td></tr>
-<tr class="memdesc:a82010d9ea748c129658e0728b01dffc2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Emit a pair of alignments, with a lock already held.  <a href="#a82010d9ea748c129658e0728b01dffc2">More...</a><br/></td></tr>
-<tr class="separator:a82010d9ea748c129658e0728b01dffc2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acfa06d770ef465d90006f19119e3c6d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#acfa06d770ef465d90006f19119e3c6d6">convert_unpaired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, vector&lt; bam1_t * &gt; &amp;dest)</td></tr>
+<tr class="separator:acfa06d770ef465d90006f19119e3c6d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c60f5cb450ee67893e72e2576ff3c68"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a9c60f5cb450ee67893e72e2576ff3c68">convert_paired</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln1, <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln2, int64_t tlen_limit, vector&lt; bam1_t * &gt; &amp;dest)</td></tr>
+<tr class="separator:a9c60f5cb450ee67893e72e2576ff3c68"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7cf2891a763c085e6703a0671e066e3b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a7cf2891a763c085e6703a0671e066e3b">save_records</a> (bam_hdr_t *header, vector&lt; bam1_t * &gt; &amp;records, size_t thread_number)</td></tr>
+<tr class="separator:a7cf2891a763c085e6703a0671e066e3b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5ee9e23fb034f1267690defe2fde1ead"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a5ee9e23fb034f1267690defe2fde1ead">ensure_header</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;sniff, size_t thread_number)</td></tr>
+<tr class="separator:a5ee9e23fb034f1267690defe2fde1ead"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a13ea72ef0fd7badeb2ae3e951acc8c43"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a13ea72ef0fd7badeb2ae3e951acc8c43">initialize_sam_file</a> (bam_hdr_t *header, size_t thread_number, bool keep_header=false)</td></tr>
+<tr class="separator:a13ea72ef0fd7badeb2ae3e951acc8c43"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
-<tr class="memitem:a90a4dd4b3dcdabb806f43dc80d9d9524"><td class="memItemLeft" align="right" valign="top">mutex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90a4dd4b3dcdabb806f43dc80d9d9524">sync</a></td></tr>
-<tr class="memdesc:a90a4dd4b3dcdabb806f43dc80d9d9524"><td class="mdescLeft">&#160;</td><td class="mdescRight">We need a mutex to synchronize on.  <a href="#a90a4dd4b3dcdabb806f43dc80d9d9524">More...</a><br/></td></tr>
-<tr class="separator:a90a4dd4b3dcdabb806f43dc80d9d9524"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af43debc963568d3ebf8008744dfc1f7b"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; ofstream &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#af43debc963568d3ebf8008744dfc1f7b">out_file</a></td></tr>
+<tr class="memdesc:af43debc963568d3ebf8008744dfc1f7b"><td class="mdescLeft">&#160;</td><td class="mdescRight">If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty.  <a href="#af43debc963568d3ebf8008744dfc1f7b">More...</a><br/></td></tr>
+<tr class="separator:af43debc963568d3ebf8008744dfc1f7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac08d9c47f238a13505835089d5c7b80b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html">vg::io::StreamMultiplexer</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#ac08d9c47f238a13505835089d5c7b80b">multiplexer</a></td></tr>
+<tr class="separator:ac08d9c47f238a13505835089d5c7b80b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a061053f7bdf3bf4e70483fad7d659761"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a061053f7bdf3bf4e70483fad7d659761">format</a></td></tr>
-<tr class="memdesc:a061053f7bdf3bf4e70483fad7d659761"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remember what format we are using.  <a href="#a061053f7bdf3bf4e70483fad7d659761">More...</a><br/></td></tr>
+<tr class="memdesc:a061053f7bdf3bf4e70483fad7d659761"><td class="mdescLeft">&#160;</td><td class="mdescRight">This holds our format name, for later error messages.  <a href="#a061053f7bdf3bf4e70483fad7d659761">More...</a><br/></td></tr>
 <tr class="separator:a061053f7bdf3bf4e70483fad7d659761"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a120f7a095425d81db9fa4c3574f0bee5"><td class="memItemLeft" align="right" valign="top">map&lt; string, int64_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a120f7a095425d81db9fa4c3574f0bee5">path_length</a></td></tr>
-<tr class="memdesc:a120f7a095425d81db9fa4c3574f0bee5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sorte the path length map until the header can be made.  <a href="#a120f7a095425d81db9fa4c3574f0bee5">More...</a><br/></td></tr>
+<tr class="memdesc:a120f7a095425d81db9fa4c3574f0bee5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Store the path length map until the header can be made.  <a href="#a120f7a095425d81db9fa4c3574f0bee5">More...</a><br/></td></tr>
 <tr class="separator:a120f7a095425d81db9fa4c3574f0bee5"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad6bd27b12eb70bed38fb665c019d924b"><td class="memItemLeft" align="right" valign="top">samFile *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#ad6bd27b12eb70bed38fb665c019d924b">sam_file</a> = nullptr</td></tr>
-<tr class="memdesc:ad6bd27b12eb70bed38fb665c019d924b"><td class="mdescLeft">&#160;</td><td class="mdescRight">We need a samFile.  <a href="#ad6bd27b12eb70bed38fb665c019d924b">More...</a><br/></td></tr>
-<tr class="separator:ad6bd27b12eb70bed38fb665c019d924b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a311453c47931cb4edc2c1c33f0f81d77"><td class="memItemLeft" align="right" valign="top">bam_hdr_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a311453c47931cb4edc2c1c33f0f81d77">hdr</a> = nullptr</td></tr>
-<tr class="memdesc:a311453c47931cb4edc2c1c33f0f81d77"><td class="mdescLeft">&#160;</td><td class="mdescRight">We need a header.  <a href="#a311453c47931cb4edc2c1c33f0f81d77">More...</a><br/></td></tr>
-<tr class="separator:a311453c47931cb4edc2c1c33f0f81d77"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aea45749521914fb3e8605b590591f13c"><td class="memItemLeft" align="right" valign="top">vector&lt; hFILE * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#aea45749521914fb3e8605b590591f13c">backing_files</a></td></tr>
+<tr class="separator:aea45749521914fb3e8605b590591f13c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a99755c86ec8c5b608d77113644d24db9"><td class="memItemLeft" align="right" valign="top">vector&lt; samFile * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a99755c86ec8c5b608d77113644d24db9">sam_files</a></td></tr>
+<tr class="separator:a99755c86ec8c5b608d77113644d24db9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c8421e34401bc0eab7cd36d656e7acf"><td class="memItemLeft" align="right" valign="top">atomic&lt; bam_hdr_t * &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a9c8421e34401bc0eab7cd36d656e7acf">atomic_header</a></td></tr>
+<tr class="memdesc:a9c8421e34401bc0eab7cd36d656e7acf"><td class="mdescLeft">&#160;</td><td class="mdescRight">We need a header.  <a href="#a9c8421e34401bc0eab7cd36d656e7acf">More...</a><br/></td></tr>
+<tr class="separator:a9c8421e34401bc0eab7cd36d656e7acf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a03c539d9f8130d8c33fa3334fc21a4f5"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a03c539d9f8130d8c33fa3334fc21a4f5">sam_header</a></td></tr>
-<tr class="memdesc:a03c539d9f8130d8c33fa3334fc21a4f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">We also need a header string.  <a href="#a03c539d9f8130d8c33fa3334fc21a4f5">More...</a><br/></td></tr>
 <tr class="separator:a03c539d9f8130d8c33fa3334fc21a4f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a415bd90d7e4b2da45e534ec1810616fe"><td class="memItemLeft" align="right" valign="top">mutex&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a415bd90d7e4b2da45e534ec1810616fe">header_mutex</a></td></tr>
+<tr class="memdesc:a415bd90d7e4b2da45e534ec1810616fe"><td class="mdescLeft">&#160;</td><td class="mdescRight">If the header isn't present when we want to write, we need a mutex to control creating it.  <a href="#a415bd90d7e4b2da45e534ec1810616fe">More...</a><br/></td></tr>
+<tr class="separator:a415bd90d7e4b2da45e534ec1810616fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a932706bb5a22a35092be3ddacd49c34c"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a932706bb5a22a35092be3ddacd49c34c">output_is_bgzf</a></td></tr>
+<tr class="separator:a932706bb5a22a35092be3ddacd49c34c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a153522a68e1a526fb794753ab666f840"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a153522a68e1a526fb794753ab666f840">hts_mode</a></td></tr>
+<tr class="memdesc:a153522a68e1a526fb794753ab666f840"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remember the HTSlib mode string we need to open our files.  <a href="#a153522a68e1a526fb794753ab666f840">More...</a><br/></td></tr>
+<tr class="separator:a153522a68e1a526fb794753ab666f840"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-attribs"></a>
+Static Private Attributes</h2></td></tr>
+<tr class="memitem:afd92ecc2668078e7601a02133d7619d9"><td class="memItemLeft" align="right" valign="top">static const size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1HTSAlignmentEmitter.html#afd92ecc2668078e7601a02133d7619d9">BGZF_FOOTER_LENGTH</a> = 28</td></tr>
+<tr class="memdesc:afd92ecc2668078e7601a02133d7619d9"><td class="mdescLeft">&#160;</td><td class="mdescRight">We hack about with htslib's BGZF EOF footers, so we need to know how long they are.  <a href="#afd92ecc2668078e7601a02133d7619d9">More...</a><br/></td></tr>
+<tr class="separator:afd92ecc2668078e7601a02133d7619d9"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Emit Alignments to a stream in SAM/BAM/CRAM format. Thread safe. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
-<a class="anchor" id="a15e163926b485559f53d765f440844f0"></a>
+<a class="anchor" id="a5d299e0ff9007ffe22286c886d1ec669"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -193,7 +222,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const map&lt; string, int64_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>path_length</em>&#160;</td>
+          <td class="paramname"><em>path_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_threads</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -272,7 +307,7 @@ Private Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a class="anchor" id="a96a7ab2056f36be5fe0fb374e77be2be"></a>
+<a class="anchor" id="a9c60f5cb450ee67893e72e2576ff3c68"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -280,131 +315,15 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::HTSAlignmentEmitter::emit_mapped_pair </td>
+          <td class="memname">void vg::HTSAlignmentEmitter::convert_paired </td>
           <td>(</td>
-          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
-          <td class="paramname"><em>alns1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
-          <td class="paramname"><em>alns2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>tlen_limit</em> = <code>0</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Emit the mappings of a pair of Alignments. All secondaries must have is_secondary set already. </p>
-
-<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#a0578f41da119d052bf0c630b777cb4c1">vg::AlignmentEmitter</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a9fae31c5db874d236e408e75f46d1fe3"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::HTSAlignmentEmitter::emit_mapped_single </td>
-          <td>(</td>
-          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
-          <td class="paramname"><em>alns</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a> with secondaries. All secondaries must have is_secondary set already. </p>
-
-<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#a6817d8359600e8183b9726bd757dfd78">vg::AlignmentEmitter</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a690d28f31994fb18398e2d570017e04d"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::HTSAlignmentEmitter::emit_pair </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>aln1</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>aln2</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>tlen_limit</em> = <code>0</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>Emit a pair of Alignments. </p>
-
-<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#aba3b63d7b4e307f0fb57dba2381b8559">vg::AlignmentEmitter</a>.</p>
-
-</div>
-</div>
-<a class="anchor" id="a82010d9ea748c129658e0728b01dffc2"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::HTSAlignmentEmitter::emit_pair_internal </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>aln1</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
           <td class="paramname"><em>aln2</em>, </td>
         </tr>
         <tr>
@@ -416,8 +335,8 @@ Private Attributes</h2></td></tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const lock_guard&lt; mutex &gt; &amp;&#160;</td>
-          <td class="paramname"><em>lock</em>&#160;</td>
+          <td class="paramtype">vector&lt; bam1_t * &gt; &amp;&#160;</td>
+          <td class="paramname"><em>dest</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -431,12 +350,11 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Emit a pair of alignments, with a lock already held. </p>
+<p>Convert a paired alignment to HTS format. Header must have been created already. </p>
 
 </div>
 </div>
-<a class="anchor" id="a9012735b43daf41c517d89de9fa0599f"></a>
+<a class="anchor" id="acfa06d770ef465d90006f19119e3c6d6"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -444,10 +362,159 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::HTSAlignmentEmitter::emit_single </td>
+          <td class="memname">void vg::HTSAlignmentEmitter::convert_unpaired </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>aln</em></td><td>)</td>
+          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; bam1_t * &gt; &amp;&#160;</td>
+          <td class="paramname"><em>dest</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Convert an unpaired alignment to HTS format. Header must have been created already. </p>
+
+</div>
+</div>
+<a class="anchor" id="a144167b8b9b973a113beb3950d8f64e7"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HTSAlignmentEmitter::emit_mapped_pairs </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>alns1_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>alns2_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; int64_t &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>tlen_limit_batch</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Emit the mappings of a batch of pairs of Alignments. All secondaries must have is_secondary set already. </p>
+
+<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#a52a8bfc2c12bd40099d41ceaef72c38e">vg::AlignmentEmitter</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a3137223a14396af5a6284830c716b943"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HTSAlignmentEmitter::emit_mapped_singles </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>alns_batch</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Emit a batch of Alignments with secondaries. All secondaries must have is_secondary set already. </p>
+
+<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#a40cbf4b0b000144d57a417239063344f">vg::AlignmentEmitter</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a6c2dbcf61c25fe6646b6753d51b73771"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HTSAlignmentEmitter::emit_pairs </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>aln1_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>aln2_batch</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; int64_t &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>tlen_limit_batch</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">virtual</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Emit a batch of pairs of Alignments. </p>
+
+<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#af648a0099359ac97d0263f7d3523ed6f">vg::AlignmentEmitter</a>.</p>
+
+</div>
+</div>
+<a class="anchor" id="a90e671da1b62eebf423f95c01a865fdd"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HTSAlignmentEmitter::emit_singles </td>
+          <td>(</td>
+          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; &amp;&amp;&#160;</td>
+          <td class="paramname"><em>aln_batch</em></td><td>)</td>
           <td></td>
         </tr>
       </table>
@@ -458,13 +525,13 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Emit a single <a class="el" href="structvg_1_1Alignment.html">Alignment</a>. </p>
+<p>Emit a batch of Alignments. </p>
 
-<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#ada7bf6b6b1b80aee15911b449efe2839">vg::AlignmentEmitter</a>.</p>
+<p>Implements <a class="el" href="classvg_1_1AlignmentEmitter.html#a87d90a456f1109f73f7d33ba6c9357da">vg::AlignmentEmitter</a>.</p>
 
 </div>
 </div>
-<a class="anchor" id="abb1c4f194a1632bedc982dbb32e73650"></a>
+<a class="anchor" id="a5ee9e23fb034f1267690defe2fde1ead"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -472,16 +539,16 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">void vg::HTSAlignmentEmitter::emit_single_internal </td>
+          <td class="memname">bam_hdr_t * vg::HTSAlignmentEmitter::ensure_header </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&amp;&#160;</td>
-          <td class="paramname"><em>aln</em>, </td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>sniff</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">const lock_guard&lt; mutex &gt; &amp;&#160;</td>
-          <td class="paramname"><em>lock</em>&#160;</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>thread_number</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -495,8 +562,51 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<p>Make sure that the HTS header has been written, and the samFile* in sam_files has been created for the given thread.</p>
+<p>If the header has not been written, blocks until it has been written.</p>
+<p>If we end up being the thread to write it, sniff header information from the given alignment.</p>
+<p>Returns the header pointer, so we don't have to do another atomic read later. </p>
 
-<p>Emit a single alignment, with a lock already held. </p>
+</div>
+</div>
+<a class="anchor" id="a13ea72ef0fd7badeb2ae3e951acc8c43"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HTSAlignmentEmitter::initialize_sam_file </td>
+          <td>(</td>
+          <td class="paramtype">bam_hdr_t *&#160;</td>
+          <td class="paramname"><em>header</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>thread_number</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>keep_header</em> = <code>false</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Given a header and a thread number, make sure the samFile* for that thread is initialized and ready to have alignments written to it. If true, actually writes the given header into the output file created by the multiplexer. If the samFile* was already initialized, flushes it out and makes a breakpoint. </p>
 
 </div>
 </div>
@@ -548,7 +658,113 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a7cf2891a763c085e6703a0671e066e3b"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void vg::HTSAlignmentEmitter::save_records </td>
+          <td>(</td>
+          <td class="paramtype">bam_hdr_t *&#160;</td>
+          <td class="paramname"><em>header</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">vector&lt; bam1_t * &gt; &amp;&#160;</td>
+          <td class="paramname"><em>records</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>thread_number</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Write and deallocate a bunch of BAM records. Takes care of locking the file. Header must have been written already. </p>
+
+</div>
+</div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a class="anchor" id="a9c8421e34401bc0eab7cd36d656e7acf"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">atomic&lt;bam_hdr_t*&gt; vg::HTSAlignmentEmitter::atomic_header</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>We need a header. </p>
+
+</div>
+</div>
+<a class="anchor" id="aea45749521914fb3e8605b590591f13c"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">vector&lt;hFILE*&gt; vg::HTSAlignmentEmitter::backing_files</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>To back our samFile*s, we need the hFILE* objects wrapping our C++ streams. We need to manually flush these after HTS headers are written, since bgzf_flush, which samtools calls, closes a BGZF block and sends the data to the hFILE* but does not actually flush the hFILE*. These will be pointers to the hFILE* for each thread's samFile*. We may only use them while the samFile* they belong to is still open; closing the samFile* will free the hFILE* but not null it out of this vector. </p>
+
+</div>
+</div>
+<a class="anchor" id="afd92ecc2668078e7601a02133d7619d9"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const size_t vg::HTSAlignmentEmitter::BGZF_FOOTER_LENGTH = 28</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>We hack about with htslib's BGZF EOF footers, so we need to know how long they are. </p>
+
+</div>
+</div>
 <a class="anchor" id="a061053f7bdf3bf4e70483fad7d659761"></a>
 <div class="memitem">
 <div class="memproto">
@@ -567,11 +783,11 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Remember what format we are using. </p>
+<p>This holds our format name, for later error messages. </p>
 
 </div>
 </div>
-<a class="anchor" id="a311453c47931cb4edc2c1c33f0f81d77"></a>
+<a class="anchor" id="a415bd90d7e4b2da45e534ec1810616fe"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -579,7 +795,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">bam_hdr_t* vg::HTSAlignmentEmitter::hdr = nullptr</td>
+          <td class="memname">mutex vg::HTSAlignmentEmitter::header_mutex</td>
         </tr>
       </table>
   </td>
@@ -589,7 +805,93 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>We need a header. </p>
+<p>If the header isn't present when we want to write, we need a mutex to control creating it. </p>
+
+</div>
+</div>
+<a class="anchor" id="a153522a68e1a526fb794753ab666f840"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">string vg::HTSAlignmentEmitter::hts_mode</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Remember the HTSlib mode string we need to open our files. </p>
+
+</div>
+</div>
+<a class="anchor" id="ac08d9c47f238a13505835089d5c7b80b"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html">vg::io::StreamMultiplexer</a> vg::HTSAlignmentEmitter::multiplexer</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>This holds a StreamMultiplexer on the output stream, for sharing it between threads. </p>
+
+</div>
+</div>
+<a class="anchor" id="af43debc963568d3ebf8008744dfc1f7b"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">unique_ptr&lt;ofstream&gt; vg::HTSAlignmentEmitter::out_file</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>If we are doing output to a file, this will hold the open file. Otherwise (for stdout) it will be empty. </p>
+
+</div>
+</div>
+<a class="anchor" id="a932706bb5a22a35092be3ddacd49c34c"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::HTSAlignmentEmitter::output_is_bgzf</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Remember if we are outputting BGZF-compressed data or not. If we are, we trim off spurious EOF markers and append our own. </p>
 
 </div>
 </div>
@@ -611,11 +913,11 @@ Private Attributes</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Sorte the path length map until the header can be made. </p>
+<p>Store the path length map until the header can be made. </p>
 
 </div>
 </div>
-<a class="anchor" id="ad6bd27b12eb70bed38fb665c019d924b"></a>
+<a class="anchor" id="a99755c86ec8c5b608d77113644d24db9"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -623,7 +925,7 @@ Private Attributes</h2></td></tr>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">samFile* vg::HTSAlignmentEmitter::sam_file = nullptr</td>
+          <td class="memname">vector&lt;samFile*&gt; vg::HTSAlignmentEmitter::sam_files</td>
         </tr>
       </table>
   </td>
@@ -632,8 +934,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>We need a samFile. </p>
+<p>We make one samFile* per thread, on each thread's output stream form the multiplexer. As soon as we create them, we show them the header, so they are initialized properly. If they have not yet been filled in (because the header is not ready yet), they are null. </p>
 
 </div>
 </div>
@@ -654,30 +955,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>We also need a header string. </p>
-
-</div>
-</div>
-<a class="anchor" id="a90a4dd4b3dcdabb806f43dc80d9d9524"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">mutex vg::HTSAlignmentEmitter::sync</td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-<p>We need a mutex to synchronize on. </p>
+<p>We also need a header string. Not atomic, because by the time we read it we know the header is ready and nobody is writing to it. </p>
 
 </div>
 </div>

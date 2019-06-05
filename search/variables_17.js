@@ -12,12 +12,15 @@ var searchData=
   ['weight',['weight',['../classvg_1_1MEMChainModelVertex.html#ad73c85aeb85dde48dd3201260720956b',1,'vg::MEMChainModelVertex::weight()'],['../classvg_1_1MEMClusterer_1_1HitEdge.html#a5e9984583bd37a31e8b172fea582e6fd',1,'vg::MEMClusterer::HitEdge::weight()'],['../classvg_1_1AlignmentChainModelVertex.html#a874c1b3121234990ab1c1519921b9c6c',1,'vg::AlignmentChainModelVertex::weight()']]],
   ['whole_5falignment_5fcutoff',['whole_alignment_cutoff',['../classvg_1_1VariantAdder.html#ab40df39042e4ce4fee3eeea919be1c96',1,'vg::VariantAdder']]],
   ['whole_5fgraph_5flock',['whole_graph_lock',['../classvg_1_1GraphSynchronizer.html#aa1a7be56b29656fa604b44b37e134c80',1,'vg::GraphSynchronizer']]],
-  ['window_5flength',['WINDOW_LENGTH',['../classvg_1_1MinimizerIndex.html#a5c8618f8d827022b935857a360e8d054',1,'vg::MinimizerIndex::WINDOW_LENGTH()'],['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter::window_length()']]],
+  ['window_5flength',['window_length',['../classvg_1_1Filter.html#ad719ad4c073cbe1298c9911e1c1cb329',1,'vg::Filter::window_length()'],['../classvg_1_1MinimizerIndex.html#a5c8618f8d827022b935857a360e8d054',1,'vg::MinimizerIndex::WINDOW_LENGTH()']]],
   ['window_5fshift',['WINDOW_SHIFT',['../classvg_1_1StreamIndexBase.html#abfcccdbb508967165d185181eb95588a',1,'vg::StreamIndexBase']]],
   ['window_5fsize',['window_size',['../classvg_1_1WindowedVcfBuffer.html#a898deb05050ba62533e294b7cf959fe3',1,'vg::WindowedVcfBuffer']]],
   ['window_5fto_5fstart',['window_to_start',['../classvg_1_1StreamIndexBase.html#a47fab2baab7953595105558d0fcba4e2',1,'vg::StreamIndexBase']]],
+  ['wrapped_5fostream',['wrapped_ostream',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a14d9a1a0917016a7af46f2960608d302',1,'vg::io::BlockedGzipOutputStream']]],
   ['write',['write',['../structhFILE__backend.html#af02239c02e7c622c784d552ed5638983',1,'hFILE_backend']]],
   ['write_5foptions',['write_options',['../classvg_1_1Index.html#a785085834ced227c9a7182776e3126d0',1,'vg::Index']]],
   ['write_5foutput',['write_output',['../classvg_1_1ReadFilter.html#ad5bab332dd50a2b84e4bb7798fabd349',1,'vg::ReadFilter']]],
-  ['write_5ftrivial_5fcalls',['write_trivial_calls',['../classvg_1_1SupportCaller.html#a216ee27f03698399b7ded8342d846ba1',1,'vg::SupportCaller']]]
+  ['write_5ftrivial_5fcalls',['write_trivial_calls',['../classvg_1_1SupportCaller.html#a216ee27f03698399b7ded8342d846ba1',1,'vg::SupportCaller']]],
+  ['writer_5fstop',['writer_stop',['../classvg_1_1io_1_1StreamMultiplexer.html#ae51a3ffdfe9ec988bf732e4904dcbf60',1,'vg::io::StreamMultiplexer']]],
+  ['writer_5fthread',['writer_thread',['../classvg_1_1io_1_1StreamMultiplexer.html#a56a9d39b8ccdd13f07e835ad7a967a60',1,'vg::io::StreamMultiplexer']]]
 ];

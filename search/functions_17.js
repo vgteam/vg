@@ -6,6 +6,7 @@ var searchData=
   ['walk_5fmatch',['walk_match',['../classvg_1_1Mapper.html#a1a1316c5edfb1ca6599a17ac257b4705',1,'vg::Mapper::walk_match(const string &amp;seq, pos_t pos)'],['../classvg_1_1Mapper.html#aa93e6b021970774e9228f6ef200bc287',1,'vg::Mapper::walk_match(const Alignment &amp;base, const string &amp;seq, pos_t pos)']]],
   ['walk_5ft',['walk_t',['../structvg_1_1walk__t.html#ad7a131cb934419dc90103ce2483fc02b',1,'vg::walk_t']]],
   ['wang_5fhash_5f64',['wang_hash_64',['../namespacevg.html#a38d35bca25e8a6d5fe10f603cb9048c3',1,'vg']]],
+  ['want_5fbreakpoint',['want_breakpoint',['../classvg_1_1io_1_1StreamMultiplexer.html#ac0698f3b6387ce47f4e9d5b2929d6cf4',1,'vg::io::StreamMultiplexer']]],
   ['watchdog',['Watchdog',['../classvg_1_1Watchdog.html#a87e679ecbb8461ae6a26a1958216629b',1,'vg::Watchdog::Watchdog(size_t thread_count, const duration &amp;timeout)'],['../classvg_1_1Watchdog.html#a2934cc5c1fc3b7d0ab20343e6bde1a56',1,'vg::Watchdog::Watchdog(const Watchdog &amp;other)=delete'],['../classvg_1_1Watchdog.html#a73aa9888b0017ed46053c75c085f2748',1,'vg::Watchdog::Watchdog(Watchdog &amp;&amp;other)=delete']]],
   ['watcher_5floop',['watcher_loop',['../classvg_1_1Watchdog.html#ad2e2c831258c42fdba7f2d0fa8625cc9',1,'vg::Watchdog']]],
   ['what',['what',['../classvg_1_1NoAlignmentInBandException.html#a006dddb79b9d1c6035c2466c35dbcacf',1,'vg::NoAlignmentInBandException::what()'],['../classvg_1_1indexOpenException.html#a7e6d0d85c8fe1b50b6c1d0c39a4ba56b',1,'vg::indexOpenException::what()'],['../classvg_1_1keyNotFoundException.html#a70d5d65962b042e2ad7cb81efce3a873',1,'vg::keyNotFoundException::what()']]],
@@ -44,5 +45,6 @@ var searchData=
   ['write_5ftranslations',['write_translations',['../structvg_1_1AugmentedGraph.html#a70ffd6eb24e80cfa265ae48cdde15a45',1,'vg::AugmentedGraph']]],
   ['write_5fvariant',['write_variant',['../classvg_1_1Genotyper.html#af5b580b6db4e727934f964d00b058038',1,'vg::Genotyper']]],
   ['write_5fvcf_5fheader',['write_vcf_header',['../classvg_1_1Genotyper.html#ad2beb83f750d1deec75b16a60c2ea805',1,'vg::Genotyper::write_vcf_header()'],['../namespacevg.html#a84ce0743c9a27e8b8ed32de37e4064fd',1,'vg::write_vcf_header()']]],
-  ['writealiasedraw',['WriteAliasedRaw',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a85d9e1ca69d7bad9e2941b7ecec08a42',1,'vg::io::BlockedGzipOutputStream']]]
+  ['writealiasedraw',['WriteAliasedRaw',['../classvg_1_1io_1_1BlockedGzipOutputStream.html#a85d9e1ca69d7bad9e2941b7ecec08a42',1,'vg::io::BlockedGzipOutputStream']]],
+  ['writer_5fthread_5ffunction',['writer_thread_function',['../classvg_1_1io_1_1StreamMultiplexer.html#a29ba6b97591887c453b0cc112cae41e4',1,'vg::io::StreamMultiplexer']]]
 ];

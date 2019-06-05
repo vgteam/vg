@@ -220,6 +220,7 @@ var searchData=
   ['at_5for_5fbefore',['at_or_before',['../classvg_1_1BitString.html#a95898ce25730c8cc0b7be26cbee85665',1,'vg::BitString']]],
   ['at_5fposition',['at_position',['../structvg_1_1PathIndex.html#a7674d9985195932003f2062ab7f02ce8',1,'vg::PathIndex']]],
   ['at_5fstart',['at_start',['../structvg_1_1FlankState.html#a0be2b30d41628aed3052ae18fa771b77',1,'vg::FlankState']]],
+  ['atomic_5fheader',['atomic_header',['../classvg_1_1HTSAlignmentEmitter.html#a9c8421e34401bc0eab7cd36d656e7acf',1,'vg::HTSAlignmentEmitter']]],
   ['attempt_5frescue',['attempt_rescue',['../classvg_1_1MultipathMapper.html#a58a6a2bccf8123914bcf4e378edcbb61',1,'vg::MultipathMapper']]],
   ['attempt_5frescue_5ffor_5fsecondaries',['attempt_rescue_for_secondaries',['../classvg_1_1MultipathMapper.html#a1751c97818eef51d83a0e8f31260822b',1,'vg::MultipathMapper']]],
   ['attempt_5frescue_5fof_5frepeat_5ffrom_5fnon_5frepeat',['attempt_rescue_of_repeat_from_non_repeat',['../classvg_1_1MultipathMapper.html#a17aa98cc9509dd4e9cec05610dc629ea',1,'vg::MultipathMapper']]],

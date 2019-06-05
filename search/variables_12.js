@@ -51,6 +51,7 @@ var searchData=
   ['right_5fedges',['right_edges',['../structvg_1_1HashGraph_1_1node__t.html#aeed9aa5616260e5205c4e171e47d76a2',1,'vg::HashGraph::node_t']]],
   ['right_5fends',['right_ends',['../structvg_1_1ConstructedChunk.html#ac20dbdc398181350e73bee0429fe2842',1,'vg::ConstructedChunk']]],
   ['right_5ftelomere_5fnode',['right_telomere_node',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a3d771a24b8889ea668939eac31276ea3',1,'vg::PhasedGenome::Haplotype']]],
+  ['ring_5fbuffer_5fsize',['RING_BUFFER_SIZE',['../classvg_1_1io_1_1StreamMultiplexer.html#a6e4432baab9571a1783b2a793b29905a',1,'vg::io::StreamMultiplexer']]],
   ['rng',['rng',['../classvg_1_1Colors.html#a79a79da7cbc2bef7eea8c3ff1e229b7c',1,'vg::Colors::rng()'],['../classvg_1_1Pictographs.html#ac7600f845d01a084a15cff9aacc6bc3e',1,'vg::Pictographs::rng()'],['../classvg_1_1Sampler.html#ad26ea071330c6a4b580af84bec064453',1,'vg::Sampler::rng()']]],
   ['robust_5festimation_5ffraction',['robust_estimation_fraction',['../classvg_1_1FragmentLengthDistribution.html#aa5a2f20742b369464d132a751f52aaf3',1,'vg::FragmentLengthDistribution']]],
   ['root',['root',['../classvg_1_1BitStringTree.html#a69741fde7d47ad2f46dd952eb6bd2d66',1,'vg::BitStringTree::root()'],['../structvg_1_1Tree.html#a730cd8796e579d01c66bea46217047d7',1,'vg::Tree::root()']]],

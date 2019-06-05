@@ -23,16 +23,17 @@ var searchData=
   ['has_5freachability_5fedges',['has_reachability_edges',['../classvg_1_1MultipathAlignmentGraph.html#a77a113d4c5b6b5ca1d7748c1b812e8d3',1,'vg::MultipathAlignmentGraph']]],
   ['hash',['hash',['../structvg_1_1MinimizerIndex_1_1minimizer__type.html#a11174472b1faa08970c2335336a24c8a',1,'vg::MinimizerIndex::minimizer_type']]],
   ['hash_5ftable',['hash_table',['../classvg_1_1MinimizerIndex.html#af90d350e4d4833ef1ba2485305435a38',1,'vg::MinimizerIndex']]],
-  ['hdr',['hdr',['../classvg_1_1HTSAlignmentEmitter.html#a311453c47931cb4edc2c1c33f0f81d77',1,'vg::HTSAlignmentEmitter']]],
   ['head',['head',['../classvg_1_1HashGraph_1_1path__t.html#a3e43e8351b548cbc65cbb5ec421039d0',1,'vg::HashGraph::path_t::head()'],['../structvg_1_1mi_1_1CircularBuffer.html#a5d239c64bd4a08c24a2f49e84a13c861',1,'vg::mi::CircularBuffer::head()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#a1cf547a77c46886a6461b5a2620be1d6',1,'vg::PackedGraph::PackedPath::head()']]],
   ['head_5fmismatches',['head_mismatches',['../structvg_1_1FlankState.html#abd7d006642e4d1c3deb6ef4c30d07e57',1,'vg::FlankState']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['header',['header',['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex']]],
+  ['header_5fmutex',['header_mutex',['../classvg_1_1HTSAlignmentEmitter.html#a415bd90d7e4b2da45e534ec1810616fe',1,'vg::HTSAlignmentEmitter']]],
   ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],
   ['het_5fprior_5flogprob',['het_prior_logprob',['../classvg_1_1Genotyper.html#a21799af8d6da86a3bbcfffb1060d27cf',1,'vg::Genotyper']]],
   ['heterozygous_5fprior_5fln',['heterozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ac5782c89f874dd212631d6451ef4b842',1,'vg::FixedGenotypePriorCalculator']]],
   ['hint_5fpaths',['hint_paths',['../classvg_1_1CactusSnarlFinder.html#a380a95f5119b76793da6ba19320a1750',1,'vg::CactusSnarlFinder']]],
   ['hit_5fcap',['hit_cap',['../classvg_1_1MinimizerMapper.html#a1097206776713f059fca80f221b8478c',1,'vg::MinimizerMapper']]],
   ['hit_5fmax',['hit_max',['../classvg_1_1BaseMapper.html#a29b8cec81cc68e9d90405c42fbc8ef64',1,'vg::BaseMapper']]],
-  ['homozygous_5fprior_5fln',['homozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ade32a0216586eb9467d476e2880c188b',1,'vg::FixedGenotypePriorCalculator']]]
+  ['homozygous_5fprior_5fln',['homozygous_prior_ln',['../classvg_1_1FixedGenotypePriorCalculator.html#ade32a0216586eb9467d476e2880c188b',1,'vg::FixedGenotypePriorCalculator']]],
+  ['hts_5fmode',['hts_mode',['../classvg_1_1HTSAlignmentEmitter.html#a153522a68e1a526fb794753ab666f840',1,'vg::HTSAlignmentEmitter']]]
 ];

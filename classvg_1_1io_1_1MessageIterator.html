@@ -158,9 +158,8 @@ Static Public Attributes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
-<tr class="memitem:a70680b78635d2903e11a4ddcff4a4107"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a70680b78635d2903e11a4ddcff4a4107">handle</a> (bool ok)</td></tr>
-<tr class="memdesc:a70680b78635d2903e11a4ddcff4a4107"><td class="mdescLeft">&#160;</td><td class="mdescRight">Make sure the given Protobuf-library bool return value is true, and fail otherwise with a message.  <a href="#a70680b78635d2903e11a4ddcff4a4107">More...</a><br/></td></tr>
-<tr class="separator:a70680b78635d2903e11a4ddcff4a4107"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b3ba16717c1900a0638518bd33a4a59"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1MessageIterator.html#a4b3ba16717c1900a0638518bd33a4a59">handle</a> (bool ok, int64_t group_virtual_offset=0, int64_t message_virtual_offset=0)</td></tr>
+<tr class="separator:a4b3ba16717c1900a0638518bd33a4a59"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -277,7 +276,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="a70680b78635d2903e11a4ddcff4a4107"></a>
+<a class="anchor" id="a4b3ba16717c1900a0638518bd33a4a59"></a>
 <div class="memitem">
 <div class="memproto">
 <table class="mlabels">
@@ -288,8 +287,24 @@ Private Attributes</h2></td></tr>
           <td class="memname">auto vg::io::MessageIterator::handle </td>
           <td>(</td>
           <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>ok</em></td><td>)</td>
+          <td class="paramname"><em>ok</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>group_virtual_offset</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t&#160;</td>
+          <td class="paramname"><em>message_virtual_offset</em> = <code>0</code>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
         </tr>
       </table>
   </td>
@@ -298,8 +313,7 @@ Private Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-
-<p>Make sure the given Protobuf-library bool return value is true, and fail otherwise with a message. </p>
+<p>Make sure the given Protobuf-library bool return value is true, and fail otherwise with a message. Reports the virtual offset of the invalid group and/or message </p>
 
 </div>
 </div>

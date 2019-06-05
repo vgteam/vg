@@ -136,6 +136,8 @@ Public Member Functions</h2></td></tr>
 <tr class="separator:a6a3a16550dcd7dd7a320109125d4e2a1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a55b19615de43ba7ef0fc38487fe7e811"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html#a55b19615de43ba7ef0fc38487fe7e811">emit_group</a> ()</td></tr>
 <tr class="separator:a55b19615de43ba7ef0fc38487fe7e811"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aefba5ddea6beff54f293b95f7549d944"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html#aefba5ddea6beff54f293b95f7549d944">flush</a> ()</td></tr>
+<tr class="separator:aefba5ddea6beff54f293b95f7549d944"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-methods"></a>
 Private Member Functions</h2></td></tr>
@@ -316,7 +318,25 @@ template&lt;typename T &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Actually write out everything in the buffer. Doesn't actually flush the underlying streams to disk. Assumes that no more than one group's worht of items are in the buffer. </p>
+<p>Actually write out everything in the buffer. Doesn't actually flush the underlying streams to disk. Assumes that no more than one group's worth of items are in the buffer. </p>
+
+</div>
+</div>
+<a class="anchor" id="aefba5ddea6beff54f293b95f7549d944"></a>
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T &gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">auto <a class="el" href="classvg_1_1io_1_1ProtobufEmitter.html">vg::io::ProtobufEmitter</a>&lt; T &gt;::flush </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Write out anything in the buffer, and flush the backing BGZF and the backing stream. After this function is called, a complete BGZF block has been output (unless another thead has written something). </p>
 
 </div>
 </div>

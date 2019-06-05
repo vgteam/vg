@@ -5,7 +5,7 @@ var searchData=
   ['s_5fbv_5fselect',['s_bv_select',['../classxg_1_1XG.html#ad4ea7eda22301940641152fab755e592',1,'xg::XG']]],
   ['s_5fiv',['s_iv',['../classxg_1_1XG.html#adcf2177c38983f37b4dfe6bcfd41f559',1,'xg::XG']]],
   ['safe_5fto_5fget',['safe_to_get',['../classvg_1_1VcfBuffer.html#ac280837b05f233e4420c6e8a7bbef32b',1,'vg::VcfBuffer']]],
-  ['sam_5ffile',['sam_file',['../classvg_1_1HTSAlignmentEmitter.html#ad6bd27b12eb70bed38fb665c019d924b',1,'vg::HTSAlignmentEmitter']]],
+  ['sam_5ffiles',['sam_files',['../classvg_1_1HTSAlignmentEmitter.html#a99755c86ec8c5b608d77113644d24db9',1,'vg::HTSAlignmentEmitter']]],
   ['sam_5fheader',['sam_header',['../classvg_1_1HTSAlignmentEmitter.html#a03c539d9f8130d8c33fa3334fc21a4f5',1,'vg::HTSAlignmentEmitter']]],
   ['sample_5fcounter',['sample_counter',['../classvg_1_1NGSSimulator.html#ab162ca660d69f66c18c41516a1a69d24',1,'vg::NGSSimulator']]],
   ['sample_5fname',['sample_name',['../classvg_1_1MinimizerMapper.html#a2f47382b14baf0482c43034e6484d086',1,'vg::MinimizerMapper::sample_name()'],['../classvg_1_1SupportCaller.html#a4e613538924447d54fbecbf8d14f501d',1,'vg::SupportCaller::sample_name()'],['../structvg_1_1Alignment.html#ad823d9ed3f413faaf35700a41cfab6e7',1,'vg::Alignment::sample_name()'],['../structvg_1_1MultipathAlignment.html#a90d675553385456c66b572a88fa88650',1,'vg::MultipathAlignment::sample_name()']]],
@@ -44,7 +44,6 @@ var searchData=
   ['simplify_5ftopologies',['simplify_topologies',['../classvg_1_1MultipathMapper.html#a5f865a27bd34ffce2e2ea1d05fc02b43',1,'vg::MultipathMapper']]],
   ['simultaneous_5fpair_5falignment',['simultaneous_pair_alignment',['../classvg_1_1Mapper.html#ae83170a63789f8984e82e225486ca5bd',1,'vg::Mapper']]],
   ['since_5flast_5ffragment_5flength_5festimate',['since_last_fragment_length_estimate',['../classvg_1_1FragmentLengthStatistics.html#ae79e46e68a3b9aa6c87863a6354c01a2',1,'vg::FragmentLengthStatistics']]],
-  ['single_5fbuffer',['single_buffer',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html#aa2a6a5b8ffba7f7e6f4786ef6a30acb5',1,'vg::OMPThreadBufferedAlignmentEmitter']]],
   ['sink_5ffwd',['sink_fwd',['../classvg_1_1SourceSinkOverlay.html#a2718021aade5e48683cdc07c5d5b16f7',1,'vg::SourceSinkOverlay']]],
   ['sink_5fid',['sink_id',['../classvg_1_1SourceSinkOverlay.html#a02ca8620a0e90dbf0190fe285d11a687',1,'vg::SourceSinkOverlay']]],
   ['sink_5fnodes',['sink_nodes',['../classvg_1_1BandedGlobalAligner.html#ad3ba4ffebb1e61d6ce59a995eac74f68',1,'vg::BandedGlobalAligner']]],
@@ -96,7 +95,6 @@ var searchData=
   ['stop_5fwatcher',['stop_watcher',['../classvg_1_1Watchdog.html#a2fbb9a2b514a26515e508ee665295449',1,'vg::Watchdog']]],
   ['strand_5fis_5frev',['strand_is_rev',['../structvg_1_1GFFRecord.html#a08edb7d13481c70c0cfbba949e4f81ce',1,'vg::GFFRecord']]],
   ['strand_5fsampler',['strand_sampler',['../classvg_1_1NGSSimulator.html#a71a4b2c30a477a86d4b7c9f5d6ab3a28',1,'vg::NGSSimulator']]],
-  ['stream_5fmutex',['stream_mutex',['../classvg_1_1VGAlignmentEmitter.html#a0542302ee5c0e39d091dcccd8f909b4f',1,'vg::VGAlignmentEmitter']]],
   ['strip_5fbonuses',['strip_bonuses',['../classvg_1_1BaseMapper.html#a34ab4a12d44f5b17b5b6caa03ea4cd79',1,'vg::BaseMapper']]],
   ['sub_5fmem_5fcount_5fthinning',['sub_mem_count_thinning',['../classvg_1_1BaseMapper.html#a8d9a00e1d809346bc62f6f2c1e4fbe32',1,'vg::BaseMapper']]],
   ['sub_5fmem_5fthinning_5fburn_5fin',['sub_mem_thinning_burn_in',['../classvg_1_1BaseMapper.html#a4e17a40bafbd8832d551acb01298403d',1,'vg::BaseMapper']]],
@@ -124,7 +122,7 @@ var searchData=
   ['symbol_5fcount',['symbol_count',['../classvg_1_1Pictographs.html#a38abbb70a4bdb0b40e5beb2b43cee1d5',1,'vg::Pictographs']]],
   ['symbolic_5fallele_5fwarnings',['symbolic_allele_warnings',['../classvg_1_1Constructor.html#a245d775942ede32387b95497803e114c',1,'vg::Constructor']]],
   ['symbols',['symbols',['../classvg_1_1Pictographs.html#a2504adc26acf0c09e9cccb06e80e1d7b',1,'vg::Pictographs']]],
-  ['sync',['sync',['../classvg_1_1TSVAlignmentEmitter.html#a4cdc4f853654eb60f39b7f45e5cd618d',1,'vg::TSVAlignmentEmitter::sync()'],['../classvg_1_1HTSAlignmentEmitter.html#a90a4dd4b3dcdabb806f43dc80d9d9524',1,'vg::HTSAlignmentEmitter::sync()'],['../classvg_1_1VariantAdder.html#abc5742437534663752fccb79b5302b42',1,'vg::VariantAdder::sync()']]],
+  ['sync',['sync',['../classvg_1_1VariantAdder.html#abc5742437534663752fccb79b5302b42',1,'vg::VariantAdder']]],
   ['synchronizer',['synchronizer',['../classvg_1_1GraphSynchronizer_1_1Lock.html#ad2fcccf51dbd2136c680322341847b78',1,'vg::GraphSynchronizer::Lock']]],
   ['syntax',['syntax',['../vg_8proto.html#adbedb258e13546cc707a6ebb073a3d8a',1,'vg.proto']]]
 ];

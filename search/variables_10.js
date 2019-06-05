@@ -9,7 +9,6 @@ var searchData=
   ['page_5fsize',['page_size',['../classvg_1_1PagedVector.html#aed31f4d366519b0fc2bb19e1ba9fa23c',1,'vg::PagedVector']]],
   ['page_5fwidth',['PAGE_WIDTH',['../classvg_1_1PackedGraph.html#a2448556d94acc07aa90b1e4b548f16e2',1,'vg::PackedGraph']]],
   ['pages',['pages',['../classvg_1_1PagedVector.html#a6a68c53301abee2a2bcbfb22c1c710f9',1,'vg::PagedVector']]],
-  ['pair_5fbuffer',['pair_buffer',['../classvg_1_1OMPThreadBufferedAlignmentEmitter.html#a7897d080984d86109f7613a8520d4473',1,'vg::OMPThreadBufferedAlignmentEmitter']]],
   ['pair_5frescue_5fhang_5fthreshold',['pair_rescue_hang_threshold',['../classvg_1_1Mapper.html#a92e1f4de4e6ce576e09005713d1c1cd1',1,'vg::Mapper']]],
   ['pair_5frescue_5fretry_5fthreshold',['pair_rescue_retry_threshold',['../classvg_1_1Mapper.html#a36ed72fe5d33907a75992011ff9ae244',1,'vg::Mapper']]],
   ['paired_5fread_5fname',['paired_read_name',['../structvg_1_1MultipathAlignment.html#a0664790bf6bd37af413697cddff370fb',1,'vg::MultipathAlignment']]],
@@ -98,7 +97,7 @@ var searchData=
   ['progress_5fmessage',['progress_message',['../classvg_1_1Progressive.html#a4bb04fe23ceb41467dd14cdf8cc01a71',1,'vg::Progressive']]],
   ['progress_5fseen',['progress_seen',['../classvg_1_1Progressive.html#ac6745d7e07b4b271f9510cd40f06d18e',1,'vg::Progressive']]],
   ['projected_5fcount',['projected_count',['../structvg_1_1Funnel_1_1Stage.html#a74c290d50af94a82c196350d3ee7223d',1,'vg::Funnel::Stage']]],
-  ['proto',['proto',['../classvg_1_1VGAlignmentEmitter.html#a5956627bb9a20f857511637c07b8cc34',1,'vg::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
+  ['proto',['proto',['../classvg_1_1VGAlignmentEmitter.html#a22bdc3b955724da5de739b05201a9cfb',1,'vg::VGAlignmentEmitter::proto()'],['../vg_8proto.html#ace9afe7f815b63b3d93844da5eb8fbbc',1,'proto():&#160;vg.proto']]],
   ['protobuf_5fto_5ftag',['protobuf_to_tag',['../structvg_1_1io_1_1Registry_1_1Tables.html#a9959a1192210db895c2d127dc6a197fc',1,'vg::io::Registry::Tables']]],
   ['pseudo_5flength_5fmultiplier',['pseudo_length_multiplier',['../classvg_1_1MultipathMapper.html#a8c463a9a1350cd7220abd8575d9e7bd3',1,'vg::MultipathMapper']]]
 ];

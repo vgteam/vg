@@ -120,7 +120,7 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html">OMPThreadBufferedAlignmentEmitter</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1NullAlignmentEmitter.html">NullAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TSVAlignmentEmitter.html">TSVAlignmentEmitter</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -477,6 +477,8 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html">SupportCaller</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Surjector.html">Surjector</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1TCMallocConfiguration.html">TCMallocConfiguration</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structvg_1_1Transcript.html">Transcript</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -847,8 +849,8 @@ Functions</h2></td></tr>
 <tr class="separator:acfeff6a4607cc66108f55909e82445e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a57a704ecec885cb89b7b3845c8a990e7"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a57a704ecec885cb89b7b3845c8a990e7">mapping_against_path</a> (<a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;alignment, const bam1_t *b, <a class="el" href="classxg_1_1XG.html">xg::XG</a> *xgindex, bool on_reverse_strand)</td></tr>
 <tr class="separator:a57a704ecec885cb89b7b3845c8a990e7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:abce18f0b74126aa8a1d160569bff8dab"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#abce18f0b74126aa8a1d160569bff8dab">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length)</td></tr>
-<tr class="separator:abce18f0b74126aa8a1d160569bff8dab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a729d7060ecbe929f2229008ff520ba9c"><td class="memItemLeft" align="right" valign="top">unique_ptr&lt; <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacevg.html#a729d7060ecbe929f2229008ff520ba9c">get_alignment_emitter</a> (const string &amp;filename, const string &amp;format, const map&lt; string, int64_t &gt; &amp;path_length, size_t max_threads)</td></tr>
+<tr class="separator:a729d7060ecbe929f2229008ff520ba9c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplParams" colspan="2">template&lt;typename AnnotationType , typename Annotated &gt; </td></tr>
 <tr class="memitem:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memTemplItemLeft" align="right" valign="top">AnnotationType&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacevg.html#a1fda752e24eaed100f6c30904d2ca3e1">get_annotation</a> (const Annotated &amp;annotated, const string &amp;name)</td></tr>
 <tr class="separator:a1fda752e24eaed100f6c30904d2ca3e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -6397,7 +6399,7 @@ template&lt;typename ProbIn &gt; </div>
 
 </div>
 </div>
-<a class="anchor" id="abce18f0b74126aa8a1d160569bff8dab"></a>
+<a class="anchor" id="a729d7060ecbe929f2229008ff520ba9c"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -6417,7 +6419,13 @@ template&lt;typename ProbIn &gt; </div>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const map&lt; string, int64_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>path_length</em>&#160;</td>
+          <td class="paramname"><em>path_length</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>max_threads</em>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -6426,7 +6434,7 @@ template&lt;typename ProbIn &gt; </div>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Get an <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> that can emit to the given file (or "-") in the given format. A table of contig lengths is required for HTSlib formats. Automatically applies buffering. </p>
+<p>Get an <a class="el" href="classvg_1_1AlignmentEmitter.html">AlignmentEmitter</a> that can emit to the given file (or "-") in the given format. A table of contig lengths is required for HTSlib formats. Automatically applies per-thread buffering, but needs to know how many OMP threads will be in use. </p>
 
 </div>
 </div>

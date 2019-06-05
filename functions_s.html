@@ -145,8 +145,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <li>safe_to_get
 : <a class="el" href="classvg_1_1VcfBuffer.html#ac280837b05f233e4420c6e8a7bbef32b">vg::VcfBuffer</a>
 </li>
-<li>sam_file
-: <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#ad6bd27b12eb70bed38fb665c019d924b">vg::HTSAlignmentEmitter</a>
+<li>sam_files
+: <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a99755c86ec8c5b608d77113644d24db9">vg::HTSAlignmentEmitter</a>
 </li>
 <li>sam_header
 : <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a03c539d9f8130d8c33fa3334fc21a4f5">vg::HTSAlignmentEmitter</a>
@@ -212,6 +212,9 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </li>
 <li>save_frag_lens_to_alns()
 : <a class="el" href="classvg_1_1FragmentLengthStatistics.html#a6229286c136c1509a096a4f107235a6b">vg::FragmentLengthStatistics</a>
+</li>
+<li>save_records()
+: <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a7cf2891a763c085e6703a0671e066e3b">vg::HTSAlignmentEmitter</a>
 </li>
 <li>save_to_file()
 : <a class="el" href="classvg_1_1Packer.html#a936e5283142e2fb3ac089730b217d533">vg::Packer</a>
@@ -671,9 +674,6 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <li>since_last_fragment_length_estimate
 : <a class="el" href="classvg_1_1FragmentLengthStatistics.html#ae79e46e68a3b9aa6c87863a6354c01a2">vg::FragmentLengthStatistics</a>
 </li>
-<li>single_buffer
-: <a class="el" href="classvg_1_1OMPThreadBufferedAlignmentEmitter.html#aa2a6a5b8ffba7f7e6f4786ef6a30acb5">vg::OMPThreadBufferedAlignmentEmitter</a>
-</li>
 <li>sink_fwd
 : <a class="el" href="classvg_1_1SourceSinkOverlay.html#a2718021aade5e48683cdc07c5d5b16f7">vg::SourceSinkOverlay</a>
 </li>
@@ -896,7 +896,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 , <a class="el" href="structvg_1_1ReadFilter_1_1Counts.html#ad740df5f65161fdb0c0485e760fcb388af5a1d32f991582a529decc7a0f45637a">vg::ReadFilter::Counts</a>
 </li>
 <li>split_multicomponent_alignments()
-: <a class="el" href="classvg_1_1MultipathMapper.html#aaf5567509cf58d2d8b675e7cba5b8bf2">vg::MultipathMapper</a>
+: <a class="el" href="classvg_1_1MultipathMapper.html#a75e3181768ba99553c33a8a6a0331ebd">vg::MultipathMapper</a>
 </li>
 <li>split_read_filter()
 : <a class="el" href="classvg_1_1Filter.html#a0bc2a72604a0cb134c1f5bad7889a1bf">vg::Filter</a>
@@ -1040,13 +1040,10 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 : <a class="el" href="classvg_1_1NGSSimulator.html#a71a4b2c30a477a86d4b7c9f5d6ab3a28">vg::NGSSimulator</a>
 </li>
 <li>StrandSplitGraph()
-: <a class="el" href="classvg_1_1StrandSplitGraph.html#aede16e10fc0b17f2527a62861f155c6d">vg::StrandSplitGraph</a>
+: <a class="el" href="classvg_1_1StrandSplitGraph.html#a0e170b8ad07ca370e31497b804932220">vg::StrandSplitGraph</a>
 </li>
 <li>StrandSupport()
 : <a class="el" href="structvg_1_1StrandSupport.html#a6fc31a16cc3df20cc8992e051bc08f0e">vg::StrandSupport</a>
-</li>
-<li>stream_mutex
-: <a class="el" href="classvg_1_1VGAlignmentEmitter.html#a0542302ee5c0e39d091dcccd8f909b4f">vg::VGAlignmentEmitter</a>
 </li>
 <li>stream_sort()
 : <a class="el" href="classvg_1_1StreamSorter.html#a3ef7c0c822f58db91184e6b069c3ce59">vg::StreamSorter&lt; Message &gt;</a>
@@ -1059,6 +1056,9 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 </li>
 <li>streaming_merge()
 : <a class="el" href="classvg_1_1StreamSorter.html#a77590f7da1d1418fc00e7bdaec2a76e5">vg::StreamSorter&lt; Message &gt;</a>
+</li>
+<li>StreamMultiplexer()
+: <a class="el" href="classvg_1_1io_1_1StreamMultiplexer.html#ad8b06aab5797747b1ce3d544be0cc965">vg::io::StreamMultiplexer</a>
 </li>
 <li>StreamSorter()
 : <a class="el" href="classvg_1_1StreamSorter.html#a0abd72f6a1ec534bb2071b3389231d97">vg::StreamSorter&lt; Message &gt;</a>
@@ -1085,7 +1085,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 : <a class="el" href="classvg_1_1ReadFilter.html#a96c8a5914f93571e56eff63d3604596a">vg::ReadFilter</a>
 </li>
 <li>Subcommand()
-: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#a38458556194aa9d47b1a49fc8958f345">vg::subcommand::Subcommand</a>
+: <a class="el" href="classvg_1_1subcommand_1_1Subcommand.html#ad2cb9a00761644300914d9ed8439cbe1">vg::subcommand::Subcommand</a>
 </li>
 <li>subgraph
 : <a class="el" href="classvg_1_1GraphSynchronizer_1_1Lock.html#aae76f24549ed2f49dc12176f46dfea8d">vg::GraphSynchronizer::Lock</a>
@@ -1163,7 +1163,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 : <a class="el" href="classvg_1_1Viz.html#ad93aa239a30c3b7a017348e22f184b85">vg::Viz</a>
 </li>
 <li>surject()
-: <a class="el" href="classvg_1_1Surjector.html#a93b288be86926bdfd48bc991ccfaaa01">vg::Surjector</a>
+: <a class="el" href="classvg_1_1Surjector.html#aa01a5d3fe30da337b4533b69d0c297be">vg::Surjector</a>
 </li>
 <li>Surjector()
 : <a class="el" href="classvg_1_1Surjector.html#a9b72a9a5ca512900b27278de006d8ad0">vg::Surjector</a>
@@ -1209,9 +1209,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 : <a class="el" href="classvg_1_1Pictographs.html#a2504adc26acf0c09e9cccb06e80e1d7b">vg::Pictographs</a>
 </li>
 <li>sync
-: <a class="el" href="classvg_1_1HTSAlignmentEmitter.html#a90a4dd4b3dcdabb806f43dc80d9d9524">vg::HTSAlignmentEmitter</a>
-, <a class="el" href="classvg_1_1TSVAlignmentEmitter.html#a4cdc4f853654eb60f39b7f45e5cd618d">vg::TSVAlignmentEmitter</a>
-, <a class="el" href="classvg_1_1VariantAdder.html#abc5742437534663752fccb79b5302b42">vg::VariantAdder</a>
+: <a class="el" href="classvg_1_1VariantAdder.html#abc5742437534663752fccb79b5302b42">vg::VariantAdder</a>
 </li>
 <li>sync_paths()
 : <a class="el" href="classvg_1_1VG.html#a124188a9e0cd68c87c2bc009ea7bd799">vg::VG</a>
