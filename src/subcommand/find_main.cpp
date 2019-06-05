@@ -27,6 +27,7 @@ void help_find(char** argv) {
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
          << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
+         << "    -E, --path-dag TARGET  like -p, but gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -R, --rank-in PATH     find the rank of the node (specified by -n) in the given path" << endl
          << "    -I, --list-paths       write out the path names in the index" << endl
@@ -108,6 +109,7 @@ int main_find(int argc, char** argv) {
     vector<string> extract_path_patterns;
     vg::id_t approx_id = 0;
     bool list_path_names = false;
+    bool path_dag = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -134,6 +136,7 @@ int main_find(int argc, char** argv) {
                 {"use-length", no_argument, 0, 'L'},
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
+                {"path-dag", required_argument, 0, 'E'},
                 {"position-in", required_argument, 0, 'P'},
                 {"rank-in", required_argument, 0, 'R'},
                 {"node-range", required_argument, 0, 'r'},
@@ -156,7 +159,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDH:G:N:A:Y:Z:tq:X:IQ:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDH:G:N:A:Y:Z:tq:X:IQ:E:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -220,6 +223,11 @@ int main_find(int argc, char** argv) {
 
         case 'p':
             targets.push_back(optarg);
+            break;
+
+        case 'E':
+            targets.push_back(optarg);
+            path_dag = true;
             break;
 
         case 'P':
@@ -604,12 +612,37 @@ int main_find(int argc, char** argv) {
                     start = 0;
                 }
                 xindex->get_path_range(name, start, end, graph);
+                if (path_dag) {
+                    // find the start and end node of this
+                    // and fill things in
+                    int64_t id_start = std::numeric_limits<int64_t>::max();
+                    int64_t id_end = 1;
+                    for (size_t i = 0; i < graph.node_size(); ++i) {
+                        int64_t id = graph.node(i).id();
+                        id_start = std::min(id_start, id);
+                        id_end = std::max(id_end, id);
+                    }
+                    xindex->get_id_range(id_start, id_end, graph);
+                }
             }
             if (context_size > 0) {
                 xindex->expand_context(graph, context_size, true, !use_length);
+            } else {
+                set<vg::id_t> ids;
+                //for (auto node_id : node_ids) ids.insert(node_id);
+                for (size_t i = 0; i < graph.node_size(); ++i) {
+                    vg::id_t node_id = graph.node(i).id();
+                    ids.insert(node_id);
+                    for (auto& edge : xindex->edges_of(node_id)) {
+                        // if both ends of the edge are in our targets, keep them
+                        if (ids.count(edge.to()) && ids.count(edge.from())) {
+                            *graph.add_edge() = edge;
+                        }
+                    }
+                }
             }
             VG vgg; vgg.extend(graph); // removes dupes
-            
+            vgg.remove_orphan_edges();
             // Order the mappings by rank. TODO: how do we handle breaks between
             // different sections of a path with a single name?
             vgg.paths.sort_by_mapping_rank();
@@ -634,6 +667,19 @@ int main_find(int argc, char** argv) {
             }
             if (context_size > 0) {
                 xindex->expand_context(graph, context_size, true, !use_length);
+            } else {
+                set<vg::id_t> ids;
+                //for (auto node_id : node_ids) ids.insert(node_id);
+                for (size_t i = 0; i < graph.node_size(); ++i) {
+                    vg::id_t node_id = graph.node(i).id();
+                    ids.insert(node_id);
+                    for (auto& edge : xindex->edges_of(node_id)) {
+                        // if both ends of the edge are in our targets, keep them
+                        if (ids.count(edge.to()) && ids.count(edge.from())) {
+                            *graph.add_edge() = edge;
+                        }
+                    }
+                }
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
