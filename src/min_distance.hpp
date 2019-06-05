@@ -4,6 +4,7 @@
 #include "snarls.hpp"
 #include "hash_map.hpp"
 #include "hash_graph.hpp"
+#include "split_strand_graph.hpp"
 #include "algorithms/dagify.hpp"
 #include "algorithms/split_strands.hpp"
 #include "algorithms/topological_sort.hpp"
@@ -28,7 +29,7 @@ class MinimumDistanceIndex {
     //Cap is the distance up to which the maximum distance will give a reliable bound - if there is a path with length greater than cap, then cap may be returned
     //If the cap is set to 0 (default), then the maximum distance index is not
     //included
-    MinimumDistanceIndex (HandleGraph* graph, const SnarlManager* snarl_manager,
+    MinimumDistanceIndex (const HandleGraph* graph, const SnarlManager* snarl_manager,
                             int64_t cap = 0);
 
     
@@ -281,7 +282,7 @@ class MinimumDistanceIndex {
             sdsl::int_vector<> min_distances;
             sdsl::int_vector<> max_distances;
 
-            void calculateMaxIndex(HandleGraph* graph, int64_t cap); 
+            void calculateMaxIndex(const HandleGraph* graph, int64_t cap); 
 
 
             
@@ -358,7 +359,7 @@ class MinimumDistanceIndex {
 
     //Helper function for constructor - populate the minimum distance index
     //Given the top level snarls
-    int64_t calculateMinIndex(HandleGraph* graph, 
+    int64_t calculateMinIndex(const HandleGraph* graph, 
                       const SnarlManager* snarl_manager, const Chain* chain, 
                        size_t parent_id, bool rev_in_parent, 
                        bool trivial_chain, size_t depth); 

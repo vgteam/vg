@@ -10,7 +10,7 @@ namespace vg {
  * Also change how nodes are stored in chain - in case of loops/unary snarls -might not actually need this
  * Make snarls/chains represented by the node id in netgraph
  */
-MinimumDistanceIndex::MinimumDistanceIndex(HandleGraph* graph, 
+MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph, 
                              const SnarlManager* snarl_manager,
                              int64_t cap) {
     /*Constructor for the distance index given a VG and snarl manager
@@ -283,7 +283,7 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
 
 
 
-int64_t MinimumDistanceIndex::calculateMinIndex(HandleGraph* graph,
+int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     const SnarlManager* snarl_manager,
                                     const Chain* chain, size_t parent_id,
                                     bool rev_in_parent, bool trivial_chain, 
@@ -2153,7 +2153,7 @@ MinimumDistanceIndex::MaxDistanceIndex::MaxDistanceIndex() {
 }
 
 
-void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(HandleGraph* graph, int64_t cap) {
+void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(const HandleGraph* graph, int64_t cap) {
 
     id_t max_node_id = graph->max_node_id();
     id_t min_node_id = graph->min_node_id();
@@ -2165,55 +2165,49 @@ void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(HandleGraph* grap
     sdsl::util::set_to_value(max_distances, 0);
 
 
-    bool is_single_stranded = algorithms::is_single_stranded(graph);
     unordered_map<id_t, pair<id_t, bool>> split_to_id;
     
-    VG split;
-    if (!is_single_stranded) {
-        //Make the graph single stranded - each node is traversed in the forward
-        //direction
+    HashGraph split;
+    //Make the graph single stranded - each node is traversed in the forward
+    //direction
 #ifdef debugIndex
 cerr << "Making graph single stranded " << endl;
 #endif
-        split_to_id = algorithms::split_strands(graph, &split);
-        graph = &split;
-    }
+    split_to_id = algorithms::split_strands(graph, &split);
+    graph = &split;
 
 
     unordered_map<id_t, id_t> acyclic_to_id;
-    bool is_acyclic = algorithms::is_directed_acyclic(graph);
+    bool is_acyclic = algorithms::is_directed_acyclic(&split);
 
-//TODO: Made graph not const to do this-might be bad???
     //If the graph has directed cycles, dagify it
-    HashGraph dag; 
     if (!is_acyclic) {
 #ifdef debugIndex
 cerr << "Making graph acyclic" << endl;
 #endif
-        acyclic_to_id = algorithms::dagify(graph, &dag, cap);
-        graph = &dag;
+        HashGraph dag; 
+        acyclic_to_id = algorithms::dagify(&split, &dag, cap);
+        split = move(dag);
     }
 
 #ifdef debugIndex
-    assert(algorithms::is_single_stranded(graph));
-    assert(algorithms::is_directed_acyclic(graph));
+    assert(algorithms::is_single_stranded(split));
+    assert(algorithms::is_directed_acyclic(split));
 #endif
 
     //In DAGified graph, go through graph in topological order and get the 
     //minimum and maximum distances to tips 
 
-    vector<handle_t> order = algorithms::topological_order(graph);
+    vector<handle_t> order = algorithms::topological_order(&split);
 
     for (handle_t curr_handle : order) {
 
         //Get the correct id in the original graph
-        id_t curr_id = graph->get_id(curr_handle);
+        id_t curr_id = split.get_id(curr_handle);
         if (!is_acyclic) {
             curr_id = acyclic_to_id[curr_id];
         }
-        if (!is_single_stranded) {
-            curr_id = split_to_id[curr_id].first;
-        }
+        curr_id = split_to_id[curr_id].first;
 
         //Get the previous values for this node
         int64_t curr_min = min_distances[curr_id-min_node_id];
@@ -2227,14 +2221,13 @@ cerr << "Making graph acyclic" << endl;
 
         auto check_prev = [&](const handle_t& h)-> bool {
             is_source = false;
-            id_t prev_id = graph->get_id(h);
+            id_t prev_id = split.get_id(h);
             if (!is_acyclic) {
                 prev_id = acyclic_to_id[prev_id];
             }
-            if (!is_single_stranded) {
-                prev_id = split_to_id[prev_id].first;
-            }
-            int64_t node_len = graph->get_length(h);
+            prev_id = split_to_id[prev_id].first;
+            
+            int64_t node_len = split.get_length(h);
             int64_t prev_min = min_distances[prev_id-min_node_id]+node_len;
             int64_t prev_max = max_distances[prev_id-min_node_id]+node_len;
             curr_min = min(curr_min, prev_min);
@@ -2243,7 +2236,7 @@ cerr << "Making graph acyclic" << endl;
 
              return true;
         };
-        graph->follow_edges(curr_handle, true, check_prev);
+        split.follow_edges(curr_handle, true, check_prev);
         if (is_source) {
             //If this is a source node, distance is 1 (increment everything by
             //1 so that 0 represents an empty node
