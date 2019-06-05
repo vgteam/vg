@@ -214,6 +214,7 @@ void MinimumDistanceIndex::load(istream& in){
     //Load serialized index from an istream
     size_t num_snarls;
     sdsl::read_member(num_snarls, in);
+    snarl_indexes.resize(num_snarls);
     for (size_t i = 0 ; i < num_snarls ; i++) {
         snarl_indexes.emplace_back(); 
         snarl_indexes.back().load(in);
@@ -223,11 +224,11 @@ void MinimumDistanceIndex::load(istream& in){
     secondary_snarl_assignments.load(in);
     secondary_snarl_ranks.load(in);
     has_secondary_snarl_bv.load(in);
-    util::assign(has_secondary_snarl, 
-                 rank_support_v<1>(&has_secondary_snarl_bv));
+    has_secondary_snarl.load(in);
 
     //Load serialized chains
     size_t num_chains;
+    chain_indexes.resize(num_chains);
     sdsl::read_member(num_chains, in);
     for (size_t i = 0 ; i < num_chains ; i++) {
         chain_indexes.emplace_back();
@@ -236,7 +237,7 @@ void MinimumDistanceIndex::load(istream& in){
     chain_assignments.load(in);
     chain_ranks.load(in);
     has_chain_bv.load(in);
-    util::assign(has_chain, rank_support_v<1>(&has_chain_bv));
+    has_chain.load(in);
 
     sdsl::read_member(min_node_id, in );
     sdsl::read_member(max_node_id, in );
@@ -265,6 +266,7 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     secondary_snarl_assignments.serialize(out);
     secondary_snarl_ranks.serialize(out);
     has_secondary_snarl_bv.serialize(out);
+    has_secondary_snarl.serialize(out);
 
     //Serialize chains 
     sdsl::write_member(chain_indexes.size(), out);
@@ -275,6 +277,7 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
     chain_assignments.serialize(out);
     chain_ranks.serialize(out);
     has_chain_bv.serialize(out);
+    has_chain.serialize(out);
 
     sdsl::write_member(min_node_id, out);
     sdsl::write_member(max_node_id, out);
@@ -289,7 +292,6 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
 };
 
 /////////////////////////    MINIMUM INDEX    ///////////////////////////////
-
 
 
 int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
@@ -2171,8 +2173,7 @@ void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(const HandleGraph
     min_distances.resize(max_node_id - min_node_id + 1);
     max_distances.resize(max_node_id - min_node_id + 1);
 
-    sdsl::util::set_to_value(min_distances, 
-                             std::numeric_limits<int64_t>::max());
+    sdsl::util::set_to_value(min_distances, 0);
     sdsl::util::set_to_value(max_distances, 0);
 
 
@@ -2181,6 +2182,29 @@ void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(const HandleGraph
     //TODO: Unecessary???
     //Make the graph single stranded - each node is traversed in the forward
     //direction
+
+    /* 
+    //Make the graph single stranded - each node is traversed in the forward
+    //direction
+    StrandSplitGraph split_graph (graph);
+
+    unordered_map<id_t, id_t> acyclic_to_id;
+    bool is_acyclic = algorithms::is_directed_acyclic(&split_graph);
+
+    //If the graph has directed cycles, dagify it
+    VG dagified; 
+    HandleGraph* dag;
+    if (!is_acyclic) {
+#ifdef debugIndex
+cerr << "Making graph acyclic" << endl;
+#endif
+        acyclic_to_id = algorithms::dagify(&split_graph, &dagified, cap);
+        dag = &dagified;
+    } else {
+        dag = &split_graph;
+    }
+
+     */
     HashGraph split;
     split_to_id = algorithms::split_strands(graph, &split);
     graph = &split;
@@ -2190,29 +2214,32 @@ void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(const HandleGraph
     bool is_acyclic = algorithms::is_directed_acyclic(&split);
 
     //If the graph has directed cycles, dagify it
+    HandleGraph* dag;
+    HashGraph dagified; 
     if (!is_acyclic) {
 #ifdef debugIndex
 cerr << "Making graph acyclic" << endl;
 #endif
-        HashGraph dag; 
-        acyclic_to_id = algorithms::dagify(&split, &dag, cap);
-        split = move(dag);
+        acyclic_to_id = algorithms::dagify(&split, &dagified, cap);
+        dag = &dagified;
+    } else {
+        dag = &split;
     }
 
 #ifdef debugIndex
-    assert(algorithms::is_single_stranded(split));
-    assert(algorithms::is_directed_acyclic(split));
+    assert(algorithms::is_single_stranded(dag));
+    assert(algorithms::is_directed_acyclic(dag));
 #endif
 
     //In DAGified graph, go through graph in topological order and get the 
     //minimum and maximum distances to tips 
 
-    vector<handle_t> order = algorithms::topological_order(&split);
+    vector<handle_t> order = algorithms::topological_order(dag);
 
     for (handle_t curr_handle : order) {
 
         //Get the correct id in the original graph
-        id_t curr_id = split.get_id(curr_handle);
+        id_t curr_id = dag->get_id(curr_handle);
         if (!is_acyclic) {
             curr_id = acyclic_to_id[curr_id];
         }
@@ -2230,13 +2257,13 @@ cerr << "Making graph acyclic" << endl;
 
         auto check_prev = [&](const handle_t& h)-> bool {
             is_source = false;
-            id_t prev_id = split.get_id(h);
+            id_t prev_id = dag->get_id(h);
             if (!is_acyclic) {
                 prev_id = acyclic_to_id[prev_id];
             }
             prev_id = split_to_id[prev_id].first;
             
-            int64_t node_len = split.get_length(h);
+            int64_t node_len = dag->get_length(h);
             int64_t prev_min = min_distances[prev_id-min_node_id]+node_len;
             int64_t prev_max = max_distances[prev_id-min_node_id]+node_len;
             curr_min = min(curr_min, prev_min);
@@ -2245,7 +2272,7 @@ cerr << "Making graph acyclic" << endl;
 
              return true;
         };
-        split.follow_edges(curr_handle, true, check_prev);
+        dag->follow_edges(curr_handle, true, check_prev);
         if (is_source) {
             //If this is a source node, distance is 1 (increment everything by
             //1 so that 0 represents an empty node

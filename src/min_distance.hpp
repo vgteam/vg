@@ -307,8 +307,8 @@ class MinimumDistanceIndex {
     //Vector of length max node id - min node id
     //For each node, stores the index into snarlIndexes for the snarl
     //containing the node and the rank of the node in the snarlIndex 
-    //used for looking up distances in the matrix. The index for
-    //the distance matrix is always for the fd direction, rev direction
+    //used for looking up distances in the matrix. The rank stored
+    //is always for the fd direction, rev direction
     //is the index + 1. For the start and end nodes of the snarl, the inward
     //pointing node is stored as the first and last elements in the distance
     //matrix
