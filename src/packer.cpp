@@ -253,7 +253,6 @@ void Packer::add(const Alignment& aln, bool record_edits, bool qual_adjust) {
     for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
         auto& mapping = aln.path().mapping(mi);
         int mapping_quality = aln.mapping_quality();
-        bool has_base_quality = !aln.quality().empty();
         if (!mapping.has_position()) {
 #ifdef debug
             cerr << "Mapping has no position" << endl;
@@ -298,7 +297,7 @@ void Packer::add(const Alignment& aln, bool record_edits, bool qual_adjust) {
                 i += edit.from_length();
             }
             if (!edit_is_match(edit)) {
-                position_in_read += edit.from_length();
+                position_in_read += edit.to_length();
             }
         }
 
