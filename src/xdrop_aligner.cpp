@@ -6,6 +6,7 @@
  */
 #include <cstdio>
 #include <assert.h>
+#include <utility>
 #include "mem.hpp"
 #include "xdrop_aligner.hpp"
 #include "proto_handle_graph.hpp"
@@ -181,7 +182,7 @@ void XdropAligner::build_index_edge_table(OrderedGraph const &graph, uint32_t co
         
         if (graph.graph.get_is_reverse(handle_pair.first) && graph.graph.get_is_reverse(handle_pair.second)) {
             // Flip reverse-reverse to forward-forward orientation
-            swap(handle_pair.first, handle_pair.second);
+            std::swap<handle_t>(handle_pair.first, handle_pair.second);
             handle_pair.first = graph.graph.flip(handle_pair.first);
             handle_pair.second = graph.graph.flip(handle_pair.second);
         }
