@@ -214,7 +214,7 @@ void MinimumDistanceIndex::load(istream& in){
     //Load serialized index from an istream
     size_t num_snarls;
     sdsl::read_member(num_snarls, in);
-    snarl_indexes.resize(num_snarls);
+    snarl_indexes.reserve(num_snarls);
     for (size_t i = 0 ; i < num_snarls ; i++) {
         snarl_indexes.emplace_back(); 
         snarl_indexes.back().load(in);
@@ -225,11 +225,13 @@ void MinimumDistanceIndex::load(istream& in){
     secondary_snarl_ranks.load(in);
     has_secondary_snarl_bv.load(in);
     has_secondary_snarl.load(in);
+    util::assign(has_secondary_snarl, 
+                 rank_support_v<1>(&has_secondary_snarl_bv));
 
     //Load serialized chains
     size_t num_chains;
-    chain_indexes.resize(num_chains);
     sdsl::read_member(num_chains, in);
+    chain_indexes.reserve(num_chains);
     for (size_t i = 0 ; i < num_chains ; i++) {
         chain_indexes.emplace_back();
         chain_indexes.back().load(in);
@@ -238,6 +240,8 @@ void MinimumDistanceIndex::load(istream& in){
     chain_ranks.load(in);
     has_chain_bv.load(in);
     has_chain.load(in);
+    util::assign(has_chain, 
+                 rank_support_v<1>(&has_chain_bv));
 
     sdsl::read_member(min_node_id, in );
     sdsl::read_member(max_node_id, in );

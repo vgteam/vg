@@ -32,7 +32,6 @@ cerr << endl << "New cluster calculation:" << endl;
         vector<hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>>> 
                                                                  snarl_to_nodes;
         snarl_to_nodes.resize(dist_index.tree_depth+1);
-        //TODO: reserve up to the depth of the snarl tree- also need to find the max depth of the snarl tree in the distance index 
 
         //Populate node_to_seed and snarl_to_nodes
         get_nodes(seeds, node_to_seeds, snarl_to_nodes);
@@ -71,9 +70,6 @@ cerr << endl << "New cluster calculation:" << endl;
 
             //Maps each chain to the snarls that comprise it
             //Snarls are unordered in the vector
-            //snarl is a tuple of the rank of the snarl in the chain,
-            //the index of the snarl in dist_index.snarl_indexes, and the
-            //snarl's orientation in the chain
             hash_map<size_t, vector<size_t>> chain_to_snarls; 
 
             for (auto& kv : curr_snarl_children){
@@ -113,8 +109,10 @@ cerr << endl << "New cluster calculation:" << endl;
 
                     if (depth != 0 && snarl_index.parent_id != 0){
                         //If this has a parent, record it
+#ifdef debug
                         assert(snarl_index.parent_id >= dist_index.min_node_id);
                         assert(snarl_index.parent_id <= dist_index.max_node_id);
+#endif
                         size_t parent_snarl_i = 
                                dist_index.getPrimaryAssignment(
                                                     snarl_index.parent_id);
@@ -164,8 +162,10 @@ cerr << endl << "New cluster calculation:" << endl;
                     // Find the node ID that heads the parent of that chain.
                     size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
                     // It must be a legitimate node ID we cover.
+#ifdef debug
                     assert(parent_id >= dist_index.min_node_id);
                     assert(parent_id <= dist_index.max_node_id);
+#endif
                     // Map it to the snarl number that should be represented by it (and thus also contain the chain)
                     size_t parent_snarl_i =dist_index.getPrimaryAssignment(parent_id);
                     
@@ -240,10 +240,6 @@ cerr << endl << "New cluster calculation:" << endl;
                 int64_t node_length = snarl_index->nodeLength(
                                                 dist_index.getPrimaryRank(id));
 
-//                //Map snarl to node
-//                if (snarl_to_nodes.size() < depth+1) {
-//                    snarl_to_nodes.resize(depth+1); 
-//                }
                 child_cluster_t empty;
                 snarl_to_nodes[depth][snarl_i].emplace_back(
                                   make_pair(id, NODE), empty);
