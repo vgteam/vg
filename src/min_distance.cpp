@@ -344,7 +344,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
         handle_t first_node = graph->get_handle(first_visit.node_id(), 
                                            first_visit.backward());
-        chain_indexes.back().prefix_sum[0] = graph->get_length(first_node) + 1;
+        chain_indexes.back().prefix_sum_iv[0] = graph->get_length(first_node) + 1;
     }
     size_t curr_chain_assignment = chain_indexes.size() - 1;
     size_t curr_chain_rank = 0;
@@ -574,7 +574,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                                             == curr_id.second) {
                                     //If traversing chain forward in snarl
 
-                                    loop_dist = chain_dists.loop_fd[0] - 1;
+                                    loop_dist = chain_dists.loop_fd_iv[0] - 1;
 
                                     if (loop_dist != -1) {
                                         auto visit = get_start_of(*curr_chain);
@@ -587,8 +587,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                      }
 
                                 } else {
-                                    loop_dist = chain_dists.loop_rev[
-                                             chain_dists.loop_rev.size()-1] - 1;
+                                    loop_dist = chain_dists.loop_rev_iv[
+                                             chain_dists.loop_rev_iv.size()-1] - 1;
 
                                     if (loop_dist != -1) { 
 
@@ -620,7 +620,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                                  == curr_id.second) {
                                     //If traversing snarl forward in chain
 
-                                    loop_dist = curr_chain_dists.loop_fd[0] - 1;
+                                    loop_dist = curr_chain_dists.loop_fd_iv[0] - 1;
 
                                     if (loop_dist != -1) {
                                         auto visit = get_start_of(*curr_chain);
@@ -633,8 +633,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                     }
                                 } else {
 
-                                    loop_dist = curr_chain_dists.loop_rev[
-                                        curr_chain_dists.loop_rev.size()-1] - 1;
+                                    loop_dist = curr_chain_dists.loop_rev_iv[
+                                        curr_chain_dists.loop_rev_iv.size()-1] - 1;
 
                                     if (loop_dist != -1) {
                                         auto end_visit = get_end_of(*curr_chain);
@@ -882,12 +882,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                 : sd.snarlDistance( 0, num_nodes * 2 - 2) + sd.nodeLength(0);
             #ifdef debugIndex
                 cerr << "Prefix sum before snarl: " 
-                << chain_indexes[curr_chain_assignment].prefix_sum[
+                << chain_indexes[curr_chain_assignment].prefix_sum_iv[
                                                 curr_chain_rank + 1] << endl;
             #endif
-            chain_indexes[curr_chain_assignment].prefix_sum[curr_chain_rank+1] =
+            chain_indexes[curr_chain_assignment].prefix_sum_iv[curr_chain_rank+1] =
                                curr_chain_rank == 0 ? dist + 1:
-                                chain_indexes[curr_chain_assignment].prefix_sum[
+                                chain_indexes[curr_chain_assignment].prefix_sum_iv[
                                                         curr_chain_rank]+dist;
 
 
@@ -906,7 +906,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     first_rev_dist = first_rev_dist == -1 ? -1 :
                                      first_rev_dist + sd.nodeLength(0);
                 }
-                chain_indexes[curr_chain_assignment].loop_rev[0] = first_rev_dist + 1;
+                chain_indexes[curr_chain_assignment].loop_rev_iv[0] = first_rev_dist + 1;
             }
 
             int64_t rev_loop_dist;
@@ -924,11 +924,11 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
      
     
             //Loop distance of the previous node
-            int64_t last_loop = chain_indexes[curr_chain_assignment].loop_rev[
+            int64_t last_loop = chain_indexes[curr_chain_assignment].loop_rev_iv[
                                             curr_chain_rank] - 1;
             if (last_loop == -1) {
     
-                chain_indexes[curr_chain_assignment].loop_rev[curr_chain_rank+1]
+                chain_indexes[curr_chain_assignment].loop_rev_iv[curr_chain_rank+1]
                             = rev_loop_dist + 1;
     
             } else {
@@ -943,7 +943,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
 
                 int64_t loop_distance = minPos({rev_loop_dist, 
                                                 last_loop + dist_to_end});
-               chain_indexes[curr_chain_assignment].loop_rev[curr_chain_rank+1] = loop_distance + 1;
+               chain_indexes[curr_chain_assignment].loop_rev_iv[curr_chain_rank+1] = loop_distance + 1;
             }
         }
         
@@ -960,8 +960,8 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
         //Add the length of the last node to chain prefix sum
         auto last_visit = get_end_of(*chain);
         handle_t last_node = graph->get_handle(last_visit.node_id(), false);
-        cd.prefix_sum[cd.prefix_sum.size() - 1] = 
-               cd.prefix_sum[cd.prefix_sum.size() - 2] + graph->get_length(last_node);
+        cd.prefix_sum_iv[cd.prefix_sum_iv.size() - 1] = 
+               cd.prefix_sum_iv[cd.prefix_sum_iv.size() - 2] + graph->get_length(last_node);
     
         if (get_start_of(*chain).node_id() == get_end_of(*chain).node_id()) {
             //If the chain loops, then the reverse loop distances might include
@@ -978,9 +978,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                   snarl_indexes[getPrimaryAssignment(snarl->end().node_id())];
                 int64_t new_loop;
                 if (curr_chain_rank == 0) {
-                    new_loop = cd.loop_rev[cd.loop_rev.size() - 1] - 1;
+                    new_loop = cd.loop_rev_iv[cd.loop_rev_iv.size() - 1] - 1;
                 } else {
-                    int64_t prev_loop = cd.loop_rev[curr_chain_rank - 1] - 1;
+                    int64_t prev_loop = cd.loop_rev_iv[curr_chain_rank - 1] - 1;
                     int64_t dist_to_end = sd.snarlDistance(0, sd.num_nodes * 2 - 2);
                     dist_to_end = dist_to_end == -1 ? -1 
                                 : dist_to_end + dist_to_end + sd.nodeLength(0) 
@@ -989,9 +989,9 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     new_loop = prev_loop  == -1 ? -1 : prev_loop + dist_to_end;
                 }
 
-                if (cd.loop_rev[curr_chain_rank] == 0 ||
-                     new_loop < cd.loop_rev[curr_chain_rank]) {
-                    cd.loop_rev[curr_chain_rank] = new_loop + 1;
+                if (cd.loop_rev_iv[curr_chain_rank] == 0 ||
+                     new_loop < cd.loop_rev_iv[curr_chain_rank]) {
+                    cd.loop_rev_iv[curr_chain_rank] = new_loop + 1;
                 } else {
                     //If this isn't an improvement, subsequent entries will not
                     //be improved either
@@ -1067,7 +1067,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                     }
                   
                 }
-                cd.loop_fd[curr_chain_rank] = loop_dist_last + 1;
+                cd.loop_fd_iv[curr_chain_rank] = loop_dist_last + 1;
             }
     
             int64_t fd_loop_dist;
@@ -1085,12 +1085,12 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                                                fd_loop_dist + sd.nodeLength(0);
             }
     
-            int64_t last_loop = cd.loop_fd[curr_chain_rank] - 1;
+            int64_t last_loop = cd.loop_fd_iv[curr_chain_rank] - 1;
             curr_chain_rank--;
     
             if (last_loop == -1) {
     
-                cd.loop_fd[curr_chain_rank] = fd_loop_dist + 1;
+                cd.loop_fd_iv[curr_chain_rank] = fd_loop_dist + 1;
     
             } else {
             //push dist to end of snarl + loop dist + dist to start of snarl 
@@ -1107,13 +1107,13 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
                         dist_start_end + sd.nodeLength(0);
                 int64_t loop_distance = minPos({fd_loop_dist, 
                                   last_loop + dist_end_start + dist_start_end});
-                cd.loop_fd[curr_chain_rank] = loop_distance + 1;
+                cd.loop_fd_iv[curr_chain_rank] = loop_distance + 1;
             }           
           
         }
-        util::bit_compress(cd.prefix_sum);
-        util::bit_compress(cd.loop_fd);
-        util::bit_compress(cd.loop_rev);
+        util::assign(cd.prefix_sum, cd.prefix_sum_iv);
+        util::assign(cd.loop_fd, cd.loop_fd_iv);
+        util::assign(cd.loop_rev, cd.loop_rev_iv);
     }
  
     //return length of entire chain
@@ -1986,13 +1986,16 @@ MinimumDistanceIndex::ChainIndex::ChainIndex(
                 is_looping_chain(loops), rev_in_parent(rev_in_parent) {
     
 
-    util::assign(prefix_sum, int_vector<>(length+2, 0));
-    util::assign(loop_fd, int_vector<>(length+1, 0));
-    util::assign(loop_rev, int_vector<>(length+1, 0));
+    util::assign(prefix_sum_iv, int_vector<>(length+2, 0));
+    util::assign(loop_fd_iv, int_vector<>(length+1, 0));
+    util::assign(loop_rev_iv, int_vector<>(length+1, 0));
+
+
 
 }
 MinimumDistanceIndex::ChainIndex::ChainIndex()  {
 }
+
 void MinimumDistanceIndex::ChainIndex::load(istream& in){
     //Populate object from serialization 
     //
