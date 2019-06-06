@@ -439,6 +439,7 @@ cerr << endl << "New cluster calculation:" << endl;
              * Snarls are in the order that they are traversed in the chain
              */
 
+            size_t curr_snarl_i = kv.second;
 
             MinimumDistanceIndex::SnarlIndex& snarl_index = 
                                          dist_index.snarl_indexes[curr_snarl_i];
