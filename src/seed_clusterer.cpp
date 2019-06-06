@@ -431,7 +431,6 @@ cerr << endl << "New cluster calculation:" << endl;
         int64_t last_len = 0;
         id_t start_node;
         id_t end_node;
-        size_t prev_snarl_i = std::numeric_limits<size_t>::max();
 
         for (auto& kv : snarls_in_chain) {
             /* For each child snarl in the chain, find the clusters of just the
@@ -440,13 +439,6 @@ cerr << endl << "New cluster calculation:" << endl;
              * Snarls are in the order that they are traversed in the chain
              */
 
-            size_t curr_snarl_i = kv.second;
-            //Skip duplicated snarls
-            if (curr_snarl_i == prev_snarl_i) {
-                continue;
-            } else {
-                prev_snarl_i = curr_snarl_i;
-            }
 
             MinimumDistanceIndex::SnarlIndex& snarl_index = 
                                          dist_index.snarl_indexes[curr_snarl_i];
