@@ -24,6 +24,7 @@ void help_pack(char** argv) {
          << "    -b, --bin-size N       number of sequence bases per CSA bin [default: inf]" << endl
          << "    -n, --node ID          write table for only specified node(s)" << endl
          << "    -N, --node-list FILE   a white space or line delimited list of nodes to collect" << endl
+         << "    -q, --qual-adjust      scale coverage by phred quality (combined from mapq and base quality)" << endl
          << "    -t, --threads N        use N threads (defaults to numCPUs)" << endl;
 }
 
@@ -40,6 +41,7 @@ int main_pack(int argc, char** argv) {
     size_t bin_size = 0;
     vector<vg::id_t> node_ids;
     string node_list_file;
+    bool qual_adjust = false;
 
     if (argc == 2) {
         help_pack(argv);
@@ -63,11 +65,13 @@ int main_pack(int argc, char** argv) {
             {"node", required_argument, 0, 'n'},
             {"node-list", required_argument, 0, 'N'},
             {"bin-size", required_argument, 0, 'b'},
+            {"qual-adjust", no_argument, 0, 'q'},
+            
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:",
+        c = getopt_long (argc, argv, "hx:o:i:g:dDt:eb:n:N:q",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -114,6 +118,9 @@ int main_pack(int argc, char** argv) {
         case 'N':
             node_list_file = optarg;
             break;
+        case 'q':
+            qual_adjust = true;
+            break;
 
         default:
             abort();
@@ -149,7 +156,7 @@ int main_pack(int argc, char** argv) {
 
     // todo one packer per thread and merge
 
-    vg::Packer packer(xgidx.get(), bin_size);
+    vg::Packer packer(xgidx.get(), bin_size, qual_adjust);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -162,7 +169,7 @@ int main_pack(int argc, char** argv) {
             packers.push_back(&packer);
         } else {
             for (size_t i = 0; i < thread_count; ++i) {
-                packers.push_back(new Packer(xgidx.get(), bin_size));
+                packers.push_back(new Packer(xgidx.get(), bin_size, qual_adjust));
             }
         }
         std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
