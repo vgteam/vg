@@ -6,12 +6,13 @@ namespace vg {
 const int Packer::maximum_quality = 60;
 const int Packer::lru_cache_size = 50;
 
-Packer::Packer(void) : xgidx(nullptr), quality_cache(nullptr) { }
+Packer::Packer(void) : xgidx(nullptr), qual_adjust(false), quality_cache(nullptr) { }
 
-Packer::Packer(xg::XG* xidx, size_t binsz) : xgidx(xidx), bin_size(binsz), quality_cache(nullptr) {
-    coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, 8);
-    edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), 8);
+Packer::Packer(xg::XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
+    coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, qual_adjust ? 16 : 8);
+    edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), qual_adjust ? 16 : 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
+    quality_cache = qual_adjust ? new LRUCache<pair<int, int>, int>(lru_cache_size) : nullptr;
 }
 
 Packer::~Packer(void) {
@@ -239,7 +240,7 @@ void Packer::remove_edit_tmpfiles(void) {
     }
 }
 
-void Packer::add(const Alignment& aln, bool record_edits, bool qual_adjust) {
+void Packer::add(const Alignment& aln, bool record_edits) {
     // open tmpfile if needed
     ensure_edit_tmpfiles_open();
     // count the nodes, edges, and edits

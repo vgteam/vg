@@ -24,7 +24,7 @@ using namespace sdsl;
 class Packer {
 public:
     Packer(void);
-    Packer(xg::XG* xidx, size_t bin_size = 0);
+    Packer(xg::XG* xidx, size_t bin_size = 0, bool qual_adjust = false);
     ~Packer(void);
     xg::XG* xgidx;
     void merge_from_files(const vector<string>& file_names);
@@ -37,7 +37,7 @@ public:
                      std::string name = "");
     void make_compact(void);
     void make_dynamic(void);
-    void add(const Alignment& aln, bool record_edits = true, bool qual_adjust = false);
+    void add(const Alignment& aln, bool record_edits = true);
     size_t graph_length(void) const;
     size_t position_in_basis(const Position& pos) const;
     string pos_key(size_t i) const;
@@ -89,6 +89,9 @@ private:
     string unescape_delim(const string& s, char d) const;
     string unescape_delims(const string& s) const;
 
+    // toggle quality adjusted mode
+    bool qual_adjust;
+    
     // Combine the MAPQ and base quality (if available) for a given position in the read
     int compute_quality(const Alignment& aln, size_t position_in_read) const;
     int combine_qualities(int map_quality, int base_quality) const;
