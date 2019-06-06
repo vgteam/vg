@@ -68,8 +68,8 @@ var searchData=
   ['lock',['Lock',['../classvg_1_1GraphSynchronizer_1_1Lock.html',1,'vg::GraphSynchronizer']]],
   ['lock',['Lock',['../classvg_1_1GraphSynchronizer_1_1Lock.html#a62805a6582a0280c58509f232079b416',1,'vg::GraphSynchronizer::Lock::Lock(GraphSynchronizer &amp;synchronizer, const string &amp;path_name, size_t path_offset, size_t context_bases, bool reflect)'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#a64972da675bb40fbbaec55470aeebdc4',1,'vg::GraphSynchronizer::Lock::Lock(GraphSynchronizer &amp;synchronizer, const string &amp;path_name, size_t start, size_t past_end)'],['../classvg_1_1GraphSynchronizer_1_1Lock.html#a1a6ed95994cc497481d3338986a30e49',1,'vg::GraphSynchronizer::Lock::lock()']]],
   ['locked_5fnodes',['locked_nodes',['../classvg_1_1GraphSynchronizer_1_1Lock.html#acfb5bf6caa6040ec1028250324296355',1,'vg::GraphSynchronizer::Lock::locked_nodes()'],['../classvg_1_1GraphSynchronizer.html#a275e3112ec47229a197e3ecc118771c4',1,'vg::GraphSynchronizer::locked_nodes()']]],
-  ['locus',['Locus',['../structvg_1_1Locus.html',1,'vg']]],
   ['locus',['locus',['../structvg_1_1Alignment.html#afe47b70cd7b78e97a9cf18e9c60ef4f0',1,'vg::Alignment']]],
+  ['locus',['Locus',['../structvg_1_1Locus.html',1,'vg']]],
   ['locus_5fbuffer_5fsize',['locus_buffer_size',['../classvg_1_1SupportCaller.html#ae6584c21b8d57196db570a3642e23a27',1,'vg::SupportCaller']]],
   ['locus_5fto_5fvariant',['locus_to_variant',['../classvg_1_1Genotyper.html#acdc3a6f24680b8f44564e15e671141db',1,'vg::Genotyper']]],
   ['log10_5fto_5fln',['log10_to_ln',['../namespacevg.html#a48d9ec9295afc7457506af4ddaf44217',1,'vg']]],
@@ -104,5 +104,6 @@ var searchData=
   ['loopfd',['loopFd',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#a2fb2eb2d02f3f57e4f7760362339245d',1,'vg::DistanceIndex::ChainIndex']]],
   ['looprev',['loopRev',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#abdbd2510188f0814787f971b529b5a23',1,'vg::DistanceIndex::ChainIndex']]],
   ['lower_5fbound',['lower_bound',['../structvg_1_1BREAKPOINT.html#a1b854b285738913830671a54ce0857f5',1,'vg::BREAKPOINT']]],
-  ['lower_5fbound_5fheuristic',['lower_bound_heuristic',['../classvg_1_1TargetValueSearch.html#a93c1f2cb35452719dc87fb4ec8cf714e',1,'vg::TargetValueSearch']]]
+  ['lower_5fbound_5fheuristic',['lower_bound_heuristic',['../classvg_1_1TargetValueSearch.html#a93c1f2cb35452719dc87fb4ec8cf714e',1,'vg::TargetValueSearch']]],
+  ['lru_5fcache_5fsize',['lru_cache_size',['../classvg_1_1Packer.html#a32572a24fe3c3b372e1ff24ec9720da0',1,'vg::Packer']]]
 ];

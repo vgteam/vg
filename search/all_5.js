@@ -13,7 +13,6 @@ var searchData=
   ['edge_5fcoverage_5fdynamic',['edge_coverage_dynamic',['../classvg_1_1Packer.html#ae83f6f93fae1f0c16da4a7c0698d1e97',1,'vg::Packer']]],
   ['edge_5ffilter',['edge_filter',['../classxg_1_1XG.html#a34beedf245a2926ff94bd3599c9399eb',1,'xg::XG']]],
   ['edge_5ffrom_5fencoding',['edge_from_encoding',['../classxg_1_1XG.html#acf419abd0e15bbb8dfe71d3606f6052e',1,'xg::XG']]],
-  ['edge_5ffrom_5fmappings',['edge_from_mappings',['../classvg_1_1Packer.html#ac709e9f3be6d0e3ebdd613fadb3c4704',1,'vg::Packer']]],
   ['edge_5fgraph_5fidx',['edge_graph_idx',['../classxg_1_1XG.html#a573b29b1acc221928ea868b92b724956',1,'xg::XG']]],
   ['edge_5fhandle',['edge_handle',['../classhandlegraph_1_1HandleGraph.html#a3e807b8d982fe8d55166c1685a1d4918',1,'handlegraph::HandleGraph']]],
   ['edge_5findex',['edge_index',['../classvg_1_1VG.html#a2e2c02a8216f0bb9b3a78e985845ea1b',1,'vg::VG']]],
@@ -114,8 +113,8 @@ var searchData=
   ['entropy',['entropy',['../namespacevg.html#ac3165438256db24864e88601839197df',1,'vg::entropy(const string &amp;st)'],['../namespacevg.html#a77c1cb6069f865239d0365b55649bc8a',1,'vg::entropy(const char *st, size_t len)']]],
   ['entropy_2ecpp',['entropy.cpp',['../entropy_8cpp.html',1,'']]],
   ['entropy_2ehpp',['entropy.hpp',['../entropy_8hpp.html',1,'']]],
-  ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html#a581f38a59d42c7e54ed83fccd8da2d55',1,'vg::NodeDivider::Entry']]],
   ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html',1,'vg::NodeDivider']]],
+  ['entry',['Entry',['../structvg_1_1NodeDivider_1_1Entry.html#a581f38a59d42c7e54ed83fccd8da2d55',1,'vg::NodeDivider::Entry']]],
   ['entry_5fto_5fstring',['entry_to_string',['../classvg_1_1Index.html#a18c0d0d11da737aa6e4a040810b5c986',1,'vg::Index']]],
   ['entrycat',['EntryCat',['../structvg_1_1NodeDivider.html#a03a29b35ee0e1a20619a54b007e628b0',1,'vg::NodeDivider']]],
   ['erase',['erase',['../classvg_1_1SnarlState.html#a92e53694dd3b0169ad55103076997660',1,'vg::SnarlState']]],
@@ -182,6 +181,6 @@ var searchData=
   ['extract_5fthread',['extract_thread',['../classxg_1_1XG.html#a61f518618186527617990b183f32ff27',1,'xg::XG::extract_thread(const string &amp;name) const '],['../classxg_1_1XG.html#ad174fb619cc38486295cb6d9f595228a',1,'xg::XG::extract_thread(xg::XG::ThreadMapping node, int64_t offset, int64_t max_length)']]],
   ['extract_5fthreads',['extract_threads',['../classxg_1_1XG.html#afdf461a257c0e9844f0d166d5d421c12',1,'xg::XG']]],
   ['extract_5fthreads_5fmatching',['extract_threads_matching',['../classxg_1_1XG.html#a3c7518d4ef374348445492d15215a221',1,'xg::XG']]],
-  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph']]],
-  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]]
+  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html',1,'vg']]],
+  ['extranodegraph',['ExtraNodeGraph',['../classvg_1_1ExtraNodeGraph.html#aafddbd22f8123df59e0bbdb634f5ba0a',1,'vg::ExtraNodeGraph']]]
 ];

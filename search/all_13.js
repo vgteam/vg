@@ -70,7 +70,7 @@ var searchData=
   ['seed_5fclusterer_2ehpp',['seed_clusterer.hpp',['../seed__clusterer_8hpp.html',1,'']]],
   ['seed_5ftype',['seed_type',['../classvg_1_1GaplessExtender.html#ae792e6ed6cc186199dc2edd9fbce3dee',1,'vg::GaplessExtender']]],
   ['seeds',['seeds',['../classvg_1_1BandedGlobalAligner_1_1BAMatrix.html#a7451a72162f19b00d1bd44fc62be0297',1,'vg::BandedGlobalAligner::BAMatrix']]],
-  ['seek',['Seek',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aa221be19182d88b7caa36ead3e63c829',1,'vg::io::BlockedGzipInputStream::Seek()'],['../structhFILE__backend.html#a83c7c7b2a4ce9fbb5944adcc4607b302',1,'hFILE_backend::seek()']]],
+  ['seek',['seek',['../structhFILE__backend.html#a83c7c7b2a4ce9fbb5944adcc4607b302',1,'hFILE_backend::seek()'],['../classvg_1_1io_1_1BlockedGzipInputStream.html#aa221be19182d88b7caa36ead3e63c829',1,'vg::io::BlockedGzipInputStream::Seek()']]],
   ['seek_5fgroup',['seek_group',['../classvg_1_1io_1_1MessageIterator.html#a97a1561c82f55827a208b2bea5e8da71',1,'vg::io::MessageIterator::seek_group()'],['../classvg_1_1io_1_1ProtobufIterator.html#aad5921d9a10314f8060b0835225fc3cd',1,'vg::io::ProtobufIterator::seek_group()']]],
   ['select_5fcontinuing',['select_continuing',['../classxg_1_1XG.html#a65ff0e57a71769742bcca3de4de283b2',1,'xg::XG']]],
   ['select_5fstarting',['select_starting',['../classxg_1_1XG.html#a52fb1ef14bc061bc70f6500268222ae4',1,'xg::XG']]],

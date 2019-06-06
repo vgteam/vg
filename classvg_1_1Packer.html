@@ -92,6 +92,7 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#pub-attribs">Public Attributes</a> &#124;
 <a href="#pri-methods">Private Member Functions</a> &#124;
 <a href="#pri-attribs">Private Attributes</a> &#124;
+<a href="#pri-static-attribs">Static Private Attributes</a> &#124;
 <a href="classvg_1_1Packer-members.html">List of all members</a>  </div>
   <div class="headertitle">
 <div class="title">vg::Packer Class Reference</div>  </div>
@@ -104,8 +105,8 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 Public Member Functions</h2></td></tr>
 <tr class="memitem:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73">Packer</a> (void)</td></tr>
 <tr class="separator:a23ca736ab7fa0690ae575aa1d7a4de73"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ab795a0ae9e84d26817a119a314b01a30"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ab795a0ae9e84d26817a119a314b01a30">Packer</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *xidx, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0)</td></tr>
-<tr class="separator:ab795a0ae9e84d26817a119a314b01a30"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac20609ba9e3df4a8cd211b75d8c0ab02"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ac20609ba9e3df4a8cd211b75d8c0ab02">Packer</a> (<a class="el" href="classxg_1_1XG.html">xg::XG</a> *xidx, size_t <a class="el" href="classvg_1_1Packer.html#a528fbf835285899061cd6947e163976d">bin_size</a>=0, bool <a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a>=false)</td></tr>
+<tr class="separator:ac20609ba9e3df4a8cd211b75d8c0ab02"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a65a8bbaf02215e1e8c4f1385101ffbd4">~Packer</a> (void)</td></tr>
 <tr class="separator:a65a8bbaf02215e1e8c4f1385101ffbd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af857449c08a56dd66c6a4bc0402231cb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#af857449c08a56dd66c6a4bc0402231cb">merge_from_files</a> (const vector&lt; string &gt; &amp;file_names)</td></tr>
@@ -190,8 +191,10 @@ Private Member Functions</h2></td></tr>
 <tr class="separator:a4317a31a1e419ce6c0d345545518e519"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab7a6212ca48ab8bdcd28139297eb41e2"><td class="memItemLeft" align="right" valign="top">string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ab7a6212ca48ab8bdcd28139297eb41e2">unescape_delims</a> (const string &amp;s) const </td></tr>
 <tr class="separator:ab7a6212ca48ab8bdcd28139297eb41e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac709e9f3be6d0e3ebdd613fadb3c4704"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structvg_1_1Edge.html">Edge</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#ac709e9f3be6d0e3ebdd613fadb3c4704">edge_from_mappings</a> (const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;m, const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;n)</td></tr>
-<tr class="separator:ac709e9f3be6d0e3ebdd613fadb3c4704"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7457d769f642c666a6900adf02286e20"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a7457d769f642c666a6900adf02286e20">compute_quality</a> (const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;aln, size_t position_in_read) const </td></tr>
+<tr class="separator:a7457d769f642c666a6900adf02286e20"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a781eb0f94707c5bcf3006e7d8b06bd65"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a781eb0f94707c5bcf3006e7d8b06bd65">combine_qualities</a> (int map_quality, int base_quality) const </td></tr>
+<tr class="separator:a781eb0f94707c5bcf3006e7d8b06bd65"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-attribs"></a>
 Private Attributes</h2></td></tr>
@@ -226,6 +229,17 @@ Private Attributes</h2></td></tr>
 <tr class="separator:acffc9465bdaa0bb770372edf788aad48"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a0d1336853823c62812b2009e80085800"><td class="memItemLeft" align="right" valign="top">char&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a0d1336853823c62812b2009e80085800">delim2</a> = '\xfe'</td></tr>
 <tr class="separator:a0d1336853823c62812b2009e80085800"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a08679bd0da43f583ad81fcb3ed409cb2"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a08679bd0da43f583ad81fcb3ed409cb2">qual_adjust</a></td></tr>
+<tr class="separator:a08679bd0da43f583ad81fcb3ed409cb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a05408599203b0639909f4eacf9a31d28"><td class="memItemLeft" align="right" valign="top">LRUCache&lt; pair&lt; int, int &gt;, int &gt; *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a05408599203b0639909f4eacf9a31d28">quality_cache</a></td></tr>
+<tr class="separator:a05408599203b0639909f4eacf9a31d28"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pri-static-attribs"></a>
+Static Private Attributes</h2></td></tr>
+<tr class="memitem:a0de02be2009ac1d477d5cc8fefccab1c"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a0de02be2009ac1d477d5cc8fefccab1c">maximum_quality</a> = 60</td></tr>
+<tr class="separator:a0de02be2009ac1d477d5cc8fefccab1c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a32572a24fe3c3b372e1ff24ec9720da0"><td class="memItemLeft" align="right" valign="top">static const int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1Packer.html#a32572a24fe3c3b372e1ff24ec9720da0">lru_cache_size</a> = 50</td></tr>
+<tr class="separator:a32572a24fe3c3b372e1ff24ec9720da0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a class="anchor" id="a23ca736ab7fa0690ae575aa1d7a4de73"></a>
@@ -244,7 +258,7 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
-<a class="anchor" id="ab795a0ae9e84d26817a119a314b01a30"></a>
+<a class="anchor" id="ac20609ba9e3df4a8cd211b75d8c0ab02"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
@@ -258,7 +272,13 @@ Private Attributes</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>bin_size</em> = <code>0</code>&#160;</td>
+          <td class="paramname"><em>bin_size</em> = <code>0</code>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool&#160;</td>
+          <td class="paramname"><em>qual_adjust</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>
@@ -435,6 +455,74 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a781eb0f94707c5bcf3006e7d8b06bd65"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::Packer::combine_qualities </td>
+          <td>(</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>map_quality</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>base_quality</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a7457d769f642c666a6900adf02286e20"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int vg::Packer::compute_quality </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &amp;&#160;</td>
+          <td class="paramname"><em>aln</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>position_in_read</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="aaa9fc101d78e994d81f4da0e4729af41"></a>
 <div class="memitem">
 <div class="memproto">
@@ -511,40 +599,6 @@ Private Attributes</h2></td></tr>
           <td> const</td>
         </tr>
       </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="ac709e9f3be6d0e3ebdd613fadb3c4704"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="structvg_1_1Edge.html">Edge</a> vg::Packer::edge_from_mappings </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;&#160;</td>
-          <td class="paramname"><em>m</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Mapping.html">Mapping</a> &amp;&#160;</td>
-          <td class="paramname"><em>n</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
 </div><div class="memdoc">
 
 </div>
@@ -1310,6 +1364,46 @@ Private Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a32572a24fe3c3b372e1ff24ec9720da0"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int vg::Packer::lru_cache_size = 50</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a0de02be2009ac1d477d5cc8fefccab1c"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">const int vg::Packer::maximum_quality = 60</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
 <a class="anchor" id="a3e753cd974d4411036081d252b6eb7bf"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1324,6 +1418,46 @@ Private Attributes</h2></td></tr>
   </td>
   <td class="mlabels-right">
 <span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a08679bd0da43f583ad81fcb3ed409cb2"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool vg::Packer::qual_adjust</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">private</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+</div>
+</div>
+<a class="anchor" id="a05408599203b0639909f4eacf9a31d28"></a>
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">LRUCache&lt;pair&lt;int, int&gt;, int&gt;* vg::Packer::quality_cache</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">mutable</span><span class="mlabel">private</span></span>  </td>
   </tr>
 </table>
 </div><div class="memdoc">

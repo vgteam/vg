@@ -20,7 +20,7 @@ var searchData=
   ['packedvector',['PackedVector',['../classvg_1_1PackedVector.html',1,'vg']]],
   ['packedvector',['PackedVector',['../classvg_1_1PackedVector.html#af35d6df48dc7abb473177022e69abf71',1,'vg::PackedVector::PackedVector()'],['../classvg_1_1PackedVector.html#ae0e3aa80ee52d7379c1442ff4edf64cb',1,'vg::PackedVector::PackedVector(istream &amp;in)'],['../classvg_1_1PackedVector.html#ac51e6ea0d5763441f9be3cc9c0b64b4f',1,'vg::PackedVector::PackedVector(PackedVector &amp;&amp;other)=default']]],
   ['packer',['Packer',['../classvg_1_1Packer.html',1,'vg']]],
-  ['packer',['Packer',['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#ab795a0ae9e84d26817a119a314b01a30',1,'vg::Packer::Packer(xg::XG *xidx, size_t bin_size=0)']]],
+  ['packer',['Packer',['../classvg_1_1Packer.html#a23ca736ab7fa0690ae575aa1d7a4de73',1,'vg::Packer::Packer(void)'],['../classvg_1_1Packer.html#ac20609ba9e3df4a8cd211b75d8c0ab02',1,'vg::Packer::Packer(xg::XG *xidx, size_t bin_size=0, bool qual_adjust=false)']]],
   ['packer_2ecpp',['packer.cpp',['../packer_8cpp.html',1,'']]],
   ['packer_2ehpp',['packer.hpp',['../packer_8hpp.html',1,'']]],
   ['packers',['Packers',['../classvg_1_1Packers.html',1,'vg']]],

@@ -6,7 +6,6 @@ var searchData=
   ['edge_5fcoverage',['edge_coverage',['../classvg_1_1Packer.html#af5a7ff444a6e3b18185cacdcfa10570d',1,'vg::Packer::edge_coverage(Edge &amp;e) const '],['../classvg_1_1Packer.html#a8b0fdec9353a3e79110c2780a1d01cd8',1,'vg::Packer::edge_coverage(size_t i) const ']]],
   ['edge_5ffilter',['edge_filter',['../classxg_1_1XG.html#a34beedf245a2926ff94bd3599c9399eb',1,'xg::XG']]],
   ['edge_5ffrom_5fencoding',['edge_from_encoding',['../classxg_1_1XG.html#acf419abd0e15bbb8dfe71d3606f6052e',1,'xg::XG']]],
-  ['edge_5ffrom_5fmappings',['edge_from_mappings',['../classvg_1_1Packer.html#ac709e9f3be6d0e3ebdd613fadb3c4704',1,'vg::Packer']]],
   ['edge_5fgraph_5fidx',['edge_graph_idx',['../classxg_1_1XG.html#a573b29b1acc221928ea868b92b724956',1,'xg::XG']]],
   ['edge_5fhandle',['edge_handle',['../classhandlegraph_1_1HandleGraph.html#a3e807b8d982fe8d55166c1685a1d4918',1,'handlegraph::HandleGraph']]],
   ['edge_5fsize',['edge_size',['../classvg_1_1ProtoHandleGraph.html#a6d9e42219833d679934a9efd0e37e6c9',1,'vg::ProtoHandleGraph']]],

@@ -89,6 +89,7 @@ var searchData=
   ['max_5fwalk',['max_walk',['../classvg_1_1PathOrientedDistanceMeasurer.html#a6d8dc74ae9eaaabf35ba1c89cfae8a11',1,'vg::PathOrientedDistanceMeasurer']]],
   ['max_5fwidth',['max_width',['../classvg_1_1RepresentativeTraversalFinder.html#aac2939337439d7566246889b3a4655c6',1,'vg::RepresentativeTraversalFinder']]],
   ['maxdistances',['maxDistances',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aff46cc10e89b87a441aabe07cc3f590d',1,'vg::DistanceIndex::MaxDistanceIndex']]],
+  ['maximum_5fquality',['maximum_quality',['../classvg_1_1Packer.html#a0de02be2009ac1d477d5cc8fefccab1c',1,'vg::Packer']]],
   ['maximum_5fsample_5fsize',['maximum_sample_size',['../classvg_1_1FragmentLengthDistribution.html#a82ad9fe36dc81ea108a530b7f9792b78',1,'vg::FragmentLengthDistribution']]],
   ['maxindex',['maxIndex',['../classvg_1_1DistanceIndex.html#a867358a62cbc467216d8d7fc73757da8',1,'vg::DistanceIndex']]],
   ['maxnodeid',['maxNodeID',['../classvg_1_1DistanceIndex.html#a719069f6a527678b707b4932dc4ebd85',1,'vg::DistanceIndex']]],
