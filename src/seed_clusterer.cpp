@@ -69,8 +69,9 @@ cerr << endl << "New cluster calculation:" << endl;
             }
 
             //Maps each chain to the snarls that comprise it
-            //Snarls are unordered in the vector
-            hash_map<size_t, vector<size_t>> chain_to_snarls; 
+            //Snarls are stored as map from rank of snarl in chain to that
+            //snarls index
+            hash_map<size_t, map<size_t,size_t>> chain_to_snarls; 
 
             for (auto& kv : curr_snarl_children){
                 //Go through each of the snarls at this level, cluster them,
@@ -95,8 +96,10 @@ cerr << endl << "New cluster calculation:" << endl;
 
                     size_t chain_assignment = dist_index.getChainAssignment(
                                                         snarl_index.parent_id);
+                    size_t chain_rank = dist_index.getChainRank(snarl_index.id_in_parent);
 
-                    chain_to_snarls[chain_assignment].push_back( snarl_i);
+                    chain_to_snarls[chain_assignment].emplace(chain_rank,
+                                                              snarl_i);
                           
 #ifdef debug
                     cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
@@ -147,7 +150,7 @@ cerr << endl << "New cluster calculation:" << endl;
 #ifdef DEBUG
                 cerr << "At depth " << depth << " chain number " << chain_i << " with children " << endl;
                 for (auto it2 : kv.second) {
-                    cerr << "\t snarl number " << it2 << endl;
+                    cerr << "\t snarl number " << it2.second << endl;
                 }
 #endif
 
@@ -400,7 +403,7 @@ cerr << endl << "New cluster calculation:" << endl;
                        const vector<pos_t>& seeds,
                        structures::UnionFind& union_find_clusters,
                        vector<pair<int64_t, int64_t>>& cluster_dists,
-                       vector< size_t>& snarls_in_chain,
+                       map<size_t, size_t>& snarls_in_chain,
                        hash_map<size_t, 
                                 vector<pair<child_node_t, child_cluster_t>>>& 
                                                             curr_snarl_children,
@@ -412,13 +415,6 @@ cerr << endl << "New cluster calculation:" << endl;
          * Processes the child snarls and then combines into the chain.
          */
  
-        //Sort vector of snarls by rank
-        std::sort(snarls_in_chain.begin(), snarls_in_chain.end(), 
-                     [&](const auto s, const auto t) -> bool {
-                         size_t rank1 = dist_index.getChainRank(dist_index.snarl_indexes[s].id_in_parent);
-                         size_t rank2 = dist_index.getChainRank(dist_index.snarl_indexes[t].id_in_parent);
-                          return  rank1 < rank2; 
-                      } );
   
         MinimumDistanceIndex::ChainIndex& chain_index = dist_index.chain_indexes[
                                                             chain_index_i];
@@ -437,13 +433,14 @@ cerr << endl << "New cluster calculation:" << endl;
         id_t end_node;
         size_t prev_snarl_i = std::numeric_limits<size_t>::max();
 
-        for (size_t curr_snarl_i : snarls_in_chain) {
+        for (auto& kv : snarls_in_chain) {
             /* For each child snarl in the chain, find the clusters of just the
              * snarl, and progressively build up clusters spanning up to that 
              * snarl
              * Snarls are in the order that they are traversed in the chain
              */
 
+            size_t curr_snarl_i = kv.second;
             //Skip duplicated snarls
             if (curr_snarl_i == prev_snarl_i) {
                 continue;
@@ -457,7 +454,7 @@ cerr << endl << "New cluster calculation:" << endl;
 
             //rank of the boundary node of the snarl that occurs first in
             //the chain
-            size_t start_rank =  dist_index.getChainRank(snarl_index.id_in_parent);
+            size_t start_rank =  kv.first;
 
             //Get the lengths of the start and end nodes of the snarl, relative
             //to the order of the chain
