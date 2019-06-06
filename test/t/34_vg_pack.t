@@ -77,3 +77,5 @@ vg map -g flat.gcsa -x flat.xg -f reads.fq -k 8 > reads.gam
 vg pack -x flat.xg -o reads.gam.cx -g reads.gam -q
 is $(vg pack -x flat.xg -di reads.gam.cx | tail -n+2 | cut -f 4 | grep ^0$ | wc -l) 1 "qual-adjust packing detects 1 base with 0 quality"
 is $(vg pack -x flat.xg -Di reads.gam.cx | tail | cut -f 5 | grep ^59$ | wc -l) 1 "qual-adjust packing gets correct edge support"
+
+rm -f flat.vg flat.xg flat.gcsa reads.fq reads.gam reads.gam.cx

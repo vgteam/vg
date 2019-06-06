@@ -156,7 +156,7 @@ int main_pack(int argc, char** argv) {
 
     // todo one packer per thread and merge
 
-    vg::Packer packer(xgidx.get(), bin_size);
+    vg::Packer packer(xgidx.get(), bin_size, qual_adjust);
     if (packs_in.size() == 1) {
         packer.load_from_file(packs_in.front());
     } else if (packs_in.size() > 1) {
@@ -172,7 +172,7 @@ int main_pack(int argc, char** argv) {
                 packers.push_back(new Packer(xgidx.get(), bin_size, qual_adjust));
             }
         }
-        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers,&qual_adjust](Alignment& aln) {
+        std::function<void(Alignment&)> lambda = [&packer,&record_edits,&packers](Alignment& aln) {
             packers[omp_get_thread_num()]->add(aln, record_edits);
         };
         if (gam_in == "-") {

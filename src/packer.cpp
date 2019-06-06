@@ -248,9 +248,6 @@ void Packer::add(const Alignment& aln, bool record_edits) {
     int prev_bq_total = 0;
     int prev_bq_count = 0;
     size_t position_in_read = 0;
-    if (qual_adjust && quality_cache == nullptr) {
-        quality_cache = new LRUCache<pair<int, int>, int>(lru_cache_size);
-    }
     for (size_t mi = 0; mi < aln.path().mapping_size(); ++mi) {
         auto& mapping = aln.path().mapping(mi);
         int mapping_quality = aln.mapping_quality();
