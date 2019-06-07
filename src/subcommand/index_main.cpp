@@ -50,6 +50,7 @@ void help_index(char** argv) {
          << "    -M, --store-gam FILE   generate threads from the alignments in FILE (many allowed)" << endl
          << "    -G, --gbwt-name FILE   store the threads as GBWT in FILE" << endl
          << "    -H, --write-haps FILE  store the threads as sequences in FILE" << endl
+         << "    -z, --actual-phasing   do not make unphased homozygous genotypes phased"<< endl
          << "    -P, --force-phasing    replace unphased genotypes with randomly phased ones" << endl
          << "    -o, --discard-overlaps skip overlapping alternate alleles if the overlap cannot be resolved" << endl
          << "    -B, --batch-size N     number of samples per batch (default 200)" << endl
@@ -156,7 +157,7 @@ int main_index(int argc, char** argv) {
     bool index_haplotypes = false, index_paths = false, index_gam = false;
     bool parse_only = false;
     vector<string> gam_file_names;
-    bool force_phasing = false, discard_overlaps = false;
+    bool phase_homozygous = true, force_phasing = false, discard_overlaps = false;
     size_t samples_in_batch = 200;
     size_t gbwt_buffer_size = gbwt::DynamicGBWT::INSERT_BATCH_SIZE / gbwt::MILLION; // Millions of nodes.
     size_t id_interval = gbwt::DynamicGBWT::SAMPLE_INTERVAL;
@@ -212,6 +213,7 @@ int main_index(int argc, char** argv) {
             {"store-gam", required_argument, 0, 'M'},
             {"gbwt-name", required_argument, 0, 'G'},
             {"write-haps", required_argument, 0, 'H'},
+            {"actual-phasing", no_argument, 0, 'z'},
             {"force-phasing", no_argument, 0, 'P'},
             {"discard-overlaps", no_argument, 0, 'o'},
             {"batch-size", required_argument, 0, 'B'},
@@ -256,7 +258,7 @@ int main_index(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:v:We:TM:G:H:PoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:J:h",
+        c = getopt_long (argc, argv, "b:t:px:v:We:TM:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:J:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -311,6 +313,9 @@ int main_index(int argc, char** argv) {
         case 'H':
             write_threads = true;
             threads_name = optarg;
+            break;
+        case 'z':
+            phase_homozygous = false;
             break;
         case 'P':
             force_phasing = true;
@@ -719,6 +724,9 @@ int main_index(int argc, char** argv) {
                 cerr << "Haplotype generation parameters:" << endl;
                 cerr << "- Samples " << sample_range.first << " to " << (sample_range.second - 1) << endl;
                 cerr << "- Batch size " << samples_in_batch << endl;
+                if (phase_homozygous) {
+                    cerr << "- Phase homozygous genotypes" << endl;
+                }
                 if (force_phasing) {
                     cerr << "- Force phasing" << endl;
                 }
@@ -872,7 +880,7 @@ int main_index(int argc, char** argv) {
                     for (size_t batch = 0; batch < phasings.size(); batch++) {
                         std::vector<gbwt::Phasing> current_phasings;
                         for (size_t sample = phasings[batch].offset(); sample < phasings[batch].limit(); sample++) {
-                            current_phasings.emplace_back(genotypes[sample], was_diploid[sample]);
+                            current_phasings.emplace_back(genotypes[sample], was_diploid[sample], phase_homozygous);
                             was_diploid[sample] = current_phasings.back().diploid;
                             if(force_phasing) {
                                 current_phasings.back().forcePhased([&]() {

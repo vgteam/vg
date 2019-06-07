@@ -28,7 +28,7 @@ public:
         // Allow 16 MB of memory per core (i.e. per default OMP thread) for tcmalloc thread caches.
         // The default is 16 MB total, which is way too small.
         size_t tcmalloc_thread_cache_bytes = get_thread_count() * 16 * 1024 * 1024;
-        assert(MallocExtension::instance()->SetNumericProperty("tcmalloc.max_total_thread_cache_bytes", tcmalloc_thread_cache_bytes));
+        //assert(MallocExtension::instance()->SetNumericProperty("tcmalloc.max_total_thread_cache_bytes", tcmalloc_thread_cache_bytes));
     }
 };
 

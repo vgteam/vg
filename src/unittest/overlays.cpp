@@ -14,6 +14,10 @@
 
 #include "algorithms/is_single_stranded.hpp"
 
+#include "../vg.hpp"
+#include "algorithms/dagify.hpp"
+#include "algorithms/is_acyclic.hpp"
+
 #include "catch.hpp"
 
 
@@ -21,7 +25,7 @@ namespace vg {
 namespace unittest {
 using namespace std;
 
-    TEST_CASE("SplitStrandGraph overlay produces graphs that are single stranded", "[overlay][handle]") {
+    TEST_CASE("StrandSplitGraph overlay produces graphs that are single stranded", "[overlay][handle]") {
         
         int num_tests = 100;
         int seq_size = 500;
@@ -73,8 +77,6 @@ using namespace std;
             
             REQUIRE(split_edge_trav_count == 2 * graph_edge_trav_count);
         }
-        
-        
     }
 }
 }

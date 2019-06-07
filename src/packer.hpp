@@ -6,6 +6,7 @@
 #include <chrono>
 #include <ctime>
 #include "omp.h"
+#include "lru_cache.h"
 #include "xg.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
@@ -23,7 +24,7 @@ using namespace sdsl;
 class Packer {
 public:
     Packer(void);
-    Packer(xg::XG* xidx, size_t bin_size = 0);
+    Packer(xg::XG* xidx, size_t bin_size = 0, bool qual_adjust = false);
     ~Packer(void);
     xg::XG* xgidx;
     void merge_from_files(const vector<string>& file_names);
@@ -88,7 +89,17 @@ private:
     string unescape_delim(const string& s, char d) const;
     string unescape_delims(const string& s) const;
 
-    Edge edge_from_mappings(const Mapping& m, const Mapping& n);
+    // toggle quality adjusted mode
+    bool qual_adjust;
+    
+    // Combine the MAPQ and base quality (if available) for a given position in the read
+    int compute_quality(const Alignment& aln, size_t position_in_read) const;
+    int combine_qualities(int map_quality, int base_quality) const;
+    
+    // Avoid recomputing qualities in above
+    mutable LRUCache<pair<int, int>, int>* quality_cache;
+    static const int maximum_quality;
+    static const int lru_cache_size;
     
 };
 
