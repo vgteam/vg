@@ -5,8 +5,6 @@
 #include "hash_map.hpp"
 #include "hash_graph.hpp"
 #include "split_strand_graph.hpp"
-#include "sdsl/vectors.hpp"
-#include "packed_structs.hpp"
 #include "algorithms/dagify.hpp"
 #include "algorithms/split_strands.hpp"
 #include "algorithms/topological_sort.hpp"
@@ -234,18 +232,18 @@ class MinimumDistanceIndex {
               the length of the first node in the chain. Similarly, an extra
               value is stored at the end of the vector that is the length of the
               entire chain*/
-            PagedVector prefix_sum;
+            int_vector<> prefix_sum;
 
             /*For each boundary node of snarls in the chain, the distance
                from the start of the node traversing forward to the end of 
                the same node traversing backwards -directions relative to the 
                direction the node is traversed in the chain*/
-            PagedVector loop_fd;
+            int_vector<> loop_fd;
     
             /*For each boundary node of snarls in the chain, the distance
                from the end of the node traversing backward to the start of 
                the same node traversing forward*/
-            PagedVector loop_rev;
+            int_vector<> loop_rev;
 
             /// id of parent snarl of the chain 
             //0 if top level chain

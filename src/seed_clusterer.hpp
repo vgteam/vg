@@ -81,7 +81,7 @@ class SnarlSeedClusterer {
                              const vector<pos_t>& seeds,
                              structures::UnionFind& union_find_clusters,
                              vector<pair<int64_t, int64_t>>& cluster_dists,
-                             map<size_t, size_t>& snarls_in_chain,
+                             vector<size_t>& snarls_in_chain,
                              hash_map<size_t, 
                                   vector<pair<child_node_t, child_cluster_t>>>&
                                                         curr_snarl_children,
