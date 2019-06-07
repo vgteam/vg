@@ -39,7 +39,7 @@ using namespace std;
     }
     
     string StrandSplitGraph::get_sequence(const handle_t& handle) const {
-        return  graph->get_sequence(get_underlying_handle(handle));
+        return graph->get_sequence(get_underlying_handle(handle));
     }
     
     bool StrandSplitGraph::follow_edges_impl(const handle_t& handle, bool go_left,
@@ -47,7 +47,7 @@ using namespace std;
         
         return graph->follow_edges(get_underlying_handle(handle), go_left,
                                    [&] (const handle_t& next) {
-            return iteratee(get_handle((graph->get_id(next) << 1) + graph->get_is_reverse(next),
+            return iteratee(get_handle((graph->get_id(next) << 1) + (graph->get_is_reverse(next) != get_is_reverse(handle)),
                                        get_is_reverse(handle)));
         });
     }

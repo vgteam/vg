@@ -1,13 +1,17 @@
-/// \file mem.cpp
+/// \file dagify.cpp
 ///  
-/// unit tests for MEMs and their clustering algorithms
+/// unit tests for the handle based dagify algorithm
 ///
 
 #include <iostream>
 #include "json2pb.h"
 #include "../vg.hpp"
+#include "../hash_graph.hpp"
+#include "../split_strand_graph.hpp"
 #include "../algorithms/dagify.hpp"
 #include "../algorithms/is_acyclic.hpp"
+#include "../algorithms/split_strands.hpp"
+#include "random_graph.hpp"
 #include "catch.hpp"
 
 namespace vg {
@@ -387,6 +391,33 @@ namespace unittest {
                 
                 REQUIRE(found);
             }
+        }
+    }
+    
+    TEST_CASE("Dagify algorithm produces expected results random test cases using both methods of making single stranded graphs", "[algorithms][dagify]") {
+        
+        size_t preserved_length = 15;
+        size_t seq_size = 50;
+        size_t variant_len = 5;
+        size_t variant_count = 8;
+        
+        size_t num_trials = 1000;
+        for (size_t i = 0; i < num_trials; ++i) {
+            HashGraph graph;
+            random_graph(seq_size, variant_len, variant_count, &graph);
+            
+            HashGraph direct_split;
+            algorithms::split_strands(&graph, &direct_split);
+            HashGraph direct_dagified;
+            algorithms::dagify(&direct_split, &direct_dagified, preserved_length);
+
+            StrandSplitGraph split(&graph);
+            
+            HashGraph dagified;
+            algorithms::dagify(&split, &dagified, preserved_length);
+            
+            REQUIRE(algorithms::is_acyclic(&direct_dagified));
+            REQUIRE(algorithms::is_acyclic(&dagified));
         }
     }
 }
