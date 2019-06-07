@@ -644,7 +644,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
-	cd $(DEP_DIR) && cd libvgio && $(MAKE) claen 
+	cd $(DEP_DIR) && cd libvgio && $(MAKE) clean 
 	rm -Rf $(RAPTOR_DIR)/build/*
 	# lru_cache is never built because it is header-only.
 	# bash-tap is never built either.
