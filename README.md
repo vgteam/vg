@@ -107,11 +107,11 @@ While Apple's `clang` can build VG, the C++ standard library it uses doesn't sup
 
 With **MacPorts**, you can install GNU GCC like this:
 
-    sudo port install gcc7 clang-3.9
+    sudo port install gcc9 clang-3.9
 
-To make GCC 7 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
+To make GCC 9 the default compiler, run (use `none` instead of `mp-gcc7` to revert back):
 
-    sudo port select gcc mp-gcc7
+    sudo port select gcc mp-gcc9
 
 Some OSX users also need to have the MacPorts Clang assembler for building VG's dependencies (use `none` instead of `mp-clang-3.9` to revert back):
 
