@@ -293,9 +293,8 @@ void Transcriptome::project_transcripts_callback(const int32_t thread_idx, const
 
             // Set transcript path name. The name contains the original transcript name/id, 
             // an unique index for each copy of the transcript, the number of identical 
-            // copies (will be 1 if identical transcripts are not collapsed) and the number
-            // of reference copies (will be 0 or 1 if identical transcripts are not collapsed).
-            cur_transcript_paths_it->path.set_name(transcript.name + "_" + to_string(transcript_path_idx) + "_" + to_string(cur_transcript_paths_it->num_total) + "_" + to_string(cur_transcript_paths_it->num_reference));
+            // copies (will be 1 if identical transcripts are not collapsed).
+            cur_transcript_paths_it->path.set_name(transcript.name + "_" + to_string(transcript_path_idx) + "_" + to_string(cur_transcript_paths_it->num_total));
             ++transcript_path_idx;
 
             ++cur_transcript_paths_it;
