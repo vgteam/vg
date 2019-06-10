@@ -9,7 +9,7 @@
 #include "catch.hpp"
 #include "snarls.hpp"
 #include "cluster.hpp"
-#include "distance.hpp"
+#include "min_distance.hpp"
 #include "genotypekit.hpp"
 #include "random_graph.hpp"
 #include <fstream>
@@ -53,7 +53,7 @@ namespace unittest {
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
-        DistanceIndex di (&graph, &snarl_manager, 20);
+        MinimumDistanceIndex di (&graph, &snarl_manager, 20);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -134,7 +134,7 @@ namespace unittest {
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
-        DistanceIndex di (&graph, &snarl_manager, 50);
+        MinimumDistanceIndex di (&graph, &snarl_manager, 50);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -196,7 +196,7 @@ namespace unittest {
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
-        DistanceIndex di (&graph, &snarl_manager, 50);
+        MinimumDistanceIndex di (&graph, &snarl_manager, 50);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -232,7 +232,7 @@ namespace unittest {
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
          
-            DistanceIndex di (&graph, &snarl_manager, 20);
+            MinimumDistanceIndex di (&graph, &snarl_manager, 20);
             TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di));    
 

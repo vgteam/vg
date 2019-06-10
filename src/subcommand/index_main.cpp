@@ -19,7 +19,6 @@
 #include "../utility.hpp"
 #include "../region.hpp"
 #include "../snarls.hpp"
-#include "../distance.hpp"
 #include "../min_distance.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwt_helper.hpp"
@@ -84,8 +83,7 @@ void help_index(char** argv) {
          << "snarl distance index options" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "    -J  --min-name FILE   use this file to store a snarl-based minimum distance index" << endl
-         << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included, don't build maximum distance index" << endl;
+         << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
 
 // Convert Path to a GBWT path.
@@ -138,14 +136,14 @@ int main_index(int argc, char** argv) {
     #define OPT_BUILD_VGI_INDEX 1000
 
     // Which indexes to build.
-    bool build_xg = false, build_gbwt = false, write_threads = false, build_gcsa = false, build_rocksdb = false, build_dist = false, build_min = false;
+    bool build_xg = false, build_gbwt = false, write_threads = false, build_gcsa = false, build_rocksdb = false, build_dist = false;
 
     // Files we should read.
     string vcf_name, mapping_name;
     vector<string> dbg_names;
 
     // Files we should write.
-    string xg_name, gbwt_name, parse_name, threads_name, gcsa_name, rocksdb_name, dist_name, snarl_name, min_name;
+    string xg_name, gbwt_name, parse_name, threads_name, gcsa_name, rocksdb_name, dist_name, snarl_name;
 
     // General
     bool show_progress = false;
@@ -252,13 +250,11 @@ int main_index(int argc, char** argv) {
             {"snarl-name", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'j'},
             {"max-dist", required_argument, 0, 'w'},
-
-            {"min-name", required_argument, 0, 'J'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "b:t:px:v:We:TM:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:J:w:h",
+        c = getopt_long (argc, argv, "b:t:px:v:We:TM:G:H:zPoB:u:n:R:r:I:E:g:i:f:k:X:Z:Vld:maANDCs:j:w:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -454,10 +450,6 @@ int main_index(int argc, char** argv) {
             include_maximum = true;
             break;
 
-        case 'J':
-            build_min = true;
-            min_name = optarg;
-            break;
         case 'h':
         case '?':
             help_index(argv);
@@ -475,7 +467,7 @@ int main_index(int argc, char** argv) {
     }
 
     if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() &&
-        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty() && min_name.empty()) {
+        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -530,7 +522,8 @@ int main_index(int argc, char** argv) {
         build_xg = false;
         // We'll continue in the build_gcsa section
     }
-    if (build_min || build_dist) {
+    if (build_dist && file_names.empty()) {
+        //If we want to build the distance index from the xg
         build_xg = false;
     }
 
@@ -1209,59 +1202,12 @@ int main_index(int argc, char** argv) {
     }
 
 
-    //Build snarl distance index
-    if (build_dist) {
-        if (file_names.empty()) {
-            cerr << "error: [vg index] one graph is required to build a distance index" << endl;
-            return 1;
-        } else if (dist_name.empty()) {
-            cerr << "error: [vg index] distance index requires an output file" << endl;
-            return 1;
-        } else if (snarl_name.empty()) {
-            cerr << "error: [vg index] distance index requires a snarl file" << endl;
-            return 1;
-            
-        } else if (include_maximum && cap < 0) {
-            cerr << "error: [vg index] distance index requires a positive cap value" << endl;
-            return 1;
-            
-        } else {
-            ifstream vg_stream(file_names.at(0));
-            if (!vg_stream) {
-                cerr << "error: [vg index] cannot open VG file" << endl;
-                exit(1);
-            }
-            VG vg(vg_stream);
-            vg_stream.close();
-          
-            ifstream snarl_stream(snarl_name);
-            if (!snarl_stream) {
-                cerr << "error: [vg index] cannot open Snarls file" << endl;
-                exit(1);
-            }
-            SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
-            snarl_stream.close();
-
-            // Create the DistanceIndex
-            if (include_maximum) {
-                DistanceIndex di (&vg, snarl_manager, cap);
-                // Save the completed DistanceIndex
-                vg::io::VPKG::save(di, dist_name);
-            } else {
-                DistanceIndex di (&vg, snarl_manager, 0);
-                // Save the completed DistanceIndex
-                vg::io::VPKG::save(di, dist_name);
-            }
-            
-        }
-
-    }
     //Build new snarl-based minimum distance index
-    if (build_min) {
+    if (build_dist) {
         if (file_names.empty() && xg_name.empty()) {
             cerr << "error: [vg index] one graph is required to build a distance index" << endl;
             return 1;
-        } else if (min_name.empty()) {
+        } else if (dist_name.empty()) {
             cerr << "error: [vg index] distance index requires an output file" << endl;
             return 1;
         } else if (snarl_name.empty()) {
@@ -1287,7 +1233,7 @@ int main_index(int argc, char** argv) {
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di (xg.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                ofstream ostream (min_name);
+                ofstream ostream (dist_name);
                 di.serialize(ostream);
 
             } else {
@@ -1304,9 +1250,9 @@ int main_index(int argc, char** argv) {
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di (&vg, snarl_manager);
                 // Save the completed DistanceIndex
-                ofstream ostream (min_name);
+                ofstream ostream (dist_name);
                 di.serialize(ostream);
-//                vg::io::VPKG::save(di, min_name);
+//                vg::io::VPKG::save(di, dist_name);
             }
           
             

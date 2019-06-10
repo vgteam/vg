@@ -6,7 +6,6 @@
 #include "vg.hpp"
 #include "catch.hpp"
 #include "snarls.hpp"
-#include "distance.hpp"
 #include "genotypekit.hpp"
 #include "random_graph.hpp"
 #include "seed_clusterer.hpp"
