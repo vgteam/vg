@@ -249,12 +249,13 @@ DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
 
 ifneq ($(shell uname -s),Darwin)
-	# Use tcmalloc
+	# Use tcmalloc only
 	
     DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
     LD_LIB_FLAGS += -ltcmalloc_minimal
 	CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
 endif
+
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
 
@@ -305,9 +306,17 @@ $(GPERF_DIR)/src/tcmalloc.cc.bak:
 	cp $(GPERF_DIR)/src/tcmalloc.cc $(GPERF_DIR)/src/tcmalloc.cc.bak
 	sed 's/printer.printf("tcmalloc: large alloc/return; printer.printf("tcmalloc: large alloc/' $(GPERF_DIR)/src/tcmalloc.cc.bak >$(GPERF_DIR)/src/tcmalloc.cc
 
-$(LIB_DIR)/libtcmalloc_minimal.a: $(GPERF_DIR)/src/tcmalloc.cc.bak
+$(LIB_DIR)/libtcmalloc_minimal.a: $(GPERF_DIR)/src/tcmalloc.cc.bak $(GPERF_DIR)/src/*.cc $(GPERF_DIR)/src/*.h
 	+. ./source_me.sh && cd $(GPERF_DIR) && ./autogen.sh && ./configure --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r bin/* $(CWD)/$(BIN_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
-
+	
+# Building and installing all of gperftools brings the profiler along
+$(LIB_DIR)/libprofiler.a: $(LIB_DIR)/libtcmalloc_minimal.a
+	+touch $(LIB_DIR)/libprofiler.a
+	
+# If you want both you actually need this combined library
+$(LIB_DIR)/libtcmalloc_and_profiler.a: $(LIB_DIR)/libtcmalloc_minimal.a $(LIB_DIR)/libprofiler.a
+	+touch $(LIB_DIR)/libtcmalloc_and_profiler.a
+	
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 ./install.sh $(CWD) $(FILTER)
