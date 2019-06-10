@@ -186,8 +186,7 @@ private:
      * kept. Returns true if the read should stay, and false if it should be
      * removed. Always accepts or rejects paired reads together.
      */
-    bool sample_read(const Alignment& read); 
-    
+    bool sample_read(const Alignment& read);
 };
 ostream& operator<<(ostream& os, const ReadFilter::Counts& counts);
 }
