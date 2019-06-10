@@ -178,7 +178,7 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
 
     if (cap > 0) {
         include_maximum = true;
-        max_index.calculateMaxIndex(graph, cap);
+        calculateMaxIndex(graph, cap);
     } else {
         include_maximum = false;
     }
@@ -189,10 +189,10 @@ MinimumDistanceIndex::MinimumDistanceIndex(const HandleGraph* graph,
         auto check_max = [&](const handle_t& h)-> bool {
             id_t id = graph->get_id(h); 
                 cerr << id << endl;
-            assert(max_index.max_distances[id-min_node_id] > 0);
-            assert(max_index.min_distances[id-min_node_id] > 0);
-            assert (max_index.max_distances[id-min_node_id] >= 
-                    max_index.min_distances[id-min_node_id]);
+            assert(max_distances[id-min_node_id] > 0);
+            assert(min_distances[id-min_node_id] > 0);
+            assert (max_distances[id-min_node_id] >= 
+                    min_distances[id-min_node_id]);
             return true;
         };
         graph->for_each_handle(check_max);
@@ -251,8 +251,10 @@ void MinimumDistanceIndex::load(istream& in){
     sdsl::read_member(include_maximum, in );
 
     if (include_maximum) {
-        max_index.load(in);
+        min_distances.load(in);
+        max_distances.load(in);
     }
+
 
 
 };
@@ -290,7 +292,8 @@ void MinimumDistanceIndex::serialize(ostream& out) const {
 
     sdsl::write_member(include_maximum, out);
     if (include_maximum) {
-        max_index.serialize(out);
+        min_distances.serialize(out);
+        max_distances.serialize(out);
     }
 
 };
@@ -1144,8 +1147,14 @@ int64_t MinimumDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
         len1 = max(get_offset(pos1)+1, len1-get_offset(pos1));
         len2 = max(get_offset(pos2)+1, len2-get_offset(pos2));
 
-        return len1 + len2 + max_index.maxDistance(id1-min_node_id,
-                                                   id2-min_node_id);
+        id1 -= min_node_id;
+        id2 -= min_node_id;
+
+        int64_t max_dist = max(
+                         (int) max_distances[id1] - (int)min_distances[id2], 
+                         (int) max_distances[id2] - (int)min_distances[id1]);
+
+        return len1 + len2 + max_dist;
 
     }
 }
@@ -2166,14 +2175,8 @@ void MinimumDistanceIndex::ChainIndex::printSelf() {
 
 ///////////////////  Maximum Distance Index 
 
-MinimumDistanceIndex::MaxDistanceIndex::MaxDistanceIndex() {
-}
+void MinimumDistanceIndex::calculateMaxIndex(const HandleGraph* graph, int64_t cap) {
 
-
-void MinimumDistanceIndex::MaxDistanceIndex::calculateMaxIndex(const HandleGraph* graph, int64_t cap) {
-
-    id_t max_node_id = graph->max_node_id();
-    id_t min_node_id = graph->min_node_id();
     min_distances.resize(max_node_id - min_node_id + 1);
     max_distances.resize(max_node_id - min_node_id + 1);
 
@@ -2290,20 +2293,8 @@ cerr << "Making graph acyclic" << endl;
 
 }
 
-int64_t MinimumDistanceIndex::MaxDistanceIndex::maxDistance(id_t id1, id_t id2) {
-    return max((int64_t)max_distances[id2] - (int64_t)min_distances[id1],
-               (int64_t)max_distances[id1] - (int64_t)min_distances[id2]); 
-}
 
-void MinimumDistanceIndex::MaxDistanceIndex::serialize(ostream& out) const {
-    min_distances.serialize(out);
-    max_distances.serialize(out);
-}
 
-void MinimumDistanceIndex::MaxDistanceIndex::load(istream& in) {
-    min_distances.load(in);
-    max_distances.load(in);
-}
 void MinimumDistanceIndex::printSnarlStats() {
     //Print out stats bout the snarl
    
