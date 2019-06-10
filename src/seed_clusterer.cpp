@@ -513,13 +513,13 @@ cerr << endl << "New cluster calculation:" << endl;
 
             //Distance from the start of chain to the start of the current snarl
             int64_t add_dist_left = start_rank == 0 ? 0 : 
-                                    chain_index.prefix_sum[start_rank] - 1;
+                                    chain_index.prefix_sum.get(start_rank) - 1;
 
 
              
             //Combine snarl clusters that can be reached by looping
-            int64_t loop_dist_end = chain_index.loop_fd[start_rank + 1] - 1 ;
-            int64_t loop_dist_start = chain_index.loop_rev[start_rank] - 1; 
+            int64_t loop_dist_end = chain_index.loop_fd.get(start_rank + 1) - 1 ;
+            int64_t loop_dist_start = chain_index.loop_rev.get(start_rank) - 1; 
 
  
 #ifdef DEBUG
@@ -817,7 +817,7 @@ cerr << "  Combining this cluster from the right" << endl;
             best_right = -1;
            //Extend the right bound of each cluster to the end of the chain
            int64_t last_dist = last_rank == 0 ? 0 :
-                                    chain_index.prefix_sum[last_rank] - 1;
+                                    chain_index.prefix_sum.get(last_rank) - 1;
            int64_t dist_to_end = chain_index.chainLength()
                        - last_dist - last_len;
            for (size_t i : chain_cluster_ids) {
@@ -832,7 +832,7 @@ cerr << "  Combining this cluster from the right" << endl;
             //If the chain loops, then the clusters might be connected by 
             //looping around the chain
             //
-            int64_t first_length = chain_index.prefix_sum[0]-1;
+            int64_t first_length = chain_index.prefix_sum.get(0)-1;
             vector<size_t> to_erase; //old cluster group ids
             //New cluster- there will be at most one new cluster to add
             size_t combined_cluster = -1;
