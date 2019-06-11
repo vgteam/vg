@@ -30,7 +30,6 @@ void help_rna(char** argv) {
          << "    -d, --remove-non-gene      remove intergenic and intronic regions (removes reference paths if -a)" << endl
          << "    -a, --add-paths            add transcripts as embedded paths in the graph" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
-         << "    -g, --write-gam FILE       write transcripts as alignments to GAM file" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
          << "    -t, --threads INT          number of compute threads to use [1]" << endl
          << "    -p, --progress             show progress" << endl
@@ -54,7 +53,6 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool remove_non_transcribed = false;
     bool add_transcript_paths = false;
     string gbwt_out_filename = "";
-    string gam_out_filename = "";
     string fasta_out_filename = "";
     int32_t num_threads = 1;
     bool show_progress = false;
@@ -74,7 +72,6 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"remove-non-gene",  no_argument, 0, 'd'},
                 {"add-paths",  no_argument, 0, 'a'},
                 {"write-gbwt",  no_argument, 0, 'b'},
-                {"write-gam",  no_argument, 0, 'g'},
                 {"write-fasta",  no_argument, 0, 'f'},
                 {"threads",  no_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
@@ -126,10 +123,6 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'b':
             gbwt_out_filename = optarg;
-            break;
-
-        case 'g':
-            gam_out_filename = optarg;
             break;
 
         case 'f':
@@ -249,17 +242,6 @@ int32_t main_rna(int32_t argc, char** argv) {
         // gbwt_builder.index.metadata.setContigs();
 
         vg::io::VPKG::save(gbwt_builder.index, gbwt_out_filename);
-    }    
-
-    // Write transcript paths in transcriptome to gam file.
-    if (!gam_out_filename.empty()) {
-
-        if (show_progress) { cerr << "[vg rna] Writing " << transcriptome.size() << " transcripts as alignments to GAM file ..." << endl; }
-
-        ofstream gam_ostream;
-        gam_ostream.open(gam_out_filename);
-        transcriptome.write_gam_alignments(&gam_ostream);
-        gam_ostream.close();
     }
 
     // Write transcript path sequences in transcriptome to fasta file.
