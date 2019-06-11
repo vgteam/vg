@@ -423,6 +423,13 @@ public:
     Option<string> recall_ins_fasta_filename{this, "insertion-fasta", "Z", "",
             "Insertion FASTA required for --recall-vcf in the presence of symbolic insertions"};
 
+    /// Path of pack file generated from vg pack
+    Option<string> pack_file_name{this, "pack-file", "P", {}, 
+            "path of pack file from vg pack"};
+
+    Option<string> xg_file_name{this, "xg-file", "x", {},
+            "path of xg file (required to read pack file with -P)"};
+
     /// structures to hold the recall vcf and fastas
     vcflib::VariantCallFile variant_file;
     unique_ptr<FastaReference> ref_fasta;

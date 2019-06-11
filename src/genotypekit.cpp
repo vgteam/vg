@@ -331,6 +331,38 @@ void SupportAugmentedGraph::load_supports(istream& in_file) {
     vg::io::for_each(in_file, lambda);    
 }
 
+void SupportAugmentedGraph::load_pack_as_supports(const string& pack_file_name, xg::XG* xg) {
+    Packer packer(xg);
+    packer.load_from_file(pack_file_name);
+    xg->for_each_handle([&](const handle_t& handle) {
+            Position pos;
+            pos.set_node_id(xg->get_id(handle));
+            size_t sequence_offset = packer.position_in_basis(pos);
+            size_t total_coverage = 0;
+            size_t node_length = xg->get_length(handle);
+            for (size_t i = 0; i < node_length; ++i) {
+                total_coverage += packer.coverage_at_position(sequence_offset + i);
+            }
+            double avg_coverage = node_length > 0 ? (double)total_coverage / node_length : 0.;
+            Support support;
+            // we just get one value and put it in "forward".  can't fill out the rest of the Support object. 
+            support.set_forward(avg_coverage);
+            node_supports[graph.get_node(xg->get_id(handle))] = support;
+        });
+    xg->for_each_edge([&](const edge_t& handle_edge) {
+            Edge edge;
+            edge.set_from(xg->get_id(handle_edge.first));
+            edge.set_from_start(xg->get_is_reverse(handle_edge.first));
+            edge.set_to(xg->get_id(handle_edge.second));
+            edge.set_to_end(xg->get_is_reverse(handle_edge.second));
+            Support support;
+            support.set_forward(packer.edge_coverage(edge));
+            edge_supports[graph.get_edge(NodeSide(edge.from(), !edge.from_start()),
+                                         NodeSide(edge.to(), edge.to_end()))] = support;
+            return true;
+        });
+}
+
 void SupportAugmentedGraph::write_supports(ostream& out_file) {
     vector<LocationSupport> buffer;
     for (auto& node_support : node_supports) {

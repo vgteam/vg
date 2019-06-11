@@ -23,6 +23,11 @@ Packer::~Packer(void) {
 
 void Packer::load_from_file(const string& file_name) {
     ifstream in(file_name);
+    if (!in) {
+        stringstream ss;
+        ss << "Error [Packer]: unable to read pack file: \"" << file_name << "\"" << endl;
+        throw runtime_error(ss.str());
+    }
     load(in);
 }
 
