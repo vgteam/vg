@@ -244,6 +244,11 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aaf461014ec4fe763c6f65dda3523d7bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:add419898b3f716efbe495ca75fa14fd4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#add419898b3f716efbe495ca75fa14fd4">recall_ins_fasta_filename</a></td></tr>
 <tr class="separator:add419898b3f716efbe495ca75fa14fd4"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8568b0cb2e9d2a2b6926d189a7fcead9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a8568b0cb2e9d2a2b6926d189a7fcead9">pack_file_name</a></td></tr>
+<tr class="memdesc:a8568b0cb2e9d2a2b6926d189a7fcead9"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structvg_1_1Path.html">Path</a> of pack file generated from vg pack.  <a href="#a8568b0cb2e9d2a2b6926d189a7fcead9">More...</a><br/></td></tr>
+<tr class="separator:a8568b0cb2e9d2a2b6926d189a7fcead9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7c006411b59c4b2b85c81ae593e018e4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classvg_1_1Option.html">Option</a>&lt; string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a7c006411b59c4b2b85c81ae593e018e4">xg_file_name</a></td></tr>
+<tr class="separator:a7c006411b59c4b2b85c81ae593e018e4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a74478df30c0c02519b875bef8b946d71"><td class="memItemLeft" align="right" valign="top">vcflib::VariantCallFile&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SupportCaller.html#a74478df30c0c02519b875bef8b946d71">variant_file</a></td></tr>
 <tr class="memdesc:a74478df30c0c02519b875bef8b946d71"><td class="mdescLeft">&#160;</td><td class="mdescRight">structures to hold the recall vcf and fastas  <a href="#a74478df30c0c02519b875bef8b946d71">More...</a><br/></td></tr>
 <tr class="separator:a74478df30c0c02519b875bef8b946d71"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -1305,6 +1310,22 @@ Public Attributes</h2></td></tr>
 
 </div>
 </div>
+<a class="anchor" id="a8568b0cb2e9d2a2b6926d189a7fcead9"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Option.html">Option</a>&lt;string&gt; vg::SupportCaller::pack_file_name</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">{<span class="keyword">this</span>, <span class="stringliteral">&quot;pack-file&quot;</span>, <span class="stringliteral">&quot;P&quot;</span>, {}, </div>
+<div class="line">            <span class="stringliteral">&quot;path of pack file from vg pack&quot;</span>}</div>
+</div><!-- fragment -->
+<p><a class="el" href="structvg_1_1Path.html">Path</a> of pack file generated from vg pack. </p>
+
+</div>
+</div>
 <a class="anchor" id="a8dab4df2537ef96e9803d630f5920aec"></a>
 <div class="memitem">
 <div class="memproto">
@@ -1532,6 +1553,20 @@ Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 <b>Initial value:</b><div class="fragment"><div class="line">{<span class="keyword">this</span>, <span class="stringliteral">&quot;trival&quot;</span>, <span class="stringliteral">&quot;ivtTIRV&quot;</span>, <span class="keyword">false</span>,</div>
 <div class="line">        <span class="stringliteral">&quot;write trivial vcf calls (ex 0/0 genotypes)&quot;</span>}</div>
+</div><!-- fragment -->
+</div>
+</div>
+<a class="anchor" id="a7c006411b59c4b2b85c81ae593e018e4"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classvg_1_1Option.html">Option</a>&lt;string&gt; vg::SupportCaller::xg_file_name</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">{<span class="keyword">this</span>, <span class="stringliteral">&quot;xg-file&quot;</span>, <span class="stringliteral">&quot;x&quot;</span>, {},</div>
+<div class="line">            <span class="stringliteral">&quot;path of xg file (required to read pack file with -P)&quot;</span>}</div>
 </div><!-- fragment -->
 </div>
 </div>

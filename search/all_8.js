@@ -123,7 +123,7 @@ var searchData=
   ['head_5fnodes',['head_nodes',['../classvg_1_1VG.html#a7eecc0bd555c31d1c541c3ce44b421c3',1,'vg::VG::head_nodes(vector&lt; Node * &gt; &amp;nodes)'],['../classvg_1_1VG.html#a3a44c415fb5882c184e2f35bb3999700',1,'vg::VG::head_nodes(void)']]],
   ['head_5ftail_5fnodes',['head_tail_nodes',['../classvg_1_1Paths.html#a3fd42adbd3d58aee08370f043dc1643d',1,'vg::Paths']]],
   ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html',1,'vg::MinimizerIndex']]],
-  ['header',['Header',['../structvg_1_1MinimizerIndex_1_1Header.html#a5354bbaddd806761b65984f14423590e',1,'vg::MinimizerIndex::Header::Header()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a71128daac5c19c7ea664f999a3990299',1,'vg::MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length)'],['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex::header()']]],
+  ['header',['header',['../classvg_1_1MinimizerIndex.html#a2c3850d887e644838dae6ac13174d9b0',1,'vg::MinimizerIndex::header()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a5354bbaddd806761b65984f14423590e',1,'vg::MinimizerIndex::Header::Header()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a71128daac5c19c7ea664f999a3990299',1,'vg::MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length)']]],
   ['header_5fmutex',['header_mutex',['../classvg_1_1HTSAlignmentEmitter.html#a415bd90d7e4b2da45e534ec1810616fe',1,'vg::HTSAlignmentEmitter']]],
   ['headered',['headered',['../classvg_1_1Deconstructor.html#a77ee43b45464b8b41376a11f6d97e636',1,'vg::Deconstructor']]],
   ['help_5fadd',['help_add',['../add__main_8cpp.html#ad49fa30ce6a9b619ad5df1cfa8621d9a',1,'add_main.cpp']]],
