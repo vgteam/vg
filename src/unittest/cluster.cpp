@@ -167,7 +167,6 @@ namespace unittest {
             REQUIRE(tvs.tv_path(pos11, pos6r, 9, 0).size() == 0);
             REQUIRE(tvs.tv_path(pos1, pos12, 3, 3).size() == 0);
             REQUIRE(tvs.tv_path(pos1, pos9, 9, 5).size() == 7);
-            REQUIRE(tvs.tv_path(pos1, pos9, 60, 5).size() == 0);
            
         }
     }//End test case
