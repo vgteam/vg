@@ -2593,6 +2593,8 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
     //Best that is too long - use when min heuristic finds actual minimum 
     //difference between target and best dist, node, and target from that node
+    //difference between actual best path and target, the node itself, and the 
+    // target from that node
     pair<int64_t, pair<pair<id_t, bool>, int64_t>> best_long 
                                (-1, make_pair(make_pair(0, false), -1));
 
@@ -2682,7 +2684,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
     //////////// Phase 1 of tsv search: get target for each reachable node
     while (next_nodes.size() != 0) {
-        //A*-like traversal
+        //Traverse graph in DFS order, find the target at each node
 
         pair<pair<id_t, bool>, int64_t> next = next_nodes.back();
         next_nodes.pop_back();
@@ -2716,7 +2718,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
             }
         }
 
-        //If this is any other node
+        //If this is any other node or the target was not hit
  
         handle_t curr_handle = handle_graph.get_handle(curr_node.first, curr_node.second);           
         int64_t new_target = curr_target - handle_graph.get_length(curr_handle);
@@ -2733,7 +2735,7 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
 
             int64_t min_dist = min_distance(new_pos, pos_2); 
             int64_t max_dist = max_distance(new_pos, pos_2); 
-            int64_t lower_target = new_target - tolerance;
+            int64_t lower_target = std::max((int64_t)0, (new_target - tolerance));
             int64_t upper_target = new_target + tolerance;  
  
             if (exact_min && min_dist != -1 && min_dist == new_target) {
@@ -2758,7 +2760,8 @@ vector<handle_t> TargetValueSearch::tv_path(const pos_t& pos_1, const pos_t& pos
                 } 
 
             } else if (min_dist != -1 && 
-                       (min_dist <= upper_target || max_dist >= lower_target)){
+                       ((lower_target <= min_dist && min_dist <= upper_target) ||
+                        (lower_target <= max_dist && max_dist <= upper_target))){
 
                 //If no path will hit the target but there are paths 
                 //within tolerance, then save for later
@@ -2887,6 +2890,7 @@ vector<handle_t> TargetValueSearch::tv_phase2(const pos_t& pos_1, const pos_t& p
                   vector<pair<pair<pair<id_t, bool>, int64_t>, int64_t>>,
                   decltype(cmp)> reachable(cmp);
 
+    //Put all nodes into 
     for (auto it : node_to_target_shorter) {
        pair<id_t, bool> node = it.first;
        int64_t target = it.second;

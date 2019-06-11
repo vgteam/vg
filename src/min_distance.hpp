@@ -238,8 +238,7 @@ class MinimumDistanceIndex {
             /// the same node traversing forward
             PagedVector loop_rev;
 
-            /// id of parent snarl of the chain 
-            ///0 if top level chain
+            /// id of parent snarl of the chain, 0 if top level chain
             id_t parent_id;
 
             bool rev_in_parent;
