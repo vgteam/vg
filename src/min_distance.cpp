@@ -1144,8 +1144,8 @@ int64_t MinimumDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
         int64_t len2 = snarl_indexes[getPrimaryAssignment(id2)].nodeLength(
                                                          getPrimaryRank(id2));
 
-        len1 = std::max(get_offset(pos1)+1, len1-get_offset(pos1));
-        len2 = std::max(get_offset(pos2)+1, len2-get_offset(pos2));
+        len1 = std::max((int64_t)(get_offset(pos1)+1), (int64_t)(len1-get_offset(pos1)));
+        len2 = std::max((int64_t)(get_offset(pos2)+1), (int64_t)(len2-get_offset(pos2)));
 
         id1 -= min_node_id;
         id2 -= min_node_id;
