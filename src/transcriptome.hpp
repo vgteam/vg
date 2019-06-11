@@ -21,7 +21,7 @@ typedef vector<gbwt::node_type> exon_nodes_t;
 
 
 /**
- * Data structure that defines a transcript.
+ * Data structure that defines a transcript annotation.
  */
 struct Transcript {
 
@@ -92,7 +92,7 @@ class Transcriptome {
         void add_transcripts(istream & transcript_stream, const gbwt::GBWT & haplotype_index);
         
         /// Returns transcript paths.
-        const vector<Path> & transcript_paths() const;
+        const vector<TranscriptPath> & transcript_paths() const;
 
         /// Returns number of transcript paths.
         int32_t size() const;
@@ -120,16 +120,15 @@ class Transcriptome {
         /// Writes transcript path sequences to a fasta file.  
         void write_fasta_sequences(ostream * fasta_ostream);
 
+        void write_id_info(ostream * tsv_ostream);
+
         /// Writes spliced variation graph to vg file
         void write_splice_graph(ostream * graph_ostream);
 
     private:
 
         /// Transcriptome represented by a set of transcript paths. 
-        /// TODO: Change to vector<TranscriptPath>. Current implementation
-        ///       decided in order for it to work easily with edit without 
-        ///       excessive copying and moving of paths. 
-        vector<Path> _transcriptome;
+        vector<TranscriptPath> _transcriptome;
 
         /// Mutex used for adding transcript paths to transcriptome
         mutex trancriptome_mutex;

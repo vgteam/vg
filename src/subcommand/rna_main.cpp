@@ -31,6 +31,7 @@ void help_rna(char** argv) {
          << "    -a, --add-paths            add transcripts as embedded paths in the graph" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
+         << "    -i, --write-info FILE      write transcripts information to tsv file" << endl
          << "    -t, --threads INT          number of compute threads to use [1]" << endl
          << "    -p, --progress             show progress" << endl
          << "    -h, --help                 print help message" << endl
@@ -54,6 +55,7 @@ int32_t main_rna(int32_t argc, char** argv) {
     bool add_transcript_paths = false;
     string gbwt_out_filename = "";
     string fasta_out_filename = "";
+    string info_out_filename = "";
     int32_t num_threads = 1;
     bool show_progress = false;
 
@@ -73,6 +75,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"add-paths",  no_argument, 0, 'a'},
                 {"write-gbwt",  no_argument, 0, 'b'},
                 {"write-fasta",  no_argument, 0, 'f'},
+                {"write-info",  no_argument, 0, 'i'},
                 {"threads",  no_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
                 {"help", no_argument, 0, 'h'},
@@ -80,7 +83,7 @@ int32_t main_rna(int32_t argc, char** argv) {
             };
 
         int32_t option_index = 0;
-        c = getopt_long(argc, argv, "n:s:l:ercdab:g:f:t:ph?", long_options, &option_index);
+        c = getopt_long(argc, argv, "n:s:l:ercdab:f:i:t:ph?", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -127,6 +130,10 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         case 'f':
             fasta_out_filename = optarg;
+            break;
+
+        case 'i':
+            info_out_filename = optarg;
             break;
 
         case 't':
@@ -254,6 +261,19 @@ int32_t main_rna(int32_t argc, char** argv) {
         transcriptome.write_fasta_sequences(&fasta_ostream);
         fasta_ostream.close();
     }    
+
+    // Write information on transcripts in transcriptome to tsv file.
+    if (!info_out_filename.empty()) {
+
+        if (show_progress) { cerr << "[vg rna] Writing information on " << transcriptome.size() << " transcripts to tsv file ..." << endl; }
+
+        ofstream info_ostream;
+        info_ostream.open(info_out_filename);
+        transcriptome.write_id_info(&info_ostream);
+        info_ostream.close();
+    }    
+
+
 
     if (show_progress) { cerr << "[vg rna] Writing graph to stdout ..." << endl; }
 
