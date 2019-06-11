@@ -52,6 +52,7 @@ void help_gaffe(char** argv) {
     << "  -M, --max-multimaps INT       produce up to INT alignments for each read [1]"
     << "  -N, --sample NAME             add this sample name" << endl
     << "  -R, --read-group NAME         add this read group" << endl
+    << "  -n, --discard                 discard all output alignments (for profiling)" << endl
     << "computational parameters:" << endl
     << "  -c, --hit-cap INT             use all minimizers with at most INT hits [10]" << endl
     << "  -C, --hard-hit-cap INT        ignore all minimizers with more than INT hits [300]" << endl
@@ -100,6 +101,8 @@ int main_gaffe(int argc, char** argv) {
     string sample_name;
     // What read group if any should we apply?
     string read_group;
+    // Should we throw out our alignments instead of outputting them?
+    bool discard_alignments = false;
     
     int c;
     optind = 2; // force optind past command positional argument
@@ -118,6 +121,7 @@ int main_gaffe(int argc, char** argv) {
             {"max-multimaps", required_argument, 0, 'M'},
             {"sample", required_argument, 0, 'N'},
             {"read-group", required_argument, 0, 'R'},
+            {"discard", no_argument, 0, 'n'},
             {"hit-cap", required_argument, 0, 'c'},
             {"hard-hit-cap", required_argument, 0, 'C'},
             {"max-extensions", required_argument, 0, 'e'},
@@ -130,7 +134,7 @@ int main_gaffe(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:c:C:F:e:a:OXt:",
+        c = getopt_long (argc, argv, "hx:H:m:s:d:pG:f:M:N:R:nc:C:F:e:a:OXt:",
                          long_options, &option_index);
 
 
@@ -202,6 +206,10 @@ int main_gaffe(int argc, char** argv) {
                 
             case 'R':
                 read_group = optarg;
+                break;
+                
+            case 'n':
+                discard_alignments = true;
                 break;
 
             case 'c':
@@ -401,8 +409,11 @@ int main_gaffe(int argc, char** argv) {
     std::chrono::time_point<std::chrono::system_clock> start;
     
     {
-        // Set up output to an emitter that will handle serialization
-        unique_ptr<AlignmentEmitter> alignment_emitter = get_alignment_emitter("-", "GAM", {}, thread_count);
+        // Set up output to an emitter that will handle serialization.
+        // Discard alignments if asked to. Otherwise spit them out in GAM format.
+        unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
+            make_unique<NullAlignmentEmitter>() :
+            get_alignment_emitter("-", "GAM", {}, thread_count);
 
 #ifdef USE_CALLGRIND
         // We want to profile the alignment, not the loading.
