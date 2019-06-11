@@ -250,9 +250,14 @@ DEPS += $(INC_DIR)/dozeu/dozeu.h
 
 ifneq ($(shell uname -s),Darwin)
 	# Use tcmalloc only
+    #DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
+    #LD_LIB_FLAGS += -ltcmalloc_minimal
 	
-    DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
-    LD_LIB_FLAGS += -ltcmalloc_minimal
+	# Use tcmalloc with libprofiler
+	DEPS += $(LIB_DIR)/libtcmalloc_and_profiler.a
+	LD_LIB_FLAGS += -ltcmalloc_and_profiler
+	
+	# Configure tcmalloc for good performance with many threads
 	CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
 endif
 
