@@ -1533,7 +1533,7 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
     return excludes;
 }
     
-SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index) : distance_index(distance_index) {
+SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(MinimumDistanceIndex* distance_index) : distance_index(distance_index) {
     
     // nothing to do
 }
@@ -2544,7 +2544,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     return to_return;
 }
 
-SnarlMinDistance::SnarlMinDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
+SnarlMinDistance::SnarlMinDistance(MinimumDistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
@@ -2552,7 +2552,7 @@ int64_t SnarlMinDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
     return distance_index.minDistance(pos_1, pos_2);
 }
 
-TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
+TipAnchoredMaxDistance::TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
@@ -3043,7 +3043,7 @@ int64_t TargetValueSearch::tv_path_length(const pos_t& pos_1, const pos_t& pos_2
     }
 }
     
-TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index) :
+TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex* distance_index) :
       tvs(*handle_graph, new TipAnchoredMaxDistance(*distance_index), new SnarlMinDistance(*distance_index))   {
     
     // nothing else to do
@@ -3200,7 +3200,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Al
     return to_return;
 }
 
-MinDistanceClusterer::MinDistanceClusterer(DistanceIndex* distance_index) : distance_index(distance_index) {
+MinDistanceClusterer::MinDistanceClusterer(MinimumDistanceIndex* distance_index) : distance_index(distance_index) {
     // nothing to do
 }
     
