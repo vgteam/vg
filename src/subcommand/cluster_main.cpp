@@ -189,14 +189,10 @@ int main_cluster(int argc, char** argv) {
         minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
     }
     unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
-    unique_ptr<DistanceIndex> distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_name);
-    
-    // Connect the DistanceIndex to the other things it needs to work.
-    distance_index->setGraph(xg_index.get());
-    distance_index->setSnarlManager(snarl_manager.get());
+    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Make the clusterer
-    SnarlSeedClusterer clusterer(*snarl_manager, *distance_index);
+    SnarlSeedClusterer clusterer(*distance_index);
     
     // Make a Mapper to look up MEM seeds
     unique_ptr<Mapper> mapper;

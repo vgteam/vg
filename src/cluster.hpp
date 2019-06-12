@@ -10,7 +10,7 @@
 #include "mem.hpp"
 #include "xg.hpp"
 #include "handle.hpp"
-#include "distance.hpp"
+#include "min_distance.hpp"
 
 #include <functional>
 #include <string>
@@ -412,7 +412,7 @@ class SnarlOrientedDistanceMeasurer : public OrientedDistanceMeasurer {
 
 public:
     // Construct a distance service to measures distance as the minimum distance in the graph
-    SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index);
+    SnarlOrientedDistanceMeasurer(MinimumDistanceIndex* distance_index);
     
     /// Default desctructor
     ~SnarlOrientedDistanceMeasurer() = default;
@@ -433,7 +433,7 @@ public:
     
 private:
     
-    DistanceIndex* distance_index = nullptr;
+    MinimumDistanceIndex* distance_index = nullptr;
 };
     
 class OrientedDistanceClusterer : public MEMClusterer {
@@ -566,12 +566,12 @@ public:
 class SnarlMinDistance : public DistanceHeuristic {
 public:
     SnarlMinDistance() = default;
-    SnarlMinDistance(DistanceIndex& distance_index);
+    SnarlMinDistance(MinimumDistanceIndex& distance_index);
     ~SnarlMinDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex& distance_index;
+    MinimumDistanceIndex& distance_index;
 };
 
 /*
@@ -582,12 +582,12 @@ private:
 class TipAnchoredMaxDistance : public DistanceHeuristic {
 public:
     TipAnchoredMaxDistance() = default;
-    TipAnchoredMaxDistance(DistanceIndex& distance_index);
+    TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index);
     ~TipAnchoredMaxDistance() = default;
     
     int64_t operator()(const pos_t& pos_1, const pos_t& pos_2);
 private:
-    DistanceIndex& distance_index;
+    MinimumDistanceIndex& distance_index;
 };
 
 /*
@@ -627,7 +627,7 @@ private:
  */
 class TVSClusterer : public MEMClusterer {
 public:
-    TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index);
+    TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex* distance_index);
     ~TVSClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -651,7 +651,7 @@ private:
     
 class MinDistanceClusterer : public MEMClusterer {
 public:
-    MinDistanceClusterer(DistanceIndex* distance_index);
+    MinDistanceClusterer(MinimumDistanceIndex* distance_index);
     ~MinDistanceClusterer() = default;
     
     /// Concrete implementation of virtual method from MEMClusterer
@@ -671,7 +671,7 @@ private:
                             size_t min_mem_length);
     
     const HandleGraph* handle_graph;
-    DistanceIndex* distance_index;
+    MinimumDistanceIndex* distance_index;
 };
     
 
