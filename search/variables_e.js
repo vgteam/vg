@@ -45,8 +45,6 @@ var searchData=
   ['node_5fto_5fvariant',['node_to_variant',['../classvg_1_1VCFTraversalFinder.html#a133068b1a172eb5f5490ff7c47fd567f',1,'vg::VCFTraversalFinder']]],
   ['node_5ftraversal',['node_traversal',['../structvg_1_1PhasedGenome_1_1HaplotypeNode.html#a6347ba68d0d1a79fa623928b2d2eadcc',1,'vg::PhasedGenome::HaplotypeNode']]],
   ['nodes',['nodes',['../classvg_1_1MEMClusterer_1_1HitGraph.html#aa1c634ccdab6c61d7fc0b9971014b276',1,'vg::MEMClusterer::HitGraph::nodes()'],['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html#a348fbee890bd78dc50c7c84368c5b2f6',1,'vg::MEMClusterer::DPScoreComparator::nodes()'],['../structvg_1_1FlowSort_1_1Growth.html#ace41b35679169dfbe0a6dda4c4837681',1,'vg::FlowSort::Growth::nodes()'],['../structhaplo_1_1gbwt__thread__t.html#a88bae446203703780f81cbcee5ff75cd',1,'haplo::gbwt_thread_t::nodes()'],['../classvg_1_1MaximalExactMatch.html#a1c34a3529b17b7ca55a3d29c0777f5e8',1,'vg::MaximalExactMatch::nodes()']]],
-  ['nodetocomponent',['nodeToComponent',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#aba2cf2a89db14bcc177d05f24ac0b3fe',1,'vg::DistanceIndex::MaxDistanceIndex']]],
-  ['nodetosnarl',['nodeToSnarl',['../classvg_1_1DistanceIndex.html#ae22e146602760666fea5fe2f4dd43dce',1,'vg::DistanceIndex']]],
   ['nonce',['nonce',['../classvg_1_1Sampler.html#a36388c416226dd9c343b2da154aada5c',1,'vg::Sampler']]],
   ['normal_5faligners',['normal_aligners',['../classvg_1_1Genotyper.html#a91d6174a20ca4f121f68766fbf7fb4b0',1,'vg::Genotyper']]],
   ['normal_5fsupports',['normal_supports',['../structvg_1_1BREAKPOINT.html#a08a0810aad3ba05efd04908b4911d57d',1,'vg::BREAKPOINT']]],
@@ -60,11 +58,11 @@ var searchData=
   ['num_5fforward_5freads',['num_forward_reads',['../structvg_1_1EdgePileup.html#a5a61f1d9489561ede0ca1afcbcd7c1d9',1,'vg::EdgePileup']]],
   ['num_5fitems',['num_items',['../classvg_1_1ShuffledPairs.html#af7af129e1f60b59e78ed6d92d693d599',1,'vg::ShuffledPairs']]],
   ['num_5fmapping_5fattempts',['num_mapping_attempts',['../classvg_1_1MultipathMapper.html#acd259da737785206d02cc2807ab831fa',1,'vg::MultipathMapper']]],
+  ['num_5fnodes',['num_nodes',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a67b47372b239072516057f08e39c6f38',1,'vg::MinimumDistanceIndex::SnarlIndex']]],
   ['num_5fnull_5fnodes',['num_null_nodes',['../classvg_1_1NullMaskingGraph.html#a789adb0e97e25f480f18c7158aec51ac',1,'vg::NullMaskingGraph']]],
   ['num_5fpairs',['num_pairs',['../classvg_1_1ShuffledPairs.html#abf8913c70ff6595d8b288bdab3c88981',1,'vg::ShuffledPairs']]],
   ['num_5freads',['num_reads',['../structvg_1_1EdgePileup.html#aa95aa0337a5bc6229762abaa56dcdbff',1,'vg::EdgePileup']]],
   ['num_5freference',['num_reference',['../structvg_1_1TranscriptPath.html#a21a850a75e2b21ae7f2b8fd074a2ea9b',1,'vg::TranscriptPath']]],
   ['num_5fthreads',['num_threads',['../classvg_1_1Transcriptome.html#ac2261cd2e4236c02dbfded216253c923',1,'vg::Transcriptome']]],
-  ['num_5ftotal',['num_total',['../structvg_1_1TranscriptPath.html#a4e910fed8601526be1358aa03720871a',1,'vg::TranscriptPath']]],
-  ['numcycles',['numCycles',['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a4a0ca5f262321b665d0c09e1198395db',1,'vg::DistanceIndex::MaxDistanceIndex']]]
+  ['num_5ftotal',['num_total',['../structvg_1_1TranscriptPath.html#a4e910fed8601526be1358aa03720871a',1,'vg::TranscriptPath']]]
 ];

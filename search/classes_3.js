@@ -7,6 +7,5 @@ var searchData=
   ['depthmap',['DepthMap',['../classvg_1_1DepthMap.html',1,'vg']]],
   ['discrete_5fdistribution',['discrete_distribution',['../classvg_1_1discrete__distribution.html',1,'vg']]],
   ['distanceheuristic',['DistanceHeuristic',['../classvg_1_1DistanceHeuristic.html',1,'vg']]],
-  ['distanceindex',['DistanceIndex',['../classvg_1_1DistanceIndex.html',1,'vg']]],
   ['dpscorecomparator',['DPScoreComparator',['../structvg_1_1MEMClusterer_1_1DPScoreComparator.html',1,'vg::MEMClusterer']]]
 ];

@@ -145,8 +145,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:aa8361f9265ff34cb5cf6c09ba366dd30"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aa8361f9265ff34cb5cf6c09ba366dd30">parent_of</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl) const </td></tr>
 <tr class="memdesc:aa8361f9265ff34cb5cf6c09ba366dd30"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns a pointer to the parent of a <a class="el" href="structvg_1_1Snarl.html" title="Describes a subgraph that is connected to the rest of the graph by two nodes. ">Snarl</a> or nullptr if there is none.  <a href="#aa8361f9265ff34cb5cf6c09ba366dd30">More...</a><br/></td></tr>
 <tr class="separator:aa8361f9265ff34cb5cf6c09ba366dd30"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5de178b8d497f60b85a605e58ec94943"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a5de178b8d497f60b85a605e58ec94943">get_depth</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *) const </td></tr>
-<tr class="separator:a5de178b8d497f60b85a605e58ec94943"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a78f488b3c39067118b28666d834dd6b1"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a78f488b3c39067118b28666d834dd6b1">into_which_snarl</a> (int64_t <a class="el" href="namespacevg.html#a9f6602b7e7a46c19819c8f362147b315">id</a>, bool <a class="el" href="namespacevg.html#a91adfc6327b5709dc73fcc7edbe5da57">reverse</a>) const </td></tr>
 <tr class="separator:a78f488b3c39067118b28666d834dd6b1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a976c4bdaded285896fe607118ace6ac3"><td class="memItemLeft" align="right" valign="top">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a976c4bdaded285896fe607118ace6ac3">into_which_snarl</a> (const <a class="el" href="structvg_1_1Visit.html">Visit</a> &amp;visit) const </td></tr>
@@ -235,10 +233,6 @@ Private Member Functions</h2></td></tr>
 <tr class="memitem:a962ce88320136f82a1f5f58a036698c2"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a962ce88320136f82a1f5f58a036698c2">build_indexes</a> ()</td></tr>
 <tr class="memdesc:a962ce88320136f82a1f5f58a036698c2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds tree indexes after Snarls have been added to the snarls vector.  <a href="#a962ce88320136f82a1f5f58a036698c2">More...</a><br/></td></tr>
 <tr class="separator:a962ce88320136f82a1f5f58a036698c2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a21875edf1a991436156fa6dc5196cd22"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a21875edf1a991436156fa6dc5196cd22">get_depths</a> ()</td></tr>
-<tr class="separator:a21875edf1a991436156fa6dc5196cd22"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aafce72a1ca8a2f7bcab217ebbf4f2073"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#aafce72a1ca8a2f7bcab217ebbf4f2073">get_depths_recursive</a> (const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *snarl, size_t depth)</td></tr>
-<tr class="separator:aafce72a1ca8a2f7bcab217ebbf4f2073"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a50fd20deea9859d27991e276b224d7d5"><td class="memItemLeft" align="right" valign="top">deque&lt; <a class="el" href="namespacevg.html#aa9d8b2ece3ab50a38656273662553f2d">Chain</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#a50fd20deea9859d27991e276b224d7d5">compute_chains</a> (const vector&lt; const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> * &gt; &amp;input_snarls)</td></tr>
 <tr class="separator:a50fd20deea9859d27991e276b224d7d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ae5015eacc04d12d02ef5196fb23f3075"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1SnarlManager.html#ae5015eacc04d12d02ef5196fb23f3075">regularize</a> ()</td></tr>
@@ -807,79 +801,6 @@ template&lt;typename SnarlIterator &gt; </div>
 </div><div class="memdoc">
 
 <p>Execute a function on all top level sites in parallel. </p>
-
-</div>
-</div>
-<a class="anchor" id="a5de178b8d497f60b85a605e58ec94943"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t vg::SnarlManager::get_depth </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
-          <td class="paramname"><em>snarl</em></td><td>)</td>
-          <td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="a21875edf1a991436156fa6dc5196cd22"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::SnarlManager::get_depths </td>
-          <td>(</td>
-          <td class="paramname"></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
-
-</div>
-</div>
-<a class="anchor" id="aafce72a1ca8a2f7bcab217ebbf4f2073"></a>
-<div class="memitem">
-<div class="memproto">
-<table class="mlabels">
-  <tr>
-  <td class="mlabels-left">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::SnarlManager::get_depths_recursive </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="structvg_1_1Snarl.html">Snarl</a> *&#160;</td>
-          <td class="paramname"><em>snarl</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>depth</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-  </td>
-  <td class="mlabels-right">
-<span class="mlabels"><span class="mlabel">private</span></span>  </td>
-  </tr>
-</table>
-</div><div class="memdoc">
 
 </div>
 </div>

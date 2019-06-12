@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['vg_5fgit_5fversion',['VG_GIT_VERSION',['../version_8cpp.html#a5df50394a80dec8f6151eb57db04a38a',1,'version.cpp']]]
+  ['s',['S',['../index_8cpp.html#ac4a3ed3432929804c708f7760fb79e28',1,'index.cpp']]]
 ];

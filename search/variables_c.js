@@ -38,8 +38,8 @@ var searchData=
   ['long_5fopt',['long_opt',['../classvg_1_1BaseOption.html#a580b1cd4960ac113db781935d89cb7b1',1,'vg::BaseOption']]],
   ['long_5foptions',['long_options',['../classvg_1_1ConfigurableParser.html#a25d7c47bbc3c439235fb751722d027c8',1,'vg::ConfigurableParser']]],
   ['long_5foptions_5fused',['long_options_used',['../classvg_1_1ConfigurableParser.html#a60395eaf832c2acfa46fe0763749614f',1,'vg::ConfigurableParser']]],
-  ['loopfd',['loopFd',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#a2fb2eb2d02f3f57e4f7760362339245d',1,'vg::DistanceIndex::ChainIndex']]],
-  ['looprev',['loopRev',['../classvg_1_1DistanceIndex_1_1ChainIndex.html#abdbd2510188f0814787f971b529b5a23',1,'vg::DistanceIndex::ChainIndex']]],
+  ['loop_5ffd',['loop_fd',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#a0314d96f5ca74a8228a3cf4cee0895d3',1,'vg::MinimumDistanceIndex::ChainIndex']]],
+  ['loop_5frev',['loop_rev',['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ac445c4c447efcf671286680fe16b0549',1,'vg::MinimumDistanceIndex::ChainIndex']]],
   ['lower_5fbound',['lower_bound',['../structvg_1_1BREAKPOINT.html#a1b854b285738913830671a54ce0857f5',1,'vg::BREAKPOINT']]],
   ['lower_5fbound_5fheuristic',['lower_bound_heuristic',['../classvg_1_1TargetValueSearch.html#a93c1f2cb35452719dc87fb4ec8cf714e',1,'vg::TargetValueSearch']]],
   ['lru_5fcache_5fsize',['lru_cache_size',['../classvg_1_1Packer.html#a32572a24fe3c3b372e1ff24ec9720da0',1,'vg::Packer']]]

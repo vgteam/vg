@@ -808,9 +808,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a5a4e14a60334c2ba3ce3bed0e3fd0b91"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a5a4e14a60334c2ba3ce3bed0e3fd0b91">to_dot</a> (ostream &amp;out, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; alignments={}, vector&lt; <a class="el" href="structvg_1_1Locus.html">Locus</a> &gt; loci={}, bool show_paths=false, bool walk_paths=false, bool annotate_paths=false, bool show_mappings=false, bool simple_mode=false, bool invert_edge_ports=false, bool color_variants=false, bool ultrabubble_labeling=false, bool skip_missing_nodes=false, bool ascii_labels=false, int random_seed=0)</td></tr>
 <tr class="memdesc:a5a4e14a60334c2ba3ce3bed0e3fd0b91"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert the graph to Dot format.  <a href="#a5a4e14a60334c2ba3ce3bed0e3fd0b91">More...</a><br/></td></tr>
 <tr class="separator:a5a4e14a60334c2ba3ce3bed0e3fd0b91"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adfa66da1d94de2ebc0620be45c3393f8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#adfa66da1d94de2ebc0620be45c3393f8">to_dot</a> (ostream &amp;out, vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt; alignments={}, bool show_paths=false, bool walk_paths=false, bool annotate_paths=false, bool show_mappings=false, bool invert_edge_ports=false, int random_seed=0, bool color_variants=false)</td></tr>
-<tr class="memdesc:adfa66da1d94de2ebc0620be45c3393f8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert the graph to Dot format.  <a href="#adfa66da1d94de2ebc0620be45c3393f8">More...</a><br/></td></tr>
-<tr class="separator:adfa66da1d94de2ebc0620be45c3393f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a582500a3d49fe231faa49a5c2e467cc8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1VG.html#a582500a3d49fe231faa49a5c2e467cc8">to_turtle</a> (ostream &amp;out, const string &amp;rdf_base_uri, bool precompress)</td></tr>
 <tr class="memdesc:a582500a3d49fe231faa49a5c2e467cc8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convert the graph to Turtle format.  <a href="#a582500a3d49fe231faa49a5c2e467cc8">More...</a><br/></td></tr>
 <tr class="separator:a582500a3d49fe231faa49a5c2e467cc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -9220,76 +9217,6 @@ used to connect the end of the "from" node to the start of the "to" node. Howeve
           <td></td>
           <td class="paramtype">int&#160;</td>
           <td class="paramname"><em>random_seed</em> = <code>0</code>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Convert the graph to Dot format. </p>
-
-</div>
-</div>
-<a class="anchor" id="adfa66da1d94de2ebc0620be45c3393f8"></a>
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void vg::VG::to_dot </td>
-          <td>(</td>
-          <td class="paramtype">ostream &amp;&#160;</td>
-          <td class="paramname"><em>out</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">vector&lt; <a class="el" href="structvg_1_1Alignment.html">Alignment</a> &gt;&#160;</td>
-          <td class="paramname"><em>alignments</em> = <code>{}</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>show_paths</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>walk_paths</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>annotate_paths</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>show_mappings</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>invert_edge_ports</em> = <code>false</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>random_seed</em> = <code>0</code>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">bool&#160;</td>
-          <td class="paramname"><em>color_variants</em> = <code>false</code>&#160;</td>
         </tr>
         <tr>
           <td></td>

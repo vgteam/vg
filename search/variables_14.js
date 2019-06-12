@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()']]],
+  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
   ['tail',['tail',['../classvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
@@ -57,6 +57,7 @@ var searchData=
   ['traversal',['traversal',['../structvg_1_1GBWTTraversal.html#abc5a7ae88f80dea62d268c1d5b17227d',1,'vg::GBWTTraversal::traversal()'],['../classvg_1_1mapping__t.html#a9ef6e5278c0ac9ce077ea2c8e0902674',1,'vg::mapping_t::traversal()']]],
   ['traversal_5falg',['traversal_alg',['../classvg_1_1Genotyper.html#a5b040c1636f479b52dbdb641e82f74dd',1,'vg::Genotyper']]],
   ['traversal_5ffinder',['traversal_finder',['../classvg_1_1SmallSnarlSimplifier.html#aaf858ca21b486fe45acbf92a4cbea5ba',1,'vg::SmallSnarlSimplifier']]],
+  ['tree_5fdepth',['tree_depth',['../classvg_1_1MinimumDistanceIndex.html#a32b89d9850b59f0354be0bfa05774d4b',1,'vg::MinimumDistanceIndex']]],
   ['trim_5findels',['trim_indels',['../classvg_1_1Constructor.html#a130c318e05428ee7973135ac5ea26b50',1,'vg::Constructor']]],
   ['ts_5fciv',['ts_civ',['../classxg_1_1XG.html#a10edf2d06ea2dd4c2447fee2d45315d0',1,'xg::XG']]],
   ['ts_5fiv',['ts_iv',['../classxg_1_1XG.html#a05141e12ffaf3a49aef046d3e2d7181a',1,'xg::XG']]],

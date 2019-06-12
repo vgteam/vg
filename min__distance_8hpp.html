@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.6"/>
-<title>vg: src/distance.hpp File Reference</title>
+<title>vg: src/min_distance.hpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -89,21 +89,26 @@ var searchBox = new SearchBox("searchBox", "search",false,'Search');
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a>  </div>
   <div class="headertitle">
-<div class="title">distance.hpp File Reference</div>  </div>
+<div class="title">min_distance.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;<a class="el" href="snarls_8hpp.html">snarls.hpp</a>&quot;</code><br/>
 <code>#include &quot;<a class="el" href="hash__map_8hpp.html">hash_map.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="hash__graph_8hpp.html">hash_graph.hpp</a>&quot;</code><br/>
+<code>#include &quot;<a class="el" href="split__strand__graph_8hpp.html">split_strand_graph.hpp</a>&quot;</code><br/>
+<code>#include &quot;algorithms/dagify.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/split_strands.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/topological_sort.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/is_acyclic.hpp&quot;</code><br/>
+<code>#include &quot;algorithms/is_single_stranded.hpp&quot;</code><br/>
 </div><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex.html">vg::DistanceIndex</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex.html">vg::MinimumDistanceIndex</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1SnarlIndex.html">vg::DistanceIndex::SnarlIndex</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html">vg::MinimumDistanceIndex::SnarlIndex</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1ChainIndex.html">vg::DistanceIndex::ChainIndex</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html">vg::DistanceIndex::MaxDistanceIndex</a></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html">vg::MinimumDistanceIndex::ChainIndex</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>

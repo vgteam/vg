@@ -17,12 +17,12 @@ var searchData=
   ['threads_5fnamed_5fstarting',['threads_named_starting',['../classxg_1_1XG.html#ae4ae377e91ef85fae31b4448f30d9a42',1,'xg::XG']]],
   ['threads_5fstarting_5fon_5fside',['threads_starting_on_side',['../classxg_1_1XG.html#ad4c16da64509fe8e3d993a7b5c6e7688',1,'xg::XG']]],
   ['tighten',['tighten',['../classvg_1_1PackedGraph.html#a644c7b4993cb2e14d0c92fc7678d02f1',1,'vg::PackedGraph']]],
-  ['tipanchoredmaxdistance',['TipAnchoredMaxDistance',['../classvg_1_1TipAnchoredMaxDistance.html#a6c5366249e20e42a9fdeba724441728f',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance()=default'],['../classvg_1_1TipAnchoredMaxDistance.html#aaeefac45698566ac66d6bad11f9328e4',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex &amp;distance_index)']]],
+  ['tipanchoredmaxdistance',['TipAnchoredMaxDistance',['../classvg_1_1TipAnchoredMaxDistance.html#a6c5366249e20e42a9fdeba724441728f',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance()=default'],['../classvg_1_1TipAnchoredMaxDistance.html#a05bc07983e5ac280e6402e2b07536c02',1,'vg::TipAnchoredMaxDistance::TipAnchoredMaxDistance(MinimumDistanceIndex &amp;distance_index)']]],
   ['tn_5fbake',['tn_bake',['../classxg_1_1XG.html#abe0bbc75707d0b6aad3c92fa58304e27',1,'xg::XG']]],
   ['to_5fbacking',['to_backing',['../classvg_1_1ExtraNodeGraph.html#a9e2ba1f5f6b655494074901c11491ffd',1,'vg::ExtraNodeGraph::to_backing()'],['../classvg_1_1SourceSinkOverlay.html#a57984042ec4b444b5f540634f268e9c0',1,'vg::SourceSinkOverlay::to_backing()']]],
   ['to_5fbig_5fendian',['to_big_endian',['../structvg_1_1endianness.html#a5397898b5e413c0c4d09577952b80984',1,'vg::endianness']]],
   ['to_5fdiff',['to_diff',['../classvg_1_1PagedVector.html#a50bdeabc669ed578dfb1aebfbe98870d',1,'vg::PagedVector']]],
-  ['to_5fdot',['to_dot',['../classvg_1_1Funnel.html#ab38eefb0fa53720d2ab80793a2c13762',1,'vg::Funnel::to_dot()'],['../classvg_1_1MultipathAlignmentGraph.html#a090155f04120616163803c84430e9e22',1,'vg::MultipathAlignmentGraph::to_dot()'],['../classvg_1_1VG.html#a5a4e14a60334c2ba3ce3bed0e3fd0b91',1,'vg::VG::to_dot(ostream &amp;out, vector&lt; Alignment &gt; alignments={}, vector&lt; Locus &gt; loci={}, bool show_paths=false, bool walk_paths=false, bool annotate_paths=false, bool show_mappings=false, bool simple_mode=false, bool invert_edge_ports=false, bool color_variants=false, bool ultrabubble_labeling=false, bool skip_missing_nodes=false, bool ascii_labels=false, int random_seed=0)'],['../classvg_1_1VG.html#adfa66da1d94de2ebc0620be45c3393f8',1,'vg::VG::to_dot(ostream &amp;out, vector&lt; Alignment &gt; alignments={}, bool show_paths=false, bool walk_paths=false, bool annotate_paths=false, bool show_mappings=false, bool invert_edge_ports=false, int random_seed=0, bool color_variants=false)']]],
+  ['to_5fdot',['to_dot',['../classvg_1_1Funnel.html#ab38eefb0fa53720d2ab80793a2c13762',1,'vg::Funnel::to_dot()'],['../classvg_1_1MultipathAlignmentGraph.html#a090155f04120616163803c84430e9e22',1,'vg::MultipathAlignmentGraph::to_dot()'],['../classvg_1_1VG.html#a5a4e14a60334c2ba3ce3bed0e3fd0b91',1,'vg::VG::to_dot()']]],
   ['to_5fgraph',['to_graph',['../classvg_1_1Paths.html#ad215b2c7475b7048a073ce6fa805e709',1,'vg::Paths']]],
   ['to_5fjson',['to_json',['../classvg_1_1Paths.html#ad98bff3b628d499252c7b5fb29191fdc',1,'vg::Paths::to_json()'],['../classvg_1_1Pileups.html#a0db435edc597819efff5ba61258734cd',1,'vg::Pileups::to_json()']]],
   ['to_5fleft_5fside',['to_left_side',['../namespacevg.html#a84d646b72482de0145745a64414ca5df',1,'vg']]],
@@ -111,5 +111,6 @@ var searchData=
   ['tv_5fpath_5fexists',['tv_path_exists',['../classvg_1_1TargetValueSearch.html#a407607bcab4cfd14e283386bac418636',1,'vg::TargetValueSearch']]],
   ['tv_5fpath_5flength',['tv_path_length',['../classvg_1_1TargetValueSearch.html#a7dc599c6d4a317999890c81634d9ddf5',1,'vg::TargetValueSearch']]],
   ['tv_5fphase2',['tv_phase2',['../classvg_1_1TargetValueSearch.html#ae9a3cfe20dc321d54de020de540bfa40',1,'vg::TargetValueSearch']]],
-  ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html#a021b05c5dcb97d9c596014a2d4cf4887',1,'vg::TVSClusterer']]]
+  ['tvsclusterer',['TVSClusterer',['../classvg_1_1TVSClusterer.html#a3e61d65108763fd70bacb7d680c5de3f',1,'vg::TVSClusterer']]],
+  ['typetostring',['typeToString',['../classvg_1_1SnarlSeedClusterer.html#a84c57adfb1e77ccce85ab08c46692432',1,'vg::SnarlSeedClusterer']]]
 ];

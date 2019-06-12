@@ -42,6 +42,7 @@ var searchData=
   ['rescue_5fonly_5fmin',['rescue_only_min',['../classvg_1_1MultipathMapper.html#a2ad423f9fc1a81bbe31e9c25992de378',1,'vg::MultipathMapper']]],
   ['reserved',['reserved',['../structvg_1_1Alignment.html#a8374111b6348509e8e9ecca0cd1ac046',1,'vg::Alignment']]],
   ['retry_5fon_5fns',['retry_on_Ns',['../classvg_1_1NGSSimulator.html#a95f6ffd660c8c041e4d8b1d36a823bdd',1,'vg::NGSSimulator']]],
+  ['rev_5fin_5fparent',['rev_in_parent',['../classvg_1_1MinimumDistanceIndex_1_1SnarlIndex.html#a3d6a7da19bb2f8ce0c762dde01384392',1,'vg::MinimumDistanceIndex::SnarlIndex::rev_in_parent()'],['../classvg_1_1MinimumDistanceIndex_1_1ChainIndex.html#ae42bfcae1c483aa51641b3ef48dbe4fa',1,'vg::MinimumDistanceIndex::ChainIndex::rev_in_parent()']]],
   ['rev_5fmask',['REV_MASK',['../classvg_1_1MinimizerIndex.html#a4f4c00c5b73be36b4a6ae86ee9cfb486',1,'vg::MinimizerIndex']]],
   ['rev_5foffset',['REV_OFFSET',['../classvg_1_1MinimizerIndex.html#afb0c45406bb1374ae4f48a4e4905bb44',1,'vg::MinimizerIndex']]],
   ['reverse',['reverse',['../structvg_1_1Support.html#acc2aa2a4b0278503817664600938c8a2',1,'vg::Support']]],

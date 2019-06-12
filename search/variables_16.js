@@ -20,6 +20,5 @@ var searchData=
   ['version',['VERSION',['../structvg_1_1MinimizerIndex_1_1Header.html#a45e53e20bed956dd9fa9cc158767181f',1,'vg::MinimizerIndex::Header::VERSION()'],['../classvg_1_1Version.html#a06ae288f165de69ddbfdec65c217d222',1,'vg::Version::VERSION()'],['../structvg_1_1MinimizerIndex_1_1Header.html#ad9a8e41f6689456029399e62d93457e4',1,'vg::MinimizerIndex::Header::version()']]],
   ['vg',['vg',['../classvg_1_1FlowSort.html#abd481c5b9e6c9c5aeaf846652dd3c76f',1,'vg::FlowSort']]],
   ['vg_5ffilename',['vg_filename',['../classvg_1_1IndexedVG.html#a0399d7902920da48ad515ef358aa65e0',1,'vg::IndexedVG']]],
-  ['visit',['visit',['../structvg_1_1SnarlTraversal.html#aff14559c1e4fb55bdf87320f3a4ee636',1,'vg::SnarlTraversal']]],
-  ['visittoindex',['visitToIndex',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#a1199b8c0f1649fe175d54e8ee11edefe',1,'vg::DistanceIndex::SnarlIndex']]]
+  ['visit',['visit',['../structvg_1_1SnarlTraversal.html#aff14559c1e4fb55bdf87320f3a4ee636',1,'vg::SnarlTraversal']]]
 ];

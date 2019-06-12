@@ -12,6 +12,8 @@ var searchData=
   ['message_5femitter_2ehpp',['message_emitter.hpp',['../message__emitter_8hpp.html',1,'']]],
   ['message_5fiterator_2ecpp',['message_iterator.cpp',['../message__iterator_8cpp.html',1,'']]],
   ['message_5fiterator_2ehpp',['message_iterator.hpp',['../message__iterator_8hpp.html',1,'']]],
+  ['min_5fdistance_2ecpp',['min_distance.cpp',['../min__distance_8cpp.html',1,'']]],
+  ['min_5fdistance_2ehpp',['min_distance.hpp',['../min__distance_8hpp.html',1,'']]],
   ['minimizer_2ecpp',['minimizer.cpp',['../minimizer_8cpp.html',1,'']]],
   ['minimizer_2ehpp',['minimizer.hpp',['../minimizer_8hpp.html',1,'']]],
   ['minimizer_5fmain_2ecpp',['minimizer_main.cpp',['../minimizer__main_8cpp.html',1,'']]],

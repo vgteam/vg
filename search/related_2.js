@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['chainindex',['ChainIndex',['../classvg_1_1DistanceIndex.html#afced995fb6563341297c267c48395b7f',1,'vg::DistanceIndex']]]
+  ['chainindex',['ChainIndex',['../classvg_1_1MinimumDistanceIndex.html#afced995fb6563341297c267c48395b7f',1,'vg::MinimumDistanceIndex']]]
 ];

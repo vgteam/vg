@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['distanceindex',['DistanceIndex',['../classvg_1_1DistanceIndex_1_1SnarlIndex.html#a69afb16ae7c1c2b74d872d7723825ab0',1,'vg::DistanceIndex::SnarlIndex::DistanceIndex()'],['../classvg_1_1DistanceIndex_1_1ChainIndex.html#a69afb16ae7c1c2b74d872d7723825ab0',1,'vg::DistanceIndex::ChainIndex::DistanceIndex()'],['../classvg_1_1DistanceIndex_1_1MaxDistanceIndex.html#a69afb16ae7c1c2b74d872d7723825ab0',1,'vg::DistanceIndex::MaxDistanceIndex::DistanceIndex()']]]
+  ['haplotype',['Haplotype',['../classvg_1_1PhasedGenome_1_1iterator.html#a2a8d7bc98747d6a54dbeef69cc966afc',1,'vg::PhasedGenome::iterator']]],
+  ['haplotypenode',['HaplotypeNode',['../classvg_1_1PhasedGenome_1_1Haplotype.html#a4f0160b2daeebec5d984b4fe1921887a',1,'vg::PhasedGenome::Haplotype']]]
 ];
