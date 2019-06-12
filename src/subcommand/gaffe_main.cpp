@@ -33,6 +33,151 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+template <typename T>
+void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& lambda) {
+
+    // objects will be handed off to worker threads in batches of this many
+    const size_t batch_size = 256;
+    // max # of such batches to be holding in memory
+    size_t max_batches_outstanding = 256;
+    // max # we will ever increase the batch buffer to
+    const size_t max_max_batches_outstanding = 1 << 13; // 8192
+    // number of batches currently being processed
+    size_t batches_outstanding = 0;
+    
+#ifdef debug
+    cerr << "Looping over file in batches of size " << batch_size << endl;
+#endif
+
+    // this loop handles a chunked file with many pieces
+    // such as we might write in a multithreaded process
+    #pragma omp parallel default(none) shared(in, lambda, batches_outstanding, max_batches_outstanding, cerr)
+    #pragma omp single
+    {
+        auto handle = [](bool retval) -> void {
+            if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
+        };
+        
+        // We do our own multi-threaded Protobuf decoding, but we batch up our strings by pulling them from this iterator.
+        vg::io::MessageIterator message_it(in);
+
+        std::vector<std::string> *batch = nullptr;
+        
+        while (message_it.has_current()) {
+            // Until we run out of messages, grab them with their tags
+            auto tag_and_data = std::move(message_it.take());
+            
+            // Check the tag.
+            // TODO: we should only do this when it changes!
+            handle(vg::io::Registry::check_protobuf_tag<T>(tag_and_data.first));
+            
+            // If the tag checks out
+            
+            // Make sure we have a batch
+            if (batch == nullptr) {
+                batch = new vector<string>();
+            }
+            
+            if (tag_and_data.second.get() != nullptr) {
+                // Add the message to the batch, if it exists
+                batch->push_back(std::move(*tag_and_data.second));
+            }
+            
+            if (batch->size() == batch_size) {
+#ifdef debug
+                cerr << "Found full batch of size " << batch_size << endl;
+#endif
+            
+                // time to enqueue this batch for processing. first, block if
+                // we've hit max_batches_outstanding.
+                size_t b;
+#pragma omp atomic capture
+                b = ++batches_outstanding;
+                
+                if (b >= max_batches_outstanding) {
+                    
+#ifdef debug
+                    cerr << "Run batch in current thread" << endl;
+#endif
+                    
+                    // process this batch in the current thread
+                    {
+                        T obj;
+                        for (int i = 0; i<batch_size; i++) {
+                            // parse protobuf objects and invoke lambda
+                            handle(obj.ParseFromString(batch->at(i)));
+                            lambda(obj);
+                        }
+                    }
+                    delete batch;
+#pragma omp atomic capture
+                    b = --batches_outstanding;
+                    
+                    if (4 * b / 3 < max_batches_outstanding
+                        && max_batches_outstanding < max_max_batches_outstanding) {
+                        // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
+                        // this looks risky, since we want the batch buffer to stay populated the entire time we're
+                        // occupying this thread on compute, so let's increase the batch buffer size
+                        // (skip this adjustment if you're in single-threaded mode and thus expect the buffer to be
+                        // empty)
+                        max_batches_outstanding *= 2;
+                        
+#ifdef debug
+                        cerr << "Up max batches outstanding to " << max_batches_outstanding << endl;
+#endif
+                        
+                    }
+                }
+                else {
+#ifdef debug
+                    cerr << "Run batch in task" << endl;
+#endif
+                
+                    // spawn a task in another thread to process this batch
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle, cerr)
+                    {
+#ifdef debug
+                        cerr << "Batch task is running" << endl;
+#endif
+                        
+                        {
+                            T obj;
+                            for (int i = 0; i<batch_size; i++) {
+                                // parse protobuf objects and invoke lambda
+                                handle(obj.ParseFromString(batch->at(i)));
+                                lambda(obj);
+                            }
+                        }
+                        delete batch;
+#pragma omp atomic update
+                        batches_outstanding--;
+                    }
+                }
+
+                batch = nullptr;
+            }
+        }
+
+        #pragma omp taskwait
+        // process final batch
+        if (batch) {
+#ifdef debug
+            cerr << "Run final batch of size " << batch->size() << " in current thread" << endl;
+#endif
+            if (!batch->empty()) {
+                // We require the batch to not be empty (so we can subtract from the size).
+                T obj;
+                int i = 0;
+                for (; i < batch->size(); i++) {
+                    handle(obj.ParseFromString(batch->at(i)));
+                    lambda(obj);
+                }
+            }
+            delete batch;
+        }
+    }
+}
+
 void help_gaffe(char** argv) {
     cerr
     << "usage: " << argv[0] << " gaffe [options] > output.gam" << endl
@@ -435,7 +580,7 @@ int main_gaffe(int argc, char** argv) {
             // For every GAM file to remap
             get_input_file(gam_name, [&](istream& in) {
                 // Open it and map all the reads in parallel.
-                vg::io::for_each_parallel<Alignment>(in, map_read);
+                for_each_parallel_simple<Alignment>(in, map_read);
             });
         }
         
