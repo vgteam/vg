@@ -1228,7 +1228,7 @@ int main_index(int argc, char** argv) {
             if (file_names.empty() && !xg_name.empty()) {
                 
                 ifstream xg_stream(xg_name);
-                auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+                auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
 
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di (xg.get(), snarl_manager);
