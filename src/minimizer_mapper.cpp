@@ -236,6 +236,11 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Return true if a must come before b, and false otherwise
         return (cluster_score[a] > cluster_score[b]);
     });
+
+    //Sort the vector of cluster scores
+    std::sort(cluster_score.begin(), cluster_score.end(), [&](const size_t& a, const size_t& b) -> bool{
+        return (a > b);
+    });
     
 #ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
@@ -322,6 +327,16 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Return true if a must come before b, and false otherwise
         return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
     });
+
+//Reorder cluster and extension scores
+    vector<double> sorted_cluster_scores;
+    vector<int> sorted_extension_scores;
+    sorted_cluster_scores.reserve(cluster_extension_scores.size());
+    sorted_extension_scores.reserve(cluster_extension_scores.size());
+    for (size_t i : extension_indexes_in_order) {
+        sorted_cluster_scores.push_back(cluster_score[i]);
+        sorted_extension_scores.push_back(cluster_extension_scores[i]);
+    }
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
@@ -456,6 +471,20 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Return true if a must come before b (i.e. it has a larger score)
         return alignments[a].score() > alignments[b].score();
     });
+
+//Reorder cluster, extension, and alignment scores
+//Same order as mappings
+    vector<double> sorted_cluster_scores1;
+    vector<double> sorted_extension_scores1;
+    vector<double> sorted_alignment_scores1;//TODO: Type?
+    sorted_cluster_scores1.reserve(alignments.size());
+    sorted_extension_scores1.reserve(alignments.size());
+    sorted_alignment_scores1.reserve(alignments.size());
+    for (size_t i : alignments_in_order) {
+        sorted_cluster_scores1.push_back(sorted_cluster_scores[i]);
+        sorted_extension_scores1.push_back(sorted_extension_scores[i]);
+        sorted_alignment_scores1.push_back(alignments[i].score());
+    }
     
 #ifdef TRACK_PROVENANCE
     // Now say we are finding the winner(s)
@@ -539,6 +568,12 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     set_annotation(mappings[0], "last_correct_stage", funnel.last_correct_stage());
 #endif
 #endif
+    for (size_t i = 0 ; i < mappings.size() ; i++) {
+        set_annotation(mappings[i], "cluster_score", sorted_cluster_scores1[i]);
+        set_annotation(mappings[i], "extension_score", sorted_extension_scores1[i]);
+        set_annotation(mappings[i], "alignment_score", sorted_alignment_scores1[i]);
+    }
+
     
     // Ship out all the aligned alignments
     alignment_emitter.emit_mapped_single(std::move(mappings));
