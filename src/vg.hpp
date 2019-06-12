@@ -1031,10 +1031,6 @@ public:
                 bool ascii_labels = false,
                 int random_seed = 0);
 
-    /// Convert the graph to Dot format.
-    void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0,
-                bool color_variants = false);
     /// Convert the graph to Turtle format.
     void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     /// Determine if the graph is valid or not, according to the specified criteria.

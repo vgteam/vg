@@ -12,7 +12,7 @@
 #include "alignment_emitter.hpp"
 #include "gapless_extender.hpp"
 #include "snarls.hpp"
-#include "distance.hpp"
+#include "min_distance.hpp"
 #include "seed_clusterer.hpp"
 
 #include <structures/immutable_list.hpp>
@@ -27,8 +27,9 @@ public:
     /**
      * Construct a new MinimizerMapper using the given indexes.
      */
+
     MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
-        SnarlManager* snarl_manager, DistanceIndex* distance_index);
+         MinimumDistanceIndex* distance_index);
 
     /**
      * Map the given read, and send output to the given AlignmentEmitter. May be run from any thread.
@@ -68,8 +69,7 @@ protected:
     const XG* xg_index;
     const gbwt::GBWT* gbwt_index;
     const MinimizerIndex* minimizer_index;
-    SnarlManager* snarl_manager;
-    DistanceIndex* distance_index;
+    MinimumDistanceIndex* distance_index;
 
     /// We have a GBWTGraph over the GBWT and the XG
     GBWTGraph gbwt_graph;

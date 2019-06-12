@@ -13,7 +13,7 @@
 #include "../path.hpp"
 #include "../watchdog.hpp"
 
-//#define record_read_run_times
+#define record_read_run_times
 
 #ifdef record_read_run_times
 #define READ_TIME_FILE "_read_times.tsv"
@@ -584,10 +584,6 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (!distance_index_name.empty() && snarls_name.empty()) {
-        cerr << "error:[vg mpmap] Snarl distance index (-d) requires a matching snarl file (-s) to also be provided." << endl;
-        exit(1);
-    }
     
     if (!fastq_name_1.empty() && !gam_file_name.empty()) {
         cerr << "error:[vg mpmap] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
@@ -950,22 +946,14 @@ int main_mpmap(int argc, char** argv) {
         snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
-    unique_ptr<DistanceIndex> distance_index;
+    unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_index_name.empty()) {
         // We want a diatance index.
         // We know we have an XG already.
-        // But we don't know that we have a snarl manager.
-        if (!snarl_manager) {
-            cerr << "error:[vg mpmap] distance index requires snarls (-s)" << endl;
-            exit(1);
-        }
         
         // Load the index
-        distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_index_stream);
+        distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
         
-        // Hook it up
-        distance_index->setGraph(xg_index.get());
-        distance_index->setSnarlManager(snarl_manager.get());
     }
     
     MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider,
