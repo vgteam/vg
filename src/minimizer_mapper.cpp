@@ -331,8 +331,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 //Reorder cluster and extension scores
     vector<double> sorted_cluster_scores;
     vector<int> sorted_extension_scores;
-    sorted_cluster_scores.reserve(cluster_extension_scores.size());
-    sorted_extension_scores.reserve(cluster_extension_scores.size());
+    sorted_cluster_scores.reserve(extension_indexes_in_order.size());
+    sorted_extension_scores.reserve(extension_indexes_in_order.size());
     for (size_t i : extension_indexes_in_order) {
         sorted_cluster_scores.push_back(cluster_score[i]);
         sorted_extension_scores.push_back(cluster_extension_scores[i]);
@@ -452,7 +452,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
-        
+        sorted_cluster_scores.push_back(0);
+        sorted_extension_scores.push_back(0);
 #ifdef TRACK_PROVENANCE
         // Say it came from nowhere
         funnel.introduce();
