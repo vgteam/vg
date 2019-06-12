@@ -2,7 +2,7 @@
 
 namespace vg {
 
-    RegionExpander::RegionExpander(xg::XG* xg_index, const SnarlManager* snarl_manager) :
+    RegionExpander::RegionExpander(XG* xg_index, const SnarlManager* snarl_manager) :
         xg_index(xg_index), snarl_manager(snarl_manager)
     {
         // Nothing to do
@@ -20,7 +20,7 @@ namespace vg {
             cerr << "error [RegionExpander] cannot expand genomic interval, graph does not contain path with name: " << gff_record.sequence_id << endl;
             exit(1);
         }
-        const xg::XGPath& path = xg_index->get_path(gff_record.sequence_id);
+        const XGPath& path = xg_index->get_path(gff_record.sequence_id);
         
         // walk along the path for the interval and add the corresponding nodes to the subgraph
         

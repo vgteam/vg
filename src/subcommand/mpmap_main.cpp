@@ -910,7 +910,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     
-    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_stream);
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     

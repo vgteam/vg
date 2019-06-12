@@ -331,7 +331,7 @@ void SupportAugmentedGraph::load_supports(istream& in_file) {
     vg::io::for_each(in_file, lambda);    
 }
 
-void SupportAugmentedGraph::load_pack_as_supports(const string& pack_file_name, xg::XG* xg) {
+void SupportAugmentedGraph::load_pack_as_supports(const string& pack_file_name, XG* xg) {
     Packer packer(xg);
     packer.load_from_file(pack_file_name);
     xg->for_each_handle([&](const handle_t& handle) {

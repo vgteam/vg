@@ -309,7 +309,7 @@ namespace vg{
         my_vg = vg;
     }
 
-    void Filter::set_my_xg_idx(xg::XG* idx){
+    void Filter::set_my_xg_idx(XG* idx){
         my_xg_index = idx;
     }
 

@@ -134,7 +134,7 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(false);
@@ -225,7 +225,7 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(false);
@@ -340,7 +340,7 @@ TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_ext
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(true);
@@ -497,7 +497,7 @@ TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]
     // Build an XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    xg::XG xg_index(graph);
+    XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(true);

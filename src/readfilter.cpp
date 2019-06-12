@@ -13,7 +13,7 @@ namespace vg {
 
 using namespace std;
 
-bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
+bool ReadFilter::trim_ambiguous_ends(XG* index, Alignment& alignment, int k) {
     assert(index != nullptr);
 
     // Define a way to get node length, for flipping alignments
@@ -54,7 +54,7 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
     
 }
 
-bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) {
+bool ReadFilter::trim_ambiguous_end(XG* index, Alignment& alignment, int k) {
     // What mapping in the alignment is the leftmost one starting in the last k
     // bases? (Except when that would be the first mapping, we use the second.)
     // Start out with it set to the past-the-end value.
@@ -414,7 +414,7 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
     return false;
 }
 
-bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
+bool ReadFilter::is_split(XG* index, Alignment& alignment) {
     if(index == nullptr) {
         // Can't tell if the read is split.
         throw runtime_error("XG index required to check for split reads");

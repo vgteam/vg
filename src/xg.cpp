@@ -11,7 +11,7 @@
 //#define debug_algorithms
 //#define debug_component_index
 
-namespace xg {
+namespace vg {
 
 using namespace handlegraph;
 
@@ -578,7 +578,7 @@ size_t XG::serialize_and_measure(ostream& out, sdsl::structure_tree_node* s, std
     threads_written += h_civ.serialize(out, threads_child, "thread_usage_count");
     threads_written += ts_civ.serialize(out, threads_child, "thread_start_count");
     // Stick all the B_s arrays in together. Must be baked.
-    threads_written += xg::serialize(bs_single_array, out, threads_child, "bs_single_array");
+    threads_written += serialize_vector(bs_single_array, out, threads_child, "bs_single_array");
     
     sdsl::structure_tree::add_size(threads_child, threads_written);
     written += threads_written;
@@ -4388,12 +4388,12 @@ int64_t XG::where_to(int64_t current_side, int64_t visit_offset, int64_t new_sid
     return new_visit_offset;
 }
 
-XG::thread_t XG::extract_thread(xg::XG::ThreadMapping node, int64_t offset = 0, int64_t max_length = 0) {
+XG::thread_t XG::extract_thread(XG::ThreadMapping node, int64_t offset = 0, int64_t max_length = 0) {
   thread_t path;
   int64_t side = (node.node_id)*2 + node.is_reverse;
   bool continue_search = true;
   while(continue_search) {
-    xg::XG::ThreadMapping m = {rank_to_id(side / 2), (bool) (side % 2)};
+    XG::ThreadMapping m = {rank_to_id(side / 2), (bool) (side % 2)};
     path.push_back(m);
     // Work out where we go:
     // What edge of the available edges do we take?
@@ -5564,7 +5564,7 @@ XG::ThreadSearchState XG::select_continuing(const ThreadMapping& start) const {
 }
 
 
-size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
+size_t serialize_vector(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name) {
 #if GPBWT_MODE == MODE_SDSL
     // Just delegate to the SDSL code
@@ -5644,39 +5644,6 @@ Edge make_edge(int64_t from, bool from_start, int64_t to, bool to_end) {
     e.set_to_end(to_end);
     
     return e;
-}
-
-char reverse_complement(const char& c) {
-    switch (c) {
-        case 'A': return 'T'; break;
-        case 'T': return 'A'; break;
-        case 'G': return 'C'; break;
-        case 'C': return 'G'; break;
-        case 'N': return 'N'; break;
-        // Handle the GCSA2 start/stop characters.
-        case '#': return '$'; break;
-        case '$': return '#'; break;
-        default: return 'N';
-    }
-}
-
-string reverse_complement(const string& seq) {
-    string rc;
-    rc.assign(seq.rbegin(), seq.rend());
-    for (auto& c : rc) {
-        switch (c) {
-        case 'A': c = 'T'; break;
-        case 'T': c = 'A'; break;
-        case 'G': c = 'C'; break;
-        case 'C': c = 'G'; break;
-        case 'N': c = 'N'; break;
-        // Handle the GCSA2 start/stop characters.
-        case '#': c = '$'; break;
-        case '$': c = '#'; break;
-        default: break;
-        }
-    }
-    return rc;
 }
 
 void extract_pos(const string& pos_str, int64_t& id, bool& is_rev, size_t& off) {

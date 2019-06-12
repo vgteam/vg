@@ -7,11 +7,10 @@
 namespace vg {
 
 using namespace std;
-using namespace xg;
 
 
 
-PathChunker::PathChunker(xg::XG* xindex) : xg(xindex) {
+PathChunker::PathChunker(XG* xindex) : xg(xindex) {
     
 }
 
