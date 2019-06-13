@@ -7,7 +7,7 @@
 #include <iostream>
 #include "catch.hpp"
 #include "../stream_index.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "../utility.hpp"
 
 
@@ -334,7 +334,7 @@ TEST_CASE("GAMIndex can work with ProtobufIterator cursors", "[gam][gamindex]") 
             aln.set_sequence(random_sequence(100));
         }
         
-        stream::write_buffered(file, group, 0);
+        vg::io::write_buffered(file, group, 0);
     };
     
     for (size_t group_number = 0; group_number < 100; group_number++) {

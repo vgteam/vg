@@ -25,7 +25,7 @@ namespace vg {
     
     MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
-                                     DistanceIndex* distance_index) :
+                                     MinimumDistanceIndex* distance_index) :
         BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
         snarl_manager(snarl_manager),
         distance_index(distance_index)
@@ -146,21 +146,23 @@ namespace vg {
     vector<MultipathMapper::memcluster_t> MultipathMapper::get_clusters(const Alignment& alignment, const vector<MaximalExactMatch>& mems,
                                                                         OrientedDistanceMeasurer* distance_measurer) const {
         
+        vector<MultipathMapper::memcluster_t> return_val;
         if (use_tvs_clusterer) {
             TVSClusterer clusterer(xindex, distance_index);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else if (use_min_dist_clusterer) {
             MinDistanceClusterer clusterer(distance_index);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
         else {
             OrientedDistanceClusterer clusterer(*distance_measurer, unstranded_clustering, max_expected_dist_approx_error);
-            return clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
-                                      log_likelihood_approx_factor, min_median_mem_coverage_for_split);
+            return_val = clusterer.clusters(alignment, mems, get_aligner(), min_clustering_mem_length, max_mapping_quality,
+                                            log_likelihood_approx_factor, min_median_mem_coverage_for_split);
         }
+        return return_val;
     }
     
     vector<pair<pair<size_t, size_t>, int64_t>> MultipathMapper::get_cluster_pairs(const Alignment& alignment1,
@@ -337,12 +339,11 @@ namespace vg {
             MultipathAlignment& multipath_aln_1 = multipath_alns_1.front();
             MultipathAlignment& multipath_aln_2 = multipath_alns_2.front();
             
-            auto match_score = get_aligner()->match;
-            auto full_length_bonus = get_aligner()->full_length_bonus;
+            auto aligner = get_aligner();
             
             // score possible of a perfect match (at full base quality)
-            int32_t max_score_1 = multipath_aln_1.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
-            int32_t max_score_2 = multipath_aln_2.sequence().size() * match_score + 2 * full_length_bonus * !strip_bonuses;
+            int32_t max_score_1 = multipath_aln_1.sequence().size() * aligner->match + 2 * aligner->full_length_bonus * !strip_bonuses;
+            int32_t max_score_2 = multipath_aln_2.sequence().size() * aligner->match + 2 * aligner->full_length_bonus * !strip_bonuses;
             
 #ifdef debug_multipath_mapper
             cerr << "single ended mappings achieves scores " << optimal_alignment_score(multipath_aln_1) << " and " << optimal_alignment_score(multipath_aln_2) << ", looking for scores " << .8 * max_score_1 << " and " << .8 * max_score_2 << endl;
@@ -724,27 +725,29 @@ namespace vg {
         cerr << "measuring left-to-" << (full_fragment ? "right" : "left") << " end distance between " << pos_1 << " and " << pos_2 << endl;
 #endif
         
-        if (use_min_dist_clusterer) {
+        int64_t dist;
+        if (use_min_dist_clusterer || use_tvs_clusterer) {
             assert(!forward_strand);
-            int64_t dist = distance_index->minDistance(pos_1, pos_2);
-            if (dist == -1) {
-                dist = distance_index->minDistance(pos_2, pos_1);
-                if (dist == -1) {
-                    return numeric_limits<int64_t>::max();
-                }
-                else {
-                    return -dist;
-                }
+            // measure the distance in both directions and choose the minimum (or the only) absolute distance
+            int64_t forward_dist = distance_index->minDistance(pos_1, pos_2);
+            int64_t reverse_dist = distance_index->minDistance(pos_2, pos_1);
+            if (forward_dist == -1 && reverse_dist == -1) {
+                // unreachable both ways, convert to the sentinel that the client code expects
+                dist = numeric_limits<int64_t>::max();
+            }
+            else if (forward_dist == -1 || (reverse_dist < forward_dist && reverse_dist != -1)) {
+                dist = -reverse_dist;
             }
             else {
-                return dist;
+                dist = forward_dist;
             }
         }
         else {
-            return xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
+            dist = xindex->closest_shared_path_oriented_distance(id(pos_1), offset(pos_1), is_rev(pos_1),
                                                                  id(pos_2), offset(pos_2), is_rev(pos_2),
                                                                  forward_strand);
         }
+        return dist;
     }
     
     bool MultipathMapper::is_consistent(int64_t distance) const {
@@ -2436,6 +2439,11 @@ namespace vg {
                     });
         
 #ifdef debug_multipath_mapper
+        cerr << "sorting cluster pairs by approximate likelihood:" << endl;
+        for (size_t i = 0; i < cluster_pairs.size(); i++) {
+            cerr << i << "-th cluster: " << cluster_pairs[i].first.first << " " << cluster_pairs[i].first.second << ", likelihood " << get_pair_approx_likelihood(cluster_pairs[i]) << endl;
+        }
+        
         cerr << "aligning to cluster pairs..." << endl;
 #endif
         
@@ -2953,7 +2961,7 @@ namespace vg {
                 // the later code's expectations are met
                 // TODO: can we do this without the copy constructor?
                 align_graph = *graph;
-                node_trans.reserve(graph->node_size());
+                node_trans.reserve(graph->get_node_count());
                 graph->for_each_handle([&](const handle_t& handle) {
                     node_trans[graph->get_id(handle)] = make_pair(graph->get_id(handle), false);
                     return true;
@@ -3545,6 +3553,7 @@ namespace vg {
         // just fragment score, for running without population adjustment, to make scores nonnegative
         double min_frag_score = numeric_limits<double>::max();
         
+        
         for (size_t i = 0; i < multipath_aln_pairs.size(); i++) {
             // For each pair of read placements
             pair<MultipathAlignment, MultipathAlignment>& multipath_aln_pair = multipath_aln_pairs[i];
@@ -3678,6 +3687,7 @@ namespace vg {
                                 best_pop_score[end] = pop_score.first / log_base;
                                 have_best_linearization[end] = true;
 #ifdef debug_multipath_mapper
+
                                 if (end == 0) {
                                     chosen_align_score[i].first = alignments[end][j].score();
                                     chosen_population_score[i].first = pop_score.first / log_base;
@@ -3800,7 +3810,7 @@ namespace vg {
         
             cerr << "\tpos:" << start1 << "(" << aln1.score() << ")-" << start2 << "(" << aln2.score() << ")"
                 << " align:" << optimal_alignment_score(multipath_aln_pairs[i].first) + optimal_alignment_score(multipath_aln_pairs[i].second)
-            << ", length: " << cluster_pairs[i].second;
+                << ", length: " << cluster_pairs[i].second;
             if (include_population_component && all_multipaths_pop_consistent) {
                 cerr << ", pop adjusted aligns: " << chosen_align_score[i].first << " " << chosen_align_score[i].second << ", population: " << chosen_population_score[i].first << " " << chosen_population_score[i].second;
             }

@@ -2,8 +2,8 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../region.hpp"
 #include "../stream_index.hpp"
 #include "../algorithms/sorted_id_ranges.hpp"
@@ -27,6 +27,7 @@ void help_find(char** argv) {
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
          << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range(s) TARGET=path[:pos1[-pos2]]" << endl
+         << "    -E, --path-dag TARGET  like -p, but gets any node in the partial order from pos1 to pos2, assumes id sorted DAG" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -R, --rank-in PATH     find the rank of the node (specified by -n) in the given path" << endl
          << "    -I, --list-paths       write out the path names in the index" << endl
@@ -108,6 +109,7 @@ int main_find(int argc, char** argv) {
     vector<string> extract_path_patterns;
     vg::id_t approx_id = 0;
     bool list_path_names = false;
+    bool path_dag = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -134,6 +136,7 @@ int main_find(int argc, char** argv) {
                 {"use-length", no_argument, 0, 'L'},
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
+                {"path-dag", required_argument, 0, 'E'},
                 {"position-in", required_argument, 0, 'P'},
                 {"rank-in", required_argument, 0, 'R'},
                 {"node-range", required_argument, 0, 'r'},
@@ -156,7 +159,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDH:G:N:A:Y:Z:tq:X:IQ:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:l:amg:M:R:B:fDH:G:N:A:Y:Z:tq:X:IQ:E:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -220,6 +223,11 @@ int main_find(int argc, char** argv) {
 
         case 'p':
             targets.push_back(optarg);
+            break;
+
+        case 'E':
+            targets.push_back(optarg);
+            path_dag = true;
             break;
 
         case 'P':
@@ -374,11 +382,11 @@ int main_find(int argc, char** argv) {
 
     unique_ptr<xg::XG> xindex;
     if (!xg_name.empty()) {
-        xindex = stream::VPKG::load_one<xg::XG>(xg_name);
+        xindex = vg::io::VPKG::load_one<xg::XG>(xg_name);
     }
     
     unique_ptr<GAMIndex> gam_index;
-    unique_ptr<stream::ProtobufIterator<Alignment>> gam_cursor;
+    unique_ptr<vg::io::ProtobufIterator<Alignment>> gam_cursor;
     if (!sorted_gam_name.empty()) {
         // Load the GAM index
         gam_index = unique_ptr<GAMIndex>(new GAMIndex());
@@ -396,16 +404,16 @@ int main_find(int argc, char** argv) {
             vector<Alignment> output_buf;
             auto lambda = [&output_buf](const Alignment& aln) {
                 output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 100);
+                vg::io::write_buffered(cout, output_buf, 100);
             };
             vindex->for_each_alignment(lambda);
-            stream::write_buffered(cout, output_buf, 0);
+            vg::io::write_buffered(cout, output_buf, 0);
         } else if (gam_index.get() != nullptr) {
             // Dump from sorted GAM
             // TODO: This is basically a noop.
             get_input_file(sorted_gam_name, [&](istream& in) {
                 // Stream the alignments in and then stream them back out.
-                stream::for_each<Alignment>(in, stream::emit_to<Alignment>(cout));
+                vg::io::for_each<Alignment>(in, vg::io::emit_to<Alignment>(cout));
             });
         } else {
             cerr << "error [vg find]: Cannot find alignments without a RocksDB index or a sorted GAM" << endl;
@@ -436,20 +444,20 @@ int main_find(int argc, char** argv) {
             vector<Alignment> output_buf;
             auto lambda = [&output_buf](const Alignment& aln) {
                 output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 100);
+                vg::io::write_buffered(cout, output_buf, 100);
             };
             vindex->for_alignment_to_nodes(ids, lambda);
-            stream::write_buffered(cout, output_buf, 0);
+            vg::io::write_buffered(cout, output_buf, 0);
         } else if (gam_index.get() != nullptr) {
             // Find in sorted GAM
             
             get_input_file(sorted_gam_name, [&](istream& in) {
                 // Make a cursor for input
                 // TODO: Refactor so we can put everything with the GAM index inside one get_input_file call to deduplicate code
-                stream::ProtobufIterator<Alignment> cursor(in);
+                vg::io::ProtobufIterator<Alignment> cursor(in);
                 
                 // Find the alignments and dump them to cout
-                gam_index->find(cursor, start_id, end_id, stream::emit_to<Alignment>(cout));
+                gam_index->find(cursor, start_id, end_id, vg::io::emit_to<Alignment>(cout));
             });
             
         } else {
@@ -477,10 +485,10 @@ int main_find(int argc, char** argv) {
             vector<Alignment> output_buf;
             auto lambda = [&output_buf](const Alignment& aln) {
                 output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 100);
+                vg::io::write_buffered(cout, output_buf, 100);
             };
             vindex->for_alignment_to_nodes(ids, lambda);
-            stream::write_buffered(cout, output_buf, 0);
+            vg::io::write_buffered(cout, output_buf, 0);
             
         }  else if (gam_index.get() != nullptr) {
             // Find in sorted GAM
@@ -493,10 +501,10 @@ int main_find(int argc, char** argv) {
             get_input_file(sorted_gam_name, [&](istream& in) {
                 // Make a cursor for input
                 // TODO: Refactor so we can put everything with the GAM index inside one get_input_file call to deduplicate code
-                stream::ProtobufIterator<Alignment> cursor(in);
+                vg::io::ProtobufIterator<Alignment> cursor(in);
             
                 // Find the alignments and send them to cout
-                gam_index->find(cursor, ranges, stream::emit_to<Alignment>(cout)); 
+                gam_index->find(cursor, ranges, vg::io::emit_to<Alignment>(cout)); 
             });
             
         } else {
@@ -604,12 +612,37 @@ int main_find(int argc, char** argv) {
                     start = 0;
                 }
                 xindex->get_path_range(name, start, end, graph);
+                if (path_dag) {
+                    // find the start and end node of this
+                    // and fill things in
+                    int64_t id_start = std::numeric_limits<int64_t>::max();
+                    int64_t id_end = 1;
+                    for (size_t i = 0; i < graph.node_size(); ++i) {
+                        int64_t id = graph.node(i).id();
+                        id_start = std::min(id_start, id);
+                        id_end = std::max(id_end, id);
+                    }
+                    xindex->get_id_range(id_start, id_end, graph);
+                }
             }
             if (context_size > 0) {
                 xindex->expand_context(graph, context_size, true, !use_length);
+            } else {
+                set<vg::id_t> ids;
+                //for (auto node_id : node_ids) ids.insert(node_id);
+                for (size_t i = 0; i < graph.node_size(); ++i) {
+                    vg::id_t node_id = graph.node(i).id();
+                    ids.insert(node_id);
+                    for (auto& edge : xindex->edges_of(node_id)) {
+                        // if both ends of the edge are in our targets, keep them
+                        if (ids.count(edge.to()) && ids.count(edge.from())) {
+                            *graph.add_edge() = edge;
+                        }
+                    }
+                }
             }
             VG vgg; vgg.extend(graph); // removes dupes
-            
+            vgg.remove_orphan_edges();
             // Order the mappings by rank. TODO: how do we handle breaks between
             // different sections of a path with a single name?
             vgg.paths.sort_by_mapping_rank();
@@ -634,6 +667,19 @@ int main_find(int argc, char** argv) {
             }
             if (context_size > 0) {
                 xindex->expand_context(graph, context_size, true, !use_length);
+            } else {
+                set<vg::id_t> ids;
+                //for (auto node_id : node_ids) ids.insert(node_id);
+                for (size_t i = 0; i < graph.node_size(); ++i) {
+                    vg::id_t node_id = graph.node(i).id();
+                    ids.insert(node_id);
+                    for (auto& edge : xindex->edges_of(node_id)) {
+                        // if both ends of the edge are in our targets, keep them
+                        if (ids.count(edge.to()) && ids.count(edge.from())) {
+                            *graph.add_edge() = edge;
+                        }
+                    }
+                }
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
@@ -652,7 +698,7 @@ int main_find(int argc, char** argv) {
                 cout << matches << endl;
             };
             if (haplotype_alignments == "-") {
-                stream::for_each(std::cin, lambda);
+                vg::io::for_each(std::cin, lambda);
             } else {
                 ifstream in;
                 in.open(haplotype_alignments.c_str());
@@ -660,7 +706,7 @@ int main_find(int argc, char** argv) {
                     cerr << "[vg find] error: could not open alignments file " << haplotype_alignments << endl;
                     exit(1);
                 }
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             }
 
         }
@@ -703,7 +749,7 @@ int main_find(int argc, char** argv) {
 
                 // Dump the graph with its mappings. TODO: can we restrict these to
                 vector<Graph> gb = { g };
-                stream::write_buffered(cout, gb, 0);
+                vg::io::write_buffered(cout, gb, 0);
             }
         }
         if (extract_paths) {
@@ -719,7 +765,7 @@ int main_find(int argc, char** argv) {
                 *(g.add_path()) = xindex->path(path.name());
                 // Dump the graph with its mappings. TODO: can we restrict these to
                 vector<Graph> gb = { g };
-                stream::write_buffered(cout, gb, 0);
+                vg::io::write_buffered(cout, gb, 0);
             }
         }
         if (!gam_file.empty()) {
@@ -739,7 +785,7 @@ int main_find(int argc, char** argv) {
                 }
             };
             if (gam_file == "-") {
-                stream::for_each(std::cin, lambda);
+                vg::io::for_each(std::cin, lambda);
             } else {
                 ifstream in;
                 in.open(gam_file.c_str());
@@ -747,7 +793,7 @@ int main_find(int argc, char** argv) {
                     cerr << "[vg find] error: could not open alignments file " << gam_file << endl;
                     exit(1);
                 }
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             }
             // now we have the nodes to get
             Graph graph;
@@ -878,9 +924,9 @@ int main_find(int argc, char** argv) {
             gcsa::TempFile::setDirectory(temp_file::get_dir());
 
             // Open it
-            auto gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_in);
+            auto gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_in);
             // default LCP is the gcsa base name +.lcp
-            auto lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_in + ".lcp");
+            auto lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_in + ".lcp");
             
             //range_type find(const char* pattern, size_type length) const;
             //void locate(size_type path, std::vector<node_type>& results, bool append = false, bool sort = true) const;

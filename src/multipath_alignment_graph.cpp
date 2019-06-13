@@ -1375,12 +1375,14 @@ namespace vg {
                 // And all the alignments off of there
                 auto& alns = kv.second;
 
+                
 #ifdef debug_multipath_alignment
                 cerr << "Handling " << (handling_right_tail ? "right" : "left") << " tail off of PathNode "
                     << attached_path_node_index << " with path " << pb2json(path_nodes.at(attached_path_node_index).path) << endl;
 #endif
                 
                 for (auto& aln : alns) {
+                    
 #ifdef debug_multipath_alignment
                     cerr << "Tail alignment: " << pb2json(aln) << endl;
 #endif
@@ -1440,6 +1442,7 @@ namespace vg {
                         // on the final mapping we don't need to pay special attention to the initial position, but
                         // we can't copy over the whole mapping since there might be more edits after the match
                         if (i > match_start_mapping_idx && j > 0) {
+                            // This condition is broken because N matches get split into separate edits
                             assert(j == 1);
                             new_mapping = synth_path_node.path.add_mapping();
                             *new_mapping->mutable_position() = path.mapping(i).position();
@@ -3347,7 +3350,7 @@ namespace vg {
                                                                                                true);             // enforce max distance strictly
                 
                 
-                if (connecting_graph.node_size() == 0) {
+                if (connecting_graph.get_node_count() == 0) {
                     // the MEMs weren't connectable with a positive score after all, mark the edge for removal
 #ifdef debug_multipath_alignment
                     cerr << "Remove edge " << j << " -> " << edge.first << " because we got no nodes in the connecting graph "
@@ -3374,11 +3377,11 @@ namespace vg {
                     cerr << "making " << num_alt_alns << " alignments of sequence " << intervening_sequence.sequence() << " to connecting graph" << endl;
                     connecting_graph.for_each_handle([&](const handle_t& handle) {
                         cerr << connecting_graph.get_id(handle) << " " << connecting_graph.get_sequence(handle) << endl;
+                        connecting_graph.follow_edges(handle, true, [&](const handle_t& prev) {
+                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
+                        });
                         connecting_graph.follow_edges(handle, false, [&](const handle_t& next) {
                             cerr << "\t-> " << connecting_graph.get_id(next) << endl;
-                        });
-                        connecting_graph.follow_edges(handle, false, [&](const handle_t& prev) {
-                            cerr << "\t" << connecting_graph.get_id(prev) << " <-" << endl;
                         });
                     });
 #endif
@@ -3510,8 +3513,6 @@ namespace vg {
             const Mapping& final_mapping = path_node.path.mapping(path_node.path.mapping_size() - 1);
             
             pos_t end_pos = final_position(path_node.path);
-            // want past-the-last instead of last index here
-            get_offset(end_pos)++;
             
             for (const Alignment& tail_alignment : alt_alignments) {
                 
@@ -3621,8 +3622,6 @@ namespace vg {
                     int64_t target_length = ((alignment.sequence().end() - path_node.end) +
                                              aligner->longest_detectable_gap(alignment, path_node.end));
                     pos_t end_pos = final_position(path_node.path);
-                    // want past-the-last instead of last index here
-                    get_offset(end_pos)++;
                     
                     HashGraph tail_graph;
                     unordered_map<id_t, id_t> tail_trans = algorithms::extract_extending_graph(&align_graph,
@@ -3650,11 +3649,11 @@ namespace vg {
                         cerr << "making " << num_alt_alns << " alignments of sequence: " << right_tail_sequence.sequence() << endl << "to right tail graph" << endl;
                         tail_graph.for_each_handle([&](const handle_t& handle) {
                             cerr << tail_graph.get_id(handle) << " " << tail_graph.get_sequence(handle) << endl;
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
-                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
-                            });
                             tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
                                 cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
+                            });
+                            tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
+                                cerr << "\t-> " << tail_graph.get_id(next) << endl;
                             });
                         });
 #endif
@@ -3738,7 +3737,7 @@ namespace vg {
                             tail_graph.follow_edges(handle, false, [&](const handle_t& next) {
                                 cerr << "\t-> " << tail_graph.get_id(next) << endl;
                             });
-                            tail_graph.follow_edges(handle, false, [&](const handle_t& prev) {
+                            tail_graph.follow_edges(handle, true, [&](const handle_t& prev) {
                                 cerr << "\t" << tail_graph.get_id(prev) << " <-" << endl;
                             });
                         });
@@ -3765,6 +3764,17 @@ namespace vg {
                 }
             }
         }
+        
+        // GSSW does some weird things with N's that we want to normalize away
+         if (find(alignment.sequence().begin(), alignment.sequence().end(), 'N') != alignment.sequence().end()) {
+             for (bool side : {true, false}) {
+                 for (pair<const size_t, vector<Alignment>>& tail_alignments : to_return[side]) {
+                     for (Alignment& aln : tail_alignments.second) {
+                         normalize_alignment(aln);
+                     }
+                 }
+             }
+         }
         
 #ifdef debug_multipath_alignment
         cerr << "made alignments for " << to_return[false].size() << " source PathNodes and " << to_return[true].size() << " sink PathNodes" << endl;

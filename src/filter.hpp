@@ -11,7 +11,7 @@
 #include "vg.hpp"
 #include "mapper.hpp"
 #include "xg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 /** \file
  * Provides a way to filter Edits contained

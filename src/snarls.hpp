@@ -14,11 +14,11 @@
 #include <unordered_set>
 #include <fstream>
 #include <deque>
-#include "stream/protobuf_emitter.hpp"
-#include "stream/protobuf_iterator.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/protobuf_iterator.hpp>
 #include "vg.hpp"
 #include "handle.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "hash_map.hpp"
 #include "cactus.hpp"
 
@@ -307,7 +307,7 @@ public:
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     
     /// Return the smallest ID used. 
     virtual id_t min_node_id() const;
@@ -593,6 +593,7 @@ private:
         Chain* parent_chain = nullptr;
         /// And this is what index we are at in the chain;
         size_t parent_chain_index = 0;
+
         
         /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
         SnarlRecord& operator=(const Snarl& other) {
@@ -625,11 +626,6 @@ private:
     /// Master list of the snarls in the graph.
     /// Use a deque so pointers never get invalidated but we still have some locality.
     deque<SnarlRecord> snarls;
-    
-    /// Have we finished adding snarls? This ought to be true for any
-    /// non-trivial read operations. Otherwise the parent/child/chain indexes
-    /// haven't been computed.
-    bool finished = false;
         
     /// Roots of snarl trees
     vector<const Snarl*> roots;

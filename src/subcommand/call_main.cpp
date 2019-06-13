@@ -16,6 +16,8 @@
 
 #include "../vg.hpp"
 #include "../support_caller.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 
 
@@ -122,14 +124,40 @@ int main_call(int argc, char** argv) {
     }
     string graph_file_name = get_input_file_name(optind, argc, argv);
 
-    if (string(support_caller.support_file_name).empty()) {
-        cerr << "[vg call]: Support file must be specified with -s" << endl;
+    if (string(support_caller.support_file_name).empty() ==
+        string(support_caller.pack_file_name).empty()) {
+        cerr << "[vg call]: Support file must be specified with either -s (or -P)" << endl;
+        return 1;
+    }
+    
+
+    if (string(support_caller.pack_file_name).empty() && translation_file_name.empty()) {
+        cerr << "[vg call]: Translation file must be specified with -Z" << endl;
         return 1;
     }
 
-    if (translation_file_name.empty()) {
-        cerr << "[vg call]: Translation file must be specified with -Z" << endl;
-        return 1;
+    // read the vcf and accompanying fasta files if specified
+    if (!((string)(support_caller.recall_vcf_filename)).empty()) {
+        if (support_caller.variant_offset != 0) {
+            cerr << "error: [vg call] vcf offset (-o) not supported in recall mode (-f)" << endl;
+            return 1;
+        }
+        support_caller.variant_file.parseSamples = false;
+        support_caller.variant_file.open(support_caller.recall_vcf_filename);
+        if (!support_caller.variant_file.is_open()) {
+            cerr << "error: [vg call] could not open " << (string)support_caller.recall_vcf_filename << endl;
+            return 1;
+        }
+
+        // load up the fasta
+        if (!((string)support_caller.recall_ref_fasta_filename).empty()) {
+            support_caller.ref_fasta = unique_ptr<FastaReference>(new FastaReference);
+            support_caller.ref_fasta->open(support_caller.recall_ref_fasta_filename);
+        }
+        if (!((string)support_caller.recall_ins_fasta_filename).empty()) {
+            support_caller.ins_fasta = unique_ptr<FastaReference>(new FastaReference);
+            support_caller.ins_fasta->open(support_caller.recall_ins_fasta_filename);
+        }
     }
     
     // read the graph
@@ -151,33 +179,43 @@ int main_call(int argc, char** argv) {
 
     SupportAugmentedGraph augmented_graph;
     // Move our input graph into the augmented graph
-    // TODO: less terrible interface.  also shouldn't have to re-index.
     swap(augmented_graph.graph, *graph); 
-    swap(augmented_graph.graph.paths, graph->paths);
-    augmented_graph.graph.paths.rebuild_node_mapping();
-    augmented_graph.graph.paths.rebuild_mapping_aux();
-    augmented_graph.graph.paths.to_graph(augmented_graph.graph.graph);    
 
     augmented_graph.base_graph = base_graph;
     
     delete graph;
 
     // Load the supports
-    ifstream support_file(support_caller.support_file_name);
-    if (!support_file) {
-        cerr << "[vg call]: Unable to load supports file: "
-             << string(support_caller.support_file_name) << endl;
-        return 1;
-    }
-    augmented_graph.load_supports(support_file);
+    if (!string(support_caller.support_file_name).empty()) {
+        ifstream support_file(support_caller.support_file_name);
+        if (!support_file) {
+            cerr << "[vg call]: Unable to load supports file: "
+                 << string(support_caller.support_file_name) << endl;
+            return 1;
+        }
+        augmented_graph.load_supports(support_file);
+    } else {
+        assert(!string(support_caller.pack_file_name).empty());
+        if (string(support_caller.xg_file_name).empty()) {
+            cerr << "[vg call]: pack support (-P) requires xg index (-x)" << endl;
+            return 1;
+        }
+        unique_ptr<xg::XG> xgidx = vg::io::VPKG::load_one<xg::XG>(support_caller.xg_file_name);
+        augmented_graph.load_pack_as_supports(support_caller.pack_file_name, xgidx.get());
+        // make sure we're ignoring quality, as it's not read from the pack
+        bool& usc = support_caller.use_support_count;
+        usc = true;
+    }        
 
     // Load the translations
-    ifstream translation_file(translation_file_name.c_str());
-    if (!translation_file) {
-        cerr << "[vg call]: Unable to load translations file: " << translation_file_name << endl;
-        return 1;
+    if (!translation_file_name.empty()) {
+        ifstream translation_file(translation_file_name.c_str());
+        if (!translation_file) {
+            cerr << "[vg call]: Unable to load translations file: " << translation_file_name << endl;
+            return 1;
+        }
+        augmented_graph.load_translations(translation_file);
     }
-    augmented_graph.load_translations(translation_file);
     
     if (show_progress) {
         cerr << "Calling variants with support caller" << endl;

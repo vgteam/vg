@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 61
+plan tests 56
 
 # Single graph without haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -39,10 +39,10 @@ rm -f x3.gcsa x3.gcsa.lcp
 # Single graph with haplotypes
 vg construct -r small/x.fa -v small/x.vcf.gz -a > x.vg
 
-vg index -G x.gbwt -v small/x.vcf.gz -F x.threads x.vg
+vg index -G x.gbwt -v small/x.vcf.gz x.vg
 is $? 0 "building a GBWT index of a graph with haplotypes"
 
-vg index -x x.xg -F x.threads x.vg
+vg index -x x.xg x.vg
 is $? 0 "building an XG index of a graph with haplotypes"
 
 vg index -g x.gcsa x.vg
@@ -61,18 +61,21 @@ is $? 0 "storing a VCF parse for a graph with haplotypes"
 ../deps/gbwt/build_gbwt -p -r parse_x > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parse"
 
-# Add the metadata manually, dump the tagged stream, and compare the indexes
-../deps/gbwt/metadata -c 1 -h 2 -s 1 parse_x > /dev/null
+# Dump the tagged stream and compare the indexes built with build_gbwt and vg index
 vg view --extract-tag GBWT x.gbwt > x.bare.gbwt
-
 cmp parse_x.gbwt x.bare.gbwt
 is $? 0 "the indexes are identical"
 
+# Exclude a sample from the GBWT index
+vg index -G empty.gbwt -v small/x.vcf.gz --exclude 1 x.vg
+is $? 0 "samples can be excluded from haplotype indexing"
+is $(vg gbwt -c empty.gbwt) 0 "excluded samples were not included in the GBWT index"
+
 rm -f x.vg
-rm -f x.threads
 rm -f x.xg x.gbwtx.gcsa x.gcsa.lcp
 rm -f x2.xg x2.gbwt x2.gcsa x2.gcsa.lcp
 rm -f parse_x parse_x_0_1 parse_x.gbwt x.bare.gbwt
+rm -f empty.gbwt
 
 
 # Subregion graph with haplotypes
@@ -113,10 +116,10 @@ vg construct -r small/xy.fa -v small/xy2.vcf.gz -R x -C -a > x.vg 2> /dev/null
 vg construct -r small/xy.fa -v small/xy2.vcf.gz -R y -C -a > y.vg 2> /dev/null
 vg ids -j x.vg y.vg
 
-vg index -G x.gbwt -v small/xy2.vcf.gz -F x.threads x.vg && vg index -G y.gbwt -v small/xy2.vcf.gz -F y.threads y.vg && vg gbwt -m -f -o xy.gbwt x.gbwt y.gbwt
+vg index -G x.gbwt -v small/xy2.vcf.gz x.vg && vg index -G y.gbwt -v small/xy2.vcf.gz y.vg && vg gbwt -m -f -o xy.gbwt x.gbwt y.gbwt
 is $? 0 "building a GBWT index of multiple graphs with haplotypes"
 
-vg index -x xy.xg -F x.threads -F y.threads x.vg y.vg
+vg index -x xy.xg x.vg y.vg
 is $? 0 "building an XG index of multiple graphs with haplotypes"
 
 vg index -g xy.gcsa -k 2 x.vg y.vg
@@ -135,15 +138,13 @@ is $? 0 "storing a VCF parse for multiple graphs with haplotypes"
 ../deps/gbwt/build_gbwt -p -r -o parse_xy parse_x parse_y > /dev/null 2> /dev/null
 is $? 0 "building a GBWT index from the VCF parses"
 
-# Add the metadata manually, extract the packaged GBWT, and compare the indexes
-../deps/gbwt/metadata -c 2 -h 2 -s 1 parse_xy > /dev/null
+# Dump the tagged stream and compare the indexes built with build_gbwt and vg index
 vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
-
 cmp parse_xy.gbwt xy.bare.gbwt
 is $? 0 "the indexes are identical"
 
 rm -f x.vg y.vg
-rm -f x.gbwt y.gbwt x.threads y.threads
+rm -f x.gbwt y.gbwt
 rm -f xy.xg xy.gbwt xy.gcsa xy.gcsa.lcp
 rm -f xy2.xg xy2.gbwt xy2.gcsa xy2.gcsa.lcp
 rm -f parse_x parse_x_0_1 parse_y parse_y_0_1 parse_xy.gbwt xy.bare.gbwt
@@ -159,14 +160,6 @@ vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $? 0 "GBWT can be built for both paths and haplotypes"
 
 rm -f x_ref.gbwt x_both.gbwt
-
-vg index -x x.xg x.vg
-vg sim -n 100 -l 100 -x x.xg -a >sim.gam
-vg index -G x_gam.gbwt -M sim.gam -x x_gam.xg x.vg
-
-is $(vg paths -g x_gam.gbwt -T -x x_gam.xg -V | vg view -c - | jq -cr '.path[].name'  | sort | md5sum | cut -f 1 -d\ ) $(vg view -a sim.gam | jq -r .name | sort | md5sum | cut -f 1 -d\ ) "we can build a GBWT from alignments and index it by name with xg thread naming"
-
-rm -f x.vg x.xg sim.gam x_gam.gbwt
 
 # We do not test GBWT construction parameters (-B, -u, -n) because they matter only for large inputs.
 # We do not test chromosome-length path generation (-P, -o) for the same reason.
@@ -214,27 +207,6 @@ is "$(md5sum <x1337.sorted.gam.gai)" "$(md5sum <x1337.sorted.gam.gai2)" "vg inde
 
 rm -rf x.idx x.vg.map x.vg.aln x1337.gam x1337.sorted.gam.gai2 x1337.sorted.gam.gai x1337.sorted.gam
 
-vg construct -r small/x.fa -v small/x.vcf.gz -a >x.vg
-vg index -x x.xg -v small/x.vcf.gz x.vg
-is $? 0 "building an xg index containing a gPBWT"
-
-vg find -t -x x.xg >part.vg
-is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 2 "the gPBWT can be queried for two threads for each haplotype"
-
-is $(vg find -x x.xg -q _thread_1_x_0 | vg paths -L -v - | wc -l) 1 "a specific thread may be pulled from the graph by name"
-
-vg index -x x.xg -v small/x.vcf.gz x.vg --exclude 1
-vg find -t -x x.xg >part.vg
-is "$(cat x.vg part.vg | vg view -j - | jq '.path[].name' | grep '_thread' | wc -l)" 0 "samples can be excluded from haplotype indexing"
-
-rm -f x.vg x.xg part.vg x.gcsa
-
-
-vg construct -r small/xy.fa -v small/xy.vcf.gz -a >xy.vg
-vg index -x xy.xg -v small/xy.vcf.gz xy.vg
-is $(vg find -x xy.xg -t | vg paths -L -v - | wc -l) 4 "a thread is stored per haplotype, sample, and reference sequence"
-is $(vg find -x xy.xg -q _thread_1_y | vg paths -L -v - | wc -l) 2 "we have the expected number of threads per chromosome"
-rm -f xy.vg xy.xg
 
 vg construct -m 1000 -r small/x.fa -v small/x.vcf.gz -a >x.vg
 vg index -x x.xg -v small/x.vcf.gz -H haps.bin x.vg
@@ -289,9 +261,6 @@ is $(vg construct -r tiny/tiny.fa | vg index -g t.gcsa -k 16 -V - 2>&1 | grep 'I
 
 is $(vg index -g t.gcsa reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing succeeds on graph with heads but no tails"
 
-vg construct -r ins_and_del/ins_and_del.fa -v ins_and_del/ins_and_del.vcf.gz -a >ins_and_del.vg
-is $(vg index -x ins_and_del.vg.xg -v ins_and_del/ins_and_del.vcf.gz ins_and_del.vg 2>&1 | wc -l) 0 "indexing with allele paths handles combination insert-and-deletes"
-
 vg construct -m 1025 -r 1mb1kgp/z.fa > big.vg
 
 is $(vg index -g big.gcsa big.vg -k 16 2>&1 | head -n10 | grep 'Found kmer with offset' | wc -l) 1 "a useful error message is produced when nodes are too large"
@@ -301,7 +270,7 @@ rm -f big.vg
 rm -f t.gcsa
 rm -f x.vg
 
-rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp ins_and_del.vg ins_and_del.vg.xg
+rm -f r.gcsa.lcp c.gcsa.lcp t.gcsa.lcp
 
 # Test distance index 
 vg construct -r small/x.fa -v small/x.vcf.gz > x.vg
@@ -309,5 +278,8 @@ vg snarls -t x.vg > snarls.pb
 
 vg index -s snarls.pb -j distIndex -w 100 x.vg
 is $? 0 "building a distance index of a graph"
+
+vg index -s snarls.pb -j distIndex x.vg
+is $? 0 "building a distance index of a graph without maximum index"
 
 rm -f x.vg distIndex snarls.pb

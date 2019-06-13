@@ -304,9 +304,11 @@ string make_variant_id(const vcflib::Variant& variant) {
     std::stringstream variant_stringer;
     variant_stringer << variant.sequenceName << '\n';
     variant_stringer << variant.position << '\n';
-    variant_stringer << variant.ref << '\n';
+    // Case insensitive so we can use this function to get ids consistent with
+    // vg construct (which converts to uppercase before assigning ids)
+    variant_stringer << toUppercase(variant.ref) << '\n';
     for (auto& alt : variant.alt) {
-        variant_stringer << alt << '\n';
+      variant_stringer << toUppercase(alt) << '\n';
     }
     hasher.update(variant_stringer.str());
 

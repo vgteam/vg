@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "../multipath_mapper.hpp"
 #include "../build_index.hpp"
 #include "catch.hpp"
@@ -191,7 +191,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         // We have one graph
         REQUIRE(results.size() == 1);
         // It has one node
-        REQUIRE(get<0>(results[0])->node_size() == 1);
+        REQUIRE(get<0>(results[0])->get_node_count() == 1);
         // It contains the one MEM we fed in
         REQUIRE(get<1>(results[0]).size() == 1);
         MultipathMapper::memcluster_t& assigned_mems = get<1>(results[0]);
@@ -228,7 +228,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         // We have one graph
         REQUIRE(results.size() == 1);
         // It has one node
-        REQUIRE(get<0>(results[0])->node_size() == 1);
+        REQUIRE(get<0>(results[0])->get_node_count() == 1);
         // It came from two MEM hits
         REQUIRE(get<1>(results[0]).size() == 2);
         // They are hits of the two MEMs we fed in at the right places
@@ -265,7 +265,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
         // We have one graph
         REQUIRE(results.size() == 1);
         // It has one node
-        REQUIRE(get<0>(results[0])->node_size() == 1);
+        REQUIRE(get<0>(results[0])->get_node_count() == 1);
         // It came from two MEM hits
         REQUIRE(get<1>(results[0]).size() == 2);
         // They are hits of the two MEMs we fed in at the right places

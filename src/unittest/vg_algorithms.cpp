@@ -3158,7 +3158,7 @@ namespace vg {
                 }
                 
                 SECTION( "All nodes are placed" ) {
-                    REQUIRE(handle_sort.size() == vg.node_size());
+                    REQUIRE(handle_sort.size() == vg.get_node_count());
                 
                     unordered_set<id_t> found;
                     
@@ -3166,7 +3166,7 @@ namespace vg {
                         found.insert(vg.get_id(handle));
                     }
                     
-                    REQUIRE(found.size() == vg.node_size());
+                    REQUIRE(found.size() == vg.get_node_count());
                     
                 }
                
@@ -3219,7 +3219,7 @@ namespace vg {
                 }
                 
                 SECTION( "All nodes are placed" ) {
-                    REQUIRE(handle_sort.size() == vg.node_size());
+                    REQUIRE(handle_sort.size() == vg.get_node_count());
                 
                     unordered_set<id_t> found;
                     
@@ -3227,7 +3227,7 @@ namespace vg {
                         found.insert(vg.get_id(handle));
                     }
                     
-                    REQUIRE(found.size() == vg.node_size());
+                    REQUIRE(found.size() == vg.get_node_count());
                     
                 }
                
@@ -4111,62 +4111,24 @@ namespace vg {
             }
         }
 
-        TEST_CASE("lazy_topological_sort() and lazier_topological_sort() should put a DAG in topological order", "[algorithms][sort]") {
+        TEST_CASE("lazy_topological_order() and lazier_topological_order() should put a DAG in topological order", "[algorithms][sort]") {
             
-            auto is_in_topological_order = [](const Graph& graph) {
+            auto is_in_topological_order = [](const HandleGraph* graph, const vector<handle_t>& order) {
                 
-                unordered_map<id_t, bool> node_orientation;
-                
-                unordered_map<id_t, size_t> id_to_idx;
-                for (size_t i = 0; i < graph.node_size(); i++) {
-                    id_to_idx[graph.node(i).id()] = i;
+                unordered_map<handle_t, size_t> handle_to_idx;
+                for (size_t i = 0; i < order.size(); i++) {
+                    handle_to_idx[order[i]] = i;
                 }
                 
                 bool return_val = true;
-                for (size_t i = 0; i < graph.edge_size() && return_val; i++) {
-                    const Edge& e = graph.edge(i);
-                    
-                    if (id_to_idx[e.from()] < id_to_idx[e.to()]) {
-                        if (node_orientation.count(e.from())) {
-                            return_val = return_val && (e.from_start() == node_orientation[e.from()]);
-                        }
-                        else {
-                            node_orientation[e.from()] = e.from_start();
-                        }
-                        
-                        if (node_orientation.count(e.to())) {
-                            return_val = return_val && (e.to_end() == node_orientation[e.to()]);
-                        }
-                        else {
-                            node_orientation[e.to()] = e.to_end();
-                        }
-                    }
-                    else {
-                        if (node_orientation.count(e.from())) {
-                            return_val = return_val && (e.from_start() != node_orientation[e.from()]);
-                        }
-                        else {
-                            node_orientation[e.from()] = !e.from_start();
-                        }
-                        
-                        if (node_orientation.count(e.to())) {
-                            return_val = return_val && (e.to_end() != node_orientation[e.to()]);
-                        }
-                        else {
-                            node_orientation[e.to()] = !e.to_end();
-                        }
-                    }
-                    
-                    if (e.from() == e.to()) {
-                        return_val = false;
-                    }
-                    else if (id_to_idx[e.from()] < id_to_idx[e.to()]) {
-                        return_val = return_val && (e.from_start() == node_orientation[e.from()] && e.to_end() == node_orientation[e.to()]);
-                    }
-                    else {
-                        return_val = return_val && (e.from_start() != node_orientation[e.from()] && e.to_end() != node_orientation[e.to()]);
-                    }
-                }
+                
+                graph->for_each_handle([&](const handle_t& h) {
+                    handle_t handle = handle_to_idx.count(h) ? h : graph->flip(h);
+                    graph->follow_edges(handle, false, [&](const handle_t& next) {
+                        return_val = return_val && handle_to_idx.count(next) && handle_to_idx[next] > handle_to_idx[handle];
+                    });
+                });
+                
                 return return_val;
             };
             
@@ -4183,11 +4145,11 @@ namespace vg {
                 // make the second graph have some locally stored nodes in the reverse orientation
                 vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-                algorithms::lazier_topological_sort(&vg1);
-                algorithms::lazy_topological_sort(&vg2);
+                auto lazier_order = algorithms::lazier_topological_order(&vg1);
+                auto lazy_order = algorithms::lazy_topological_order(&vg2);
                 
-                REQUIRE(is_in_topological_order(vg1.graph));
-                REQUIRE(is_in_topological_order(vg2.graph));
+                REQUIRE(is_in_topological_order(&vg1, lazier_order));
+                REQUIRE(is_in_topological_order(&vg2, lazy_order));
             }
             
             SECTION("laz[y/ier]_topological_sort() works on a simple graph that's not already in topological order") {
@@ -4203,11 +4165,11 @@ namespace vg {
                 // make the second graph have some locally stored nodes in the reverse orientation
                 vg2.apply_orientation(vg2.get_handle(n1->id(), true));
                 
-                algorithms::lazier_topological_sort(&vg1);
-                algorithms::lazy_topological_sort(&vg2);
+                auto lazier_order = algorithms::lazier_topological_order(&vg1);
+                auto lazy_order = algorithms::lazy_topological_order(&vg2);
                 
-                REQUIRE(is_in_topological_order(vg1.graph));
-                REQUIRE(is_in_topological_order(vg2.graph));
+                REQUIRE(is_in_topological_order(&vg1, lazier_order));
+                REQUIRE(is_in_topological_order(&vg2, lazy_order));
 
             }
             
@@ -4246,15 +4208,15 @@ namespace vg {
                 vg2.apply_orientation(vg2.get_handle(n8->id(), true));
                 vg2.apply_orientation(vg2.get_handle(n6->id(), true));
                 
-                algorithms::lazier_topological_sort(&vg1);
-                algorithms::lazy_topological_sort(&vg2);
+                auto lazier_order = algorithms::lazier_topological_order(&vg1);
+                auto lazy_order = algorithms::lazy_topological_order(&vg2);
                 
-                REQUIRE(is_in_topological_order(vg1.graph));
-                REQUIRE(is_in_topological_order(vg2.graph));
+                REQUIRE(is_in_topological_order(&vg1, lazier_order));
+                REQUIRE(is_in_topological_order(&vg2, lazy_order));
             }
         }
         
-        TEST_CASE("apply_ordering and apply_orientations work as expected", "[algorithms]") {
+        TEST_CASE("apply_orientations works as expected", "[algorithms]") {
             
             VG vg;
             
@@ -4267,31 +4229,6 @@ namespace vg {
             
             random_device rd;
             default_random_engine prng(rd());
-            
-            SECTION("apply_ordering works with random permutations") {
-                
-                for (int i = 0; i < 20; i++) {
-                    
-                    vector<handle_t> order;
-                    vg.for_each_handle([&](const handle_t& handle) {
-                        order.push_back(handle);
-                    });
-                    shuffle(order.begin(), order.end(), prng);
-                    
-                    vector<id_t> id_order;
-                    for (handle_t handle : order){
-                        id_order.push_back(vg.get_id(handle));
-                    }
-                    
-                    algorithms::apply_ordering(&vg, order);
-                    
-                    int idx = 0;
-                    vg.for_each_handle([&](const handle_t& handle) {
-                        REQUIRE(vg.get_id(handle) == id_order[idx]);
-                        idx++;
-                    });
-                }
-            }
             
             SECTION("apply_orientations works with random orientations") {
                 
@@ -5065,7 +5002,8 @@ namespace vg {
                 
                 for (size_t graph_iter = 0; graph_iter < num_graphs; graph_iter++) {
                     
-                    VG graph = randomGraph(seq_size, avg_struct_var_len, var_count);
+                    VG graph;
+                    random_graph(seq_size, avg_struct_var_len, var_count, &graph);
                     
                     size_t total_seq_len = 0;
                     vector<handle_t> all_handles;
@@ -5155,7 +5093,8 @@ namespace vg {
                 size_t num_trials_per_graph = 10;
                 
                 for (size_t graph_iter = 0; graph_iter < num_graphs; graph_iter++) {
-                    VG graph = randomGraph(seq_size, avg_struct_var_len, var_count);
+                    VG graph;
+                    random_graph(seq_size, avg_struct_var_len, var_count, &graph);
                     
                     size_t total_seq_len = 0;
                     vector<handle_t> all_handles;
@@ -5470,7 +5409,7 @@ namespace vg {
             
             handle_t r1, r2, r3, r4;
             bool found1 = false, found2 = false, found3 = false, found4 = false;
-            REQUIRE(rev_graph.node_size() == 4);
+            REQUIRE(rev_graph.get_node_count() == 4);
             rev_graph.for_each_handle([&](const handle_t& h) {
                 if (rev_graph.get_sequence(h) == graph.get_sequence(graph.flip(h1))) {
                     r1 = h;

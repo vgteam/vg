@@ -9,7 +9,7 @@
 #include "catch.hpp"
 #include "snarls.hpp"
 #include "cluster.hpp"
-#include "distance.hpp"
+#include "min_distance.hpp"
 #include "genotypekit.hpp"
 #include "random_graph.hpp"
 #include <fstream>
@@ -53,7 +53,7 @@ namespace unittest {
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
-        DistanceIndex di (&graph, &snarl_manager, 20);
+        MinimumDistanceIndex di (&graph, &snarl_manager, 20);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -134,7 +134,7 @@ namespace unittest {
         const Snarl* snarl2 = snarl_manager.into_which_snarl(2, false);
         const Snarl* snarl3 = snarl_manager.into_which_snarl(3, false);
 
-        DistanceIndex di (&graph, &snarl_manager, 50);
+        MinimumDistanceIndex di (&graph, &snarl_manager, 50);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -167,7 +167,6 @@ namespace unittest {
             REQUIRE(tvs.tv_path(pos11, pos6r, 9, 0).size() == 0);
             REQUIRE(tvs.tv_path(pos1, pos12, 3, 3).size() == 0);
             REQUIRE(tvs.tv_path(pos1, pos9, 9, 5).size() == 7);
-            REQUIRE(tvs.tv_path(pos1, pos9, 60, 5).size() == 0);
            
         }
     }//End test case
@@ -196,7 +195,7 @@ namespace unittest {
         CactusSnarlFinder bubble_finder(graph);
         SnarlManager snarl_manager = bubble_finder.find_snarls(); 
 
-        DistanceIndex di (&graph, &snarl_manager, 50);
+        MinimumDistanceIndex di (&graph, &snarl_manager, 50);
         TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di)); 
     
@@ -227,11 +226,12 @@ namespace unittest {
     TEST_CASE( "TVS for random graph",
                    "[tvs]" ) {
         for (int i = 0; i  < 0; i++) {
-            VG graph = randomGraph(1000, 20, 100);
+            VG graph;
+            random_graph(1000, 20, 100, &graph);
             CactusSnarlFinder bubble_finder(graph);
             SnarlManager snarl_manager = bubble_finder.find_snarls();
          
-            DistanceIndex di (&graph, &snarl_manager, 20);
+            MinimumDistanceIndex di (&graph, &snarl_manager, 20);
             TargetValueSearch tvs(graph, new TipAnchoredMaxDistance(di), 
                                new SnarlMinDistance(di));    
 

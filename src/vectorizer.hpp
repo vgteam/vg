@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include "vg.hpp"
 #include "xg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 /**
 * This class provides a way to transform

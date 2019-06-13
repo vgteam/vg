@@ -6,12 +6,15 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <sstream>
 #include <set>
 #include "json2pb.h"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "catch.hpp"
 #include "snarls.hpp"
 #include "genotypekit.hpp"
+#include <vg/io/protobuf_emitter.hpp>
+#include <vg/io/vpkg.hpp>
 
 //#define debug
 
@@ -3559,5 +3562,26 @@ namespace vg {
              
         } 
         
-    }
+        TEST_CASE( "SnarlManager IO works correctly",
+                  "[sites][snarls]" ) {
+            
+            SECTION( "SnarlManager can be loaded from an empty snarls file") {
+                
+                stringstream buff;
+                
+                {
+                    // Make an emitter
+                    vg::io::ProtobufEmitter<Snarl> emitter(buff);
+                    // Emit nothing
+                }
+                
+                // Now load it back
+                unique_ptr<SnarlManager> manager = vg::io::VPKG::try_load_one<SnarlManager>(buff);
+                
+                REQUIRE(manager.get() != nullptr);
+                
+            }
+            
+        }
+   }
 }

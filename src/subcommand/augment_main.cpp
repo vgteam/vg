@@ -48,6 +48,7 @@ void help_augment(char** argv, ConfigurableParser& parser) {
          << "general options:" << endl
          << "    -a, --augmentation-mode M   augmentation mode.  M = {pileup, direct} [direct]" << endl
          << "    -i, --include-paths         merge the paths implied by alignments into the graph" << endl
+         << "    -C, --cut-softclips         drop softclips from the paths (recommended)" << endl
          << "    -B, --label-paths           don't augment with alignments, just use them for labeling the graph" << endl
          << "    -Z, --translation FILE      save translations from augmented back to base graph to FILE" << endl
          << "    -A, --alignment-out FILE    save augmented GAM reads to FILE" << endl
@@ -94,11 +95,14 @@ int main_augment(int argc, char** argv) {
     // Include a path in the graph for each GAM
     bool include_paths = false;
 
+    // Include the softclips for each path
+    bool include_softclips = true;
+
     // Just label the paths with the GAM
     bool label_paths = false;
 
     // Merge alleles from this loci file instead of GAM
-    string loci_filename;
+    string loci_file;
 
     // Merge only alleles from called genotypes in the loci file
     bool called_genotypes_only = false;
@@ -149,6 +153,7 @@ int main_augment(int argc, char** argv) {
         {"translation", required_argument, 0, 'Z'},
         {"alignment-out", required_argument, 0, 'A'},
         {"include-paths", no_argument, 0, 'i'},
+        {"cut-softclips", no_argument, 0, 'C'},
         {"label-paths", no_argument, 0, 'B'},
         {"help", no_argument, 0, 'h'},
         {"progress", required_argument, 0, 'p'},
@@ -169,7 +174,7 @@ int main_augment(int argc, char** argv) {
         {"recall", no_argument, 0, 'r'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "a:Z:A:iBhpvt:l:L:P:S:q:m:w:Mg:Ur";
+    static const char* short_options = "a:Z:A:iBhpvt:l:L:P:S:q:m:w:Mg:UrC";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -189,6 +194,9 @@ int main_augment(int argc, char** argv) {
             break;
         case 'i':
             include_paths = true;
+            break;
+        case 'C':
+            include_softclips = false;
             break;
         case 'B':
             label_paths = true;
@@ -211,10 +219,10 @@ int main_augment(int argc, char** argv) {
 
             // Loci Options
         case 'l':
-            loci_filename = optarg;
+            loci_file = optarg;
             break;
         case 'L':
-            loci_filename = optarg;
+            loci_file = optarg;
             called_genotypes_only = true;
             break;
             
@@ -273,7 +281,7 @@ int main_augment(int argc, char** argv) {
         gam_in_file_name = get_input_file_name(optind, argc, argv);
     }
 
-    if (gam_in_file_name.empty() && loci_filename.empty()) {
+    if (gam_in_file_name.empty() && loci_file.empty()) {
         cerr << "[vg augment] error: gam file argument required" << endl;
         return 1;
     }
@@ -281,8 +289,8 @@ int main_augment(int argc, char** argv) {
         cerr << "[vg augment] error: graph and gam can't both be from stdin." << endl;
         return 1;
     }
-    if (gam_in_file_name == "-" && !gam_out_file_name.empty()) {
-        cerr << "[vg augment] error: cannot stream input gam when using -A option (as it requires 2 passes)" << endl;
+    if (gam_in_file_name == "-" && !include_paths && !label_paths && augmentation_mode == "direct") {
+        cerr << "[vg augment] error: cannot stream input gam when not using -i option (as it requires 2 passes)" << endl;
         return 1;
     }
 
@@ -352,73 +360,73 @@ int main_augment(int argc, char** argv) {
             delete pileups;
             pileups = nullptr;
         }
-    
-        // Load all the reads
-        vector<Alignment> reads;
-        // And pull out their paths
-        vector<Path> read_paths;
 
-        if (include_paths) {
-            // verbatim from vg mod -i
-            map<string, Path> paths_map;
-            function<void(Alignment&)> lambda = [&](Alignment& aln) {
-                Path path = simplify(aln.path());
-                path.set_name(aln.name());
-                auto f = paths_map.find(path.name());
-                if (f != paths_map.end()) {
-                    paths_map[path.name()] = concat_paths(f->second, path);
-                } else {
-                    paths_map[path.name()] = path;
-                }
-                if (!gam_out_file_name.empty()) {
-                    reads.push_back(aln);
-                }
-            };
-            if (gam_in_file_name == "-") {
-                stream::for_each(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(gam_in_file_name.c_str());
-                stream::for_each(in, lambda);
-            }
-            for (auto& p : paths_map) {
-                read_paths.push_back(p.second);
-            }
-            paths_map.clear();
-        }
-        else {
+        vector<Translation> translation;
+
+        // Just add path names with extend()
+        if (label_paths) {
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                    stream::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
-                            // Trim the softclips off of every read
-                            // Work out were to cut
-                            int cut_start = softclip_start(alignment);
-                            int cut_end = softclip_end(alignment);
-                            // Cut the sequence and quality
-                            alignment.set_sequence(alignment.sequence().substr(cut_start, alignment.sequence().size() - cut_start - cut_end));
-                            if (alignment.quality().size() != 0) {
-                                alignment.set_quality(alignment.quality().substr(cut_start, alignment.quality().size() - cut_start - cut_end));
+                    vg::io::for_each<Alignment>(alignment_stream, [&](Alignment& alignment) {
+                            if (!include_softclips) {
+                                softclip_trim(alignment);
                             }
-                            // Trim the path
-                            *alignment.mutable_path() = trim_hanging_ends(alignment.path());
-                
-                            // Save every read
-                            if (!gam_out_file_name.empty()) {
-                                reads.push_back(alignment);
-                            }
-                            // And the path for the read, separately
-                            // TODO: Make edit use callbacks or something so it doesn't need a vector of paths necessarily
-                            read_paths.push_back(alignment.path());
+                            Path simplified_path = simplify(alignment.path());
+                            *simplified_path.mutable_name() = alignment.name();
+                            graph->paths.extend(simplified_path, false, false);
                         });
                 });
+            graph->paths.sort_by_mapping_rank();
+            graph->paths.rebuild_mapping_aux();
+        }                            
+        // We use the old interface when streaming in paths to include in order to preserve
+        // backward compatibility (with vg mod - -i aln.gam ), as the new interface can't read from stdin.
+        else if (include_paths && gam_in_file_name == "-") {
+            // Load all the reads
+            vector<Alignment> reads;
+            // And pull out their paths
+            vector<Path> read_paths;
+            vg::io::for_each(std::cin, (function<void(Alignment&)>)[&](Alignment& aln) {
+                    if (!include_softclips) {
+                        softclip_trim(aln);
+                    }
+                    read_paths.push_back(aln.path());
+                    reads.push_back(aln);
+                    *reads.back().mutable_path() = Path();
+                });
+            graph->edit(read_paths,
+                        !translation_file_name.empty() ? &translation : nullptr,
+                        include_paths,
+                        !gam_out_file_name.empty(),
+                        false);
+            if (!gam_out_file_name.empty()) {
+                ofstream gam_out_file(gam_out_file_name);
+                vector<Alignment> gam_buffer;
+                for (size_t i = 0; i < reads.size(); i++) {
+                    // Say we are going to write out the alignment
+                    gam_buffer.push_back(reads[i]);                
+                    // Set its path to the corrected embedded path
+                    *gam_buffer.back().mutable_path() = read_paths[i];
+                    // Write it back out
+                    vg::io::write_buffered(gam_out_file, gam_buffer, 100);
+                }
+                // Flush the buffer
+                vg::io::write_buffered(gam_out_file, gam_buffer, 0);
+            }
         }
-        
-        // Augment the graph, rewriting the paths.
-        vector<Translation> translation;
-        if (!label_paths) {
-            translation = graph->edit(read_paths, include_paths, !gam_out_file_name.empty(), false);
-        } else {
-            // just add the path labels to the graph
-            graph->paths.extend(read_paths);
+        // The new streaming interface doesn't keep the GAM in memory.  It does make two passes of it though,
+        // so it won't work with stdin
+        else {
+            assert(gam_in_file_name != "-");
+            ifstream gam_in_file(gam_in_file_name);
+            ofstream gam_out_file;
+            if (!gam_out_file_name.empty()) {
+                gam_out_file.open(gam_out_file_name);
+            }
+            graph->edit(gam_in_file,
+                        !translation_file_name.empty() ? &translation : nullptr,
+                        include_paths,
+                        !gam_out_file_name.empty() ? &gam_out_file : nullptr,
+                        false, !include_softclips);
         }
         
         // Write the augmented graph
@@ -437,34 +445,10 @@ int main_augment(int argc, char** argv) {
                 cerr << "[vg augment]: Error opening translation file: " << translation_file_name << endl;
                 return 1;
             }
-            stream::write_buffered(translation_file, translation, 0);
+            vg::io::write_buffered(translation_file, translation, 0);
             translation_file.close();
         }        
         
-        if (!gam_out_file_name.empty() && reads.size() == read_paths.size()) {
-            // Write out the modified GAM
-            
-            ofstream gam_out_file(gam_out_file_name);
-            if (!gam_out_file) {
-                cerr << "[vg augment]: Error opening output GAM file: " << gam_out_file_name << endl;
-                return 1;
-            }
-            
-            // We use this buffer and do a buffered write
-            vector<Alignment> gam_buffer;
-            for (size_t i = 0; i < reads.size(); i++) {
-                // Say we are going to write out the alignment
-                gam_buffer.push_back(reads[i]);
-                
-                // Set its path to the corrected embedded path
-                *gam_buffer.back().mutable_path() = read_paths[i];
-                
-                // Write it back out
-                stream::write_buffered(gam_out_file, gam_buffer, 100);
-            }
-            // Flush the buffer
-            stream::write_buffered(gam_out_file, gam_buffer, 0);
-        }
     } else if (augmentation_mode == "pileup") {
         // We want to augment with pileups
         
@@ -493,20 +477,20 @@ int main_augment(int argc, char** argv) {
                 return 1;
             }
             get_input_file(gam_in_file_name, [&](istream& alignment_stream) {
-                    vector<Alignment> gam_buffer;
-                    function<void(Alignment&)> lambda = [&gam_out_file, &gam_buffer, &augmenter](Alignment& alignment) {
-                        list<mapping_t> aug_path;
-                        augmenter.map_path(alignment.path(), aug_path, true);
-                        alignment.mutable_path()->clear_mapping();
-                        for (auto& aug_mapping : aug_path) {
-                            *alignment.mutable_path()->add_mapping() = aug_mapping.to_mapping();
-                        }
-                        gam_buffer.push_back(alignment);
-                        stream::write_buffered(gam_out_file, gam_buffer, 100);
-                    };
-                    stream::for_each(alignment_stream, lambda);
-                    stream::write_buffered(gam_out_file, gam_buffer, 0);
-                });
+                vector<Alignment> gam_buffer;
+                function<void(Alignment&)> lambda = [&gam_out_file, &gam_buffer, &augmenter](Alignment& alignment) {
+                    list<mapping_t> aug_path;
+                    augmenter.map_path(alignment.path(), aug_path, true);
+                    alignment.mutable_path()->clear_mapping();
+                    for (auto& aug_mapping : aug_path) {
+                        *alignment.mutable_path()->add_mapping() = aug_mapping.to_mapping();
+                    }
+                    gam_buffer.push_back(alignment);
+                    vg::io::write_buffered(gam_out_file, gam_buffer, 100);
+                };
+                vg::io::for_each(alignment_stream, lambda);
+                vg::io::write_buffered(gam_out_file, gam_buffer, 0);
+            });
         }
 
         // write the translation
@@ -538,77 +522,48 @@ int main_augment(int argc, char** argv) {
             augmenter._augmented_graph.write_supports(support_file);
             support_file.close();
         }       
-    } else if (!loci_filename.empty()) {
-        // Open the file
-        ifstream loci_file(loci_filename);
-        assert(loci_file.is_open());
-    
-        // What nodes and edges are called as present by the loci?
-        set<Node*> called_nodes;
-        set<Edge*> called_edges;
-    
-        function<void(Locus&)> lambda = [&](Locus& locus) {
-            // For each locus
-            
-            if (locus.genotype_size() == 0) {
-                // No call made here. Just remove all the nodes/edges. TODO:
-                // should we keep them all if we don't know if they're there or
-                // not? Or should the caller call ref with some low confidence?
-                return;
-            }
-            
-            const Genotype& gt = locus.genotype(0);
-            
-            for (size_t j = 0; j < gt.allele_size(); j++) {
-                // For every allele called as present
-                int allele_number = gt.allele(j);
-                const Path& allele = locus.allele(allele_number);
-                
-                for (size_t i = 0; i < allele.mapping_size(); i++) {
-                    // For every Mapping in the allele
-                    const Mapping& m = allele.mapping(i);
-                    
-                    // Remember to keep this node
-                    called_nodes.insert(graph->get_node(m.position().node_id()));
-                    
-                    if (i + 1 < allele.mapping_size()) {
-                        // Look at the next mapping, which exists
-                        const Mapping& m2 = allele.mapping(i + 1);
-                        
-                        // Find the edge from the last Mapping's node to this one and mark it as used
-                        called_edges.insert(graph->get_edge(NodeSide(m.position().node_id(), !m.position().is_reverse()),
-                            NodeSide(m2.position().node_id(), m2.position().is_reverse())));
+    } else if (!loci_file.empty()) {
+        // read in the alignments and save their paths
+        vector<Path> paths;
+        function<void(Locus&)> lambda = [&graph, &paths, &called_genotypes_only](Locus& locus) {
+            // if we are only doing called genotypes, record so we can filter alleles
+            set<int> alleles_in_genotype;
+            if (called_genotypes_only) {
+                for (int i = 0; i < locus.genotype_size(); ++i) {
+                    for (int j = 0; j < locus.genotype(i).allele_size(); ++j) {
+                        alleles_in_genotype.insert(locus.genotype(i).allele(j));
                     }
                 }
             }
+            for (int i = 0; i < locus.allele_size(); ++i) {
+                // skip alleles not in the genotype if using only called genotypes
+                if (!alleles_in_genotype.empty()) {
+                    if (!alleles_in_genotype.count(i)) continue;
+                }
+                Path path = simplify(locus.allele(i));
+                stringstream name;
+                name << locus.name() << ":" << i;
+                path.set_name(name.str());
+                paths.push_back(path);
+            }
         };
-        stream::for_each(loci_file, lambda);
-        
-        // Collect all the unused nodes and edges (so we don't try to delete
-        // while iterating...)
-        set<Node*> unused_nodes;
-        set<Edge*> unused_edges;
-        
-        graph->for_each_node([&](Node* n) {
-            if (!called_nodes.count(n)) {
-                unused_nodes.insert(n);
-            }
-        });
-        
-        graph->for_each_edge([&](Edge* e) {
-            if (!called_edges.count(e)) {
-                unused_edges.insert(e);
-            }
-        });
-        
-        // Destroy all the extra edges (in case they use extra nodes)
-        for (auto* e : unused_edges) {
-            graph->destroy_edge(e);
+        if (loci_file == "-") {
+            vg::io::for_each(std::cin, lambda);
+        } else {
+            ifstream in;
+            in.open(loci_file.c_str());
+            vg::io::for_each(in, lambda);
         }
-        
-        for (auto* n : unused_nodes) {
-            graph->destroy_node(n);
+        // execute the edits and produce the translation if requested.
+        // Make sure to break at node ends, but don't add any paths because they're just loci alleles and not real paths.
+        vector<Translation> translation;
+        graph->edit(paths, &translation, false, false, true);
+        if (!translation_file_name.empty()) {
+            ofstream out(translation_file_name);
+            vg::io::write_buffered(out, translation, 0);
+            out.close();
         }
+        graph->serialize_to_ostream(cout);
     }
 
     if (pileups != nullptr) {
@@ -643,7 +598,7 @@ Pileups* compute_pileups(VG* graph, const string& gam_file_name, int thread_coun
             int tid = omp_get_thread_num();
             pileups[tid]->compute_from_alignment(aln);
         };
-        stream::for_each_parallel(alignment_stream, lambda);
+        vg::io::for_each_parallel(alignment_stream, lambda);
     });
 
     // single-threaded (!) merge

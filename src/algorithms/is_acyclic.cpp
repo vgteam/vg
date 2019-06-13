@@ -11,7 +11,7 @@ bool is_acyclic(const HandleGraph* graph) {
     
     // the existence of reversing cycles is equivalent to whether a single stranded
     // orientation exists
-    if (single_stranded_orientation(graph).size() < graph->node_size()) {
+    if (single_stranded_orientation(graph).size() < graph->get_node_count()) {
         return false;
     }
     // the existence of non-reversing cycles is checked by the directed acyclic algorithm
@@ -28,15 +28,8 @@ bool is_directed_acyclic(const HandleGraph* graph) {
     // And also the stack of tips to start at
     vector<handle_t> stack;
     graph->for_each_handle([&](const handle_t& here) {
-        size_t start_degree = 0;
-        graph->follow_edges(here, true, [&](const handle_t& ignored) {
-            start_degree++;
-        });
-        
-        size_t end_degree = 0;
-        graph->follow_edges(here, false, [&](const handle_t& ignored) {
-            end_degree++;
-        });
+        size_t start_degree = graph->get_degree(here, true);
+        size_t end_degree = graph->get_degree(here, false);
     
         degrees[graph->get_id(here)] = make_pair(start_degree, end_degree);
         
@@ -50,7 +43,6 @@ bool is_directed_acyclic(const HandleGraph* graph) {
         }
         
     });
-    
     
     while (!stack.empty()) {
         handle_t here = stack.back();

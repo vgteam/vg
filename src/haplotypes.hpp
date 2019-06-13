@@ -5,7 +5,7 @@
 #include <vector>
 #include <iostream>
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "xg.hpp"
 
 #include <gbwt/gbwt.h>

@@ -76,53 +76,6 @@ MEMChainModel::MEMChainModel(
             pos.resize(min(pos.size(), (size_t)position_depth));
         }
     }
-    // for each vertex merge if we go equivalently forward in the positional space and forward in the read to the next position
-    // scan forward
-    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
-        for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::iterator p = c->second.begin(); p != c->second.end(); ++p) {
-            for (auto& v1 : p->second) {
-                if (redundant_vertexes.count(v1)) continue;
-                auto q = p;
-                while (++q != c->second.end() && abs(p->first - q->first) < band_width) {
-                    for (auto& v2 : q->second) {
-                        if (redundant_vertexes.count(v2)) continue;
-                        if (mems_overlap(v1->mem, v2->mem)
-                            && abs(v2->mem.begin - v1->mem.begin) == abs(q->first - p->first)) {
-                            if (v2->mem.length() < v1->mem.length()) {
-                                redundant_vertexes.insert(v2);
-                                if (v2->mem.end > v1->mem.end) {
-                                    v1->weight += v2->mem.end - v1->mem.end;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    // scan reverse
-    for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
-        for (map<int64_t, vector<vector<MEMChainModelVertex>::iterator> >::reverse_iterator p = c->second.rbegin(); p != c->second.rend(); ++p) {
-            for (auto& v1 : p->second) {
-                if (redundant_vertexes.count(v1)) continue;
-                auto q = p;
-                while (++q != c->second.rend() && abs(p->first - q->first) < band_width) {
-                    for (auto& v2 : q->second) {
-                        if (redundant_vertexes.count(v2)) continue;
-                        if (mems_overlap(v1->mem, v2->mem)
-                            && abs(v2->mem.begin - v1->mem.begin) == abs(p->first - q->first)) {
-                            if (v2->mem.length() < v1->mem.length()) {
-                                redundant_vertexes.insert(v2);
-                                if (v2->mem.end > v1->mem.end) {
-                                    v1->weight += v2->mem.end - v1->mem.end;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
     // now build up the model using the positional bandwidth
     set<pair<vector<MEMChainModelVertex>::iterator, vector<MEMChainModelVertex>::iterator> > seen;
     for (map<string, map<int64_t, vector<vector<MEMChainModelVertex>::iterator> > >::iterator c = positions.begin(); c != positions.end(); ++c) {
@@ -274,6 +227,7 @@ vector<vector<MaximalExactMatch> > MEMChainModel::traceback(int alt_alns, bool p
             }
             mem_trace.push_back(vertex.mem);
         }
+        //display_dot(cerr, vertex_trace); // for debugging
     }
     return traces;
 }
@@ -317,7 +271,53 @@ void MEMChainModel::display(ostream& out) {
         out << endl;
     }
 }
-    
+
+void MEMChainModel::display_dot(ostream& out, vector<MEMChainModelVertex*> vertex_trace) {
+    map<MEMChainModelVertex*, int> vertex_ids;
+    int i = 0;
+    for (auto& vertex : model) {
+        vertex_ids[&vertex] = ++i;
+    }
+    map<MEMChainModelVertex*,int> in_trace;
+    i = 0;
+    for (auto& v : vertex_trace) {
+        in_trace[v] = ++i;
+    }
+    out << "digraph memchain {" << endl;
+    for (auto& vertex : model) {
+        out << vertex_ids[&vertex]
+            << " [label=\"id:" << vertex_ids[&vertex]
+            << " seq:" << vertex.mem.sequence()
+            << " score:" << vertex.score
+            << " pos:[";
+        for (auto& p : vertex.mem.positions) {
+            for (auto& o : p.second) {
+                out << p.first << ":" << o.first << ":" << (o.second?"-":"+") << ",";
+            }
+        }
+        out << "]\"";
+        if (in_trace.find(&vertex) != in_trace.end()) {
+            out << ",color=red";
+        }
+        out << ",shape=box];" << endl;
+        /*
+        for (auto& p : vertex.prev_cost) {
+            out << vertex_ids[p.first] << " -> " << vertex_ids[&vertex] << " [label=\"" << p.second << "\"];" << endl;
+        }
+        */
+        for (auto& p : vertex.next_cost) {
+            //out << in_trace[&vertex] << " " << in_trace[p.first] << endl;
+            out << vertex_ids[&vertex] << " -> " << vertex_ids[p.first] << " [label=\"" << p.second << "\"";
+            if (in_trace.find(&vertex) != in_trace.end() && in_trace.find(p.first) != in_trace.end() &&
+                in_trace[&vertex] - 1 == in_trace[p.first]) {
+                out << ",color=red";
+            }
+            out << "];" << endl;
+        }
+    }
+    out << "}" << endl;
+}
+
 ShuffledPairs::ShuffledPairs(size_t num_items) : num_items(num_items), num_pairs(num_items * num_items), larger_prime(1), primitive_root(1) {
     
     // Find a prime that is at least as large as but at most a constant factor
@@ -470,7 +470,7 @@ void MEMClusterer::deduplicate_cluster_pairs(vector<pair<pair<size_t, size_t>, i
 }
     
 MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Alignment& alignment, const GSSWAligner* aligner,
-                                 size_t min_mem_length) {
+                                 size_t min_mem_length, bool track_components) : track_components(track_components), components(0, false) {
     // there generally will be at least as many nodes as MEMs, so we can speed up the reallocation
     nodes.reserve(mems.size());
     
@@ -503,11 +503,53 @@ MEMClusterer::HitGraph::HitGraph(const vector<MaximalExactMatch>& mems, const Al
 #endif
         }
     }
+    
+    // init the component tracker
+    if (track_components) {
+        components = UnionFind(nodes.size(), false);
+    }
 }
 
 void MEMClusterer::HitGraph::add_edge(size_t from, size_t to, int32_t weight, int64_t distance) {
     nodes[from].edges_from.emplace_back(to, weight, distance);
     nodes[to].edges_to.emplace_back(from, weight, distance);
+    
+    if (track_components) {
+        components.union_groups(from, to);
+    }
+}
+    
+void MEMClusterer::HitGraph::for_each_hit_pair(const function<void(pair<size_t, size_t>)>& lambda) {
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        for (size_t j = i + 1; j < nodes.size(); ++j) {
+            lambda(make_pair(i, j));
+        }
+    }
+}
+
+void MEMClusterer::HitGraph::for_each_hit_pair_greedy(const function<void(pair<size_t, size_t>)>& lambda) {
+    
+    // make a vector of all pairs
+    vector<pair<size_t, size_t>> node_pairs(nodes.size() * (nodes.size() - 1) / 2);
+    size_t k = 0;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        for (size_t j = i + 1; j < nodes.size(); ++j, ++k) {
+            node_pairs[k] = make_pair(i, j);
+        }
+    }
+    
+    // sort it in increasing order by inter-MEM distance
+    sort(node_pairs.begin(), node_pairs.end(), [&](const pair<size_t, size_t>& node_pair_1,
+                                                   const pair<size_t, size_t>& node_pair_2) {
+        return (abs(nodes[node_pair_1.first].mem->end - nodes[node_pair_1.second].mem->begin)
+                < abs(nodes[node_pair_2.first].mem->end - nodes[node_pair_2.second].mem->begin));
+    });
+    
+    for (const pair<size_t, size_t>& node_pair : node_pairs) {
+        if (components.find_group(node_pair.first) != components.find_group(node_pair.second)) {
+            lambda(node_pair);
+        }
+    }
 }
     
 void MEMClusterer::HitGraph::connected_components(vector<vector<size_t>>& components_out) const {
@@ -1491,7 +1533,7 @@ vector<pair<size_t, size_t>> PathOrientedDistanceMeasurer::exclude_merges(vector
     return excludes;
 }
     
-SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(DistanceIndex* distance_index) : distance_index(distance_index) {
+SnarlOrientedDistanceMeasurer::SnarlOrientedDistanceMeasurer(MinimumDistanceIndex* distance_index) : distance_index(distance_index) {
     
     // nothing to do
 }
@@ -2502,7 +2544,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> OrientedDistanceClusterer::pair_clus
     return to_return;
 }
 
-SnarlMinDistance::SnarlMinDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
+SnarlMinDistance::SnarlMinDistance(MinimumDistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
@@ -2510,7 +2552,7 @@ int64_t SnarlMinDistance::operator()(const pos_t& pos_1, const pos_t& pos_2) {
     return distance_index.minDistance(pos_1, pos_2);
 }
 
-TipAnchoredMaxDistance::TipAnchoredMaxDistance(DistanceIndex& distance_index) : distance_index(distance_index) {
+TipAnchoredMaxDistance::TipAnchoredMaxDistance(MinimumDistanceIndex& distance_index) : distance_index(distance_index) {
     // nothing else to do
 }
 
@@ -3001,7 +3043,7 @@ int64_t TargetValueSearch::tv_path_length(const pos_t& pos_1, const pos_t& pos_2
     }
 }
     
-TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, DistanceIndex* distance_index) :
+TVSClusterer::TVSClusterer(const HandleGraph* handle_graph, MinimumDistanceIndex* distance_index) :
       tvs(*handle_graph, new TipAnchoredMaxDistance(*distance_index), new SnarlMinDistance(*distance_index))   {
     
     // nothing else to do
@@ -3158,7 +3200,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> TVSClusterer::pair_clusters(const Al
     return to_return;
 }
 
-MinDistanceClusterer::MinDistanceClusterer(DistanceIndex* distance_index) : distance_index(distance_index) {
+MinDistanceClusterer::MinDistanceClusterer(MinimumDistanceIndex* distance_index) : distance_index(distance_index) {
     // nothing to do
 }
     
@@ -3252,9 +3294,9 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
 }
     
     MEMClusterer::HitGraph MinDistanceClusterer::make_hit_graph(const Alignment& alignment,
-                                                           const vector<MaximalExactMatch>& mems,
-                                                           const GSSWAligner* aligner,
-                                                           size_t min_mem_length) {
+                                                                const vector<MaximalExactMatch>& mems,
+                                                                const GSSWAligner* aligner,
+                                                                size_t min_mem_length) {
     
     // intialize with nodes
     HitGraph hit_graph(mems, alignment, aligner, min_mem_length);

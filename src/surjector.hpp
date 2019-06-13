@@ -13,7 +13,7 @@
 #include "xg.hpp"
 #include "vg.hpp"
 #include "translator.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "multipath_alignment_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"

@@ -13,17 +13,21 @@
 #include "types.hpp"
 #include "multipath_alignment.hpp"
 #include "xg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "position.hpp"
 #include "nodeside.hpp"
 #include "path.hpp"
 #include "edit.hpp"
 #include "snarls.hpp"
 #include "haplotypes.hpp"
-#include "distance.hpp"
+#include "min_distance.hpp"
 #include "utility.hpp"
-#include "hash_graph.hpp"
 #include "annotation.hpp"
+
+#include "identity_overlay.hpp"
+#include "reverse_graph.hpp"
+#include "split_strand_graph.hpp"
+#include "hash_graph.hpp"
 
 #include "algorithms/topological_sort.hpp"
 #include "algorithms/extract_containing_graph.hpp"
@@ -57,7 +61,7 @@ namespace vg {
     
         MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
-                        DistanceIndex* distance_index = nullptr);
+                        MinimumDistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
         
         /// Map read in alignment to graph and make multipath alignments.
@@ -395,7 +399,7 @@ namespace vg {
                                           vector<pair<pair<size_t, size_t>, int64_t>>& cluster_pairs);
         
         SnarlManager* snarl_manager;
-        DistanceIndex* distance_index;
+        MinimumDistanceIndex* distance_index;
         
         /// Memos used by population model
         static thread_local unordered_map<pair<double, size_t>, haploMath::RRMemo> rr_memos;

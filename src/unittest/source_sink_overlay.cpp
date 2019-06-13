@@ -246,7 +246,7 @@ TEST_CASE("SourceSinkOverlay agrees with VG::add_start_end_markers in a tiny gra
             }
         }, true);
         
-        REQUIRE(found == produced.node_size() + 2);
+        REQUIRE(found == produced.get_node_count() + 2);
     }
 }
 
@@ -254,7 +254,8 @@ TEST_CASE("SourceSinkOverlay agrees with VG::add_start_end_markers in a random g
 
     for (size_t trial = 0; trial < 1000; trial++) {
         
-        VG random = randomGraph(100, 3, 30);
+        VG random;
+        random_graph(100, 3, 30, &random);
         
 #ifdef debug
         cerr << "Trial " << trial << ": " << pb2json(random.graph) << endl;

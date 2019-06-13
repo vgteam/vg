@@ -15,7 +15,7 @@
 
 #include "../utility.hpp"
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/stream.hpp>
 
 using namespace std;
 using namespace vg;
@@ -215,8 +215,8 @@ int main_align(int argc, char** argv) {
             [&alignment] (size_t n) {
                 return alignment;
             };
-        stream::write(cout, 1, lambda);
-        stream::finish(cout);
+        vg::io::write(cout, 1, lambda);
+        vg::io::finish(cout);
     }
 
     if (graph != nullptr) {

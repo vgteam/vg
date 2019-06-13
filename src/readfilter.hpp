@@ -8,7 +8,7 @@
 #include <regex>
 #include "vg.hpp"
 #include "xg.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 
 /** \file
  * Provides a way to filter and transform reads, implementing the bulk of the
@@ -186,8 +186,7 @@ private:
      * kept. Returns true if the read should stay, and false if it should be
      * removed. Always accepts or rejects paired reads together.
      */
-    bool sample_read(const Alignment& read); 
-    
+    bool sample_read(const Alignment& read);
 };
 ostream& operator<<(ostream& os, const ReadFilter::Counts& counts);
 }

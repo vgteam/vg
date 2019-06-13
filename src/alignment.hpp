@@ -7,7 +7,7 @@
 #include "utility.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "xg.hpp"
 #include "edit.hpp"
 #include "htslib/hfile.h"
@@ -184,6 +184,7 @@ int non_match_start(const Alignment& alignment);
 int non_match_end(const Alignment& alignment);
 int softclip_start(const Alignment& alignment);
 int softclip_end(const Alignment& alignment);
+int softclip_trim(Alignment& alignment);
 int query_overlap(const Alignment& aln1, const Alignment& aln2);
 int edit_count(const Alignment& alignment);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
@@ -206,6 +207,9 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
 /// the start and end of Mappings, so code that handles simplified Alignments
 /// needs to handle offsets on internal Mappings.
 Alignment simplify(const Alignment& a, bool trim_internal_deletions = true);
+    
+/// Merge adjacent edits of the same type and convert all N matches to mismatches.
+void normalize_alignment(Alignment& alignment);
 
 // quality information; a kind of poor man's pileup
 map<id_t, int> alignment_quality_per_node(const Alignment& aln);

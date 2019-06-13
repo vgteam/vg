@@ -1,7 +1,7 @@
 #ifndef VG_GRAPH_HPP_INCLUDED
 #define VG_GRAPH_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include <set>
 #include <algorithm>

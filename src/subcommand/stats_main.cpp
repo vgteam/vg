@@ -14,8 +14,8 @@
 #include "subcommand.hpp"
 #include "../algorithms/distance_to_head.hpp"
 #include "../algorithms/distance_to_tail.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
 #include "../handle.hpp"
 
 #include "../path.hpp"
@@ -212,7 +212,7 @@ int main_stats(int argc, char** argv) {
     if (have_input_file(optind, argc, argv)) {
         // We have an (optional, because we can just process alignments) graph input file.
         // TODO: We can only handle vg until we route all the stats operations through HandleGraph.
-        graph = stream::VPKG::load_one<VG>(get_input_file_name(optind, argc, argv));
+        graph = vg::io::VPKG::load_one<VG>(get_input_file_name(optind, argc, argv));
     }
     
     // We have function to make sure the graph was passed and complain if not
@@ -695,7 +695,7 @@ int main_stats(int argc, char** argv) {
         };
 
         // Actually go through all the reads and count stuff up.
-        stream::for_each_parallel(alignment_stream, lambda);
+        vg::io::for_each_parallel(alignment_stream, lambda);
         
         // Now combine into a single ReadStats object (for which we pre-populated reads_on_allele with 0s).
         for (auto& per_thread : read_stats) {
@@ -901,7 +901,7 @@ int main_stats(int argc, char** argv) {
             // Net graph info
             // Internal connectivity not important, we just want the size.
             auto netGraph = manager.net_graph_of(snarl, graph.get(), false);
-            cout << "net-graph-size\t" << netGraph.node_size() << endl;
+            cout << "net-graph-size\t" << netGraph.get_node_count() << endl;
             
         });
         

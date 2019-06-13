@@ -10,7 +10,7 @@
 #include <limits>
 #include <unordered_set>
 #include <tuple>
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "vg.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"

@@ -279,7 +279,7 @@ bool IndexedVG::for_each_handle_impl(const function<bool(const handle_t&)>& iter
     return keep_going;
 }
 
-size_t IndexedVG::node_size() const {
+size_t IndexedVG::get_node_count() const {
     // TODO: Add total distinct node count to the index or cache it or something.
     // Right now we just scan.
     
@@ -462,11 +462,11 @@ bool IndexedVG::with_cache_entry(int64_t group_vo, const function<void(const Cac
                 cerr << "error[vg::IndexedVG]: Could not seek from group pos " << pre_seek_group
                     << " to group pos " << group_vo << endl;
                 cerr << "Current position: group " << cursor.tell_group()
-                    << " has_next: " << cursor.has_next() << endl;
+                    << " has_current: " << cursor.has_current() << endl;
                 assert(false);
             }
             
-            if (cursor.has_next()) {
+            if (cursor.has_current()) {
                 // We seeked to a real thing and not EOF
             
                 // Read the group into a cache entry
@@ -500,12 +500,12 @@ IndexedVG::CacheEntry::CacheEntry(cursor_t& cursor) {
     // We want to cache the group we are pointed at
     int64_t group_vo = cursor.tell_group();
     
-    while (cursor.has_next() && cursor.tell_group() == group_vo) {
+    while (cursor.has_current() && cursor.tell_group() == group_vo) {
         // Merge the whole group together
         merged_group.MergeFrom(cursor.take());
     }
 
-    if (!cursor.has_next()) {
+    if (!cursor.has_current()) {
         // We hit EOF
         next_group = numeric_limits<int64_t>::max();
     } else {

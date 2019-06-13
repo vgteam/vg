@@ -1,7 +1,7 @@
 #ifndef VG_CACHED_POS_HPP_INCLUDED
 #define VG_CACHED_POS_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include "xg.hpp"
 #include "lru_cache.h"

@@ -12,8 +12,8 @@
 
 #include "../alignment.hpp"
 #include "../vg.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 using namespace std;
 using namespace vg;
@@ -84,9 +84,9 @@ int main_inject(int argc, char** argv) {
         cerr << "error[vg inject]: XG index (-x) is required" << endl;
         exit(1);
     }
-    auto xgidx = stream::VPKG::load_one<xg::XG>(xg_name);
+    auto xgidx = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
-    stream::ProtobufEmitter<Alignment> buf(cout);
+    vg::io::ProtobufEmitter<Alignment> buf(cout);
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
 #pragma omp critical (buf)
         {

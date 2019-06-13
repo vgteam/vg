@@ -1,5 +1,5 @@
 #include "path.hpp"
-#include "stream/stream.hpp"
+#include <vg/io/stream.hpp>
 #include "region.hpp"
 
 namespace vg {
@@ -89,7 +89,7 @@ void Paths::load(istream& in) {
     function<void(Path&)> lambda = [this](Path& p) {
         this->extend(p);
     };
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
 }
 
 void Paths::write(ostream& out) {
@@ -111,8 +111,8 @@ void Paths::write(ostream& out) {
         }
         return path;
     };
-    stream::write(out, _paths.size(), lambda);
-    stream::finish(out);
+    vg::io::write(out, _paths.size(), lambda);
+    vg::io::finish(out);
 }
 
 void Paths::to_graph(Graph& g) {
@@ -181,7 +181,7 @@ void Paths::for_each_mapping(const function<void(mapping_t&)>& lambda) {
 }
 
 void Paths::for_each_stream(istream& in, const function<void(Path&)>& lambda) {
-    stream::for_each(in, lambda);
+    vg::io::for_each(in, lambda);
 }
 
 void Paths::make_circular(const string& name) {
@@ -260,8 +260,12 @@ Path& append_path(Path& a, const Path& b) {
     return a;
 }
 
-bool Paths::has_mapping(const string& name, size_t rank) {
-    return mappings_by_rank.count(name) && mappings_by_rank[name].count(rank);
+bool Paths::has_mapping(const string& name, int32_t rank) {
+    auto iter = mappings_by_rank.find(name);
+    if (iter != mappings_by_rank.end()) {
+        return iter->second.count(rank);
+    }
+    return false;
 }
 
 void Paths::append_mapping(const string& name, const mapping_t& m, bool warn_on_duplicates) {
@@ -367,16 +371,29 @@ void Paths::prepend_mapping(const string& name, const Mapping& m, bool warn_on_d
     // get or create the path with this name
     list<mapping_t>& pt = get_create_path(name);
    
-    // TODO: Implement dealing with no rank.
-    // We can't prepend a mapping that doesn't have a rank set. We would like to
-    // generate ranks, but we can't keep decrementing the first rank
-    // indefinitely, and that might not be correct. Also, what rank would we use
-    // for the only mapping in a path?
-    assert(m.rank());
+    // TODO: I'm not sure if this is the best way for handling ranks, but the ranks
+    // are really a chunked serialization thing, not an in-memory construct. Moreover,
+    // we're ideally going to move away from using the VG graph in the future, so I don't
+    // expect this will even come up. Mostly just trying to meet the HandleGraph interface
+    // in the interim.
+    int32_t rank = m.rank();
+    if (rank == 0) {
+        // no given rank, decrement the first rank, skipping over 0 to preserve it as
+        // a sentinel
+        if (pt.empty()) {
+            rank = 1;
+        }
+        else if (pt.front().rank != 1) {
+            rank = pt.front().rank - 1;
+        }
+        else {
+            rank = -1;
+        }
+    }
     
     // now if we haven't already supplied a mapping
     // add it
-    if (!has_mapping(name, m.rank())) {
+    if (!has_mapping(name, rank)) {
         // If we don't have a rank set or we don't have a mapping in this path
         // with that rank, we need to add the mapping.
         
@@ -394,7 +411,7 @@ void Paths::prepend_mapping(const string& name, const Mapping& m, bool warn_on_d
     } else if (warn_on_duplicates) {
         // This mapping duplicates the rank of an existing mapping.
         // We're not going to keep it, so we should complain.
-        cerr << "[vg] warning: path " << name << " rank " << m.rank() << " appears multiple times. Skipping." << endl;
+        cerr << "[vg] warning: path " << name << " rank " << rank << " appears multiple times. Skipping." << endl;
     }
 }
 
@@ -2077,7 +2094,7 @@ bool maps_to_node(const Path& p, id_t id) {
 }
 
 // returns the start position, or an empty position if the path has no mappings with positions
-Position path_start(const Path& path) {
+Position path_start_position(const Path& path) {
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         if (mapping.has_position()) return mapping.position();
@@ -2099,7 +2116,7 @@ string path_to_string(Path p){
 }
 
 // determine the path end
-Position path_end(const Path& path) {
+Position path_end_position(const Path& path) {
     Position pos;
     if (!path.mapping_size()) return pos;
     auto& last = path.mapping(path.mapping_size()-1);
@@ -2261,20 +2278,26 @@ void translate_oriented_node_ids(Path& path, const unordered_map<id_t, pair<id_t
 }
     
 pos_t initial_position(const Path& path) {
-    if (!path.mapping_size()) {
-        return pos_t();
+    pos_t pos;
+    if (path.mapping_size()) {
+        const Position& position = path.mapping(0).position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset();
     }
-    return path.mapping_size() ? make_pos_t(path.mapping(0).position()) : pos_t();
+    return pos;
 }
 
 pos_t final_position(const Path& path) {
-    if (!path.mapping_size()) {
-        return pos_t();
+    pos_t pos;
+    if (path.mapping_size()) {
+        const Mapping& mapping = path.mapping(path.mapping_size() - 1);
+        const Position& position = mapping.position();
+        get_id(pos) = position.node_id();
+        get_is_rev(pos) = position.is_reverse();
+        get_offset(pos) = position.offset() + mapping_from_length(mapping);
     }
-    const Mapping& mapping = path.mapping(path.mapping_size() - 1);
-    return make_pos_t(mapping.position().node_id(),
-                      mapping.position().is_reverse(),
-                      mapping.position().offset() + mapping_from_length(mapping) - 1);
+    return pos;
 }
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {

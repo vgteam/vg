@@ -18,7 +18,7 @@
  */
 
 #include "../phase_unfolder.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 #include "subcommand.hpp"
 
 #include <gbwt/gbwt.h>
@@ -354,7 +354,7 @@ int main_prune(int argc, char** argv) {
     if (mode == mode_unfold) {
         if (!gbwt_name.empty()) {
             get_input_file(gbwt_name, [&](std::istream& in) {
-                gbwt_index = stream::VPKG::load_one<gbwt::GBWT>(in);
+                gbwt_index = vg::io::VPKG::load_one<gbwt::GBWT>(in);
                 if (gbwt_index.get() == nullptr) {
                     std::cerr << "[vg prune]: could not load GBWT" << std::endl;
                     exit(1);

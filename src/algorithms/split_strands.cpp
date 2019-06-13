@@ -7,7 +7,7 @@ using namespace std;
 
     unordered_map<id_t, pair<id_t, bool>> split_strands(const HandleGraph* source, MutableHandleGraph* into) {
         
-        if (into->node_size()) {
+        if (into->get_node_count()) {
             cerr << "error:[algorithms] attempted to create strand-splitted graph in a non-empty graph" << endl;
             exit(1);
         }

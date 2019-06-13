@@ -17,9 +17,9 @@
 #include "../mapper.hpp"
 #include "../annotation.hpp"
 #include "../minimizer.hpp"
-#include "../stream/vpkg.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/protobuf_emitter.hpp"
+#include <vg/io/vpkg.hpp>
+#include <vg/io/stream.hpp>
+#include <vg/io/protobuf_emitter.hpp>
 
 //#define USE_CALLGRIND
 
@@ -177,26 +177,22 @@ int main_cluster(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {
-        gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_name);
-        lcp_index = stream::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
+        gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_name);
+        lcp_index = vg::io::VPKG::load_one<gcsa::LCPArray>(gcsa_name + ".lcp");
     }
     unique_ptr<MinimizerIndex> minimizer_index;
     if (!minimizer_name.empty()) {
-        minimizer_index = stream::VPKG::load_one<MinimizerIndex>(minimizer_name);
+        minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
     }
-    unique_ptr<SnarlManager> snarl_manager = stream::VPKG::load_one<SnarlManager>(snarls_name);
-    unique_ptr<DistanceIndex> distance_index = stream::VPKG::load_one<DistanceIndex>(distance_name);
-    
-    // Connect the DistanceIndex to the other things it needs to work.
-    distance_index->setGraph(xg_index.get());
-    distance_index->setSnarlManager(snarl_manager.get());
+    unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
+    unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
     // Make the clusterer
-    SnarlSeedClusterer clusterer;
+    SnarlSeedClusterer clusterer(*distance_index);
     
     // Make a Mapper to look up MEM seeds
     unique_ptr<Mapper> mapper;
@@ -210,14 +206,14 @@ int main_cluster(int argc, char** argv) {
         // Open up the input GAM
         
         // Make the output emitter
-        stream::ProtobufEmitter<Alignment> emitter(cout);
+        vg::io::ProtobufEmitter<Alignment> emitter(cout);
         
 #ifdef USE_CALLGRIND
         // We want to profile the clustering and the code around it.
         CALLGRIND_START_INSTRUMENTATION;
 #endif
         
-        stream::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
+        vg::io::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
             // For each input alignment
             
             // We will find all the seed hits
@@ -254,11 +250,12 @@ int main_cluster(int argc, char** argv) {
                 
                 for (size_t i = 0; i < minimizers.size(); i++) {
                     // For each minimizer
-                    if (hit_cap != 0 && minimizer_index->count(minimizers[i].first) <= hit_cap) {
+                    if (hit_cap != 0 && minimizer_index->count(minimizers[i]) <= hit_cap) {
                         // The minimizer is infrequent enough to be informative, so feed it into clustering
                         
-                        // Locate it in the graph
-                        for (auto& hit : minimizer_index->find(minimizers[i].first)) {
+                        // Locate it in the graph. We do not have to reverse the hits for a
+                        // reverse minimizers, as the clusterer only cares about node ids.
+                        for (auto& hit : minimizer_index->find(minimizers[i])) {
                             // For each position, remember it and what minimizer it came from
                             seeds.push_back(hit);
                             seed_to_source.push_back(i);
@@ -271,7 +268,7 @@ int main_cluster(int argc, char** argv) {
             // Cluster the seeds. Get sets of input seed indexes that go together.
             // Make sure to time it.
             std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-            vector<hash_set<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit, *snarl_manager, *distance_index);
+            vector<vector<size_t>> clusters = clusterer.cluster_seeds(seeds, distance_limit);
             std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             
@@ -295,7 +292,12 @@ int main_cluster(int argc, char** argv) {
                         }
                     } else {
                         // Using minimizers
-                        for (size_t i = minimizers[source_index].second; i < minimizers[source_index].second + minimizer_index->k(); i++) {
+                        // The offset of a reverse minimizer is the endpoint of the kmer
+                        size_t start_offset = minimizers[source_index].offset;
+                        if (minimizers[source_index].is_reverse) {
+                            start_offset = start_offset + 1 - minimizer_index->k();
+                        }
+                        for (size_t i = start_offset; i < start_offset + minimizer_index->k(); i++) {
                             // Set all the bits in read space for that minimizer.
                             // Each minimizr is a length-k exact match starting at a position
                             covered[i] = true;

@@ -1,7 +1,8 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
 #include "annotation.hpp"
-#include "stream/stream.hpp"
+#include "alignment_emitter.hpp"
+#include <vg/io/stream.hpp>
 
 #include <fstream>
 #include <sstream>
@@ -749,25 +750,16 @@ int ReadFilter::filter(istream* alignment_stream) {
         return 1;
     }
 
-    // output buffers
-    vector<vector<Alignment> > output_buffer(threads);
+    // Keep an AlignmentEmitter to multiplex output from multiple threads.
+    unique_ptr<AlignmentEmitter> emitter;
     
+    if (write_output) {
+        emitter = get_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
+    }
+
     // keep counts of what's filtered to report (in verbose mode)
     vector<Counts> counts_vec(threads);
 
-    auto output_alignment = [&](Alignment& aln) {
-        auto& output_buf = output_buffer[omp_get_thread_num()];
-        output_buf.emplace_back(move(aln));
-        stream::write_buffered(cout, output_buf, buffer_size);
-    };
-
-    auto flush_buffer = [&output_buffer]() {
-        for (auto& output_buf : output_buffer) {
-            stream::write_buffered(cout, output_buf, 0);
-        }
-        cout.flush();
-    };
-    
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
 #ifdef debug
         cerr << "Encountered read named \"" << aln.name() << "\" with " << aln.sequence().size()
@@ -776,7 +768,7 @@ int ReadFilter::filter(istream* alignment_stream) {
         Counts aln_counts = filter_alignment(aln);
         counts_vec[omp_get_thread_num()] += aln_counts;
         if ((aln_counts.keep() != complement_filter) && write_output) {
-            output_alignment(aln);
+            emitter->emit_single(std::move(aln));
         }
     };
 
@@ -793,19 +785,15 @@ int ReadFilter::filter(istream* alignment_stream) {
         }
         counts_vec[omp_get_thread_num()] += aln_counts;
         if ((aln_counts.keep() != complement_filter) && write_output) {
-            output_alignment(aln1);
-            output_alignment(aln2);
+            emitter->emit_pair(std::move(aln1), std::move(aln2));
         }
         
     };
     
     if (interleaved) {
-        stream::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
+        vg::io::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
     } else {
-        stream::for_each_parallel(*alignment_stream, lambda);
-    }
-    if (write_output) {
-        flush_buffer();
+        vg::io::for_each_parallel(*alignment_stream, lambda);
     }
 
     if (verbose) {

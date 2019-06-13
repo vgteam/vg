@@ -128,13 +128,13 @@ int main_benchmark(int argc, char** argv) {
     
         results.push_back(run_benchmark("vg::algorithms topological_order", 1000, [&]() {
             vector<handle_t> order = algorithms::topological_order(&vg);
-            assert(order.size() == vg.node_size());
+            assert(order.size() == vg.get_node_count());
         }));
         
-        results.push_back(run_benchmark("vg::algorithms topological_sort", 1000, [&]() {
+        results.push_back(run_benchmark("VG::sort", 1000, [&]() {
             vg_mut = vg;
         }, [&]() {
-            algorithms::topological_sort(&vg_mut);
+            vg_mut.sort();
         }));
         
         results.push_back(run_benchmark("vg::algorithms orient_nodes_forward", 1000, [&]() {
@@ -146,7 +146,7 @@ int main_benchmark(int argc, char** argv) {
         results.push_back(run_benchmark("vg::algorithms weakly_connected_components", 1000, [&]() {
             auto components = algorithms::weakly_connected_components(&vg);
             assert(components.size() == 1);
-            assert(components.front().size() == vg.node_size());
+            assert(components.front().size() == vg.get_node_count());
         }));
         
     }

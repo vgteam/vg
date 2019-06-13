@@ -26,9 +26,9 @@
 #include "prune.hpp"
 #include "mem.hpp"
 
-#include "vg.pb.h"
-#include "stream/stream.hpp"
-#include "stream/protobuf_emitter.hpp"
+#include <vg/vg.pb.h>
+#include <vg/io/stream.hpp>
+#include <vg/io/protobuf_emitter.hpp>
 #include "hash_map.hpp"
 
 #include "progressive.hpp"
@@ -80,9 +80,22 @@ namespace vg {
  * However, edges can connect to either the start or end of either node.
  *
  */
-class VG : public Progressive, public MutablePathDeletableHandleGraph {
+class VG : public Progressive, public MutablePathDeletableHandleGraph, public SerializableHandleGraph {
 
 public:
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // HandleGraph serialization
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /// Write the contents of this graph to an ostream.
+    virtual void serialize(ostream& out) const;
+    
+    /// Sets the contents of this graph to the contents of a serialized graph from
+    /// an istream. The serialized graph must be from the same implementation of the
+    /// HandleGraph interface as is calling deserialize(). Can only be called by an
+    /// empty graph.
+    virtual void deserialize(istream& in);
 
     ////////////////////////////////////////////////////////////////////////////
     // Handle-based interface
@@ -117,7 +130,7 @@ public:
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
@@ -132,9 +145,21 @@ public:
     /// index of node sides.
     virtual bool has_edge(const handle_t& left, const handle_t& right) const;
     
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    virtual char get_base(const handle_t& handle, size_t index) const;
+    
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
+    
     ////////////////////////////////////////////////////////////////////////////
     // Path handle interface
     ////////////////////////////////////////////////////////////////////////////
+    
+    /// Returns the number of paths stored in the graph
+    virtual size_t get_path_count() const;
     
     /// Determine if a path name exists and is legal to get a path handle for.
     virtual bool has_path(const string& path_name) const;
@@ -145,42 +170,66 @@ public:
     /// Look up the name of a path from a handle to it
     virtual string get_path_name(const path_handle_t& path_handle) const;
     
-    /// Returns the number of node occurrences in the path
-    virtual size_t get_occurrence_count(const path_handle_t& path_handle) const;
+    /// Look up whether a path is circular
+    virtual bool get_is_circular(const path_handle_t& path_handle) const;
     
-    /// Returns the number of paths stored in the graph
-    virtual size_t get_path_count() const;
+    /// Returns the number of node steps in the path
+    virtual size_t get_step_count(const path_handle_t& path_handle) const;
+    
+    /// Get a node handle (node ID and orientation) from a handle to an step on a path
+    virtual handle_t get_handle_of_step(const step_handle_t& step_handle) const;
+    
+    /// Returns a handle to the path that an step is on
+    virtual path_handle_t get_path_handle_of_step(const step_handle_t& step_handle) const;
+    
+    /// Get a handle to the first step, or in a circular path to an arbitrary step
+    /// considered "first". If the path is empty, returns the past-the-last step
+    /// returned by path_end.
+    virtual step_handle_t path_begin(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position past the end of a path. This position is
+    /// return by get_next_step for the final step in a path in a non-circular path.
+    /// Note that get_next_step will *NEVER* return this value for a circular path.
+    virtual step_handle_t path_end(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    virtual step_handle_t path_back(const path_handle_t& path_handle) const;
+    
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    virtual step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    
+    /// Returns a handle to the next step on the path. If the given step is the final step
+    /// of a non-circular path, returns the past-the-last step that is also returned by
+    /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
+    /// the one returned by path_begin).
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    virtual step_handle_t get_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns a handle to the previous step on the path. If the given step is the first
+    /// step of a non-circular path, this method has undefined behavior. In a circular path,
+    /// it will loop around from the "first" step (i.e. the one returned by path_begin) to
+    /// the "last" step.
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    virtual step_handle_t get_previous_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the last step in a non-circular path.
+    virtual bool has_next_step(const step_handle_t& step_handle) const;
+    
+    /// Returns true if the step is not the first step in a non-circular path.
+    virtual bool has_previous_step(const step_handle_t& step_handle) const;
     
     /// Execute a function on each path in the graph
     virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
     
-    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
-    virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    
-    /// Get a handle to the first occurrence in a path
-    virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
-    
-    /// Get a handle to the last occurrence in a path
-    virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
-    
-    /// Returns true if the occurrence is not the last occurence on the path, else false
-    virtual bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    
-    /// Returns true if the occurrence is not the first occurence on the path, else false
-    virtual bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    
-    /// Returns a handle to the next occurrence on the path
-    virtual occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    
-    /// Returns a handle to the previous occurrence on the path
-    virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    
-    /// Returns a handle to the path that an occurrence is on
-    virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    
-    /// Loop over the occurrences of a handle in paths.
-    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle,
-                                                    const function<bool(const occurrence_handle_t&)>& iteratee) const;
+    /// Loop over the steps of a handle in paths.
+    virtual bool for_each_step_on_handle_impl(const handle_t& handle,
+                                                    const function<bool(const step_handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Mutable handle-based interface
@@ -224,19 +273,49 @@ public:
     /// handles come in the order and orientation appropriate for the handle
     /// passed in.
     virtual vector<handle_t> divide_handle(const handle_t& handle, const vector<size_t>& offsets);
+    
+    /// Adjust the representation of the graph in memory to improve performance.
+    /// Optionally, allow the node IDs to be reassigned to further improve
+    /// performance.
+    /// Note: Ideally, this method is called one time once there is expected to be
+    /// few graph modifications in the future.
+    virtual void optimize(bool allow_id_reassignment = true);
+    
+    /// Reorder the graph's internal structure to match that given.
+    /// This sets the order that is used for iteration in functions like for_each_handle.
+    /// Optionally compact the id space of the graph to match the ordering, from 1->|ordering|.
+    /// This may be a no-op in the case of graph implementations that do not have any mechanism to maintain an ordering.
+    virtual void apply_ordering(const std::vector<handle_t>& order, bool compact_ids = false);
 
     ////////////////////////////////////////////////////////////////////////////
     // Mutable path handle interface
     ////////////////////////////////////////////////////////////////////////////
 
-    /// Destroy the given path. Invalidates handles to the path and its node occurrences.
+    /// Destroy the given path. Invalidates handles to the path and its node steps.
     virtual void destroy_path(const path_handle_t& path);
 
     /// Create a path with the given name.
-    virtual path_handle_t create_path_handle(const string& name);
+    virtual path_handle_t create_path_handle(const string& name,
+                                             bool is_circular = false);
     
     /// Append a visit to a node to the given path
-    virtual occurrence_handle_t append_occurrence(const path_handle_t& path, const handle_t& to_append);
+    virtual step_handle_t append_step(const path_handle_t& path, const handle_t& to_append);
+    
+    /// Append a visit to a node to the given path
+    virtual step_handle_t prepend_step(const path_handle_t& path, const handle_t& to_prepend);
+    
+    
+    /// Delete a segment of a path and rewrite it as some other sequence of steps. Returns a pair
+    ///  of step_handle_t's that indicate the range of the new segment in the path.
+    virtual pair<step_handle_t, step_handle_t> rewrite_segment(const step_handle_t& segment_begin,
+                                                               const step_handle_t& segment_end,
+                                                               const vector<handle_t>& new_segment);
+    
+    /// Make a path circular or non-circular. If the path is becoming circular, the
+    /// last step is joined to the first step. If the path is becoming linear, the
+    /// step considered "last" is unjoined from the step considered "first" according
+    /// to the method path_begin.
+    virtual void set_circularity(const path_handle_t& path, bool circular);
     
 public:
     
@@ -437,42 +516,16 @@ public:
     ~VG(void);
 
     /// Copy constructor.
-    VG(const VG& other) {
-        init();
-        if (this != &other) {
-            // cleanup
-            clear_indexes();
-            // assign
-            graph = other.graph;
-            paths = other.paths;
-            // re-index
-            build_indexes();
-        }
-    }
+    VG(const VG& other);
 
     /// Move constructor.
-    VG(VG&& other) noexcept {
-        init();
-        graph = other.graph;
-        paths = other.paths;
-        other.graph.Clear();
-        rebuild_indexes();
-        // should copy over indexes
-    }
+    VG(VG&& other) noexcept;
 
     /// Copy assignment operator.
-    VG& operator=(const VG& other) {
-        VG tmp(other);
-        *this = std::move(tmp);
-        return *this;
-    }
+    VG& operator=(const VG& other);
 
     /// Move assignment operator.
-    VG& operator=(VG&& other) noexcept {
-        std::swap(graph, other.graph);
-        rebuild_indexes();
-        return *this;
-    }
+    VG& operator=(VG&& other) noexcept;
 
     // TODO: document all these
 
@@ -482,7 +535,6 @@ public:
     void build_indexes_no_init_size(void);
     void build_node_indexes_no_init_size(void);
     void build_edge_indexes_no_init_size(void);
-    void index_paths(void);
     void clear_node_indexes(void);
     void clear_node_indexes_no_resize(void);
     void clear_edge_indexes(void);
@@ -525,7 +577,7 @@ public:
     /// Write chunked graphs to a ProtobufEmitter that will write them to a stream.
     /// Use when combining multiple VG objects in a stream.
     /// Graph will be serialized in internal storage order.
-    void serialize_to_emitter(stream::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
+    void serialize_to_emitter(vg::io::ProtobufEmitter<Graph>& emitter, id_t chunk_size = 1000);
     /// Write to a stream in chunked graphs. Adds an EOF marker.
     /// Use when this VG will be the only thing in the stream.
     /// Graph will be serialized in internal storage order.
@@ -539,6 +591,10 @@ public:
 
     /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
+    /// Squish the node IDs down into as small a space as possible. Fixes up paths itself.
+    /// Record translation in provided map.
+    void compact_ids(hash_map<id_t, id_t> & new_id);
+    
     /// Add the given value to all node IDs. Preserves the paths.
     void increment_node_ids(id_t increment);
     /// Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
@@ -551,7 +607,16 @@ public:
     /// node. Invalidates the paths. Invalidates any paths containing the node,
     /// since they are not updated.
     void swap_node_id(Node* node, id_t new_id);
-
+    
+    /// Topologically sort the graph, and then apply that sort to re- order the nodes in the backing
+    /// data structure. The sort is guaranteed to be stable. This sort is well-defined  on graphs that
+    /// are not DAGs, but instead of finding a topological sort it does a heuristic sort to minimize
+    /// a feedback arc set.
+    void sort();
+    
+    /// Order the backing graph data structure by node ID
+    void id_sort();
+    
     /// Iteratively add when nodes and edges are novel. Good when there are very
     /// many overlaps. TODO: If you are using this with warn on duplicates on,
     /// and you know there shouldn't be any duplicates, maybe you should use
@@ -580,10 +645,11 @@ public:
     void include(const Path& path);
 
     /// %Edit the graph to include all the sequence and edges added by the given
-    /// paths. Can handle paths that visit nodes in any orientation. Returns a
-    /// vector of Translations, one per node existing after the edit, describing
-    /// how each new or conserved node is embedded in the old graph. Note that
-    /// this method sorts the graph and rebuilds the path index, so it should
+    /// paths. Can handle paths that visit nodes in any orientation.
+    /// If out_translations is given, a vector of Translations will be written to it,
+    /// one per node existing after the edit, describing
+    /// how each new or conserved node is embedded in the old graph.
+    /// Note that this method sorts the graph and rebuilds the path index, so it should
     /// not be called in a loop.
     ///
     /// If update_paths is true, the paths will be modified to reflect their
@@ -592,8 +658,23 @@ public:
     /// break_at_ends is true (or save_paths is true), nodes will be broken at
     /// the ends of paths that start/end woth perfect matches, so the paths can
     /// be added to the vg graph's paths object.
-    vector<Translation> edit(vector<Path>& paths_to_add, bool save_paths = false,
-        bool update_paths = false, bool break_at_ends = false);
+    void edit(vector<Path>& paths_to_add,
+              vector<Translation>* out_translations = nullptr,
+              bool save_paths = false,
+              bool update_paths = false,
+              bool break_at_ends = false);
+
+    /// Streaming version of above.  Instead of reading a list of paths into memory
+    /// all at once, a stream is used to go one-by-one.  Instead of an option to
+    /// updtate the in-memory list, an optional output stream is used
+    ///
+    /// todo: duplicate less code between the two versions. 
+    void edit(istream& paths_to_add,
+              vector<Translation>* out_translations = nullptr,
+              bool save_paths = false,
+              ostream* out_path_stream = nullptr,
+              bool break_at_ends = false,
+              bool remove_softclips = false);
     
     /// %Edit the graph to include all the sequences and edges added by the
     /// given path. Returns a vector of Translations, one per original-node
@@ -609,67 +690,6 @@ public:
     /// before/after the node by the caller, as this function doesn't handle
     /// that.
     vector<Translation> edit_fast(const Path& path, set<NodeSide>& dangling, size_t max_node_size = 1024);
-
-    /// Find all the points at which a Path enters or leaves nodes in the graph. Adds
-    /// them to the given map by node ID of sets of bases in the node that will need
-    /// to become the starts of new nodes.
-    ///
-    /// If break_ends is true, emits breakpoints at the ends of the path, even
-    /// if it starts/ends with perfect matches.
-    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints, bool break_ends = true);
-    /// Take a map from node ID to a set of offsets at which new nodes should
-    /// start (which may include 0 and 1-past-the-end, which should be ignored),
-    /// break the specified nodes at those positions. Returns a map from old
-    /// node start position to new node pointer in the graph. Note that the
-    /// caller will have to crear and rebuild path rank data.
-    ///
-    /// Returns a map from old node start position to new node. This map
-    /// contains some entries pointing to null, for positions past the ends of
-    /// original nodes. It also maps from positions on either strand of the old
-    /// node to the same new node pointer; the new node's forward strand is
-    /// always the same as the old node's forward strand.
-    map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
-
-    /// Flips the breakpoints onto the forward strand.
-    map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
-
-    /// Given a path on nodes that may or may not exist, and a map from start
-    /// position in the old graph to a node in the current graph, add all the
-    /// new sequence and edges required by the path. The given path must not
-    /// contain adjacent perfect match edits in the same mapping, or any
-    /// deletions on the start or end of mappings (the removal of which can be
-    /// accomplished with the Path::simplify() function).
-    ///
-    /// Outputs (and caches for subsequent calls) novel node runs in added_seqs,
-    /// and Paths describing where novel nodes translate back to in the original
-    /// graph in added_nodes. Also needs a map of the original sizes of nodes
-    /// deleted from the original graph, for reverse complementing. If dangling
-    /// is nonempty, left edges of nodes created for initial inserts will
-    /// connect to the specified sides. At the end, dangling is populated with
-    /// the side corresponding to the last edit in the path.
-    ///
-    /// Returns a fully embedded version of the path, after all node insertions,
-    /// divisions, and translations.
-    Path add_nodes_and_edges(const Path& path,
-                             const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
-                             map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes,
-                             set<NodeSide>& dangling,
-                             size_t max_node_size = 1024);
-    
-    /// This version doesn't require a set of dangling sides to populate                         
-    Path add_nodes_and_edges(const Path& path,
-                             const map<pos_t, Node*>& node_translation,
-                             map<pair<pos_t, string>, vector<Node*>>& added_seqs,
-                             map<Node*, Path>& added_nodes,
-                             const map<id_t, size_t>& orig_node_sizes,
-                             size_t max_node_size = 1024);
-
-    /// Produce a graph Translation object from information about the editing process.
-    vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,
-                                         const map<Node*, Path>& added_nodes,
-                                         const map<id_t, size_t>& orig_node_sizes);
 
     /// Add in the given node, by value.
     void add_node(const Node& node);
@@ -1011,10 +1031,6 @@ public:
                 bool ascii_labels = false,
                 int random_seed = 0);
 
-    /// Convert the graph to Dot format.
-    void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0,
-                bool color_variants = false);
     /// Convert the graph to Turtle format.
     void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     /// Determine if the graph is valid or not, according to the specified criteria.
@@ -1368,7 +1384,10 @@ private:
     /// Placeholder for functions that sometimes need to be passed an empty vector
     vector<pair<id_t, bool>> empty_edge_ends;
 
+    bool warned_about_rewrites = false;
 };
+
+
 
 } // end namespace vg
 

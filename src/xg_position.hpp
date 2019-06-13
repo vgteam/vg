@@ -1,7 +1,7 @@
 #ifndef VG_XG_POS_HPP_INCLUDED
 #define VG_XG_POS_HPP_INCLUDED
 
-#include "vg.pb.h"
+#include <vg/vg.pb.h>
 #include "types.hpp"
 #include "xg.hpp"
 #include "lru_cache.h"
@@ -46,14 +46,19 @@ vector<Edge> xg_edges_on_end(id_t id, const xg::XG* xgidx);
 /// *touched* by the Alignment (could be a Mapping start *or* end). Otherwise,
 /// produces one position per occurrence on the path of the position of each
 /// Mapping in the Alignment, which will be the position at which the Mapping
-/// *starts*. 
-map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const Alignment& aln, bool just_min, bool nearby, const xg::XG* xgidx);
+/// *starts*.
+///
+/// During the search for nearby positions, walk up to search_limit bases, or
+/// the length of the Alignment's sequence if search_limit is 0.
+map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG* xgidx, const Alignment& aln,
+    bool just_min, bool nearby, size_t search_limit = 0);
 
 /// Annotate the given Alignment in place with the earliest touched positions,
 /// as produced by xg_alignment_path_offsets, as refpos values. Always uses min
 /// positions. Only resorts to nearby positions if no positions on a path are
-/// touched.
-void xg_annotate_with_initial_path_positions(Alignment& aln, const xg::XG* xgidx);
+/// touched. During the search for nearby positions, walk up to search_limit
+/// bases, or the length of the Alignment's sequence if search_limit is 0.
+void xg_annotate_with_initial_path_positions(const xg::XG* xgidx, Alignment& aln, size_t search_limit = 0);
 
 }
 

@@ -22,7 +22,7 @@ namespace vg {
             xg::XG xg;
             PackedGraph pg;
             convert_handle_graph(&xg, &pg);
-            REQUIRE(pg.node_size() == 0);
+            REQUIRE(pg.get_node_count() == 0);
             
             int edge_count = 0;
             pg.for_each_edge([&](const edge_t& edge) {
@@ -35,7 +35,7 @@ namespace vg {
             xg::XG xg;
             HashGraph hg;
             convert_handle_graph(&xg, &hg);
-            REQUIRE(hg.node_size() == 0);
+            REQUIRE(hg.get_node_count() == 0);
             
             int edge_count = 0;
             hg.for_each_edge([&](const edge_t& edge) {
@@ -60,8 +60,8 @@ namespace vg {
             VG vg;
             convert_handle_graph(&xg, &vg);
             
-            REQUIRE(xg.node_size() == 1);
-            REQUIRE(vg.node_size() == 1);
+            REQUIRE(xg.get_node_count() == 1);
+            REQUIRE(vg.get_node_count() == 1);
         }
         TEST_CASE("convert_handle converter works on graphs with one node, xg to pg", "[handle][pg][xg]") {
             string graph_json = R"(
@@ -78,8 +78,8 @@ namespace vg {
             PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
-            REQUIRE(xg.node_size() == 1);
-            REQUIRE(pg.node_size() == 1);
+            REQUIRE(xg.get_node_count() == 1);
+            REQUIRE(pg.get_node_count() == 1);
         }
         TEST_CASE("convert_handle converter works on graphs with one node, xg to hg", "[handle][hg][xg]") {
             string graph_json = R"(
@@ -96,8 +96,8 @@ namespace vg {
             HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
-            REQUIRE(xg.node_size() == 1);
-            REQUIRE(hg.node_size() == 1);
+            REQUIRE(xg.get_node_count() == 1);
+            REQUIRE(hg.get_node_count() == 1);
         }
 
         TEST_CASE("convert_handle converter works on graphs with one reversing edge, xg to vg", "[handle][vg][xg]") {
@@ -124,8 +124,8 @@ namespace vg {
             VG vg;
             convert_handle_graph(&xg, &vg);
             
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(vg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(vg.get_node_count() == 4);
             REQUIRE(vg.edge_count() == 4);
             REQUIRE(vg.length() == 16);
             
@@ -154,8 +154,8 @@ namespace vg {
             PackedGraph pg;
             convert_handle_graph(&xg, &pg);
             
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(pg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(pg.get_node_count() == 4);
 
             int length = 0;
             pg.for_each_handle([&](const handle_t& here) {
@@ -196,8 +196,8 @@ namespace vg {
             HashGraph hg;
             convert_handle_graph(&xg, &hg);
             
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(hg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(hg.get_node_count() == 4);
             int length = 0;
             hg.for_each_handle([&](const handle_t& here) {
                 length += hg.get_length(here);
@@ -242,8 +242,8 @@ namespace vg {
             
             REQUIRE(xg.node_sequence(1) == "GATT");
             REQUIRE(xg.node_sequence(3) == "CGAT");
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(vg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(vg.get_node_count() == 4);
             REQUIRE(vg.edge_count() == 7);
             REQUIRE(vg.length() == 16);
         }
@@ -276,8 +276,8 @@ namespace vg {
             
             REQUIRE(xg.node_sequence(1) == "GATT");
             REQUIRE(xg.node_sequence(3) == "CGAT");
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(pg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(pg.get_node_count() == 4);
             
             int length = 0;
             pg.for_each_handle([&](const handle_t& here) {
@@ -322,8 +322,8 @@ namespace vg {
             
             REQUIRE(xg.node_sequence(1) == "GATT");
             REQUIRE(xg.node_sequence(3) == "CGAT");
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(hg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(hg.get_node_count() == 4);
             
             int length = 0;
             hg.for_each_handle([&](const handle_t& here) {
@@ -384,8 +384,8 @@ namespace vg {
             
             REQUIRE(xg.node_sequence(1) == "GATT");
             REQUIRE(xg.node_sequence(3) == "CGAT");
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(vg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(vg.get_node_count() == 4);
             REQUIRE(vg.edge_count() == 7);
             REQUIRE(vg.length() == 16);
             REQUIRE(vg.has_path("path1") == true);
@@ -394,10 +394,10 @@ namespace vg {
             vg.for_each_path_handle([&](const path_handle_t& path) {
                 string path_name = vg.get_path_name(path);
                 if (path_name == "path1"){
-                    REQUIRE(vg.get_occurrence_count(path) == 3);
+                    REQUIRE(vg.get_step_count(path) == 3);
                 }
                 if (path_name == "path2"){
-                    REQUIRE(vg.get_occurrence_count(path) == 4);
+                    REQUIRE(vg.get_step_count(path) == 4);
                 }
             });
         }
@@ -445,8 +445,8 @@ namespace vg {
             
             REQUIRE(xg.node_sequence(1) == "GATT");
             REQUIRE(xg.node_sequence(3) == "CGAT");
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(pg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(pg.get_node_count() == 4);
 
             
             int length = 0;
@@ -470,10 +470,10 @@ namespace vg {
             pg.for_each_path_handle([&](const path_handle_t& path) {
                 string path_name = pg.get_path_name(path);
                 if (path_name == "path1"){
-                    REQUIRE(pg.get_occurrence_count(path) == 3);
+                    REQUIRE(pg.get_step_count(path) == 3);
                 }
                 if (path_name == "path2"){
-                    REQUIRE(pg.get_occurrence_count(path) == 4);
+                    REQUIRE(pg.get_step_count(path) == 4);
                 }
             });
         }
@@ -521,8 +521,8 @@ namespace vg {
             
             REQUIRE(xg.node_sequence(1) == "GATT");
             REQUIRE(xg.node_sequence(3) == "CGAT");
-            REQUIRE(xg.node_size() == 4);
-            REQUIRE(hg.node_size() == 4);
+            REQUIRE(xg.get_node_count() == 4);
+            REQUIRE(hg.get_node_count() == 4);
             
             
             int length = 0;
@@ -546,10 +546,10 @@ namespace vg {
             hg.for_each_path_handle([&](const path_handle_t& path) {
                 string path_name = hg.get_path_name(path);
                 if (path_name == "path1"){
-                    REQUIRE(hg.get_occurrence_count(path) == 3);
+                    REQUIRE(hg.get_step_count(path) == 3);
                 }
                 if (path_name == "path2"){
-                    REQUIRE(hg.get_occurrence_count(path) == 4);
+                    REQUIRE(hg.get_step_count(path) == 4);
                 }
             });
         }

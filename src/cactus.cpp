@@ -334,7 +334,7 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
     
     graph.for_each_path_handle([&](const path_handle_t& path_handle) {
         
-        if (graph.get_occurrence_count(path_handle) == 0) {
+        if (graph.is_empty(path_handle)) {
             // Not a real useful path, so skip it. Some alt paths used for
             // haplotype generation are empty.
             return;
@@ -342,9 +342,9 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         
         string name = graph.get_path_name(path_handle);
         
-        occurrence_handle_t occurrence_handle = graph.get_first_occurrence(path_handle);
+        step_handle_t step_handle = graph.path_begin(path_handle);
         
-        auto component = node_to_component[graph.get_id(graph.get_occurrence(occurrence_handle))];
+        auto component = node_to_component[graph.get_id(graph.get_handle_of_step(step_handle))];
         
         component_paths[component].push_back(name);
         
@@ -353,21 +353,14 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
         cerr << "Path " << name << " belongs to component " << component << endl;
 #endif
         
-        auto process_occurrence = [&](const occurrence_handle_t& occurrence_handle) {
-            handle_t handle = graph.get_occurrence(occurrence_handle);
+        for (handle_t handle : graph.scan_path(path_handle)) {
             path_length[name] += graph.get_length(handle);
             
             if (node_to_component[graph.get_id(handle)] != component) {
                 // If we use a path like this to pick telomeres we will segfault Cactus.
                 throw runtime_error("Path " + name + " spans multiple connected components!");
             }
-        };
-        
-        while (graph.has_next_occurrence(occurrence_handle)) {
-            process_occurrence(occurrence_handle);
-            occurrence_handle = graph.get_next_occurrence(occurrence_handle);
         }
-        process_occurrence(occurrence_handle);
         
 #ifdef debug
         cerr << "\tPath " << name << " has length " << path_length[name] << endl;
@@ -439,13 +432,14 @@ pair<stCactusGraph*, stList*> handle_graph_to_cactus(PathHandleGraph& graph, con
                     //auto& path_mappings = graph.paths.get_path(path_name);
                     
 #ifdef debug
-                    cerr << "\tPath " << path_name << " has " << graph.get_occurrence_count(path_handle) << " mappings" << endl;
+                    cerr << "\tPath " << path_name << " has " << graph.get_step_count(path_handle) << " mappings" << endl;
 #endif
                     
                     // See if I can get two tips on its ends.
                     // Get the inward-facing start and end handles.
-                    handle_t path_start = graph.get_occurrence(graph.get_first_occurrence(path_handle));
-                    handle_t path_end = graph.flip(graph.get_occurrence(graph.get_last_occurrence(path_handle)));
+                    handle_t path_start = graph.get_handle_of_step(graph.path_begin(path_handle));
+                    step_handle_t final_step = graph.get_previous_step(graph.path_end(path_handle));
+                    handle_t path_end = graph.flip(graph.get_handle_of_step(final_step));
                     
                     if (component_tips[i].count(path_start) && component_tips[i].count(path_end)) {
                         // This path ends in two tips so we can consider it

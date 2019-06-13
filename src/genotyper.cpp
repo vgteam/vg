@@ -299,7 +299,7 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
             } else {
                 // Write out in Protobuf
                 buffer[tid].push_back(genotyped);
-                stream::write_buffered(cout, buffer[tid], 100);
+                vg::io::write_buffered(cout, buffer[tid], 100);
             }
         }
     });
@@ -307,7 +307,7 @@ void Genotyper::run(AugmentedGraph& augmented_graph,
     if(!output_json && !output_vcf) {
         // Flush the protobuf output buffers
         for(int i = 0; i < buffer.size(); i++) {
-            stream::write_buffered(cout, buffer[i], 0);
+            vg::io::write_buffered(cout, buffer[i], 0);
         }
     } 
 

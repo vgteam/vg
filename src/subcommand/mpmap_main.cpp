@@ -8,12 +8,12 @@
 
 #include "subcommand.hpp"
 
-#include "../stream/vpkg.hpp"
+#include <vg/io/vpkg.hpp>
 #include "../multipath_mapper.hpp"
 #include "../path.hpp"
 #include "../watchdog.hpp"
 
-//#define record_read_run_times
+#define record_read_run_times
 
 #ifdef record_read_run_times
 #define READ_TIME_FILE "_read_times.tsv"
@@ -584,10 +584,6 @@ int main_mpmap(int argc, char** argv) {
         exit(1);
     }
     
-    if (!distance_index_name.empty() && snarls_name.empty()) {
-        cerr << "error:[vg mpmap] Snarl distance index (-d) requires a matching snarl file (-s) to also be provided." << endl;
-        exit(1);
-    }
     
     if (!fastq_name_1.empty() && !gam_file_name.empty()) {
         cerr << "error:[vg mpmap] Cannot designate both FASTQ input (-f) and GAM input (-G) in same run." << endl;
@@ -910,9 +906,9 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     
-    unique_ptr<xg::XG> xg_index = stream::VPKG::load_one<xg::XG>(xg_stream);
-    unique_ptr<gcsa::GCSA> gcsa_index = stream::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
-    unique_ptr<gcsa::LCPArray> lcp_array = stream::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
+    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+    unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
+    unique_ptr<gcsa::LCPArray> lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     
     // Load optional indexes
     
@@ -922,7 +918,7 @@ int main_mpmap(int argc, char** argv) {
     if (!gbwt_name.empty()) {
         
         // Load the GBWT from its container
-        gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+        gbwt = vg::io::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
 
         if (gbwt.get() == nullptr) {
           // Complain if we couldn't.
@@ -947,25 +943,17 @@ int main_mpmap(int argc, char** argv) {
     
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
-        snarl_manager = stream::VPKG::load_one<SnarlManager>(snarl_stream);
+        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
-    unique_ptr<DistanceIndex> distance_index;
+    unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_index_name.empty()) {
         // We want a diatance index.
         // We know we have an XG already.
-        // But we don't know that we have a snarl manager.
-        if (!snarl_manager) {
-            cerr << "error:[vg mpmap] distance index requires snarls (-s)" << endl;
-            exit(1);
-        }
         
         // Load the index
-        distance_index = stream::VPKG::load_one<DistanceIndex>(distance_index_stream);
+        distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);
         
-        // Hook it up
-        distance_index->setGraph(xg_index.get());
-        distance_index->setSnarlManager(snarl_manager.get());
     }
     
     MultipathMapper multipath_mapper(xg_index.get(), gcsa_index.get(), lcp_array.get(), haplo_score_provider,
@@ -1016,6 +1004,7 @@ int main_mpmap(int argc, char** argv) {
     
     // set pruning and clustering parameters
     multipath_mapper.use_tvs_clusterer = use_tvs_clusterer;
+    multipath_mapper.use_min_dist_clusterer = use_min_dist_clusterer;
     multipath_mapper.max_expected_dist_approx_error = max_dist_error;
     multipath_mapper.mem_coverage_min_ratio = cluster_ratio;
     multipath_mapper.log_likelihood_approx_factor = likelihood_approx_exp;
@@ -1105,7 +1094,7 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         
-        stream::write_buffered(cout, output_buf, buffer_size);
+        vg::io::write_buffered(cout, output_buf, buffer_size);
     };
     
     // convert to unpaired single path alignments and write stdout buffer
@@ -1139,7 +1128,7 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         
-        stream::write_buffered(cout, output_buf, buffer_size);
+        vg::io::write_buffered(cout, output_buf, buffer_size);
     };
     
     // write paired multipath alignments to stdout buffer
@@ -1183,7 +1172,7 @@ int main_mpmap(int argc, char** argv) {
             }
         }
         
-        stream::write_buffered(cout, output_buf, buffer_size);
+        vg::io::write_buffered(cout, output_buf, buffer_size);
     };
     
     // convert to paired single path alignments and write stdout buffer
@@ -1247,7 +1236,7 @@ int main_mpmap(int argc, char** argv) {
             // arbitrarily decide that this is the "next" fragment
             output_buf.back().mutable_fragment_prev()->set_name(mp_aln_pair.first.name());
         }
-        stream::write_buffered(cout, output_buf, buffer_size);
+        vg::io::write_buffered(cout, output_buf, buffer_size);
     };
     
     // do unpaired multipath alignment and write to buffer
@@ -1406,11 +1395,11 @@ int main_mpmap(int argc, char** argv) {
                 exit(1);
             }
             if (interleaved_input) {
-                stream::for_each_interleaved_pair_parallel_after_wait(gam_in, do_paired_alignments,
+                vg::io::for_each_interleaved_pair_parallel_after_wait(gam_in, do_paired_alignments,
                                                                       multi_threaded_condition);
             }
             else {
-                stream::for_each_parallel(gam_in, do_unpaired_alignments);
+                vg::io::for_each_parallel(gam_in, do_unpaired_alignments);
             }
         };
         get_input_file(gam_file_name, execute);
@@ -1453,11 +1442,12 @@ int main_mpmap(int argc, char** argv) {
     
     // flush output buffers
     for (int i = 0; i < thread_count; i++) {
-        vector<Alignment>& single_path_buffer = single_path_output_buffer[i];
-        stream::write_buffered(cout, single_path_buffer, 0);
-        
-        vector<MultipathAlignment>& multipath_buffer = multipath_output_buffer[i];
-        stream::write_buffered(cout, multipath_buffer, 0);
+        if (single_path_alignment_mode) {
+            vg::io::write_buffered(cout, single_path_output_buffer[i], 0);
+        }
+        else {
+            vg::io::write_buffered(cout, multipath_output_buffer[i], 0);
+        }
     }
     cout.flush();
     

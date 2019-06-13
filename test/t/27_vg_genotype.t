@@ -39,7 +39,7 @@ vg index -d flat.gam.index -N flat.gam
 vg genotype flat.vg flat.gam.index -t 1 >flat.loci
 cat tiny/tiny.fa flat1.fa flat2.fa >flats.fa
 vg msga -f flats.fa -b x | vg mod -D - | vg mod -n - | vg mod -c - >flat_msga.vg
-vg mod -Q flat.loci flat.vg | vg mod -D - | vg mod -n - | vg mod -c - >flat_mod.vg
+vg augment flat.vg -L flat.loci | vg mod -D - | vg mod -n - | vg mod -c - >flat_mod.vg
 
 is $(vg view flat_mod.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
    $(vg view flat_msga.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \

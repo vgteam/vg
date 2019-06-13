@@ -15,7 +15,7 @@ namespace vg {
 CactusSnarlFinder::CactusSnarlFinder(VG& graph) :
     graph(graph) {
     // Make sure the graph is sorted.
-    algorithms::topological_sort(&graph);
+    graph.sort();
 }
 
 CactusSnarlFinder::CactusSnarlFinder(VG& graph, const string& hint_path) :
@@ -553,7 +553,7 @@ ChainIterator chain_end_from(const Chain& chain, const Snarl* start_snarl, bool 
 
 SnarlManager::SnarlManager(istream& in) : SnarlManager([&in](const function<void(Snarl&)>& consume_snarl) -> void {
     // Find all the snarls in the input stream and use each of them in the callback-based constructor
-    for (stream::ProtobufIterator<Snarl> iter(in); iter.has_next(); iter.get_next()) {
+    for (vg::io::ProtobufIterator<Snarl> iter(in); iter.has_current(); iter.advance()) {
         consume_snarl(*iter);
     }
 }) {
@@ -589,6 +589,7 @@ const Snarl* SnarlManager::snarl_sharing_start(const Snarl* here) const {
     return next == here ? nullptr : next;
         
 }
+
     
 const Snarl* SnarlManager::snarl_sharing_end(const Snarl* here) const {
     // Look out the end and see what we come to
@@ -841,8 +842,6 @@ void SnarlManager::flip(const Chain* chain) {
 }
     
 const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
-    // Don't let anyone add snarls if we are already finished.
-    assert(!finished);
 
     // Allocate a default SnarlRecord
     snarls.emplace_back();
@@ -865,22 +864,15 @@ const Snarl* SnarlManager::add_snarl(const Snarl& new_snarl) {
 }
 
 void SnarlManager::finish() {
-    // We can only do this once
-    assert(!finished);
-    
-    // Mark ourselves finished so nobody can add more snarls.
-    // Do it before indexing so we can use out partly built indexes without hitting asserts.
-    finished = true;
-
     // Build all the indexes from the snarls we were given
     build_indexes();
     
     // Clean up the snarl and chain orientations so everything is predictably and intuitively oriented
     regularize();
+
 }
 
 const Snarl* SnarlManager::into_which_snarl(int64_t id, bool reverse) const {
-    assert(finished);
     return snarl_into.count(make_pair(id, reverse)) ? snarl_into.at(make_pair(id, reverse)) : nullptr;
 }
     
@@ -2207,7 +2199,7 @@ bool NetGraph::for_each_handle_impl(const function<bool(const handle_t&)>& itera
     return true;
 }
     
-size_t NetGraph::node_size() const {
+size_t NetGraph::get_node_count() const {
     // TODO: this is inefficient!
     size_t size = 0;
     for_each_handle([&](const handle_t& ignored) {

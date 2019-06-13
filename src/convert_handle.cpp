@@ -2,7 +2,8 @@
 namespace vg {
 using namespace std;
     void convert_handle_graph(const HandleGraph* converting, MutableHandleGraph* converted) {
-        assert(converted->node_size() == 0);
+        
+        assert(converted->get_node_count() == 0);
         
         // If xg is a null pointer, throw a runtime error
         if (converting == nullptr) {
@@ -11,7 +12,6 @@ using namespace std;
         if (converted == nullptr) {
             throw runtime_error("There is no graph to convert to");
         }
-        assert(converted->node_size() == 0);
 
         // Iterate through each handle in xg and create the same handle in mutable graph
         converting->for_each_handle([&](const handle_t& here) {
@@ -34,7 +34,7 @@ using namespace std;
         });
     }
 
-    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathDeletableHandleGraph* converted) {
+    void convert_path_handle_graph(const PathHandleGraph* converting, MutablePathMutableHandleGraph* converted) {
         assert(converted->get_path_count() == 0);
         
         // Must convert nodes and edges before converting paths.
@@ -45,18 +45,16 @@ using namespace std;
             // create path
             string path_name = converting->get_path_name(path);
             path_handle_t converted_path = converted->create_path_handle(path_name);
-            // find first occurence in path
-            occurrence_handle_t converting_occurence = converting->get_first_occurrence(path);
-            handle_t converting_handle = converting->get_occurrence(converting_occurence);
-            handle_t converted_handle = converted->get_handle(converting->get_id(converting_handle), converting->get_is_reverse(converting_handle));
-            occurrence_handle_t converted_occurance_handle = converted->append_occurrence(converted_path, converted_handle);
-            // iterate through path and add each handle to converted graph
-            while (converting->has_next_occurrence(converting_occurence)){
-                converting_occurence = converting->get_next_occurrence(converting_occurence);
-                converting_handle = converting->get_occurrence(converting_occurence);
-                converted_handle = converted->get_handle(converting->get_id(converting_handle), converting->get_is_reverse(converting_handle));
-                occurrence_handle_t converted_occurance_handle = converted->append_occurrence(converted_path, converted_handle);
+            
+            // convert steps of path
+            for (handle_t converting_handle : converting->scan_path(path)) {
+                handle_t converted_handle = converted->get_handle(converting->get_id(converting_handle),
+                                                                  converting->get_is_reverse(converting_handle));
+                converted->append_step(converted_path, converted_handle);
             }
+            
+            // set circularity to match
+            converted->set_circularity(converted_path, converting->get_is_circular(path));
         });
     }
 }

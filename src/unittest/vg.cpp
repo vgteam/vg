@@ -4,6 +4,7 @@
 
 #include "catch.hpp"
 #include "../vg.hpp"
+#include "../augment.hpp"
 #include "../utility.hpp"
 
 namespace vg {
@@ -169,7 +170,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
         REQUIRE(dag.is_acyclic() == true);
-        REQUIRE(dag.node_size() == 2);
+        REQUIRE(dag.get_node_count() == 2);
         REQUIRE(dag.edge_count() == 1);
     }
     
@@ -194,7 +195,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
         REQUIRE(dag.is_acyclic() == true);
-        REQUIRE(dag.node_size() >= 2);
+        REQUIRE(dag.get_node_count() >= 2);
     }
     
     SECTION("a tiny cyclic graph with doubly reversing edges should become acyclic") {
@@ -218,7 +219,7 @@ TEST_CASE("dagify() should render the graph acyclic", "[vg][cycles][dagify]") {
         VG dag = graph.dagify(5, node_translation, 5, 0);
         
         REQUIRE(dag.is_acyclic() == true);
-        REQUIRE(dag.node_size() >= 2);
+        REQUIRE(dag.get_node_count() >= 2);
     }
     
 }
@@ -1562,14 +1563,14 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     // First prepare the various state things we need to pass
     
     // This can be empty if no changes have been made yet
-    map<pos_t, Node*> node_translation;
+    map<pos_t, id_t> node_translation;
     // As can this
-    map<pair<pos_t, string>, vector<Node*>> added_seqs;
+    unordered_map<pair<pos_t, string>, vector<id_t>> added_seqs;
     // And this
-    map<Node*, Path> added_nodes;
+    unordered_map<id_t, Path> added_nodes;
     
     // This actually needs to be filled in
-    map<id_t, size_t> orig_node_sizes;
+    unordered_map<id_t, size_t> orig_node_sizes;
     graph.for_each_node([&](Node* node) {
         orig_node_sizes[node->id()] = node->sequence().size();
     });
@@ -1578,7 +1579,7 @@ TEST_CASE("add_nodes_and_edges() should connect all nodes", "[vg][edit]") {
     set<NodeSide> dangling;
     
     // Do the addition, but limit node size.
-    graph.add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
+    add_nodes_and_edges(&graph, path, node_translation, added_seqs, added_nodes, orig_node_sizes, dangling, 1);
     
     // Make sure it's still connected
     list<VG> subgraphs;
@@ -1681,7 +1682,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     vector<Path> paths{path};
        
     SECTION("edit() can add the path without modifying it") {
-        graph.edit(paths, false, false, false);
+        graph.edit(paths, nullptr, false, false, false);
         
         REQUIRE(pb2json(paths.front()) == pb2json(path));
         
@@ -1691,7 +1692,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     }
     
     SECTION("edit() can add the path with modification only") {
-        graph.edit(paths, false, true, false);
+        graph.edit(paths, nullptr, false, true, false);
         
         for (const auto& mapping : paths.front().mapping()) {
             // Make sure all the mappings are perfect matches
@@ -1704,7 +1705,7 @@ TEST_CASE("edit() should not get confused even under very confusing circumstance
     }
     
     SECTION("edit() can add the path with end breaking only") {
-        graph.edit(paths, false, false, true);
+        graph.edit(paths, nullptr, false, false, true);
         
         REQUIRE(pb2json(paths.front()) == pb2json(path));
         
@@ -1796,7 +1797,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
     // We will find breakpoints for a path
     Path path;
     // And store them here.
-    map<id_t, set<pos_t>> breakpoints;
+    unordered_map<id_t, set<pos_t>> breakpoints;
     
     SECTION("find_breakpoints() works on a single edit perfect match") {
         
@@ -1807,7 +1808,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
         json2pb(path, path_string.c_str(), path_string.size());
         
         SECTION("asking for breakpoints at the end gets us the two end breakpoints") {
-            vg.find_breakpoints(path, breakpoints);
+            find_breakpoints(path, breakpoints);
             
             REQUIRE(breakpoints.size() == 1);
             REQUIRE(breakpoints.count(n1->id()) == 1);
@@ -1819,7 +1820,7 @@ TEST_CASE("find_breakpoints() should determine where the graph needs to break to
         }
         
         SECTION("asking for no breakpoints at the end gets us no breakpoints") {
-            vg.find_breakpoints(path, breakpoints, false);
+            find_breakpoints(path, breakpoints, false);
             
             REQUIRE(breakpoints.empty());
         }
@@ -1872,7 +1873,7 @@ TEST_CASE("normalize() can join nodes and merge siblings", "[vg][normalize]") {
         graph.normalize();
         
         // One of the two alternative Ts should have been eliminated
-        REQUIRE(graph.node_size() == 4);
+        REQUIRE(graph.get_node_count() == 4);
         
     }
     

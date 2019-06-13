@@ -1,10 +1,36 @@
 #include "minimizer.hpp"
+#include "wang_hash.hpp"
 
 #include <algorithm>
 
 namespace vg {
 
 //------------------------------------------------------------------------------
+
+// Numerical class constants.
+
+constexpr size_t MinimizerIndex::KMER_LENGTH;
+constexpr size_t MinimizerIndex::WINDOW_LENGTH;
+constexpr size_t MinimizerIndex::KMER_MAX_LENGTH;
+constexpr size_t MinimizerIndex::INITIAL_CAPACITY;
+constexpr double MinimizerIndex::MAX_LOAD_FACTOR;
+constexpr MinimizerIndex::key_type MinimizerIndex::NO_KEY;
+constexpr MinimizerIndex::code_type MinimizerIndex::NO_VALUE;
+
+constexpr std::uint32_t MinimizerIndex::Header::TAG;
+constexpr std::uint32_t MinimizerIndex::Header::VERSION;
+constexpr std::uint32_t MinimizerIndex::Header::MIN_VERSION;
+
+constexpr size_t MinimizerIndex::PACK_WIDTH;
+constexpr MinimizerIndex::key_type MinimizerIndex::PACK_MASK;
+constexpr size_t MinimizerIndex::ID_OFFSET;
+constexpr size_t MinimizerIndex::REV_OFFSET;
+constexpr MinimizerIndex::code_type MinimizerIndex::REV_MASK;
+constexpr MinimizerIndex::code_type MinimizerIndex::OFF_MASK;
+
+//------------------------------------------------------------------------------
+
+// Other class variables.
 
 const std::vector<unsigned char> MinimizerIndex::CHAR_TO_PACK = {
     4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
@@ -65,23 +91,25 @@ const std::vector<MinimizerIndex::key_type> MinimizerIndex::KMER_MASK = {
     0x3FFFFFFFFFFFFFFFull
 };
 
+//------------------------------------------------------------------------------
+
 MinimizerIndex::Header::Header() :
     tag(TAG), version(VERSION),
     flags(0),
     k(KMER_LENGTH), w(WINDOW_LENGTH),
     keys(0), capacity(INITIAL_CAPACITY), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
-    values(0), max_occs(MAX_OCCS),
-    unique(0), frequent(0)
+    values(0), unused1(0),
+    unique(0), unused2(0)
 {
 }
 
-MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key) :
+MinimizerIndex::Header::Header(size_t kmer_length, size_t window_length) :
     tag(TAG), version(VERSION),
     flags(0),
     k(kmer_length), w(window_length),
     keys(0), capacity(INITIAL_CAPACITY), max_keys(INITIAL_CAPACITY * MAX_LOAD_FACTOR),
-    values(0), max_occs(max_occs_per_key),
-    unique(0), frequent(0)
+    values(0), unused1(0),
+    unique(0), unused2(0)
 {
     this->sanitize();
 }
@@ -100,11 +128,6 @@ void MinimizerIndex::Header::sanitize() {
         std::cerr << "warning: [MinimizerIndex] Adjusting w from " << this->w << " to " << 1 << std::endl;
         this->w = 1;
     }
-
-    if (this->max_occs == 0) {
-        std::cerr << "warning: [MinimizerIndex] Adjusting max_occs from " << this->max_occs << " to " << 1 << std::endl;
-        this->max_occs = 1;
-    }
 }
 
 bool MinimizerIndex::Header::check() const {
@@ -116,8 +139,8 @@ bool MinimizerIndex::Header::operator==(const Header& another) const {
             this->flags == another.flags &&
             this->k == another.k && this->w == another.w &&
             this->keys == another.keys && this->capacity == another.capacity && this->max_keys == another.max_keys &&
-            this->values == another.values && this->max_occs == another.max_occs &&
-            this->unique == another.unique && this->frequent == another.frequent);
+            this->values == another.values && this->unused1 == another.unused1 &&
+            this->unique == another.unique && this->unused2 == another.unused2);
 }
 
 //------------------------------------------------------------------------------
@@ -129,8 +152,8 @@ MinimizerIndex::MinimizerIndex() :
 {
 }
 
-MinimizerIndex::MinimizerIndex(size_t kmer_length, size_t window_length,  size_t max_occs_per_key) :
-    header(kmer_length, window_length, max_occs_per_key),
+MinimizerIndex::MinimizerIndex(size_t kmer_length, size_t window_length) :
+    header(kmer_length, window_length),
     hash_table(this->header.capacity, empty_cell()),
     is_pointer(this->header.capacity, false)
 {
@@ -357,7 +380,7 @@ std::pair<size_t, bool> MinimizerIndex::serialize(std::ostream& out) const {
     }
 
     if (!ok) {
-        std::cerr << "error: [MinimizerIndex]: Serialization failed" << std::endl;
+        std::cerr << "error: [MinimizerIndex] serialization failed" << std::endl;
     }
 
     return std::make_pair(bytes, ok);
@@ -366,20 +389,34 @@ std::pair<size_t, bool> MinimizerIndex::serialize(std::ostream& out) const {
 bool MinimizerIndex::load(std::istream& in) {
     bool ok = true;
 
+    // Load and check the header.
     ok &= mi::load(in, this->header);
-    ok &= mi::load_vector(in, this->hash_table);
-    ok &= mi::load_bool_vector(in, this->is_pointer);
+    if (!(this->header.check())) {
+        std::cerr << "error: [MinimizerIndex] invalid or old index file" << std::endl;
+        std::cerr << "error: [MinimizerIndex] index version is " << this->header.version << "; required >= " << Header::VERSION << std::endl;
+        return false;
+    }
+
+    // Load the hash table.
+    if (ok) {
+        ok &= mi::load_vector(in, this->hash_table);
+    }
+    if (ok) {
+        ok &= mi::load_bool_vector(in, this->is_pointer);
+    }
 
     // Load the occurrence lists.
-    for (size_t i = 0; i < this->capacity(); i++) {
-        if (this->is_pointer[i]) {
-            this->hash_table[i].second.pointer = new std::vector<code_type>();
-            ok &= mi::load_vector(in, *(this->hash_table[i].second.pointer));
+    if (ok) {
+        for (size_t i = 0; i < this->capacity(); i++) {
+            if (this->is_pointer[i]) {
+                this->hash_table[i].second.pointer = new std::vector<code_type>();
+                ok &= mi::load_vector(in, *(this->hash_table[i].second.pointer));
+            }
         }
     }
 
     if (!ok) {
-        std::cerr << "error: [MinimizerIndex]: Loading failed" << std::endl;
+        std::cerr << "error: [MinimizerIndex] index loading failed" << std::endl;
     }
 
     return ok;
@@ -440,7 +477,11 @@ namespace mi {
   i + w. Candidates at the tail are purged when we advance with a smaller key.
 */
 struct CircularBuffer {
-    std::vector<MinimizerIndex::minimizer_type> buffer;
+    typedef MinimizerIndex::key_type key_type;
+    typedef MinimizerIndex::offset_type offset_type;
+    typedef MinimizerIndex::minimizer_type minimizer_type;
+
+    std::vector<minimizer_type> buffer;
     size_t head, tail;
     size_t w;
 
@@ -461,36 +502,42 @@ struct CircularBuffer {
         return (this->head >= this->tail);
     }
 
-    MinimizerIndex::minimizer_type& front() {
+    minimizer_type& front() {
         return this->buffer[this->head & (this->buffer.size() - 1)];
     }
 
-    MinimizerIndex::minimizer_type& back() {
+    minimizer_type& back() {
         return this->buffer[(this->tail - 1) & (this->buffer.size() - 1)];
     }
 
-    // Advance to the next position with a valid k-mer.
-    void advance(MinimizerIndex::minimizer_type candidate) {
-        if (!(this->empty()) && this->front().second + this->w <= candidate.second) {
+    // Advance to the next starting position with a valid k-mer.
+    void advance(offset_type pos, key_type forward_key, key_type reverse_key) {
+        if (!(this->empty()) && this->front().offset + this->w <= pos) {
             this->head++;
         }
-        while (!(this->empty()) && this->back().first > candidate.first) {
+        size_t forward_hash = wang_hash_64(forward_key), reverse_hash = wang_hash_64(reverse_key);
+        size_t hash = std::min(forward_hash, reverse_hash);
+        while (!(this->empty()) && this->back().hash > hash) {
             this->tail--;
         }
         this->tail++;
-        this->back() = candidate;
+        if (reverse_hash < forward_hash) {
+            this->back() = { reverse_key, reverse_hash, pos, true };
+        } else {
+            this->back() = { forward_key, forward_hash, pos, false };
+        }
     }
 
-    // Advance to the next position without a valid k-mer.
-    void advance(size_t pos) {
-        if (!(this->empty()) && this->front().second + this->w <= pos) {
+    // Advance to the next starting position without a valid k-mer.
+    void advance(std::uint32_t pos) {
+        if (!(this->empty()) && this->front().offset + this->w <= pos) {
             this->head++;
         }
     }
 };
 
 void
-update_key(MinimizerIndex::key_type& key, size_t k, unsigned char c, size_t& valid_chars) {
+update_forward_key(MinimizerIndex::key_type& key, size_t k, unsigned char c, size_t& valid_chars) {
     MinimizerIndex::key_type packed = MinimizerIndex::CHAR_TO_PACK[c];
     if (packed > MinimizerIndex::PACK_MASK) {
         key = 0;
@@ -501,20 +548,15 @@ update_key(MinimizerIndex::key_type& key, size_t k, unsigned char c, size_t& val
     }
 }
 
-MinimizerIndex::minimizer_type
-minimizer(std::string::const_iterator begin, std::string::const_iterator end, size_t k, size_t& valid_chars) {
-    MinimizerIndex::minimizer_type result(MinimizerIndex::NO_KEY, 0);
-
-    MinimizerIndex::key_type key = 0;
-    for (std::string::const_iterator iter = begin; iter != end; ++iter) {
-        update_key(key, k, *iter, valid_chars);
-        if (valid_chars >= k && key < result.first) {
-            result.first = key;
-            result.second = (iter - begin) + 1 - k;
-        }
+void
+update_reverse_key(MinimizerIndex::key_type& key, size_t k, unsigned char c) {
+    MinimizerIndex::key_type packed = MinimizerIndex::CHAR_TO_PACK[c];
+    if (packed > MinimizerIndex::PACK_MASK) {
+        key = 0;
+    } else {
+        packed ^= MinimizerIndex::PACK_MASK; // The complement of the base.
+        key = (packed << ((k - 1) * MinimizerIndex::PACK_WIDTH)) | (key >> MinimizerIndex::PACK_WIDTH);
     }
-
-    return result;
 }
 
 } // namespace mi
@@ -522,11 +564,39 @@ minimizer(std::string::const_iterator begin, std::string::const_iterator end, si
 
 MinimizerIndex::minimizer_type
 MinimizerIndex::minimizer(std::string::const_iterator begin, std::string::const_iterator end) const {
+    minimizer_type result { NO_KEY, static_cast<size_t>(0), static_cast<std::uint32_t>(0), false };
     if (end - begin < this->k()) {
-        return minimizer_type(NO_KEY, 0);
+        return result;
     }
-    size_t valid_chars = 0;
-    return mi::minimizer(begin, end, this->k(), valid_chars);
+
+    size_t valid_chars = 0, best_hash = 0;
+    bool found = false;
+    key_type forward_key = 0, reverse_key = 0;
+    for (std::string::const_iterator iter = begin; iter != end; ++iter) {
+        mi::update_forward_key(forward_key, this->k(), *iter, valid_chars);
+        mi::update_reverse_key(reverse_key, this->k(), *iter);
+        if (valid_chars >= this->k()) {
+            size_t forward_hash = wang_hash_64(forward_key), reverse_hash = wang_hash_64(reverse_key);
+            size_t hash = std::min(forward_hash, reverse_hash);
+            if (!found || hash < result.hash) {
+                offset_type pos = (iter - begin) + 1 - this->k();
+                if (reverse_hash < forward_hash) {
+                    result = { reverse_key, reverse_hash, pos, true };
+                } else {
+                    result = { forward_key, forward_hash, pos, false };
+                }
+                found = true;
+            }
+        }
+    }
+
+    // It was more convenient to use the first offset of the kmer, regardless of the orientation.
+    // If the minimizer is a reverse complement, we must return the last offset instead.
+    if (result.is_reverse) {
+        result.offset += this->k() - 1;
+    }
+
+    return result;
 }
 
 std::vector<MinimizerIndex::minimizer_type>
@@ -538,103 +608,94 @@ MinimizerIndex::minimizers(std::string::const_iterator begin, std::string::const
         return result;
     }
 
-    // Encode the first k-mer.
-    size_t valid_chars = 0;
-    std::string::const_iterator iter = begin + this->k();
-    MinimizerIndex::minimizer_type candidate = mi::minimizer(begin, iter, this->k(), valid_chars);
-    mi::CircularBuffer buffer(this->w());
-    if (candidate.first != NO_KEY) {
-        buffer.advance(candidate);
-        if (iter - begin >= window_length) {
-            result.push_back(candidate);
-        }
-    } else {
-        buffer.advance(candidate.second);
-    }
-
     // Find the minimizers.
+    mi::CircularBuffer buffer(this->w());
+    size_t valid_chars = 0, start_pos = 0;
+    key_type forward_key = 0, reverse_key = 0;
+    std::string::const_iterator iter = begin;
     while (iter != end) {
-        mi::update_key(candidate.first, this->k(), *iter, valid_chars);
-        candidate.second++;
+        mi::update_forward_key(forward_key, this->k(), *iter, valid_chars);
+        mi::update_reverse_key(reverse_key, this->k(), *iter);
         if (valid_chars >= this->k()) {
-            buffer.advance(candidate);
+            buffer.advance(start_pos, forward_key, reverse_key);
         } else {
-            buffer.advance(candidate.second);
+            buffer.advance(start_pos);
         }
         ++iter;
+        if (iter - begin >= this->k()) {
+            start_pos++;
+        }
         // We have a full window with a minimizer.
         if (iter - begin >= window_length && !buffer.empty()) {
-            if (result.empty() || result.back() != buffer.front()) {
-                result.push_back(buffer.front());
+            if (result.empty() || result.back().offset != buffer.front().offset) {
+                result.emplace_back(buffer.front());
             }
         }
     }
 
+    // It was more convenient to use the first offset of the kmer, regardless of the orientation.
+    // If the minimizer is a reverse complement, we must return the last offset instead.
+    for (minimizer_type& minimizer : result) {
+        if (minimizer.is_reverse) {
+            minimizer.offset += this->k() - 1;
+        }
+    }
+    std::sort(result.begin(), result.end());
+
     return result;
 }
 
-void MinimizerIndex::insert(key_type key, pos_t pos) {
-    if (key == NO_KEY) {
-        return;
-    }
-    code_type code = encode(pos);
-    if (code == NO_VALUE) {
+void MinimizerIndex::insert(const minimizer_type& minimizer, const pos_t& pos) {
+    if (minimizer.empty() || is_empty(pos)) {
         return;
     }
 
-    size_t offset = this->find_offset(key);
+    size_t offset = this->find_offset(minimizer.key, minimizer.hash);
+    code_type code = encode(pos);
     if (this->hash_table[offset].first == NO_KEY) {
-        this->insert(key, encode(pos), offset);
-    } else if (this->hash_table[offset].first == key) {
-        this->append(key, encode(pos), offset);
+        this->insert(minimizer.key, code, offset);
+    } else if (this->hash_table[offset].first == minimizer.key) {
+        this->append(minimizer.key, code, offset);
     }
 }
 
-std::vector<pos_t> MinimizerIndex::find(key_type key) const {
+std::vector<pos_t> MinimizerIndex::find(const minimizer_type& minimizer) const {
     std::vector<pos_t> result;
-    if (key == NO_KEY) {
+    if (minimizer.empty()) {
         return result;
     }
 
-    size_t offset = this->find_offset(key);
+    size_t offset = this->find_offset(minimizer.key, minimizer.hash);
     cell_type cell = this->hash_table[offset];
-    if (cell.first == key) {
+    if (cell.first == minimizer.key) {
         if (this->is_pointer[offset]) {
+            result.reserve(cell.second.pointer->size());
             for (code_type pos : *(cell.second.pointer)) {
-                result.push_back(decode(pos));
+                result.emplace_back(decode(pos));
             }
         } else {
-            result.push_back(decode(cell.second.value));
+            result.emplace_back(decode(cell.second.value));
         }
     }
 
     return result;
 }
 
-size_t MinimizerIndex::count(key_type key) const {
-    if (key == NO_KEY) {
+size_t MinimizerIndex::count(const minimizer_type& minimizer) const {
+    if (minimizer.empty()) {
         return 0;
     }
 
-    size_t offset = this->find_offset(key);
-    cell_type cell = this->hash_table[offset];
-    if (cell.first == key) {
-        if (this->is_pointer[offset]) {
-            return cell.second.pointer->size();
-        } else {
-            if (cell.second.value == NO_VALUE) {
-                return 0;
-            } else {
-                return 1;
-            }
-        }
+    size_t offset = this->find_offset(minimizer.key, minimizer.hash);
+    if (this->hash_table[offset].first == minimizer.key) {
+        return (this->is_pointer[offset] ? this->hash_table[offset].second.pointer->size() : 1);
     }
 
     return 0;
 }
 
-size_t MinimizerIndex::find_offset(key_type key) const {
-    size_t offset = hash(key) & (this->capacity() - 1);
+size_t MinimizerIndex::find_offset(key_type key, size_t hash) const {
+    size_t offset = hash & (this->capacity() - 1);
     for (size_t attempt = 0; attempt < this->capacity(); attempt++) {
         if (this->hash_table[offset].first == NO_KEY || this->hash_table[offset].first == key) {
             return offset;
@@ -668,41 +729,24 @@ void MinimizerIndex::append(key_type key, code_type pos, size_t offset) {
 
     if (this->is_pointer[offset]) {
         std::vector<code_type>* occs = this->hash_table[offset].second.pointer;
-        if (occs->size() + 1 > this->header.max_occs) {
-            this->header.values -= occs->size();
-            this->header.frequent++;
-            this->clear(offset);
-        } else {
-            occs->push_back(pos);
-            size_t offset = occs->size() - 1;
-            while(offset > 0 && occs->at(offset - 1) > occs->at(offset)) {
-                std::swap(occs->at(offset - 1), occs->at(offset));
-                offset--;
-            }
-            this->header.values++;
+        occs->push_back(pos);
+        size_t offset = occs->size() - 1;
+        while(offset > 0 && occs->at(offset - 1) > occs->at(offset)) {
+            std::swap(occs->at(offset - 1), occs->at(offset));
+            offset--;
         }
     } else {
-        if (this->hash_table[offset].second.value == NO_VALUE) {
-            return;
+        std::vector<code_type>* occs = new std::vector<code_type>(2);
+        occs->at(0) = this->hash_table[offset].second.value;
+        occs->at(1) = pos;
+        if (occs->at(0) > occs->at(1)) {
+            std::swap(occs->at(0), occs->at(1));
         }
-        if (this->header.max_occs < 2) {
-            this->hash_table[offset].second.value = NO_VALUE;
-            this->header.values--;
-            this->header.unique--;
-            this->header.frequent++;
-        } else {
-            std::vector<code_type>* occs = new std::vector<code_type>(2);
-            occs->at(0) = this->hash_table[offset].second.value;
-            occs->at(1) = pos;
-            if (occs->at(0) > occs->at(1)) {
-                std::swap(occs->at(0), occs->at(1));
-            }
-            this->hash_table[offset].second.pointer = occs;
-            this->is_pointer[offset] = true;
-            this->header.values++;
-            this->header.unique--;
-        }
+        this->hash_table[offset].second.pointer = occs;
+        this->is_pointer[offset] = true;
+        this->header.unique--;
     }
+    this->header.values++;
 }
 
 bool MinimizerIndex::contains(size_t offset, code_type pos) const {
@@ -730,7 +774,7 @@ void MinimizerIndex::rehash() {
             continue;
         }
 
-        size_t offset = this->find_offset(key);
+        size_t offset = this->find_offset(key, wang_hash_64(key));
         this->hash_table[offset] = old_hash_table[i];
         this->is_pointer[offset] = old_is_pointer[i];
     }

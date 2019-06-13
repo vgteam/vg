@@ -2274,6 +2274,75 @@ CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
 
 }
 
+TEST_CASE( "SVs that are fully base specified are constructed correctly" , "[constructor]") {
+
+    auto vcf_data = R"(##fileformat=VCFv4.2
+##fileDate=20090805
+##source=myImputationProgramV3.1
+##reference=1000GenomesPilot-NCBI36
+##phasing=partial
+##FILTER=<ID=q10,Description="Quality below 10">
+##FILTER=<ID=s50,Description="Less than 50% of samples have data">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
+x	11	sv1	T	TTTCTTTCTTTCTTTCTTTCTTTCTTTCTTTCTTTC	11	PASS	END=10;SVLEN=35;SVTYPE=INS	GT)";
+
+    auto fasta_data = R"(>x
+CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG
+)";
+
+    // Build the graph
+    auto result = construct_test_graph(fasta_data, vcf_data, 10, true, false);
+    
+#ifdef debug
+    std::cerr << pb2json(result) << std::endl;
+#endif
+
+	SECTION("nodes are as expected") {
+        // Look at each node
+
+        unordered_map<size_t, string> expected;
+        expected.insert({1, "CAAATAAGGC"});
+		expected.insert({2, "T"});
+        expected.insert({3, "TTCTTTCTTT"});
+        expected.insert({4, "CTTTCTTTCT"});
+        expected.insert({5, "TTCTTTCTTT"});
+        expected.insert({6, "CTTTC"});
+        expected.insert({7, "TGGAAATTTT"});
+        expected.insert({8, "CTGGAGTTCT"});
+        expected.insert({9, "ATTATATTCC"});
+        expected.insert({10, "AACTCTCTG"});
+
+        for (size_t i = 0; i < result.node_size(); i++) {
+            auto& node = result.node(i);
+            REQUIRE(node.sequence()==expected[node.id()]);
+        }
+    }
+    
+    SECTION("edges are as expected") {
+        unordered_set<tuple<id_t, bool, id_t, bool>> edges_wanted;
+        edges_wanted.emplace(1, false, 2, false);
+        edges_wanted.emplace(2, false, 3, false);
+        edges_wanted.emplace(3, false, 4, false);
+        edges_wanted.emplace(4, false, 5, false);
+        edges_wanted.emplace(5, false, 6, false);
+        edges_wanted.emplace(6, false, 7, false);
+        edges_wanted.emplace(7, false, 8, false);
+        edges_wanted.emplace(8, false, 9, false);
+        edges_wanted.emplace(9, false, 10, false);
+        edges_wanted.emplace(2, false, 7, false);
+        
+        // We should have the right number of edges
+        REQUIRE(result.edge_size() == edges_wanted.size());
+        
+        for (auto& edge : result.edge()) {
+            // The edge should be expected
+            REQUIRE(edges_wanted.count(make_tuple(edge.from(), edge.from_start(), edge.to(), edge.to_end())));
+        }
+    }
+
+}
+
 
 
 

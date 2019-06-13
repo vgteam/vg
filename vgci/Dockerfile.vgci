@@ -1,7 +1,7 @@
 # Dockerfile for a full vg build from source
 # (derived from vgteam/vg_docker)
 
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 MAINTAINER vgteam
 ARG vg_git_revision=master
 
@@ -22,7 +22,7 @@ RUN apt-get -qq update && apt-get -qq install -y \
     rs \
     libffi-dev
 
-ADD http://mirrors.kernel.org/ubuntu/pool/universe/b/bwa/bwa_0.7.15-5_amd64.deb /tmp/bwa.deb
+ADD https://github.com/vgteam/vg_docker/raw/master/deps/bwa_0.7.15-5_amd64.deb /tmp/bwa.deb
 RUN dpkg -i /tmp/bwa.deb
 
 # copy over current directory to docker

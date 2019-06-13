@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 28
 
 
 # Build vg graphs for two chromosomes
@@ -21,11 +21,10 @@ is $(vg gbwt -C x.gbwt) 1 "chromosome x: 1 contig"
 is $(vg gbwt -H x.gbwt) 2 "chromosome x: 2 haplotypes"
 is $(vg gbwt -S x.gbwt) 1 "chromosome x: 1 sample"
 
-# Full extraction of threads
-is $(vg paths -x x.xg -g x.gbwt -X -T | vg view -a -  | wc -l) 2 "vg paths may be used to extract threads"
-
-# Query test
-is $(vg paths -x x.xg -g x.gbwt -X -q _thread_1_x_0 | vg view -a -  | wc -l) 1 "vg paths can extract one thread by name prefix"
+# Thread / contig / sample names
+is $(vg gbwt -T x.gbwt | wc -l) 2 "chromosome x: 2 thread names"
+is $(vg gbwt -C -L x.gbwt | wc -l) 1 "chromosome x: 1 contig name"
+is $(vg gbwt -S -L x.gbwt | wc -l) 1 "chromosome x: 1 sample name"
 
 # Chromosome Y
 vg index -G y.gbwt -v small/xy2.vcf.gz y.vg
@@ -38,9 +37,9 @@ is $(vg gbwt -S y.gbwt) 1 "chromosome y: 1 sample"
 vg gbwt -m -o xy.gbwt x.gbwt y.gbwt
 is $? 0 "GBWT indexes can be merged"
 is $(vg gbwt -c xy.gbwt) 4 "merge: 4 threads"
-is $(vg gbwt -C xy.gbwt) 1 "merge: 1 contig"
-is $(vg gbwt -H xy.gbwt) 4 "merge: 4 haplotypes"
-is $(vg gbwt -S xy.gbwt) 2 "merge: 2 samples"
+is $(vg gbwt -C xy.gbwt) 2 "merge: 2 contigs"
+is $(vg gbwt -H xy.gbwt) 2 "merge: 2 haplotypes"
+is $(vg gbwt -S xy.gbwt) 1 "merge: 1 sample"
 
 # Fast merging
 vg gbwt -f -o xy2.gbwt x.gbwt y.gbwt
@@ -50,20 +49,11 @@ is $(vg gbwt -C xy2.gbwt) 2 "fast merge: 2 contigs"
 is $(vg gbwt -H xy2.gbwt) 2 "fast merge: 2 haplotypes"
 is $(vg gbwt -S xy2.gbwt) 1 "fast merge: 1 sample"
 
-# Unpackage the indexes, remove metadata from the merged indexes and compare them
-vg view --extract-tag GBWT xy.gbwt > xy.bare.gbwt
-vg view --extract-tag GBWT xy2.gbwt > xy2.bare.gbwt
-../deps/gbwt/metadata -r xy.bare > /dev/null
-../deps/gbwt/metadata -r xy2.bare > /dev/null
-cmp xy.bare.gbwt xy2.bare.gbwt
+# Both merging algorithms should produce the same results, because metadata merging is based on names
+cmp xy.gbwt xy2.gbwt
 is $? 0 "the merged indexes are identical"
 
-# Remove threads from a GBWT
-vg gbwt -r 1 -r 2 xy.gbwt
-is $? 0 "threads can be removed from a GBWT index"
-is $(vg gbwt -c xy.gbwt) 2 "remove: 2 threads"
-
-rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt xy.bare.gbwt xy2.bare.gbwt x.xg
+rm -f x.gbwt y.gbwt xy.gbwt xy2.gbwt x.xg
 
 
 # Build a GBWT for paths
@@ -74,8 +64,10 @@ is $(vg gbwt -c x_ref.gbwt) 1 "there is 1 thread in the index"
 vg index -G x_both.gbwt -T -v small/xy2.vcf.gz x.vg
 is $(vg gbwt -c x_both.gbwt) 3 "there are 3 threads in the index"
 
-# Use vg paths to extract the gbwt
-
+# Remove a sample (actually the reference) from a GBWT
+vg gbwt -R ref x_both.gbwt
+is $? 0 "samples can be removed from a GBWT index"
+is $(vg gbwt -c x_both.gbwt) 2 "the sample was removed"
 
 rm x_ref.gbwt x_both.gbwt
 

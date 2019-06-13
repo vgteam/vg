@@ -2,8 +2,8 @@
 #include "../vg.hpp"
 #include "../utility.hpp"
 #include "../mapper.hpp"
-#include "../stream/stream.hpp"
-#include "../stream/vpkg.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 #include "../alignment.hpp"
 #include "../annotation.hpp"
 #include "../gff_reader.hpp"
@@ -27,6 +27,7 @@ void help_annotate(char** argv) {
          << "    -a, --gam FILE         file of Alignments to annotate (required)" << endl
          << "    -x, --xg-name FILE     xg index of the graph against which the Alignments are aligned (required)" << endl
          << "    -p, --positions        annotate alignments with reference positions" << endl
+         << "    -l, --search-limit N   when annotating with positions, search this far for paths (default: read length)" << endl
          << "    -b, --bed-name FILE    annotate alignments with overlapping region names from this BED. May repeat." << endl
          << "    -n, --novelty          output TSV table with header describing how much of each Alignment is novel" << endl
          << "    -t, --threads          use the specified number of threads" << endl;
@@ -88,6 +89,7 @@ int main_annotate(int argc, char** argv) {
     vector<string> gff_names;
     string gam_name;
     bool add_positions = false;
+    size_t search_limit = 0;
     bool novelty = false;
     bool output_ggff = false;
     string snarls_name;
@@ -99,6 +101,7 @@ int main_annotate(int argc, char** argv) {
         {
             {"gam", required_argument, 0, 'a'},
             {"positions", no_argument, 0, 'p'},
+            {"search-limit", required_argument, 0, 'l'},
             {"xg-name", required_argument, 0, 'x'},
             {"bed-name", required_argument, 0, 'b'},
             {"gff-name", required_argument, 0, 'f'},
@@ -111,7 +114,7 @@ int main_annotate(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:a:pb:f:gs:nt:h",
+        c = getopt_long (argc, argv, "hx:a:pl:b:f:gs:nt:h",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -148,6 +151,10 @@ int main_annotate(int argc, char** argv) {
             add_positions = true;
             break;
             
+        case 'l':
+            search_limit = parse<size_t>(optarg);
+            break;
+            
         case 'n':
             novelty = true;
             break;
@@ -172,7 +179,7 @@ int main_annotate(int argc, char** argv) {
     if (!xg_name.empty()) {
         get_input_file(xg_name, [&](istream& in) {
             // Read in the XG index
-            xg_index = stream::VPKG::load_one<xg::XG>(in);
+            xg_index = vg::io::VPKG::load_one<xg::XG>(in);
         });
     } else {
         cerr << "error [vg annotate]: no xg index provided" << endl;
@@ -188,7 +195,7 @@ int main_annotate(int argc, char** argv) {
             cerr << "error:[vg mpmap] Cannot open Snarls file " << snarls_name << endl;
             exit(1);
         }
-        snarl_manager = stream::VPKG::load_one<SnarlManager>(snarl_stream);
+        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_stream);
     }
     
     Mapper mapper(xg_index.get(), nullptr, nullptr);
@@ -237,7 +244,7 @@ int main_annotate(int argc, char** argv) {
                 << novel_bp << endl;
             };
             get_input_file(gam_name, [&](istream& in) {
-                stream::for_each(in, lambda);
+                vg::io::for_each(in, lambda);
             });
         } else {
             // We are annotating the actual reads
@@ -295,13 +302,13 @@ int main_annotate(int argc, char** argv) {
             }
             
             get_input_file(gam_name, [&](istream& in) {
-                stream::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
+                vg::io::for_each_parallel<Alignment>(in, [&](Alignment& aln) {
                     // For each read
                     
                     if (add_positions) {
                         // Annotate it with its initial position on each path it touches
                         aln.clear_refpos();
-                        mapper.annotate_with_initial_path_positions(aln);
+                        mapper.annotate_with_initial_path_positions(aln, search_limit);
                     }
                     
                     if (!features_on_node.empty()) {
@@ -335,13 +342,13 @@ int main_annotate(int argc, char** argv) {
                     // Output the alignment
                     auto& buffer = buffers.at(omp_get_thread_num());
                     buffer.emplace_back(std::move(aln));
-                    stream::write_buffered(cout, buffer, 1000);
+                    vg::io::write_buffered(cout, buffer, 1000);
                 });
             });
         
             for (auto& buffer : buffers) {
                 // Finish each buffer
-                stream::write_buffered(cout, buffer, 0);
+                vg::io::write_buffered(cout, buffer, 0);
             }
         }
     }
@@ -441,7 +448,7 @@ int main_annotate(int argc, char** argv) {
                 get_input_file(bed_name, [&](istream& bed_stream) {
                     vector<Alignment> buffer;
                     parse_bed_regions(bed_stream, xg_index.get(), &buffer);
-                    stream::write_buffered(cout, buffer, 0); // flush
+                    vg::io::write_buffered(cout, buffer, 0); // flush
                 });
                 
                 // TODO: We'll get an EOF marker per input file.
@@ -451,7 +458,7 @@ int main_annotate(int argc, char** argv) {
                 get_input_file(gff_name, [&](istream& gff_stream) {
                     vector<Alignment> buffer;
                     parse_gff_regions(gff_stream, xg_index.get(), &buffer);
-                    stream::write_buffered(cout, buffer, 0); // flush
+                    vg::io::write_buffered(cout, buffer, 0); // flush
                 });
             }
         }

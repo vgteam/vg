@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <iostream>
 #include <limits>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -21,22 +20,25 @@ namespace vg {
 /**
  * A class that implements the minimizer index as a hash table mapping kmers to sets of pos_t.
  * The hash table uses quadratic probing with power-of-two size.
- * A minimizer is the lexicographically smallest kmer in a window of w consecutive kmers.
- * There is an option to specify an upper bound for the number of occurrences of each
- * minimizer. If the actual number is higher, the occurrences will not be stored.
+ * We encode kmers using 2 bits/character and take wang_hash_64() of the encoding. A minimizer
+ * is the kmer with the smallest hash in a window of w consecutive kmers and their reverse
+ * complements.
+ *
+ * Index versions:
+ *
+ *   1  The initial version.
+ *
+ *   2  Minimizer selection is based on hashes instead of lexicographic order. A sequence and
+ *      its reverse complement have the same minimizers, reducing index size by 50%. Not
+ *      compatible with version 1.
+ *
+ *   3  Construction-time hit cap is no longer used. Compatible with version 2.
  */
 class MinimizerIndex {
 public:
     typedef std::uint64_t key_type;
     typedef std::uint64_t code_type;
-
-    union value_type {
-        code_type               value;
-        std::vector<code_type>* pointer;
-    };
-
-    typedef std::pair<key_type, value_type> cell_type;
-    typedef std::pair<key_type, size_t>     minimizer_type;
+    typedef std::uint32_t offset_type;
 
     // Public constants.
     // Any key is smaller than NO_KEY and NO_VALUE maps to an empty pos_t.
@@ -45,26 +47,55 @@ public:
     constexpr static size_t    KMER_MAX_LENGTH  = 31;
     constexpr static size_t    INITIAL_CAPACITY = 1024;
     constexpr static double    MAX_LOAD_FACTOR  = 0.77;
-    constexpr static size_t    MAX_OCCS         = std::numeric_limits<size_t>::max();
     constexpr static key_type  NO_KEY           = std::numeric_limits<key_type>::max();
     constexpr static code_type NO_VALUE         = 0;
 
+    union value_type {
+        code_type               value;
+        std::vector<code_type>* pointer;
+    };
+
+    typedef std::pair<key_type, value_type> cell_type;
+
     static cell_type empty_cell() { return cell_type(NO_KEY, { NO_VALUE }); }
+
+    struct minimizer_type {
+        key_type    key;        // Encoded minimizer.
+        size_t      hash;       // Hash of the minimizer.
+        offset_type offset;     // First/last offset of the kmer for forward/reverse complement.
+        bool        is_reverse; // The minimizer is the reverse complement of the kmer.
+
+        /// Is the minimizer empty?
+        bool empty() const { return (this->key == NO_KEY); }
+
+        /// Sort by (offset, !is_reverse). When the offsets are equal, a reverse complement
+        /// minimizer is earlier in the sequence than a forward minimizer.
+        bool operator<(const minimizer_type& another) const {
+            return ((this->offset < another.offset) ||
+                    (this->offset == another.offset && this->is_reverse > another.is_reverse));
+        }
+
+        bool operator==(const minimizer_type& another) const {
+            return (this->key == another.key && this->offset == another.offset && this->is_reverse == another.is_reverse);
+        }
+    };
 
     struct Header {
         std::uint32_t tag, version;
         std::uint64_t flags;
-        size_t        k, w;
-        size_t        keys, capacity, max_keys;
-        size_t        values, max_occs;
-        size_t        unique, frequent;
+        std::uint64_t k, w;
+        std::uint64_t keys, capacity, max_keys;
+        std::uint64_t values;
+        std::uint64_t unused1; // This used to be max_occs.
+        std::uint64_t unique;
+        std::uint64_t unused2; // This used to be frequent.
 
         constexpr static std::uint32_t TAG = 0x31513151;
-        constexpr static std::uint32_t VERSION = 1;
-        constexpr static std::uint32_t MIN_VERSION = 1;
+        constexpr static std::uint32_t VERSION = 3;
+        constexpr static std::uint32_t MIN_VERSION = 2;
 
         Header();
-        Header(size_t kmer_length, size_t window_length, size_t max_occs_per_key);
+        Header(size_t kmer_length, size_t window_length);
         void sanitize();
         bool check() const;
 
@@ -78,7 +109,7 @@ public:
     MinimizerIndex();
 
     /// Constructs an index with the specified parameter values.
-    MinimizerIndex(size_t kmer_length, size_t window_length, size_t max_occs_per_key = MAX_OCCS);
+    MinimizerIndex(size_t kmer_length, size_t window_length);
 
     /// Copy constructor.
     MinimizerIndex(const MinimizerIndex& source);
@@ -113,37 +144,39 @@ public:
 
 //------------------------------------------------------------------------------
 
-    /// Returns the minimizer and its starting offset in the window specified by the
-    /// iterators. If no minimizer exists (e.g. because all kmers contain invalid
-    /// characters), returns (NO_KEY, 0).
+    /// Returns the minimizer in the window specified by the iterators. If no minimizer
+    /// exists (e.g. because all kmers contain invalid characters), the return value is
+    /// an empty minimizer.
     minimizer_type minimizer(std::string::const_iterator begin, std::string::const_iterator end) const;
 
     /// Returns all minimizers in the string specified by the iterators. The return
-    /// value is a vector of (key, offset) pairs. A minimizer cannot contain invalid
-    /// characters.
+    /// value is a vector of minimizers sorted by their offsets.
     std::vector<minimizer_type> minimizers(std::string::const_iterator begin, std::string::const_iterator end) const;
 
     /// Returns all minimizers in the string. The return value is a vector of
-    /// (key, offset) pairs. A minimizer cannot contain invalid characters.
+    /// minimizers sorted by their offsets.
     std::vector<minimizer_type> minimizers(const std::string& str) const {
         return this->minimizers(str.begin(), str.end());
     }
 
-    /// Inserts the minimizer encoded in the key at the given position into the index.
-    /// Minimizers with key NO_KEY or a position encoded as NO_VALUE are not inserted.
-    /// Use minimizer() or minimizers() to get the key.
-    void insert(key_type key, pos_t pos);
+    /// Inserts the position into the index, using minimizer.key as the key and
+    /// minimizer.hash as its hash. Does not insert empty minimizers or positions.
+    /// The offset of the position will be truncated to fit in REV_OFFSET bits.
+    /// Use minimizer() or minimizers() to get the minimizer and valid_offset() to check
+    /// if the offset fits in the available space.
+    /// The position should match the orientation of the minimizer: a path label
+    /// starting from the position should have the minimizer as its prefix.
+    void insert(const minimizer_type& minimizer, const pos_t& pos);
 
-    /// Returns the sorted set of occurrences of the kmer encoded in the key.
-    /// If the occurrence limit has been exceeded, returns a vector containing an
-    /// empty position.
-    /// Use minimizer() or minimizers() to get the key.
-    std::vector<pos_t> find(key_type key) const;
+    /// Returns the sorted set of occurrences of the minimizer.
+    /// Use minimizer() or minimizers() to get the minimizer.
+    /// If the minimizer is in reverse orientation, use reverse_base_pos() to reverse
+    /// the reported occurrences.
+    std::vector<pos_t> find(const minimizer_type& minimizer) const;
 
-    /// Returns the occurrence count of the minimizer with the given key.
-    /// If the occurrence limit has been exceeded, returns 0.
-    /// Use minimizer() or minimizers() to get the key.
-    size_t count(key_type key) const;
+    /// Returns the occurrence count of the minimizer.
+    /// Use minimizer() or minimizers() to get the minimizer.
+    size_t count(const minimizer_type& minimizer) const;
 
 //------------------------------------------------------------------------------
 
@@ -174,9 +207,6 @@ public:
     /// Number of minimizers with a single occurrence.
     size_t unique_keys() const { return this->header.unique; }
 
-    /// Number of minimizers with too many occurrences.
-    size_t frequent_keys() const { return this->header.frequent; }
-
 //------------------------------------------------------------------------------
 
 private:
@@ -202,16 +232,16 @@ public:
     constexpr static code_type REV_MASK   = 0x400;
     constexpr static code_type OFF_MASK   = 0x3FF;
 
-    /// Encode pos_t as code_type.
-    static code_type encode(pos_t pos) {
-        return (static_cast<code_type>(std::get<0>(pos)) << ID_OFFSET) |
-               (static_cast<code_type>(std::get<1>(pos)) << REV_OFFSET) |
-               (static_cast<code_type>(std::get<2>(pos)) & OFF_MASK);
+    /// Is the offset small enough to fit in the low-order bits of the encoding?
+    static bool valid_offset(const pos_t& pos) {
+        return (offset(pos) <= OFF_MASK);
     }
 
-    /// Copied from position.cpp to avoid excessive dependencies.
-    static pos_t make_pos_t(id_t id, bool is_reverse, off_t offset) {
-        return std::make_tuple(id, is_reverse, offset);
+    /// Encode pos_t as code_type.
+    static code_type encode(const pos_t& pos) {
+        return (static_cast<code_type>(id(pos)) << ID_OFFSET) |
+               (static_cast<code_type>(is_rev(pos)) << REV_OFFSET) |
+               (static_cast<code_type>(offset(pos)) & OFF_MASK);
     }
 
     /// Decode code_type as pos_t.
@@ -226,8 +256,8 @@ private:
     void clear(size_t i);   // Deletes the pointer at hash_table[i].
     void clear();           // Deletes all pointers in the hash table.
 
-    // Find the hash table offset for the key.
-    size_t find_offset(key_type key) const;
+    // Find the hash table offset for the key with the given hash value.
+    size_t find_offset(key_type key, size_t hash) const;
 
     // Insert (key, pos) to hash_table[offset], which is assumed to be empty.
     // Rehashing may be necessary.
@@ -242,18 +272,6 @@ private:
 
     // Double the size of the hash table.
     void rehash();
-
-    // A separate copy of Thomas Wang's hash function for 64-bit integers.
-    static size_t hash(key_type key) {
-        key = (~key) + (key << 21); // key = (key << 21) - key - 1;
-        key = key ^ (key >> 24);
-        key = (key + (key << 3)) + (key << 8); // key * 265
-        key = key ^ (key >> 14);
-        key = (key + (key << 2)) + (key << 4); // key * 21
-        key = key ^ (key >> 28);
-        key = key + (key << 31);
-        return key;
-    }
 };
 
 //------------------------------------------------------------------------------

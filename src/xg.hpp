@@ -8,7 +8,9 @@
 #include <omp.h>
 #include <unordered_map>
 #include <unordered_set>
-#include "cpp/vg.pb.h"
+
+#include <vg/vg.pb.h>
+
 #include "sdsl/bit_vectors.hpp"
 #include "sdsl/enc_vector.hpp"
 #include "sdsl/dac_vector.hpp"
@@ -64,7 +66,7 @@ class XGFormatError : public runtime_error {
  * Provides succinct storage for a graph, its positional paths, and a set of
  * embedded threads.
  */
-class XG : public PathHandleGraph {
+class XG : public PathHandleGraph, public SerializableHandleGraph {
 public:
     
     ////////////////////////////////////////////////////////////////////////////
@@ -122,10 +124,15 @@ public:
     // Load this XG index from a stream. Throw an XGFormatError if the stream
     // does not produce a valid XG file.
     void load(istream& in);
+    
+    // Alias for load() to match the SerializableHandleGraph interface
+    void deserialize(istream& in);
+    
+    void serialize(std::ostream& out) const;
     // Save this XG index to a stream.
-    size_t serialize(std::ostream& out,
-                     sdsl::structure_tree_node* v = NULL,
-                     std::string name = "") const;
+    size_t serialize_and_measure(std::ostream& out,
+                                 sdsl::structure_tree_node* v = NULL,
+                                 std::string name = "") const;
                      
     
     ////////////////////////////////////////////////////////////////////////////
@@ -155,6 +162,8 @@ public:
     // these provide a way to get an index for each node and edge in the g_iv structure and are used by gPBWT
     size_t node_graph_idx(int64_t id) const;
     size_t edge_graph_idx(const Edge& edge) const;
+
+    size_t get_g_iv_size() const;
 
     ////////////////////////////////////////////////////////////////////////////
     // Here is the old low-level API that needs to be restated in terms of the 
@@ -229,11 +238,18 @@ public:
     /// orientations, in their internal stored order. Stop if the iteratee returns false.
     virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
     /// Return the number of nodes in the graph
-    virtual size_t node_size() const;
+    virtual size_t get_node_count() const;
     /// Get the minimum node ID used in the graph, if any are used
     virtual id_t min_node_id() const;
     /// Get the maximum node ID used in the graph, if any are used
     virtual id_t max_node_id() const;
+    /// Returns one base of a handle's sequence, in the orientation of the
+    /// handle.
+    virtual char get_base(const handle_t& handle, size_t index) const;
+    /// Returns a substring of a handle's sequence, in the orientation of the
+    /// handle. If the indicated substring would extend beyond the end of the
+    /// handle's sequence, the return value is truncated to the sequence's end.
+    virtual string get_subsequence(const handle_t& handle, size_t index, size_t size) const;
     
     // TODO: There's currently no really good efficient way to implement
     // get_degree; we have to decode each edge to work out what node side it is
@@ -243,38 +259,63 @@ public:
     // Path handle graph API
     ////////////////////////
    
-    /// Determine if a path with a given name exists
-    virtual bool has_path(const string& path_name) const;
-    /// Look up the path handle for the given path name
-    virtual path_handle_t get_path_handle(const string& path_name) const;
-    /// Look up the name of a path from a handle to it
-    virtual string get_path_name(const path_handle_t& path_handle) const;
-    /// Returns the number of node occurrences in the path
-    virtual size_t get_occurrence_count(const path_handle_t& path_handle) const;
-    /// Returns the total length of sequence in the path
-    virtual size_t get_path_length(const path_handle_t& path_handle) const;
     /// Returns the number of paths stored in the graph
-    virtual size_t get_path_count() const;
+    size_t get_path_count() const;
+    /// Determine if a path with a given name exists
+    bool has_path(const string& path_name) const;
+    /// Look up the path handle for the given path name
+    path_handle_t get_path_handle(const string& path_name) const;
+    /// Look up the name of a path from a handle to it
+    string get_path_name(const path_handle_t& path_handle) const;
+    /// Look up whether a path is circular
+    bool get_is_circular(const path_handle_t& path_handle) const;
+    /// Returns the number of node steps in the path
+    size_t get_step_count(const path_handle_t& path_handle) const;
+    /// Returns the total length of sequence in the path
+    size_t get_path_length(const path_handle_t& path_handle) const;
+    /// Get a node handle (node ID and orientation) from a handle to a step on a path
+    handle_t get_handle_of_step(const step_handle_t& step_handle) const;
+    /// Returns a handle to the path that an step is on
+    path_handle_t get_path_handle_of_step(const step_handle_t& step_handle) const;
+    /// Get a handle to the first step, or in a circular path to an arbitrary step
+    /// considered "first". If the path is empty, returns the past-the-last step
+    /// returned by path_end.
+    step_handle_t path_begin(const path_handle_t& path_handle) const;
+    /// Get a handle to a fictitious position past the end of a path. This position is
+    /// return by get_next_step for the final step in a path in a non-circular path.
+    /// Note that get_next_step will *NEVER* return this value for a circular path.
+    step_handle_t path_end(const path_handle_t& path_handle) const;
+    /// Get a handle to the last step, which will be an arbitrary step in a circular path that
+    /// we consider "last" based on our construction of the path. If the path is empty
+    /// then the implementation must return the same value as path_front_end().
+    step_handle_t path_back(const path_handle_t& path_handle) const;
+    /// Get a handle to a fictitious position before the beginning of a path. This position is
+    /// return by get_previous_step for the first step in a path in a non-circular path.
+    /// Note: get_previous_step will *NEVER* return this value for a circular path.
+    step_handle_t path_front_end(const path_handle_t& path_handle) const;
+    /// Returns true if the step is not the last step in a non-circular path.
+    bool has_next_step(const step_handle_t& step_handle) const;
+    /// Returns true if the step is not the first step in a non-circular path.
+    bool has_previous_step(const step_handle_t& step_handle) const;
+    /// Returns a handle to the next step on the path. If the given step is the final step
+    /// of a non-circular path, returns the past-the-last step that is also returned by
+    /// path_end. In a circular path, the "last" step will loop around to the "first" (i.e.
+    /// the one returned by path_begin).
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    step_handle_t get_next_step(const step_handle_t& step_handle) const;
+    /// Returns a handle to the previous step on the path. If the given step is the first
+    /// step of a non-circular path, this method has undefined behavior. In a circular path,
+    /// it will loop around from the "first" step (i.e. the one returned by path_begin) to
+    /// the "last" step.
+    /// Note: to iterate over each step one time, even in a circular path, consider
+    /// for_each_step_in_path.
+    step_handle_t get_previous_step(const step_handle_t& step_handle) const;
+    
     /// Execute a function on each path in the graph
-    virtual bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
-    /// Get a node handle (node ID and orientation) from a handle to an occurrence on a path
-    virtual handle_t get_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Get a handle to the first occurrence in a path
-    virtual occurrence_handle_t get_first_occurrence(const path_handle_t& path_handle) const;
-    /// Get a handle to the last occurrence in a path
-    virtual occurrence_handle_t get_last_occurrence(const path_handle_t& path_handle) const;
-    /// Returns true if the occurrence is not the last occurence on the path, else false
-    virtual bool has_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns true if the occurrence is not the first occurence on the path, else false
-    virtual bool has_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns a handle to the next occurrence on the path
-    virtual occurrence_handle_t get_next_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns a handle to the previous occurrence on the path
-    virtual occurrence_handle_t get_previous_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Returns a handle to the path that an occurrence is on
-    virtual path_handle_t get_path_handle_of_occurrence(const occurrence_handle_t& occurrence_handle) const;
-    /// Executes a function on each occurrence of a handle in any path.
-    virtual bool for_each_occurrence_on_handle_impl(const handle_t& handle, const function<bool(const occurrence_handle_t&)>& iteratee) const;
+    bool for_each_path_handle_impl(const function<bool(const path_handle_t&)>& iteratee) const;
+    /// Executes a function on each step of a handle in any path.
+    bool for_each_step_on_handle_impl(const handle_t& handle, const function<bool(const step_handle_t&)>& iteratee) const;
     
     ////////////////////////////////////////////////////////////////////////////
     // Higher-level graph API
@@ -387,7 +428,8 @@ public:
     // nearest node (in steps) that is in a path, and the paths
     pair<int64_t, vector<size_t> > nearest_path_node(int64_t id, int max_steps = 16) const;
     int64_t min_approx_path_distance(int64_t id1, int64_t id2) const;
-    /// nearest position that is in a path and the distance between it and the current position
+    /// nearest position that is in a path and the distance between it and the current position is <= max_search.
+    /// Will search over multiple nodes.
     pair<pos_t, int64_t> next_path_position(pos_t pos, int64_t max_search) const;
     
     /// returns true if the paths are on the same connected component of the graph (constant time)
@@ -443,6 +485,24 @@ public:
                                                   unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
                                                   unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr,
                                                   unordered_map<pair<int64_t, bool>, handle_t>* handle_memo = nullptr) const;
+                                                  
+    /// Return a vector of pairs of handles that occur on the same relative
+    /// strand as the start handle, the distance from the right or left end
+    /// of the start handle needed to reach them, and whether they were reached
+    /// going right (true) or left (false) from the start. The handles are the
+    /// closest one(s) to the start handle that touch any paths.
+    ///
+    /// Distances are always positive. If specified, right_extra_dist and
+    /// left_extra_dist are added to the search distances, to allow for
+    /// searching from a particular point on the starting node. 
+    ///
+    /// Search does not exceed max_search_dist bases.
+    ///
+    /// Will only ever return an empty vector or a 1-element vector.
+    vector<tuple<handle_t, size_t, bool>> find_closest_with_paths(handle_t start, size_t max_search_dist,
+                                                                  size_t right_extra_dist = 0, size_t left_extra_dist = 0,
+                                                                  unordered_map<int64_t, vector<size_t>>* paths_of_node_memo = nullptr,
+                                                                  unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
     
     /// returns a vector of (node id, is reverse, offset) tuples that are found by jumping a fixed oriented distance
     /// along path(s) from the given position. if the position is not on a path, searches from the position to a path
@@ -651,7 +711,7 @@ private:
     /// edges_to := { edge_to, ... }
     /// edges_from := { edge_from, ... }
     /// edge_to := { offset_to_previous_node, edge_type }
-    /// edge_to := { offset_to_next_node, edge_type }
+    /// edge_from := { offset_to_next_node, edge_type }
     int_vector<> g_iv;
     /// delimit node records to allow lookup of nodes in g_civ by rank
     bit_vector g_bv;
@@ -911,7 +971,7 @@ size_t serialize(const XG::rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name);
 
 // Deserialize a rank_select_int_vector in an SDSL serialization compatible way.
-void deserialize(XG::rank_select_int_vector& target, istream& in);
+void deserialize_rsiv(XG::rank_select_int_vector& target, istream& in);
 
 // Determine if two edges are equivalent (the same or one is the reverse of the other)
 bool edges_equivalent(const Edge& e1, const Edge& e2);
