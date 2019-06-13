@@ -573,6 +573,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[i], "cluster_score", sorted_cluster_scores1[i]);
         set_annotation(mappings[i], "extension_score", sorted_extension_scores1[i]);
         set_annotation(mappings[i], "alignment_score", sorted_alignment_scores1[i]);
+
+        set_annotation(mappings[i], "best_cluster_score", sorted_cluster_scores1[0]);
+        set_annotation(mappings[i], "best_extension_score", sorted_extension_scores1[0]);
+        set_annotation(mappings[i], "best_alignment_score", sorted_alignment_scores1[0]);
     }
 
     
