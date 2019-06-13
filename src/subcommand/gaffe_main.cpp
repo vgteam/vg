@@ -76,6 +76,7 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
             // Make sure we have a batch
             if (batch == nullptr) {
                 batch = new vector<string>();
+                batch->reserve(batch_size);
             }
             
             if (tag_and_data.second.get() != nullptr) {
@@ -97,7 +98,7 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
                 if (b >= max_batches_outstanding) {
                     
 #ifdef debug
-                    cerr << "Run batch in current thread" << endl;
+                    cerr << "(" << b << "/" << max_batches_outstanding << "): Run batch in current thread" << endl;
 #endif
                     
                     // process this batch in the current thread
@@ -130,7 +131,7 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
                 }
                 else {
 #ifdef debug
-                    cerr << "Run batch in task" << endl;
+                    cerr << "(" << b << "/" << max_batches_outstanding << "): Run batch in task" << endl;
 #endif
                 
                     // spawn a task in another thread to process this batch
