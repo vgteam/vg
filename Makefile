@@ -249,16 +249,11 @@ DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
 
 ifneq ($(shell uname -s),Darwin)
-<<<<<<< Updated upstream
 	# Use tcmalloc only
 	
     DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
     LD_LIB_FLAGS += -ltcmalloc_minimal
 	CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
-=======
-    # DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
-    # LD_LIB_FLAGS += -ltcmalloc_minimal
->>>>>>> Stashed changes
 endif
 
 
