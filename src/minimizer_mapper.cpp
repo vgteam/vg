@@ -240,7 +240,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     double best_cluster_score = cluster_indexes_in_order.size() == 0 ? 0 : 
                                  cluster_score[cluster_indexes_in_order[0]];
     //TODO: Find a good cutoff
-    double cluster_score_limit = best_cluster_score - 50;
+    double cluster_score_cutoff = best_cluster_score - 50;
     
 #ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
@@ -254,7 +254,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < clusters.size() && i < max_extensions; i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
-        if ( cluster_score[cluster_num] < cluster_score_limit) {
+        if ( cluster_score[cluster_num] < cluster_score_cutoff) {
             break;
         }
         
@@ -330,6 +330,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         // Return true if a must come before b, and false otherwise
         return cluster_extension_scores.at(a) > cluster_extension_scores.at(b);
     });
+
+    double best_extension_score = cluster_extension_scores.size() == 0 ? 0 :
+                                  cluster_extension_scores[extension_indexes_in_order[0]];
+    double extension_score_cutoff = best_extension_score - 70; 
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
@@ -355,6 +359,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments; i++) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
+        if (cluster_extension_scores[extension_num] < extension_score_cutoff) {
+            break;
+        }
         
 #ifdef TRACK_PROVENANCE
         funnel.processing_input(extension_num);
