@@ -241,6 +241,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     std::sort(cluster_score.begin(), cluster_score.end(), [&](const size_t& a, const size_t& b) -> bool{
         return (a > b);
     });
+
+    double best_cluster_score = cluster_score.size() == 0 ? 0 : cluster_score[0];
     
 #ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
@@ -337,6 +339,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         sorted_cluster_scores.push_back(cluster_score[i]);
         sorted_extension_scores.push_back(cluster_extension_scores[i]);
     }
+    double best_extension_score = sorted_extension_scores.size() == 0 ? 0 :
+                                  sorted_extension_scores[0];
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
@@ -574,8 +578,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[i], "extension_score", sorted_extension_scores1[i]);
         set_annotation(mappings[i], "alignment_score", sorted_alignment_scores1[i]);
 
-        set_annotation(mappings[i], "best_cluster_score", sorted_cluster_scores1[0]);
-        set_annotation(mappings[i], "best_extension_score", sorted_extension_scores1[0]);
+        set_annotation(mappings[i], "best_cluster_score", best_cluster_score);
+        set_annotation(mappings[i], "best_extension_score", best_extension_score);
         set_annotation(mappings[i], "best_alignment_score", sorted_alignment_scores1[0]);
     }
 
