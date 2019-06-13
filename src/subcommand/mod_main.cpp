@@ -17,7 +17,10 @@
 #include "../algorithms/topological_sort.hpp"
 #include "../algorithms/remove_high_degree.hpp"
 
-#include "../algorithms/0_demo_final_0.hpp"
+#include "../algorithms/0_draft_haplotype_realignment.hpp"
+#include "../gbwt_helper.hpp"
+#include "../stream/vpkg.hpp"
+
 
 using namespace std;
 using namespace vg;
@@ -863,17 +866,88 @@ int main_mod(int argc, char** argv) {
     }
 
     if ( !demo_0.empty() ) {
+        /// Build the gbwt:
+        ifstream gbwt_stream;
+        string gbwt_name = "test/robin_haplotypes/threads_in_middle_example/chr10_subgraph_0_new_2.gbwt"; //Nodes 23493 to 23505
+        gbwt_stream.open(gbwt_name);
 
-        ///Testing gbwt_helper.hpp's for_each_kmer function. This issue is that I don't know how to construct a gbwt::GBWT haplotypes object. Nor do I know how to determine what size k I should use.
-        vg::id_t source = 1;
-        vg::id_t sink = 8;
+        // Load the GBWT from its container
+        unique_ptr<gbwt::GBWT> gbwt;
+        gbwt = stream::VPKG::load_one<gbwt::GBWT>(gbwt_stream);
+        GBWTGraph haploGraph = vg::GBWTGraph(*gbwt, *graph);
 
-        vector<string> haplotypes = haplotypes_to_strings(*graph, source, sink);
-        cout << "here goes!" << endl;
-        for(string haplotype : haplotypes) {
+        /// Run test code:
+        vg::id_t source = 23493; vg::id_t sink = 23505;
+        pair< vector< vector<handle_t> >, vector< vector<handle_t> > > haplotypes = extract_haplotypes(haploGraph, source, sink);
+        align_haplotypes(haploGraph, haplotypes);
+
+    }
+
+    // graph->serialize_to_ostream(std::cout);
+    delete graph;
+
+    return 0;
+}
+
+// Register subcommand
+static Subcommand vg_mod("mod", "filter, transform, and edit the graph", TOOLKIT, main_mod);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//TODO: Remove JUNK:
+
+        // vg::id_t source = 23251;//for robin_haplotypes/simple
+        // vg::id_t sink = 23257;//for robin_haplotypes/simple
+        // /Testing gbwt_helper.hpp's for_each_kmer function. This issue is that I don't know how to construct a gbwt::GBWT haplotypes object. Nor do I know how to determine what size k I should use.
+        // vg::id_t source = 23251;//for robin_haplotypes/simple
+        // vg::id_t sink = 23257;//for robin_haplotypes/simple
+        // clean_snarl_from_haplotypes(*graph, source, sink);
+        // cerr << "done!" << endl;
+        // vg::handle_t source_handle = graph->get_handle(source);
+        // vg::handle_t sink_handle = graph->get_handle(sink);
+
+        // vector<string> haplotypes = depth_first_haplotypes_to_strings(*graph, source, sink);
+        // cerr << "finished depth_first, now on to reference." << endl;
+        // vector<string> reference = get_paths(*graph, source_handle, sink_handle);
+
+        // haplotypes.insert(end(haplotypes), begin(reference), end(reference));
+
+        // cerr << "here goes!" << endl;
+        // for(string haplotype : haplotypes) {
             
-            cout << haplotype << endl;
-        }
+        //     cerr << haplotype << endl;
+        // }
+        // cerr << "done" << endl;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         //     std::ifstream snarl_stream;
         //     snarl_stream.open(demo_0);
@@ -884,14 +958,6 @@ int main_mod(int argc, char** argv) {
         //     }
 
         //     clean_all_snarls(*graph, snarl_stream);
-        }
-        // graph->serialize_to_ostream(std::cout);
-        delete graph;
 
+        // string gbwt_name = "test/robin_haplotypes/simple/chr10_subgraph_2dels-shift-729006.gbwt";
 
-
-    return 0;
-}
-
-// Register subcommand
-static Subcommand vg_mod("mod", "filter, transform, and edit the graph", TOOLKIT, main_mod);
