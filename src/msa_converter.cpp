@@ -7,8 +7,8 @@
 #include "vg.hpp"
 #include "msa_converter.hpp"
 
-
-// #define debug_msa_converter
+//TODO: remove definition
+#define debug_msa_converter
 
 namespace vg {
 
