@@ -161,6 +161,7 @@ RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
 GPERF_DIR:=deps/gperftools
 JEMALLOC_DIR:=deps/jemalloc
+LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
 ROCKSDB_DIR:=deps/rocksdb
@@ -249,6 +250,8 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
 
+LINK_DEPS =
+
 ifneq ($(shell uname -s),Darwin)
 	# Use tcmalloc only
     #DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -262,8 +265,12 @@ ifneq ($(shell uname -s),Darwin)
 	#CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
 	
 	# Use jemalloc
-	DEPS += $(LIB_DIR)/libjemalloc.a
-	LD_LIB_FLAGS += -ljemalloc
+	#DEPS += $(LIB_DIR)/libjemalloc.a
+	#LD_LIB_FLAGS += -ljemalloc
+	
+	# Use lockfree-malloc
+	LINK_DEPS += $(LIB_DIR)/liblite-malloc-shared.so
+	LD_LIB_FLAGS += -llite-malloc-shared
 endif
 
 
@@ -329,7 +336,10 @@ $(LIB_DIR)/libtcmalloc_and_profiler.a: $(LIB_DIR)/libtcmalloc_minimal.a $(LIB_DI
 	
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
-	
+
+$(LIB_DIR)/liblite-malloc-shared.so: $(LOCKFREE_MALLOC_DIR)/*.cpp $(LOCKFREE_MALLOC_DIR)/*.h
+	+. ./source_me.sh && cd $(LOCKFREE_MALLOC_DIR) && $(MAKE) $(FILTER) && cp liblite-malloc-shared.so $(CWD)/$(LIB_DIR)/
+
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
 	+. ./source_me.sh && cd $(SDSL_DIR) && AS_INTEGRATED_ASSEMBLER=1 BUILD_PORTABLE=1 ./install.sh $(CWD) $(FILTER)
