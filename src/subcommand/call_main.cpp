@@ -34,6 +34,7 @@ void help_call(char** argv, ConfigurableParser& parser) {
          << "general options:" << endl
          << "    -z, --translation FILE      input translation table" << endl
          << "    -b, --base-graph FILE       base graph.  currently needed for XREF tag" << endl
+         << "    -g, --snarls FILE           snarls of input graph (to save re-computing)" << endl
          << "    -h, --help                  print this help message" << endl
          << "    -p, --progress              show progress" << endl
          << "    -v, --verbose               print information and warnings about vcf generation" << endl
@@ -50,6 +51,8 @@ int main_call(int argc, char** argv) {
     // todo: get rid of this.  only used to check if deletion edge is novel.  must be some
     // way to get that out of the translations
     string base_graph_file_name;
+
+    string snarl_file_name;
     
     // This manages conversion from an augmented graph to a VCF, and makes the
     // actual calls.
@@ -61,13 +64,14 @@ int main_call(int argc, char** argv) {
     static const struct option long_options[] = {
         {"base-graph", required_argument, 0, 'b'},
         {"translation", required_argument, 0, 'z'},
+        {"snarls", required_argument, 0, 'g'},
         {"progress", no_argument, 0, 'p'},
         {"verbose", no_argument, 0, 'v'},
         {"threads", required_argument, 0, 't'},
         {"help", no_argument, 0, 'h'},
         {0, 0, 0, 0}
     };
-    static const char* short_options = "z:b:pvt:h";
+    static const char* short_options = "z:b:pvt:hg:";
     optind = 2; // force optind past command positional arguments
 
     // This is our command-line parser
@@ -80,6 +84,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'b':
             base_graph_file_name = optarg;
+            break;
+        case 'g':
+            snarl_file_name = optarg;
             break;
         case 'p':
             show_progress = true;
@@ -216,6 +223,21 @@ int main_call(int argc, char** argv) {
         }
         augmented_graph.load_translations(translation_file);
     }
+
+    // Load or compute the snarls
+    unique_ptr<SnarlManager> snarl_manager;    
+    if (!snarl_file_name.empty()) {
+        ifstream snarl_file(snarl_file_name.c_str());
+        if (!snarl_file) {
+            cerr << "[vg call]: Unable to load snarls file: " << snarl_file_name << endl;
+            return 1;
+        }
+        snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarl_file);
+    } else {
+        CactusSnarlFinder finder(augmented_graph.graph);
+        snarl_manager = unique_ptr<SnarlManager>(new SnarlManager(std::move(finder.find_snarls())));
+    }
+    
     
     if (show_progress) {
         cerr << "Calling variants with support caller" << endl;
@@ -223,7 +245,7 @@ int main_call(int argc, char** argv) {
 
     // project the augmented graph to a reference path
     // in order to create a VCF of calls.
-    support_caller.call(augmented_graph, {});
+    support_caller.call(augmented_graph, *snarl_manager.get(), {});
 
     delete base_graph;
     return 0;
