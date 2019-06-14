@@ -103,3 +103,6 @@
 [submodule "deps/libvgio"]
 	path = deps/libvgio
 	url = https://github.com/vgteam/libvgio.git
+[submodule "deps/jemalloc"]
+	path = deps/jemalloc
+	url = https://github.com/jemalloc/jemalloc.git

@@ -714,17 +714,17 @@ int main_gaffe(int argc, char** argv) {
         // Define how to align and output a read, in a thread.
         auto map_read = [&](Alignment& aln) {
             // Map the read with the MinimizerMapper.
-            //minimizer_mapper.map(aln, *alignment_emitter);
+            minimizer_mapper.map(aln, *alignment_emitter);
             
             // Do some busywork and annoy the allocator
-            list<size_t> items;
+            /*list<size_t> items;
             vector<size_t> items2;
             for (size_t i = 0; i < 10000; i++) {
                 items.push_back(i);
                 items2.push_back(i);
             }
             items.clear();
-            items2.clear();
+            items2.clear();*/
             
             // Record that we mapped a read.
             reads_mapped_by_thread.at(omp_get_thread_num())++;

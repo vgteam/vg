@@ -160,6 +160,7 @@ CONFIGURATION_OBJ =
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
 GPERF_DIR:=deps/gperftools
+JEMALLOC_DIR:=deps/jemalloc
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
 ROCKSDB_DIR:=deps/rocksdb
@@ -254,11 +255,15 @@ ifneq ($(shell uname -s),Darwin)
     #LD_LIB_FLAGS += -ltcmalloc_minimal
 	
 	# Use tcmalloc with libprofiler
-	DEPS += $(LIB_DIR)/libtcmalloc_and_profiler.a
-	LD_LIB_FLAGS += -ltcmalloc_and_profiler
+	#DEPS += $(LIB_DIR)/libtcmalloc_and_profiler.a
+	#LD_LIB_FLAGS += -ltcmalloc_and_profiler
 	
 	# Configure tcmalloc for good performance with many threads
-	CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
+	#CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
+	
+	# Use jemalloc
+	DEPS += $(LIB_DIR)/libjemalloc.a
+	LD_LIB_FLAGS += -ljemalloc
 endif
 
 
@@ -321,6 +326,9 @@ $(LIB_DIR)/libprofiler.a: $(LIB_DIR)/libtcmalloc_minimal.a
 # If you want both you actually need this combined library
 $(LIB_DIR)/libtcmalloc_and_profiler.a: $(LIB_DIR)/libtcmalloc_minimal.a $(LIB_DIR)/libprofiler.a
 	+touch $(LIB_DIR)/libtcmalloc_and_profiler.a
+	
+$(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
+	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 	
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
