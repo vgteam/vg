@@ -1933,6 +1933,7 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
 void SupportCaller::call(
     // Augmented graph
     SupportAugmentedGraph& augmented,
+    SnarlManager& site_manager,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
     string pileup_filename) {
@@ -2066,9 +2067,6 @@ void SupportCaller::call(
     // Find all the top-level sites
     list<const Snarl*> site_queue;
     
-    CactusSnarlFinder finder(augmented.graph);
-    SnarlManager site_manager = finder.find_snarls();
-
     site_manager.for_each_top_level_snarl([&](const Snarl* site) {
         // Stick all the sites in this vector.
         site_queue.emplace_back(site);
