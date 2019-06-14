@@ -10,6 +10,7 @@
 #include <vector>
 #include <unordered_set>
 #include <chrono>
+#include <mutex>
 
 #include "subcommand.hpp"
 
@@ -45,13 +46,21 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
     // number of batches currently being processed
     size_t batches_outstanding = 0;
     
+    // We want batches to really be owned by the reader thread, and allocated/deallocated there.
+    // So we use this queue to send them back for deallocation
+    // TODO: now we're sending the list node memory from the writer threads to
+    // the reader threads. Make this some kind of ring buffer instead?
+    std::list<std::vector<std::string>*> deallocation_queue;
+    std::mutex deallocation_mutex;
+    
+    
 #ifdef debug
     cerr << "Looping over file in batches of size " << batch_size << endl;
 #endif
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda, batches_outstanding, max_batches_outstanding, cerr)
+    #pragma omp parallel default(none) shared(in, lambda, batches_outstanding, max_batches_outstanding, deallocation_queue, deallocation_mutex, cerr)
     #pragma omp single
     {
         auto handle = [](bool retval) -> void {
@@ -64,6 +73,15 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
         std::vector<std::string> *batch = nullptr;
         
         while (message_it.has_current()) {
+            {
+                // First clean up any old batches
+                std::lock_guard<std::mutex> deallocation_guard(deallocation_mutex);
+                while (!deallocation_queue.empty()) {
+                    delete deallocation_queue.front();
+                    deallocation_queue.pop_front();
+                }
+            }
+        
             // Until we run out of messages, grab them with their tags
             auto tag_and_data = std::move(message_it.take());
             
@@ -135,7 +153,7 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
 #endif
                 
                     // spawn a task in another thread to process this batch
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle, cerr)
+#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle, deallocation_mutex, deallocation_queue, cerr)
                     {
 #ifdef debug
                         cerr << "Batch task is running" << endl;
@@ -149,7 +167,13 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
                                 lambda(obj);
                             }
                         }
-                        delete batch;
+                        
+                        {
+                            // Regiater the batch to be deallocated in the reader thread.
+                            std::lock_guard<std::mutex> deallocation_guard(deallocation_mutex);
+                            deallocation_queue.push_back(batch);
+                        }
+
 #pragma omp atomic update
                         batches_outstanding--;
                     }
@@ -175,6 +199,15 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
                 }
             }
             delete batch;
+        }
+        
+        {
+            // Finally, clean up any more outstanding batches
+            lock_guard<mutex> deallocation_guard(deallocation_mutex);
+            while (!deallocation_queue.empty()) {
+                delete deallocation_queue.front();
+                deallocation_queue.pop_front();
+            }
         }
     }
 }
