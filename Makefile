@@ -161,6 +161,7 @@ RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
 GPERF_DIR:=deps/gperftools
 JEMALLOC_DIR:=deps/jemalloc
+HOARD_DIR:=deps/hoard
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
 ROCKSDB_DIR:=deps/rocksdb
@@ -249,6 +250,9 @@ DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
 
+# Dependencies only at the final link step, because they have no headers
+LINK_DEPS =
+
 ifneq ($(shell uname -s),Darwin)
 	# Use tcmalloc only
     #DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
@@ -262,14 +266,18 @@ ifneq ($(shell uname -s),Darwin)
 	#CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
 	
 	# Use jemalloc
-	DEPS += $(LIB_DIR)/libjemalloc.a
-	LD_LIB_FLAGS += -ljemalloc
+	#LINK_DEPS += $(LIB_DIR)/libjemalloc.a
+	#LD_LIB_FLAGS += -ljemalloc
+	
+	# Use Hoard
+	LINK_DEPS += $(LIB_DIR)/libhoard.so
+	LD_LIB_FLAGS += -lhoard
 endif
 
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
 
-$(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS)
+$(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) $(DEPS) $(LINK_DEPS)
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ) $(CONFIGURATION_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS)
 
 static: $(OBJ_DIR)/main.o $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ) $(SUBCOMMAND_OBJ)
@@ -329,6 +337,11 @@ $(LIB_DIR)/libtcmalloc_and_profiler.a: $(LIB_DIR)/libtcmalloc_minimal.a $(LIB_DI
 	
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+	
+# Note that for Hoard we have to hack it to not demand to build with clang.
+# TODO: Provide a static library somehow.
+$(LIB_DIR)/libhoard.so: $(HOARD_DIR)/src/source/*.cpp
+	+. ./source_me.sh && cd $(HOARD_DIR)/src && sed -i s/clang++/g++/ GNUmakefile && $(MAKE) $(FILTER) && cp -r *.so $(CWD)/$(LIB_DIR)/
 	
 $(LIB_DIR)/libsdsl.a: $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/sdsl/*.hpp
 ifeq ($(shell uname -s),Darwin)
