@@ -2,7 +2,7 @@ var searchData=
 [
   ['valid_5foffset',['valid_offset',['../classvg_1_1MinimizerIndex.html#ae2a589aac7ec8c0fb4bc4c2b28583434',1,'vg::MinimizerIndex']]],
   ['validate_5fmultipath_5falignment',['validate_multipath_alignment',['../namespacevg.html#a89a7010176a6425c2a8183054cc9781f',1,'vg']]],
-  ['validate_5fstrand_5fconsistency',['validate_strand_consistency',['../classxg_1_1XG.html#a9fa4086c01164b61bae7f24b93453e7e',1,'xg::XG']]],
+  ['validate_5fstrand_5fconsistency',['validate_strand_consistency',['../classvg_1_1XG.html#a49c6b685af4bff6fbfd73280efbee4d2',1,'vg::XG']]],
   ['value_5fcast',['value_cast',['../namespacevg.html#a76fc86953f8c080621c080cd35bc9ae0',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ac84a9621d5108f53976d51f1188e7214',1,'vg::value_cast(const T &amp;wrap)'],['../namespacevg.html#a12109d27c9801031e32a408e75af2bd1',1,'vg::value_cast(const google::protobuf::Value &amp;value)'],['../namespacevg.html#aca53457219a2ced000f439df5bd0d71f',1,'vg::value_cast(const Container &amp;wrap)']]],
   ['value_5fcast_3c_20bool_20_3e',['value_cast&lt; bool &gt;',['../namespacevg.html#ac90d23f22ad3ec78da4e03dc011cabf8',1,'vg::value_cast&lt; bool &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ab572dfa4b65db43984f1572d74a94036',1,'vg::value_cast&lt; bool &gt;(const bool &amp;wrap)']]],
   ['value_5fcast_3c_20double_20_3e',['value_cast&lt; double &gt;',['../namespacevg.html#a13a0cc45e4277281efeedb821c1444f6',1,'vg::value_cast&lt; double &gt;(const google::protobuf::Value &amp;value)'],['../namespacevg.html#ac16fdb4078f95e252450a80a1e9e14f2',1,'vg::value_cast&lt; double &gt;(const double &amp;wrap)']]],
@@ -13,7 +13,7 @@ var searchData=
   ['vcf_5fto_5ffasta',['vcf_to_fasta',['../classvg_1_1NameMapper.html#a4d7e1bab054326c0eb30f96b0ac285ce',1,'vg::NameMapper']]],
   ['vcfbuffer',['VcfBuffer',['../classvg_1_1VcfBuffer.html#a402d5cadd95f5725876b22b8c9bd830b',1,'vg::VcfBuffer::VcfBuffer(vcflib::VariantCallFile *file=nullptr)'],['../classvg_1_1VcfBuffer.html#ad388f47df62ebab69ab9188efd37be1e',1,'vg::VcfBuffer::VcfBuffer(const VcfBuffer &amp;other)=delete']]],
   ['vcftraversalfinder',['VCFTraversalFinder',['../classvg_1_1VCFTraversalFinder.html#aa00b18dd3cab789ffa875bc449aeb5b6',1,'vg::VCFTraversalFinder']]],
-  ['vectorizer',['Vectorizer',['../classVectorizer.html#a741b1288a8ba05ab2339cf8759a89b07',1,'Vectorizer']]],
+  ['vectorizer',['Vectorizer',['../classVectorizer.html#a5e9bd2bf950b49e156b31af974bec0a0',1,'Vectorizer']]],
   ['verify_5fpath',['verify_path',['../classvg_1_1PileupAugmenter.html#ace7499e03014dd63c79d71af48168240',1,'vg::PileupAugmenter::verify_path()'],['../namespacevg.html#a8fa0776e6865e98b3f7a2e8c6722cfb1',1,'vg::verify_path()']]],
   ['verify_5fpaths',['verify_paths',['../classvg_1_1PhaseUnfolder.html#a3aab2694e14dac4f3520932588711388',1,'vg::PhaseUnfolder']]],
   ['version',['Version',['../classvg_1_1Version.html#a05bb9f14c7597bf90a2981db7e59b058',1,'vg::Version']]],
@@ -26,6 +26,6 @@ var searchData=
   ['visit_5fnext_5fnode',['visit_next_node',['../classvg_1_1ExhaustiveTraversalFinder.html#a97819cfccf220f9ddf9e649d5ebd1a8e',1,'vg::ExhaustiveTraversalFinder::visit_next_node()'],['../classvg_1_1SupportRestrictedTraversalFinder.html#a9cdb3b8f554e58cba6fea9c2ccb40e14',1,'vg::SupportRestrictedTraversalFinder::visit_next_node()']]],
   ['visits_5fleft',['visits_left',['../classvg_1_1SnarlManager.html#a631de1bc1f9b33c291c4fcd450be6d21',1,'vg::SnarlManager']]],
   ['visits_5fright',['visits_right',['../classvg_1_1SnarlManager.html#ac51216998e9cd904b33b5bde7f4a94d9',1,'vg::SnarlManager']]],
-  ['viz',['Viz',['../classvg_1_1Viz.html#a8e9440d6c67fde7f10fe9c0366759041',1,'vg::Viz::Viz(void)'],['../classvg_1_1Viz.html#a47c4c604a06f9ed354ad4cf98ea63a53',1,'vg::Viz::Viz(xg::XG *x, vector&lt; Packer &gt; *p, const vector&lt; string &gt; &amp;n, const string &amp;o, int w, int h, bool c, bool d, bool t)']]],
+  ['viz',['Viz',['../classvg_1_1Viz.html#a8e9440d6c67fde7f10fe9c0366759041',1,'vg::Viz::Viz(void)'],['../classvg_1_1Viz.html#ac1eaf1b802672f6fc569855fe30cc9f8',1,'vg::Viz::Viz(XG *x, vector&lt; Packer &gt; *p, const vector&lt; string &gt; &amp;n, const string &amp;o, int w, int h, bool c, bool d, bool t)']]],
   ['vpmax',['vpmax',['../namespacevg.html#aec4813274fc2af3d83679e128fdeb32f',1,'vg']]]
 ];

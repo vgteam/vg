@@ -15,7 +15,7 @@ var searchData=
   ['unmapped_5ffilter',['unmapped_filter',['../classvg_1_1Filter.html#a3a02d37cb7cf0b042aa5933186a76061',1,'vg::Filter']]],
   ['unpack_5fbit',['unpack_bit',['../structhandlegraph_1_1number__bool__packing.html#a52f57c83e66ad6f09b519dff55be71d9',1,'handlegraph::number_bool_packing']]],
   ['unpack_5fnumber',['unpack_number',['../structhandlegraph_1_1number__bool__packing.html#a5f2f610bc0e6819ff0ae3d91d2aff9fc',1,'handlegraph::number_bool_packing']]],
-  ['unpack_5fsuccinct_5fcomponent_5fpath_5fsets',['unpack_succinct_component_path_sets',['../classxg_1_1XG.html#a2b1f25454ebfef9f8ac08056225cb842',1,'xg::XG']]],
+  ['unpack_5fsuccinct_5fcomponent_5fpath_5fsets',['unpack_succinct_component_path_sets',['../classvg_1_1XG.html#af6df3822d98678db4be778873eaaa7e3',1,'vg::XG']]],
   ['unpaired_5ffor_5feach_5fparallel',['unpaired_for_each_parallel',['../namespacevg.html#ad9d7a5ca192b47b922e17a717774ff66',1,'vg']]],
   ['unparse',['unparse',['../classvg_1_1OptionValueParser.html#a816cf0ccd1d8b95f6f8f47434e1af376',1,'vg::OptionValueParser::unparse()'],['../classvg_1_1OptionValueParser_3_01vector_3_01Item_01_4_01_4.html#a57f771079219ffb85ea0cebc6b024045',1,'vg::OptionValueParser&lt; vector&lt; Item &gt; &gt;::unparse()'],['../classvg_1_1OptionValueParser.html#ae397faa8d0ae66c9c841a153045a6de2',1,'vg::OptionValueParser::unparse()']]],
   ['unrecord',['unrecord',['../classvg_1_1SnarlManager.html#a42a87a6e424e9b39f77b43061b692039',1,'vg::SnarlManager::unrecord(const SnarlRecord *record) const '],['../classvg_1_1SnarlManager.html#aeeb8bf1eb342004f69b33caadad5a713',1,'vg::SnarlManager::unrecord(SnarlRecord *record)']]],

@@ -1,12 +1,12 @@
 var searchData=
 [
   ['r',['R',['../structhaplo_1_1haplo__DP__rectangle.html#a93bec5529e8477c30fca8118e3e44f5f',1,'haplo::haplo_DP_rectangle']]],
-  ['r_5fiv',['r_iv',['../classxg_1_1XG.html#af67f0d0c4b8cebe28ff76f8d66bad297',1,'xg::XG']]],
+  ['r_5fiv',['r_iv',['../classvg_1_1XG.html#a094c128c47ec941b58714082163c2038',1,'vg::XG']]],
   ['range',['range',['../classvg_1_1MaximalExactMatch.html#a8652369dde83e159dd8c5638745a749c',1,'vg::MaximalExactMatch']]],
-  ['range_5fend',['range_end',['../structxg_1_1XG_1_1ThreadSearchState.html#ad5b8684b56a5a1f3f71fa47aaa112b6d',1,'xg::XG::ThreadSearchState']]],
-  ['range_5fstart',['range_start',['../structxg_1_1XG_1_1ThreadSearchState.html#a2660a54bab1bf898fd99f665d94447e5',1,'xg::XG::ThreadSearchState']]],
+  ['range_5fend',['range_end',['../structvg_1_1XG_1_1ThreadSearchState.html#a36d4439e79104cacd0528fc8f7e42aef',1,'vg::XG::ThreadSearchState']]],
+  ['range_5fstart',['range_start',['../structvg_1_1XG_1_1ThreadSearchState.html#a7b790d4d8906f12d3f317688df34c777',1,'vg::XG::ThreadSearchState']]],
   ['rank',['rank',['../classvg_1_1mapping__t.html#a8f97d898f658a36c3046b8fcc2c846ff',1,'vg::mapping_t::rank()'],['../classvg_1_1PhasedGenome_1_1iterator.html#ab8b58edefb4cb58e014344c6010eec62',1,'vg::PhasedGenome::iterator::rank()'],['../structvg_1_1Mapping.html#a9ad71eb17b88b2cdd00cee8476e6c7b3',1,'vg::Mapping::rank()']]],
-  ['ranks',['ranks',['../classxg_1_1XGPath.html#a5daf03c711975a109429920d5df40334',1,'xg::XGPath']]],
+  ['ranks',['ranks',['../classvg_1_1XGPath.html#acd5dd6c3c2879ef740e085ef3c98bb6b',1,'vg::XGPath']]],
   ['read',['read',['../structhFILE__backend.html#adf91120be1f313fbac4ccf8e70ec4f3c',1,'hFILE_backend']]],
   ['read_5fgroup',['read_group',['../classvg_1_1MinimizerMapper.html#aee3e4b7c4e777da6c09f70218481e3d6',1,'vg::MinimizerMapper::read_group()'],['../structvg_1_1Alignment.html#a95102c70d75046f86a2f0a829ba1efe0',1,'vg::Alignment::read_group()'],['../structvg_1_1MultipathAlignment.html#abdc748afaea04b662f170156d8c88343',1,'vg::MultipathAlignment::read_group()']]],
   ['read_5fmapped',['read_mapped',['../structvg_1_1Alignment.html#af2fc72c769b77c355632e6aab7573046',1,'vg::Alignment']]],
