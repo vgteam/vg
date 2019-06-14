@@ -106,6 +106,3 @@
 [submodule "deps/jemalloc"]
 	path = deps/jemalloc
 	url = https://github.com/jemalloc/jemalloc.git
-[submodule "deps/lockfree-malloc"]
-	path = deps/lockfree-malloc
-	url = https://github.com/Begun/lockfree-malloc.git
