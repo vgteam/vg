@@ -34,6 +34,100 @@ using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
 
+template<typename T>
+class RingBuffer {
+public:
+
+    /// Create a new ring buffer with the given number of slots.
+    RingBuffer(size_t size);
+    
+    /// Users must lock this and pass around the lock guard
+    std::mutex mutex;
+
+    /// Return if the ring buffer is full.
+    bool full(std::lock_guard<std::mutex>& lock) const;
+    
+    /// Return if the ring buffer is empty.
+    bool empty(std::lock_guard<std::mutex>& lock) const;
+    
+    /// Assuming the ring buffer is not full, mark the
+    /// next space as occupied and return a reference to it.
+    T& push(std::lock_guard<std::mutex>& lock);
+    
+    /// Assuming the ring buffer is not empty, get a
+    /// reference to the next thing that would be popped.
+    T& peek(std::lock_guard<std::mutex>& lock);
+    
+    /// Assuming the ring buffer is not empty, remove the
+    /// thing that is visible via peek.
+    void pop(std::lock_guard<std::mutex>& lock);
+    
+protected:
+    /// How many slots does the ring buffer have?
+    size_t size;
+    
+    /// Holds the ring buffer's actual data items.
+    /// To prevent ambiguity, the ring buffer always
+    /// contains at least 1 empty slot.
+    vector<T> data;
+    
+    /// This is the number of the next slot in the ring buffer whose data can
+    /// be overwritten.
+    size_t empty_slot;
+    
+    /// This is the number of the last used slot in the ring buffer. If it is
+    /// equal to empty_slot, no slots are used. If it is equal mod buffer size
+    /// to empty_slot - 1, no new slots can be filled.
+    size_t filled_slot;
+    
+    
+};
+
+template<typename T>
+RingBuffer<T>::RingBuffer(size_t size) : size(size), data(size, T()), empty_slot(0), filled_slot(0) {
+    // Nothing to do
+}
+
+template<typename T>
+bool RingBuffer<T>::full(std::lock_guard<std::mutex>& lock) const {
+    return (empty_slot + 1 == filled_slot || (empty_slot + 1 == size && filled_slot == 0));
+}
+    
+template<typename T>
+bool RingBuffer<T>::empty(std::lock_guard<std::mutex>& lock) const {
+    return (empty_slot == filled_slot);
+}
+
+template<typename T>
+T& RingBuffer<T>::push(std::lock_guard<std::mutex>& lock) {
+    // Grab the empty slot
+    auto& slot = data[empty_slot];
+    
+    // Advance the empty cursor
+    empty_slot++;
+    if (empty_slot == size) {
+        // And wrap
+        empty_slot = 0;
+    }
+    
+    return slot;
+}
+
+template<typename T>
+T& RingBuffer<T>::peek(std::lock_guard<std::mutex>& lock) {
+    return data[filled_slot];
+}
+
+template<typename T>
+void RingBuffer<T>::pop(std::lock_guard<std::mutex>& lock) {
+    // Advance the filled cursor
+    filled_slot++;
+    if (filled_slot == size) {
+        // And wrap
+        filled_slot = 0;
+    }
+}
+
 template <typename T>
 void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& lambda) {
 
@@ -41,18 +135,17 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
     const size_t batch_size = 256;
     // max # of such batches to be holding in memory
     size_t max_batches_outstanding = 256;
-    // max # we will ever increase the batch buffer to
-    const size_t max_max_batches_outstanding = 1 << 13; // 8192
-    // number of batches currently being processed
-    size_t batches_outstanding = 0;
     
-    // We want batches to really be owned by the reader thread, and allocated/deallocated there.
-    // So we use this queue to send them back for deallocation
-    // TODO: now we're sending the list node memory from the writer threads to
-    // the reader threads. Make this some kind of ring buffer instead?
-    std::list<std::vector<std::string>*> deallocation_queue;
-    std::mutex deallocation_mutex;
+    // Store actual data to process
+    RingBuffer<std::vector<std::string>> buffer(max_batches_outstanding);
     
+    // Set this to true when EOF is reached, so the parallel threads stop.
+    std::atomic<bool> eof_reached(false);
+    
+    // Define a little error reporting function
+    auto handle = [](bool retval) -> void {
+        if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
+    };
     
 #ifdef debug
     cerr << "Looping over file in batches of size " << batch_size << endl;
@@ -60,157 +153,173 @@ void for_each_parallel_simple(std::istream& in, const std::function<void(T&)>& l
 
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    #pragma omp parallel default(none) shared(in, lambda, batches_outstanding, max_batches_outstanding, deallocation_queue, deallocation_mutex, cerr)
-    #pragma omp single
+    #pragma omp parallel default(none) shared(in, lambda, buffer, eof_reached, handle, cerr)
     {
-        auto handle = [](bool retval) -> void {
-            if (!retval) throw std::runtime_error("obsolete, invalid, or corrupt protobuf input");
-        };
-        
-        // We do our own multi-threaded Protobuf decoding, but we batch up our strings by pulling them from this iterator.
-        vg::io::MessageIterator message_it(in);
-
-        std::vector<std::string> *batch = nullptr;
-        
-        while (message_it.has_current()) {
-            {
-                // First clean up any old batches
-                std::lock_guard<std::mutex> deallocation_guard(deallocation_mutex);
-                while (!deallocation_queue.empty()) {
-                    delete deallocation_queue.front();
-                    deallocation_queue.pop_front();
-                }
-            }
-        
-            // Until we run out of messages, grab them with their tags
-            auto tag_and_data = std::move(message_it.take());
+        // One thread will do this loading block while the rest move on.
+        #pragma omp master
+        {
+            std::vector<std::string> batch;
+            batch.reserve(batch_size);
             
-            // Check the tag.
-            // TODO: we should only do this when it changes!
-            handle(vg::io::Registry::check_protobuf_tag<T>(tag_and_data.first));
+            // We do our own multi-threaded Protobuf decoding, but we batch up
+            // our strings by pulling them from this iterator.
+            vg::io::MessageIterator message_it(in);
             
-            // If the tag checks out
+            while (message_it.has_current()) {
             
-            // Make sure we have a batch
-            if (batch == nullptr) {
-                batch = new vector<string>();
-                batch->reserve(batch_size);
-            }
-            
-            if (tag_and_data.second.get() != nullptr) {
-                // Add the message to the batch, if it exists
-                batch->push_back(std::move(*tag_and_data.second));
-            }
-            
-            if (batch->size() == batch_size) {
-#ifdef debug
-                cerr << "Found full batch of size " << batch_size << endl;
-#endif
-            
-                // time to enqueue this batch for processing. first, block if
-                // we've hit max_batches_outstanding.
-                size_t b;
-#pragma omp atomic capture
-                b = ++batches_outstanding;
+                // Until we run out of messages, grab them with their tags
+                auto tag_and_data = std::move(message_it.take());
                 
-                if (b >= max_batches_outstanding) {
-                    
+                // Check the tag.
+                // TODO: we should only do this when it changes!
+                handle(vg::io::Registry::check_protobuf_tag<T>(tag_and_data.first));
+                
+                // If the tag checks out
+                
+                if (tag_and_data.second.get() != nullptr) {
+                    // Add the message to the batch, if it exists
+                    batch.push_back(std::move(*tag_and_data.second));
+                }
+                
+                // We need to know if we just got the last thing.
+                bool is_last = !message_it.has_current();
+      
+                if (is_last) {
+      
 #ifdef debug
-                    cerr << "(" << b << "/" << max_batches_outstanding << "): Run batch in current thread" << endl;
+                    cerr << "Found final item!" << endl;
 #endif
+                }
+                
+                if (batch.size() == batch_size || is_last) {
+                    // The batch is full, or we have everything there is.
+#ifdef debug
+                    cerr << "Found batch of size " << batch.size() << endl;
+#endif
+                
+                    // time to enqueue this batch for processing.
                     
-                    // process this batch in the current thread
+                    bool have_room = false;
                     {
-                        T obj;
-                        for (int i = 0; i<batch_size; i++) {
-                            // parse protobuf objects and invoke lambda
-                            handle(obj.ParseFromString(batch->at(i)));
-                            lambda(obj);
+                        std::lock_guard<std::mutex> lock(buffer.mutex);
+                        have_room = !buffer.full(lock);
+                        if (have_room) {
+#ifdef debug
+                            cerr << "Run batch in thread" << endl;
+#endif
+                            // Swap our batch into the buffer
+                            std::swap(buffer.push(lock), batch);
                         }
                     }
-                    delete batch;
-#pragma omp atomic capture
-                    b = --batches_outstanding;
                     
-                    if (4 * b / 3 < max_batches_outstanding
-                        && max_batches_outstanding < max_max_batches_outstanding) {
-                        // we went through at least 1/4 of the batch buffer while we were doing this thread's batch
-                        // this looks risky, since we want the batch buffer to stay populated the entire time we're
-                        // occupying this thread on compute, so let's increase the batch buffer size
-                        // (skip this adjustment if you're in single-threaded mode and thus expect the buffer to be
-                        // empty)
-                        max_batches_outstanding *= 2;
-                        
+                    if (!have_room) {
+                        // Handle the batch ourselves
+                    
 #ifdef debug
-                        cerr << "Up max batches outstanding to " << max_batches_outstanding << endl;
+                        cerr << "Run batch in reader" << endl;
 #endif
                         
-                    }
-                }
-                else {
-#ifdef debug
-                    cerr << "(" << b << "/" << max_batches_outstanding << "): Run batch in task" << endl;
-#endif
-                
-                    // spawn a task in another thread to process this batch
-#pragma omp task default(none) firstprivate(batch) shared(batches_outstanding, lambda, handle, deallocation_mutex, deallocation_queue, cerr)
-                    {
-#ifdef debug
-                        cerr << "Batch task is running" << endl;
-#endif
-                        
+                        // process this batch in the current thread
                         {
                             T obj;
-                            for (int i = 0; i<batch_size; i++) {
+                            for (int i = 0; i<batch.size(); i++) {
                                 // parse protobuf objects and invoke lambda
-                                handle(obj.ParseFromString(batch->at(i)));
+                                handle(obj.ParseFromString(batch.at(i)));
                                 lambda(obj);
                             }
                         }
-                        
-                        {
-                            // Regiater the batch to be deallocated in the reader thread.
-                            std::lock_guard<std::mutex> deallocation_guard(deallocation_mutex);
-                            deallocation_queue.push_back(batch);
-                        }
-
-#pragma omp atomic update
-                        batches_outstanding--;
+                    }
+                    
+                    // We did the batch either in our thread or another thread.
+                    // Now move on to read the next batch
+                    batch.clear();
+                    batch.reserve(batch_size);
+                }
+            }
+            
+            // Set the EOF flag so workers stop.
+#ifdef debug
+            cerr << "Announcing EOF" << endl;
+#endif
+            eof_reached.store(true);
+            
+            // Now the reader has read all the data.
+            // It can go on to become a worker and clear out the buffer.
+        }
+       
+#ifdef debug
+        cerr << "Processing batches in thread " << omp_get_thread_num() << endl;
+#endif
+       
+        while (true) {
+            // Now we process batches.
+            std::vector<std::string> our_batch;
+            bool have_data = false;
+            while (!have_data) {
+                // Loop until we get something
+                
+                {
+                    std::lock_guard<std::mutex> lock(buffer.mutex);
+                    have_data = !buffer.empty(lock);
+                    if (have_data) {
+                        // Swap our data out of the buffer.
+                        // Our last batch will be swapped back in to be overwritten, preventing net memory movement.
+                        std::swap(our_batch, buffer.peek(lock));
+                        buffer.pop(lock);
                     }
                 }
-
-                batch = nullptr;
-            }
-        }
-
-        #pragma omp taskwait
-        // process final batch
-        if (batch) {
+                
+                if (!have_data) {
+                    // We didn't get anything.
+                    
+                    if (eof_reached.load()) {
+                        // There will be no data
 #ifdef debug
-            cerr << "Run final batch of size " << batch->size() << " in current thread" << endl;
+                        cerr << "Batch thread " << omp_get_thread_num() << " saw EOF" << endl;
 #endif
-            if (!batch->empty()) {
-                // We require the batch to not be empty (so we can subtract from the size).
+                        break;
+                    } else {
+                        // Wait for somebody else.
+                        // TODO: condition variable?
+                        std::this_thread::yield();
+                    }
+                }
+            }
+            
+            if (!have_data) {
+                // We hit EOF. No data is coming, we are done.
+#ifdef debug
+                cerr << "Batch thread " << omp_get_thread_num() << " stopping loop due to EOF" << endl;
+#endif
+                break;
+            }
+            
+            // Otherwise, our_batch is filled in.
+            
+#ifdef debug
+            cerr << "Batch thread " << omp_get_thread_num() << " is running batch of size " << our_batch.size() << endl;
+#endif
+
+            {
                 T obj;
-                int i = 0;
-                for (; i < batch->size(); i++) {
-                    handle(obj.ParseFromString(batch->at(i)));
+                for (int i = 0; i<our_batch.size(); i++) {
+                    // parse protobuf objects and invoke lambda
+                    handle(obj.ParseFromString(our_batch.at(i)));
                     lambda(obj);
                 }
             }
-            delete batch;
         }
         
-        {
-            // Finally, clean up any more outstanding batches
-            lock_guard<mutex> deallocation_guard(deallocation_mutex);
-            while (!deallocation_queue.empty()) {
-                delete deallocation_queue.front();
-                deallocation_queue.pop_front();
-            }
-        }
+#ifdef debug
+        cerr << "Batch thread " << omp_get_thread_num() << " finished" << endl;
+#endif
+        
+        // When all the threads get here, all the batches are processed.
     }
+    
+    // Then we exit the parallel region and are done.
 }
+#undef debug
 
 void help_gaffe(char** argv) {
     cerr
@@ -605,7 +714,17 @@ int main_gaffe(int argc, char** argv) {
         // Define how to align and output a read, in a thread.
         auto map_read = [&](Alignment& aln) {
             // Map the read with the MinimizerMapper.
-            minimizer_mapper.map(aln, *alignment_emitter);
+            //minimizer_mapper.map(aln, *alignment_emitter);
+            
+            std::chrono::time_point<std::chrono::system_clock> fake_start = std::chrono::system_clock::now();
+            
+            size_t spins = 0;
+            while (std::chrono::system_clock::now() - fake_start < std::chrono::microseconds(270)) {
+                spins++;
+            }
+            
+            std::chrono::time_point<std::chrono::system_clock> fake_end = std::chrono::system_clock::now();
+            
             // Record that we mapped a read.
             reads_mapped_by_thread.at(omp_get_thread_num())++;
         };
