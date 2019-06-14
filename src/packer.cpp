@@ -8,7 +8,7 @@ const int Packer::lru_cache_size = 50;
 
 Packer::Packer(void) : xgidx(nullptr), qual_adjust(false), quality_cache(nullptr) { }
 
-Packer::Packer(xg::XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
+Packer::Packer(XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, qual_adjust ? 16 : 8);
     edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), qual_adjust ? 16 : 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
@@ -23,6 +23,11 @@ Packer::~Packer(void) {
 
 void Packer::load_from_file(const string& file_name) {
     ifstream in(file_name);
+    if (!in) {
+        stringstream ss;
+        ss << "Error [Packer]: unable to read pack file: \"" << file_name << "\"" << endl;
+        throw runtime_error(ss.str());
+    }
     load(in);
 }
 

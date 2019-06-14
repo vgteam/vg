@@ -449,11 +449,6 @@ public:
         
     /// Returns a pointer to the parent of a Snarl or nullptr if there is none
     const Snarl* parent_of(const Snarl* snarl) const;
-
-    //Returns the depth of the snarl in the snarl tree
-    //Root level snarls have depth 0, its children have depth 1, etc
-    //Depth ignores chains
-    size_t get_depth(const Snarl*) const;
         
     /// Returns the Snarl that a traversal points into at either the start
     /// or end, or nullptr if the traversal does not point into any Snarl.
@@ -599,9 +594,6 @@ private:
         /// And this is what index we are at in the chain;
         size_t parent_chain_index = 0;
 
-        //Depth of this snarl in the snarl tree - how many snarls are between it and the root
-        //Depth ignores chains
-        size_t depth = SIZE_MAX;
         
         /// Allow assignment from a Snarl object, fluffing it up into a full SnarlRecord
         SnarlRecord& operator=(const Snarl& other) {
@@ -645,10 +637,6 @@ private:
         
     /// Builds tree indexes after Snarls have been added to the snarls vector
     void build_indexes();
-
-    //Finds and records the depths of each Snarl
-    void get_depths();
-    void get_depths_recursive(const Snarl* snarl, size_t depth);
         
     /// Actually compute chains for a set of already indexed snarls, which
     /// is important when chains were not provided. Returns the chains.

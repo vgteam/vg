@@ -19,7 +19,7 @@
 #include "../utility.hpp"
 #include "../region.hpp"
 #include "../snarls.hpp"
-#include "../distance.hpp"
+#include "../min_distance.hpp"
 #include "../source_sink_overlay.hpp"
 #include "../gbwt_helper.hpp"
 
@@ -83,7 +83,7 @@ void help_index(char** argv) {
          << "snarl distance index options" << endl
          << "    -s  --snarl-name FILE  load snarls from FILE" << endl
          << "    -j  --dist-name FILE   use this file to store a snarl-based distance index" << endl
-         << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included, don't build maximum distance index" << endl;
+         << "    -w  --max_dist N       cap beyond which the maximum distance is no longer accurate. If this is not included or is 0, don't build maximum distance index" << endl;
 }
 
 // Convert Path to a GBWT path.
@@ -96,7 +96,7 @@ gbwt::vector_type path_to_gbwt(const Path& path) {
 }
 
 // Find all predecessor nodes of the path, ignoring self-loops.
-gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
+gbwt::vector_type predecessors(const XG& xg_index, const Path& path) {
     gbwt::vector_type result;
     if (path.mapping_size() == 0) {
         return result;
@@ -438,7 +438,6 @@ int main_index(int argc, char** argv) {
 
         //Snarl distance index
         case 's':
-            build_dist = true;
             snarl_name = optarg;
             break;
         case 'j':
@@ -468,7 +467,7 @@ int main_index(int argc, char** argv) {
     }
 
     if (xg_name.empty() && gbwt_name.empty() && parse_name.empty() && threads_name.empty() &&
-        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty() ) {
+        gcsa_name.empty() && rocksdb_name.empty() && !build_gai_index && !build_vgi_index && dist_name.empty()) {
         cerr << "error: [vg index] index type not specified" << endl;
         return 1;
     }
@@ -523,9 +522,13 @@ int main_index(int argc, char** argv) {
         build_xg = false;
         // We'll continue in the build_gcsa section
     }
+    if (build_dist && file_names.empty()) {
+        //If we want to build the distance index from the xg
+        build_xg = false;
+    }
 
     // Build XG
-    xg::XG* xg_index = new xg::XG();
+    XG* xg_index = new XG();
     map<string, Path> alt_paths;
     if (build_xg) {
         if (file_names.empty()) {
@@ -642,7 +645,7 @@ int main_index(int argc, char** argv) {
                 cerr << "Converting paths to threads..." << endl;
             }
             for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
-                const xg::XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
+                const XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
                 if (path.ids.size() == 0) {
                     continue;
                 }
@@ -736,7 +739,7 @@ int main_index(int argc, char** argv) {
                 string parse_file = parse_name + '_' + vcf_contig_name;
 
                 // Structures to parse the VCF file into.
-                const xg::XGPath& path = xg_index->get_path(path_name);
+                const XGPath& path = xg_index->get_path(path_name);
                 gbwt::VariantPaths variants(path.ids.size());
                 variants.setSampleNames(sample_names);
                 variants.setContigName(path_name);
@@ -1012,7 +1015,7 @@ int main_index(int argc, char** argv) {
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
-                    auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+                    auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
@@ -1198,9 +1201,10 @@ int main_index(int argc, char** argv) {
 
     }
 
-    //Build snarl distance index
+
+    //Build new snarl-based minimum distance index
     if (build_dist) {
-        if (file_names.empty()) {
+        if (file_names.empty() && xg_name.empty()) {
             cerr << "error: [vg index] one graph is required to build a distance index" << endl;
             return 1;
         } else if (dist_name.empty()) {
@@ -1210,19 +1214,8 @@ int main_index(int argc, char** argv) {
             cerr << "error: [vg index] distance index requires a snarl file" << endl;
             return 1;
             
-        } else if (include_maximum && cap < 0) {
-            cerr << "error: [vg index] distance index requires a positive cap value" << endl;
-            return 1;
-            
         } else {
-            ifstream vg_stream(file_names.at(0));
-            if (!vg_stream) {
-                cerr << "error: [vg index] cannot open VG file" << endl;
-                exit(1);
-            }
-            VG vg(vg_stream);
-            vg_stream.close();
-          
+            //Get snarl manager
             ifstream snarl_stream(snarl_name);
             if (!snarl_stream) {
                 cerr << "error: [vg index] cannot open Snarls file" << endl;
@@ -1231,21 +1224,41 @@ int main_index(int argc, char** argv) {
             SnarlManager* snarl_manager = new SnarlManager(snarl_stream);
             snarl_stream.close();
 
-            // Create the DistanceIndex
-            if (include_maximum) {
-                DistanceIndex di (&vg, snarl_manager, cap);
+            //Get graph and build dist index
+            if (file_names.empty() && !xg_name.empty()) {
+                
+                ifstream xg_stream(xg_name);
+                auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
+
+                // Create the MinimumDistanceIndex
+                MinimumDistanceIndex di (xg.get(), snarl_manager);
                 // Save the completed DistanceIndex
-                vg::io::VPKG::save(di, dist_name);
+                ofstream ostream (dist_name);
+                di.serialize(ostream);
+
             } else {
-                DistanceIndex di (&vg, snarl_manager, 0, false);
+                ifstream vg_stream(file_names.at(0));
+                
+                if (!vg_stream) {
+                    cerr << "error: [vg index] cannot open VG file" << endl;
+                    exit(1);
+                }
+
+                VG vg(vg_stream);
+                vg_stream.close();
+    
+                // Create the MinimumDistanceIndex
+                MinimumDistanceIndex di (&vg, snarl_manager);
                 // Save the completed DistanceIndex
-                vg::io::VPKG::save(di, dist_name);
+                ofstream ostream (dist_name);
+                di.serialize(ostream);
+//                vg::io::VPKG::save(di, dist_name);
             }
+          
             
         }
 
     }
-
     if (show_progress) {
         cerr << "Memory usage: " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl;
     }

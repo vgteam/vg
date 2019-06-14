@@ -6,7 +6,7 @@
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_distance_index.hpp"
 
-#include "../distance.hpp"
+#include "../min_distance.hpp"
 
 namespace vg {
 
@@ -16,16 +16,16 @@ using namespace std;
 using namespace vg::io;
 
 void register_loader_saver_distance_index() {
-    Registry::register_bare_loader_saver<DistanceIndex>("DISTANCE", [](istream& input) -> void* {
+    Registry::register_bare_loader_saver<MinimumDistanceIndex>("DISTANCE", [](istream& input) -> void* {
         // Allocate an index and hand it the stream
-        DistanceIndex* index = new DistanceIndex(input);
+        MinimumDistanceIndex* index = new MinimumDistanceIndex(input);
         
         // Return it so the caller owns it.
         return (void*) index;
     }, [](const void* index_void, ostream& output) {
-        // Cast to DistanceIndex and serialize to the stream.
+        // Cast to MinimumDistanceIndex and serialize to the stream.
         assert(index_void != nullptr);
-        ((const DistanceIndex*) index_void)->serialize(output);
+        ((const MinimumDistanceIndex*) index_void)->serialize(output);
     });
 }
 

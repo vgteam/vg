@@ -16,6 +16,8 @@
 
 #include "../vg.hpp"
 #include "../support_caller.hpp"
+#include <vg/io/stream.hpp>
+#include <vg/io/vpkg.hpp>
 
 
 
@@ -122,12 +124,14 @@ int main_call(int argc, char** argv) {
     }
     string graph_file_name = get_input_file_name(optind, argc, argv);
 
-    if (string(support_caller.support_file_name).empty()) {
-        cerr << "[vg call]: Support file must be specified with -s" << endl;
+    if (string(support_caller.support_file_name).empty() ==
+        string(support_caller.pack_file_name).empty()) {
+        cerr << "[vg call]: Support file must be specified with either -s (or -P)" << endl;
         return 1;
     }
+    
 
-    if (translation_file_name.empty()) {
+    if (string(support_caller.pack_file_name).empty() && translation_file_name.empty()) {
         cerr << "[vg call]: Translation file must be specified with -Z" << endl;
         return 1;
     }
@@ -182,21 +186,36 @@ int main_call(int argc, char** argv) {
     delete graph;
 
     // Load the supports
-    ifstream support_file(support_caller.support_file_name);
-    if (!support_file) {
-        cerr << "[vg call]: Unable to load supports file: "
-             << string(support_caller.support_file_name) << endl;
-        return 1;
-    }
-    augmented_graph.load_supports(support_file);
+    if (!string(support_caller.support_file_name).empty()) {
+        ifstream support_file(support_caller.support_file_name);
+        if (!support_file) {
+            cerr << "[vg call]: Unable to load supports file: "
+                 << string(support_caller.support_file_name) << endl;
+            return 1;
+        }
+        augmented_graph.load_supports(support_file);
+    } else {
+        assert(!string(support_caller.pack_file_name).empty());
+        if (string(support_caller.xg_file_name).empty()) {
+            cerr << "[vg call]: pack support (-P) requires xg index (-x)" << endl;
+            return 1;
+        }
+        unique_ptr<XG> xgidx = vg::io::VPKG::load_one<XG>(support_caller.xg_file_name);
+        augmented_graph.load_pack_as_supports(support_caller.pack_file_name, xgidx.get());
+        // make sure we're ignoring quality, as it's not read from the pack
+        bool& usc = support_caller.use_support_count;
+        usc = true;
+    }        
 
     // Load the translations
-    ifstream translation_file(translation_file_name.c_str());
-    if (!translation_file) {
-        cerr << "[vg call]: Unable to load translations file: " << translation_file_name << endl;
-        return 1;
+    if (!translation_file_name.empty()) {
+        ifstream translation_file(translation_file_name.c_str());
+        if (!translation_file) {
+            cerr << "[vg call]: Unable to load translations file: " << translation_file_name << endl;
+            return 1;
+        }
+        augmented_graph.load_translations(translation_file);
     }
-    augmented_graph.load_translations(translation_file);
     
     if (show_progress) {
         cerr << "Calling variants with support caller" << endl;

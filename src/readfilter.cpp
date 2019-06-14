@@ -1,6 +1,7 @@
 #include "readfilter.hpp"
 #include "IntervalTree.h"
 #include "annotation.hpp"
+#include "alignment_emitter.hpp"
 #include <vg/io/stream.hpp>
 
 #include <fstream>
@@ -12,7 +13,7 @@ namespace vg {
 
 using namespace std;
 
-bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
+bool ReadFilter::trim_ambiguous_ends(XG* index, Alignment& alignment, int k) {
     assert(index != nullptr);
 
     // Define a way to get node length, for flipping alignments
@@ -53,7 +54,7 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
     
 }
 
-bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) {
+bool ReadFilter::trim_ambiguous_end(XG* index, Alignment& alignment, int k) {
     // What mapping in the alignment is the leftmost one starting in the last k
     // bases? (Except when that would be the first mapping, we use the second.)
     // Start out with it set to the past-the-end value.
@@ -413,7 +414,7 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
     return false;
 }
 
-bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
+bool ReadFilter::is_split(XG* index, Alignment& alignment) {
     if(index == nullptr) {
         // Can't tell if the read is split.
         throw runtime_error("XG index required to check for split reads");
@@ -749,25 +750,16 @@ int ReadFilter::filter(istream* alignment_stream) {
         return 1;
     }
 
-    // output buffers
-    vector<vector<Alignment> > output_buffer(threads);
+    // Keep an AlignmentEmitter to multiplex output from multiple threads.
+    unique_ptr<AlignmentEmitter> emitter;
     
+    if (write_output) {
+        emitter = get_alignment_emitter("-", "GAM",  map<string, int64_t>(), get_thread_count());
+    }
+
     // keep counts of what's filtered to report (in verbose mode)
     vector<Counts> counts_vec(threads);
 
-    auto output_alignment = [&](Alignment& aln) {
-        auto& output_buf = output_buffer[omp_get_thread_num()];
-        output_buf.emplace_back(move(aln));
-        vg::io::write_buffered(cout, output_buf, buffer_size);
-    };
-
-    auto flush_buffer = [&output_buffer]() {
-        for (auto& output_buf : output_buffer) {
-            vg::io::write_buffered(cout, output_buf, 0);
-        }
-        cout.flush();
-    };
-    
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
 #ifdef debug
         cerr << "Encountered read named \"" << aln.name() << "\" with " << aln.sequence().size()
@@ -776,7 +768,7 @@ int ReadFilter::filter(istream* alignment_stream) {
         Counts aln_counts = filter_alignment(aln);
         counts_vec[omp_get_thread_num()] += aln_counts;
         if ((aln_counts.keep() != complement_filter) && write_output) {
-            output_alignment(aln);
+            emitter->emit_single(std::move(aln));
         }
     };
 
@@ -793,8 +785,7 @@ int ReadFilter::filter(istream* alignment_stream) {
         }
         counts_vec[omp_get_thread_num()] += aln_counts;
         if ((aln_counts.keep() != complement_filter) && write_output) {
-            output_alignment(aln1);
-            output_alignment(aln2);
+            emitter->emit_pair(std::move(aln1), std::move(aln2));
         }
         
     };
@@ -803,9 +794,6 @@ int ReadFilter::filter(istream* alignment_stream) {
         vg::io::for_each_interleaved_pair_parallel(*alignment_stream, pair_lambda);
     } else {
         vg::io::for_each_parallel(*alignment_stream, lambda);
-    }
-    if (write_output) {
-        flush_buffer();
     }
 
     if (verbose) {

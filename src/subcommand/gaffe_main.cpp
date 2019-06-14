@@ -42,7 +42,6 @@ void help_gaffe(char** argv) {
     << "  -x, --xg-name FILE            use this xg index (required)" << endl
     << "  -H, --gbwt-name FILE          use this GBWT index (required)" << endl
     << "  -m, --minimizer-name FILE     use this minimizer index (required)" << endl
-    << "  -s, --snarls FILE             cluster using these snarls (required)" << endl
     << "  -d, --dist-name FILE          cluster using this distance index (required)" << endl
     << "  -p, --progress                show progress" << endl
     << "input options:" << endl
@@ -74,7 +73,6 @@ int main_gaffe(int argc, char** argv) {
     string xg_name;
     string gbwt_name;
     string minimizer_name;
-    string snarls_name;
     string distance_name;
     // How close should two hits be to be in the same cluster?
     size_t distance_limit = 1000;
@@ -110,7 +108,6 @@ int main_gaffe(int argc, char** argv) {
             {"xg-name", required_argument, 0, 'x'},
             {"gbwt-name", required_argument, 0, 'H'},
             {"minimizer-name", required_argument, 0, 'm'},
-            {"snarls", required_argument, 0, 's'},
             {"dist-name", required_argument, 0, 'd'},
             {"progress", no_argument, 0, 'p'},
             {"gam-in", required_argument, 0, 'G'},
@@ -160,14 +157,6 @@ int main_gaffe(int argc, char** argv) {
                 minimizer_name = optarg;
                 if (minimizer_name.empty()) {
                     cerr << "error:[vg gaffe] Must provide minimizer file with -m." << endl;
-                    exit(1);
-                }
-                break;
-                
-            case 's':
-                snarls_name = optarg;
-                if (snarls_name.empty()) {
-                    cerr << "error:[vg gaffe] Must provide snarl file with -s." << endl;
                     exit(1);
                 }
                 break;
@@ -296,10 +285,6 @@ int main_gaffe(int argc, char** argv) {
         exit(1);
     }
     
-    if (snarls_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires snarls (-s)" << endl;
-        exit(1);
-    }
     
     if (distance_name.empty()) {
         cerr << "error:[vg gaffe] Mapping requires a distance index (-d)" << endl;
@@ -310,7 +295,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading XG index " << xg_name << endl;
     }
-    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;
@@ -323,24 +308,19 @@ int main_gaffe(int argc, char** argv) {
     unique_ptr<MinimizerIndex> minimizer_index = vg::io::VPKG::load_one<MinimizerIndex>(minimizer_name);
 
     if (progress) {
-        cerr << "Loading snarls from " << snarls_name << endl;
-    }
-    unique_ptr<SnarlManager> snarl_manager = vg::io::VPKG::load_one<SnarlManager>(snarls_name);
-
-    if (progress) {
         cerr << "Loading distance index " << distance_name << endl;
     }
-    unique_ptr<DistanceIndex> distance_index = vg::io::VPKG::load_one<DistanceIndex>(distance_name);
+    MinimumDistanceIndex distance_index;
+    ifstream dist_in (distance_name);
+    distance_index.load(dist_in);
+    //unique_ptr<MinimumDistanceIndex> distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_name);
     
-    // Connect the DistanceIndex to the other things it needs to work.
-    distance_index->setGraph(xg_index.get());
-    distance_index->setSnarlManager(snarl_manager.get());
 
     // Set up the mapper
     if (progress) {
         cerr << "Initializing MinimizerMapper" << endl;
     }
-    MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), snarl_manager.get(), distance_index.get());
+    MinimizerMapper minimizer_mapper(xg_index.get(), gbwt_index.get(), minimizer_index.get(), &distance_index);
 
 
     if (progress) {

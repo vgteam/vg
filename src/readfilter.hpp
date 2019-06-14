@@ -70,7 +70,7 @@ public:
     /// speeds things up considerably.
     bool write_output = true;
     /// An XG index is required for some filters (Note: ReadFilter doesn't own/free this)
-    xg::XG* xindex = nullptr;
+    XG* xindex = nullptr;
     /// Interleaved input
     bool interleaved = false;
     /// When outputting paired reads, fail the pair only if both (all) reads
@@ -153,7 +153,7 @@ public:
      *
      * MUST NOT be called with a null index.
      */
-    bool trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k);
+    bool trim_ambiguous_ends(XG* index, Alignment& alignment, int k);
     
 private:
 
@@ -169,7 +169,7 @@ private:
      * Trim only the end of the given alignment, leaving the start alone. Two
      * calls of this implement trim_ambiguous_ends above.
      */
-    bool trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k);
+    bool trim_ambiguous_end(XG* index, Alignment& alignment, int k);
     
     /**
      * Return false if the read only follows edges in the xg index, and true if
@@ -177,7 +177,7 @@ private:
      *
      * Throws an error if no XG index is specified.
      */
-    bool is_split(xg::XG* index, Alignment& alignment);
+    bool is_split(XG* index, Alignment& alignment);
     
     /**
      * Based on the read name and paired-ness, compute the SAM-style QNAME and
@@ -186,8 +186,7 @@ private:
      * kept. Returns true if the read should stay, and false if it should be
      * removed. Always accepts or rejects paired reads together.
      */
-    bool sample_read(const Alignment& read); 
-    
+    bool sample_read(const Alignment& read);
 };
 ostream& operator<<(ostream& os, const ReadFilter::Counts& counts);
 }
