@@ -246,7 +246,7 @@ int32_t main_rna(int32_t argc, char** argv) {
         double time_add_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Adding transcript paths to graph ..." << endl; }
 
-        transcriptome.add_paths_to_graph();
+        transcriptome.add_paths_to_graph(false);
 
         if (show_progress) { cerr << "[vg rna] Paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }

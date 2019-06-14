@@ -119,8 +119,9 @@ class Transcriptome {
         /// Topological sort and compact graph.
         void compact_ordered();
 
-        /// Embeds transcript paths in variation graph.
-        void add_paths_to_graph();
+        /// Embeds transcript paths in variation graph. 
+        /// Optionally rebuild paths indexes.
+        void add_paths_to_graph(const bool rebuild_indexes);
 
         /// Add transcript paths as threads in GBWT index.
         void construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const;

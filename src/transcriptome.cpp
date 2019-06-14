@@ -966,7 +966,7 @@ void Transcriptome::construct_gbwt(gbwt::GBWTBuilder * gbwt_builder) const {
     gbwt_builder->index.metadata.setSamples(sample_names);
 }
 
-void Transcriptome::add_paths_to_graph() {
+void Transcriptome::add_paths_to_graph(const bool rebuild_indexes) {
 
     // Add transcript paths to graph
     for (auto & transcript: _transcriptome) {
@@ -976,7 +976,10 @@ void Transcriptome::add_paths_to_graph() {
     }
 
     // Rebuild paths indexes.
-    graph->paths.compact_ranks();
+    if (rebuild_indexes) {
+
+        graph->paths.compact_ranks();
+    }
 }
 
 void Transcriptome::write_alignments(ostream * gam_ostream) const {
