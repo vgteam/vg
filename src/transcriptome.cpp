@@ -118,16 +118,16 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
 
         getline(transcript_stream, attributes, '\n');
 
-        string transcript_origin = "";
+        string transcript_id = "";
 
         // Get transcript name/id from attribute column using regex.
         if (std::regex_search(attributes, regex_id_match, regex_id_exp)) {
 
             assert(regex_id_match.size() == 2);
-            transcript_origin = regex_id_match[1];
+            transcript_id = regex_id_match[1];
         }
 
-        if (transcript_origin.empty()) {
+        if (transcript_id.empty()) {
 
             cerr << "[transcriptome] ERROR: Tag \"" << transcript_tag << "\" not found in attributes \"" << attributes << "\" (line " << line_number << ")." << endl;
             exit(1);
@@ -136,10 +136,10 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
         // Is this a new transcript.
         if (transcripts.empty()) {
 
-            transcripts.emplace_back(Transcript(transcript_origin, is_reverse, chrom));
+            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom));
         
         // Is this a new transcript.
-        } else if (transcripts.back().name != transcript_origin) {
+        } else if (transcripts.back().name != transcript_id) {
 
             // Reorder reversed order exons.
             reorder_exons(&transcripts.back());
@@ -152,7 +152,7 @@ void Transcriptome::add_transcripts(istream & transcript_stream, const gbwt::GBW
                 transcripts.clear();
             }
 
-            transcripts.emplace_back(Transcript(transcript_origin, is_reverse, chrom));
+            transcripts.emplace_back(Transcript(transcript_id, is_reverse, chrom));
         }
 
         assert(transcripts.back().is_reverse == is_reverse);
