@@ -499,6 +499,8 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
     vector<size_t> cluster_order2;
     vector<size_t> extension_order2;
+    cluster_order2.reserve(alignments.size());
+    extension_order2.reserve(alignments.size());
 
     sorted_cluster_scores1.reserve(alignments.size());
     sorted_extension_scores1.reserve(alignments.size());
