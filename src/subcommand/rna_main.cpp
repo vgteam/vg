@@ -12,6 +12,7 @@
 #include "../transcriptome.hpp"
 #include <vg/io/vpkg.hpp>
 #include <vg/io/stream.hpp>
+#include "../gbwt_helper.hpp"
 
 using namespace std;
 using namespace vg;
@@ -31,7 +32,7 @@ void help_rna(char** argv) {
          << "    -a, --add-paths            add transcripts as embedded paths in the graph" << endl
          << "    -b, --write-gbwt FILE      write transcripts as threads to GBWT index file" << endl
          << "    -f, --write-fasta FILE     write transcripts as sequences to fasta file" << endl
-         << "    -i, --write-info FILE      write transcripts information to tsv file" << endl
+         << "    -i, --write-info FILE      write transcript origin info to tsv file" << endl
          << "    -t, --threads INT          number of compute threads to use [1]" << endl
          << "    -p, --progress             show progress" << endl
          << "    -h, --help                 print help message" << endl
@@ -172,6 +173,8 @@ int32_t main_rna(int32_t argc, char** argv) {
         return 1;       
     }
 
+
+    double time_parsing_start = gcsa::readTimer();
     if (show_progress) { cerr << "[vg rna] Parsing graph file ..." << endl; }
 
     // Construct transcriptome and parse variation graph.
@@ -191,12 +194,16 @@ int32_t main_rna(int32_t argc, char** argv) {
         haplotype_index = unique_ptr<gbwt::GBWT>(new gbwt::GBWT());
     }
 
+    if (show_progress) { cerr << "[vg rna] Graph (and index) parsed in " << gcsa::readTimer() - time_parsing_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+
     transcriptome.num_threads = num_threads;
     transcriptome.transcript_tag = transcript_tag;
     transcriptome.use_embedded_paths = use_embedded_paths;
     transcriptome.collapse_transcript_paths = collapse_transcript_paths;
     transcriptome.filter_reference_transcript_paths = filter_reference_transcript_paths;
 
+
+    double time_project_start = gcsa::readTimer();
     if (show_progress) { cerr << "[vg rna] Parsing and projecting transcripts ..." << endl; }
 
     // Add transcripts to transcriptome by projecting them onto embedded paths 
@@ -209,23 +216,43 @@ int32_t main_rna(int32_t argc, char** argv) {
         });
     }
 
+    if (show_progress) { cerr << "[vg rna] Transcripts parsed and projected in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+
     // Release and delete GBWT index pointer.
     haplotype_index.reset(nullptr);
 
+
     if (remove_non_transcribed) {
 
+        double time_remove_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Removing non-transcribed regions ..." << endl; }
+
         transcriptome.remove_non_transcribed(!add_transcript_paths);
+
+        if (show_progress) { cerr << "[vg rna] Regions removed in " << gcsa::readTimer() - time_remove_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
 
+
+    double time_sort_start = gcsa::readTimer();
     if (show_progress) { cerr << "[vg rna] Topological sorting and compacting graph ..." << endl; }
+    
     transcriptome.compact_ordered();
+    
+    if (show_progress) { cerr << "[vg rna] Graph sorted and compacted in " << gcsa::readTimer() - time_sort_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
+
 
     if (add_transcript_paths) {
 
+        double time_add_start = gcsa::readTimer();
         if (show_progress) { cerr << "[vg rna] Adding transcript paths to graph ..." << endl; }
+
         transcriptome.add_paths_to_graph();
+
+        if (show_progress) { cerr << "[vg rna] Paths added in " << gcsa::readTimer() - time_add_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
     }
+
+
+    double time_writing_start = gcsa::readTimer();
 
     // Construct and write GBWT index of transcript paths in transcriptome.
     if (!gbwt_out_filename.empty()) {
@@ -241,13 +268,6 @@ int32_t main_rna(int32_t argc, char** argv) {
         // Finish contruction and recode index.
         gbwt_builder.finish();
 
-        // Set number of transcript paths as number of haplotypes in metadata.
-        // TODO: Set number of samples to number of transcripts. Set number of contigs.
-        gbwt_builder.index.addMetadata();
-        gbwt_builder.index.metadata.setHaplotypes(transcriptome.size());
-        // gbwt_builder.index.metadata.setSamples();
-        // gbwt_builder.index.metadata.setContigs();
-
         vg::io::VPKG::save(gbwt_builder.index, gbwt_out_filename);
     }
 
@@ -258,27 +278,27 @@ int32_t main_rna(int32_t argc, char** argv) {
 
         ofstream fasta_ostream;
         fasta_ostream.open(fasta_out_filename);
-        transcriptome.write_fasta_sequences(&fasta_ostream);
+        transcriptome.write_sequences(&fasta_ostream);
         fasta_ostream.close();
     }    
 
-    // Write information on transcripts in transcriptome to tsv file.
+    // Write origin info on transcripts in transcriptome to tsv file.
     if (!info_out_filename.empty()) {
 
-        if (show_progress) { cerr << "[vg rna] Writing information on " << transcriptome.size() << " transcripts to tsv file ..." << endl; }
+        if (show_progress) { cerr << "[vg rna] Writing origin info on " << transcriptome.size() << " transcripts to tsv file ..." << endl; }
 
         ofstream info_ostream;
         info_ostream.open(info_out_filename);
-        transcriptome.write_id_info(&info_ostream);
+        transcriptome.write_info(&info_ostream);
         info_ostream.close();
     }    
-
-
 
     if (show_progress) { cerr << "[vg rna] Writing graph to stdout ..." << endl; }
 
     // Write spliced variation graph to stdout 
-    transcriptome.write_splice_graph(&cout);
+    transcriptome.write_graph(&cout);
+
+    if (show_progress) { cerr << "[vg rna] Graph (and transcripts) written in " << gcsa::readTimer() - time_project_start << " seconds, " << gcsa::inGigabytes(gcsa::memoryUsage()) << " GB" << endl; };
 
     return 0;
 }
