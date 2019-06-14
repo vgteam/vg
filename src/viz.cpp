@@ -3,11 +3,11 @@
 
 namespace vg {
 
-Viz::Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+Viz::Viz(XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     init(x, p, n, o, w, h, c, d, t);
 }
 
-void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+void Viz::init(XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     xgidx = x;
     packs = p;
     pack_names = n;

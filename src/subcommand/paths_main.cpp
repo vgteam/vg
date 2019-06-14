@@ -197,13 +197,13 @@ int main_paths(int argc, char** argv) {
             graph->from_istream(in);
         });
     }
-    unique_ptr<xg::XG> xg_index;
+    unique_ptr<XG> xg_index;
     if (!xg_file.empty()) {
         // We want an xg
-        xg_index = unique_ptr<xg::XG>();
+        xg_index = unique_ptr<XG>();
         // Load the xg
         get_input_file(xg_file, [&](istream& in) {
-            xg_index = vg::io::VPKG::load_one<xg::XG>(in);
+            xg_index = vg::io::VPKG::load_one<XG>(in);
         });
     }
     unique_ptr<gbwt::GBWT> gbwt_index;

@@ -20,22 +20,22 @@ using namespace std;
 
 // xg/position traversal helpers with caching
 // used by the Sampler and by the Mapper
-string xg_node_sequence(id_t id, const xg::XG* xgidx);
-/// Get the length of a Node from an xg::XG index, with cacheing of deserialized nodes.
-size_t xg_node_length(id_t id, const xg::XG* xgidx);
+string xg_node_sequence(id_t id, const XG* xgidx);
+/// Get the length of a Node from an XG index, with cacheing of deserialized nodes.
+size_t xg_node_length(id_t id, const XG* xgidx);
 /// Get the node start position in the sequence vector
-int64_t xg_node_start(id_t id, const xg::XG* xgidx);
-/// Get the character at a position in an xg::XG index, with cacheing of deserialized nodes.
-char xg_pos_char(pos_t pos, const xg::XG* xgidx);
-/// Get the characters at positions after the given position from an xg::XG index, with cacheing of deserialized nodes.
-map<pos_t, char> xg_next_pos_chars(pos_t pos, const xg::XG* xgidx);
-set<pos_t> xg_next_pos(pos_t pos, bool whole_node, const xg::XG* xgidx);
-int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, const xg::XG* xgidx);
-set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const xg::XG* xgidx);
-//void xg_graph_context(VG& graph, const pos_t& pos, int length, xg::XG* xgidx);
-Node xg_node(id_t id, const xg::XG* xgidx);
-vector<Edge> xg_edges_on_start(id_t id, const xg::XG* xgidx);
-vector<Edge> xg_edges_on_end(id_t id, const xg::XG* xgidx);
+int64_t xg_node_start(id_t id, const XG* xgidx);
+/// Get the character at a position in an XG index, with cacheing of deserialized nodes.
+char xg_pos_char(pos_t pos, const XG* xgidx);
+/// Get the characters at positions after the given position from an XG index, with cacheing of deserialized nodes.
+map<pos_t, char> xg_next_pos_chars(pos_t pos, const XG* xgidx);
+set<pos_t> xg_next_pos(pos_t pos, bool whole_node, const XG* xgidx);
+int64_t xg_distance(pos_t pos1, pos_t pos2, int64_t maximum, const XG* xgidx);
+set<pos_t> xg_positions_bp_from(pos_t pos, int64_t distance, bool rev, const XG* xgidx);
+//void xg_graph_context(VG& graph, const pos_t& pos, int length, XG* xgidx);
+Node xg_node(id_t id, const XG* xgidx);
+vector<Edge> xg_edges_on_start(id_t id, const XG* xgidx);
+vector<Edge> xg_edges_on_end(id_t id, const XG* xgidx);
 
 /// Get a map from path name to a list of positions on that path touched by or
 /// near to the given Alignment. If nearby is set, search off the part of the
@@ -50,7 +50,7 @@ vector<Edge> xg_edges_on_end(id_t id, const xg::XG* xgidx);
 ///
 /// During the search for nearby positions, walk up to search_limit bases, or
 /// the length of the Alignment's sequence if search_limit is 0.
-map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG* xgidx, const Alignment& aln,
+map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const XG* xgidx, const Alignment& aln,
     bool just_min, bool nearby, size_t search_limit = 0);
 
 /// Annotate the given Alignment in place with the earliest touched positions,
@@ -58,7 +58,7 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG
 /// positions. Only resorts to nearby positions if no positions on a path are
 /// touched. During the search for nearby positions, walk up to search_limit
 /// bases, or the length of the Alignment's sequence if search_limit is 0.
-void xg_annotate_with_initial_path_positions(const xg::XG* xgidx, Alignment& aln, size_t search_limit = 0);
+void xg_annotate_with_initial_path_positions(const XG* xgidx, Alignment& aln, size_t search_limit = 0);
 
 }
 

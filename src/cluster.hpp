@@ -368,7 +368,7 @@ public:
     
     /// Construct a distance service to measures distance along paths in this XG. Optionally
     /// measures all distances on the forward strand of the paths.
-    PathOrientedDistanceMeasurer(xg::XG* xgindex, bool unstranded = false);
+    PathOrientedDistanceMeasurer(XG* xgindex, bool unstranded = false);
     
     /// Default desctructor
     ~PathOrientedDistanceMeasurer() = default;
@@ -392,7 +392,7 @@ public:
     
 private:
     
-    xg::XG* xgindex = nullptr;
+    XG* xgindex = nullptr;
     
     /// A memo for the results of XG::paths_of_node
     unordered_map<id_t, vector<size_t>> paths_of_node_memo;
@@ -676,11 +676,11 @@ private:
     
 
 /// get the handles that a mem covers
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem);
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, const vg::MaximalExactMatch& mem);
 /// use walking to get the hits
-Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
+Graph cluster_subgraph_walk(const XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion);
 /// return a subgraph form an xg for a cluster of MEMs from the given alignment
-Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
+Graph cluster_subgraph(const XG& xg, const Alignment& aln, const vector<MaximalExactMatch>& mems, double expansion);
 
 }
 

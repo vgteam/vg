@@ -179,9 +179,9 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    unique_ptr<xg::XG> xgidx;
+    unique_ptr<XG> xgidx;
     if (!xg_name.empty()) {
-        xgidx = vg::io::VPKG::load_one<xg::XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
     } else {
         // We need an XG index for the rest of the algorithm
         cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;

@@ -25,7 +25,6 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
-using namespace xg;
 
 static string chunk_name(const string& out_chunk_prefix, int i, const Region& region, string ext, int gi = 0);
 static int split_gam(istream& gam_stream, size_t chunk_size, const string& out_prefix,
@@ -271,7 +270,7 @@ int main_chunk(int argc, char** argv) {
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
 
     // Load our index
-    unique_ptr<xg::XG> xindex;
+    unique_ptr<XG> xindex;
     if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0)) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] xg index (-x) required" << endl;
@@ -284,7 +283,7 @@ int main_chunk(int argc, char** argv) {
             return 1;
         }
         
-        xindex = vg::io::VPKG::load_one<xg::XG>(in);
+        xindex = vg::io::VPKG::load_one<XG>(in);
         in.close();
     }
 

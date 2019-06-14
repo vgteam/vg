@@ -180,9 +180,9 @@ int main_vectorize(int argc, char** argv){
         }
     }
 
-    unique_ptr<xg::XG> xg_index;
+    unique_ptr<XG> xg_index;
     if (!xg_name.empty()) {
-        xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
+        xg_index = vg::io::VPKG::load_one<XG>(xg_name);
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;

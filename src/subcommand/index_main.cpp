@@ -96,7 +96,7 @@ gbwt::vector_type path_to_gbwt(const Path& path) {
 }
 
 // Find all predecessor nodes of the path, ignoring self-loops.
-gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
+gbwt::vector_type predecessors(const XG& xg_index, const Path& path) {
     gbwt::vector_type result;
     if (path.mapping_size() == 0) {
         return result;
@@ -528,7 +528,7 @@ int main_index(int argc, char** argv) {
     }
 
     // Build XG
-    xg::XG* xg_index = new xg::XG();
+    XG* xg_index = new XG();
     map<string, Path> alt_paths;
     if (build_xg) {
         if (file_names.empty()) {
@@ -645,7 +645,7 @@ int main_index(int argc, char** argv) {
                 cerr << "Converting paths to threads..." << endl;
             }
             for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
-                const xg::XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
+                const XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
                 if (path.ids.size() == 0) {
                     continue;
                 }
@@ -739,7 +739,7 @@ int main_index(int argc, char** argv) {
                 string parse_file = parse_name + '_' + vcf_contig_name;
 
                 // Structures to parse the VCF file into.
-                const xg::XGPath& path = xg_index->get_path(path_name);
+                const XGPath& path = xg_index->get_path(path_name);
                 gbwt::VariantPaths variants(path.ids.size());
                 variants.setSampleNames(sample_names);
                 variants.setContigName(path_name);
@@ -1015,7 +1015,7 @@ int main_index(int argc, char** argv) {
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
                     // Load the XG
-                    auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+                    auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
@@ -1228,7 +1228,7 @@ int main_index(int argc, char** argv) {
             if (file_names.empty() && !xg_name.empty()) {
                 
                 ifstream xg_stream(xg_name);
-                auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
+                auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
 
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di (xg.get(), snarl_manager);

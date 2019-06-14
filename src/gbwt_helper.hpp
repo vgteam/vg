@@ -28,8 +28,8 @@ inline pos_t gbwt_to_pos(gbwt::node_type node, size_t offset) {
     return make_pos_t(gbwt::Node::id(node), gbwt::Node::is_reverse(node), offset);
 }
 
-/// Convert gbwt::node_type to xg::XG:ThreadMapping.
-inline xg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
+/// Convert gbwt::node_type to XG:ThreadMapping.
+inline XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
     return { static_cast<int64_t>(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
 }
 
@@ -48,8 +48,8 @@ inline gbwt::node_type mapping_to_gbwt(const Mapping& mapping) {
     return gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse());
 }
 
-/// Convert a node on xg::XGPath to gbwt::node_type.
-inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
+/// Convert a node on XGPath to gbwt::node_type.
+inline gbwt::node_type xg_path_to_gbwt(const XGPath& path, size_t i) {
     return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
 
