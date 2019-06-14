@@ -237,12 +237,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         return (cluster_score[a] > cluster_score[b]);
     });
 
-    //Sort the vector of cluster scores
-    std::sort(cluster_score.begin(), cluster_score.end(), [&](const size_t& a, const size_t& b) -> bool{
-        return (a > b);
-    });
+    vector<double> cluster_scores;
+    vector<size_t> cluster_order;
+    cluster_scores.reserve(clusters.size());
+    for (size_t i : cluster_indexes_in_order) {
+        cluster_scores.push_back(cluster_score[i]);
+    }
+    for (size_t i = 0 ; i < clusters.size() ; i++ ) {
+        cluster_order.push_back(i);
+    }
 
-    double best_cluster_score = cluster_score.size() == 0 ? 0 : cluster_score[0];
+    double best_cluster_score = cluster_scores.size() == 0 ? 0 : cluster_scores[0];
     
 #ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
@@ -335,12 +340,21 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<int> sorted_extension_scores;
     sorted_cluster_scores.reserve(extension_indexes_in_order.size());
     sorted_extension_scores.reserve(extension_indexes_in_order.size());
+
+
+    vector<size_t> cluster_order1;
+    vector<size_t> extension_order1;
     for (size_t i : extension_indexes_in_order) {
-        sorted_cluster_scores.push_back(cluster_score[i]);
+        sorted_cluster_scores.push_back(cluster_scores[i]);
         sorted_extension_scores.push_back(cluster_extension_scores[i]);
+        cluster_order1.push_back(cluster_order[i]);
     }
     double best_extension_score = sorted_extension_scores.size() == 0 ? 0 :
                                   sorted_extension_scores[0];
+
+    for (size_t i = 0 ; i < extension_indexes_in_order.size() ; i++) {
+        extension_order1.push_back(i);
+    }
     
 #ifdef TRACK_PROVENANCE
     funnel.stage("align");
@@ -482,6 +496,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<double> sorted_cluster_scores1;
     vector<double> sorted_extension_scores1;
     vector<double> sorted_alignment_scores1;//TODO: Type?
+
+    vector<size_t> cluster_order2;
+    vector<size_t> extension_order2;
+
     sorted_cluster_scores1.reserve(alignments.size());
     sorted_extension_scores1.reserve(alignments.size());
     sorted_alignment_scores1.reserve(alignments.size());
@@ -489,6 +507,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         sorted_cluster_scores1.push_back(sorted_cluster_scores[i]);
         sorted_extension_scores1.push_back(sorted_extension_scores[i]);
         sorted_alignment_scores1.push_back(alignments[i].score());
+
+        cluster_order2.push_back(cluster_order1[i]);
+        extension_order2.push_back(extension_order1[i]);
     }
     
 #ifdef TRACK_PROVENANCE
@@ -581,6 +602,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
         set_annotation(mappings[i], "best_cluster_score", best_cluster_score);
         set_annotation(mappings[i], "best_extension_score", best_extension_score);
         set_annotation(mappings[i], "best_alignment_score", sorted_alignment_scores1[0]);
+
+        set_annotation(mappings[i], "cluster_rank", (double)cluster_order2[i]);
+        set_annotation(mappings[i], "extension_rank", (double)extension_order2[i]);
     }
 
     
