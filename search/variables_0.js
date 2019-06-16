@@ -27,7 +27,7 @@ var searchData=
   ['_5fnode_5fsupports',['_node_supports',['../classvg_1_1PileupAugmenter.html#a3104e081d745e5b5912c0ea6d4d33002',1,'vg::PileupAugmenter']]],
   ['_5fpaths',['_paths',['../classvg_1_1Paths.html#a5857b70582a67d2819f5e5db23a984cf',1,'vg::Paths']]],
   ['_5fstrict_5fedge_5fsupport',['_strict_edge_support',['../classvg_1_1Pileups.html#a250b89737a7bd667f564cacfdb7d01aa',1,'vg::Pileups']]],
-  ['_5ftranscriptome',['_transcriptome',['../classvg_1_1Transcriptome.html#a127a44cf9f2a9d01064325e8e68cc948',1,'vg::Transcriptome']]],
+  ['_5ftranscriptome',['_transcriptome',['../classvg_1_1Transcriptome.html#a1f34e480cb2ab0a7e8f30e7ae462fee1',1,'vg::Transcriptome']]],
   ['_5fuse_5fmapq',['_use_mapq',['../classvg_1_1Pileups.html#a3257a69f673539d48d2c42124bfd28d5',1,'vg::Pileups']]],
   ['_5fvisited_5fnodes',['_visited_nodes',['../classvg_1_1PileupAugmenter.html#a48de8d0e48e1146d6da0700c9e79e452',1,'vg::PileupAugmenter']]],
   ['_5fwindow_5fsize',['_window_size',['../classvg_1_1Pileups.html#a704565fa7d0517847b207ad0ff44f1d9',1,'vg::Pileups']]]

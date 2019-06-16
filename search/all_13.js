@@ -210,7 +210,7 @@ var searchData=
   ['smart_5falign',['smart_align',['../classvg_1_1VariantAdder.html#ad3c7e7030142e70f27bc9f0bc42c2cce',1,'vg::VariantAdder']]],
   ['smellslikegzip',['SmellsLikeGzip',['../classvg_1_1io_1_1BlockedGzipInputStream.html#aa45ae9d5a0c1689efa567d573ad5747c',1,'vg::io::BlockedGzipInputStream']]],
   ['sn_5fdeletion_5fbetween_5fref',['sn_deletion_between_ref',['../structhaplo_1_1linear__haplo__structure.html#ad73dbbb02e7741d5f18a81682a0c4453',1,'haplo::linear_haplo_structure']]],
-  ['snarl',['snarl',['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#aee85ad3c21e883f05b67c62fbf05be72',1,'vg::ReplaceSnarlHaplotypeCommand::snarl()'],['../structvg_1_1Visit.html#a7e671bbc7437a16dd3549a6fc49fd2a9',1,'vg::Visit::snarl()'],['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225a67ee28d908064db7aa83cd0d11959eff',1,'vg::SnarlSeedClusterer::SNARL()']]],
+  ['snarl',['SNARL',['../classvg_1_1SnarlSeedClusterer.html#a835e4f3125a877f2baebd11886750225a67ee28d908064db7aa83cd0d11959eff',1,'vg::SnarlSeedClusterer::SNARL()'],['../structvg_1_1ReplaceSnarlHaplotypeCommand.html#aee85ad3c21e883f05b67c62fbf05be72',1,'vg::ReplaceSnarlHaplotypeCommand::snarl()'],['../structvg_1_1Visit.html#a7e671bbc7437a16dd3549a6fc49fd2a9',1,'vg::Visit::snarl()']]],
   ['snarl',['Snarl',['../structvg_1_1Snarl.html',1,'vg']]],
   ['snarl_5fboundary_5findex',['snarl_boundary_index',['../classvg_1_1SnarlManager.html#a823dc9410176ce513c0a35200551c5d8',1,'vg::SnarlManager']]],
   ['snarl_5fend_5findex',['snarl_end_index',['../classvg_1_1SnarlManager.html#a88feb7ae07680e4a246639bd71fae559',1,'vg::SnarlManager']]],

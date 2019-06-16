@@ -31,6 +31,7 @@ var searchData=
   ['ref_5fpath',['ref_path',['../structvg_1_1FlowSort_1_1Growth.html#a34ba660c358c1ec59cd7c70e62780a8c',1,'vg::FlowSort::Growth']]],
   ['ref_5fpath_5fnames',['ref_path_names',['../classvg_1_1SupportCaller.html#a6600a3aeeb8f2bbf19f422d0eb8f841a',1,'vg::SupportCaller']]],
   ['ref_5fpositions',['ref_positions',['../structhaplo_1_1linear__haplo__structure_1_1SNVvector.html#a6065969d77968cd3afc31ca7b8b1a9f0',1,'haplo::linear_haplo_structure::SNVvector']]],
+  ['reference_5forigin',['reference_origin',['../structvg_1_1TranscriptPath.html#aef224e3773aaa73878ee91cc5f04cc85',1,'vg::TranscriptPath']]],
   ['reference_5fpaths',['reference_paths',['../classvg_1_1PhaseUnfolder.html#a2bfa46441300e0817643b310aced989b',1,'vg::PhaseUnfolder']]],
   ['reflect',['reflect',['../classvg_1_1GraphSynchronizer_1_1Lock.html#aa5776efd133ed466cb82ef4f4b161dfd',1,'vg::GraphSynchronizer::Lock']]],
   ['refpos',['refpos',['../structvg_1_1Alignment.html#a584c3aa15a5c1386d14a97c0ce85c0cf',1,'vg::Alignment']]],

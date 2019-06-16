@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['tag',['tag',['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()']]],
+  ['tag',['TAG',['../structvg_1_1MinimizerIndex_1_1Header.html#a2977f7b75bb04528915f0dfa7cac9d6b',1,'vg::MinimizerIndex::Header::TAG()'],['../structvg_1_1MinimizerIndex_1_1Header.html#a9187790b765187aaeed1af4b60869767',1,'vg::MinimizerIndex::Header::tag()'],['../classvg_1_1io_1_1ProtobufEmitter.html#a17e22f4ea8e69209b9aff2c00deb9ba4',1,'vg::io::ProtobufEmitter::tag()']]],
   ['tag_5fto_5floader',['tag_to_loader',['../structvg_1_1io_1_1Registry_1_1Tables.html#a965e60de0073226a98deef0757d7dfa8',1,'vg::io::Registry::Tables']]],
   ['tag_5fto_5fprotobuf',['tag_to_protobuf',['../structvg_1_1io_1_1Registry_1_1Tables.html#abac3d9be375a86c8f55e5777e97fe323',1,'vg::io::Registry::Tables']]],
   ['tail',['tail',['../classvg_1_1HashGraph_1_1path__t.html#a578f1c2746255a71fa433e7c72203677',1,'vg::HashGraph::path_t::tail()'],['../structvg_1_1mi_1_1CircularBuffer.html#ac7232c53ef7237c4c6ea202df32bc938',1,'vg::mi::CircularBuffer::tail()'],['../structvg_1_1PackedGraph_1_1PackedPath.html#aeb299ea8d7f8927b486600b11fe41268',1,'vg::PackedGraph::PackedPath::tail()']]],
@@ -49,6 +49,7 @@ var searchData=
   ['total_5fsupport',['total_support',['../classvg_1_1SupportCaller_1_1PrimaryPath.html#af7917163fa9a4e17ef5e61c345f758cf',1,'vg::SupportCaller::PrimaryPath']]],
   ['track_5fcomponents',['track_components',['../classvg_1_1MEMClusterer_1_1HitGraph.html#a6bc63fbe77aee54235636bbc228a9e96',1,'vg::MEMClusterer::HitGraph']]],
   ['trancriptome_5fmutex',['trancriptome_mutex',['../classvg_1_1Transcriptome.html#a7f981a9d8172e931cc7c59b60de62caa',1,'vg::Transcriptome']]],
+  ['transcript_5forigin',['transcript_origin',['../structvg_1_1TranscriptPath.html#a37b730811e3f8ad713647c469d6a1628',1,'vg::TranscriptPath']]],
   ['transcript_5ftag',['transcript_tag',['../classvg_1_1Transcriptome.html#a56a00bd350c02600e5474fc89791d5bd',1,'vg::Transcriptome']]],
   ['transition_5fdistrs_5f1',['transition_distrs_1',['../classvg_1_1NGSSimulator.html#a571f3ff879e38077e8d7dad879157d55',1,'vg::NGSSimulator']]],
   ['transition_5fdistrs_5f2',['transition_distrs_2',['../classvg_1_1NGSSimulator.html#ad3d0c480b5ecd2fa7c5209d86b41911d',1,'vg::NGSSimulator']]],
