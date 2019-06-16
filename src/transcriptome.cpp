@@ -14,7 +14,7 @@ using namespace std;
 // Number of transcripts buffered for each thread
 static const int32_t num_thread_transcripts = 500;
 
-#define transcriptome_debug
+//#define transcriptome_debug
 
 
 Transcriptome::Transcriptome(const string & graph_filename, const bool show_progress) {
