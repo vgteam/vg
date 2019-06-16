@@ -413,7 +413,8 @@ list<TranscriptPath> Transcriptome::project_transcript_gbwt(const Transcript & c
         // Add haplotype names as origins.
         for (auto thread_id: haplotype.second) {
 
-            cur_transcript_paths.back().haplotype_origins.emplace_back(thread_name(haplotype_index, thread_id));
+            // Convert bidirectional path id before finding name. 
+            cur_transcript_paths.back().haplotype_origins.emplace_back(thread_name(haplotype_index, gbwt::Path::id(thread_id)));
         }
 
         for (size_t exon_idx = 0; exon_idx < cur_transcript.exons.size(); ++exon_idx) {

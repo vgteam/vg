@@ -187,7 +187,8 @@ int32_t main_rna(int32_t argc, char** argv) {
         // Load haplotype GBWT index.
         if (show_progress) { cerr << "[vg rna] Parsing haplotype GBWT index file ..." << endl; }
         haplotype_index = vg::io::VPKG::load_one<gbwt::GBWT>(haplotypes_filename);
-    
+        assert(haplotype_index->bidirectional());
+
     } else {
 
         // Construct empty GBWT index if no is given. 
