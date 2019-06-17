@@ -53,14 +53,14 @@ struct PathIndex {
     /// pull sequence from the given vg.
     PathIndex(const list<mapping_t>& mappings, VG& vg);
     
-    /// Index a path and pull sequence from an XG index.
-    PathIndex(const Path& path, const XG& xg);
+    /// Index a path and pull sequence from an xg::XG index.
+    PathIndex(const Path& path, const xg::XG& xg);
     
     /// Make a PathIndex from a path in a graph
     PathIndex(VG& vg, const string& path_name, bool extract_sequence = false);
     
     /// Make a PathIndex from a path in an indexed graph
-    PathIndex(const XG& index, const string& path_name, bool extract_sequence = false);
+    PathIndex(const xg::XG& index, const string& path_name, bool extract_sequence = false);
     
     /// Rebuild the mapping positions map by tracing all the paths in the given
     /// graph. TODO: We ought to move this functionality to the Paths object and

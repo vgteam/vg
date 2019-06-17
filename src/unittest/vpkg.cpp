@@ -38,7 +38,7 @@ TEST_CASE("We can serialize and re-read an empty GCSA", "[vpkg][gcsa]") {
 
 }
 
-TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
+TEST_CASE("We can read and write xg::XG", "[vpkg][handlegraph][xg]") {
 
     string graph_json = R"(
     {"node":[{"id":1,"sequence":"GATT"},
@@ -51,17 +51,17 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
     json2pb(proto_graph, graph_json.c_str(), graph_json.size());
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index(proto_graph);
 
     stringstream ss;
     
-    SECTION("We can read from a VPKG-wrapped stream as XG") {
+    SECTION("We can read from a VPKG-wrapped stream as xg::XG") {
         vg::io::VPKG::save(xg_index, ss);
         
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<XG> loaded = vg::io::VPKG::load_one<XG>(ss);
+        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);
@@ -93,7 +93,7 @@ TEST_CASE("We can read and write XG", "[vpkg][handlegraph][xg]") {
         // There should be some data
         REQUIRE(ss.str().size() != 0);
         
-        unique_ptr<XG> loaded = vg::io::VPKG::load_one<XG>(ss);
+        unique_ptr<xg::XG> loaded = vg::io::VPKG::load_one<xg::XG>(ss);
         
         // Make sure we got something
         REQUIRE(loaded.get() != nullptr);

@@ -25,7 +25,7 @@ void help_dotplot(char** argv) {
     cerr << "usage: " << argv[0] << " dotplot [options]" << endl
          << "options:" << endl
          << "  input:" << endl
-         << "    -x, --xg FILE         use the graph in the XG index FILE" << endl;
+         << "    -x, --xg FILE         use the graph in the xg::XG index FILE" << endl;
     //<< "  output:" << endl;
 }
 
@@ -77,8 +77,8 @@ int main_dotplot(int argc, char** argv) {
         cerr << "[vg dotplot] Error: an xg index is required" << endl;
         exit(1);
     } else {
-        unique_ptr<XG> xindex;
-        xindex = vg::io::VPKG::load_one<XG>(xg_file);
+        unique_ptr<xg::XG> xindex;
+        xindex = vg::io::VPKG::load_one<xg::XG>(xg_file);
     
         cout << "query.name" << "\t"
              << "query.pos" << "\t"

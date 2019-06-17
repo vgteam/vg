@@ -2,7 +2,7 @@
 
 namespace vg {
 
-    RegionExpander::RegionExpander(XG* xg_index, const SnarlManager* snarl_manager) :
+    RegionExpander::RegionExpander(xg::XG* xg_index, const SnarlManager* snarl_manager) :
         xg_index(xg_index), snarl_manager(snarl_manager)
     {
         // Nothing to do
@@ -20,16 +20,16 @@ namespace vg {
             cerr << "error [RegionExpander] cannot expand genomic interval, graph does not contain path with name: " << gff_record.sequence_id << endl;
             exit(1);
         }
-        const XGPath& path = xg_index->get_path(gff_record.sequence_id);
+        const xg::XGPath& path = xg_index->get_path(gff_record.sequence_id);
         
         // walk along the path for the interval and add the corresponding nodes to the subgraph
         
         size_t offset = path.offset_at_position(gff_record.start);
         id_t node_id = path.node(offset);
-        bool is_rev = path.directions[offset];
-        size_t node_length = xg_index->node_length(node_id);
+        bool is_rev = path.is_reverse(offset);
+        size_t node_length = xg_index->get_length(xg_index->get_handle(node_id));
         
-        size_t at_pos = path.positions[offset];
+        size_t at_pos = path.handle_start(offset);
         
         interval_subpath.emplace_back(node_id, is_rev);
         return_val[make_pair(node_id, is_rev)] = pair<uint64_t, uint64_t>(gff_record.start - at_pos,
@@ -38,8 +38,8 @@ namespace vg {
         while (at_pos <= gff_record.end) {
             offset++;
             node_id = path.node(offset);
-            is_rev = path.directions[offset];
-            node_length = xg_index->node_length(node_id);
+            is_rev = path.is_reverse(offset);
+            node_length = xg_index->get_length(xg_index->get_handle(node_id));
             
             interval_subpath.emplace_back(node_id, is_rev);
             return_val[make_pair(node_id, is_rev)] = pair<uint64_t, uint64_t>(0, node_length);
@@ -147,7 +147,7 @@ namespace vg {
             // we did all our queries with respect to the forward strand, flip it back to the reverse
             map<pair<id_t, bool>, pair<uint64_t, uint64_t>> reversed_map;
             for (const auto& record : return_val) {
-                uint64_t node_length = xg_index->node_length(record.first.first);
+                uint64_t node_length = xg_index->get_length(xg_index->get_handle(record.first.first));
                 reversed_map[make_pair(record.first.first, !record.first.second)] = make_pair(node_length - record.second.second,
                                                                                               node_length - record.second.first);
             }

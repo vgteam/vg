@@ -533,7 +533,7 @@ int main_msga(int argc, char** argv) {
     Mapper* mapper = nullptr;
     gcsa::GCSA* gcsaidx = nullptr;
     gcsa::LCPArray* lcpidx = nullptr;
-    XG* xgidx = nullptr;
+    xg::XG* xgidx = nullptr;
     size_t iter = 0;
     
     // Configure GCSA temp directory to the system temp directory
@@ -562,7 +562,7 @@ int main_msga(int argc, char** argv) {
         }
 
         if (debug) cerr << "building xg index" << endl;
-        xgidx = new XG(graph->graph);
+        xgidx = new xg::XG(graph->graph);
 
         if (debug) cerr << "building GCSA2 index" << endl;
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info

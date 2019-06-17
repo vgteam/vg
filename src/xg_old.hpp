@@ -36,9 +36,13 @@
 
 namespace vg {
 
+namespace oldxg {
+
 using namespace std;
 using namespace sdsl;
 using namespace vg;
+
+typedef sdsl::wt_rlmn<sdsl::sd_vector<>> rank_select_int_vector;
 
 class XGPath;
 //typedef pair<int64_t, bool> Side;
@@ -558,12 +562,11 @@ public:
     // gPBWT API
     ////////////////////////////////////////////////////////////////////////////
     
-#if GPBWT_MODE == MODE_SDSL
+//#if GPBWT_MODE == MODE_SDSL
     // We keep our strings in instances of this cool run-length-compressed wavelet tree.
-    using rank_select_int_vector = sdsl::wt_rlmn<sdsl::sd_vector<>>;
-#elif GPBWT_MODE == MODE_DYNAMIC
-    using rank_select_int_vector = dyn::rle_str;
-#endif
+//#elif GPBWT_MODE == MODE_DYNAMIC
+//    using rank_select_int_vector = dyn::rle_str;
+//#endif
 
     // We need the w function, which we call the "where_to" function. It tells
     // you, from a given visit at a given side, what visit offset if you go to
@@ -619,7 +622,7 @@ public:
     map<string, list<thread_t> > extract_threads_matching(const string& pattern, bool reverse) const;
     /// Extract a particular thread, referring to it by its offset at node; step
     /// it out to a maximum of max_length
-    thread_t extract_thread(XG::ThreadMapping node, int64_t offset, int64_t max_length);
+    thread_t extract_thread(ThreadMapping node, int64_t offset, int64_t max_length);
     /// Count matches to a subthread among embedded threads
     size_t count_matches(const thread_t& t) const;
     size_t count_matches(const Path& t) const;
@@ -968,11 +971,11 @@ Mapping new_mapping(const string& name, int64_t id, size_t rank, bool is_reverse
 void to_text(ostream& out, Graph& graph);
 
 // Serialize a rank_select_int_vector in an SDSL serialization compatible way. Returns the number of bytes written.
-size_t serialize_vector(const XG::rank_select_int_vector& to_serialize, ostream& out,
+size_t serialize_vector(const rank_select_int_vector& to_serialize, ostream& out,
     sdsl::structure_tree_node* parent, const std::string name);
 
 // Deserialize a rank_select_int_vector in an SDSL serialization compatible way.
-void deserialize_rsiv(XG::rank_select_int_vector& target, istream& in);
+void deserialize_rsiv(rank_select_int_vector& target, istream& in);
 
 // Determine if two edges are equivalent (the same or one is the reverse of the other)
 bool edges_equivalent(const Edge& e1, const Edge& e2);
@@ -998,6 +1001,8 @@ Edge make_edge(int64_t from, bool from_start, int64_t to, bool to_end);
 // Position parsing helpers for CLI
 void extract_pos(const string& pos_str, int64_t& id, bool& is_rev, size_t& off);
 void extract_pos_substr(const string& pos_str, int64_t& id, bool& is_rev, size_t& off, size_t& len);
+
+}
 
 }
 

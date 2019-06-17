@@ -131,10 +131,10 @@ void flanks_match(GaplessExtension& extension, std::pair<size_t, size_t> core_ra
 
 TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
 
-    // Build an XG index.
+    // Build an xg::XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(false);
@@ -222,10 +222,10 @@ TEST_CASE("Gapless extensions report correct positions", "[gapless_extender]") {
 
 TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extender]") {
 
-    // Build an XG index.
+    // Build an xg::XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(false);
@@ -337,10 +337,10 @@ TEST_CASE("Haplotype-aware gapless extension works correctly", "[gapless_extende
 
 TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_extender]") {
 
-    // Build an XG index.
+    // Build an xg::XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(true);
@@ -494,10 +494,10 @@ TEST_CASE("Haplotype-aware unambiguous extension works correctly", "[gapless_ext
 
 TEST_CASE("Haplotype-aware flank extension works correctly", "[gapless_extender]") {
 
-    // Build an XG index.
+    // Build an xg::XG index.
     Graph graph;
     json2pb(graph, gapless_extender_graph.c_str(), gapless_extender_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index(true);

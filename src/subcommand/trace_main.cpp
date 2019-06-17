@@ -13,7 +13,7 @@ using namespace vg;
 using namespace std;
 using namespace vg::subcommand;
 
-using thread_t = vector<XG::ThreadMapping>;
+using thread_t = vector<xg::XG::ThreadMapping>;
 
 void help_trace(char** argv) {
     cerr << "usage: " << argv[0] << " trace [options]" << endl
@@ -118,7 +118,7 @@ int main_trace(int argc, char** argv) {
     cerr << "error:[vg trace] start node must be specified with -n" << endl;
     return 1;
   }
-  XG xindex;  
+  xg::XG xindex;  
   ifstream in(xg_name.c_str());
   xindex.load(in);
 

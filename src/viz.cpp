@@ -3,11 +3,11 @@
 
 namespace vg {
 
-Viz::Viz(XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+Viz::Viz(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     init(x, p, n, o, w, h, c, d, t);
 }
 
-void Viz::init(XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
+void Viz::init(xg::XG* x, vector<Packer>* p, const vector<string>& n, const string& o, int w, int h, bool c, bool d, bool t) {
     xgidx = x;
     packs = p;
     pack_names = n;
@@ -41,7 +41,7 @@ void Viz::compute_borders_and_dimensions(void) {
     xgidx->for_each_handle([&](const handle_t& h) {
             id_t id = xgidx->get_id(h);
             double s = node_offset(id);
-            size_t l = xgidx->node_length(id);
+            size_t l = xgidx->get_length(h);
             xgidx->follow_edges(h, false, [&](const handle_t& o) {
                     id_t id2 = xgidx->get_id(o);
                     double s2 = node_offset(id2);
@@ -128,7 +128,7 @@ void Viz::draw_graph(void) {
             // get the start and end position of the node relative to the image
             id_t id = xgidx->get_id(h);
             double s = node_offset(id);
-            size_t l = xgidx->node_length(id);
+            size_t l = xgidx->get_length(h);
             cairo_move_to(cr, s, y_pos);
             cairo_set_line_width(cr, 1);
             cairo_line_to(cr, s+l, y_pos);
@@ -139,7 +139,7 @@ void Viz::draw_graph(void) {
                 cairo_select_font_face(cr, "Arial",
                                        CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
                 cairo_set_font_size(cr, 1);
-                string seq = xgidx->node_sequence(id);
+                string seq = xgidx->get_sequence(h);
                 for (int i = 0; i < seq.size(); ++i) {
                     string c = string(1, seq[i]);
                     cairo_text_extents(cr, c.c_str(), &te);
@@ -169,8 +169,8 @@ void Viz::draw_graph(void) {
         });
     y_pos += 4;
     for (size_t i = 1; show_paths && i <= xgidx->path_count; ++i) {
-        string path_name = xgidx->path_name(i);
-        Path p = xgidx->path(path_name);
+        path_handle_t p = handlegraph::as_path_handle(i);
+        string path_name = xgidx->get_path_name(p);
         // write the path name
         {
             set_hash_color(path_name);
@@ -184,10 +184,13 @@ void Viz::draw_graph(void) {
         // determine counts
         map<id_t, int> counts;
         int max_count = 0;
-        for (auto& m : p.mapping()) {
-            auto& c = counts[m.position().node_id()];
+        step_handle_t step = xgidx->path_begin(p);
+        step_handle_t path_end = xgidx->path_end(p);
+        while (step != path_end) {
+            auto& c = counts[xgidx->get_id(xgidx->get_handle_of_step(step))];
             ++c;
             max_count = max(c, max_count);
+            step = xgidx->get_next_step(step);
         }
         for (auto& c : counts) {
             //set_hash_color(path_name);
@@ -196,7 +199,7 @@ void Viz::draw_graph(void) {
 
             id_t id = c.first;
             double s = node_offset(id);
-            size_t l = xgidx->node_length(id);
+            size_t l = xgidx->get_length(xgidx->get_handle(id));
             for (int j = 0; j < (!show_cnv ? 1 : c.second); ++j) {
                 cairo_move_to(cr, s, y_pos+(j*2));
                 cairo_set_line_width(cr, 1);

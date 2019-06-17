@@ -352,7 +352,7 @@ int main_find(int argc, char** argv) {
     }
     
     if (xg_name.empty() && mem_reseed_length) {
-        cerr << "error:[vg find] SMEM reseeding requires an XG index. Provide XG index with -x." << endl;
+        cerr << "error:[vg find] SMEM reseeding requires an xg::XG index. Provide xg::XG index with -x." << endl;
         exit(1);
     }
     
@@ -380,9 +380,9 @@ int main_find(int argc, char** argv) {
         vindex->open_read_only(db_name);
     }
 
-    unique_ptr<XG> xindex;
+    unique_ptr<xg::XG> xindex;
     if (!xg_name.empty()) {
-        xindex = vg::io::VPKG::load_one<XG>(xg_name);
+        xindex = vg::io::VPKG::load_one<xg::XG>(xg_name);
     }
     
     unique_ptr<GAMIndex> gam_index;
@@ -712,7 +712,7 @@ int main_find(int argc, char** argv) {
         }
         if (extract_threads) {
             bool extract_reverse = false;
-            map<string, list<XG::thread_t> > threads;
+            map<string, list<xg::XG::thread_t> > threads;
             if (extract_thread_patterns.empty()) {
                 threads = xindex->extract_threads(extract_reverse);
             } else {
@@ -727,7 +727,7 @@ int main_find(int argc, char** argv) {
                 auto& thread = *t.second.begin();
                 auto& thread_name = t.first;
                 Path path;
-                for(XG::ThreadMapping& m : thread) {
+                for(xg::XG::ThreadMapping& m : thread) {
                     // Convert all the mappings
                     Mapping mapping;
                     mapping.mutable_position()->set_node_id(m.node_id);

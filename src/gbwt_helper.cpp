@@ -52,7 +52,7 @@ GBWTGraph::GBWTGraph(const gbwt::GBWT& gbwt_index, const HandleGraph& sequence_s
     // Node n is real, if real_nodes[node_offset(n) / 2] is true.
     size_t potential_nodes = this->index.sigma() - this->index.firstNode();
     this->real_nodes = sdsl::bit_vector(potential_nodes / 2, 0);
-    std::vector<handle_t> handle_cache(potential_nodes / 2); // Getting handles from XG is slow.
+    std::vector<handle_t> handle_cache(potential_nodes / 2); // Getting handles from xg::XG is slow.
     #pragma omp parallel
     {
         #pragma omp single

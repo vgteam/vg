@@ -149,8 +149,8 @@ PathIndex::PathIndex(const list<mapping_t>& mappings, VG& vg) {
     
 }
 
-PathIndex::PathIndex(const Path& path, const XG& index) {
-    // Trace the given path in the given XG graph, collecting sequence
+PathIndex::PathIndex(const Path& path, const xg::XG& index) {
+    // Trace the given path in the given xg::XG graph, collecting sequence
     
     // We're going to build the sequence string
     std::stringstream seq_stream;
@@ -262,7 +262,7 @@ PathIndex::PathIndex(VG& vg, const string& path_name, bool extract_sequence) {
     }
 }
 
-PathIndex::PathIndex(const XG& index, const string& path_name, bool extract_sequence) {
+PathIndex::PathIndex(const xg::XG& index, const string& path_name, bool extract_sequence) {
     // Make sure the path is present
     assert(index.path_rank(path_name) != 0);
     

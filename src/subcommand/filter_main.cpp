@@ -67,7 +67,7 @@ int main_filter(int argc, char** argv) {
     // multiple defaults all over the place.
     ReadFilter filter;
 
-    // What XG index, if any, should we load to support the other options?
+    // What xg::XG index, if any, should we load to support the other options?
     string xg_name;
 
     int c;
@@ -275,11 +275,11 @@ int main_filter(int argc, char** argv) {
     // Sort the prefixes for reads we will accept, for efficient search
     sort(filter.name_prefixes.begin(), filter.name_prefixes.end());
     
-     // If the user gave us an XG index, we probably ought to load it up.
-    unique_ptr<XG> xindex;
+     // If the user gave us an xg::XG index, we probably ought to load it up.
+    unique_ptr<xg::XG> xindex;
     if (!xg_name.empty()) {
         // read the xg index
-        xindex = vg::io::VPKG::load_one<XG>(xg_name);
+        xindex = vg::io::VPKG::load_one<xg::XG>(xg_name);
     }
     filter.xindex = xindex.get();
     

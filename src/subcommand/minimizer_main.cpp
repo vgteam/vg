@@ -44,7 +44,7 @@ using namespace vg::subcommand;
 
 void help_minimizer(char** argv) {
     std::cerr << "usage: " << argv[0] << " minimizer [options] graph.xg" << std::endl;
-    std::cerr << "Builds a minimizer index of the graph in the XG index." << std::endl;
+    std::cerr << "Builds a minimizer index of the graph in the xg::XG index." << std::endl;
     std::cerr << "    -k, --kmer-length N    length of the kmers in the index (default: " << MinimizerIndex::KMER_LENGTH << ")" << std::endl;
     std::cerr << "    -w, --window-length N  index the smallest kmer in a window of N kmers (default: " << MinimizerIndex::WINDOW_LENGTH << ")" << std::endl;
     std::cerr << "    -i, --index-name X     store the index to file X (required)" << std::endl;
@@ -137,10 +137,10 @@ int main_minimizer(int argc, char** argv) {
 
     // Input graph.
     if (progress) {
-        std::cerr << "Loading XG index " << xg_name << std::endl;
+        std::cerr << "Loading xg::XG index " << xg_name << std::endl;
     }
-    std::unique_ptr<XG> xg_index;
-    xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    std::unique_ptr<xg::XG> xg_index;
+    xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
     // Minimizer index.
     std::unique_ptr<MinimizerIndex> index(new MinimizerIndex(kmer_length, window_length));
@@ -163,7 +163,7 @@ int main_minimizer(int argc, char** argv) {
             std::cerr << "Building GBWT-backed graph" << std::endl;
         }
         gbwt_graph.reset(new GBWTGraph(*gbwt_index, *xg_index));
-        xg_index.reset(nullptr); // The XG index is no longer needed.
+        xg_index.reset(nullptr); // The xg::XG index is no longer needed.
     }
 
     // Minimizer caching.

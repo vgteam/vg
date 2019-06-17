@@ -300,7 +300,7 @@ int main_prune(int argc, char** argv) {
 
     // Handle the input.
     VG* graph;
-    XG xg_index;
+    xg::XG xg_index;
     unique_ptr<gbwt::GBWT> gbwt_index;
     get_input_file(optind, argc, argv, [&](std::istream& in) {
         graph = new VG(in);
@@ -310,12 +310,12 @@ int main_prune(int argc, char** argv) {
         std::cerr << "Original graph " << vg_name << ": " << graph->node_count() << " nodes, " << graph->edge_count() << " edges" << std::endl;
     }
 
-    // Remove the paths and build an XG index if needed.
+    // Remove the paths and build an xg::XG index if needed.
     if (mode == mode_restore || mode == mode_unfold) {
         remove_paths(graph->graph, Paths::is_alt, nullptr);
         xg_index.from_graph(graph->graph);
         if (show_progress) {
-            std::cerr << "Built a temporary XG index" << std::endl;
+            std::cerr << "Built a temporary xg::XG index" << std::endl;
         }
     }
     graph->graph.clear_path();
@@ -350,7 +350,7 @@ int main_prune(int argc, char** argv) {
         }
     }
 
-    // Unfold the XG paths and the GBWT threads.
+    // Unfold the xg::XG paths and the GBWT threads.
     if (mode == mode_unfold) {
         if (!gbwt_name.empty()) {
             get_input_file(gbwt_name, [&](std::istream& in) {

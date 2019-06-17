@@ -23,7 +23,7 @@ namespace vg {
     //size_t MultipathMapper::SECONDARY_RESCUE_ATTEMPT = 0;
     //size_t MultipathMapper::SECONDARY_RESCUE_TOTAL = 0;
     
-    MultipathMapper::MultipathMapper(XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+    MultipathMapper::MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                                      haplo::ScoreProvider* haplo_score_provider, SnarlManager* snarl_manager,
                                      MinimumDistanceIndex* distance_index) :
         BaseMapper(xg_index, gcsa_index, lcp_array, haplo_score_provider),
@@ -3300,7 +3300,7 @@ namespace vg {
                 }
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
-                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the xg::XG.
                     haplotype_count = xindex->get_haplotype_count();
                 }
                 
@@ -3623,7 +3623,7 @@ namespace vg {
                 }
                 
                 if (haplotype_count == 0 || haplotype_count == -1) {
-                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+                    // The score provider doesn't ahve a haplotype count. Fall back to the count in the xg::XG.
                     haplotype_count = xindex->get_haplotype_count();
                 }
                 

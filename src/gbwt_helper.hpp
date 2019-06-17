@@ -10,6 +10,7 @@
 #include "handle.hpp"
 #include "position.hpp"
 #include "xg.hpp"
+#include "xg_old.hpp"
 
 #include <gbwt/dynamic_gbwt.h>
 #include <sdsl/int_vector.hpp>
@@ -28,8 +29,8 @@ inline pos_t gbwt_to_pos(gbwt::node_type node, size_t offset) {
     return make_pos_t(gbwt::Node::id(node), gbwt::Node::is_reverse(node), offset);
 }
 
-/// Convert gbwt::node_type to XG:ThreadMapping.
-inline XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
+/// Convert gbwt::node_type to xg::XG:ThreadMapping.
+inline oldxg::XG::ThreadMapping gbwt_to_thread_mapping(gbwt::node_type node) {
     return { static_cast<int64_t>(gbwt::Node::id(node)), gbwt::Node::is_reverse(node) };
 }
 
@@ -48,8 +49,8 @@ inline gbwt::node_type mapping_to_gbwt(const Mapping& mapping) {
     return gbwt::Node::encode(mapping.position().node_id(), mapping.position().is_reverse());
 }
 
-/// Convert a node on XGPath to gbwt::node_type.
-inline gbwt::node_type xg_path_to_gbwt(const XGPath& path, size_t i) {
+/// Convert a node on xg::XGPath to gbwt::node_type.
+inline gbwt::node_type xg_path_to_gbwt(const xg::XGPath& path, size_t i) {
     return gbwt::Node::encode(path.node(i), path.is_reverse(i));
 }
 
@@ -61,7 +62,7 @@ std::string thread_name(const gbwt::GBWT& gbwt_index, size_t i);
 /**
  * A runtime-only HandleGraph implementation that uses GBWT for graph topology and
  * extracts sequences from another HandleGraph. Faster sequence access but slower
- * graph navigation than in XG. Also supports a version of follow_edges() that
+ * graph navigation than in xg::XG. Also supports a version of follow_edges() that
  * takes only paths supported by the indexed haplotypes.
  */
 class GBWTGraph : public HandleGraph {

@@ -10,7 +10,7 @@ using namespace std;
 
 
 
-PathChunker::PathChunker(XG* xindex) : xg(xindex) {
+PathChunker::PathChunker(xg::XG* xindex) : xg(xindex) {
     
 }
 
@@ -23,15 +23,18 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
 
     // extract our path range into the graph
     Graph g;
-    xg->for_path_range(region.seq, region.start, region.end, [&](int64_t id, bool) {
-            *g.add_node() = xg->node(id);
-        });
+    xg->for_path_range(region.seq, region.start, region.end, [&](handle_t handle) {
+            Node node;
+            node.set_id(xg->get_id(handle));
+            node.set_sequence(xg->get_sequence(handle));
+            *g.add_node() = node;
+        }, false);
     
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    xg->expand_context(g, context, true, true, true, !forward_only);
+    xg_expand_context(*xg, g, context, true, true, true, !forward_only);
     if (length) {
-        xg->expand_context(g, context, true, false, true, !forward_only);
+        xg_expand_context(*xg, g, context, true, false, true, !forward_only);
     }
         
     // build the vg of the subgraph
@@ -41,9 +44,9 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     // get our range endpoints before context expansion
     list<mapping_t>& mappings = subgraph.paths.get_path(region.seq);
     size_t mappings_size = mappings.size();
-    int64_t input_start_node = xg->node_at_path_position(region.seq, region.start);
+    handle_t input_start_node = xg->handle_at_path_position(region.seq, region.start);
     vector<size_t> first_positions = xg->position_in_path(input_start_node, region.seq);
-    int64_t input_end_node = xg->node_at_path_position(region.seq, region.end);
+    handle_t input_end_node = xg->handle_at_path_position(region.seq, region.end);
     vector<size_t> last_positions = xg->position_in_path(input_end_node, region.seq);
 
     // the distance between then and the nodes in our input range

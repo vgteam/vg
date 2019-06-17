@@ -1,9 +1,9 @@
-#ifndef VG_IO_REGISTER_LOADER_SAVER_XG_HPP_INCLUDED
-#define VG_IO_REGISTER_LOADER_SAVER_XG_HPP_INCLUDED
+#ifndef VG_IO_REGISTER_LOADER_SAVER_xg::XG_HPP_INCLUDED
+#define VG_IO_REGISTER_LOADER_SAVER_xg::XG_HPP_INCLUDED
 
 /**
  * \file register_loader_saver_xg.hpp
- * Defines IO for an XG index from stream files.
+ * Defines IO for an xg::XG index from stream files.
  */
 
 namespace vg {

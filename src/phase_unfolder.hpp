@@ -3,7 +3,7 @@
 
 /** \file
  * This file contains the PhaseUnfolder, which replaces pruned regions of
- * the graph with paths supported by XG paths or GBWT threads.
+ * the graph with paths supported by xg::XG paths or GBWT threads.
  */
 
 #include "vg.hpp"
@@ -26,7 +26,7 @@ namespace vg {
  * disconnected distinct traversal haplotypes. Use in combination with
  * pruning to simplify the graph for GCSA2 indexing without losing observed
  * variation.
- * Requires the XG index of the original graph and an empty GBWT index or
+ * Requires the xg::XG index of the original graph and an empty GBWT index or
  * an GBWT index of the original graph.
  * Note: PhaseUnfolder only considers paths of length >= 2.
  */
@@ -37,17 +37,17 @@ public:
     typedef std::pair<search_type, path_type> state_type;
 
     /**
-     * Make a new PhaseUnfolder backed by the given XG and GBWT indexes.
+     * Make a new PhaseUnfolder backed by the given xg::XG and GBWT indexes.
      * These indexes must represent the same original graph. 'next_node' should
      * usually be max_node_id() + 1 in the original graph.
      */
-    PhaseUnfolder(const XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
+    PhaseUnfolder(const xg::XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node);
 
     /**
      * Unfold the pruned regions in the input graph:
      *
      * - Determine the connected components of edges missing from the input
-     * graph, as determined by the XG paths and GBWT threads.
+     * graph, as determined by the xg::XG paths and GBWT threads.
      *
      * - For each component, find all border-to-border paths and threads
      * supported by the indexes. Then unfold the component by duplicating the
@@ -59,14 +59,14 @@ public:
     void unfold(VG& graph, bool show_progress = false);
 
     /**
-     * Restore the edges on XG paths. This is effectively the same as
+     * Restore the edges on xg::XG paths. This is effectively the same as
      * unfolding with an empty GBWT index, except that the inserted nodes will
      * have their original identifiers.
      */
     void restore_paths(VG& graph, bool show_progress = false) const;
 
     /**
-     * Verify that the graph contains the XG paths and the GBWT threads in the
+     * Verify that the graph contains the xg::XG paths and the GBWT threads in the
      * backing indexes. Returns the number of paths for which the verification
      * failed. Uses OMP threads.
      */
@@ -115,7 +115,7 @@ private:
     size_t unfold_component(VG& component, VG& graph, VG& unfolded);
 
     /**
-     * Generate all paths supported by the XG index passing through the given
+     * Generate all paths supported by the xg::XG index passing through the given
      * node until the border or until the path ends. Insert the generated
      * paths into the set in the canonical orientation, and use them as
      * reference paths for extending threads.
@@ -156,8 +156,8 @@ private:
     /// Get the id for the duplicate of 'node' before 'to'.
     gbwt::node_type get_suffix(gbwt::node_type node, gbwt::node_type to);
 
-    /// XG and GBWT indexes for the original graph.
-    const XG&     xg_index;
+    /// xg::XG and GBWT indexes for the original graph.
+    const xg::XG&     xg_index;
     const gbwt::GBWT& gbwt_index;
 
     /// Mapping from duplicated nodes to original ids.

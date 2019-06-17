@@ -36,7 +36,7 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
 
 /// We have a helper function to convert path positions and orientations to
 /// pos_t values.
-pos_t position_at(XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse) {
+pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse) {
     Mapping path_mapping = xgidx->mapping_at_path_position(path_name, path_offset);
     id_t id = xgidx->node_at_path_position(path_name, path_offset);
     
@@ -564,7 +564,7 @@ bool Sampler::is_valid(const Alignment& aln) {
 
 const string NGSSimulator::alphabet = "ACGT";
 
-NGSSimulator::NGSSimulator(XG& xg_index,
+NGSSimulator::NGSSimulator(xg::XG& xg_index,
                            const string& ngs_fastq_file,
                            bool interleaved_fastq,
                            const vector<string>& source_paths_input,

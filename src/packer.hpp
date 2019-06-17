@@ -24,9 +24,9 @@ using namespace sdsl;
 class Packer {
 public:
     Packer(void);
-    Packer(XG* xidx, size_t bin_size = 0, bool qual_adjust = false);
+    Packer(xg::XG* xidx, size_t bin_size = 0, bool qual_adjust = false);
     ~Packer(void);
-    XG* xgidx;
+    xg::XG* xgidx;
     void merge_from_files(const vector<string>& file_names);
     void merge_from_dynamic(vector<Packer*>& packers);
     void load_from_file(const string& file_name);

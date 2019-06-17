@@ -133,12 +133,12 @@ int main_pack(int argc, char** argv) {
 
     omp_set_num_threads(thread_count);
 
-    unique_ptr<XG> xgidx;
+    unique_ptr<xg::XG> xgidx;
     if (xg_name.empty()) {
-        cerr << "No XG index given. An XG index must be provided." << endl;
+        cerr << "No xg::XG index given. An xg::XG index must be provided." << endl;
         exit(1);
     } else {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<xg::XG>(xg_name);
     }
 
     // process input node list

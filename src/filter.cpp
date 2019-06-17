@@ -309,7 +309,7 @@ namespace vg{
         my_vg = vg;
     }
 
-    void Filter::set_my_xg_idx(XG* idx){
+    void Filter::set_my_xg_idx(xg::XG* idx){
         my_xg_index = idx;
     }
 
@@ -857,7 +857,7 @@ namespace vg{
 
     vector<Alignment> Filter::remap(Alignment& aln){
         if (this->my_xg_index == NULL || this->gcsa_ind == NULL || this->my_mapper == NULL){
-            cerr << "An XG and GCSA are required for remapping." << endl;
+            cerr << "An xg::XG and GCSA are required for remapping." << endl;
             exit(1337);
         }
 
@@ -867,7 +867,7 @@ namespace vg{
 
     vector<Alignment> Filter::remap(string seq){
         if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
-            cerr << "An XG and GCSA are required for remapping." << endl;
+            cerr << "An xg::XG and GCSA are required for remapping." << endl;
             exit(1337);
         }
 
@@ -891,7 +891,7 @@ namespace vg{
     bool Filter::split_read_filter(Alignment& aln){
 
         if (this->my_xg_index == NULL || this->gcsa_ind == NULL){
-            cerr << "An XG and GCSA are required for split read processing." << endl;
+            cerr << "An xg::XG and GCSA are required for split read processing." << endl;
             exit(1337);
         }
         bool flagged = false;

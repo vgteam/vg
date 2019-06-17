@@ -74,33 +74,33 @@ int64_t VGset::merge_id_space(void) {
     return max_node_id;
 }
 
-void VGset::to_xg(XG& index, bool store_threads) {
+void VGset::to_xg(xg::XG& index, bool store_threads) {
     // Send a predicate to match nothing
     to_xg(index, store_threads, [](const string& ignored) {
         return false;
     });
 }
 
-void VGset::to_xg(XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths) {
+void VGset::to_xg(xg::XG& index, bool store_threads, const regex& paths_to_take, map<string, Path>* removed_paths) {
     to_xg(index, store_threads, [&](const string& path_name) -> bool {
         // Take paths that match the regex.
         return std::regex_match(path_name, paths_to_take);
     }, removed_paths);
 }
 
-void VGset::to_xg(XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
+void VGset::to_xg(xg::XG& index, bool store_threads, const function<bool(const string&)>& paths_to_take, map<string, Path>* removed_paths) {
     
     // We need to recostruct full removed paths from fragmentary paths encountered in each chunk.
     // This maps from path name to all the Mappings in the path in the order we encountered them
     map<string, list<Mapping>> mappings;
     
-    // Set up an XG index
+    // Set up an xg::XG index
     index.from_callback([&](function<void(Graph&)> callback) {
         for (auto& name : filenames) {
 #ifdef debug
             cerr << "Loading chunks from " << name << endl;
 #endif
-            // Load chunks from all the files and pass them into XG.
+            // Load chunks from all the files and pass them into xg::XG.
             std::ifstream in(name);
             
             if (name == "-"){
@@ -175,7 +175,7 @@ void VGset::to_xg(XG& index, bool store_threads, const function<bool(const strin
             }
             
 #ifdef debug
-            cerr << "Got all chunks; building XG index" << endl;
+            cerr << "Got all chunks; building xg::XG index" << endl;
 #endif
         }
     });

@@ -93,10 +93,10 @@ gbwt::GBWT build_gbwt_index() {
 
 TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
 
-    // Build an XG index.
+    // Build an xg::XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -143,7 +143,7 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
     }
 
     // Node sequences and sequence lengths.
-    SECTION("node sequences match those in XG") {
+    SECTION("node sequences match those in xg::XG") {
         for (id_t id : correct_nodes) {
             handle_t gbwt_fw = gbwt_graph.get_handle(id, false);
             handle_t gbwt_rev = gbwt_graph.get_handle(id, true);
@@ -343,10 +343,10 @@ TEST_CASE("GBWTGraph works correctly", "[gbwt_helper]") {
 
 TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper]") {
 
-    // Build an XG index.
+    // Build an xg::XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index(graph);
 
     // Build a GBWT with three threads including a duplicate.
     gbwt::GBWT gbwt_index = build_gbwt_index();
@@ -407,10 +407,10 @@ TEST_CASE("for_each_window() finds the correct windows with GBWT", "[gbwt_helper
 
 TEST_CASE("for_each_window() finds the correct windows without GBWT", "[gbwt_helper]") {
 
-    // Build an XG index.
+    // Build an xg::XG index.
     Graph graph;
     json2pb(graph, gbwt_helper_graph.c_str(), gbwt_helper_graph.size());
-    XG xg_index(graph);
+    xg::XG xg_index(graph);
 
     // These are the windows the traversal should find.
     typedef std::pair<std::vector<handle_t>, std::string> kmer_type;

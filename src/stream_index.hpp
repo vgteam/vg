@@ -219,7 +219,7 @@ public:
     /// Save an index to a file.
     void save(ostream& to) const;
     
-    // Like the XG we support versioning.
+    // Like the xg::XG we support versioning.
     
     /// What's the maximum index version number we can read with this code?
     const static uint32_t MAX_INPUT_VERSION = 1;

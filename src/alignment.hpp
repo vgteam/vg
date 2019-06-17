@@ -14,6 +14,7 @@
 #include "htslib/hts.h"
 #include "htslib/sam.h"
 #include "htslib/vcf.h"
+#include "handle.hpp"
 
 namespace vg {
 
@@ -21,8 +22,8 @@ const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
-int hts_for_each(string& filename, function<void(Alignment&)> lambda, XG* xgindex);
-int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, XG* xgindex);
+int hts_for_each(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex);
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda, xg::XG* xgindex);
 int fastq_for_each(string& filename, function<void(Alignment&)> lambda);
 bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment);
 bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
@@ -59,9 +60,9 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(const vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 
-void cigar_mapping(const bam1_t *b, Mapping& mapping, XG* xgindex);
+void cigar_mapping(const bam1_t *b, Mapping& mapping, xg::XG* xgindex);
 
-Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, XG* xgindex);
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample, const bam_hdr_t *bh, xg::XG* xgindex);
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
 /**
@@ -141,7 +142,7 @@ string alignment_to_sam(const Alignment& alignment,
 /// which is why it is passed by reference.
 vector<pair<int, char>> cigar_against_path(const Alignment& alignment, bool on_reverse_strand, int64_t& pos, size_t path_len, size_t softclip_suppress);
 
-void mapping_against_path(Alignment& alignment, const bam1_t *b, XG* xgindex, bool on_reverse_strand);
+void mapping_against_path(Alignment& alignment, const bam1_t *b, xg::XG* xgindex, bool on_reverse_strand);
 
 /// Work out the TLEN values for two reads. The magnitude is the distance
 /// between the outermost aligned bases, and the sign is positive for the
@@ -217,8 +218,8 @@ map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 /// Parse regions from the given BED file into Alignments in a vector.
 /// Reads the optional name, is_reverse, and score fields if present, and populates the relevant Alignment fields.
 /// Skips and warns about malformed or illegal BED records.
-void parse_bed_regions(istream& bedstream, XG* xgindex, vector<Alignment>* out_alignments);
-void parse_gff_regions(istream& gtfstream, XG* xgindex, vector<Alignment>* out_alignments);
+void parse_bed_regions(istream& bedstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
+void parse_gff_regions(istream& gtfstream, xg::XG* xgindex, vector<Alignment>* out_alignments);
 
 Position alignment_start(const Alignment& aln);
 Position alignment_end(const Alignment& aln);Position alignment_start(const Alignment& aln);

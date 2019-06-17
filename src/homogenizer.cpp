@@ -3,7 +3,7 @@
 using namespace std;
 using namespace vg;
 
-void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index){
+void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index){
     /**
      * Pattern for SV homogenization
      * 1. Locate SV-indicating reads with Sift. Save them in a gam file
@@ -19,7 +19,7 @@ void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index
     }
 
 
-void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths, int kmer_size){
+void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths, int kmer_size){
 
     bool in_mem_path_only = true;
 
@@ -128,7 +128,7 @@ void Homogenizer::homogenize(vg::VG* o_graph, XG* xindex, gcsa::GCSA* gcsa_index
         
         /** Reindex graph and reset mapper **/
         //delete xindex;
-        //xindex = new XG(o_graph->graph);
+        //xindex = new xg::XG(o_graph->graph);
         //delete gcsa_index;
         //delete lcp_index;
         //o_graph->build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, in_mem_path_only, false, 2);

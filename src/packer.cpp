@@ -8,7 +8,7 @@ const int Packer::lru_cache_size = 50;
 
 Packer::Packer(void) : xgidx(nullptr), qual_adjust(false), quality_cache(nullptr) { }
 
-Packer::Packer(XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
+Packer::Packer(xg::XG* xidx, size_t binsz, bool qual_adjust) : xgidx(xidx), bin_size(binsz), qual_adjust(qual_adjust) {
     coverage_dynamic = gcsa::CounterArray(xgidx->seq_length, qual_adjust ? 16 : 8);
     edge_coverage_dynamic = gcsa::CounterArray(xgidx->get_g_iv_size(), qual_adjust ? 16 : 8);
     if (binsz) n_bins = xgidx->seq_length / bin_size + 1;
@@ -307,12 +307,8 @@ void Packer::add(const Alignment& aln, bool record_edits) {
         if (mi > 0 && prev_mapping.position().node_id() != mapping.position().node_id()) {
             // Note: we are effectively ignoring edits here.  So an edge is covered even
             // if there's a sub or indel at either of its ends in the path.  
-            Edge e;
-            e.set_from(prev_mapping.position().node_id());
-            e.set_from_start(prev_mapping.position().is_reverse());
-            e.set_to(mapping.position().node_id());
-            e.set_to_end(mapping.position().is_reverse());
-            size_t edge_idx = xgidx->edge_graph_idx(e);
+            size_t edge_idx = xgidx->edge_graph_idx(xgidx->get_handle(prev_mapping.position().node_id(), prev_mapping.position().is_reverse()),
+                                                    xgidx->get_handle(mapping.position().node_id(), mapping.position().is_reverse()));
             if (edge_idx != 0) {
                 if (!qual_adjust) {
                     edge_coverage_dynamic.increment(edge_idx);
@@ -441,7 +437,8 @@ size_t Packer::edge_coverage(size_t i) const {
 }
 
 size_t Packer::edge_coverage(Edge& e) const {
-    size_t pos = xgidx->edge_graph_idx(e);
+    size_t pos = xgidx->edge_graph_idx(xgidx->get_handle(e.from(), e.from_start()),
+                                       xgidx->get_handle(e.to(), e.to_end()));
     if (is_compacted){
         return edge_coverage_civ[pos];
     }
@@ -536,7 +533,8 @@ ostream& Packer::as_edge_table(ostream& out, vector<vg::id_t> node_ids) {
                     << edge.from_start() << "\t"
                     << edge.to() << "\t"
                     << edge.to_end() << "\t"
-                    << edge_coverage_civ[xgidx->edge_graph_idx(edge)]
+                    << edge_coverage_civ[xgidx->edge_graph_idx(xgidx->get_handle(edge.from(), edge.from_start()),
+                                                               xgidx->get_handle(edge.to(), edge.to_end()))]
                     << endl;
             }
             return true;

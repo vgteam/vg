@@ -157,13 +157,13 @@ class BaseMapper : public AlignerClient {
     
 public:
     /**
-     * Make a BaseMapper that pulls from an XG succinct graph and a GCSA2 kmer
+     * Make a BaseMapper that pulls from an xg::XG succinct graph and a GCSA2 kmer
      * index + LCP array, and which can score reads against haplotypes using
      * the given ScoreProvider.
      *
      * If the GCSA and LCPArray are null, cannot do search, only alignment.
      */
-    BaseMapper(XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
+    BaseMapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     BaseMapper(void);
     
     /// We need to be able to estimate the GC content from the GCSA index in the constructor.
@@ -196,7 +196,7 @@ public:
     // Designating reseed_length returns minimally-more-frequent sub-MEMs in addition to SMEMs when SMEM is >= reseed_length.
     // Minimally-more-frequent sub-MEMs are MEMs contained in an SMEM that have occurrences outside of the SMEM.
     // SMEMs and sub-MEMs will be automatically filled with the nodes they contain, which the occurrences of the sub-MEMs
-    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an XG index)
+    // that are inside SMEM hits filtered out. (filling sub-MEMs currently requires an xg::XG index)
     
     vector<MaximalExactMatch>
     find_mems_deep(string::const_iterator seq_begin,
@@ -334,7 +334,7 @@ protected:
     thread_local static vector<size_t> adaptive_reseed_length_memo;
     
     // xg index
-    XG* xindex = nullptr;
+    xg::XG* xindex = nullptr;
     
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa = nullptr;
@@ -467,9 +467,9 @@ protected:
     // make the bands used in banded alignment
     vector<Alignment> make_bands(const Alignment& read, int band_width, int band_overlap, vector<pair<int, int>>& to_strip);
 public:
-    // Make a Mapper that pulls from an XG succinct graph, a GCSA2 kmer index +
+    // Make a Mapper that pulls from an xg::XG succinct graph, a GCSA2 kmer index +
     // LCP array, and an optional haplotype score provider.
-    Mapper(XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a, haplo::ScoreProvider* haplo_score_provider = nullptr);
     Mapper(void);
     ~Mapper(void);
 
@@ -523,9 +523,9 @@ public:
     Alignment mem_to_alignment(const MaximalExactMatch& mem);
     
     /// Use the scoring provided by the internal aligner to re-score the
-    /// alignment, scoring gaps between nodes using graph distance from the XG
+    /// alignment, scoring gaps between nodes using graph distance from the xg::XG
     /// index. Can use either approximate or exact (with approximate fallback)
-    /// XG-based distance estimation. Will strip out bonuses if the appropriate
+    /// xg::XG-based distance estimation. Will strip out bonuses if the appropriate
     /// Mapper flag is set.
     /// Does not apply a haplotype consistency bonus, as this function is intended for alignments with large gaps.
     int32_t score_alignment(const Alignment& aln, bool use_approx_distance = false);
@@ -627,11 +627,6 @@ public:
     vector<pos_t> likely_mate_positions(const Alignment& aln, bool is_first);
     // get the node approximately at the given offset relative to our position (offset may be negative)
     id_t node_approximately_at(int64_t approx_pos);
-    // convert a single MEM hit into an alignment (by definition, a perfect one)
-    Alignment walk_match(const string& seq, pos_t pos);
-    vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
-    // convert the set of hits of a MEM into a set of alignments
-    vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
 
     // fargment length estimation
     map<string, int64_t> min_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);

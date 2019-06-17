@@ -140,7 +140,7 @@ int main_gaffe(int argc, char** argv) {
             case 'x':
                 xg_name = optarg;
                 if (xg_name.empty()) {
-                    cerr << "error:[vg gaffe] Must provide XG file with -x." << endl;
+                    cerr << "error:[vg gaffe] Must provide xg::XG file with -x." << endl;
                     exit(1);
                 }
                 break;
@@ -271,7 +271,7 @@ int main_gaffe(int argc, char** argv) {
     
     
     if (xg_name.empty()) {
-        cerr << "error:[vg gaffe] Mapping requires an XG index (-x)" << endl;
+        cerr << "error:[vg gaffe] Mapping requires an xg::XG index (-x)" << endl;
         exit(1);
     }
     
@@ -293,9 +293,9 @@ int main_gaffe(int argc, char** argv) {
     
     // create in-memory objects
     if (progress) {
-        cerr << "Loading XG index " << xg_name << endl;
+        cerr << "Loading xg::XG index " << xg_name << endl;
     }
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;

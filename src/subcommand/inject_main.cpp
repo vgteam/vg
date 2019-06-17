@@ -79,12 +79,12 @@ int main_inject(int argc, char** argv) {
 
     string file_name = get_input_file_name(optind, argc, argv);
 
-    // We require an XG index
+    // We require an xg::XG index
     if (xg_name.empty()) {
-        cerr << "error[vg inject]: XG index (-x) is required" << endl;
+        cerr << "error[vg inject]: xg::XG index (-x) is required" << endl;
         exit(1);
     }
-    auto xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+    auto xgidx = vg::io::VPKG::load_one<xg::XG>(xg_name);
 
     vg::io::ProtobufEmitter<Alignment> buf(cout);
     function<void(Alignment&)> lambda = [&buf](Alignment& aln) {

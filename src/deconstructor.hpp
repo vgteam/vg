@@ -19,7 +19,7 @@
 * New functionality:
 * -Detect superbubbles and bubbles
 * -Fix command line interface.
-* -harmonize on XG / raw graph (i.e. deprecate index)
+* -harmonize on xg::XG / raw graph (i.e. deprecate index)
 * -Use unroll/DAGify if needed to avoid cycles
 
 ** Much of this is taken from Brankovic's

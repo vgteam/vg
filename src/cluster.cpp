@@ -1248,7 +1248,7 @@ vector<MEMClusterer::cluster_t> MEMClusterer::clusters(const Alignment& alignmen
     
 }
     
-PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(XG* xgindex, bool unstranded) :
+PathOrientedDistanceMeasurer::PathOrientedDistanceMeasurer(xg::XG* xgindex, bool unstranded) :
     xgindex(xgindex), unstranded(unstranded) {
     
 }
@@ -3376,7 +3376,7 @@ vector<pair<pair<size_t, size_t>, int64_t>> MinDistanceClusterer::pair_clusters(
 }
     
 // collect node starts to build out graph
-vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, const vg::MaximalExactMatch& mem) {
+vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const xg::XG& xg, const vg::MaximalExactMatch& mem) {
     // walk the match, getting all the nodes that it touches
     string mem_seq = mem.sequence();
     vector<pair<gcsa::node_type, size_t> > positions;
@@ -3437,7 +3437,7 @@ vector<pair<gcsa::node_type, size_t> > mem_node_start_positions(const XG& xg, co
     return positions;
 }
 
-Graph cluster_subgraph_walk(const XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+Graph cluster_subgraph_walk(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());
@@ -3483,7 +3483,7 @@ Graph cluster_subgraph_walk(const XG& xg, const Alignment& aln, const vector<vg:
     return graph;
 }
 
-Graph cluster_subgraph(const XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
+Graph cluster_subgraph(const xg::XG& xg, const Alignment& aln, const vector<vg::MaximalExactMatch>& mems, double expansion) {
     assert(mems.size());
     auto& start_mem = mems.front();
     auto start_pos = make_pos_t(start_mem.nodes.front());

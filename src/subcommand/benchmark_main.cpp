@@ -116,8 +116,8 @@ int main_benchmark(int argc, char** argv) {
     // Save a constant copy to reset it with
     const VG vg(vg_mut);
     
-    // Get an XG for it
-    const XG xg_index(vg_mut.graph);
+    // Get an xg::XG for it
+    const xg::XG xg_index(vg_mut.graph);
     
     // And an IndexedVG
     auto filename = temp_file::create();
@@ -160,7 +160,7 @@ int main_benchmark(int argc, char** argv) {
             }
         }));
         
-        results.push_back(run_benchmark("XG::get_sequence", 1000, [&]() {
+        results.push_back(run_benchmark("xg::XG::get_sequence", 1000, [&]() {
             for (size_t i = 1; i < 101; i++) {
                 handle_t handle = xg_index.get_handle(i);
                 string sequence = xg_index.get_sequence(handle);

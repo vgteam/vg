@@ -22,7 +22,7 @@ using namespace sdsl;
 using namespace vg;
 class Vectorizer{
   public:
-    Vectorizer(XG* x);
+    Vectorizer(xg::XG* x);
     ~Vectorizer();
     void add_bv(bit_vector v);
     void add_name(string n);
@@ -58,7 +58,7 @@ class Vectorizer{
         return sout.str();
     }
   private:
-    XG* my_xg;
+    xg::XG* my_xg;
     //We use vectors for both names and bit vectors because we want to allow the use of duplicate
     // names. This allows things like generating simulated data with true cluster as the name.
     vector<bit_vector> my_vectors;

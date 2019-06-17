@@ -636,7 +636,7 @@ int main_map(int argc, char** argv) {
     gcsa::TempFile::setDirectory(temp_file::get_dir());
 
     // Load up our indexes.
-    unique_ptr<XG> xgidx;
+    unique_ptr<xg::XG> xgidx;
     unique_ptr<gcsa::GCSA> gcsa;
     unique_ptr<gcsa::LCPArray> lcp;
     unique_ptr<gbwt::GBWT> gbwt;
@@ -650,12 +650,12 @@ int main_map(int argc, char** argv) {
     if(xg_stream) {
         // We have an xg index!
         
-        // TODO: tell when the user asked for an XG vs. when we guessed one,
+        // TODO: tell when the user asked for an xg::XG vs. when we guessed one,
         // and error when the user asked for one and we can't find it.
         if(debug) {
             cerr << "Loading xg index " << xg_name << "..." << endl;
         }
-        xgidx = vg::io::VPKG::load_one<XG>(xg_stream);
+        xgidx = vg::io::VPKG::load_one<xg::XG>(xg_stream);
     }
 
     ifstream gcsa_stream(gcsa_name);
@@ -786,7 +786,7 @@ int main_map(int argc, char** argv) {
             m = new Mapper(xgidx.get(), gcsa.get(), lcp.get(), haplo_score_provider);
         } else {
             // Can't continue with null
-            throw runtime_error("Need XG, GCSA, and LCP to create a Mapper");
+            throw runtime_error("Need xg::XG, GCSA, and LCP to create a Mapper");
         }
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;

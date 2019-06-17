@@ -28,7 +28,7 @@ public:
      * Construct a new MinimizerMapper using the given indexes.
      */
 
-    MinimizerMapper(const XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
+    MinimizerMapper(const xg::XG* xg_index, const gbwt::GBWT* gbwt_index, const MinimizerIndex* minimizer_index,
          MinimumDistanceIndex* distance_index);
 
     /**
@@ -66,12 +66,12 @@ public:
 
 protected:
     // These are our indexes
-    const XG* xg_index;
+    const xg::XG* xg_index;
     const gbwt::GBWT* gbwt_index;
     const MinimizerIndex* minimizer_index;
     MinimumDistanceIndex* distance_index;
 
-    /// We have a GBWTGraph over the GBWT and the XG
+    /// We have a GBWTGraph over the GBWT and the xg::XG
     GBWTGraph gbwt_graph;
     
     /// We have a gapless extender to extend seed hits in haplotype space.

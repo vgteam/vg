@@ -3,7 +3,7 @@
 using namespace std;
 using namespace vg;
 using namespace sdsl;
-Vectorizer::Vectorizer(XG* x) : my_xg(x){
+Vectorizer::Vectorizer(xg::XG* x) : my_xg(x){
 
 }
 

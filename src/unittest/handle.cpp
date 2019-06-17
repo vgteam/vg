@@ -113,7 +113,7 @@ TEST_CASE( "Handle utility functions work", "[handle]" ) {
     
 }
 
-TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
+TEST_CASE("VG and xg::XG handle implementations are correct", "[handle][vg][xg]") {
     
     // Make a vg graph
     VG vg;
@@ -143,7 +143,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
     vg.create_edge(n8, n9);
     
     // Make an xg out of it
-    XG xg_index(vg.graph);
+    xg::XG xg_index(vg.graph);
     
     SECTION("Each graph exposes the right nodes") {
         
@@ -367,7 +367,7 @@ TEST_CASE("VG and XG handle implementations are correct", "[handle][vg][xg]") {
         }
     }
 
-    SECTION("Handle graph subsequence accessors for VG and XG work") {
+    SECTION("Handle graph subsequence accessors for VG and xg::XG work") {
         
         for (const HandleGraph* g : {(HandleGraph*) &vg, (HandleGraph*) &xg_index}) {
             REQUIRE(g->get_sequence(g->get_handle(n0->id(), false)) == "CGA");
@@ -1602,7 +1602,7 @@ TEST_CASE("DeletableHandleGraphs are correct", "[handle][vg][packed][hashgraph]"
     }
 }
     
-TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]") {
+TEST_CASE("VG and xg::XG path handle implementations are correct", "[handle][vg][xg]") {
     
     // Make a vg graph
     VG vg;
@@ -1686,10 +1686,10 @@ TEST_CASE("VG and XG path handle implementations are correct", "[handle][vg][xg]
     vg.paths.extend(path2);
     vg.paths.extend(path3);
     
-    // also add the paths to the Protobuf graph so that they're XG'able
+    // also add the paths to the Protobuf graph so that they're xg::XG'able
     vg.paths.to_graph(vg.graph);
     
-    XG xg_index(vg.graph);
+    xg::XG xg_index(vg.graph);
     
     SECTION("Handles can find all paths") {
         

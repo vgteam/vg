@@ -59,7 +59,7 @@ namespace vg {
         // Interface
         ////////////////////////////////////////////////////////////////////////
     
-        MultipathMapper(XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
+        MultipathMapper(xg::XG* xg_index, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_array,
                         haplo::ScoreProvider* haplo_score_provider = nullptr, SnarlManager* snarl_manager = nullptr,
                         MinimumDistanceIndex* distance_index = nullptr);
         ~MultipathMapper();
@@ -124,7 +124,7 @@ namespace vg {
         // There must be a ScoreProvider provided, and a positive population_max_paths, if this is true
         bool use_population_mapqs = false;
         // If this is nonzero, it takes precedence over any haplotype count
-        // available from the score provider or the XG index. If neither of
+        // available from the score provider or the xg::XG index. If neither of
         // those has a haplotype count, this must be set for haplotype scoring
         // to work.
         size_t force_haplotype_count = 0;

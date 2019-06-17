@@ -280,7 +280,7 @@ int main_mpmap(int argc, char** argv) {
             case 'x':
                 xg_name = optarg;
                 if (xg_name.empty()) {
-                    cerr << "error:[vg mpmap] Must provide XG file with -x." << endl;
+                    cerr << "error:[vg mpmap] Must provide xg::XG file with -x." << endl;
                     exit(1);
                 }
                 break;
@@ -823,7 +823,7 @@ int main_mpmap(int argc, char** argv) {
     // ensure required parameters are provided
     
     if (xg_name.empty()) {
-        cerr << "error:[vg mpmap] Multipath mapping requires an XG index, must provide XG file (-x)" << endl;
+        cerr << "error:[vg mpmap] Multipath mapping requires an xg::XG index, must provide xg::XG file (-x)" << endl;
         exit(1);
     }
     
@@ -836,7 +836,7 @@ int main_mpmap(int argc, char** argv) {
     
     ifstream xg_stream(xg_name);
     if (!xg_stream) {
-        cerr << "error:[vg mpmap] Cannot open XG file " << xg_name << endl;
+        cerr << "error:[vg mpmap] Cannot open xg::XG file " << xg_name << endl;
         exit(1);
     }
     
@@ -906,7 +906,7 @@ int main_mpmap(int argc, char** argv) {
     
     // Load required indexes
     
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_stream);
+    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_stream);
     unique_ptr<gcsa::GCSA> gcsa_index = vg::io::VPKG::load_one<gcsa::GCSA>(gcsa_stream);
     unique_ptr<gcsa::LCPArray> lcp_array = vg::io::VPKG::load_one<gcsa::LCPArray>(lcp_stream);
     
@@ -939,7 +939,7 @@ int main_mpmap(int argc, char** argv) {
         sublinearLS = new linear_haplo_structure(ls_stream, -9 * 2.3, -6 * 2.3, *xg_index.get(), xg_ref_rank);
         haplo_score_provider = new haplo::LinearScoreProvider(*sublinearLS);
     }
-    // TODO: Allow using haplo::XGScoreProvider?
+    // TODO: Allow using haplo::xg::XGScoreProvider?
     
     unique_ptr<SnarlManager> snarl_manager;
     if (!snarls_name.empty()) {
@@ -949,7 +949,7 @@ int main_mpmap(int argc, char** argv) {
     unique_ptr<MinimumDistanceIndex> distance_index;
     if (!distance_index_name.empty()) {
         // We want a diatance index.
-        // We know we have an XG already.
+        // We know we have an xg::XG already.
         
         // Load the index
         distance_index = vg::io::VPKG::load_one<MinimumDistanceIndex>(distance_index_stream);

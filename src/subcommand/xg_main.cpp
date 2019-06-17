@@ -243,25 +243,25 @@ int main_xg(int argc, char** argv) {
         }
     }
 
-    unique_ptr<XG> graph;
+    unique_ptr<xg::XG> graph;
     //string file_name = argv[optind];
     if (in_name.empty()) assert(!vg_in.empty());
     if (vg_in == "-") {
         // Read VG from stdin
-        graph = unique_ptr<XG>(new XG());
+        graph = unique_ptr<xg::XG>(new xg::XG());
         graph->from_stream(std::cin, validate_graph, print_graph, store_threads, is_sorted_dag);
     } else if (vg_in.size()) {
         // Read VG from a file
         ifstream in;
         in.open(vg_in.c_str());
-        graph = unique_ptr<XG>(new XG());
+        graph = unique_ptr<xg::XG>(new xg::XG());
         graph->from_stream(in, validate_graph, print_graph, store_threads, is_sorted_dag);
     }
 
     if (in_name.size()) {
         get_input_file(in_name, [&](istream& in) {
-            // Load from an XG file or - (stdin)
-            graph = vg::io::VPKG::load_one<XG>(in);
+            // Load from an xg::XG file or - (stdin)
+            graph = vg::io::VPKG::load_one<xg::XG>(in);
         });
     }
 
@@ -301,7 +301,7 @@ int main_xg(int argc, char** argv) {
         ostream& out = (out_name == "-") ? std::cout : out_file;
         
         // Encapsulate output in VPKG
-        vg::io::VPKG::with_save_stream(out, "XG", [&](ostream& tagged) {
+        vg::io::VPKG::with_save_stream(out, "xg::XG", [&](ostream& tagged) {
             // Serialize to the file while recording space usage to the structure.
             graph->serialize_and_measure(tagged, structure.get(), "xg");
         });
@@ -401,7 +401,7 @@ int main_xg(int argc, char** argv) {
     }
     
     if (extract_threads) {
-        list<XG::thread_t> threads;
+        list<xg::XG::thread_t> threads;
         for (auto& p : graph->extract_threads(false)) {
             for (auto& t : p.second) {
                 threads.push_back(t);
@@ -414,10 +414,10 @@ int main_xg(int argc, char** argv) {
         }
 
         size_t thread_number = 0;
-        for(XG::thread_t& thread : threads) {
+        for(xg::XG::thread_t& thread : threads) {
             // Convert to a Path
             Path path;
-            for(XG::ThreadMapping& m : thread) {
+            for(xg::XG::ThreadMapping& m : thread) {
                 // Convert all the mappings
                 Mapping mapping;
                 mapping.mutable_position()->set_node_id(m.node_id);

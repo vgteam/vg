@@ -8,13 +8,13 @@ namespace vg {
 
 using namespace std;
 
-void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_database,
+void trace_haplotypes_and_paths(vg::xg::XG& index, const gbwt::GBWT* haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
                                 bool expand_graph) {
   // get our haplotypes
-  XG::ThreadMapping n = {start_node, false};
+  xg::XG::ThreadMapping n = {start_node, false};
   vector<pair<thread_t,int> > haplotypes = haplotype_database ?
     list_haplotypes(index, *haplotype_database, n, extend_distance) :
     list_haplotypes(index, n, extend_distance);
@@ -45,13 +45,13 @@ void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_datab
 
 
 void output_haplotype_counts(ostream& annotation_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, vg::XG& index) {
+            vector<pair<thread_t,int>>& haplotype_list, vg::xg::XG& index) {
   for(int i = 0; i < haplotype_list.size(); i++) {
     annotation_ostream << i << "\t" << haplotype_list[i].second << endl;
   }
 }
 
-Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, vg::XG& index) {
+Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, vg::xg::XG& index) {
   Graph g;
   set<int64_t> nodes;
   set<pair<int,int> > edges;
@@ -69,7 +69,7 @@ Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_lis
 }
  
 void output_graph_with_embedded_paths(ostream& subgraph_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, vg::XG& index, bool json) {
+            vector<pair<thread_t,int>>& haplotype_list, vg::xg::XG& index, bool json) {
   Graph g = output_graph_with_embedded_paths(haplotype_list, index);
 
   if (json) {
@@ -81,7 +81,7 @@ void output_graph_with_embedded_paths(ostream& subgraph_ostream,
   }
 }
 
-void thread_to_graph_spanned(thread_t& t, Graph& g, vg::XG& index) {
+void thread_to_graph_spanned(thread_t& t, Graph& g, vg::xg::XG& index) {
   set<int64_t> nodes;
   set<pair<int,int> > edges;
   nodes.insert(t[0].node_id);
@@ -116,7 +116,7 @@ void add_thread_edges_to_set(thread_t& t, set<pair<int,int> >& edges) {
   }
 }
 
-void construct_graph_from_nodes_and_edges(Graph& g, vg::XG& index,
+void construct_graph_from_nodes_and_edges(Graph& g, vg::xg::XG& index,
             set<int64_t>& nodes, set<pair<int,int> >& edges) {
   for (auto& n : nodes) {
 	   *g.add_node() = index.node(n);
@@ -131,7 +131,7 @@ void construct_graph_from_nodes_and_edges(Graph& g, vg::XG& index,
   }
 }
 
-Path path_from_thread_t(thread_t& t, vg::XG& index) {
+Path path_from_thread_t(thread_t& t, vg::xg::XG& index) {
 	Path toReturn;
 	int rank = 1;
 	for(int i = 0; i < t.size(); i++) {
@@ -154,21 +154,21 @@ Path path_from_thread_t(thread_t& t, vg::XG& index) {
     return toReturn;
 }
 
-vector<pair<thread_t,int> > list_haplotypes(vg::XG& index,
-            XG::ThreadMapping start_node, int extend_distance) {
-  vector<pair<thread_t,XG::ThreadSearchState> > search_intermediates;
+vector<pair<thread_t,int> > list_haplotypes(vg::xg::XG& index,
+            xg::XG::ThreadMapping start_node, int extend_distance) {
+  vector<pair<thread_t,xg::XG::ThreadSearchState> > search_intermediates;
   vector<pair<thread_t,int> > search_results;
   thread_t first_thread = {start_node};
-  XG::ThreadSearchState first_state;
+  xg::XG::ThreadSearchState first_state;
   index.extend_search(first_state,first_thread);
   vector<Edge> edges = start_node.is_reverse ?
             index.edges_on_start(start_node.node_id) :
             index.edges_on_end(start_node.node_id);
   for(int i = 0; i < edges.size(); i++) {
-    XG::ThreadMapping next_node;
+    xg::XG::ThreadMapping next_node;
     next_node.node_id = edges[i].to();
     next_node.is_reverse = edges[i].to_end();
-    XG::ThreadSearchState new_state = first_state;
+    xg::XG::ThreadSearchState new_state = first_state;
     thread_t t = {next_node};
     index.extend_search(new_state, t);
     thread_t new_thread = first_thread;
@@ -178,7 +178,7 @@ vector<pair<thread_t,int> > list_haplotypes(vg::XG& index,
     }
   }
   while(search_intermediates.size() > 0) {
-    pair<thread_t,XG::ThreadSearchState> last = search_intermediates.back();
+    pair<thread_t,xg::XG::ThreadSearchState> last = search_intermediates.back();
     search_intermediates.pop_back();
     int check_size = search_intermediates.size();
     vector<Edge> edges = last.first.back().is_reverse ?
@@ -188,10 +188,10 @@ vector<pair<thread_t,int> > list_haplotypes(vg::XG& index,
       search_results.push_back(make_pair(last.first,last.second.count()));
     } else {
       for(int i = 0; i < edges.size(); i++) {
-        XG::ThreadMapping next_node;
+        xg::XG::ThreadMapping next_node;
         next_node.node_id = edges[i].to();
         next_node.is_reverse = edges[i].to_end();
-        XG::ThreadSearchState new_state = last.second;
+        xg::XG::ThreadSearchState new_state = last.second;
         thread_t next_thread = {next_node};
         index.extend_search(new_state,next_thread);
         thread_t new_thread = last.first;
@@ -213,8 +213,8 @@ vector<pair<thread_t,int> > list_haplotypes(vg::XG& index,
   return search_results;
 }
 
-vector<pair<thread_t,int> > list_haplotypes(vg::XG& index, const gbwt::GBWT& haplotype_database,
-            XG::ThreadMapping start_node, int extend_distance) {
+vector<pair<thread_t,int> > list_haplotypes(vg::xg::XG& index, const gbwt::GBWT& haplotype_database,
+            xg::XG::ThreadMapping start_node, int extend_distance) {
 
 #ifdef debug
   cerr << "Extracting haplotypes from GBWT" << endl;
@@ -235,7 +235,7 @@ vector<pair<thread_t,int> > list_haplotypes(vg::XG& index, const gbwt::GBWT& hap
 
   // TODO: this is just most of the loop body repeated!
   for(int i = 0; i < edges.size(); i++) {
-    XG::ThreadMapping next_node;
+    xg::XG::ThreadMapping next_node;
     next_node.node_id = edges[i].to();
     next_node.is_reverse = edges[i].to_end();
     auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);
@@ -266,7 +266,7 @@ vector<pair<thread_t,int> > list_haplotypes(vg::XG& index, const gbwt::GBWT& hap
       search_results.push_back(make_pair(last.first,last.second.size()));
     } else {
       for(int i = 0; i < edges.size(); i++) {
-        XG::ThreadMapping next_node;
+        xg::XG::ThreadMapping next_node;
         next_node.node_id = edges[i].to();
         next_node.is_reverse = edges[i].to_end();
         auto extend_node = gbwt::Node::encode(next_node.node_id, next_node.is_reverse);

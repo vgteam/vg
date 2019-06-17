@@ -717,8 +717,8 @@ Alignment VariantAdder::smart_align(vg::VG& graph, pair<NodeSide, NodeSide> endp
                 // fake-banded alignment, and return its alignment if it finds a
                 // good one.
                 
-                // Generate an XG index
-                XG xg_index(graph.graph);
+                // Generate an xg::XG index
+                xg::XG xg_index(graph.graph);
 
                 // Generate a GCSA2 index
                 gcsa::GCSA* gcsa_index = nullptr;

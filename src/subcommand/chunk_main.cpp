@@ -270,7 +270,7 @@ int main_chunk(int argc, char** argv) {
     bool chunk_graph = gam_and_graph || (!chunk_gam && gam_split_size == 0);
 
     // Load our index
-    unique_ptr<XG> xindex;
+    unique_ptr<xg::XG> xindex;
     if (chunk_graph || trace || context_steps > 0 || context_length > 0 || (!id_range && gam_split_size == 0)) {
         if (xg_file.empty()) {
             cerr << "error:[vg chunk] xg index (-x) required" << endl;
@@ -283,7 +283,7 @@ int main_chunk(int argc, char** argv) {
             return 1;
         }
         
-        xindex = vg::io::VPKG::load_one<XG>(in);
+        xindex = vg::io::VPKG::load_one<xg::XG>(in);
         in.close();
     }
 

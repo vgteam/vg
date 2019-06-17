@@ -13,6 +13,7 @@
 #include "name_mapper.hpp"
 #include "graph_synchronizer.hpp"
 #include "build_index.hpp"
+#include "xg.hpp"
 
 namespace vg {
 

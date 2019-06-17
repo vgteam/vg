@@ -30,7 +30,7 @@ void help_sift(char** argv){
         << "General Options: " << endl
         << "    -t / --threads  <MTHRDS>    number of OMP threads (not all algorithms are parallelized)." << endl
         //<< "    -v / --inverse      return the inverse of a query (like grep -v)"   << endl
-        << "    -x / --xg  <MYXG>   An XG index (for realignment of split reads)" << endl
+        << "    -x / --xg  <MYxg::XG>   An xg::XG index (for realignment of split reads)" << endl
         << "    -p / --paired       Input reads are paired-end" << endl
         << "    -R / --remap        Remap (locally) any soft-clipped, split, or discordant read pairs." << endl
         << "    -o / --output <PREFIX>" << endl

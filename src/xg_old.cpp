@@ -13,6 +13,8 @@
 
 namespace vg {
 
+namespace oldxg {
+
 using namespace handlegraph;
 
 id_t side_id(const side_t& side) {
@@ -5682,6 +5684,8 @@ void extract_pos_substr(const string& pos_str, int64_t& id, bool& is_rev, size_t
         off = stoi(pos_str.substr(r+1, t-r+1));
         len = stoi(pos_str.substr(t+1, pos_str.size()));
     }
+}
+
 }
 
 }

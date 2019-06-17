@@ -185,7 +185,7 @@ public:
 
             // A graph (or subgraph) for the region this SRPE is handling.
             vg::VG* graph;
-            // xg::XG* xindex;
+            // xg::xg::XG* xindex;
             // gcsa::GCSA* gindex;
             // gcsa::LCPArray * lcp_ind;
 

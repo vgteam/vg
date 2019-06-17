@@ -1,6 +1,6 @@
 /**
  * \file register_loader_saver_distance_index.cpp
- * Defines IO for an XG index from stream files.
+ * Defines IO for an xg::XG index from stream files.
  */
 
 #include <vg/io/registry.hpp>

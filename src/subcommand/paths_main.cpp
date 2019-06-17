@@ -28,16 +28,16 @@ void help_paths(char** argv) {
          << "options:" << endl
          << "  input:" << endl
          << "    -v, --vg FILE         use the paths in this vg FILE" << endl
-         << "    -x, --xg FILE         use the paths in the XG index FILE" << endl
+         << "    -x, --xg FILE         use the paths in the xg::XG index FILE" << endl
          << "    -g, --gbwt FILE       use the threads in the GBWT index in FILE" << endl
-         << "                          (XG index is required for most output options; -g takes priority over -x)" << endl
+         << "                          (xg::XG index is required for most output options; -g takes priority over -x)" << endl
          << "  output:" << endl
          << "    -X, --extract-gam     return (as GAM alignments) the stored paths in the graph" << endl
          << "    -V, --extract-vg      return (as path-only .vg) the queried paths (requires -x -g and -q or -Q)" << endl
          << "    -L, --list            return (as a list of names, one per line) the path (or thread) names" << endl
          << "    -E, --lengths         return list of path names (as with -L) but paired with their lengths" << endl
          << "  path selection:" << endl
-         << "    -Q, --paths-by STR    select the paths with the given name prefix (XG, GBWT)" << endl
+         << "    -Q, --paths-by STR    select the paths with the given name prefix (xg::XG, GBWT)" << endl
          << "    -S, --sample STR      select the threads for this sample (GBWT)" << endl;
 }
 
@@ -164,14 +164,14 @@ int main_paths(int argc, char** argv) {
     if (!gbwt_file.empty()) {
         bool need_xg = (extract_as_gam | extract_as_vg | list_lengths);
         if (need_xg && xg_file.empty()) {
-            std::cerr << "error: [vg paths] an XG index is needed for extracting threads in -X, -V, or -E format" << std::endl;
+            std::cerr << "error: [vg paths] an xg::XG index is needed for extracting threads in -X, -V, or -E format" << std::endl;
             std::exit(EXIT_FAILURE);
         }
         if (!need_xg && !xg_file.empty()) {
             // TODO: This should be an error, but we display a warning instead for backward compatibility.
             //std::cerr << "error: [vg paths] cannot read input from multiple sources" << std::endl;
             //std::exit(EXIT_FAILURE);
-            std::cerr << "warning: [vg paths] XG index is unnecessary for listing GBWT threads" << std::endl;
+            std::cerr << "warning: [vg paths] xg::XG index is unnecessary for listing GBWT threads" << std::endl;
         }
     }
     if (output_formats != 1) {
@@ -197,13 +197,13 @@ int main_paths(int argc, char** argv) {
             graph->from_istream(in);
         });
     }
-    unique_ptr<XG> xg_index;
+    unique_ptr<xg::XG> xg_index;
     if (!xg_file.empty()) {
         // We want an xg
-        xg_index = unique_ptr<XG>();
+        xg_index = unique_ptr<xg::XG>();
         // Load the xg
         get_input_file(xg_file, [&](istream& in) {
-            xg_index = vg::io::VPKG::load_one<XG>(in);
+            xg_index = vg::io::VPKG::load_one<xg::XG>(in);
         });
     }
     unique_ptr<gbwt::GBWT> gbwt_index;
@@ -342,7 +342,7 @@ int main_paths(int argc, char** argv) {
                 }
             }
         } else if (extract_as_vg) {
-            cerr << "error: [vg paths] vg extraction is only defined for prefix queries against a XG/GBWT index pair" << endl;
+            cerr << "error: [vg paths] vg extraction is only defined for prefix queries against a xg::XG/GBWT index pair" << endl;
             exit(1);
         }
     } else if (xg_index.get() != nullptr) {

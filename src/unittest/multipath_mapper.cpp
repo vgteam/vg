@@ -140,7 +140,7 @@ TEST_CASE( "MultipathMapper::query_cluster_graphs works", "[multipath][mapping][
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index(proto_graph);
     
     // Make a multipath mapper to map against the graph.
     TestMultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -315,7 +315,7 @@ TEST_CASE( "MultipathMapper can map to a one-node graph", "[multipath][mapping][
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index(proto_graph);
     
     // Make a multipath mapper to map against the graph.
     MultipathMapper mapper(&xg_index, gcsaidx, lcpidx);
@@ -466,7 +466,7 @@ TEST_CASE( "MultipathMapper can work on a bigger graph", "[multipath][mapping][m
     build_gcsa_lcp(graph, gcsaidx, lcpidx, 16, 3);
     
     // Build the xg index
-    XG xg_index(proto_graph);
+    xg::XG xg_index(proto_graph);
     
     // Make a multipath mapper to map against the graph.
     TestMultipathMapper mapper(&xg_index, gcsaidx, lcpidx);

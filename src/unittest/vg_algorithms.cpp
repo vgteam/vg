@@ -3641,7 +3641,7 @@ namespace vg {
                 
                 Node* n0 = vg.create_node("A");
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 // the graph has no edges
                 REQUIRE(algorithms::is_directed_acyclic(&vg));
@@ -3649,7 +3649,7 @@ namespace vg {
                 
                 vg.create_edge(n0, n0, false, true);
                 
-                XG xg2(vg.graph);
+                xg::XG xg2(vg.graph);
                 
                 // the graph has a reversing cycle, but no directed cycles
                 REQUIRE(algorithms::is_directed_acyclic(&vg));
@@ -3657,7 +3657,7 @@ namespace vg {
                 
                 vg.create_edge(n0, n0, true, false);
                 
-                XG xg3(vg.graph);
+                xg::XG xg3(vg.graph);
                 
                 // the graph now has a directed cycle
                 REQUIRE(!algorithms::is_directed_acyclic(&vg));
@@ -3687,7 +3687,7 @@ namespace vg {
                 vg.create_edge(n4, n6);
                 vg.create_edge(n3, n6);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_directed_acyclic(&vg));
                 REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3716,7 +3716,7 @@ namespace vg {
                 vg.create_edge(n6, n4, true, true);
                 vg.create_edge(n3, n6);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_directed_acyclic(&vg));
                 REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3745,7 +3745,7 @@ namespace vg {
                 vg.create_edge(n6, n4, true, true);
                 vg.create_edge(n3, n6);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_directed_acyclic(&vg));
                 REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3765,7 +3765,7 @@ namespace vg {
                 vg.create_edge(n1, n3);
                 vg.create_edge(n2, n3, false, true);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_directed_acyclic(&vg));
                 REQUIRE(algorithms::is_directed_acyclic(&xg1));
@@ -3783,7 +3783,7 @@ namespace vg {
                 vg.create_edge(n1, n2);
                 vg.create_edge(n2, n0);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(!algorithms::is_directed_acyclic(&vg));
                 REQUIRE(!algorithms::is_directed_acyclic(&xg1));
@@ -3807,7 +3807,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n2, n5);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(!algorithms::is_directed_acyclic(&vg));
                 REQUIRE(!algorithms::is_directed_acyclic(&xg1));
@@ -3823,7 +3823,7 @@ namespace vg {
                 
                 Node* n0 = vg.create_node("A");
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_single_stranded(&vg));
                 REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3847,7 +3847,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n2, n5);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_single_stranded(&vg));
                 REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3873,7 +3873,7 @@ namespace vg {
                 vg.create_edge(n4, n0);
                 vg.create_edge(n5, n0);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_single_stranded(&vg));
                 REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3897,7 +3897,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n5, n2, true, true);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::is_single_stranded(&vg));
                 REQUIRE(algorithms::is_single_stranded(&xg1));
@@ -3921,7 +3921,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n5, n2, true, true);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(!algorithms::is_single_stranded(&vg));
                 REQUIRE(!algorithms::is_single_stranded(&xg1));
@@ -3945,7 +3945,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n5, n2, true, true);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(!algorithms::is_single_stranded(&vg));
                 REQUIRE(!algorithms::is_single_stranded(&xg1));
@@ -3980,7 +3980,7 @@ namespace vg {
                 
                 Node* n0 = vg.create_node("A");
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
                 REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4004,7 +4004,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n2, n5);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
                 REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4030,7 +4030,7 @@ namespace vg {
                 vg.create_edge(n4, n0);
                 vg.create_edge(n5, n0);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
                 REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4054,7 +4054,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n5, n2, true, true);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
                 REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4080,7 +4080,7 @@ namespace vg {
                 vg.create_edge(n4, n0);
                 vg.create_edge(n5, n0);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(validate_single_stranded_orientation(&vg, algorithms::single_stranded_orientation(&vg)));
                 REQUIRE(validate_single_stranded_orientation(&xg1, algorithms::single_stranded_orientation(&xg1)));
@@ -4104,7 +4104,7 @@ namespace vg {
                 vg.create_edge(n1, n4);
                 vg.create_edge(n5, n2, true, true);
                 
-                XG xg1(vg.graph);
+                xg::XG xg1(vg.graph);
                 
                 REQUIRE(algorithms::single_stranded_orientation(&vg).empty());
                 REQUIRE(algorithms::single_stranded_orientation(&xg1).empty());

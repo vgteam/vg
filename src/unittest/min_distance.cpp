@@ -1068,7 +1068,7 @@ int64_t min_distance(VG* graph, pos_t pos1, pos_t pos2){
        vg_stream.close();
 
        ifstream xg_stream("primary-BRCA1.xg");
-       xg::XG xg(xg_stream);
+       xg::xg::XG xg(xg_stream);
        xg_stream.close();
  
        CactusSnarlFinder bubble_finder(vg);

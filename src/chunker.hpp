@@ -8,6 +8,7 @@
 #include "lru_cache.h"
 #include "vg.hpp"
 #include "xg.hpp"
+#include "xg_position.hpp"
 #include "json2pb.h"
 #include "region.hpp"
 
@@ -25,9 +26,9 @@ class PathChunker {
 public:
    
     // xg index used for all path splitting and subgraphing operations
-    XG* xg;
+    xg::XG* xg;
 
-    PathChunker(XG* xg = NULL);
+    PathChunker(xg::XG* xg = NULL);
     ~PathChunker();
 
     /** Extract subgraph corresponding to given path region into its 

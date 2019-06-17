@@ -96,7 +96,7 @@ gbwt::vector_type path_to_gbwt(const Path& path) {
 }
 
 // Find all predecessor nodes of the path, ignoring self-loops.
-gbwt::vector_type predecessors(const XG& xg_index, const Path& path) {
+gbwt::vector_type predecessors(const xg::XG& xg_index, const Path& path) {
     gbwt::vector_type result;
     if (path.mapping_size() == 0) {
         return result;
@@ -199,7 +199,7 @@ int main_index(int argc, char** argv) {
             {"threads", required_argument, 0, 't'},
             {"progress",  no_argument, 0, 'p'},
 
-            // XG
+            // xg::XG
             {"xg-name", required_argument, 0, 'x'},
             {"thread-db", required_argument, 0, 'F'},
 
@@ -274,7 +274,7 @@ int main_index(int argc, char** argv) {
             show_progress = true;
             break;
 
-        // XG
+        // xg::XG
         case 'x':
             build_xg = true;
             xg_name = optarg;
@@ -518,7 +518,7 @@ int main_index(int argc, char** argv) {
     }
     
     if (build_xg && build_gcsa && file_names.empty()) {
-        // Really we want to build a GCSA by *reading* and XG
+        // Really we want to build a GCSA by *reading* and xg::XG
         build_xg = false;
         // We'll continue in the build_gcsa section
     }
@@ -527,8 +527,8 @@ int main_index(int argc, char** argv) {
         build_xg = false;
     }
 
-    // Build XG
-    XG* xg_index = new XG();
+    // Build xg::XG
+    xg::XG* xg_index = new xg::XG();
     map<string, Path> alt_paths;
     if (build_xg) {
         if (file_names.empty()) {
@@ -539,7 +539,7 @@ int main_index(int argc, char** argv) {
         VGset graphs(file_names);
         graphs.to_xg(*xg_index, false, Paths::is_alt, index_haplotypes ? &alt_paths : nullptr);
         if (show_progress) {
-            cerr << "Built base XG index" << endl;
+            cerr << "Built base xg::XG index" << endl;
         }
     }
 
@@ -645,7 +645,7 @@ int main_index(int argc, char** argv) {
                 cerr << "Converting paths to threads..." << endl;
             }
             for (size_t path_rank = 1; path_rank <= xg_index->max_path_rank(); path_rank++) {
-                const XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
+                const xg::XGPath& path = xg_index->get_path(xg_index->path_name(path_rank));
                 if (path.ids.size() == 0) {
                     continue;
                 }
@@ -656,7 +656,7 @@ int main_index(int argc, char** argv) {
                 store_thread(buffer);
                 store_thread_name(true_sample_offset, path_rank - 1, 0, 0);
             }
-            // GBWT metadata: We assume that the XG index contains the reference paths.
+            // GBWT metadata: We assume that the xg::XG index contains the reference paths.
             sample_names.emplace_back("ref");
             haplotype_count++;
             true_sample_offset++;
@@ -728,7 +728,7 @@ int main_index(int argc, char** argv) {
                 }
             }
 
-            // Process each VCF contig corresponding to an XG path.
+            // Process each VCF contig corresponding to an xg::XG path.
             size_t max_path_rank = xg_index->max_path_rank();
             for (size_t path_rank = 1; path_rank <= max_path_rank; path_rank++) {
                 string path_name = xg_index->path_name(path_rank);
@@ -739,7 +739,7 @@ int main_index(int argc, char** argv) {
                 string parse_file = parse_name + '_' + vcf_contig_name;
 
                 // Structures to parse the VCF file into.
-                const XGPath& path = xg_index->get_path(path_name);
+                const xg::XGPath& path = xg_index->get_path(path_name);
                 gbwt::VariantPaths variants(path.ids.size());
                 variants.setSampleNames(sample_names);
                 variants.setContigName(path_name);
@@ -896,7 +896,7 @@ int main_index(int argc, char** argv) {
 
                 // Save memory:
                 // - Delete the alt paths if we no longer need them.
-                // - Delete the XG index if we no longer need it.
+                // - Delete the xg::XG index if we no longer need it.
                 // - Close the phasings files.
                 if (path_rank == max_path_rank) {
                     alt_paths.clear();
@@ -972,10 +972,10 @@ int main_index(int argc, char** argv) {
         }
     } // End of thread indexing.
 
-    // Save XG
+    // Save xg::XG
     if (build_xg && !xg_name.empty()) {
         if (show_progress) {
-            cerr << "Saving XG index to disk..." << endl;
+            cerr << "Saving xg::XG index to disk..." << endl;
         }
         // Save encapsulated in a VPKG
         vg::io::VPKG::save(*xg_index, xg_name); 
@@ -1011,11 +1011,11 @@ int main_index(int argc, char** argv) {
                 params.reduceLimit(kmer_bytes);
                 delete_kmer_files = true;
             } else if (!xg_name.empty()) {
-                // Get the kmers from an XG
+                // Get the kmers from an xg::XG
                 
                 get_input_file(xg_name, [&](istream& xg_stream) {
-                    // Load the XG
-                    auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
+                    // Load the xg::XG
+                    auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
                 
                     // Make an overlay on it to add source and sink nodes
                     // TODO: Don't use this directly; unify this code with VGset's code.
@@ -1228,7 +1228,7 @@ int main_index(int argc, char** argv) {
             if (file_names.empty() && !xg_name.empty()) {
                 
                 ifstream xg_stream(xg_name);
-                auto xg = vg::io::VPKG::load_one<XG>(xg_stream);
+                auto xg = vg::io::VPKG::load_one<xg::XG>(xg_stream);
 
                 // Create the MinimumDistanceIndex
                 MinimumDistanceIndex di (xg.get(), snarl_manager);

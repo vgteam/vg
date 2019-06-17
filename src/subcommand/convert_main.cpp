@@ -20,7 +20,7 @@ void help_convert(char** argv) {
          << "    -v, --vg-in            input in VG format [default]" << endl
          << "    -a, --hash-in          input in HashGraph format" << endl
          << "    -p, --packed-in        input in PackedGraph format" << endl
-         << "    -x, --xg-in            input in XG format" << endl
+         << "    -x, --xg-in            input in xg::XG format" << endl
          << "output options:" << endl
          << "    -V, --vg-out           output in VG format [default]" << endl
          << "    -A, --hash-out         output in HashGraph format" << endl
@@ -106,7 +106,7 @@ int main_convert(int argc, char** argv) {
         } else if (graph_type == "packed") {
             return new PackedGraph();
         } else if (graph_type == "xg") {
-            return new XG();
+            return new xg::XG();
         }
         return nullptr;
     };
@@ -123,8 +123,8 @@ int main_convert(int argc, char** argv) {
     if (input_format != "xg") {
         dynamic_cast<SerializableHandleGraph*>(input_graph)->deserialize(input_path == "-" ? cin : input_stream);
     } else {
-        //todo: XG::deserialize() doesn't work.  Need to go through vpkg
-        unique_ptr<XG> xindex = vg::io::VPKG::load_one<XG>(input_path);
+        //todo: xg::XG::deserialize() doesn't work.  Need to go through vpkg
+        unique_ptr<xg::XG> xindex = vg::io::VPKG::load_one<xg::XG>(input_path);
         delete input_graph;
         input_graph = xindex.release();
     }

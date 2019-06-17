@@ -11,7 +11,7 @@ namespace vg {
 // init the static memo
 thread_local vector<size_t> BaseMapper::adaptive_reseed_length_memo;
 
-BaseMapper::BaseMapper(XG* xidex,
+BaseMapper::BaseMapper(xg::XG* xidex,
                        gcsa::GCSA* g,
                        gcsa::LCPArray* a,
                        haplo::ScoreProvider* haplo_score_provider) :
@@ -40,7 +40,7 @@ BaseMapper::BaseMapper(XG* xidex,
 //    // allow a default constructor with no indexes
 //    if (xidex || g || a) {
 //        if(xidex == nullptr) {
-//            // We need an XG graph.
+//            // We need an xg::XG graph.
 //            cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null xg index" << endl;
 //            exit(1);
 //        }
@@ -1598,7 +1598,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     // Work out the population size. Try the score provider and then fall back to the xg.
     auto haplotype_count = haplo_score_provider->get_haplotype_count();
     if (haplotype_count == -1) {
-        // The score provider doesn't ahve a haplotype count. Fall back to the count in the XG.
+        // The score provider doesn't ahve a haplotype count. Fall back to the count in the xg::XG.
         haplotype_count = xindex->get_haplotype_count();
     }
    
@@ -1611,7 +1611,7 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     // always in order to choose between alignments.
     
     // Build Yohei's recombination probability calculator. Feed it the haplotype
-    // count from the XG index that was generated alongside the GBWT.
+    // count from the xg::XG index that was generated alongside the GBWT.
     haplo::haploMath::RRMemo haplo_memo(recombination_penalty, haplotype_count);
     
     // This holds all the computed haplotype logprobs
@@ -1739,7 +1739,7 @@ void BaseMapper::set_fragment_length_distr_params(size_t maximum_sample_size, si
                                                        robust_estimation_fraction);
 }
     
-Mapper::Mapper(XG* xidex,
+Mapper::Mapper(xg::XG* xidex,
                gcsa::GCSA* g,
                gcsa::LCPArray* a,
                haplo::ScoreProvider* haplo_score_provider) :
@@ -3782,7 +3782,7 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
 // We need a function to get the lengths of nodes, in case we need to
 // reverse an Alignment, including all its Mappings and Positions.
 int64_t Mapper::get_node_length(int64_t node_id) {
-    // Grab the node sequence only from the XG index and get its size.
+    // Grab the node sequence only from the xg::XG index and get its size.
     // Make sure to use the cache
     return xg_node_length(node_id, xindex);
 }
@@ -4037,7 +4037,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     int64_t id1 = pos1.node_id();
     int64_t id2 = pos2.node_id();
     if(xindex) {
-        // Grab the node sequence only from the XG index and get its size.
+        // Grab the node sequence only from the xg::XG index and get its size.
         xindex->get_id_range(id1, id1, graph.graph);
         xindex->get_id_range(id2, id2, graph.graph);
         xindex->expand_context(graph.graph, 1, false);
@@ -4363,156 +4363,6 @@ id_t Mapper::node_approximately_at(int64_t approx_pos) {
 // use LRU caching to get the most-recent node positions
 map<string, vector<size_t> > Mapper::node_positions_in_paths(gcsa::node_type node) {
     return xindex->position_in_paths(gcsa::Node::id(node), gcsa::Node::rc(node), gcsa::Node::offset(node));
-}
-
-Alignment Mapper::walk_match(const string& seq, pos_t pos) {
-    //cerr << "in walk match with " << seq << " " << seq.size() << " " << pos << endl;
-    Alignment aln;
-    aln.set_sequence(seq);
-    auto alns = walk_match(aln, seq, pos);
-    if (!alns.size()) {
-        //cerr << "no alignments returned from walk match with " << seq << " " << seq.size() << " " << pos << endl;
-        //assert(false);
-        return aln;
-    }
-    aln = alns.front(); // take the first one we found
-    //assert(alignment_to_length(aln) == alignment_from_length(aln));
-    if (alignment_to_length(aln) != alignment_from_length(aln)
-        || alignment_to_length(aln) != seq.size()) {
-        //cerr << alignment_to_length(aln) << " is not " << seq.size() << endl;
-        //cerr << pb2json(aln) << endl;
-        //assert(false);
-        aln.clear_path();
-    }
-#ifdef debug_mapper
-    if (debug) {
-        cerr << "walk_match result " << pb2json(aln) << endl;
-        if (!check_alignment(aln)) {
-            cerr << "aln is invalid!" << endl;
-            exit(1);
-        }
-    }
-#endif
-    return aln;
-}
-
-vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, pos_t pos) {
-    //cerr << "in walk_match " << seq << " from " << pos << " with base " << pb2json(base) << endl;
-    // go to the position in the xg index
-    // and step in the direction given
-    // until we exhaust our sequence
-    // or hit another node
-    vector<Alignment> alns;
-    Alignment aln = base;
-    Path& path = *aln.mutable_path();
-    Mapping* mapping = path.add_mapping();
-    *mapping->mutable_position() = make_position(pos);
-#ifdef debug_mapper
-#pragma omp critical
-    if (debug) cerr << "walking match for seq " << seq << " at position " << pb2json(*mapping) << endl;
-#endif
-    // get the first node we match
-    int total = 0;
-    size_t match_len = 0;
-    for (size_t i = 0; i < seq.size(); ++i) {
-        char c = seq[i];
-        //cerr << string(base.path().mapping_size(), ' ') << pos << " @ " << i << " on " << c << endl;
-        auto nexts = next_pos_chars(pos);
-        // we can have a match on the current node
-        if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
-            pos_t npos = nexts.begin()->first;
-            // check that the next position would match
-            if (i+1 < seq.size()) {
-                // we can't step, so we break
-                //cerr << "Checking if " << pos_char(npos) << " != " << seq[i+1] << endl;
-                if (pos_char(npos) != seq[i+1]) {
-#ifdef debug_mapper
-#pragma omp critical
-                    if (debug) cerr << "MEM does not match position, returning without creating alignment" << endl;
-#endif
-                    return alns;
-                }
-            }
-            // otherwise we step our counters
-            ++match_len;
-            ++get_offset(pos);
-        } else { // or we go into the next node
-            // we must be going into another node
-            // emit the mapping for this node
-            //cerr << "we are going into a new node" << endl;
-            // finish the last node
-            {
-                // we must have matched / we already checked
-                ++match_len;
-                Edit* edit = mapping->add_edit();
-                edit->set_from_length(match_len);
-                edit->set_to_length(match_len);
-                // reset our counter
-                match_len = 0;
-            }
-            // find the next node that matches our MEM
-            bool got_match = false;
-            if (i+1 < seq.size()) {
-                //cerr << "nexts @ " << i << " " << nexts.size() << endl;
-                for (auto& p : nexts) {
-                    //cerr << " next : " << p.first << " " << p.second << " (looking for " << seq[i+1] << ")" << endl;
-                    if (p.second == seq[i+1]) {
-                        if (!got_match) {
-                            pos = p.first;
-                            got_match = true;
-                        } else {
-                            auto v = walk_match(aln, seq.substr(i+1), p.first);
-                            if (v.size()) {
-                                alns.reserve(alns.size() + distance(v.begin(), v.end()));
-                                alns.insert(alns.end(), v.begin(), v.end());
-                            }
-                        }
-                    }
-                }
-                if (!got_match) {
-                    // this matching ends here
-                    // and we haven't finished matching
-                    // thus this path doesn't contain the match
-                    //cerr << "got no match" << endl;
-                    return alns;
-                }
-
-                // set up a new mapping
-                mapping = path.add_mapping();
-                *mapping->mutable_position() = make_position(pos);
-            } else {
-                //cerr << "done!" << endl;
-            }
-        }
-    }
-    if (match_len) {
-        Edit* edit = mapping->add_edit();
-        edit->set_from_length(match_len);
-        edit->set_to_length(match_len);
-    }
-    alns.push_back(aln);
-#ifdef debug_mapper
-#pragma omp critical
-    if (debug) {
-        cerr << "walked alignment(s):" << endl;
-        for (auto& aln : alns) {
-            cerr << pb2json(aln) << endl;
-        }
-    }
-#endif
-    //cerr << "returning " << alns.size() << endl;
-    return alns;
-}
-
-// convert one mem into a set of alignments, one for each exact match
-vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
-    vector<Alignment> alns;
-    const string seq = mem.sequence();
-    for (auto& node : mem.nodes) {
-        pos_t pos = make_pos_t(node);
-        alns.emplace_back(walk_match(seq, pos));
-    }
-    return alns;
 }
 
 Position Mapper::alignment_end_position(const Alignment& aln) {
@@ -4848,17 +4698,6 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, const vector<MaximalEx
     alnm.set_score(score_alignment(alnm));
     alnm.set_identity(identity(alnm.path()));
     return alnm;
-}
-
-// convert one mem into an alignment; validates that only one node is given
-Alignment Mapper::mem_to_alignment(const MaximalExactMatch& mem) {
-    const string seq = mem.sequence();
-    if (mem.nodes.size() > 1) {
-        cerr << "[vg::Mapper] warning: generating first alignment from MEM with multiple recorded hits" << endl;
-    }
-    auto& node = mem.nodes.front();
-    pos_t pos = make_pos_t(node);
-    return walk_match(seq, pos);
 }
 
 const int balanced_stride(int read_length, int kmer_size, int stride) {

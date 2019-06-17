@@ -10,14 +10,14 @@
 namespace unittest {
 using namespace std;
 
-vg::XG::ThreadMapping make_xg_mapping(int64_t node_id) {
-  vg::XG::ThreadMapping to_return;
+vg::xg::XG::ThreadMapping make_xg_mapping(int64_t node_id) {
+  vg::xg::XG::ThreadMapping to_return;
   to_return.node_id = node_id;
   to_return.is_reverse = false;
   return to_return;
 }
 
-using thread_t = vector<vg::XG::ThreadMapping>;
+using thread_t = vector<vg::xg::XG::ThreadMapping>;
 
 vg::Path path_from_thread_t(thread_t& t) {
 	vg::Path toReturn;
@@ -37,7 +37,7 @@ vg::Path path_from_thread_t(thread_t& t) {
 }
 
 TEST_CASE("We can represent appropriate graphs according to linear reference", "[slls][bubble-finding]") {
-  vector<vg::XG::ThreadMapping> tm = {
+  vector<vg::xg::XG::ThreadMapping> tm = {
     make_xg_mapping(1),
     make_xg_mapping(1),
     make_xg_mapping(2),
@@ -101,12 +101,12 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   vg::Graph SNP_proto_graph;
   json2pb(SNP_proto_graph, SNP_graph_json.c_str(), SNP_graph_json.size());
   // Build the xg index
-  vg::XG SNP_xg_index(SNP_proto_graph);
+  vg::xg::XG SNP_xg_index(SNP_proto_graph);
   
   vg::Graph del_proto_graph;
   json2pb(del_proto_graph, del_graph_json.c_str(), del_graph_json.size());
   // Build the xg index
-  vg::XG del_xg_index(del_proto_graph);
+  vg::xg::XG del_xg_index(del_proto_graph);
   
   // NEGATIVE SNVs
   
@@ -163,12 +163,12 @@ TEST_CASE("We can represent appropriate graphs according to linear reference", "
   vg::Graph long_proto_graph;
   json2pb(long_proto_graph, long_graph_json.c_str(), long_graph_json.size());
   // Build the xg index
-  vg::XG long_xg_index(long_proto_graph);
+  vg::xg::XG long_xg_index(long_proto_graph);
   
   vg::Graph double_proto_graph;
   json2pb(double_proto_graph, double_graph_json.c_str(), double_graph_json.size());
   // Build the xg index
-  vg::XG double_xg_index(double_proto_graph);
+  vg::xg::XG double_xg_index(double_proto_graph);
 
   string matching_test_file = "matching_test.slls";
   ofstream slls_out;
@@ -292,7 +292,7 @@ TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
   ]}
   )";
   
-  vector<vg::XG::ThreadMapping> tm = {
+  vector<vg::xg::XG::ThreadMapping> tm = {
     make_xg_mapping(1), // dummy for 1-based indexing
     make_xg_mapping(1),
     make_xg_mapping(2),
@@ -304,16 +304,16 @@ TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
     make_xg_mapping(8)
   };
   
-  vector<vg::XG::ThreadMapping> t1_2_4_5_7 = {tm[1], tm[2], tm[4], tm[5], tm[7]};
-  vector<vg::XG::ThreadMapping> t1_3_4_5_7 = {tm[1], tm[3], tm[4], tm[5], tm[7]};
-  vector<vg::XG::ThreadMapping> t1_2_4_6_7 = {tm[1], tm[2], tm[4], tm[6], tm[7]};
-  vector<vg::XG::ThreadMapping> t1_3_4_6_7 = {tm[1], tm[3], tm[4], tm[6], tm[7]};
-  vector<vg::XG::ThreadMapping> t1_2_4_d_7 = {tm[1], tm[2], tm[4], tm[7]};
-  vector<vg::XG::ThreadMapping> t1_3_4_d_7 = {tm[1], tm[3], tm[4], tm[7]};
+  vector<vg::xg::XG::ThreadMapping> t1_2_4_5_7 = {tm[1], tm[2], tm[4], tm[5], tm[7]};
+  vector<vg::xg::XG::ThreadMapping> t1_3_4_5_7 = {tm[1], tm[3], tm[4], tm[5], tm[7]};
+  vector<vg::xg::XG::ThreadMapping> t1_2_4_6_7 = {tm[1], tm[2], tm[4], tm[6], tm[7]};
+  vector<vg::xg::XG::ThreadMapping> t1_3_4_6_7 = {tm[1], tm[3], tm[4], tm[6], tm[7]};
+  vector<vg::xg::XG::ThreadMapping> t1_2_4_d_7 = {tm[1], tm[2], tm[4], tm[7]};
+  vector<vg::xg::XG::ThreadMapping> t1_3_4_d_7 = {tm[1], tm[3], tm[4], tm[7]};
   
-  vector<vg::XG::ThreadMapping> query = {tm[1], tm[2], tm[4]};
+  vector<vg::xg::XG::ThreadMapping> query = {tm[1], tm[2], tm[4]};
   
-  vector<vector<vg::XG::ThreadMapping> > haplotypes_to_add = {
+  vector<vector<vg::xg::XG::ThreadMapping> > haplotypes_to_add = {
     t1_2_4_5_7,
     t1_2_4_5_7,
     t1_2_4_5_7,
@@ -347,7 +347,7 @@ TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
   vg::Graph proto_graph;
   json2pb(proto_graph, graph_json.c_str(), graph_json.size());
   // Build the xg index
-  vg::XG xg_index(proto_graph);
+  vg::xg::XG xg_index(proto_graph);
   xg_index.insert_threads_into_dag(haplotypes_to_add, haplotype_names);
   haplotypes_to_add.clear();
   // build a score-penalty memo: recombination penalty 9, population size 12
@@ -387,10 +387,10 @@ TEST_CASE("We can score haplotypes using gPBWT", "[haplo-score][xg]") {
   haplo::hDP_graph_accessor ga14(xg_index, tm[1], tm[4], memo);
   REQUIRE(!ga14.has_edge());
   
-  vector<vg::XG::ThreadMapping> missing_edge = {tm[1], tm[4]};
+  vector<vg::xg::XG::ThreadMapping> missing_edge = {tm[1], tm[4]};
   REQUIRE(haplo::haplo_DP::score(missing_edge, xg_index, memo).second);
   
-  vector<vg::XG::ThreadMapping> empty_node = {tm[1], tm[8]};
+  vector<vg::xg::XG::ThreadMapping> empty_node = {tm[1], tm[8]};
   REQUIRE(!(haplo::haplo_DP::score(empty_node, xg_index, memo).second));
 }
 
@@ -512,7 +512,7 @@ TEST_CASE("We can recognize a required crossover", "[hapo-score][gbwt]") {
   vg::Graph proto_graph;
   json2pb(proto_graph, graph_json.c_str(), graph_json.size());
   // Build the xg index
-  vg::XG xg_index(proto_graph);
+  vg::xg::XG xg_index(proto_graph);
     
   gbwt::Verbosity::set(gbwt::Verbosity::SILENT);
   gbwt::DynamicGBWT* gbwt_index = new gbwt::DynamicGBWT;

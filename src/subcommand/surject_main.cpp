@@ -179,12 +179,12 @@ int main_surject(int argc, char** argv) {
         }
     }
 
-    unique_ptr<XG> xgidx;
+    unique_ptr<xg::XG> xgidx;
     if (!xg_name.empty()) {
-        xgidx = vg::io::VPKG::load_one<XG>(xg_name);
+        xgidx = vg::io::VPKG::load_one<xg::XG>(xg_name);
     } else {
-        // We need an XG index for the rest of the algorithm
-        cerr << "error[vg surject] XG index (-x) is required for surjection" << endl;
+        // We need an xg::XG index for the rest of the algorithm
+        cerr << "error[vg surject] xg::XG index (-x) is required for surjection" << endl;
         exit(1);
     }
 
@@ -198,7 +198,7 @@ int main_surject(int argc, char** argv) {
     // Make a single therad-safe Surjector.
     Surjector surjector(xgidx.get());
     
-    // Get the lengths of all the paths in the XG to populate the HTS headers
+    // Get the lengths of all the paths in the xg::XG to populate the HTS headers
     map<string, int64_t> path_length;
     int num_paths = xgidx->max_path_rank();
     for (int i = 1; i <= num_paths; ++i) {

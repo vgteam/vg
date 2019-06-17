@@ -69,7 +69,7 @@ using namespace std;
         virtual bool for_each_handle_impl(const function<bool(const handle_t&)>& iteratee, bool parallel = false) const;
         
         /// Return the number of nodes in the graph
-        /// TODO: can't be node_count because XG has a field named node_count.
+        /// TODO: can't be node_count because xg::XG has a field named node_count.
         virtual size_t get_node_count() const;
         
         /// Return the smallest ID in the graph, or some smaller number if the

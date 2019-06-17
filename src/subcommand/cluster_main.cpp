@@ -94,7 +94,7 @@ int main_cluster(int argc, char** argv) {
             case 'x':
                 xg_name = optarg;
                 if (xg_name.empty()) {
-                    cerr << "error:[vg cluster] Must provide XG file with -x." << endl;
+                    cerr << "error:[vg cluster] Must provide xg::XG file with -x." << endl;
                     exit(1);
                 }
                 break;
@@ -157,7 +157,7 @@ int main_cluster(int argc, char** argv) {
     
     
     if (xg_name.empty()) {
-        cerr << "error:[vg cluster] Finding clusters requires an XG index, must provide XG file (-x)" << endl;
+        cerr << "error:[vg cluster] Finding clusters requires an xg::XG index, must provide xg::XG file (-x)" << endl;
         exit(1);
     }
     
@@ -177,7 +177,7 @@ int main_cluster(int argc, char** argv) {
     }
     
     // create in-memory objects
-    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
+    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
     unique_ptr<gcsa::GCSA> gcsa_index;
     unique_ptr<gcsa::LCPArray> lcp_index;
     if (!gcsa_name.empty()) {

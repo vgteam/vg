@@ -8,7 +8,7 @@
 
 namespace vg {
 
-PhaseUnfolder::PhaseUnfolder(const XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
+PhaseUnfolder::PhaseUnfolder(const xg::XG& xg_index, const gbwt::GBWT& gbwt_index, vg::id_t next_node) :
     xg_index(xg_index), gbwt_index(gbwt_index), mapping(next_node) {
     assert(this->mapping.begin() > this->xg_index.max_node_id());
 }
@@ -33,7 +33,7 @@ void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
 void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) const {
 
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
-        const XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
+        const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
         if (path.ids.size() == 0) {
             continue;
         }
@@ -56,7 +56,7 @@ void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) const {
     }
 }
 
-size_t path_size(const XGPath& path) {
+size_t path_size(const xg::XGPath& path) {
     return path.ids.size();
 }
 
@@ -64,7 +64,7 @@ size_t path_size(const gbwt::vector_type& path) {
     return path.size();
 }
 
-vg::id_t path_node(const XGPath& path, size_t i) {
+vg::id_t path_node(const xg::XGPath& path, size_t i) {
     return path.node(i);
 }
 
@@ -72,7 +72,7 @@ vg::id_t path_node(const gbwt::vector_type& path, size_t i) {
     return gbwt::Node::id(path[i]);
 }
 
-bool path_reverse(const XGPath& path, size_t i) {
+bool path_reverse(const xg::XGPath& path, size_t i) {
     return path.is_reverse(i);
 }
 
@@ -192,7 +192,7 @@ size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
     for (size_t i = 0; i < total_paths; i++) {
         bool successful = true;
         if (i < this->xg_index.max_path_rank()) {
-            const XGPath& path = this->xg_index.get_path(this->xg_index.path_name(i + 1));
+            const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(i + 1));
             successful = verify_path(path, unfolded, reverse_mapping);
         } else {
             path_type path = this->gbwt_index.extract(i - this->xg_index.max_path_rank());
@@ -257,9 +257,9 @@ vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
 std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress) {
     VG complement;
 
-    // Add missing edges supported by XG paths.
+    // Add missing edges supported by xg::XG paths.
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
-        const XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
+        const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
         if (path.ids.size() == 0) {
             continue;
         }
@@ -364,7 +364,7 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
 void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
 
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
-        const XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
+        const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
 
         std::vector<size_t> occurrences = this->xg_index.node_ranks_in_path(from, path_rank);
         for (size_t occurrence : occurrences) {

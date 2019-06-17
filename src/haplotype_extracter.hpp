@@ -9,13 +9,13 @@
 #include <gbwt/gbwt.h>
 
 #include <vg/vg.pb.h>
-#include "xg.hpp"
+#include "xg_old.hpp"
 
 namespace vg {
 
 using namespace std;
 
-using thread_t = vector<vg::XG::ThreadMapping>;
+using thread_t = vector<vg::xg::XG::ThreadMapping>;
 
 // Walk forward from a node, collecting all haplotypes.  Also do a regular
 // subgraph search for all the paths too.  Haplotype thread i will be embedded
@@ -23,50 +23,50 @@ using thread_t = vector<vg::XG::ThreadMapping>;
 // mapped to a frequency in out_thread_frequencies.  Haplotypes will be pulled
 // from the xg index's gPBWT if haplotype_database is null, and from the given
 // GBWT index otherwise.
-void trace_haplotypes_and_paths(vg::XG& index, const gbwt::GBWT* haplotype_database,
+void trace_haplotypes_and_paths(vg::xg::XG& index, const gbwt::GBWT* haplotype_database,
                                 vg::id_t start_node, int extend_distance,
                                 Graph& out_graph,
                                 map<string, int>& out_thread_frequencies,
                                 bool expand_graph = true);
 
 // Turns an (xg-based) thread_t into a (vg-based) Path
-Path path_from_thread_t(thread_t& t, vg::XG& index);
+Path path_from_thread_t(thread_t& t, vg::xg::XG& index);
 
 // Lists all the sub-haplotypes of length extend_distance nodes starting at node
 // start_node from the set of haplotypes embedded as thread_t's in xg index.
 // Records, for each thread_t t the number of haplotypes of which t is a
 // subhaplotype
-vector<pair<thread_t,int> > list_haplotypes(vg::XG& index,
-            vg::XG::ThreadMapping start_node, int extend_distance);
+vector<pair<thread_t,int> > list_haplotypes(vg::xg::XG& index,
+            vg::xg::XG::ThreadMapping start_node, int extend_distance);
 
 // Lists all the sub-haplotypes of length extend_distance nodes starting at
 // node start_node from the set of haplotypes embedded in the geven GBWT
 // haplotype database.  Records, for each thread_t t the number of haplotypes
 // of which t is a subhaplotype
-vector<pair<thread_t,int> > list_haplotypes(vg::XG& index, const gbwt::GBWT& haplotype_database,
-            vg::XG::ThreadMapping start_node, int extend_distance);
+vector<pair<thread_t,int> > list_haplotypes(vg::xg::XG& index, const gbwt::GBWT& haplotype_database,
+            vg::xg::XG::ThreadMapping start_node, int extend_distance);
 
 // writes to subgraph_ostream the subgraph covered by
 // the haplotypes in haplotype_list, as well as these haplotypes embedded as
 // Paths.  Will output in JSON format if json set to true and Protobuf otherwise.
 void output_graph_with_embedded_paths(ostream& subgraph_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, vg::XG& index, bool json = true);
+            vector<pair<thread_t,int>>& haplotype_list, vg::xg::XG& index, bool json = true);
 // get the graph directly
-Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, vg::XG& index);
+Graph output_graph_with_embedded_paths(vector<pair<thread_t,int>>& haplotype_list, vg::xg::XG& index);
 
 // writes to annotation_ostream the list of counts of identical subhaplotypes
 // using the same ordering as the Paths from output_graph_with_embedded_paths
 void output_haplotype_counts(ostream& annotation_ostream,
-            vector<pair<thread_t,int>>& haplotype_list, vg::XG& index);
+            vector<pair<thread_t,int>>& haplotype_list, vg::xg::XG& index);
 
 // Adds to a Graph the nodes and edges touched by a thread_t
-void thread_to_graph_spanned(thread_t& t, Graph& graph, vg::XG& index);
+void thread_to_graph_spanned(thread_t& t, Graph& graph, vg::xg::XG& index);
 // Adds to a set of nodes all those touched by thread_t t
 void add_thread_nodes_to_set(thread_t& t, set<int64_t>& nodes);
 // Adds to a set of edges all those touched by thread_t t
 void add_thread_edges_to_set(thread_t& t, set<pair<int,int> >& edges);
 // Turns a set of nodes and a set of edges into a Graph
-void construct_graph_from_nodes_and_edges(Graph& g, vg::XG& index,
+void construct_graph_from_nodes_and_edges(Graph& g, vg::xg::XG& index,
             set<int64_t>& nodes, set<pair<int,int> >& edges);
 
 }

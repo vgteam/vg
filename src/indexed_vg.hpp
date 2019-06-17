@@ -22,7 +22,7 @@ using namespace std;
 
 /** Use a .vg file on disk with a .vgi index to provide random access to the
  * graph data without loading the entire graph into memory. Sort of a
- * compromise between an XG and a VG, except unlike either we don't need the
+ * compromise between an xg::XG and a VG, except unlike either we don't need the
  * whole graph in memory.
  *
  * We require that all nodes in the graph appear in ID order within their
