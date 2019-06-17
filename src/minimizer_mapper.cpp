@@ -223,7 +223,40 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #ifdef debug
     cerr << "Found " << clusters.size() << " clusters" << endl;
 #endif
-    
+ 
+    //Get the coverage of the cluster
+    vector<double> read_coverage_by_cluster;
+    for (size_t i = 0; i < clusters.size(); i++) {
+        // For each cluster
+        auto& cluster = clusters[i];
+        
+        // Score the cluster in read coverage.
+        
+        // We set bits in here to true when query anchors cover them
+        sdsl::bit_vector covered(aln.sequence().size(), 0);
+        std::uint64_t k_bit_mask = sdsl::bits::lo_set[minimizer_index->k()];
+        
+        for (auto hit_index : cluster) {
+            // For each hit in the cluster, work out what anchor sequence it is from.
+            size_t source_index = seed_to_source[hit_index];
+
+            // The offset of a reverse minimizer is the endpoint of the kmer
+            size_t start_offset = minimizers[source_index].offset;
+            if (minimizers[source_index].is_reverse) {
+                start_offset = start_offset + 1 - minimizer_index->k();
+            }
+
+            // Set the k bits starting at start_offset.
+            covered.set_int(start_offset, k_bit_mask, minimizer_index->k());
+        }
+        
+        // Count up the covered positions
+        size_t covered_count = sdsl::util::cnt_one_bits(covered);
+        
+        // Turn that into a fraction
+        read_coverage_by_cluster.push_back(covered_count / (double) covered.size());
+    }    
+
     // Make a vector of cluster indexes to sort
     vector<size_t> cluster_indexes_in_order;
     cluster_indexes_in_order.reserve(clusters.size());
@@ -238,13 +271,17 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     });
 
     vector<double> cluster_scores;
+    vector<double> cluster_coverage;
     cluster_scores.reserve(clusters.size());
     for (size_t i : cluster_indexes_in_order) {
         cluster_scores.push_back(cluster_score[i]);
+        cluster_coverage.push_back(read_coverage_by_cluster[i]);
     }
 
     double best_cluster_score = cluster_scores.size() == 0 ? 0 : cluster_scores[0];
-    
+
+
+
 #ifdef TRACK_PROVENANCE
     // Now we go from clusters to gapless extensions
     funnel.stage("extend");
@@ -339,8 +376,10 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 
 
     vector<size_t> cluster_order1;
+    vector<double> sorted_cluster_coverage;
     for (size_t i : extension_indexes_in_order) {
         sorted_cluster_scores.push_back(cluster_scores[i]);
+        sorted_cluster_coverage.push_back(cluster_coverage[i]);
         sorted_extension_scores.push_back(cluster_extension_scores[i]);
         cluster_order1.push_back(i);
     }
@@ -462,6 +501,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     if (alignments.size() == 0) {
         // Produce an unaligned Alignment
         alignments.emplace_back(aln);
+        sorted_cluster_coverage.push_back(0);
         sorted_cluster_scores.push_back(0);
         sorted_extension_scores.push_back(0);
         cluster_order1.push_back(0);
@@ -489,6 +529,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<double> sorted_cluster_scores1;
     vector<double> sorted_extension_scores1;
     vector<double> sorted_alignment_scores1;//TODO: Type?
+    vector<double> sorted_cluster_coverage1;
 
     vector<size_t> cluster_order2;
     vector<size_t> extension_order2;
@@ -500,6 +541,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     sorted_alignment_scores1.reserve(alignments.size());
     for (size_t i : alignments_in_order) {
         sorted_cluster_scores1.push_back(sorted_cluster_scores[i]);
+        sorted_cluster_coverage1.push_back(sorted_cluster_coverage[i]);
         sorted_extension_scores1.push_back(sorted_extension_scores[i]);
         sorted_alignment_scores1.push_back(alignments[i].score());
 
@@ -590,6 +632,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
 #endif
 #endif
     for (size_t i = 0 ; i < mappings.size() ; i++) {
+        set_annotation(mappings[i], "cluster_coverage", sorted_cluster_coverage1[i]);
         set_annotation(mappings[i], "cluster_score", sorted_cluster_scores1[i]);
         set_annotation(mappings[i], "extension_score", sorted_extension_scores1[i]);
         set_annotation(mappings[i], "alignment_score", sorted_alignment_scores1[i]);
