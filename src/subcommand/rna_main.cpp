@@ -75,7 +75,7 @@ int32_t main_rna(int32_t argc, char** argv) {
                 {"do-not-collapse",  no_argument, 0, 'c'},
                 {"remove-non-gene",  no_argument, 0, 'd'},
                 {"add-ref-paths",  no_argument, 0, 'r'},
-                {"add-paths",  no_argument, 0, 'a'},
+                {"add-non-ref-paths",  no_argument, 0, 'a'},
                 {"out-ref-paths",  no_argument, 0, 'u'},           
                 {"write-gbwt",  no_argument, 0, 'b'},
                 {"write-fasta",  no_argument, 0, 'f'},
