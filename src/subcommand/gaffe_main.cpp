@@ -65,6 +65,14 @@ void help_gaffe(char** argv) {
     << "  -t, --threads INT             number of compute threads to use" << endl;
 }
 
+extern "C" {
+    int mallctl(	const char *name,
+        void *oldp,
+        size_t *oldlenp,
+        void *newp,
+        size_t newlen);
+}
+
 int main_gaffe(int argc, char** argv) {
 
     if (argc == 2) {
@@ -411,6 +419,12 @@ int main_gaffe(int argc, char** argv) {
     
         if (thread_count_current != 0) {
             omp_set_num_threads(thread_count_current);
+        }
+        
+        #pragma omp parallel
+        {
+            unsigned arena_num = omp_get_thread_num();
+            mallctl("thread.arena", NULL, NULL, &arena_num, sizeof(arena_num));
         }
         
         // Work out the number of threads we will have
