@@ -23,41 +23,40 @@ void PhaseUnfolder::unfold(VG& graph, bool show_progress) {
     }
     if (show_progress) {
         std::cerr << "Unfolded graph: "
-                  << unfolded.node_count() << " nodes, " << unfolded.edge_count() << " edges on "
+                  << unfolded.get_node_count() << " nodes, " << unfolded.edge_count() << " edges on "
                   << haplotype_paths << " paths" << std::endl;
     }
 
     graph.extend(unfolded);
 }
 
-void PhaseUnfolder::restore_paths(VG& graph, bool show_progress) const {
+void PhaseUnfolder::restore_paths(MutablePathMutableHandleGraph& graph, bool show_progress) const {
 
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
         const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
-        if (path.ids.size() == 0) {
+        if (path.handles.size() == 0) {
             continue;
         }
 
         gbwt::node_type prev = xg_path_to_gbwt(path, 0);
-        for (size_t i = 1; i < path.ids.size(); i++) {
+        for (size_t i = 1; i < path.handles.size(); i++) {
             gbwt::node_type curr = xg_path_to_gbwt(path, i);
-            Edge candidate = make_edge(prev, curr);
-            if (!graph.has_edge(candidate)) {
-                graph.add_node(this->xg_index.node(candidate.from()));
-                graph.add_node(this->xg_index.node(candidate.to()));
-                graph.add_edge(candidate);
-            }
+            make_edge(graph, graph, prev, curr);
             prev = curr;
         }
     }
 
     if (show_progress) {
-        std::cerr << "Restored graph: " << graph.node_count() << " nodes, " << graph.edge_count() << " edges" << std::endl;
+        size_t edge_count = 0;
+        graph.for_each_edge([&](const edge_t& e) {
+                ++edge_count;
+            });
+        std::cerr << "Restored graph: " << graph.get_node_count() << " nodes, " << edge_count << " edges" << std::endl;
     }
 }
 
 size_t path_size(const xg::XGPath& path) {
-    return path.ids.size();
+    return path.handles.size();
 }
 
 size_t path_size(const gbwt::vector_type& path) {
@@ -93,7 +92,7 @@ struct PathBranch {
 };
 
 template<class PathType>
-bool verify_path(const PathType& path, VG& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
+bool verify_path(const PathType& path, const PathHandleGraph& unfolded, const hash_map<vg::id_t, std::vector<vg::id_t>>& reverse_mapping) {
 
     if (path_size(path) < 2) {
         return true;
@@ -138,8 +137,7 @@ bool verify_path(const PathType& path, VG& unfolded, const hash_map<vg::id_t, st
                 }
             }
             gbwt::node_type next = gbwt::Node::encode(node_id, path_reverse(path, branch.offset + 1));
-            Edge candidate = PhaseUnfolder::make_edge(curr, next);
-            if (!unfolded.has_edge(candidate)) {
+            if (!PhaseUnfolder::has_edge(unfolded, curr, next)) {
                 break;
             }
             if (duplicates <= 1) {  // All paths corresponding to this must go through the next node.
@@ -164,7 +162,7 @@ void printId(vg::id_t id) {
     }
 }
 
-size_t PhaseUnfolder::verify_paths(VG& unfolded, bool show_progress) const {
+size_t PhaseUnfolder::verify_paths(const PathHandleGraph& unfolded, bool show_progress) const {
 
     // Create a mapping from original -> duplicates.
     hash_map<vg::id_t, std::vector<vg::id_t>> reverse_mapping;
@@ -254,24 +252,43 @@ vg::id_t PhaseUnfolder::get_mapping(vg::id_t node) const {
     return this->mapping(node);
 }
 
+bool PhaseUnfolder::has_edge(const HandleGraph& graph, gbwt::node_type from, gbwt::node_type to) {
+    return graph.has_node(gbwt::Node::id(from)) &&
+        graph.has_node(gbwt::Node::id(to)) &&
+        graph.has_edge(graph.get_handle(gbwt::Node::id(from), gbwt::Node::is_reverse(from)),
+                       graph.get_handle(gbwt::Node::id(to), gbwt::Node::is_reverse(to)));
+}
+
+void PhaseUnfolder::make_edge(const HandleGraph& check_graph, MutableHandleGraph& add_graph,
+                              gbwt::node_type from, gbwt::node_type to) const {   
+    if (!check_graph.has_node(gbwt::Node::id(from))) {
+        add_graph.create_handle(this->xg_index.get_sequence(xg_index.get_handle(gbwt::Node::id(from))),
+                                gbwt::Node::id(from));
+    }
+    if (!check_graph.has_node(gbwt::Node::id(to))) {
+        add_graph.create_handle(this->xg_index.get_sequence(xg_index.get_handle(gbwt::Node::id(to))),
+                                gbwt::Node::id(to));
+    }
+    if (!check_graph.has_edge(check_graph.get_handle(gbwt::Node::id(from), gbwt::Node::is_reverse(from)),
+                              check_graph.get_handle(gbwt::Node::id(to), gbwt::Node::is_reverse(to)))) {
+       add_graph.create_edge(add_graph.get_handle(gbwt::Node::id(from), gbwt::Node::id(from)),
+                             add_graph.get_handle(gbwt::Node::id(to), gbwt::Node::id(to)));
+    }
+}
+
 std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress) {
     VG complement;
 
     // Add missing edges supported by xg::XG paths.
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
         const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
-        if (path.ids.size() == 0) {
+        if (path.handles.size() == 0) {
             continue;
         }
         gbwt::node_type prev = xg_path_to_gbwt(path, 0);
-        for (size_t i = 1; i < path.ids.size(); i++) {
+        for (size_t i = 1; i < path.handles.size(); i++) {
             gbwt::node_type curr = xg_path_to_gbwt(path, i);
-            Edge candidate = make_edge(prev, curr);
-            if (!graph.has_edge(candidate)) {
-                complement.add_node(this->xg_index.node(candidate.from()));
-                complement.add_node(this->xg_index.node(candidate.to()));
-                complement.add_edge(candidate);
-            }
+            make_edge(graph, complement, prev, curr);
             prev = curr;
         }
     }
@@ -284,12 +301,7 @@ std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress
             if (outedge.first == gbwt::ENDMARKER) {
                 continue;
             }
-            Edge candidate = make_edge(gbwt_node, outedge.first);
-            if (!graph.has_edge(candidate)) {
-                complement.add_node(this->xg_index.node(candidate.from()));
-                complement.add_node(this->xg_index.node(candidate.to()));
-                complement.add_edge(candidate);
-            }
+            make_edge(graph, complement, gbwt_node, outedge.first);;
         }
     }
 
@@ -297,7 +309,7 @@ std::list<VG> PhaseUnfolder::complement_components(VG& graph, bool show_progress
     complement.disjoint_subgraphs(components);
     if (show_progress) {
         std::cerr << "Complement graph: "
-                  << complement.node_count() << " nodes, " << complement.edge_count() << " edges in "
+                  << complement.get_node_count() << " nodes, " << complement.edge_count() << " edges in "
                   << components.size() << " components" << std::endl;
     }
     return components;
@@ -322,9 +334,8 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
     });
 
     auto insert_node = [&](gbwt::node_type node) {
-        Node temp = this->xg_index.node(this->get_mapping(gbwt::Node::id(node)));
-        temp.set_id(gbwt::Node::id(node));
-        unfolded.add_node(temp);
+        handle_t temp = this->xg_index.get_handle(this->get_mapping(gbwt::Node::id(node)));
+        unfolded.create_handle(this->xg_index.get_sequence(temp), gbwt::Node::id(node));
     };
 
     // Create the unfolded component from the tries.
@@ -335,7 +346,7 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
         }
         insert_node(to);
         if (from != gbwt::ENDMARKER) {
-            unfolded.add_edge(make_edge(from, to));
+            make_edge(unfolded, unfolded, from, to);
         }
     }
     for (auto mapping : this->suffixes) {
@@ -343,13 +354,13 @@ size_t PhaseUnfolder::unfold_component(VG& component, VG& graph, VG& unfolded) {
         insert_node(from);
         if (to != gbwt::ENDMARKER) {
             insert_node(to);
-            unfolded.add_edge(make_edge(from, to));
+            make_edge(unfolded, unfolded, from, to);
         }
     }
     for (auto edge : this->crossing_edges) {
         insert_node(edge.first);
         insert_node(edge.second);
-        unfolded.add_edge(make_edge(edge.first, edge.second));
+        make_edge(unfolded, unfolded, edge.first, edge.second);
     }
 
     size_t haplotype_paths = this->crossing_edges.size();
@@ -372,10 +383,9 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
             {
                 gbwt::node_type prev = xg_path_to_gbwt(path, occurrence);
                 path_type buffer(1, prev);
-                for (size_t i = occurrence + 1; i < path.ids.size(); i++) {
+                for (size_t i = occurrence + 1; i < path.handles.size(); i++) {
                     gbwt::node_type curr = xg_path_to_gbwt(path, i);
-                    Edge candidate = make_edge(prev, curr);
-                    if (!component.has_edge(candidate)) {
+                    if (has_edge, component, prev, curr) {
                         break;  // Found a maximal path.
                     }
                     buffer.push_back(curr);
@@ -395,8 +405,7 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
                 path_type buffer(1, prev);
                 for (size_t i = occurrence; i > 0 ; i--) {
                     gbwt::node_type curr = gbwt::Node::reverse(xg_path_to_gbwt(path, i - 1));
-                    Edge candidate = make_edge(prev, curr);
-                    if (!component.has_edge(candidate)) {
+                    if (has_edge(component, prev, curr)) {
                         break;  // Found a maximal path.
                     }
                     buffer.push_back(curr);
@@ -503,8 +512,7 @@ void PhaseUnfolder::extend_path(const path_type& path) {
             const path_type& reference = this->reference_paths[ref];
             bool found = false;
             for (size_t i = 0; i < reference.size(); i++) {
-                Edge candidate = make_edge(reference[i], to_extend.front());
-                if (this->xg_index.has_edge(candidate)) {
+                if (has_edge(this->xg_index, reference[i], to_extend.front())) {
                     to_extend.insert(to_extend.begin(), reference.begin(), reference.begin() + i + 1);
                     from_border = true;
                     found = true;
@@ -523,8 +531,7 @@ void PhaseUnfolder::extend_path(const path_type& path) {
             const path_type& reference = this->reference_paths[ref];
             bool found = false;
             for (size_t i = 0; i < reference.size(); i++) {
-                Edge candidate = make_edge(to_extend.back(), reference[i]);
-                if (this->xg_index.has_edge(candidate)) {
+                if (has_edge(this->xg_index, to_extend.back(), reference[i])) {
                     to_extend.insert(to_extend.end(), reference.begin() + i, reference.end());
                     to_border = true;
                     found = true;

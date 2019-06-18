@@ -63,14 +63,14 @@ public:
      * unfolding with an empty GBWT index, except that the inserted nodes will
      * have their original identifiers.
      */
-    void restore_paths(VG& graph, bool show_progress = false) const;
+    void restore_paths(MutablePathMutableHandleGraph& graph, bool show_progress = false) const;
 
     /**
      * Verify that the graph contains the xg::XG paths and the GBWT threads in the
      * backing indexes. Returns the number of paths for which the verification
      * failed. Uses OMP threads.
      */
-    size_t verify_paths(VG& unfolded, bool show_progress = false) const;
+    size_t verify_paths(const PathHandleGraph& unfolded, bool show_progress = false) const;
 
     /**
      * Write the mapping to the specified file with a header. The file will
@@ -92,12 +92,16 @@ public:
     vg::id_t get_mapping(vg::id_t node) const;
 
     /**
-     * Create an edge between two node orientations.
+     * Check existence of an edge in the graph
      */
-    static Edge make_edge(gbwt::node_type from, gbwt::node_type to) {
-        return vg::make_edge(gbwt::Node::id(from), gbwt::Node::is_reverse(from),
-                             gbwt::Node::id(to), gbwt::Node::is_reverse(to));
-    }
+    static bool has_edge(const HandleGraph& graph, gbwt::node_type from, gbwt::node_type to);
+
+    /**
+     * Create an edge between two node orientations in add_graph if it doesn't exist in check_graph.  
+     * This edge must exist in this->xg_index.
+     */
+    void make_edge(const HandleGraph& check_graph, MutableHandleGraph& add_graph,
+                   gbwt::node_type from, gbwt::node_type to) const;
 
 private:
     /**
