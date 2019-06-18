@@ -134,12 +134,12 @@ LD_LIB_FLAGS += -lrocksdb
 ROCKSDB_LDFLAGS = $(shell grep PLATFORM_LDFLAGS deps/rocksdb/make_config.mk | cut -d '=' -f2 | sed s/-ljemalloc// | sed s/-ltcmalloc// | sed s/-ltbb//)
 
 # When building statically, we need to tell the linker not to bail if it sees multiple definitions.
-# libc on e.g. our Jenkins host does not define malloc as weak, so other mallocs can't override it in a static build.
+# libc on e.g. our Jenkins host does not define malloc as weak, so tcmalloc can't override it in a static build.
 # TODO: Why did this problem only begin to happen when libvw was added?
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc -Wl,--allow-multiple-definition 
 
-# These are put into libvg. Grab everything except main
-OBJ = $(filter-out $(OBJ_DIR)/main.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
+# These are put into libvg. Grab everything except main and the tcmalloc-configuring file.
+OBJ = $(filter-out $(OBJ_DIR)/main.o $(OBJ_DIR)/tcmalloc_configuration.o,$(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cpp)))
 # And all the algorithms
 ALGORITHMS_OBJ = $(patsubst $(ALGORITHMS_SRC_DIR)/%.cpp,$(ALGORITHMS_OBJ_DIR)/%.o,$(wildcard $(ALGORITHMS_SRC_DIR)/*.cpp))
 # And all the IO logic
@@ -152,13 +152,14 @@ SUBCOMMAND_OBJ = $(patsubst $(SUBCOMMAND_SRC_DIR)/%.cpp,$(SUBCOMMAND_OBJ_DIR)/%.
 UNITTEST_OBJ = $(patsubst $(UNITTEST_SRC_DIR)/%.cpp,$(UNITTEST_OBJ_DIR)/%.o,$(wildcard $(UNITTEST_SRC_DIR)/*.cpp))
 
 # These aren't put into libvg. They are linked into vg itself to communicate
-# things about the platform
+# things about the platform 
 CONFIGURATION_OBJ =
 
 
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
+GPERF_DIR:=deps/gperftools
 JEMALLOC_DIR:=deps/jemalloc
 LOCKFREE_MALLOC_DIR:=deps/lockfree-malloc
 SDSL_DIR:=deps/sdsl-lite
@@ -254,9 +255,21 @@ DEPS += $(INC_DIR)/dozeu/dozeu.h
 LINK_DEPS =
 
 ifneq ($(shell uname -s),Darwin)
+	# Use tcmalloc only
+    #DEPS += $(LIB_DIR)/libtcmalloc_minimal.a
+    #LD_LIB_FLAGS += -ltcmalloc_minimal
+	
+	# Use tcmalloc with libprofiler
+	#DEPS += $(LIB_DIR)/libtcmalloc_and_profiler.a
+	#LD_LIB_FLAGS += -ltcmalloc_and_profiler
+	
+	# Configure tcmalloc for good performance with many threads
+	#CONFIGURATION_OBJ += $(OBJ_DIR)/tcmalloc_configuration.o
+	
 	# Use jemalloc
 	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
 	LD_LIB_FLAGS += -ljemalloc
+	
 endif
 
 
@@ -304,6 +317,22 @@ $(LIB_DIR)/libprotobuf.a: deps/protobuf/src/google/protobuf/*.cc
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) $(ROCKSDB_LDFLAGS) $(FILTER)
 
+# remove annoying large alloc messages from tcmalloc
+$(GPERF_DIR)/src/tcmalloc.cc.bak:
+	cp $(GPERF_DIR)/src/tcmalloc.cc $(GPERF_DIR)/src/tcmalloc.cc.bak
+	sed 's/printer.printf("tcmalloc: large alloc/return; printer.printf("tcmalloc: large alloc/' $(GPERF_DIR)/src/tcmalloc.cc.bak >$(GPERF_DIR)/src/tcmalloc.cc
+
+$(LIB_DIR)/libtcmalloc_minimal.a: $(GPERF_DIR)/src/tcmalloc.cc.bak $(GPERF_DIR)/src/*.cc $(GPERF_DIR)/src/*.h
+	+. ./source_me.sh && cd $(GPERF_DIR) && ./autogen.sh && ./configure --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && $(MAKE) install && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r bin/* $(CWD)/$(BIN_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
+	
+# Building and installing all of gperftools brings the profiler along
+$(LIB_DIR)/libprofiler.a: $(LIB_DIR)/libtcmalloc_minimal.a
+	+touch $(LIB_DIR)/libprofiler.a
+	
+# If you want both you actually need this combined library
+$(LIB_DIR)/libtcmalloc_and_profiler.a: $(LIB_DIR)/libtcmalloc_minimal.a $(LIB_DIR)/libprofiler.a
+	+touch $(LIB_DIR)/libtcmalloc_and_profiler.a
+	
 $(LIB_DIR)/libjemalloc.a: $(JEMALLOC_DIR)/src/*.c
 	+. ./source_me.sh && cd $(JEMALLOC_DIR) && ./autogen.sh && ./configure --disable-libdl --prefix=`pwd` $(FILTER) && $(MAKE) $(FILTER) && cp -r lib/* $(CWD)/$(LIB_DIR)/ && cp -r include/* $(CWD)/$(INC_DIR)/
 
@@ -639,7 +668,7 @@ clean: clean-rocksdb clean-protobuf clean-vcflib
 	cd $(DEP_DIR) && cd gfakluge && $(MAKE) clean
 	cd $(DEP_DIR) && cd sha1 && $(MAKE) clean
 	cd $(DEP_DIR) && cd structures && $(MAKE) clean
-	cd $(DEP_DIR) && cd jemalloc && $(MAKE) clean
+	cd $(DEP_DIR) && cd gperftools && $(MAKE) clean
 	cd $(DEP_DIR) && cd vowpal_wabbit && $(MAKE) clean
 	cd $(DEP_DIR) && cd sublinear-Li-Stephens && $(MAKE) clean
 	cd $(DEP_DIR) && cd libhandlegraph && $(MAKE) clean
