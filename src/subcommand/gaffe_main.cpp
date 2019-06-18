@@ -105,6 +105,8 @@ int main_gaffe(int argc, char** argv) {
     // Should we throw out our alignments instead of outputting them?
     bool discard_alignments = false;
     
+    vector<size_t> threads_to_run;
+    
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -276,7 +278,7 @@ int main_gaffe(int argc, char** argv) {
                     cerr << "error:[vg gaffe] Thread count (-t) set to " << num_threads << ", must set to a positive integer." << endl;
                     exit(1);
                 }
-                omp_set_num_threads(num_threads);
+                threads_to_run.push_back(num_threads);
             }
                 break;
                 
@@ -400,72 +402,84 @@ int main_gaffe(int argc, char** argv) {
     minimizer_mapper.sample_name = sample_name;
     minimizer_mapper.read_group = read_group;
     
-    // Work out the number of threads we will have
-    size_t thread_count = omp_get_max_threads();
-
-    // Set up counters per-thread for total reads mapped
-    vector<size_t> reads_mapped_by_thread(thread_count, 0);
-    
-    // Have a place to log start time
-    std::chrono::time_point<std::chrono::system_clock> start;
-    
-    {
-        // Set up output to an emitter that will handle serialization.
-        // Discard alignments if asked to. Otherwise spit them out in GAM format.
-        unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
-            make_unique<NullAlignmentEmitter>() :
-            get_alignment_emitter("-", "GAM", {}, thread_count);
-
-#ifdef USE_CALLGRIND
-        // We want to profile the alignment, not the loading.
-        CALLGRIND_START_INSTRUMENTATION;
-#endif
-
-        // Start timing overall mapping time now that indexes are loaded.
-        start = std::chrono::system_clock::now();
-        
-        // Define how to align and output a read, in a thread.
-        auto map_read = [&](Alignment& aln) {
-            // Map the read with the MinimizerMapper.
-            minimizer_mapper.map(aln, *alignment_emitter);
-            
-            // Record that we mapped a read.
-            reads_mapped_by_thread.at(omp_get_thread_num())++;
-        };
-            
-        for (auto& gam_name : gam_filenames) {
-            // For every GAM file to remap
-            get_input_file(gam_name, [&](istream& in) {
-                // Open it and map all the reads in parallel.
-                vg::io::for_each_parallel<Alignment>(in, map_read);
-            });
-        }
-        
-        for (auto& fastq_name : fastq_filenames) {
-            // For every FASTQ file to map, map all its reads in parallel.
-            fastq_unpaired_for_each_parallel(fastq_name, map_read);
-        }
-    
-    } // Make sure alignment emitter is destroyed and all alignments are on disk.
-    
-    // Now mapping is done
-    std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    
-    // How many reads did we map?
-    size_t total_reads_mapped = 0;
-    for (auto& reads_mapped : reads_mapped_by_thread) {
-        total_reads_mapped += reads_mapped;
+    if (threads_to_run.empty()) {
+        // Use 0 to represent the default.
+        threads_to_run.push_back(0);
     }
     
-    // Produce a report
-    if (progress) {
-        cerr << "Mapped " << total_reads_mapped << " reads across "
-            << thread_count << " threads in "
-            << elapsed_seconds.count() << " seconds." << endl;
+    for (size_t thread_count_current : threads_to_run) {
+    
+        if (thread_count_current != 0) {
+            omp_set_num_threads(thread_count_current);
+        }
         
-        cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
-            << " reads per second per thread" << endl;        
+        // Work out the number of threads we will have
+        size_t thread_count = omp_get_max_threads();
+
+        // Set up counters per-thread for total reads mapped
+        vector<size_t> reads_mapped_by_thread(thread_count, 0);
+        
+        // Have a place to log start time
+        std::chrono::time_point<std::chrono::system_clock> start;
+        
+        {
+            // Set up output to an emitter that will handle serialization
+            // Discard alignments if asked to. Otherwise spit them out in GAM format.
+            unique_ptr<AlignmentEmitter> alignment_emitter = discard_alignments ?
+                make_unique<NullAlignmentEmitter>() :
+                get_alignment_emitter("-", "GAM", {}, thread_count);
+
+#ifdef USE_CALLGRIND
+            // We want to profile the alignment, not the loading.
+            CALLGRIND_START_INSTRUMENTATION;
+#endif
+
+            // Start timing overall mapping time now that indexes are loaded.
+            start = std::chrono::system_clock::now();
+            
+            // Define how to align and output a read, in a thread.
+            auto map_read = [&](Alignment& aln) {
+                // Map the read with the MinimizerMapper.
+                minimizer_mapper.map(aln, *alignment_emitter);
+                // Record that we mapped a read.
+                reads_mapped_by_thread.at(omp_get_thread_num())++;
+            };
+                
+            for (auto& gam_name : gam_filenames) {
+                // For every GAM file to remap
+                get_input_file(gam_name, [&](istream& in) {
+                    // Open it and map all the reads in parallel.
+                    vg::io::for_each_parallel<Alignment>(in, map_read);
+                });
+            }
+            
+            for (auto& fastq_name : fastq_filenames) {
+                // For every FASTQ file to map, map all its reads in parallel.
+                fastq_unpaired_for_each_parallel(fastq_name, map_read);
+            }
+        
+        } // Make sure alignment emitter is destroyed and all alignments are on disk.
+        
+        // Now mapping is done
+        std::chrono::time_point<std::chrono::system_clock> end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        
+        // How many reads did we map?
+        size_t total_reads_mapped = 0;
+        for (auto& reads_mapped : reads_mapped_by_thread) {
+            total_reads_mapped += reads_mapped;
+        }
+        
+        // Produce a report
+        if (progress) {
+            cerr << "Mapped " << total_reads_mapped << " reads across "
+                << thread_count << " threads in "
+                << elapsed_seconds.count() << " seconds." << endl;
+            
+            cerr << "Mapping speed: " << ((total_reads_mapped / elapsed_seconds.count()) / thread_count)
+                << " reads per second per thread" << endl;        
+        }
+        
     }
         
     return 0;
