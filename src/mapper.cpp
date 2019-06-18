@@ -3502,7 +3502,7 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     for (auto& node : nodes) {
         *graph.graph.add_node() = xindex->node(node);
     }
-    xindex->expand_context(graph.graph, max(1, context_size), false); // get connected edges
+    algorithms::add_subpaths_to_subgraph(*xindex, graph.graph, max(1, context_size)); // get connected edges
     graph.rebuild_indexes();
     return graph;
 }
@@ -3817,7 +3817,9 @@ bool Mapper::check_alignment(const Alignment& aln) {
             // save alignment
             vg::io::write_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
             // save graph, bigger fragment
-            xindex->expand_context(sub, 5, true);
+            algorithms::expand_subgraph_by_steps(*xgindex, sub, 5);
+            algorithms::add_subpaths_to_subgraph(*xgindex, sub);
+
             VG gn; gn.extend(sub);
             gn.serialize_to_file("fail-" + gn.hash() + ".vg");
             return false;
@@ -4040,7 +4042,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
         // Grab the node sequence only from the xg::XG index and get its size.
         xindex->get_id_range(id1, id1, graph.graph);
         xindex->get_id_range(id2, id2, graph.graph);
-        xindex->expand_context(graph.graph, 1, false);
+        algorithms::expand_subgraph_by_steps(*xgindex, graph.graph, 1);
         graph.rebuild_indexes();
     } else {
         throw runtime_error("No index to get nodes from.");

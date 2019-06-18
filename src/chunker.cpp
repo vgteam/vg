@@ -32,10 +32,11 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    xg_expand_context(*xg, g, context, true, true, true, !forward_only);
+    algorithms::expand_subgraph_by_steps(*xg, subgraph, context, forward_only);
     if (length) {
-        xg_expand_context(*xg, g, context, true, false, true, !forward_only);
+        algorithms::expand_subgraph_by_length(*xg, subgraph, length, forward_only);
     }
+    algorithms::add_subpaths_to_subgraph(*xg, subgraph);
         
     // build the vg of the subgraph
     subgraph.extend(g);
@@ -171,6 +172,7 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, in
     if (length) {
         algorithms::expand_subgraph_by_length(*xg, subgraph, length);
     }
+    algorithms::add_subpaths_to_subgraph(*xg, subgraph);
 
     out_region.start = subgraph.min_node_id();
     out_region.end = subgraph.max_node_id();

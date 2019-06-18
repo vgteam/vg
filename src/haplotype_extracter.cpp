@@ -26,7 +26,8 @@ void trace_haplotypes_and_paths(vg::xg::XG& index, const gbwt::GBWT* haplotype_d
   if (expand_graph) {
     // get our subgraph and "regular" paths by expanding forward
     *out_graph.add_node() = index.node(start_node);
-    index.expand_context(out_graph, extend_distance, true, true, true, false);
+    algorithms::expand_subgraph_by_steps(index, out_graph, extend_distance, true);
+    algorithms::add_subpaths_to_subgraph(index, out_graph);
   }
 
   // add a frequency of 1 for each normal path

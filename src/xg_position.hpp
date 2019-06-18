@@ -62,15 +62,6 @@ map<string, vector<pair<size_t, bool> > > xg_alignment_path_offsets(const xg::XG
 void xg_annotate_with_initial_path_positions(const xg::XG* xgidx, Alignment& aln, size_t search_limit = 0);
 
 void xg_neighborhood(const xg::XG& xgidx,int64_t id, size_t dist, Graph& g, bool use_steps);
-void xg_expand_context(const xg::XG& xgidx, Graph& g, size_t dist, bool add_paths = true, bool use_steps = true,
-                       bool expand_forward = true, bool expand_backward = true,
-                       int64_t until_node = 0);
-void xg_expand_context_by_steps(const xg::XG& xgidx, Graph& g, size_t steps, bool add_paths = true,
-                                bool expand_forward = true, bool expand_backward = true,
-                                int64_t until_node = 0);
-void xg_expand_context_by_length(const xg::XG& xgidx, Graph& g, size_t length, bool add_paths = true,
-                                 bool expand_forward = true, bool expand_backward = true,
-                                 int64_t until_node = 0);
 void xg_add_paths_to_graph(const xg::XG& xgidx, map<int64_t, Node*>& nodes, Graph& g);
 void xg_get_id_range(const xg::XG& xgidx, int64_t id1, int64_t id2, Graph& g);
 

@@ -310,7 +310,7 @@ string Sampler::alignment_seq(const Alignment& aln) {
             xgidx->get_id_range(id, id, sub);
         }
     }
-    xgidx->expand_context(sub, 2, false);
+    algorithms::expand_subgraph_by_steps(*xgindex, sub, 2);
     VG g; g.extend(sub);
     return g.path_string(aln.path());
 }

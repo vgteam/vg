@@ -3,7 +3,8 @@
 namespace vg {
 namespace algorithms {
 
-void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t steps) {
+void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t steps,
+                              bool forward_only) {
     for (uint64_t i = 0; i < steps; ++i) {
         std::vector<handle_t> curr_handles;
         subgraph.for_each_handle([&](const handle_t& h) {
@@ -22,22 +23,25 @@ void expand_subgraph_by_steps(const HandleGraph& source, MutableHandleGraph& sub
                         subgraph.create_edge(h, x);
                     }
                 });
-            source.follow_edges(old_h, true, [&](const handle_t& c) {
-                    handle_t x;
-                    if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
-                    } else {
-                        x = subgraph.get_handle(source.get_id(c));
-                    }
-                    if (!subgraph.has_edge(x, h)) {
-                        subgraph.create_edge(x, h);
-                    }
-                });
+            if (!forward_only) {
+                source.follow_edges(old_h, true, [&](const handle_t& c) {
+                        handle_t x;
+                        if (!subgraph.has_node(source.get_id(c))) {
+                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        } else {
+                            x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (!subgraph.has_edge(x, h)) {
+                            subgraph.create_edge(x, h);
+                        }
+                    });
+            }
         }
     }
 }
 
-void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t node_count) {
+void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t node_count,
+    bool forward_only) {
     while (subgraph.get_node_count() < node_count && subgraph.get_node_count()) {
         std::vector<handle_t> curr_handles;
         subgraph.for_each_handle([&](const handle_t& h) {
@@ -56,22 +60,25 @@ void expand_subgraph_to_node_count(const HandleGraph& source, MutableHandleGraph
                         subgraph.create_edge(h, x);
                     }
                 });
-            source.follow_edges(old_h, true, [&](const handle_t& c) {
-                    handle_t x;
-                    if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
-                    } else {
-                        x = subgraph.get_handle(source.get_id(c));
-                    }
-                    if (!subgraph.has_edge(x, h)) {
-                        subgraph.create_edge(x, h);
-                    }
-                });
+            if (!forward_only) {
+                source.follow_edges(old_h, true, [&](const handle_t& c) {
+                        handle_t x;
+                        if (!subgraph.has_node(source.get_id(c))) {
+                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                        } else {
+                            x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (!subgraph.has_edge(x, h)) {
+                            subgraph.create_edge(x, h);
+                        }
+                    });
+            }
         }
     }
 }
 
-void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t length) {
+void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t length,
+                               bool forward_only) {
     uint64_t accumulated_length = 0;
     while (accumulated_length < length) {
         std::vector<handle_t> curr_handles;
@@ -92,23 +99,26 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
                         subgraph.create_edge(h, x);
                     }
                 });
-            source.follow_edges(old_h, true, [&](const handle_t& c) {
-                    handle_t x;
-                    if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
-                        accumulated_length += subgraph.get_length(x);
-                    } else {
-                        x = subgraph.get_handle(source.get_id(c));
-                    }
-                    if (!subgraph.has_edge(x, h)) {
-                        subgraph.create_edge(x, h);
-                    }
-                });
+            if (!forward_only) {
+                source.follow_edges(old_h, true, [&](const handle_t& c) {
+                        handle_t x;
+                        if (!subgraph.has_node(source.get_id(c))) {
+                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                            accumulated_length += subgraph.get_length(x);
+                        } else {
+                            x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (!subgraph.has_edge(x, h)) {
+                            subgraph.create_edge(x, h);
+                        }
+                    });
+            }
         }
     }
 }
 
-void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t length) {
+void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t length,
+                               bool forward_only) {
     uint64_t total_length = 0;
     subgraph.for_each_handle([&](const handle_t& h) {
             total_length += subgraph.get_length(h);
@@ -132,18 +142,20 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
                         subgraph.create_edge(h, x);
                     }
                 });
-            source.follow_edges(old_h, true, [&](const handle_t& c) {
-                    handle_t x;
-                    if (!subgraph.has_node(source.get_id(c))) {
-                        x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
-                        total_length += subgraph.get_length(x);
-                    } else {
-                        x = subgraph.get_handle(source.get_id(c));
-                    }
-                    if (!subgraph.has_edge(x, h)) {
-                        subgraph.create_edge(x, h);
-                    }
-                });
+            if (!forward_only) {
+                source.follow_edges(old_h, true, [&](const handle_t& c) {
+                        handle_t x;
+                        if (!subgraph.has_node(source.get_id(c))) {
+                            x = subgraph.create_handle(source.get_sequence(c), source.get_id(c));
+                            total_length += subgraph.get_length(x);
+                        } else {
+                            x = subgraph.get_handle(source.get_id(c));
+                        }
+                        if (!subgraph.has_edge(x, h)) {
+                            subgraph.create_edge(x, h);
+                        }
+                    });
+            }
         }
     }
 }
