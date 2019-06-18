@@ -290,7 +290,7 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
                           cluster_score[cluster_indexes_in_order[i]] > cluster_score_cutoff; i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
-        if (read_coverage_by_cluster[i] < cluster_coverage_cutoff) {
+        if (read_coverage_by_cluster[cluster_num] < cluster_coverage_cutoff) {
             continue;
         }
         
