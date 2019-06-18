@@ -165,7 +165,6 @@ void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, in
         }
     }
 
-
     // expand the context and get path information
     // if forward_only true, then we only go forward.
     algorithms::expand_subgraph_by_steps(*xg, subgraph, context);
