@@ -270,12 +270,7 @@ ifneq ($(shell uname -s),Darwin)
 	LINK_DEPS += $(LIB_DIR)/libjemalloc.a
 	LD_LIB_FLAGS += -ljemalloc
 	
-	# Also use libprofiler
-	LINK_DEPS += $(LIB_DIR)/libprofiler.a
-	LD_LIB_FLAGS += -lprofiler
-	
 endif
-
 
 
 .PHONY: clean get-deps deps test set-path static docs .pre-build .check-environment .check-git .no-git
