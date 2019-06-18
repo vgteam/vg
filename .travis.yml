@@ -27,6 +27,8 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 60 --slave /usr/bin/g++ g++ /usr/bin/g++-6; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then mkdir -p deps; touch deps/gcc6; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"; fi
+  # Travis can't always avtually use Homebrew to install our dependencies
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; brew bundle --verbose; fi
   # Try installing gcc6 twice in case of errors like this:
   # Error: HOMEBREW_LOGS was not exported!
   # Please don't worry, you likely hit a bug auto-updating from an old version.
