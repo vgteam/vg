@@ -482,6 +482,7 @@ $(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
 # There are some release-only headers or something that it complains it can't find otherwise.
 # We also don't do a normal make and make install here because we don't want to build and install all the elfutils binaries and libasm.
 $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/* $(ELFUTILS_DIR)/libdw/* $(ELFUTILS_DIR)/libelf/* $(ELFUTILS_DIR)/src/*
+	+cd $(CWD)/$(INC_DIR)/ && rm -f elfutils gelf.h libelf.h dwarf.h
 	+cd $(ELFUTILS_DIR) && autoreconf -i -f && ./configure --enable-maintainer-mode --prefix=$(CWD) $(FILTER)
 	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) libelf.a $(FILTER)
 	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) libebl.a $(FILTER)
