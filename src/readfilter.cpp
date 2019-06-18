@@ -18,7 +18,7 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
 
     // Define a way to get node length, for flipping alignments
     function<int64_t(id_t)> get_node_length = [&index](id_t node) {
-        return index->node_length(node);
+        return index->get_length(index->get_handle(node));
     };
 
     // Because we need to flip the alignment, make sure it is new-style and
@@ -129,7 +129,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     for(size_t i = root_mapping; i < alignment.path().mapping_size(); i++) {
         // Collect the appropriately oriented from sequence from each mapping
         auto& mapping = alignment.path().mapping(i);
-        string sequence = index->node_sequence(mapping.position().node_id());
+        string sequence = index->get_sequence(index->get_handle(mapping.position().node_id()));
         if(mapping.position().is_reverse()) {
             // Have it in the right orientation
             sequence = reverse_complement(sequence);
@@ -179,7 +179,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         ++dfs_visit_count;
       
         // Grab the node sequence and match more of the target sequence.
-        string node_sequence = index->node_sequence(node_id);
+        string node_sequence = index->get_sequence(index->get_handle(node_id));
         if(is_reverse) {
             node_sequence = reverse_complement(node_sequence);
         }
@@ -239,46 +239,27 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         #pragma omp critical(cerr)
         cerr << "Node " << node_id << " has " << new_matches << " internal new matches" << endl;
 #endif
-    
-        // Get all the edges we can take off of the right side of this oriented
-        // node.
-        auto edges = is_reverse ? index->edges_on_start(node_id) : index->edges_on_end(node_id);
-        
-#ifdef debug
-        #pragma omp critical(cerr)
-        cerr << "Recurse into " << edges.size() << " children" << endl;
-#endif
-        
+            
         // We're going to call all the children and collect the results, and
         // then aggregate them. It might be slightly faster to aggregate while
         // calling, but that might be less clear.
         vector<pair<size_t, size_t>> child_results;
-        
-        for(auto& edge : edges) {
-            // check the user-supplied visit count before recursing any more
-            if (dfs_visit_count < defray_count) {
-                if(edge.from() == node_id && edge.from_start() == is_reverse) {
-                    // The end we are leaving matches this edge's from, so we can
-                    // just go to its to end and recurse on it.
-                    child_results.push_back(do_dfs(edge.to(), edge.to_end(), matched + node_sequence.size()));
-                } else if(edge.to() == node_id && edge.to_end() == !is_reverse) {
-                    // The end we are leaving matches this edge's to, so we can just
-                    // recurse on its from end.
-                    child_results.push_back(do_dfs(edge.from(), !edge.from_start(), matched + node_sequence.size()));
-                } else {
-                    // xg::XG is feeding us nonsense up with which we should not put.
-                    throw runtime_error("Edge " + pb2json(edge) + " does not attach to " +
-                                        to_string(node_id) + (is_reverse ? " start" : " end"));
+
+        // Get all the edges we can take off of the right side of this oriented
+        // node.        
+        index->follow_edges(index->get_handle(node_id), is_reverse, [&] (const handle_t& handle) {
+                // check the user-supplied visit count before recursing any more
+                if (dfs_visit_count < defray_count) {
+                    child_results.push_back(do_dfs(index->get_id(handle), index->get_is_reverse(handle),
+                                                   matched + node_sequence.size()));
                 }
-            }
 #ifdef debug
-            else {
-                #pragma omp critical(cerr)
-                cerr << "Aborting read filter DFS at node " << node_id << " after " << dfs_visit_count << " visited" << endl;
+                else {
+#pragma omp critical(cerr)
+                    cerr << "Aborting read filter DFS at node " << node_id << " after " << dfs_visit_count << " visited" << endl;
             }
 #endif
-            
-        }
+            });
         
         // Sum up the total leaf matches, which will be our leaf match count.
         size_t total_leaf_matches = 0;
@@ -326,7 +307,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // get that much sequence; we know it is either full length or at a mapping
     // boundary. We handle the root special because it's always full length and
     // we have to cut after its end.
-    size_t kept_sequence_accounted_for = index->node_length(alignment.path().mapping(root_mapping).position().node_id());
+    size_t kept_sequence_accounted_for = index->get_length(index->get_handle(alignment.path().mapping(root_mapping).position().node_id()));
     size_t first_mapping_to_drop;
     for(first_mapping_to_drop = root_mapping + 1;
         first_mapping_to_drop < alignment.path().mapping_size();
@@ -342,7 +323,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // We know it's not the root mapping, and it can't be the non-full-
             // length end mapping (because we would have kept the full length
             // target sequence and not had to cut). So assume full node is used.
-            kept_sequence_accounted_for += index->node_length(mapping.position().node_id());
+            kept_sequence_accounted_for += index->get_length(index->get_handle(mapping.position().node_id()));
         }
     }
     
@@ -432,7 +413,8 @@ bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
         bool to_end = pos2.is_reverse();
         
         // Can we find the same articulation of the edge as the alignment uses
-        bool found = index->has_edge(from_id, from_start, to_id, to_end);   
+        bool found = index->has_edge(index->get_handle(from_id, from_start),
+                                     index->get_handle(to_id, to_end));   
         
         if(!found) {
             // Check the other articulation of the edge
@@ -442,7 +424,8 @@ bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
             to_end = !to_end;
             
             
-            found = index->has_edge(from_id, from_start, to_id, to_end);
+            found = index->has_edge(index->get_handle(from_id, from_start),
+                                    index->get_handle(to_id, to_end));
         }
         
         if(!found) {
