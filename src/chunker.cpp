@@ -44,10 +44,11 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     // get our range endpoints before context expansion
     list<mapping_t>& mappings = subgraph.paths.get_path(region.seq);
     size_t mappings_size = mappings.size();
-    handle_t input_start_node = xg->handle_at_path_position(region.seq, region.start);
-    vector<size_t> first_positions = xg->position_in_path(input_start_node, region.seq);
-    handle_t input_end_node = xg->handle_at_path_position(region.seq, region.end);
-    vector<size_t> last_positions = xg->position_in_path(input_end_node, region.seq);
+    path_handle_t path_handle = xg->get_path_handle(region.seq);
+    handle_t input_start_node = xg->handle_at_path_position(path_handle, region.start);
+    vector<size_t> first_positions = xg->position_in_path(input_start_node, path_handle);
+    handle_t input_end_node = xg->handle_at_path_position(path_handle, region.end);
+    vector<size_t> last_positions = xg->position_in_path(input_end_node, path_handle);
 
     // the distance between then and the nodes in our input range
     size_t left_padding = 0;
@@ -62,8 +63,8 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
         auto end_it = --mappings.end();
 
         // find our input range in the expanded path. we know these nodes only appear once.
-        for (; start_it != mappings.end() && start_it->node_id() != input_start_node; ++start_it);
-        for (; end_it != mappings.begin() && end_it->node_id() != input_end_node; --end_it);
+        for (; start_it != mappings.end() && start_it->node_id() != xg->get_id(input_start_node); ++start_it);
+        for (; end_it != mappings.begin() && end_it->node_id() != xg->get_id(input_end_node); --end_it);
 
         // walk back our start point as we can without rank discontinuities. doesn't matter
         // if we encounter cycles here, because we keep a running path length
@@ -101,19 +102,19 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
     // input region.  
     else {
         mappings.clear();
-        xg->for_path_range(region.seq, region.start, region.end, [&](int64_t id, bool rev) {
+        xg->for_path_range(region.seq, region.start, region.end, [&](const handle_t& handle) {
                 mapping_t mapping;
-                mapping.set_node_id(id);
-                mapping.set_is_reverse(rev);
+                mapping.set_node_id(xg->get_id(handle));
+                mapping.set_is_reverse(xg->get_is_reverse(handle));
                 mappings.push_back(mapping);
-            });
+            }, false);
         rewrite_paths = true;
     }
 
     // Cut our graph so that our reference path end points are graph tips.  This will let the
     // snarl finder use the path to find telomeres.
     Node* start_node = subgraph.get_node(mappings.begin()->node_id());
-    if (rewrite_paths && xg->position_in_path(start_node->id(), region.seq).size() == 1) {
+    if (rewrite_paths && xg->position_in_path(xg->get_handle(start_node->id()), path_handle).size() == 1) {
         if (!mappings.begin()->is_reverse() && subgraph.start_degree(start_node) != 0) {
             for (auto edge : subgraph.edges_to(start_node)) {
                 subgraph.destroy_edge(edge);
@@ -125,7 +126,7 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
         }
     }
     Node* end_node = subgraph.get_node(mappings.rbegin()->node_id());
-    if (rewrite_paths && xg->position_in_path(end_node->id(), region.seq).size() == 1) {
+    if (rewrite_paths && xg->position_in_path(xg->get_handle(end_node->id()), path_handle).size() == 1) {
         if (!mappings.rbegin()->is_reverse() && subgraph.end_degree(end_node) != 0) {
             for (auto edge : subgraph.edges_from(end_node)) {
                 subgraph.destroy_edge(edge);
@@ -147,32 +148,30 @@ void PathChunker::extract_subgraph(const Region& region, int context, int length
 
     // start could fall inside a node.  we find out where in the path the
     // 0-offset point of the node is. 
-    int64_t input_start_pos = xg->node_start_at_path_position(region.seq, region.start);
-    int64_t input_end_pos = xg->node_start_at_path_position(region.seq, region.end);
+    int64_t input_start_pos = xg->node_start_at_path_position(path_handle, region.start);
+    int64_t input_end_pos = xg->node_start_at_path_position(path_handle, region.end);
     out_region.seq = region.seq;
     out_region.start = input_start_pos - left_padding;
-    out_region.end = input_end_pos + xg->node_length(input_end_node) + right_padding - 1;
+    out_region.end = input_end_pos + xg->get_length(input_end_node) + right_padding - 1;
 }
 
 void PathChunker::extract_id_range(vg::id_t start, vg::id_t end, int context, int length,
                                    bool forward_only, VG& subgraph, Region& out_region) {
 
-    Graph g;
-
     for (vg::id_t i = start; i <= end; ++i) {
-        *g.add_node() = xg->node(i);
+        if (!subgraph.has_node(i)) {
+            handle_t handle = subgraph.get_handle(i);
+            subgraph.create_handle(xg->get_sequence(handle), xg->get_id(handle));
+        }
     }
-    
+
+
     // expand the context and get path information
     // if forward_only true, then we only go forward.
-    xg->expand_context(g, context, true, true, true, !forward_only);
+    algorithms::expand_subgraph_by_steps(*xg, subgraph, context);
     if (length) {
-        xg->expand_context(g, context, true, false, true, !forward_only);
+        algorithms::expand_subgraph_by_length(*xg, subgraph, length);
     }
-
-    // build the vg
-    subgraph.extend(g);
-    subgraph.remove_orphan_edges();
 
     out_region.start = subgraph.min_node_id();
     out_region.end = subgraph.max_node_id();

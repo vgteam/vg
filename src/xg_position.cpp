@@ -247,6 +247,7 @@ void xg_annotate_with_initial_path_positions(const xg::XG* xgidx, Alignment& aln
     }
 }
 
+/*
 void xg_neighborhood(const xg::XG& xgidx,int64_t id, size_t dist, Graph& g, bool use_steps) {
     if (xgidx.has_node(id)) {
         Node& node = *g.add_node();
@@ -269,34 +270,44 @@ void xg_expand_context(const xg::XG& xgidx, Graph& g, size_t dist, bool add_path
 void xg_expand_context_by_steps(const xg::XG& xgidx, Graph& g, size_t steps, bool add_paths,
                                 bool expand_forward, bool expand_backward,
                                 int64_t until_node) {
-    map<int64_t, Node*> nodes;
-    map<pair<side_t, side_t>, Edge*> edges;
-    set<int64_t> to_visit;
+    unordered_set<handlegraph::nid_t> seen_nodes;
+    unordered_set<handlegraph::edge_t> seen_edges;
+    unordered_set<handlegraph::nid_t> to_visit;
     // start with the nodes in the graph
     for (size_t i = 0; i < g.node_size(); ++i) {
         to_visit.insert(g.node(i).id());
-        // handles the single-node case: we should still get the paths
-        Node* np = g.mutable_node(i);
-        nodes[np->id()] = np;
     }
     for (size_t i = 0; i < g.edge_size(); ++i) {
         auto& edge = g.edge(i);
         to_visit.insert(edge.from());
         to_visit.insert(edge.to());
-        edges[make_pair(make_side(edge.from(), edge.from_start()),
-                        make_side(edge.to(), edge.to_end()))] = g.mutable_edge(i);
+        seen_edges.insert(make_pair(xgidx.get_handle(edge.from(), edge.from_start()),
+                                    xgidx.get_handle(edge.to(), edge.to_end())));
     }
     // and expand
     for (size_t i = 0; i < steps; ++i) {
-        set<int64_t> to_visit_next;
+        unordered_set<handle_t> to_visit_next;
         for (auto id : to_visit) {
             // build out the graph
             // if we have nodes we haven't seeen
-            if (nodes.find(id) == nodes.end()) {
-                Node* np = g.add_node();
-                nodes[id] = np;
-                *np = node(id);
+            if (seen_nodes.count(id)) {
+                continue;
             }
+            handlegraph::handle_t handle = xgidx.get_handle(id);
+            xgidx.follow_edges(handle, false, [&](const handle_t& next) {
+                    handlegraph::nid_t next_id = xgidx.get_id(next);
+                    if (!seen_nodes.count(next_id)) {
+                        to_visit_next.insert(next_id);
+                    }
+                    if (!seen_edges.count(next_edge)) {
+                        Edge* edge = g.add_edge();
+                        edge->set_from(id);
+                        edge->set_from_start(dir);
+                        
+                    }
+                });
+            xgidx.follow_edges(handle, true, [&](const handle_t& prev) {
+                });
             vector<Edge> edges_todo;
             if (expand_forward && expand_backward) {
                 edges_todo = edges_of(id);
@@ -561,5 +572,6 @@ void xg_get_id_range(const xg::XG& xgidx, int64_t id1, int64_t id2, Graph& g) {
         }
     }
 }
+*/
 
 }

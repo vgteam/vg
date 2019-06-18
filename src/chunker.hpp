@@ -5,6 +5,7 @@
 #include <map>
 #include <chrono>
 #include <ctime>
+#include "algorithms/subgraph.hpp"
 #include "lru_cache.h"
 #include "vg.hpp"
 #include "xg.hpp"
