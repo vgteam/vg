@@ -251,12 +251,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     vector<vector<GaplessExtension>> cluster_extensions;
     cluster_extensions.reserve(cluster_indexes_in_order.size());
     
-    for (size_t i = 0; i < clusters.size() && i < max_extensions; i++) {
+    for (size_t i = 0; i < clusters.size() && cluster_score[cluster_indexes_in_order[i]] < cluster_score_cutoff; i++) {
         // For each cluster, in sorted order
         size_t& cluster_num = cluster_indexes_in_order[i];
-        if ( cluster_score[cluster_num] < cluster_score_cutoff) {
-            break;
-        }
         
 #ifdef TRACK_PROVENANCE
         funnel.processing_input(cluster_num);
@@ -356,12 +353,9 @@ void MinimizerMapper::map(Alignment& aln, AlignmentEmitter& alignment_emitter) {
     // Keep track of best and second best scores.
     int best_score = 0;
     int second_best_score = 0;
-    for (size_t i = 0; i < extension_indexes_in_order.size() && i < max_alignments; i++) {
+    for (size_t i = 0; i < extension_indexes_in_order.size() && cluster_extension_scores[extension_indexes_in_order[i]] < extension_score_cutoff; i++) {
         // Find the extension group we are talking about
         size_t& extension_num = extension_indexes_in_order[i];
-        if (cluster_extension_scores[extension_num] < extension_score_cutoff) {
-            break;
-        }
         
 #ifdef TRACK_PROVENANCE
         funnel.processing_input(extension_num);
