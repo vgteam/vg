@@ -61,6 +61,7 @@ ifeq ($(shell uname -s),Darwin)
             # pkg-config is not always smart enough to find Cairo's include path for us.
             # We make sure to grab its directory manually if we see it.
             CXXFLAGS += -I /usr/local/include/cairo
+            LD_LIB_FLAGS += -lcairo
         endif
     endif
 
