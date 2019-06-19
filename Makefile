@@ -55,7 +55,7 @@ ifeq ($(shell uname -s),Darwin)
     ifeq ($(shell if [ -d /usr/local/include ];then echo 1;else echo 0;fi), 1)
         # Use /usr/local/include as system-level (to avoid overriding our Protobuf) if present.
         # One might expect this to already be there but see https://github.com/vgteam/vg/issues/2133
-        LD_LIB_FLAGS += -isystem /usr/local/include
+        CXXFLAGS += -isystem /usr/local/include
     endif
 
     # Our compiler might be clang that lacks -fopenmp support.

@@ -47,6 +47,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
   - which gcc && gcc --version && which g++ && g++ --version
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which cc && cc --version && which c++ && c++ --version; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then find /usr/local/include || true ; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
