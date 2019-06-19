@@ -14,7 +14,6 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "position.hpp"
-#include "cached_position.hpp"
 #include "xg_position.hpp"
 #include "distributions.hpp"
 #include "lru_cache.h"

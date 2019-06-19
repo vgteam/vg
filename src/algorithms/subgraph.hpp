@@ -26,6 +26,9 @@ void expand_subgraph_by_length(const HandleGraph& source, MutableHandleGraph& su
 /// expand the subgraph iterativel until its total sequence length is greater than length
 void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& subgraph, uint64_t length, bool forward_only = false);
 
+/// extract the node id range
+void extract_id_range(const HandleGraph& source, const nid_t& id1, const nid_t& id2, MutableHandleGraph& subgraph);
+
 /// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
 /// based on their order in the path position index provided by the source graph
 /// will clear any path found in both graphs before writing the new steps into it

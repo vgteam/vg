@@ -80,8 +80,11 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
         int64_t node_id = pos.node_id();
         if (!node_id) continue;
         int64_t key = my_xg->id_to_rank(node_id);
-        vector<size_t> node_paths = my_xg->paths_of_node(node_id);
-        if (node_paths.size() > 0){
+        uint64_t step_count = 0;
+        my_xg->for_each_step_on_handle(my_xg->get_handle(node_id), [&](const step_handle_t& step) {
+                ++step_count;
+            });
+        if (step_count > 0){
             ret[key - 1] = 2;
         }
         else{

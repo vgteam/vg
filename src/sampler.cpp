@@ -24,7 +24,7 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
         this->source_paths = source_paths;
         vector<size_t> path_lengths;
         for (auto& source_path : source_paths) {
-            path_lengths.push_back(xgidx->path_length(source_path));
+            path_lengths.push_back(xgidx->get_path_length(xgidx->get_path_handle(source_path)));
         }
         path_sampler = vg::discrete_distribution<>(path_lengths.begin(), path_lengths.end());
     }
@@ -37,19 +37,19 @@ void Sampler::set_source_paths(const vector<string>& source_paths,
 /// We have a helper function to convert path positions and orientations to
 /// pos_t values.
 pos_t position_at(xg::XG* xgidx, const string& path_name, const size_t& path_offset, bool is_reverse) {
-    Mapping path_mapping = xgidx->mapping_at_path_position(path_name, path_offset);
-    id_t id = xgidx->node_at_path_position(path_name, path_offset);
+    path_handle_t path_handle = xgidx->get_path_handle(path_name);
+    handle_t handle = xgidx->handle_at_path_position(path_handle, path_offset);
     
     // Work out where in that mapping we should be.
-    size_t node_offset = path_offset - (xgidx->node_start_at_path_position(path_name, path_offset));
+    size_t node_offset = path_offset - (xgidx->node_start_at_path_position(path_handle, path_offset));
 
     if (is_reverse) {
         // Flip the node offset around to be from the end and not the start
-        node_offset = xgidx->node_length(id) - node_offset - 1;
+        node_offset = xgidx->get_length(handle) - node_offset - 1;
     }
 
     // Make a pos_t for where we are, on the appropriate strand
-    pos_t pos = make_pos_t(path_mapping.position().node_id(), path_mapping.position().is_reverse() != is_reverse, node_offset);
+    pos_t pos = make_pos_t(xgidx->get_id(handle), xgidx->get_is_reverse(handle) != is_reverse, node_offset);
     
     return pos;
 }
@@ -302,16 +302,15 @@ Alignment Sampler::mutate(const Alignment& aln,
 
 string Sampler::alignment_seq(const Alignment& aln) {
     // get the graph corresponding to the alignment path
-    Graph sub;
+    VG g;
     for (int i = 0; i < aln.path().mapping_size(); ++ i) {
         auto& m = aln.path().mapping(i);
         if (m.has_position() && m.position().node_id()) {
             auto id = aln.path().mapping(i).position().node_id();
-            xgidx->get_id_range(id, id, sub);
+            algorithms::extract_id_range(*xgidx, id, id, g);
         }
     }
-    algorithms::expand_subgraph_by_steps(*xgindex, sub, 2);
-    VG g; g.extend(sub);
+    algorithms::expand_subgraph_by_steps(*xgidx, g, 2);
     return g.path_string(aln.path());
 }
 

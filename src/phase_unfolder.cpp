@@ -376,8 +376,11 @@ void PhaseUnfolder::generate_paths(VG& component, vg::id_t from) {
 
     for (size_t path_rank = 1; path_rank <= this->xg_index.max_path_rank(); path_rank++) {
         const xg::XGPath& path = this->xg_index.get_path(this->xg_index.path_name(path_rank));
-
-        std::vector<size_t> occurrences = this->xg_index.node_ranks_in_path(from, path_rank);
+        std::vector<size_t> occurrences;
+        this->xg_index.for_each_step_position_on_handle(this->xg_index.get_handle(from), [&](const step_handle_t& step, const bool& rev, const uint64_t& pos) {
+                occurrences.push_back(as_integers(step)[1]);
+            });
+        std::vector<size_t> occurrences = this->xg_index.handle_ranks_in_path(this->xg_index.get_handle(from), path_rank);
         for (size_t occurrence : occurrences) {
             // Forward.
             {

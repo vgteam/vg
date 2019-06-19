@@ -160,6 +160,14 @@ void expand_subgraph_to_length(const HandleGraph& source, MutableHandleGraph& su
     }
 }
 
+void extract_id_range(const HandleGraph& source, const nid_t& id1, const nid_t& id2, MutableHandleGraph& subgraph) {
+    for (nid_t i = id1; i <= id2; ++i) {
+        if (!subgraph.has_node(i)) {
+            subgraph.create_handle(source.get_sequence(source.get_handle(i)), i);
+        }
+    }
+}
+
 /// add subpaths to the subgraph, providing a concatenation of subpaths that are discontiguous over the subgraph
 /// based on their order in the path position index provided by the source graph
 /// will clear any path found in both graphs before writing the new steps into it
