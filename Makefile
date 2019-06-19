@@ -56,6 +56,12 @@ ifeq ($(shell uname -s),Darwin)
         # Use /usr/local/include as system-level (to avoid overriding our Protobuf) if present.
         # One might expect this to already be there but see https://github.com/vgteam/vg/issues/2133
         CXXFLAGS += -isystem /usr/local/include
+
+        ifeq ($(shell if [ -d /usr/local/include/cairo ];then echo 1;else echo 0;fi), 1)
+            # pkg-config is not always smart enough to find Cairo's include path for us.
+            # We make sure to grab its directory manually if we see it.
+            CXXFLAGS += -I /usr/local/include/cairo
+        endif
     endif
 
     # Our compiler might be clang that lacks -fopenmp support.
