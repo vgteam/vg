@@ -48,7 +48,7 @@ cerr << endl << "New cluster calculation:" << endl;
                                                             curr_snarl_children;
                   
         if (tree_depth >= 0) {
-            curr_snarl_children = move(snarl_to_nodes[tree_depth]);
+            curr_snarl_children = std::move(snarl_to_nodes[tree_depth]);
         }
         //Maps children to the results of clustering - cluster heads and dists
         hash_map<pair<id_t, bool>, child_cluster_t> child_clusters;
@@ -65,7 +65,7 @@ cerr << endl << "New cluster calculation:" << endl;
             if (depth != 0) {
                 // Bring in the direct child nodes that come in at this level in the snarl tree.
                 // They only ever occur below the root.
-                parent_snarl_children = move(snarl_to_nodes[depth - 1]);
+                parent_snarl_children = std::move(snarl_to_nodes[depth - 1]);
             }
 
             //Maps each chain to the snarls that comprise it
@@ -116,12 +116,15 @@ cerr << endl << "New cluster calculation:" << endl;
                         size_t parent_snarl_i = 
                                dist_index.getPrimaryAssignment(
                                                     snarl_index.parent_id);
-                        parent_snarl_children[parent_snarl_i].push_back(
-                            make_pair(make_pair(snarl_i, SNARL), 
+                        child_node_t snarl_node;
+                        snarl_node.node_id = snarl_i;
+                        snarl_node.node_type = SNARL;
+                        parent_snarl_children[parent_snarl_i].emplace_back(
+                                std::move(snarl_node), 
                                   get_clusters_snarl(seeds, union_find_clusters,
                                          cluster_dists, kv.second, 
                                          node_to_seeds, distance_limit,
-                                         snarl_i, false)));
+                                         snarl_i, false));
                                          
 #ifdef DEBUG
                         cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
@@ -170,7 +173,11 @@ cerr << endl << "New cluster calculation:" << endl;
                     size_t parent_snarl_i =dist_index.getPrimaryAssignment(parent_id);
                     
                     // Register clusters as relevant for that parent snarl.
-                    parent_snarl_children[parent_snarl_i].emplace_back(make_pair(chain_i, CHAIN), std::move(chain_clusters));
+                    child_node_t chain_node;
+                    chain_node.node_id = chain_i;
+                    chain_node.node_type = CHAIN;
+                    parent_snarl_children[parent_snarl_i].emplace_back(
+                            std::move(chain_node), std::move(chain_clusters));
 #ifdef DEBUG
                     cerr << "Recording chain number " << chain_i << " headed by " << dist_index.chain_indexes[chain_i].id_in_parent
                         << " as a child of snarl number " << parent_snarl_i << " headed by " << parent_id << endl;
@@ -181,7 +188,7 @@ cerr << endl << "New cluster calculation:" << endl;
             }
 
             // Swap buffer over for the next level
-            curr_snarl_children = move(parent_snarl_children);
+            curr_snarl_children = std::move(parent_snarl_children);
         }
 
 #ifdef DEBUG 
@@ -241,8 +248,11 @@ cerr << endl << "New cluster calculation:" << endl;
                                                 dist_index.getPrimaryRank(id));
 
                 child_cluster_t empty;
+                child_node_t child_node;
+                child_node.node_id = id;
+                child_node.node_type = NODE;
                 snarl_to_nodes[depth][snarl_i].emplace_back(
-                                  make_pair(id, NODE), empty);
+                                  std::move(child_node), std::move(empty));
             }
         }
     }
@@ -310,7 +320,7 @@ cerr << endl << "New cluster calculation:" << endl;
             assert(got_left);
             assert(got_right);
 #endif
-            return make_tuple(move(cluster_group_ids), 
+            return make_tuple(std::move(cluster_group_ids), 
                               best_dist_left, best_dist_right);
         }
 
@@ -392,7 +402,7 @@ cerr << endl << "New cluster calculation:" << endl;
             assert (group_id == union_find_clusters.find_group(group_id));
         }
 #endif
-        return make_tuple(move(cluster_group_ids), best_left, best_right);
+        return make_tuple(std::move(cluster_group_ids), best_left, best_right);
         
     };
 
@@ -581,7 +591,7 @@ cerr << endl << "New cluster calculation:" << endl;
                 /* For each of the clusters for the current snarl,
                  * find if it belongs to the new combined cluster*/ 
 
-                pair<int64_t, int64_t> snarl_dists = move(cluster_dists[j]);
+                pair<int64_t, int64_t> snarl_dists = std::move(cluster_dists[j]);
 
 
 
@@ -730,7 +740,7 @@ cerr << "  Combining this cluster from the right" << endl;
                     best_left = min_positive(best_left, d.first); 
                     best_right = min_positive(best_right, d.second);
 
-                    cluster_dists[j] = move(d); 
+                    cluster_dists[j] = std::move(d); 
                 }
             }
             for (size_t i : chain_cluster_ids) {
@@ -905,7 +915,7 @@ cerr << "  Combining this cluster from the right" << endl;
         }
 #endif
 
-        return make_tuple(move(chain_cluster_ids), best_left, best_right) ; 
+        return make_tuple(std::move(chain_cluster_ids), best_left, best_right) ; 
     };
 
 
@@ -983,44 +993,20 @@ cerr << "  Combining this cluster from the right" << endl;
             child_node_t& child = children.first;
             child_cluster_t& curr_child_clusters = children.second;
 
-            // Note that child.second is the type, and child.first is the
-            // *number* of the child in that type, *not* the heading node ID.
+            // Get the node id of this netgraph node in its parent snarl
             // Ranks in parents are computed from node ID, so we have to get it.
-            id_t child_node_id;
-            switch (child.second) {
-            case NODE:
-                child_node_id = child.first;
-                break;
-            case SNARL:
-                child_node_id = dist_index.snarl_indexes[child.first].id_in_parent;
-                break;
-            case CHAIN:
-                child_node_id = dist_index.chain_indexes[child.first].id_in_parent;
-                break;
-            }
+            id_t child_node_id = child.id_in_parent(dist_index);
             
             //Rank of this node in the snarl
             //If this node is a snarl/chain, then this snarl will be the
             //secondary snarl
-            size_t node_rank = child.second == NODE 
-                    ? dist_index.getPrimaryRank(child_node_id)
-                    : dist_index.getSecondaryRank(child_node_id);
+            size_t node_rank = child.rank_in_parent(dist_index, child_node_id);
             size_t rev_rank = node_rank % 2 == 0
                            ? node_rank + 1 : node_rank - 1;
-            if ((child.second == SNARL && dist_index.snarl_indexes[
-                        dist_index.getPrimaryAssignment(child_node_id)].rev_in_parent) || 
-                 (child.second == CHAIN && dist_index.chain_indexes[
-                     dist_index.getChainAssignment(child_node_id)].rev_in_parent)) {
-                //If this node (child snarl/chain) is reversed in the snarl
-                //TODO: Make the secondary snarl rank indicate whether it is reversed or not
-                size_t temp = node_rank;
-                node_rank = rev_rank;
-                rev_rank = temp;
-            }
 
             //The clusters furthest to the left and right for this child node
             int64_t child_dist_left; int64_t child_dist_right;
-            if (child.second == NODE) {
+            if (child.node_type == NODE) {
                 //If this node is a node, we need to find the clusters
                 int64_t node_len = snarl_index.nodeLength(node_rank);
 
@@ -1110,18 +1096,7 @@ cerr << "\tcluster: " << c_i << "dists to ends in snarl" << snarl_index.id_in_pa
                 // Note that other_node.second is the type, and other_node.first is the
                 // *number* of the other_node in that type, *not* the heading node ID.
                 // Ranks in parents are computed from node ID, so we have to get it.
-                id_t other_node_id;
-                switch (other_node.second) {
-                case NODE:
-                    other_node_id = other_node.first;
-                    break;
-                case SNARL:
-                    other_node_id = dist_index.snarl_indexes[other_node.first].id_in_parent;
-                    break;
-                case CHAIN:
-                    other_node_id = dist_index.chain_indexes[other_node.first].id_in_parent;
-                    break;
-                }
+                id_t other_node_id = other_node.id_in_parent(dist_index);
                 
 #ifdef DEBUG
                 cerr << "Other net graph node is " << typeToString(other_node.second) << " number "
@@ -1132,22 +1107,11 @@ cerr << "\tcluster: " << c_i << "dists to ends in snarl" << snarl_index.id_in_pa
 #endif
 
                 //Rank of this node in the snarl
-                size_t other_rank = other_node.second == NODE ? 
-                       dist_index.getPrimaryRank(other_node_id)
-                    : dist_index.getSecondaryRank(other_node_id);
+                size_t other_rank = other_node.rank_in_parent(dist_index,  
+                                                              other_node_id);
                 size_t other_rev = other_rank % 2 == 0
                                     ? other_rank + 1 : other_rank - 1;
 
-            if ((other_node.second == SNARL && dist_index.snarl_indexes[
-                          dist_index.getPrimaryAssignment(other_node_id)].rev_in_parent) || 
-                 (other_node.second == CHAIN && dist_index.chain_indexes[
-                     dist_index.getChainAssignment(other_node_id)].rev_in_parent)) {
-                //If this node (child snarl/chain) is reversed in the snarl
-                //TODO: Make the secondary snarl rank indicate whether it is reversed or not
-                size_t temp = other_rank;
-                other_rank = other_rev;
-                other_rev = temp;
-            }
                 //Find distance from each end of current node to 
                 //each end of other node
                 int64_t dist_l_l = snarl_index.snarlDistance(
@@ -1295,6 +1259,6 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
             assert (group_id == union_find_clusters.find_group(group_id));
         }
 #endif
-        return make_tuple(move(snarl_cluster_ids), best_left, best_right);
+        return make_tuple(std::move(snarl_cluster_ids), best_left, best_right);
     };
 }

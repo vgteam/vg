@@ -43,9 +43,43 @@ class SnarlSeedClusterer {
         }
 
         //child nodes of a snarl's netgraph 
-        //size_t is the node id if the node is just a node, index into
+        //node_id is the node id if the node is just a node, index into
         //dist_index's snarl_indexes/chain_index if it is a snarl/chain
-        typedef pair<size_t, ChildNodeType> child_node_t;
+        struct child_node_t {
+            size_t node_id; 
+            ChildNodeType node_type;
+
+            id_t id_in_parent(MinimumDistanceIndex& dist_index) { 
+                //Get the id of this node in the parent netgraph
+                switch (node_type) {
+                case NODE:
+                    return node_id;
+                case SNARL:
+                    return dist_index.snarl_indexes[node_id].id_in_parent;
+                case CHAIN:
+                    return dist_index.chain_indexes[node_id].id_in_parent;
+                default:
+                    return 0;
+                }
+            }
+
+            size_t rank_in_parent(MinimumDistanceIndex& dist_index, id_t id) {
+                size_t rank = node_type == NODE ? 
+                                    dist_index.getPrimaryRank(id) :
+                                    dist_index.getSecondaryRank(id);
+                if ( (node_type == SNARL && 
+                      dist_index.snarl_indexes[dist_index.getPrimaryAssignment(id)].rev_in_parent) ||
+                     (node_type == CHAIN && 
+                      dist_index.chain_indexes[dist_index.getChainAssignment(id)].rev_in_parent)) {
+                    rank = rank % 2 == 0 ? rank + 1 : rank - 1;
+                }
+                return rank;
+            }
+        };
+
+//TODO: Put all these arguments into a struct
+//One loop going up tree
+//One method for each node/snarl/chain level
 
         //A cluster in the context of a snarl tree node
         //set of the seed indices in the cluster and left and right distance
