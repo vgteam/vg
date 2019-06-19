@@ -153,6 +153,11 @@ class SnarlSeedClusterer {
                                   vector<pair<child_node_t, child_cluster_t>>>>&
                                                        snarl_to_nodes_by_level);
 
+        //Cluster all the snarls at the current level
+        void cluster_snarls(tree_state_t& tree_state, size_t depth);
+        //Cluster all the chains at the current level
+        void cluster_chains(tree_state_t& tree_state, size_t depth);
+
         //Given a node and the indices of seeds on that node, root, 
         //cluster the seeds
         child_cluster_t cluster_one_node(tree_state_t& tree_state, 

@@ -55,124 +55,18 @@ cerr << endl << "New cluster calculation:" << endl;
              * belonging to those snarls, and the chains comprised of them*/
 
             if (depth != 0) {
-                // Bring in the direct child nodes that come in at this level in the snarl tree.
+                // Bring in the direct child nodes that come in at this level 
+                //  in the snarl tree.
                 // They only ever occur below the root.
-                tree_state.parent_snarl_to_nodes = move(snarl_to_nodes_by_level[depth - 1]);
+                tree_state.parent_snarl_to_nodes = 
+                                       move(snarl_to_nodes_by_level[depth - 1]);
             }
 
-            //Maps each chain to the snarls that comprise it
-            //Snarls are unordered in the vector
+            //Cluster all the snarls at this depth
+            cluster_snarls(tree_state, depth);
 
-            for (auto& kv : tree_state.snarl_to_nodes){
-                //Go through each of the snarls at this level, cluster them,
-                //and find which chains they belong to, if any
-                //key is the index of the snarl and value is a vector of pair of
-                // child_node_t, child_cluster_t
-                size_t snarl_i = kv.first;
-                MinimumDistanceIndex::SnarlIndex& snarl_index = 
-                                         dist_index.snarl_indexes[snarl_i];
-
-#ifdef DEBUG
-                cerr << "At depth " << depth << " snarl number " << snarl_i
-                    << " headed by " << snarl_index.id_in_parent
-                    << " with children " << endl;
-                for (auto it2 : kv.second) {
-                    cerr << "\t" << typeToString(it2.first.node_type) << " number " << it2.first.node_id << endl;
-                }
-#endif
-                if (snarl_index.in_chain){
-                    //If this snarl is in a chain, cluster and add it to chains
-
-                    size_t chain_assignment = dist_index.getChainAssignment(
-                                                        snarl_index.parent_id);
-                    size_t chain_rank = dist_index.getChainRank(
-                                                      snarl_index.id_in_parent);
-
-                    tree_state.chain_to_snarls[chain_assignment].emplace(
-                            chain_rank, make_pair(snarl_i, 
-                                cluster_one_snarl(tree_state, snarl_i, 
-                                                  snarl_index.rev_in_parent)));
-
-#ifdef debug
-                    cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
-                        << " as a child of chain number " << chain_assignment << " headed by " << snarl_index.parent_id << endl;
-#endif
-                    
-                } else {
-                    //If this snarl is not in a chain, add it as a child of the
-                    //parent snarl for the next level
-
-                    if (depth != 0 && snarl_index.parent_id != 0){
-                        //If this has a parent, record it
-#ifdef debug
-                        assert(snarl_index.parent_id >= dist_index.min_node_id);
-                        assert(snarl_index.parent_id <= dist_index.max_node_id);
-#endif
-                        size_t parent_snarl_i = 
-                               dist_index.getPrimaryAssignment(
-                                                    snarl_index.parent_id);
-                        child_node_t snarl_node;
-                        snarl_node.node_id = snarl_i;
-                        snarl_node.node_type = SNARL;
-                        tree_state.parent_snarl_to_nodes[parent_snarl_i].emplace_back(
-                                std::move(snarl_node), 
-                                cluster_one_snarl(tree_state, snarl_i, false));
-                                         
-#ifdef DEBUG
-                        cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
-                            << " as a child of snarl number " << parent_snarl_i
-                            << " headed by " << snarl_index.parent_id << endl;
-                        cerr << "Snarl number " << parent_snarl_i << " has "
-                            << tree_state.parent_snarl_to_nodes[parent_snarl_i].size() << " children now" << endl;
-#endif
-                    } else {
-                         cluster_one_snarl(tree_state, snarl_i, false);
-                    }
-                }
-            }
-            for (auto& kv : tree_state.chain_to_snarls) {
-                //For each chain at this level that has relevant child snarls in it, find the clusters.
-
-                // Get the chain's number
-                size_t chain_i = kv.first;
-                
-#ifdef DEBUG
-                cerr << "At depth " << depth << " chain number " << chain_i << " with children " << endl;
-                for (auto it2 : kv.second) {
-                    cerr << "\t snarl number " << it2.second.first << endl;
-                }
-#endif
-
-                // Compute the clusters for the chain
-                auto chain_clusters = cluster_one_chain(tree_state, chain_i);
-                
-                if (depth > 0) {
-                    // We actually have a parent
-                    
-                    // Find the node ID that heads the parent of that chain.
-                    size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
-                    // It must be a legitimate node ID we cover.
-#ifdef debug
-                    assert(parent_id >= dist_index.min_node_id);
-                    assert(parent_id <= dist_index.max_node_id);
-#endif
-                    // Map it to the snarl number that should be represented by it (and thus also contain the chain)
-                    size_t parent_snarl_i =dist_index.getPrimaryAssignment(parent_id);
-                    
-                    // Register clusters as relevant for that parent snarl.
-                    child_node_t chain_node;
-                    chain_node.node_id = chain_i;
-                    chain_node.node_type = CHAIN;
-                    tree_state.parent_snarl_to_nodes[parent_snarl_i].emplace_back(
-                            std::move(chain_node), std::move(chain_clusters));
-#ifdef DEBUG
-                    cerr << "Recording chain number " << chain_i << " headed by " << dist_index.chain_indexes[chain_i].id_in_parent
-                        << " as a child of snarl number " << parent_snarl_i << " headed by " << parent_id << endl;
-                    cerr << "Snarl number " << parent_snarl_i << " has "
-                        << tree_state.parent_snarl_to_nodes[parent_snarl_i].size() << " children now" << endl;
-#endif
-                } 
-            }
+            //And all the chains
+            cluster_chains(tree_state, depth); 
 
             // Swap buffer over for the next level
             tree_state.snarl_to_nodes = move(tree_state.parent_snarl_to_nodes);
@@ -246,6 +140,122 @@ cerr << endl << "New cluster calculation:" << endl;
     }
 
 
+    void SnarlSeedClusterer::cluster_snarls(tree_state_t& tree_state, size_t depth) {
+
+        for (auto& kv : tree_state.snarl_to_nodes){
+            //Go through each of the snarls at this level, cluster them,
+            //and find which chains they belong to, if any
+            //key is the index of the snarl and value is a vector of pair of
+            // child_node_t, child_cluster_t
+            size_t snarl_i = kv.first;
+            MinimumDistanceIndex::SnarlIndex& snarl_index = 
+                                     dist_index.snarl_indexes[snarl_i];
+
+#ifdef D
+            cerr << "At depth " << depth << " snarl number " << snarl_i
+                << " headed by " << snarl_index.id_in_parent
+                << " with children " << endl;
+            for (auto it2 : kv.second) {
+                cerr << "\t" << typeToString(it2.first.node_type) << " number " << it2.first.node_id << endl;
+            }
+#endif
+            if (snarl_index.in_chain){
+                //If this snarl is in a chain, cluster and add it to chains
+
+                size_t chain_assignment = dist_index.getChainAssignment(
+                                                    snarl_index.parent_id);
+                size_t chain_rank = dist_index.getChainRank(
+                                                  snarl_index.id_in_parent);
+
+                tree_state.chain_to_snarls[chain_assignment].emplace(
+                        chain_rank, make_pair(snarl_i, 
+                            cluster_one_snarl(tree_state, snarl_i, 
+                                              snarl_index.rev_in_parent)));
+
+#ifdef d
+                cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
+                    << " as a child of chain number " << chain_assignment << " headed by " << snarl_index.parent_id << endl;
+#endif
+                
+            } else {
+                //If this snarl is not in a chain, add it as a child of the
+                //parent snarl for the next level
+
+                if (depth != 0 && snarl_index.parent_id != 0){
+                    //If this has a parent, record it
+#ifdef d
+                    assert(snarl_index.parent_id >= dist_index.min_node_id);
+                    assert(snarl_index.parent_id <= dist_index.max_node_id);
+#endif
+                    size_t parent_snarl_i = 
+                           dist_index.getPrimaryAssignment(
+                                                snarl_index.parent_id);
+                    child_node_t snarl_node;
+                    snarl_node.node_id = snarl_i;
+                    snarl_node.node_type = SNARL;
+                    tree_state.parent_snarl_to_nodes[parent_snarl_i].emplace_back(
+                            std::move(snarl_node), 
+                            cluster_one_snarl(tree_state, snarl_i, false));
+                                     
+#ifdef D
+                    cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
+                        << " as a child of snarl number " << parent_snarl_i
+                        << " headed by " << snarl_index.parent_id << endl;
+                    cerr << "Snarl number " << parent_snarl_i << " has "
+                        << tree_state.parent_snarl_to_nodes[parent_snarl_i].size() << " children now" << endl;
+#endif
+                } else {
+                     cluster_one_snarl(tree_state, snarl_i, false);
+                }
+            }
+        }
+    }
+
+    void SnarlSeedClusterer::cluster_chains(tree_state_t& tree_state, size_t depth) {
+        for (auto& kv : tree_state.chain_to_snarls) {
+            //For each chain at this level that has relevant child snarls in it, find the clusters.
+
+            // Get the chain's number
+            size_t chain_i = kv.first;
+            
+#ifdef D
+            cerr << "At depth " << depth << " chain number " << chain_i << " with children " << endl;
+            for (auto it2 : kv.second) {
+                cerr << "\t snarl number " << it2.second.first << endl;
+            }
+#endif
+
+            // Compute the clusters for the chain
+            auto chain_clusters = cluster_one_chain(tree_state, chain_i);
+            
+            if (depth > 0) {
+                // We actually have a parent
+                
+                // Find the node ID that heads the parent of that chain.
+                size_t parent_id = dist_index.chain_indexes[chain_i].parent_id;
+                // It must be a legitimate node ID we cover.
+#ifdef d
+                assert(parent_id >= dist_index.min_node_id);
+                assert(parent_id <= dist_index.max_node_id);
+#endif
+                // Map it to the snarl number that should be represented by it (and thus also contain the chain)
+                size_t parent_snarl_i =dist_index.getPrimaryAssignment(parent_id);
+                
+                // Register clusters as relevant for that parent snarl.
+                child_node_t chain_node;
+                chain_node.node_id = chain_i;
+                chain_node.node_type = CHAIN;
+                tree_state.parent_snarl_to_nodes[parent_snarl_i].emplace_back(
+                        std::move(chain_node), std::move(chain_clusters));
+#ifdef D
+                cerr << "Recording chain number " << chain_i << " headed by " << dist_index.chain_indexes[chain_i].id_in_parent
+                    << " as a child of snarl number " << parent_snarl_i << " headed by " << parent_id << endl;
+                cerr << "Snarl number " << parent_snarl_i << " has "
+                    << tree_state.parent_snarl_to_nodes[parent_snarl_i].size() << " children now" << endl;
+#endif
+            } 
+        }
+    }
     SnarlSeedClusterer::child_cluster_t SnarlSeedClusterer::cluster_one_node(
                        tree_state_t& tree_state,
                        id_t node_id, int64_t node_length) {
@@ -391,6 +401,8 @@ cerr << endl << "New cluster calculation:" << endl;
         return make_tuple(std::move(cluster_group_ids), best_left, best_right);
         
     };
+
+
 
     SnarlSeedClusterer::child_cluster_t SnarlSeedClusterer::cluster_one_chain(
                                tree_state_t& tree_state, size_t chain_index_i) {
