@@ -1025,7 +1025,7 @@ void Transcriptome::write_sequences(ostream * fasta_ostream, const bool output_r
 
 void Transcriptome::write_info(ostream * tsv_ostream, const bool output_reference_transcripts) const {
 
-    *tsv_ostream << "Name\tTranscript\tReference\tHaplotypes" << endl; 
+    *tsv_ostream << "Name\tLength\tTranscript\tReference\tHaplotypes" << endl; 
 
     for (auto & transcript: _transcriptome) {
 
@@ -1033,6 +1033,7 @@ void Transcriptome::write_info(ostream * tsv_ostream, const bool output_referenc
         if (!transcript.haplotype_origins.empty() || output_reference_transcripts) {
 
             *tsv_ostream << transcript.name;
+            *tsv_ostream << "\t" << path_to_length(transcript.path);
             *tsv_ostream << "\t" << transcript.transcript_origin;
 
             if (transcript.reference_origin.empty()) {
