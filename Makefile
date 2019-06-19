@@ -493,11 +493,11 @@ $(LIB_DIR)/libdwfl.a: $(LIB_DIR)/libelf.a
 $(LIB_DIR)/libelf.a: $(ELFUTILS_DIR)/libebl/*.c $(ELFUTILS_DIR)/libebl/*.h $(ELFUTILS_DIR)/libdw/*.c $(ELFUTILS_DIR)/libdw/*.h $(ELFUTILS_DIR)/libelf/*.c $(ELFUTILS_DIR)/libelf/*.h $(ELFUTILS_DIR)/src/*.c $(ELFUTILS_DIR)/src/*.h
 	+cd $(CWD)/$(INC_DIR)/ && rm -Rf elfutils gelf.h libelf.h dwarf.h libdwflP.h libdwfl.h libebl.h libelf.h
 	+cd $(ELFUTILS_DIR) && autoreconf -i -f && ./configure --enable-maintainer-mode --prefix=$(CWD) $(FILTER)
-	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) libelf.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) libebl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) libdw.a known-dwarf.h $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) libdwfl.a $(FILTER)
-	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) libdwelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libelf && $(MAKE) clean && $(MAKE) libelf.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libebl && $(MAKE) clean && $(MAKE) libebl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwfl && $(MAKE) clean && $(MAKE) libdwfl.a $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdw && $(MAKE) clean && $(MAKE) libdw.a known-dwarf.h $(FILTER)
+	+cd $(ELFUTILS_DIR)/libdwelf && $(MAKE) clean && $(MAKE) libdwelf.a $(FILTER)
 	+cd $(ELFUTILS_DIR) && mkdir -p $(CWD)/$(INC_DIR)/elfutils && cp libdw/known-dwarf.h libdw/libdw.h libebl/libebl.h libelf/elf-knowledge.h version.h libdwfl/libdwfl.h libdwelf/libdwelf.h $(CWD)/$(INC_DIR)/elfutils && cp libelf/gelf.h libelf/libelf.h libdw/dwarf.h $(CWD)/$(INC_DIR) && cp libebl/libebl.a libdw/libdw.a libdwfl/libdwfl.a libdwelf/libdwelf.a libelf/libelf.a $(CWD)/$(LIB_DIR)/
 
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
