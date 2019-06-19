@@ -88,6 +88,58 @@ class SnarlSeedClusterer {
         typedef tuple<hash_set<size_t>, int64_t, int64_t> child_cluster_t;
 
 
+        struct tree_state_t {
+            //Hold all the tree relationships, seed locations, and cluster info
+            //for the current level of the snarl tree and the parent level
+
+            //Vector of all the seeds
+            vector<pos_t> seeds; 
+
+            //The minimum distance between nodes for them to be put in the
+            //same cluster
+            int64_t distance_limit;
+
+
+            //////////Data structures to hold clustering information
+
+            //Structure to hold the clustering of the seeds
+            structures::UnionFind* union_find_clusters;
+
+            //For each seed, store the distances to the left and right ends
+            //of the netgraph node of the cluster it belongs to
+            //These values are only relevant for seeds that represent a cluster
+            //in union_find_clusters
+            vector<pair<int64_t, int64_t>> cluster_dists;
+
+
+
+            //////////Data structures to hold snarl tree relationships
+
+            //Maps each node to a vector of the indices into seeds of the
+            //seeds that are contained in it
+            hash_map<id_t, vector<size_t>> node_to_seeds;
+
+            //Map from snarl (index into dist_index.snarl_indexes) i
+            //to the netgraph nodes contained in the snarl as well as the 
+            //clusters at the node
+            hash_map<size_t,vector<pair<child_node_t,child_cluster_t>>>
+                                                            snarl_to_nodes;
+            
+            //Map each chain to the snarls (only ones that contain seeds) that
+            //comprise it. 
+            //Snarls are order by their order in the chain
+            //Snarls and chains represented as their indexes into 
+            //dist_index.chain/snarl_indexes
+            hash_map<size_t, vector<size_t>> chain_to_snarls;
+
+
+            //Same structure as snarl_to_nodes but for the level of the snarl
+            //tree above the current one
+            hash_map<size_t,vector<pair<child_node_t,child_cluster_t>>>
+                                                          parent_snarl_to_nodes;
+
+
+        };
 
         //Find which nodes contain seeds and assign those nodes to the 
         //snarls that contain them. Also find the depth of each snarl
@@ -99,39 +151,20 @@ class SnarlSeedClusterer {
 
         //Given a node and the indices of seeds on that node, root, 
         //cluster the seeds
-        child_cluster_t get_clusters_node(const vector<pos_t>& seeds, 
-                             structures::UnionFind& union_find_clusters,
-                             vector<pair<int64_t, int64_t>>& cluster_dists,
-                             vector<size_t>& seed_indices,
-                             int64_t distance_limit, id_t root,
-                             int64_t node_length); 
+        child_cluster_t get_clusters_node(tree_state_t& tree_state, 
+                                          id_t node_id, int64_t node_length); 
 
         //Cluster the seeds in a chain
         //snarls_in_chain is an unordered vector of snarls where the snarl
         //  is represented as its index into dist_index.snarl_indexes
         //curr_snarl_children maps each snarl to a vector of its children and 
         //clusters on the children
-        child_cluster_t get_clusters_chain(
-                             const vector<pos_t>& seeds,
-                             structures::UnionFind& union_find_clusters,
-                             vector<pair<int64_t, int64_t>>& cluster_dists,
-                             vector<size_t>& snarls_in_chain,
-                             hash_map<size_t, 
-                                  vector<pair<child_node_t, child_cluster_t>>>&
-                                                        curr_snarl_children,
-                             hash_map<id_t, vector<size_t>>& node_to_seeds,
-                             int64_t distance_limit,  size_t chain_index_i);
+        child_cluster_t get_clusters_chain(tree_state_t& tree_state,
+                                           size_t chain_index_i);
 
         //Cluster the seeds in a snarl 
         //child_nodes is a vector of the children of root and their clusters
-        child_cluster_t get_clusters_snarl(
-                             const vector<pos_t>& seeds,
-                             structures::UnionFind& union_find_clusters,
-                             vector<pair<int64_t, int64_t>>& cluster_dists,
-                             vector<pair<child_node_t, child_cluster_t>>&  
-                                                              child_nodes,
-                             hash_map<id_t, vector<size_t>>& node_to_seeds,
-                             int64_t distance_limit, 
+        child_cluster_t get_clusters_snarl(tree_state_t& tree_state,
                              size_t snarl_index_i, bool rev) ;
 
 };

@@ -20,8 +20,8 @@ cerr << endl << "New cluster calculation:" << endl;
 
         //Create a union find structure to hold the cluster assignments of
         //each seed. Each seed is initially its own cluster 
+        
         structures::UnionFind union_find_clusters (seeds.size(), false);
-
 
         //Map each node to a vector of seed indices
         hash_map<id_t, vector<size_t>> node_to_seeds;
@@ -30,30 +30,26 @@ cerr << endl << "New cluster calculation:" << endl;
         //dist_index.snarl_indexes) at that level to 
         //nodes belonging to the snarl
         vector<hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>>> 
-                                                                 snarl_to_nodes;
-        snarl_to_nodes.resize(dist_index.tree_depth+1);
+                                                  snarl_to_nodes_by_level;
+        snarl_to_nodes_by_level.resize(dist_index.tree_depth+1);
 
-        //Populate node_to_seed and snarl_to_nodes
-        get_nodes(seeds, node_to_seeds, snarl_to_nodes);
+        //Populate node_to_seed and snarl_to_nodes_by_level
+        get_nodes(seeds, node_to_seeds, snarl_to_nodes_by_level);
 
-        //Maps each cluster group ID to the left and right distances
-        vector<pair<int64_t, int64_t>> cluster_dists (seeds.size(), 
-                                                      make_pair(-1, -1));
-
-        int tree_depth = snarl_to_nodes.size()-1; 
-
-        //Maps snarls in the current level to be clustered (by snarl number) to its children.
-        //Children are stored as child index in its type, and child type.
-        hash_map<size_t, vector<pair<child_node_t, child_cluster_t>>> 
-                                                            curr_snarl_children;
-                  
-        if (tree_depth >= 0) {
-            curr_snarl_children = std::move(snarl_to_nodes[tree_depth]);
+        tree_state_t tree_state;
+        tree_state.cluster_dists.assign(seeds.size(),make_pair(-1, -1));
+        tree_state.seeds = move(seeds);
+        tree_state.distance_limit = distance_limit;
+        tree_state.union_find_clusters = &union_find_clusters;
+        tree_state.node_to_seeds = move(node_to_seeds);
+        if (dist_index.tree_depth >= 0) {
+            tree_state.snarl_to_nodes = move(snarl_to_nodes_by_level[dist_index.tree_depth]);
         }
+
         //Maps children to the results of clustering - cluster heads and dists
         hash_map<pair<id_t, bool>, child_cluster_t> child_clusters;
 
-        for (int depth = tree_depth ; depth >= 0 ; depth --) {
+        for (int depth = dist_index.tree_depth ; depth >= 0 ; depth --) {
             /*Go through each level of the tree, bottom up, and cluster that 
              * level. Each level includes the snarl at that level, the nodes
              * belonging to those snarls, and the chains comprised of them*/
@@ -65,14 +61,13 @@ cerr << endl << "New cluster calculation:" << endl;
             if (depth != 0) {
                 // Bring in the direct child nodes that come in at this level in the snarl tree.
                 // They only ever occur below the root.
-                parent_snarl_children = std::move(snarl_to_nodes[depth - 1]);
+                tree_state.parent_snarl_to_nodes = move(snarl_to_nodes_by_level[depth - 1]);
             }
 
             //Maps each chain to the snarls that comprise it
             //Snarls are unordered in the vector
-            hash_map<size_t, vector<size_t>> chain_to_snarls; 
 
-            for (auto& kv : curr_snarl_children){
+            for (auto& kv : tree_state.snarl_to_nodes){
                 //Go through each of the snarls at this level, cluster them,
                 //and find which chains they belong to, if any
                 //key is the index of the snarl and value is a vector of pair of
@@ -96,7 +91,7 @@ cerr << endl << "New cluster calculation:" << endl;
                     size_t chain_assignment = dist_index.getChainAssignment(
                                                         snarl_index.parent_id);
 
-                    chain_to_snarls[chain_assignment].push_back( snarl_i);
+                    tree_state.chain_to_snarls[chain_assignment].push_back( snarl_i);
                           
 #ifdef debug
                     cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
@@ -119,12 +114,9 @@ cerr << endl << "New cluster calculation:" << endl;
                         child_node_t snarl_node;
                         snarl_node.node_id = snarl_i;
                         snarl_node.node_type = SNARL;
-                        parent_snarl_children[parent_snarl_i].emplace_back(
+                        tree_state.parent_snarl_to_nodes[parent_snarl_i].emplace_back(
                                 std::move(snarl_node), 
-                                  get_clusters_snarl(seeds, union_find_clusters,
-                                         cluster_dists, kv.second, 
-                                         node_to_seeds, distance_limit,
-                                         snarl_i, false));
+                                get_clusters_snarl(tree_state, snarl_i, false));
                                          
 #ifdef DEBUG
                         cerr << "Recording snarl number " << snarl_i << " headed by " << snarl_index.id_in_parent
@@ -134,14 +126,11 @@ cerr << endl << "New cluster calculation:" << endl;
                             << parent_snarl_children[parent_snarl_i].size() << " children now" << endl;
 #endif
                     } else {
-                         get_clusters_snarl(seeds, union_find_clusters,
-                                    cluster_dists, kv.second, 
-                                    node_to_seeds, distance_limit,
-                                    snarl_i, false);
+                         get_clusters_snarl(tree_state, snarl_i, false);
                     }
                 }
             }
-            for (auto& kv : chain_to_snarls) {
+            for (auto& kv : tree_state.chain_to_snarls) {
                 //For each chain at this level that has relevant child snarls in it, find the clusters.
 
                 // Get the chain's number
@@ -155,9 +144,7 @@ cerr << endl << "New cluster calculation:" << endl;
 #endif
 
                 // Compute the clusters for the chain
-                auto chain_clusters = get_clusters_chain(seeds, union_find_clusters,
-                    cluster_dists, kv.second, curr_snarl_children,
-                    node_to_seeds, distance_limit, chain_i);
+                auto chain_clusters = get_clusters_chain(tree_state, chain_i);
                 
                 if (depth > 0) {
                     // We actually have a parent
@@ -176,7 +163,7 @@ cerr << endl << "New cluster calculation:" << endl;
                     child_node_t chain_node;
                     chain_node.node_id = chain_i;
                     chain_node.node_type = CHAIN;
-                    parent_snarl_children[parent_snarl_i].emplace_back(
+                    tree_state.parent_snarl_to_nodes[parent_snarl_i].emplace_back(
                             std::move(chain_node), std::move(chain_clusters));
 #ifdef DEBUG
                     cerr << "Recording chain number " << chain_i << " headed by " << dist_index.chain_indexes[chain_i].id_in_parent
@@ -188,7 +175,7 @@ cerr << endl << "New cluster calculation:" << endl;
             }
 
             // Swap buffer over for the next level
-            curr_snarl_children = std::move(parent_snarl_children);
+            tree_state.snarl_to_nodes = move(tree_state.parent_snarl_to_nodes);
         }
 
 #ifdef DEBUG 
@@ -259,22 +246,20 @@ cerr << endl << "New cluster calculation:" << endl;
 
 
     SnarlSeedClusterer::child_cluster_t SnarlSeedClusterer::get_clusters_node(
-                       const vector<pos_t>& seeds,
-                       structures::UnionFind& union_find_clusters, 
-                       vector< pair<int64_t, int64_t>>& cluster_dists,
-                       vector<size_t>& seed_indices,
-                       int64_t distance_limit, 
-                       id_t root, int64_t node_length) {
+                       tree_state_t& tree_state,
+                       id_t node_id, int64_t node_length) {
 #ifdef DEBUG 
-        cerr << "Finding clusters on node " << root << " which has length " <<
+        cerr << "Finding clusters on node " << node_id << " which has length " <<
         node_length << endl;
 #endif
-        /*Find clusters of seeds in this node, root. 
+        /*Find clusters of seeds in this node. 
          * Returns a hash_set of the union find group IDs of the new clusters,
          * and the shortest distance from any seed to the left and right sides 
          * of the node*/
 
-        if (distance_limit > node_length) {
+         vector<size_t>& seed_indices = tree_state.node_to_seeds[node_id];
+
+        if (tree_state.distance_limit > node_length) {
             //If the limit is greater than the node length, then all the 
             //seeds on this node must be in the same cluster
             
@@ -285,7 +270,7 @@ cerr << endl << "New cluster calculation:" << endl;
             for (size_t seed_i : seed_indices) {
                 //For each seed on this node, add it to the cluster
                 
-                pos_t seed = seeds[seed_i]; 
+                pos_t seed = tree_state.seeds[seed_i]; 
                 int64_t dist_start = get_offset(seed) + 1; 
                 int64_t dist_end = node_length - get_offset(seed);
                 int64_t dist_left = is_rev(seed) ? dist_end : dist_start;
@@ -294,27 +279,27 @@ cerr << endl << "New cluster calculation:" << endl;
                 best_dist_left = min_positive(dist_left, best_dist_left);
                 best_dist_right = min_positive(dist_right, best_dist_right);
 
-                union_find_clusters.union_groups(group_id, seed_i);
+                tree_state.union_find_clusters->union_groups(group_id, seed_i);
 
             }
 
-            group_id = union_find_clusters.find_group(group_id);
-            cluster_dists[group_id] = make_pair(best_dist_left, 
+            group_id = tree_state.union_find_clusters->find_group(group_id);
+            tree_state.cluster_dists[group_id] = make_pair(best_dist_left, 
                                                 best_dist_right);
             hash_set<size_t> cluster_group_ids;
             cluster_group_ids.insert(group_id);
 #ifdef DEBUG 
-            assert (group_id == union_find_clusters.find_group(group_id));
-            cerr << "Found single cluster on node " << root << endl;
+            assert (group_id == tree_state.union_find_clusters->find_group(group_id));
+            cerr << "Found single cluster on node " << node_id << endl;
             bool got_left = false;
             bool got_right = false;
             for (size_t c : cluster_group_ids) {
-                pair<int64_t, int64_t> dists = cluster_dists[c];
+                pair<int64_t, int64_t> dists = tree_state.cluster_dists[c];
                 assert(dists.first == -1 || dists.first >= best_dist_left);
                 assert(dists.second == -1 || dists.second >= best_dist_right);
                 if (dists.first == best_dist_left) {got_left = true;}
                 if (dists.second == best_dist_right) {got_right = true;}
-                cerr << "\t" << c << ": left: " << dists.first << " right : " << 
+                cerr << "\t" << c << ": left: " << dists.first << " right : " <<
                                                            dists.second << endl;
             }
             assert(got_left);
@@ -333,7 +318,7 @@ cerr << endl << "New cluster calculation:" << endl;
         vector<pair<size_t, int64_t>> seed_offsets;
         for ( size_t i : seed_indices) {
             //For each seed, find its offset 
-            pos_t seed = seeds[i]; 
+            pos_t seed = tree_state.seeds[i]; 
             int64_t offset = is_rev(seed) ? node_length - get_offset(seed) 
                                             : get_offset(seed) + 1;
 
@@ -361,15 +346,15 @@ cerr << endl << "New cluster calculation:" << endl;
             size_t i_group = s.first;
             int64_t offset = s.second;
 
-            if (abs(offset - last_offset) <= distance_limit) {
+            if (abs(offset - last_offset) <= tree_state.distance_limit) {
                 //If this seed is in the same cluster as the previous one,
                 //union them
 
-                union_find_clusters.union_groups(i_group, last_cluster);
-                last_cluster = union_find_clusters.find_group(i_group);
+                tree_state.union_find_clusters->union_groups(i_group, last_cluster);
+                last_cluster = tree_state.union_find_clusters->find_group(i_group);
                 last_left = min_positive(last_left, offset);
                 last_right = min_positive(last_right, node_length-offset+1);
-                cluster_dists[last_cluster] = make_pair(last_left, last_right);
+                tree_state.cluster_dists[last_cluster] = make_pair(last_left, last_right);
 
             } else {
                 //This becomes a new cluster
@@ -377,18 +362,18 @@ cerr << endl << "New cluster calculation:" << endl;
                 last_cluster = i_group;
                 last_left = offset;
                 last_right = node_length - offset + 1;
-                cluster_dists[i_group] = make_pair(last_left, last_right);
+                tree_state.cluster_dists[i_group] = make_pair(last_left, last_right);
             }
             last_offset = offset;
                         
         }
         
 #ifdef DEBUG 
-        cerr << "Found clusters on node " << root << endl;
+        cerr << "Found clusters on node " << node_id << endl;
         bool got_left = false;
         bool got_right = false;
         for (size_t c : cluster_group_ids) {
-            pair<int64_t, int64_t> dists = cluster_dists[c];
+            pair<int64_t, int64_t> dists = tree_state.cluster_dists[c];
             assert(dists.first == -1 || dists.first >= best_left);
             assert(dists.first == -1 || dists.second >= best_right);
             if (dists.first == best_left) {got_left = true;}
@@ -407,21 +392,14 @@ cerr << endl << "New cluster calculation:" << endl;
     };
 
     SnarlSeedClusterer::child_cluster_t SnarlSeedClusterer::get_clusters_chain(
-                       const vector<pos_t>& seeds,
-                       structures::UnionFind& union_find_clusters,
-                       vector<pair<int64_t, int64_t>>& cluster_dists,
-                       vector< size_t>& snarls_in_chain,
-                       hash_map<size_t, 
-                                vector<pair<child_node_t, child_cluster_t>>>& 
-                                                            curr_snarl_children,
-                       hash_map<id_t, vector<size_t>>& node_to_seeds,
-                       int64_t distance_limit,  size_t chain_index_i) {
+                               tree_state_t& tree_state, size_t chain_index_i) {
         /*
          * Find all the clusters in the given chain, given clusters inside its 
          * child snarls.
          * Processes the child snarls and then combines into the chain.
          */
  
+        vector<size_t>& snarls_in_chain = tree_state.chain_to_snarls[chain_index_i];
         //Sort vector of snarls by rank
         std::sort(snarls_in_chain.begin(), snarls_in_chain.end(), 
                      [&](const auto s, const auto t) -> bool {
@@ -496,8 +474,8 @@ cerr << endl << "New cluster calculation:" << endl;
                 offset = offset - last_len + start_length;
 
                 for (size_t i : chain_cluster_ids) {
-                    cluster_dists[i].second = cluster_dists[i].second == -1 
-                                        ? -1 : cluster_dists[i].second + offset;
+                    tree_state.cluster_dists[i].second = tree_state.cluster_dists[i].second == -1 
+                                        ? -1 : tree_state.cluster_dists[i].second + offset;
                 }
                 best_right = best_right == -1 ? -1 : best_right + offset;
             }
@@ -505,18 +483,14 @@ cerr << endl << "New cluster calculation:" << endl;
 #ifdef DEBUG
             cerr << "Going to get clusters for snarl number " << curr_snarl_i 
                 << " headed by " << snarl_index.id_in_parent << " by clustering from its "
-                << curr_snarl_children[curr_snarl_i].size() << " children" << endl;
+                << tree_state.snarl_to_nodes[curr_snarl_i].size() << " children" << endl;
 #endif
 
             //Find the clusters of the current snarl
             hash_set<size_t> snarl_clusters; 
             int64_t child_dist_left; int64_t child_dist_right; 
             tie (snarl_clusters, child_dist_left, child_dist_right) = 
-                  get_clusters_snarl(seeds, union_find_clusters,
-                               cluster_dists, curr_snarl_children[curr_snarl_i],
-                               node_to_seeds, distance_limit,
-                               curr_snarl_i, 
-                               rev_in_chain);
+                  get_clusters_snarl(tree_state, curr_snarl_i, rev_in_chain);
             last_rank = start_rank + 1;
             last_len = end_length;
            
@@ -536,13 +510,13 @@ cerr << endl << "New cluster calculation:" << endl;
             cerr << "  Snarl distance limits: " << child_dist_left << " " << child_dist_right << endl;
             cerr << "  Snarl clusters to add: " << endl;
             for (size_t c : snarl_clusters) {
-                pair<int64_t, int64_t> dists = cluster_dists[c];
+                pair<int64_t, int64_t> dists = tree_state.cluster_dists[c];
                 cerr << "\tleft: " << dists.first << " right : " << dists.second 
                      << endl;
                 cerr << "\t\t";
-                for (size_t x = 0 ; x < seeds.size() ; x++) {
-                    if (union_find_clusters.find_group(x) == c) {
-                        cerr << seeds[x] << " ";
+                for (size_t x = 0 ; x < tree_state.seeds.size() ; x++) {
+                    if (tree_state.union_find_clusters->find_group(x) == c) {
+                        cerr << tree_state.seeds[x] << " ";
                     }
                 }
             }
@@ -552,13 +526,13 @@ cerr << endl << "New cluster calculation:" << endl;
 
             cerr << "  best left: " << best_left << " best right: " << best_right << endl;
             for (size_t c : chain_cluster_ids) {
-                pair<int64_t, int64_t> dists = cluster_dists[c];
+                pair<int64_t, int64_t> dists = tree_state.cluster_dists[c];
                 cerr << "\tleft: " << dists.first << " right : " << dists.second 
                      << endl;
                 cerr << "\t\t";
-                for (size_t x = 0 ; x < seeds.size() ; x++) {
-                    if (union_find_clusters.find_group(x) == c) {
-                        cerr << seeds[x] << " ";
+                for (size_t x = 0 ; x < tree_state.seeds.size() ; x++) {
+                    if (tree_state.union_find_clusters->find_group(x) == c) {
+                        cerr << tree_state.seeds[x] << " ";
                     }
                 }
                 cerr << endl;
@@ -591,7 +565,7 @@ cerr << endl << "New cluster calculation:" << endl;
                 /* For each of the clusters for the current snarl,
                  * find if it belongs to the new combined cluster*/ 
 
-                pair<int64_t, int64_t> snarl_dists = std::move(cluster_dists[j]);
+                pair<int64_t, int64_t> snarl_dists = std::move(tree_state.cluster_dists[j]);
 
 
 
@@ -618,7 +592,7 @@ cerr << "Updating looping distance to right of snarl cluster" << j << ": "
                     if (child_dist_left != -1 && snarl_dists.first != -1 && 
                         child_dist_left + snarl_dists.first 
                               + loop_dist_start - start_length - 1 
-                              <= distance_limit) {  
+                              <= tree_state.distance_limit) {  
                         //If this cluster can be combined with another cluster
                         //from the left
 
@@ -628,13 +602,13 @@ cerr << "  Combining this cluster from the left " << endl;
                         if (snarl_cluster_left == -1) {
                             snarl_cluster_left = j;
                         } else {
-                            snarl_cluster_left = union_find_clusters.find_group(
+                            snarl_cluster_left = tree_state.union_find_clusters->find_group(
                                                          snarl_cluster_left);
                             pair<int64_t, int64_t>& old_dists =
-                                              cluster_dists[snarl_cluster_left];
-                            union_find_clusters.union_groups(snarl_cluster_left, j);
+                               tree_state.cluster_dists[snarl_cluster_left];
+                            tree_state.union_find_clusters->union_groups(snarl_cluster_left, j);
                             size_t combined_group = 
-                                              union_find_clusters.find_group(j);
+                                              tree_state.union_find_clusters->find_group(j);
                             if (combined_group != snarl_cluster_left) {
                                 to_erase.push_back(snarl_cluster_left);
                             }
@@ -645,7 +619,7 @@ cerr << "  Combining this cluster from the left " << endl;
                             /* TODO: Don't really need this since if the old dists
                              * were small enough, they would have been combined
                              * with the chain anyway
-                            cluster_dists[snarl_cluster_left] = make_pair(
+                            tree_state.cluster_dists[snarl_cluster_left] = make_pair(
                                  min_positive(old_dists.first, snarl_dists.first),
                                  min_positive(old_dists.second, snarl_dists.second));
                             */
@@ -679,7 +653,7 @@ cerr << "Updating looping distance to left of snarl cluster" << j << ": "
 
                     if (child_dist_right != -1 && snarl_dists.second != -1 && 
                         child_dist_right + snarl_dists.second + loop_dist_end 
-                                         - end_length - 1 <= distance_limit) {  
+                                         - end_length - 1 <= tree_state.distance_limit) {  
                         //If this cluster can be combined with another cluster
                         //from the right 
 
@@ -689,13 +663,13 @@ cerr << "  Combining this cluster from the right" << endl;
                         if (snarl_cluster_right == -1) {
                             snarl_cluster_right = j;
                         } else {
-                            snarl_cluster_right = union_find_clusters.find_group(
+                            snarl_cluster_right = tree_state.union_find_clusters->find_group(
                                                              snarl_cluster_right);
-                            union_find_clusters.union_groups(snarl_cluster_right, j);
+                            tree_state.union_find_clusters->union_groups(snarl_cluster_right, j);
                             pair<int64_t, int64_t>& old_dists =
-                                               cluster_dists[snarl_cluster_right];
+                                               tree_state.cluster_dists[snarl_cluster_right];
                             size_t combined_group = 
-                                              union_find_clusters.find_group(j);
+                                              tree_state.union_find_clusters->find_group(j);
                             if (combined_group != j) {
                                 to_erase.push_back(j);
                             } 
@@ -713,7 +687,7 @@ cerr << "  Combining this cluster from the right" << endl;
                 }
 
                 if (old_left != -1 && snarl_dists.first != -1 &&
-                    snarl_dists.first + snarl_lim_left-1 <= distance_limit) {
+                    snarl_dists.first + snarl_lim_left-1 <= tree_state.distance_limit) {
                     //If this snarl cluster is in the combined cluster
                     if (combined_cluster == -1) {
                         combined_cluster = j;
@@ -721,8 +695,8 @@ cerr << "  Combining this cluster from the right" << endl;
                                             snarl_dists.first + add_dist_left;
                         combined_right = snarl_dists.second;
                     } else {
-                        union_find_clusters.union_groups(combined_cluster, j);
-                        size_t new_group = union_find_clusters.find_group(j);
+                        tree_state.union_find_clusters->union_groups(combined_cluster, j);
+                        size_t new_group = tree_state.union_find_clusters->find_group(j);
                         combined_cluster = new_group;
                         combined_left = min_positive(combined_left,
                                             snarl_dists.first == -1 ? -1 :
@@ -740,23 +714,23 @@ cerr << "  Combining this cluster from the right" << endl;
                     best_left = min_positive(best_left, d.first); 
                     best_right = min_positive(best_right, d.second);
 
-                    cluster_dists[j] = std::move(d); 
+                    tree_state.cluster_dists[j] = std::move(d); 
                 }
             }
             for (size_t i : chain_cluster_ids) {
                 //For each old chain cluster
-                pair<int64_t, int64_t>& chain_dists = cluster_dists[i];
+                pair<int64_t, int64_t>& chain_dists = tree_state.cluster_dists[i];
 
                 if (old_right != -1 && chain_dists.second != -1 && 
-                    chain_dists.second + chain_lim_right-1 <= distance_limit){
+                    chain_dists.second + chain_lim_right-1 <= tree_state.distance_limit){
                     //If this chain cluster is in the combined cluster
                     if (combined_cluster == -1) {
                         combined_cluster = i;
                         combined_left = chain_dists.first;
                         combined_right = chain_dists.second + dist_to_end;
                     } else {
-                        union_find_clusters.union_groups(combined_cluster, i);
-                        size_t new_group = union_find_clusters.find_group(i);
+                        tree_state.union_find_clusters->union_groups(combined_cluster, i);
+                        size_t new_group = tree_state.union_find_clusters->find_group(i);
                         if (new_group == i) {
                             to_erase.push_back(combined_cluster);
                         } else {
@@ -772,8 +746,8 @@ cerr << "  Combining this cluster from the right" << endl;
                     //If this chain cluster is on its own, extend its right 
                     //distance to the end of the current snarl
                     chain_dists.second += dist_to_end;
-                    if (chain_dists.first - 2 >= distance_limit &&
-                        chain_dists.second - end_length-2 >= distance_limit) {
+                    if (chain_dists.first - 2 >= tree_state.distance_limit &&
+                        chain_dists.second - end_length-2 >= tree_state.distance_limit) {
                         //If the distance from the seeds in this cluster to
                         //either end of the chain is greater than the distance
                         //limit, then it cannot cluster with anything else
@@ -798,7 +772,7 @@ cerr << "  Combining this cluster from the right" << endl;
             }
             if (combined_cluster != -1 ) {
                 chain_cluster_ids.insert(combined_cluster);
-                cluster_dists[combined_cluster] = 
+                tree_state.cluster_dists[combined_cluster] = 
                                       make_pair(combined_left, combined_right);
                 best_left = min_positive(best_left, combined_left);
                 best_right = min_positive(best_right, combined_right);
@@ -808,12 +782,12 @@ cerr << "  Combining this cluster from the right" << endl;
             cerr << "\t at snarl number " << curr_snarl_i << ", clusters:" <<endl;
 
             for (size_t c : chain_cluster_ids) {
-                pair<int64_t, int64_t> dists = cluster_dists[c];
+                pair<int64_t, int64_t> dists = tree_state.cluster_dists[c];
                 cerr << "\t\tleft: " << dists.first << " right : " << dists.second << endl;
                 cerr << "\t\t\t";
-                for (size_t x = 0 ; x < seeds.size() ; x++) {
-                    if (union_find_clusters.find_group(x) == c) {
-                        cerr << seeds[x] << " ";
+                for (size_t x = 0 ; x < tree_state.seeds.size() ; x++) {
+                    if (tree_state.union_find_clusters->find_group(x) == c) {
+                        cerr << tree_state.seeds[x] << " ";
                     }
                 }
                 cerr << endl;
@@ -831,9 +805,9 @@ cerr << "  Combining this cluster from the right" << endl;
            int64_t dist_to_end = chain_index.chainLength()
                        - last_dist - last_len;
            for (size_t i : chain_cluster_ids) {
-               int64_t d = cluster_dists[i].second;
-               cluster_dists[i].second = d == -1 ? -1 : d + dist_to_end;
-               best_right = min_positive(best_right, cluster_dists[i].second);
+               int64_t d = tree_state.cluster_dists[i].second;
+               tree_state.cluster_dists[i].second = d == -1 ? -1 : d + dist_to_end;
+               best_right = min_positive(best_right, tree_state.cluster_dists[i].second);
            }
         }
 
@@ -849,20 +823,20 @@ cerr << "  Combining this cluster from the right" << endl;
 
             for (size_t i : chain_cluster_ids) {
                 //For each chain cluster
-                pair<int64_t, int64_t>& chain_dists = cluster_dists[i];
+                pair<int64_t, int64_t>& chain_dists = tree_state.cluster_dists[i];
 
                 if ((chain_dists.second != -1 && best_left != -1 &&
                      chain_dists.second + best_left - first_length - 1 
-                                                          <= distance_limit) ||
+                                                <= tree_state.distance_limit) ||
                    (chain_dists.first != -1 && best_right != -1 && 
                       chain_dists.first + best_right - first_length - 1 
-                                                          <= distance_limit)){
+                                                <= tree_state.distance_limit)){
                     //If this chain cluster is in the combined cluster
                     if (combined_cluster == -1) {
                         combined_cluster = i;
                     } else {
-                        union_find_clusters.union_groups(combined_cluster, i);
-                        size_t new_group = union_find_clusters.find_group(i);
+                        tree_state.union_find_clusters->union_groups(combined_cluster, i);
+                        size_t new_group = tree_state.union_find_clusters->find_group(i);
                         if (new_group == i) {
                             to_erase.push_back(combined_cluster);
                         } else {
@@ -885,9 +859,9 @@ cerr << "  Combining this cluster from the right" << endl;
         cerr << "best left : " << best_left << " best right : " << best_right << endl;
         for (size_t c : chain_cluster_ids) {
             cerr << "\t";
-            for (size_t x = 0 ; x < seeds.size() ; x++) {
-                if (union_find_clusters.find_group(x) == c) {
-                    cerr << seeds[x] << " ";
+            for (size_t x = 0 ; x < tree_state.seeds.size() ; x++) {
+                if (tree_state.union_find_clusters->find_group(x) == c) {
+                    cerr << tree_state.seeds[x] << " ";
                 }
             }
             cerr << endl;
@@ -895,7 +869,7 @@ cerr << "  Combining this cluster from the right" << endl;
         bool got_left = false;
         bool got_right = false;
         for (size_t c : chain_cluster_ids) {
-            pair<int64_t, int64_t> dists = cluster_dists[c];
+            pair<int64_t, int64_t> dists = tree_state.cluster_dists[c];
             if (!chain_index.is_looping_chain){
                 assert(dists.first == -1 || dists.first >= best_left);
                 assert(dists.second == -1 || dists.second >= best_right);
@@ -921,13 +895,7 @@ cerr << "  Combining this cluster from the right" << endl;
 
 
     SnarlSeedClusterer::child_cluster_t SnarlSeedClusterer::get_clusters_snarl(
-                       const vector<pos_t>& seeds,
-                       structures::UnionFind& union_find_clusters,
-                       vector<pair<int64_t, int64_t>>& cluster_dists,
-                       vector<pair<child_node_t, child_cluster_t>>& child_nodes,
-                       hash_map<id_t, vector<size_t>>& node_to_seeds,
-                       int64_t distance_limit, 
-                       size_t snarl_index_i, bool rev) {
+                    tree_state_t& tree_state, size_t snarl_index_i, bool rev) {
         /*Get the clusters on this snarl. child_nodes stores each of the
          * nodes of the net graph that contain seeds and their clusters
          * Nodes have not yet been clustered */
@@ -936,6 +904,7 @@ cerr << "  Combining this cluster from the right" << endl;
 #ifdef DEBUG 
         cerr << "Finding clusters on snarl number " << snarl_index_i << " headed by node " << snarl_index.id_in_parent << endl;
 #endif
+        vector<pair<child_node_t, child_cluster_t>>& child_nodes = tree_state.snarl_to_nodes[snarl_index_i];
         int64_t start_length = snarl_index.nodeLength(0);
         int64_t end_length = snarl_index.nodeLength(snarl_index.num_nodes*2 -1);
 
@@ -955,14 +924,14 @@ cerr << "  Combining this cluster from the right" << endl;
             //Helper function to combine clusters in two nodes of the same snarl
             if (combined_group == -1) {
                 snarl_cluster_ids.insert(new_group);
-                cluster_dists[new_group] = dists;
+                tree_state.cluster_dists[new_group] = dists;
                 combined_group = new_group;
             } else {
 
-                combined_group = union_find_clusters.find_group(combined_group);
-                pair<int64_t, int64_t>old_dists = cluster_dists[combined_group];
-                union_find_clusters.union_groups(new_group, combined_group);
-                size_t new_g = union_find_clusters.find_group(new_group);
+                combined_group = tree_state.union_find_clusters->find_group(combined_group);
+                pair<int64_t, int64_t>old_dists = tree_state.cluster_dists[combined_group];
+                tree_state.union_find_clusters->union_groups(new_group, combined_group);
+                size_t new_g = tree_state.union_find_clusters->find_group(new_group);
                 if (new_g != new_group) {
                     snarl_cluster_ids.erase(new_group);
                 } 
@@ -973,7 +942,7 @@ cerr << "  Combining this cluster from the right" << endl;
                 dists = make_pair(
                             min_positive(dists.first, old_dists.first),
                             min_positive(dists.second, old_dists.second));
-                cluster_dists[new_g] = dists;
+                tree_state.cluster_dists[new_g] = dists;
                 new_group = new_g;
                 combined_group = new_g;
             }
@@ -1012,9 +981,7 @@ cerr << "  Combining this cluster from the right" << endl;
 
                 hash_set<size_t> c; 
                 tie (c, child_dist_left, child_dist_right) = get_clusters_node(
-                         seeds, union_find_clusters, cluster_dists, 
-                         node_to_seeds[child_node_id], distance_limit, 
-                         child_node_id, node_len);
+                                     tree_state, child_node_id, node_len);
                 child_clusters[i].insert(child_clusters[i].end(),
                            make_move_iterator(c.begin()),
                            make_move_iterator(c.end())); 
@@ -1038,11 +1005,11 @@ cerr << "  Combining this cluster from the right" << endl;
             cerr << "Node rank is " << node_rank << " fwd, " << rev_rank << " rev of " << snarl_index.num_nodes * 2 << endl;
             cerr << "Clusters at this child:" << endl; 
             for (size_t c : child_clusters[i]) {
-                cerr << "\tdist left: " << cluster_dists[c].first << " dist right: " << cluster_dists[c].second << endl;
+                cerr << "\tdist left: " << tree_state.cluster_dists[c].first << " dist right: " << tree_state.cluster_dists[c].second << endl;
                 cerr << "\t\t";
-                for (size_t x = 0 ; x < seeds.size() ; x++) {
-                    if (union_find_clusters.find_group(x) == c) {
-                        cerr << seeds[x] << " ";
+                for (size_t x = 0 ; x < tree_state.seeds.size() ; x++) {
+                    if (tree_state.union_find_clusters->find_group(x) == c) {
+                        cerr << tree_state.seeds[x] << " ";
                     }
                 }
                 cerr << endl;
@@ -1059,7 +1026,7 @@ cerr << "  Combining this cluster from the right" << endl;
 
                 size_t c = children_i[c_i];
             
-                pair<int64_t, int64_t> dists_c= cluster_dists[c];
+                pair<int64_t, int64_t> dists_c= tree_state.cluster_dists[c];
                 old_dists[c] = dists_c;
 
                 pair<int64_t, int64_t> new_dists = snarl_index.distToEnds(node_rank,
@@ -1085,7 +1052,7 @@ cerr << "\tcluster: " << c_i << "dists to ends in snarl" << snarl_index.id_in_pa
 
 
                 snarl_cluster_ids.insert(c);
-                cluster_dists[c] = new_dists;
+                tree_state.cluster_dists[c] = new_dists;
             }
             
 
@@ -1139,27 +1106,27 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
 
                 if (max({dist_l_l, dist_l_r, dist_r_l, dist_r_r}) != -1
                    && MinimumDistanceIndex::minPos({dist_l_l, dist_l_r, 
-                                           dist_r_l, dist_r_r})-2 <= distance_limit
+                            dist_r_l, dist_r_r})-2 <= tree_state.distance_limit
                    && min_positive(child_dist_left, child_dist_right)-2 
-                                                             <= distance_limit) {
+                                                <= tree_state.distance_limit) {
                     //If the two nodes are reachable
                     for (size_t c_i = 0 ; c_i < children_i.size() ; c_i ++) {
                         //for each cluster of child node i
 
                         size_t c = children_i[c_i];
-                        size_t c_group = union_find_clusters.find_group(c);
+                        size_t c_group = tree_state.union_find_clusters->find_group(c);
 
                         pair<int64_t, int64_t> new_dists;
                         pair<int64_t, int64_t> dists_c;
 
                          dists_c = old_dists[c];
-                         new_dists = cluster_dists[c_group];
+                         new_dists = tree_state.cluster_dists[c_group];
                         
 
                         if (dist_l_l != -1 && dists_c.first != -1 
                                  && dist_bounds_j.first != -1  
                                  && dist_l_l + dists_c.first 
-                                   + dist_bounds_j.first-1 <= distance_limit) {
+                                   + dist_bounds_j.first-1 <= tree_state.distance_limit) {
                             //If cluster c can be combined with clusters in j 
                             //from the left of both of them
                             combine_clusters(c_group, group_l_l, new_dists);
@@ -1167,20 +1134,20 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         if (dist_l_r != -1 && dists_c.first != -1 
                             && dist_bounds_j.second != -1 
                             && dist_l_r + dists_c.first + dist_bounds_j.second-1
-                                                            <= distance_limit) {
+                                                 <= tree_state.distance_limit) {
                             combine_clusters(c_group, group_l_r, new_dists);
 
                         }
                         if (dist_r_l != -1 && dists_c.second != -1 
                             && dist_bounds_j.first != -1 
                             && dist_r_l + dists_c.second + dist_bounds_j.first-1
-                                                           <= distance_limit) {
+                                                 <= tree_state.distance_limit) {
                             combine_clusters(c_group, group_r_l, new_dists);
                         }
                         if (dist_r_r != -1 && dists_c.second != -1 
                             && dist_bounds_j.second != -1 
                            && dist_r_r + dists_c.second + dist_bounds_j.second-1
-                                                            <= distance_limit) {
+                                                 <= tree_state.distance_limit) {
                             combine_clusters(c_group, group_r_r, new_dists);
                         }
 
@@ -1197,35 +1164,35 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
                         //that the snarl is on we can't just loop through 
                         //snarl_cluster_ids
                         pair<int64_t, int64_t>& dist_bounds_k = old_dists[k];
-                        size_t k_group = union_find_clusters.find_group(k);
-                        pair<int64_t, int64_t> dists_k = cluster_dists[k_group];
+                        size_t k_group = tree_state.union_find_clusters->find_group(k);
+                        pair<int64_t, int64_t> dists_k = tree_state.cluster_dists[k_group];
                     
 
                         if (dist_l_l != -1 && child_dist_left != -1 
                            && dist_bounds_k.first != -1 
                            && dist_l_l + child_dist_left + dist_bounds_k.first-1
-                                                             <= distance_limit){
+                                                  <= tree_state.distance_limit){
 
                             combine_clusters(k_group, group_l_l, dists_k);
                         }
                         if (dist_l_r != -1 && child_dist_left != -1 
                              && dist_bounds_k.second != -1  
                           && dist_l_r + child_dist_left + dist_bounds_k.second-1
-                                                          <= distance_limit ) {
+                                               <= tree_state.distance_limit ) {
 
                             combine_clusters(k_group, group_l_r, dists_k);
                         }
                         if (dist_r_l != -1 && child_dist_right != -1 
                             && dist_bounds_k.first != -1  
                           && dist_r_l + child_dist_right + dist_bounds_k.first-1
-                                                           <= distance_limit) {
+                                                <= tree_state.distance_limit) {
 
                             combine_clusters(k_group, group_r_l, dists_k);
                         }
                         if (dist_r_r != -1 && child_dist_right != -1 
                            && dist_bounds_k.second != -1
                          && dist_r_r + child_dist_right + dist_bounds_k.second-1
-                                                           <= distance_limit) {
+                                                 <= tree_state.distance_limit) {
 
                             combine_clusters(k_group, group_r_r, dists_k);
                         }
@@ -1240,15 +1207,15 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
         bool got_left = false;
         bool got_right = false;
         for (size_t c : snarl_cluster_ids) {
-            pair<int64_t, int64_t> dists = cluster_dists[c];
+            pair<int64_t, int64_t> dists = tree_stsate.cluster_dists->at(c);
             if (dists.first == best_left) {got_left = true;}
             if (dists.second == best_right) {got_right = true;}
             cerr << "\t" << c << ": left: " << dists.first << " right : " 
                  << dists.second << endl;
             cerr << "\t\t";
-            for (size_t x = 0 ; x < seeds.size() ; x++) {
-                if (union_find_clusters.find_group(x) == c) {
-                    cerr << seeds[x] << " ";
+            for (size_t x = 0 ; x < tree_state.seeds.size() ; x++) {
+                if (tree_state.union_find_clusters->find_group(x) == c) {
+                    cerr << tree_state.seeds[x] << " ";
                 }
             }
             cerr << endl;
@@ -1256,7 +1223,7 @@ cerr << "\t distances between ranks " << node_rank << " and " << other_rank
         assert(got_left);
         assert(got_right);
         for (size_t group_id : snarl_cluster_ids) {
-            assert (group_id == union_find_clusters.find_group(group_id));
+            assert (group_id == tree_state.union_find_clusters->find_group(group_id));
         }
 #endif
         return make_tuple(std::move(snarl_cluster_ids), best_left, best_right);
