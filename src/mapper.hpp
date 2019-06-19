@@ -478,8 +478,6 @@ public:
     // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
     vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
 
-    double graph_entropy(void);
-
     /// Use the xg index we hold to annotate an Alignment with the first
     /// position it touches on each reference path. Thread safe.
     ///

@@ -1598,8 +1598,8 @@ void BaseMapper::apply_haplotype_consistency_scores(const vector<Alignment*>& al
     // Work out the population size. Try the score provider and then fall back to the xg.
     auto haplotype_count = haplo_score_provider->get_haplotype_count();
     if (haplotype_count == -1) {
-        // The score provider doesn't ahve a haplotype count. Fall back to the count in the xg::XG.
-        haplotype_count = xindex->get_haplotype_count();
+        // The score provider doesn't have a haplotype count.
+        haplotype_count = 0;
     }
    
     if (haplotype_count == 0 || haplotype_count == -1) {
@@ -1792,12 +1792,6 @@ Mapper::~Mapper(void) {
     */
 }
 
-double Mapper::graph_entropy(void) {
-    const size_t seq_bytes = xindex->sequence_bit_size() / 8;
-    char* seq = (char*) xindex->sequence_data();
-    return entropy(seq, seq_bytes);
-}
-
 // todo add options for aligned global and pinned
 Alignment Mapper::align_to_graph(const Alignment& aln,
                                  Graph& graph,
@@ -1980,7 +1974,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     if (xindex->path_count == 0) {
         return { likely_mate_position(aln, is_first_mate) };
     }
-    map<string, vector<pair<size_t, bool> > > offsets;
+    map<path_handle_t, vector<pair<size_t, bool> > > offsets;
     for (auto& mapping : aln.path().mapping()) {
         auto pos_offs = xindex->nearest_offsets_in_paths(make_pos_t(mapping.position()), aln.sequence().size());
         for (auto& p : pos_offs) {
@@ -1998,7 +1992,7 @@ vector<pos_t> Mapper::likely_mate_positions(const Alignment& aln, bool is_first_
     for (auto& seq : offsets) {
         // find the likely position
         // then direction
-        auto& seq_name = seq.first;
+        auto& seq_name = xindex->get_path_name(seq.first);
         for (auto& p : seq.second) { 
             size_t path_pos = p.first;
             bool on_reverse_path = p.second;

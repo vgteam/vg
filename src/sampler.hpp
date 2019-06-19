@@ -18,6 +18,7 @@
 #include "distributions.hpp"
 #include "lru_cache.h"
 #include "json2pb.h"
+#include "algorithms/subgraph.hpp"
 
 namespace vg {
 
