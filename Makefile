@@ -255,7 +255,7 @@ DEPS += $(INC_DIR)/sha1.hpp
 DEPS += $(INC_DIR)/progress_bar.hpp
 DEPS += $(INC_DIR)/backward.hpp
 DEPS += $(INC_DIR)/dozeu/dozeu.h
-DEPS += $(INC_DIR)/libraptor2/libraptor2.h
+DEPS += $(INC_DIR)/raptor2/raptor2.h
 
 # Only depend on these files for the final linking stage.
 # These libraries provide no headers to affect the vg build.
