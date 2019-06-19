@@ -6,7 +6,8 @@
 #include <vg/io/registry.hpp>
 #include "register_loader_saver_xg.hpp"
 
-#include "../xg.hpp"
+#include "xg.hpp"
+#include "handle.hpp"
 
 namespace vg {
 
