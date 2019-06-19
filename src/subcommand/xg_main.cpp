@@ -25,7 +25,6 @@
 using namespace std;
 using namespace vg;
 using namespace vg::subcommand;
-using namespace xg;
 
 void help_xg(char** argv) {
     cerr << "usage: " << argv[0] << " xg [options]" << endl

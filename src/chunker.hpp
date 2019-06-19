@@ -25,9 +25,9 @@ class PathChunker {
 public:
    
     // xg index used for all path splitting and subgraphing operations
-    xg::XG* xg;
+    XG* xg;
 
-    PathChunker(xg::XG* xg = NULL);
+    PathChunker(XG* xg = NULL);
     ~PathChunker();
 
     /** Extract subgraph corresponding to given path region into its 

@@ -26,7 +26,7 @@ using namespace std;
     class Surjector : AlignerClient {
     public:
         
-        Surjector(const xg::XG* xg_index);
+        Surjector(const XG* xg_index);
         
         /// Extract the portions of an alignment that are on a chosen set of paths and try to
         /// align realign the portions that are off of the chosen paths to the intervening
@@ -71,23 +71,23 @@ using namespace std;
         
         /// compute the widest interval of path positions that the realigned sequence could align to
         pair<size_t, size_t>
-        compute_path_interval(const Alignment& source, size_t path_rank, const xg::XGPath& xpath, const vector<path_chunk_t>& path_chunks,
+        compute_path_interval(const Alignment& source, size_t path_rank, const XGPath& xpath, const vector<path_chunk_t>& path_chunks,
                               unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
         
         /// make a linear graph that corresponds to a path interval, possibly duplicating nodes in case of cycles
-        VG extract_linearized_path_graph(size_t first, size_t last, const xg::XGPath& xpath,
+        VG extract_linearized_path_graph(size_t first, size_t last, const XGPath& xpath,
                                          unordered_map<id_t, pair<id_t, bool>>& node_trans) const;
         
         
         /// associate a path position and strand to a surjected alignment against this path
-        void set_path_position(const Alignment& surjected, size_t best_path_rank, const xg::XGPath& xpath,
+        void set_path_position(const Alignment& surjected, size_t best_path_rank, const XGPath& xpath,
                                string& path_name_out, int64_t& path_pos_out, bool& path_rev_out,
                                unordered_map<pair<int64_t, size_t>, vector<pair<size_t, bool>>>* oriented_occurrences_memo = nullptr) const;
         
         // make a sentinel meant to indicate an unmapped read
         static Alignment make_null_alignment(const Alignment& source);
         
-        const xg::XG* xindex;
+        const XG* xindex;
     };
 }
 

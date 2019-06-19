@@ -2,7 +2,7 @@
 
 namespace vg {
 
-Node xg_cached_node(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+Node xg_cached_node(id_t id, XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id);
     if(!cached.second) {
         cached.first = xgidx->node(id);
@@ -12,7 +12,7 @@ Node xg_cached_node(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     return node;
 }
 
-vector<Edge> xg_cached_edges_of(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
+vector<Edge> xg_cached_edges_of(id_t id, XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
     pair<vector<Edge>, bool> cached = edge_cache.retrieve(id);
     if(!cached.second) {
         for (auto& edge : xgidx->edges_of(id)) {
@@ -23,7 +23,7 @@ vector<Edge> xg_cached_edges_of(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Ed
     return cached.first;
 }
     
-vector<Edge> xg_cached_edges_on_start(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
+vector<Edge> xg_cached_edges_on_start(id_t id, XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
     vector<Edge> all_edges = xg_cached_edges_of(id, xgidx, edge_cache);
     auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
                                   [&](const Edge& edge) {
@@ -34,7 +34,7 @@ vector<Edge> xg_cached_edges_on_start(id_t id, xg::XG* xgidx, LRUCache<id_t, vec
     return all_edges;
 }
 
-vector<Edge> xg_cached_edges_on_end(id_t id, xg::XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
+vector<Edge> xg_cached_edges_on_end(id_t id, XG* xgidx, LRUCache<id_t, vector<Edge> >& edge_cache) {
     vector<Edge> all_edges = xg_cached_edges_of(id, xgidx, edge_cache);
     auto new_end = std::remove_if(all_edges.begin(), all_edges.end(),
                                   [&](const Edge& edge) {
@@ -45,7 +45,7 @@ vector<Edge> xg_cached_edges_on_end(id_t id, xg::XG* xgidx, LRUCache<id_t, vecto
     return all_edges;
 }
 
-string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+string xg_cached_node_sequence(id_t id, XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id);
     if(!cached.second) {
         cached.first = xgidx->node(id);
@@ -55,7 +55,7 @@ string xg_cached_node_sequence(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& nod
     return node.sequence();
 }
 
-size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+size_t xg_cached_node_length(id_t id, XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id);
     if(!cached.second) {
         cached.first = xgidx->node(id);
@@ -65,7 +65,7 @@ size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_
     return node.sequence().size();
 }
 
-int64_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, int64_t>& node_start_cache) {
+int64_t xg_cached_node_start(id_t id, XG* xgidx, LRUCache<id_t, int64_t>& node_start_cache) {
     pair<int64_t, bool> cached = node_start_cache.retrieve(id);
     if(!cached.second) {
         cached.first = (int64_t)xgidx->node_start(id);
@@ -74,7 +74,7 @@ int64_t xg_cached_node_start(id_t id, xg::XG* xgidx, LRUCache<id_t, int64_t>& no
     return cached.first;
 }
 
-char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+char xg_cached_pos_char(pos_t pos, XG* xgidx, LRUCache<id_t, Node>& node_cache) {
     pair<Node, bool> cached = node_cache.retrieve(id(pos));
     if(!cached.second) {
         // If it's not in the cache, put it in
@@ -99,7 +99,7 @@ char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cac
     }
 }
 
-map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
 
     map<pos_t, char> nexts;
     // See if the node is cached (did we just visit it?)
@@ -158,7 +158,7 @@ map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_
     return nexts;
 }
 
-set<pos_t> xg_cached_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+set<pos_t> xg_cached_next_pos(pos_t pos, bool whole_node, XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
     set<pos_t> nexts;
     // See if the node is cached (did we just visit it?)
     pair<Node, bool> cached = node_cache.retrieve(id(pos));
@@ -214,7 +214,7 @@ set<pos_t> xg_cached_next_pos(pos_t pos, bool whole_node, xg::XG* xgidx, LRUCach
     return nexts;
 }
 
-int64_t xg_cached_distance(pos_t pos1, pos_t pos2, int64_t maximum, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+int64_t xg_cached_distance(pos_t pos1, pos_t pos2, int64_t maximum, XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
     //cerr << "distance from " << pos1 << " to " << pos2 << endl;
     if (pos1 == pos2) return 0;
     int64_t adj = (offset(pos1) == xg_cached_node_length(id(pos1), xgidx, node_cache) ? 0 : 1);
@@ -247,9 +247,9 @@ int64_t xg_cached_distance(pos_t pos1, pos_t pos2, int64_t maximum, xg::XG* xgid
     return numeric_limits<int64_t>::max();
 }
 
-set<pos_t> xg_cached_positions_bp_from(pos_t pos, int64_t distance, bool rev, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
+set<pos_t> xg_cached_positions_bp_from(pos_t pos, int64_t distance, bool rev, XG* xgidx, LRUCache<id_t, Node>& node_cache, LRUCache<id_t, vector<Edge> >& edge_cache) {
     // handle base case
-    //size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+    //size_t xg_cached_node_length(id_t id, XG* xgidx, LRUCache<id_t, Node>& node_cache);
     if (rev) {
         pos = reverse(pos, xg_cached_node_length(id(pos), xgidx, node_cache));
     }

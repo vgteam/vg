@@ -295,7 +295,7 @@ int main_gaffe(int argc, char** argv) {
     if (progress) {
         cerr << "Loading XG index " << xg_name << endl;
     }
-    unique_ptr<xg::XG> xg_index = vg::io::VPKG::load_one<xg::XG>(xg_name);
+    unique_ptr<XG> xg_index = vg::io::VPKG::load_one<XG>(xg_name);
 
     if (progress) {
         cerr << "Loading GBWT index " << gbwt_name << endl;

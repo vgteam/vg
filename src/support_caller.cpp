@@ -1917,6 +1917,7 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
         if(can_write_alleles(variant)) {
             // No need to check for collisions because we assume sites are correctly found.
             // Output the created VCF variant.
+#pragma omp critical (cout)
             cout << variant << endl;
             
         } else {
@@ -1932,6 +1933,7 @@ void SupportCaller::add_variant_info_and_emit(vcflib::Variant& variant, SupportA
 void SupportCaller::call(
     // Augmented graph
     SupportAugmentedGraph& augmented,
+    SnarlManager& site_manager,
     // Should we load a pileup and print out pileup info as comments after
     // variants?
     string pileup_filename) {
@@ -1942,7 +1944,7 @@ void SupportCaller::call(
     // Set up the graph's paths properly after augmentation modified them.
     augmented.graph.paths.sort_by_mapping_rank();
     augmented.graph.paths.rebuild_mapping_aux();
-    
+
     // Make a list of the specified or autodetected primary reference paths.
     vector<string> primary_path_names = ref_path_names;
     if (primary_path_names.empty()) {
@@ -1964,7 +1966,7 @@ void SupportCaller::call(
         }
         
     }
-    
+
     // We'll fill this in with a PrimaryPath for every primary reference path
     // that is specified or detected.
     primary_paths.clear();
@@ -2044,7 +2046,7 @@ void SupportCaller::call(
             // neglect to warn people that they forgot options by parsing what
             // they said when they provide too few overrides?
         }
-    
+
         // Generate a vcf header. We can't make Variant records without a
         // VariantCallFile, because the variants need to know which of their
         // available info fields or whatever are defined in the file's header,
@@ -2065,12 +2067,8 @@ void SupportCaller::call(
     // Find all the top-level sites
     list<const Snarl*> site_queue;
     
-    CactusSnarlFinder finder(augmented.graph);
-    SnarlManager site_manager = finder.find_snarls();
-    
-    site_manager.for_each_top_level_snarl_parallel([&](const Snarl* site) {
+    site_manager.for_each_top_level_snarl([&](const Snarl* site) {
         // Stick all the sites in this vector.
-        #pragma omp critical (sites)
         site_queue.emplace_back(site);
     });
     
@@ -2079,7 +2077,7 @@ void SupportCaller::call(
     // and we will break top-level sites to find things on a primary path.
     // Otherwise it's everything.
     vector<const Snarl*> sites;
-    
+
     while(!site_queue.empty()) {
         // Grab the first site
         const Snarl* site = move(site_queue.front());
@@ -2221,8 +2219,11 @@ void SupportCaller::call(
     
     // How many sites result in output?
     size_t called_loci = 0;
-    
-    for(const Snarl* site : sites) {
+
+
+#pragma omp parallel for
+    for(size_t site_number = 0; site_number < sites.size(); ++site_number) {
+        const Snarl* site = sites[site_number];
         // For every site, we're going to make a bunch of Locus objects
         
         // See if the site is on a primary path, so we can use binned support.
@@ -2268,7 +2269,6 @@ void SupportCaller::call(
             // Now we have the Locus with call information, and the site (either
             // the root snarl we passed in or a child snarl) that the call is
             // for. We need to output the call.
-        
             if (convert_to_vcf) {
                 // We want to emit VCF
                 
@@ -2289,21 +2289,30 @@ void SupportCaller::call(
                 // Otherwise discard it as off-path
                 // TODO: update bases lost
             } else {
-                // Emit the locus itself
-                locus_buffer.push_back(locus);
-                vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
+#pragma omp critical (cout)
+                {
+                    // Emit the locus itself
+                    locus_buffer.push_back(locus);
+                    vg::io::write_buffered(cout, locus_buffer, locus_buffer_size);
+                }
             }
             
             // We called a site
+#pragma omp atomic
             called_loci++;
             
             // Mark all the nodes and edges in the site as covered
-            auto contents = site_manager.deep_contents(site, augmented.graph, true);
-            for (auto* node : contents.first) {
-                covered_nodes.insert(node);
-            }
-            for (auto* edge : contents.second) {
-                covered_edges.insert(edge);
+            if (!convert_to_vcf) {
+                auto contents = site_manager.deep_contents(site, augmented.graph, true);
+#pragma omp critical (covered)            
+                {
+                    for (auto* node : contents.first) {
+                        covered_nodes.insert(node);
+                    }
+                    for (auto* edge : contents.second) {
+                        covered_edges.insert(edge);
+                    }
+                }
             }
         });
     }
@@ -2314,6 +2323,7 @@ void SupportCaller::call(
     
     // OK now we have handled all the real sites. But there are still nodes and
     // edges that we might want to call as present or absent.
+
     
     if (!convert_to_vcf) {
         

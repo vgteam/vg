@@ -320,7 +320,7 @@ int64_t MinimumDistanceIndex::calculateMinIndex(const HandleGraph* graph,
         else {cerr << "chain at ";}
         cerr << get_start_of(*chain) << endl;
     #endif
-    tree_depth = max(depth, tree_depth);
+    tree_depth = std::max(depth, tree_depth);
 
     auto cmp = [] (pair<pair<id_t, bool>,int64_t> x,
                                            pair<pair<id_t, bool>,int64_t> y) {
@@ -1143,13 +1143,13 @@ int64_t MinimumDistanceIndex::maxDistance(pos_t pos1, pos_t pos2) {
         int64_t len2 = snarl_indexes[getPrimaryAssignment(id2)].nodeLength(
                                                          getPrimaryRank(id2));
 
-        len1 = max(get_offset(pos1)+1, len1-get_offset(pos1));
-        len2 = max(get_offset(pos2)+1, len2-get_offset(pos2));
+        len1 = std::max((int64_t)(get_offset(pos1)+1), (int64_t)(len1-get_offset(pos1)));
+        len2 = std::max((int64_t)(get_offset(pos2)+1), (int64_t)(len2-get_offset(pos2)));
 
         id1 -= min_node_id;
         id2 -= min_node_id;
 
-        int64_t max_dist = max(
+        int64_t max_dist = std::max(
                          (int) max_distances[id1] - (int)min_distances[id2], 
                          (int) max_distances[id2] - (int)min_distances[id1]);
 
@@ -2253,8 +2253,8 @@ cerr << "Making graph acyclic" << endl;
             int64_t node_len = dag->get_length(h);
             int64_t prev_min = min_distances[prev_id-min_node_id]+node_len;
             int64_t prev_max = max_distances[prev_id-min_node_id]+node_len;
-            curr_min = min(curr_min, prev_min);
-            curr_max = max(curr_max, prev_max);
+            curr_min = std::min(curr_min, prev_min);
+            curr_max = std::max(curr_max, prev_max);
 
 
              return true;
