@@ -17,8 +17,7 @@ class SnarlSeedClusterer {
         //Given a vector of seeds (pos_t) and a distance limit, 
         //cluster the seeds such that two seeds whose minimum distance
         //between them (including both of the positions) is less than
-        // the distance limit are in the same
-        //cluster
+        // the distance limit are in the same cluster
         //Returns a vector of clusters. The cluster is a vector of
         //indices into seeds
         vector<vector<size_t>> cluster_seeds ( vector<pos_t> seeds,
@@ -81,10 +80,11 @@ class SnarlSeedClusterer {
 //One loop going up tree
 //One method for each node/snarl/chain level
 
-        //A cluster in the context of a snarl tree node
-        //set of the seed indices in the cluster and left and right distance
-        //from a seed in the cluster to the ends of the snarl tree node
-        //containing the cluster
+        //Clusters in the context of a snarl tree node
+        //set of the indices of heads of clusters (determined by the union find)
+        //and best left and right distance
+        //from any seed in any cluster to the ends of the snarl tree node
+        //containing the clusters
         typedef tuple<hash_set<size_t>, int64_t, int64_t> child_cluster_t;
 
 
@@ -130,7 +130,11 @@ class SnarlSeedClusterer {
             //Snarls are order by their order in the chain
             //Snarls and chains represented as their indexes into 
             //dist_index.chain/snarl_indexes
-            hash_map<size_t, vector<size_t>> chain_to_snarls;
+            //Map maps the rank of the snarl to the snarl and snarl's clusters
+            //  Since maps are ordered, it will be in the order of traversal
+            //  of the snarls in the chain
+            hash_map<size_t, std::map<size_t, pair<size_t, child_cluster_t>>>
+                                                         chain_to_snarls;
 
 
             //Same structure as snarl_to_nodes but for the level of the snarl
@@ -147,11 +151,11 @@ class SnarlSeedClusterer {
                         hash_map<id_t, vector<size_t>>& node_to_seeds,
                         vector<hash_map<size_t, 
                                   vector<pair<child_node_t, child_cluster_t>>>>&
-                                                            snarl_to_nodes);
+                                                       snarl_to_nodes_by_level);
 
         //Given a node and the indices of seeds on that node, root, 
         //cluster the seeds
-        child_cluster_t get_clusters_node(tree_state_t& tree_state, 
+        child_cluster_t cluster_one_node(tree_state_t& tree_state, 
                                           id_t node_id, int64_t node_length); 
 
         //Cluster the seeds in a chain
@@ -159,12 +163,12 @@ class SnarlSeedClusterer {
         //  is represented as its index into dist_index.snarl_indexes
         //curr_snarl_children maps each snarl to a vector of its children and 
         //clusters on the children
-        child_cluster_t get_clusters_chain(tree_state_t& tree_state,
+        child_cluster_t cluster_one_chain(tree_state_t& tree_state,
                                            size_t chain_index_i);
 
         //Cluster the seeds in a snarl 
         //child_nodes is a vector of the children of root and their clusters
-        child_cluster_t get_clusters_snarl(tree_state_t& tree_state,
+        child_cluster_t cluster_one_snarl(tree_state_t& tree_state,
                              size_t snarl_index_i, bool rev) ;
 
 };
