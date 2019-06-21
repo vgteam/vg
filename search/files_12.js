@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['tcmalloc_5fconfiguration_2ecpp',['tcmalloc_configuration.cpp',['../tcmalloc__configuration_8cpp.html',1,'']]],
   ['test_5fmain_2ecpp',['test_main.cpp',['../test__main_8cpp.html',1,'']]],
   ['trace_5fmain_2ecpp',['trace_main.cpp',['../trace__main_8cpp.html',1,'']]],
   ['transcriptome_2ecpp',['transcriptome.cpp',['../transcriptome_8cpp.html',1,'']]],

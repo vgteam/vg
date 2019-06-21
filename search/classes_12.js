@@ -2,7 +2,6 @@ var searchData=
 [
   ['tables',['Tables',['../structvg_1_1io_1_1Registry_1_1Tables.html',1,'vg::io::Registry']]],
   ['targetvaluesearch',['TargetValueSearch',['../classvg_1_1TargetValueSearch.html',1,'vg']]],
-  ['tcmallocconfiguration',['TCMallocConfiguration',['../classvg_1_1TCMallocConfiguration.html',1,'vg']]],
   ['thread_5fstate_5ft',['thread_state_t',['../structvg_1_1Watchdog_1_1thread__state__t.html',1,'vg::Watchdog']]],
   ['threadmapping',['ThreadMapping',['../structvg_1_1XG_1_1ThreadMapping.html',1,'vg::XG']]],
   ['threadsearchstate',['ThreadSearchState',['../structvg_1_1XG_1_1ThreadSearchState.html',1,'vg::XG']]],
