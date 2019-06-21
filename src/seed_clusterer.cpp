@@ -408,9 +408,6 @@ cerr << endl << "New cluster calculation:" << endl;
         cerr << "Finding clusters on chain number " << chain_index_i << " headed by node " << chain_index.id_in_parent << endl;
 #endif
 
-
-
-        
         auto combine_snarl_clusters = [&] (size_t& new_group, 
                         size_t& combined_group, vector<size_t>& to_erase, 
                         pair<int64_t, int64_t>& dists){
@@ -434,9 +431,16 @@ cerr << endl << "New cluster calculation:" << endl;
                 }
                 combined_group = new_combined_group;
 
-                tree_state.cluster_dists[combined_group] = make_pair(
+                dists = make_pair(
                       min_positive(old_dists.first, dists.first),
                       min_positive(old_dists.second, dists.second));
+                tree_state.cluster_dists[new_group] = dists;
+                tree_state.cluster_dists[combined_group] = dists;
+#ifdef DEBUG
+                cerr << " New dists: " 
+                     << tree_state.cluster_dists[combined_group].first << " " 
+                     << tree_state.cluster_dists[combined_group].second << endl;
+#endif
             }
             return;
         };
@@ -533,6 +537,7 @@ cerr << endl << "New cluster calculation:" << endl;
                         cerr << tree_state.seeds->at(x) << " ";
                     }
                 }
+                cerr << endl;
             }
             cerr << endl;
 
@@ -598,8 +603,8 @@ cerr << endl << "New cluster calculation:" << endl;
                                                       snarl_dists.second);
                     child_dist_right =min_positive(child_dist_right, new_right);
 #ifdef DEBUG
-cerr << "Updating looping distance to right of snarl cluster" << j << ": " 
-     << new_right << endl;
+cerr << "(Possibly) updating looping distance to right of snarl cluster " << j << ": " 
+     << new_right << " -> " << snarl_dists.second <<  endl;
 #endif
                     
                     
@@ -611,7 +616,7 @@ cerr << "Updating looping distance to right of snarl cluster" << j << ": "
                         //from the left
 
 #ifdef DEBUG
-cerr << "  Combining this cluster from the left " << endl;
+cerr << "  Combining this cluster from the left " ;
 #endif
                         combine_snarl_clusters(j, snarl_cluster_left, 
                                                to_erase, snarl_dists);
@@ -635,12 +640,12 @@ cerr << "  Combining this cluster from the left " << endl;
                                          : min(chain_lim_right,
                                                child_dist_left - start_length);
                         old_right = min_positive(old_right, child_dist_left);
-                    }
 
 #ifdef DEBUG
 cerr << "Updating looping distance to left of snarl cluster" << j << ": " 
      << new_left << endl;
 #endif
+                    }
 
                     if (child_dist_right != -1 && snarl_dists.second != -1 && 
                         child_dist_right + snarl_dists.second + loop_dist_end 
@@ -751,7 +756,9 @@ cerr << "  Combining this cluster from the right" << endl;
             }
                   
 #ifdef DEBUG 
-            cerr << "\t at snarl number " << curr_snarl_i << ", clusters:" <<endl;
+            cerr << "\t at snarl " << snarl_index.id_in_parent 
+                 << "with best distances " << best_left << " " << best_right 
+                 << ", clusters:" <<endl;
 
             for (size_t c : chain_cluster_ids) {
                 pair<int64_t, int64_t> dists = tree_state.cluster_dists[c];
